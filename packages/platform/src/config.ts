@@ -6,6 +6,7 @@ export interface ServiceConfig {
   databaseUrl: string;
   redisUrl?: string;
   branchId?: string;
+  testOrderFlowEnabled?: boolean;
   port: number;
 }
 
@@ -42,6 +43,11 @@ export function loadConfig(
   }
   if (environment === 'staging' && service !== 'api')
     throw new Error('Staging is only enabled for the cloud API');
+  const testOrderFlow = env.TEST_ORDER_FLOW_ENABLED ?? 'false';
+  if (testOrderFlow !== 'true' && testOrderFlow !== 'false')
+    throw new Error('TEST_ORDER_FLOW_ENABLED must be true or false');
+  if (testOrderFlow === 'true' && service !== 'api')
+    throw new Error('TEST order flow is only enabled for the cloud API');
   const key = service === 'api' ? 'CLOUD_DATABASE_URL' : 'EDGE_DATABASE_URL';
   const databaseUrl =
     environment === 'staging'
@@ -56,7 +62,13 @@ export function loadConfig(
   if (!/^\d+$/.test(portText) || Number(portText) < 1 || Number(portText) > 65535) {
     throw new Error('Invalid service port');
   }
-  const base: ServiceConfig = { service, environment, databaseUrl, port: Number(portText) };
+  const base: ServiceConfig = {
+    service,
+    environment,
+    databaseUrl,
+    port: Number(portText),
+    testOrderFlowEnabled: testOrderFlow === 'true',
+  };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));
     if (!branch.success) throw new Error('Invalid EDGE_BRANCH_ID');

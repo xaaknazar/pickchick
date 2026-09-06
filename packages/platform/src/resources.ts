@@ -30,6 +30,26 @@ export class Resources implements OnApplicationShutdown {
         // Also verify the serving tables and branch binding, not only SELECT 1.
         if (scope === 'cloud') {
           await this.pool.query('SELECT branch_id FROM branch_menu_activations LIMIT 1');
+          if (this.config.testOrderFlowEnabled) {
+            const testVersion = await this.pool.query(
+              'SELECT 1 FROM schema_migrations WHERE scope = $1 AND version = $2',
+              ['cloud', '004_cloud_test_order_flow.sql'],
+            );
+            if (testVersion.rowCount !== 1) throw new Error('TEST order schema is unavailable');
+            // Parsing these reads checks the actual serving tables and runtime
+            // SELECT grants, without exposing or scanning synthetic order data.
+            for (const table of [
+              'test_flow_lock',
+              'test_actors',
+              'test_quotes',
+              'test_orders',
+              'test_kitchen_tasks',
+              'test_command_results',
+              'test_outbox',
+            ]) {
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+            }
+          }
           schema = 'up';
         } else {
           const assigned = await this.pool.query('SELECT 1 FROM branch_config WHERE id = $1', [

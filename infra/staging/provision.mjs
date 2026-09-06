@@ -45,12 +45,32 @@ async function provision() {
     );
     // Runtime may read current cloud state and acknowledge menu delivery. It cannot
     // provision devices, publish menus, mutate the catalogue or execute DDL.
-    await pool.query(`GRANT SELECT ON ALL TABLES IN SCHEMA public TO pickchick_app;
+    await pool.query(`GRANT SELECT ON schema_migrations, organizations, legal_entities,
+      branches, devices, categories, products, product_variants, branch_prices,
+      menu_releases, branch_menu_activations, outbox_events, inbox_messages,
+      device_credentials, device_audit, menu_streams TO pickchick_app;
       GRANT UPDATE (id) ON branches, devices TO pickchick_app;
       GRANT UPDATE (device_id) ON device_credentials TO pickchick_app;
       GRANT UPDATE (attempts, acknowledged_at) ON outbox_events TO pickchick_app;
       GRANT INSERT, UPDATE ON branch_menu_activations TO pickchick_app;
       GRANT INSERT ON inbox_messages TO pickchick_app;`);
+    // TEST storage is isolated from sales. Runtime cannot issue/revoke staff
+    // through HTTP, rewrite quotes/outbox or mutate the migration ledger.
+    await pool.query(`REVOKE ALL ON test_flow_lock, test_actors, test_quotes,
+      test_orders, test_kitchen_tasks, test_command_results, test_outbox FROM pickchick_app;
+      REVOKE ALL ON SEQUENCE test_orders_sequence_seq FROM pickchick_app;`);
+    if (config.testOrderFlowEnabled) {
+      await pool.query(`GRANT SELECT ON test_flow_lock, test_actors, test_quotes,
+        test_orders, test_kitchen_tasks, test_command_results, test_outbox TO pickchick_app;
+        GRANT UPDATE (id) ON test_flow_lock TO pickchick_app;
+        GRANT INSERT, DELETE ON test_actors TO pickchick_app;
+        GRANT INSERT ON test_quotes, test_orders, test_kitchen_tasks,
+          test_command_results, test_outbox TO pickchick_app;
+        GRANT UPDATE (version, state, payment_state, payment_attempt_id,
+          cancellation_reason, updated_at) ON test_orders TO pickchick_app;
+        GRANT UPDATE (state) ON test_kitchen_tasks TO pickchick_app;
+        GRANT USAGE ON SEQUENCE test_orders_sequence_seq TO pickchick_app;`);
+    }
     console.log(JSON.stringify({ event: 'staging_provisioned', applied }));
   } finally {
     await pool.end();
