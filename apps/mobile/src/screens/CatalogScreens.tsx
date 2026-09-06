@@ -271,14 +271,16 @@ export function Menu(props: ScreenProps) {
           onPress={() => {
             requestedCategory.value = categories.indexOf(item);
             setCategory(item);
-            requestedY.value = Math.min(
+            const targetY = Math.min(
               Math.max(0, contentHeight.value - viewportHeight.value),
               Math.max(
                 0,
                 catalogTop + (sectionY.current[item] ?? 0) - collapsedHeaderHeight - categoryHeight,
               ),
             );
-            scroll.current?.scrollTo({ y: requestedY.value, animated: true });
+            requestedY.value = targetY;
+            // Native shared-value writes are scheduled; use the local target for this command.
+            scroll.current?.scrollTo({ y: targetY, animated: true });
           }}
           style={({ pressed }) => [
             s.category,
