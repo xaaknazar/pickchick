@@ -42,7 +42,7 @@
   продление завершённого TEST-сеанса описаны в [ADR 0006](architecture/adr/0006-test-order-flow.md).
   Продление опубликовано на VPS; проверены сохранение identity, квоты и повтор ответа.
 - Локально прошли `pnpm check`, 62 PostgreSQL/HTTP integration, 32 mobile unit
-  и 7 release-script unit; экспорт iOS/Android/web завершён. VPS прошёл проверку
+  и 17 release-script unit; экспорт iOS/Android/web завершён. VPS прошёл проверку
   ограниченной роли, восстановления зашифрованного backup, HTTPS маршрутов,
   полного TEST-заказа и сохранения состояния после перезапуска API.
 - Финальный browser journey `RUN_MODE=all` прошёл на опубликованных версиях:
@@ -59,8 +59,12 @@
   HTTP-фикстурах и включены в CI.
 - Созданы Bundle ID `kz.pickchick.app` и отдельная карточка
   [PickChick — App Store Connect](https://appstoreconnect.apple.com/apps/6809208492/distribution),
-  Apple ID `6809208492`, команда DAJTP6MC3Q. Архивирование было фактически
-  запущено и остановлено отсутствием development provisioning profile.
+  Apple ID `6809208492`, команда DAJTP6MC3Q. После первой ошибки автоматического
+  development profile создан отдельный App Store профиль. Подписанные archive
+  и IPA версии **0.1.0 (1)** успешно получены из чистого `21614c2`; проверены
+  встроенный JS bundle, профиль, Bundle ID/Team и strict codesign. Исходные
+  настройки проекта и Keychain восстановлены.
+  [Подтверждение archive/export](operations/mobile-testflight.md#проверка-выпуска-6-сентября-2026).
   App Store Connect отдельно требует принятия нового лицензионного соглашения
   владельцем аккаунта перед отправкой. TestFlight-сборка ещё не загружена.
 

@@ -165,7 +165,23 @@ API URL и идентификаторы ручной подписи, без пу
 17 проверок release helper прошли, включая native xcodeproj fixture и
 восстановление при ошибке. На временной копии настоящего native project Xcode
 подтвердил manual Team/Bundle/profile/identity; исходный проект не изменялся.
-Это подготовка подписи, а не заявление об успешном archive или TestFlight upload.
+Затем выполнены настоящие archive и export с label
+`connected-20260906-distribution-1` из чистого commit
+`21614c2bc6048bf96bc8f0a5ef954f20759dac7b`. Xcode подтвердил
+`ARCHIVE SUCCEEDED`, export завершился успешно. Получен PickChick **0.1.0 (1)**,
+Bundle ID `kz.pickchick.app`, Team DAJTP6MC3Q, подключённый к TEST VPS.
+
+IPA размером 35 129 623 байта имеет SHA-256
+`f1e33535428a4117bc3905ad239a1d1ce90e671172bb4c4539a85fefe2d59805`.
+После распаковки отдельно проверены `codesign --verify --deep --strict`,
+встроенные JS bundle и App Store profile, Bundle ID/Team/version/build,
+`get-task-allow=false`. Исходный pbxproj и точные user search/default Keychain
+совпали с состоянием до сборки. Временные файлы проверки удалены.
+
+Архив, IPA, журналы и безопасный `ipa-verification.json` находятся приватно в
+`~/Library/Caches/PickChick/releases/connected-20260906-distribution-1/`;
+IPA — `export/PickChick.ipa`. Подписанные бинарные файлы и signing credentials
+не добавлялись в Git. Это подтверждённый archive/export, загрузки ещё не было.
 
 App Store Connect требует принятия обновлённого Apple Developer Program License
 Agreement перед отправкой новых приложений. Владельцу предложено самостоятельно
