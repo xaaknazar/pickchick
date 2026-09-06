@@ -1,0 +1,9 @@
+node_modules
+**/dist
+pnpm-lock.yaml
+PickChick-technical-plan-v1
+*.zip
+docs/research
+docs/0*.md
+packages/contracts/openapi.json
+packages/contracts/event.schema.json

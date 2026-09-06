@@ -1,0 +1,50 @@
+name: Foundation CI
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build, contracts and PostgreSQL integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.19.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Configure isolated local fixtures
+        run: cp .env.example .env
+      - name: Start local databases and cache
+        run: pnpm infra:up
+      - name: Build and static checks
+        run: pnpm check
+      - name: Migrate and seed
+        run: |
+          pnpm db:migrate
+          pnpm db:migrate
+          pnpm db:seed
+          pnpm db:seed
+      - name: Test PostgreSQL constraints and HTTP failure scenarios
+        run: pnpm test:integration
+      - name: Check dependency advisories
+        run: pnpm audit --audit-level=high
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose --env-file .env -f infra/local/compose.yaml down

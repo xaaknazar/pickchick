@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - services/*
+  - packages/*
+
+strictPeerDependencies: true
+saveExact: true
+blockExoticSubdeps: true

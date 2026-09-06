@@ -1,0 +1,47 @@
+name: pickchick-local
+
+services:
+  cloud-db:
+    image: postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: pickchick_cloud
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - cloud-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d pickchick_cloud']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  edge-db:
+    image: postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: pickchick_edge
+    ports:
+      - '127.0.0.1:55433:5432'
+    volumes:
+      - edge-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d pickchick_edge']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis-cache:
+    image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+    command: ['redis-server', '--maxmemory', '64mb', '--maxmemory-policy', 'allkeys-lru']
+    ports:
+      - '127.0.0.1:56379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  cloud-data:
+  edge-data:

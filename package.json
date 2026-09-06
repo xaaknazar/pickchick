@@ -1,0 +1,45 @@
+{
+  "name": "pickchick-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24.16.0 <25",
+    "pnpm": "11.19.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:integration": "node --env-file=.env --test --test-concurrency=1 tests/integration/*.test.mjs",
+    "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm contracts:check",
+    "contracts:generate": "node scripts/contracts.mjs",
+    "contracts:check": "node scripts/contracts.mjs --check",
+    "infra:up": "docker compose --env-file .env -f infra/local/compose.yaml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/local/compose.yaml down",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
+    "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "start:api": "node --env-file=.env services/api/dist/main.js",
+    "start:edge": "node --env-file=.env services/edge/dist/main.js"
+  },
+  "dependencies": {
+    "@pickchick/contracts": "workspace:*",
+    "@pickchick/database": "workspace:*",
+    "@pickchick/platform": "workspace:*",
+    "@pickchick/test-fixtures": "workspace:*",
+    "@pickchick/api": "workspace:*",
+    "@pickchick/edge": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.3",
+    "eslint": "10.10.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.69.0"
+  }
+}
