@@ -1,0 +1,55 @@
+:root {
+  --blue: #0047bb;
+  --orange: #ff671f;
+  --ink: #121a2b;
+  --muted: #56647a;
+  --canvas: #edf0f6;
+  --surface: #ffffff;
+  --border: #d2d9e5;
+  --success: #116d45;
+  --success-soft: #e7f5ed;
+  --warning: #805100;
+  --warning-soft: #fff1d5;
+  --danger: #b52e37;
+  --danger-soft: #fdedef;
+  --dark-canvas: #091120;
+  --dark-surface: #141f32;
+  --dark-text: #f2f6ff;
+  --dark-muted: #a6b3c9;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --radius-control: 12px;
+  --radius-card: 20px;
+  --radius-sheet: 28px;
+}
+
+/* Surface themes from supplied mockup, v0.2. */
+:root {
+  --mobile-background: #04143a;
+  --mobile-surface: #0a2050;
+  --mobile-surface-raised: #123068;
+  --mobile-text: #f2f6ff;
+  --mobile-muted: #93a6c9;
+  --mobile-action: #2e6fe8;
+  --mobile-accent: #ff7a3d;
+  --kiosk-background: #f4f6fa;
+  --kiosk-text: #0e1524;
+  --kiosk-muted: #5a6478;
+  --kiosk-action: #0047bb;
+  --kiosk-accent: #ff671f;
+  --kitchen-background: #e3e9f4;
+  --kitchen-surface: #ffffff;
+  --kitchen-text: #0e1524;
+  --kitchen-action: #0047bb;
+  --kitchen-accent: #ff671f;
+  --backoffice-background: #0c1222;
+  --backoffice-surface: #131b2e;
+  --backoffice-sidebar: #091020;
+  --backoffice-text: #e8edf5;
+  --backoffice-muted: #a2b0c8;
+  --backoffice-action: #60a5fa;
+  --backoffice-accent: #ff671f;
+}

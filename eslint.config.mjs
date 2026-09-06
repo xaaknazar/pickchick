@@ -14,6 +14,23 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['design/prototype/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        location: 'readonly',
+        navigator: 'readonly',
+        fetch: 'readonly',
+        URLSearchParams: 'readonly',
+        requestAnimationFrame: 'readonly',
+        getComputedStyle: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/*.ts', '**/*.mjs'],
     languageOptions: {
       globals: {

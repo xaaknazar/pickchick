@@ -16,7 +16,7 @@
     "format:check": "prettier --check .",
     "test": "node --test tests/unit/*.test.mjs",
     "test:integration": "node --env-file=.env --test --test-concurrency=1 tests/integration/*.test.mjs",
-    "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm contracts:check",
+    "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm contracts:check && pnpm design:check",
     "contracts:generate": "node scripts/contracts.mjs",
     "contracts:check": "node scripts/contracts.mjs --check",
     "infra:up": "docker compose --env-file .env -f infra/local/compose.yaml up -d --wait",
@@ -32,7 +32,10 @@
     "sync:watch": "node --env-file=.env scripts/menu-worker.mjs",
     "staff:setup": "node --env-file=.env scripts/staff-setup.mjs",
     "staff:revoke": "node --env-file=.env scripts/staff-revoke.mjs",
-    "local:request": "node --env-file=.env scripts/local-request.mjs"
+    "local:request": "node --env-file=.env scripts/local-request.mjs",
+    "design:serve": "node scripts/design-server.mjs",
+    "design:catalog": "node scripts/design-catalog.mjs",
+    "design:check": "node scripts/design-catalog.mjs --check"
   },
   "dependencies": {
     "@pickchick/contracts": "workspace:*",

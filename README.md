@@ -17,6 +17,10 @@ Redis, миграции, регистрация edge и HTTP-доставка м
 Первый заказ: [локальный POS](docs/operations/local-orders.md),
 [ADR 0003](docs/architecture/adr/0003-local-orders.md).
 
+**Дизайн v0.2 по мокапу:** [130 экранов всех интерфейсов](docs/design/README.md),
+сценарии, состояния и общие дизайн-токены. Интерактивный просмотр: `pnpm design:serve`.
+Макеты используют демонстрационные данные; клиентские приложения ещё предстоит реализовать.
+
 Канонический GitHub: [xaaknazar/pickchick](https://github.com/xaaknazar/pickchick).
 Текущий этап: [состояние проекта](docs/project-status.md).
 Правила последующей разработки: [AGENTS.md](AGENTS.md); для Anthropic-инструментов — [CLAUDE.md](CLAUDE.md).
