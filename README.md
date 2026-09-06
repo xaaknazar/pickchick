@@ -6,8 +6,8 @@
 Redis, миграции, регистрация edge и HTTP-доставка меню; локальные сессии/роли
 персонала, расчёт обычных SKU, стоп-лист и идемпотентный неоплаченный POS-заказ.
 Это инженерный стенд без реальных оплат, чеков и передачи на кухню.
-Для предоставленного VPS подготовлен [частный staging](docs/operations/staging-vps.md);
-фактические проверки deployment фиксируются в состоянии проекта.
+На предоставленном VPS развёрнут [частный staging](docs/operations/staging-vps.md);
+[протокол запуска и восстановления копии](docs/operations/deployments/2026-09-06-staging.md).
 Запуск и команды: [локальная разработка](docs/operations/local-development.md).
 Контракты: [OpenAPI](packages/contracts/openapi.json) и [события](packages/contracts/event.schema.json).
 Принятые решения: [ADR 0001](docs/architecture/adr/0001-foundation.md).
