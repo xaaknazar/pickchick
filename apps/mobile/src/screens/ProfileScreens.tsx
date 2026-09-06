@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
+import { useDemoAccount } from '../useDemoAccount';
+import { DEMO_LOGIN_CODE, formatDemoPhone, normalizeDemoPhone } from '../demo-account';
 import {
   Body,
   Button,
@@ -33,79 +35,199 @@ import {
 } from '../components/UI';
 
 export function Phone(props: ScreenProps) {
+  const demo = useDemoAccount();
+  const [phone, setPhone] = useState(() => demo.challenge?.phone.slice(2) ?? '');
+  const [submitted, setSubmitted] = useState(false);
+  useEffect(() => {
+    if (!demo.account && !demo.challenge) setPhone('');
+  }, [demo.account, demo.challenge]);
+  const valid = normalizeDemoPhone(phone) !== null;
+  const request = async () => {
+    setSubmitted(true);
+    if (await demo.requestCode(phone)) {
+      setSubmitted(false);
+      props.navigate('M03');
+    }
+  };
   return (
-    <Page props={props} title="Вход">
-      <View style={s.avatar}>
-        <Icon name="phone-portrait-outline" size={36} color={colors.accent} />
-      </View>
-      <Heading>Ваш номер —{`\n`}ключ к любимому</Heading>
-      <Body muted>Отправим код, чтобы сохранять ваши заказы и Чики.</Body>
-      <View style={{ gap: 10 }}>
-        <Caption>НОМЕР ТЕЛЕФОНА</Caption>
+    <Page
+      props={props}
+      title="Вход"
+      footer={
+        <Button
+          title={demo.busy ? 'Подготавливаем код…' : 'Получить код'}
+          disabled={!demo.ready || demo.busy || !valid}
+          testID="request-otp"
+          style={s.authAction}
+          onPress={() => void request()}
+        />
+      }
+    >
+      <Heading style={s.authTitle}>Ваш номер</Heading>
+      <Body muted>Войдите, чтобы познакомиться со своим профилем Pick Chick.</Body>
+      <View style={{ gap: 10, marginTop: 8 }}>
+        <Caption>НОМЕР ТЕЛЕФОНА · КАЗАХСТАН</Caption>
         <View style={s.phoneInput}>
-          <Body style={{ fontFamily: font.bold }}>KZ +7</Body>
-          <View style={s.phoneDivider} />
+          <Body style={s.phonePrefix}>+7</Body>
           <TextInput
-            accessibilityLabel="Номер телефона, ввод пока недоступен"
-            testID="phone-input-disabled"
-            editable={false}
+            accessibilityLabel="Мобильный номер Казахстана, 10 цифр после +7"
+            testID="phone-input"
+            value={phone}
+            editable={demo.ready && !demo.busy}
+            onChangeText={(value) => {
+              const digits = value.replace(/\D/g, '');
+              setPhone(
+                digits.length === 11 && /^[78]/.test(digits)
+                  ? digits.slice(1)
+                  : digits.slice(0, 11),
+              );
+              setSubmitted(false);
+            }}
             placeholder="7__ ___ __ __"
             placeholderTextColor={colors.muted}
             keyboardType="phone-pad"
-            style={[ui.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+            underlineColorAndroid="transparent"
+            textContentType="telephoneNumber"
+            autoComplete="tel-national"
+            maxLength={30}
+            returnKeyType="done"
+            onSubmitEditing={() => valid && void request()}
+            style={s.phoneNumber}
           />
         </View>
+        {phone.length >= 10 && !valid ? (
+          <Body style={s.authError}>Нужны 10 цифр, начиная с 7, после префикса +7.</Body>
+        ) : null}
       </View>
-      <Button title="Получить код" disabled testID="request-otp-disabled" />
-      <Notice warning title="Вход пока подключается">
-        SMS-сервис ещё не готов. Номер сейчас не запрашиваем и не отправляем.
-      </Notice>
-      <Caption>После подключения вход будет доступен по казахстанскому мобильному номеру.</Caption>
+      {submitted && demo.error ? (
+        <Body testID="demo-auth-error" style={s.authError}>
+          {demo.error}
+        </Body>
+      ) : null}
+      <View style={s.authDemoNote}>
+        <Body style={s.authDemoTitle}>Тестовый вход</Body>
+        <Body muted style={s.authDemoText}>
+          Код {DEMO_LOGIN_CODE}. SMS не отправляется. Номер останется только на этом устройстве;
+          владение номером сейчас не проверяется.
+        </Body>
+      </View>
       <NavRow title="Условия и конфиденциальность" onPress={() => props.navigate('M33')} />
-      <Button title="Продолжить без входа" secondary onPress={() => props.navigate('M06')} />
+      <Button title="Меню без входа" secondary onPress={() => props.navigate('M06')} />
     </Page>
   );
 }
 export function Otp(props: ScreenProps) {
+  const demo = useDemoAccount();
+  const [code, setCode] = useState('');
+  const [now, setNow] = useState(Date.now);
+  const [submitted, setSubmitted] = useState(false);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const challenge = demo.challenge;
+  const remaining = Math.max(0, Math.ceil(((challenge?.resendAt ?? 0) - now) / 1000));
+  const expired = challenge ? now >= challenge.expiresAt : false;
+  const canVerify = Boolean(
+    challenge && !expired && challenge.attemptsLeft > 0 && code.length === 6,
+  );
+  const verify = async () => {
+    setSubmitted(true);
+    if (await demo.verifyCode(code)) props.navigate('M04');
+  };
+  const resend = async () => {
+    if (!challenge) return;
+    setSubmitted(true);
+    if (await demo.requestCode(challenge.phone)) {
+      setCode('');
+      setNow(Date.now());
+      setSubmitted(false);
+    }
+  };
   return (
-    <Page props={props} title="Подтверждение">
-      <Heading>Код из SMS</Heading>
+    <Page
+      props={props}
+      title="Подтверждение"
+      footer={
+        <Button
+          title={demo.busy ? 'Входим…' : 'Подтвердить'}
+          testID="confirm-otp"
+          style={s.authAction}
+          disabled={!canVerify || demo.busy || !demo.ready}
+          onPress={() => void verify()}
+        />
+      }
+    >
+      <Heading style={s.authTitle}>Введите код</Heading>
       <Body muted>
-        {props.preview
-          ? 'Так будет выглядеть подтверждение номера.'
-          : 'Запроса на отправку кода пока нет.'}
+        {challenge
+          ? `Тестовый вход для ${formatDemoPhone(challenge.phone)}`
+          : 'Укажите номер на предыдущем экране, чтобы начать тестовый вход.'}
       </Body>
       <View style={s.otpRow}>
-        {Array.from({ length: 6 }, (_, index) => (
-          <View key={index} style={s.otpCell}>
-            <Body style={{ fontSize: 25, color: colors.muted }}>—</Body>
-          </View>
-        ))}
+        <View pointerEvents="none" accessible={false} style={s.otpCells}>
+          {Array.from({ length: 6 }, (_, index) => (
+            <View key={index} style={[s.otpCell, index === code.length && s.otpCellActive]}>
+              <Body style={s.otpDigit}>{code[index] ?? ''}</Body>
+            </View>
+          ))}
+        </View>
+        <TextInput
+          testID="otp-input"
+          accessibilityLabel="Код подтверждения, 6 цифр"
+          value={code}
+          editable={
+            Boolean(challenge) && !demo.busy && !expired && (challenge?.attemptsLeft ?? 0) > 0
+          }
+          onChangeText={(value) => {
+            setCode(value.replace(/\D/g, '').slice(0, 6));
+            setSubmitted(false);
+          }}
+          keyboardType="number-pad"
+          underlineColorAndroid="transparent"
+          textContentType="oneTimeCode"
+          autoComplete="sms-otp"
+          maxLength={6}
+          caretHidden
+          selectionColor="transparent"
+          returnKeyType="done"
+          onSubmitEditing={() => canVerify && void verify()}
+          style={s.otpInput}
+        />
       </View>
-      <TextInput
-        testID="otp-input-disabled"
-        accessibilityLabel="Код из SMS, ввод пока недоступен"
-        editable={false}
-        placeholder="Код подтверждения"
-        placeholderTextColor={colors.muted}
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
-        autoComplete="sms-otp"
-        maxLength={6}
-        style={ui.input}
+      {submitted && demo.error ? (
+        <Body testID="demo-auth-error" style={s.authError}>
+          {demo.error}
+        </Body>
+      ) : null}
+      {expired ? <Body style={s.authError}>Код истёк. Запросите его повторно.</Body> : null}
+      <View style={s.authDemoNote}>
+        <Body style={s.authDemoTitle}>Ваш тестовый код: {DEMO_LOGIN_CODE}</Body>
+        <Body muted style={s.authDemoText}>
+          Введите его вручную. Настоящая SMS и автоматическая подстановка появятся после подключения
+          сервиса.
+        </Body>
+      </View>
+      <Button
+        title={
+          remaining
+            ? `Повторить через ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
+            : 'Получить код повторно'
+        }
+        secondary
+        disabled={!challenge || remaining > 0 || demo.busy}
+        testID="resend-otp"
+        onPress={() => void resend()}
       />
-      <Button title="Подтвердить номер" disabled />
-      <Button title="Отправить код повторно" secondary disabled />
-      <Notice warning>
-        SMS-провайдер ещё не подключён. Проверка кода и регистрация не выполняются.
-      </Notice>
-      <Button title="Назад к номеру" secondary onPress={() => props.navigate('M02')} />
+      <Button title="Изменить номер" secondary onPress={() => props.navigate('M02')} />
     </Page>
   );
 }
 export function Onboarding(props: ScreenProps) {
+  const demo = useDemoAccount();
   const [nickname, setNickname] = useState(props.model.nickname);
   const [saved, setSaved] = useState(false);
+  useEffect(() => setNickname(props.model.nickname), [props.model.nickname]);
   return (
     <Page
       props={props}
@@ -146,6 +268,20 @@ export function Onboarding(props: ScreenProps) {
         />
         <Caption style={{ textAlign: 'right' }}>{nickname.length}/32</Caption>
       </View>
+      {demo.account ? (
+        <View style={{ gap: 9 }}>
+          <Caption>НОМЕР ТЕЛЕФОНА</Caption>
+          <Card>
+            <Row>
+              <Body style={[ui.flex, { fontFamily: font.medium }]}>
+                {formatDemoPhone(demo.account.phone)}
+              </Body>
+              <Icon name="person-circle-outline" color={colors.accent} />
+            </Row>
+            <Caption>Тестовый профиль на этом устройстве</Caption>
+          </Card>
+        </View>
+      ) : null}
       <Card>
         <Row>
           <View style={ui.flex}>
@@ -187,7 +323,7 @@ export function Qr(props: ScreenProps) {
           QR ещё не создан
         </Body>
         <Caption style={{ color: '#56647A', textAlign: 'center' }}>
-          Здесь появится временный код после входа
+          Временный QR появится после подключения Чиков
         </Caption>
       </View>
       <Notice warning>
@@ -246,8 +382,9 @@ function ProfileGroup({ title, children }: { title: string; children: ReactNode 
   );
 }
 export function Profile(props: ScreenProps) {
+  const demo = useDemoAccount();
   const insets = useSafeAreaInsets();
-  const name = props.model.nickname || 'Гость';
+  const name = props.model.nickname || (demo.account ? 'Любитель хруста' : 'Гость');
   return (
     <View testID="screen-M30" style={s.profileScreen}>
       <ScrollView
@@ -288,7 +425,12 @@ export function Profile(props: ScreenProps) {
             </View>
             <View style={ui.flex}>
               <Body style={s.membershipName}>{name}</Body>
-              <Caption style={s.membershipSubtitle}>Без входа в аккаунт</Caption>
+              <Caption style={s.membershipSubtitle}>
+                {demo.account ? formatDemoPhone(demo.account.phone) : 'Без входа в аккаунт'}
+              </Caption>
+              {demo.account ? (
+                <Caption style={s.membershipSubtitle}>Тестовый профиль</Caption>
+              ) : null}
             </View>
             <View style={s.membershipLogo}>
               <Logo size={42} />
@@ -309,7 +451,9 @@ export function Profile(props: ScreenProps) {
             </Pressable>
             <View style={s.membershipTier}>
               <View style={s.membershipDot} />
-              <Body style={s.membershipTierText}>После входа</Body>
+              <Body style={s.membershipTierText}>
+                {demo.account ? 'Чики скоро' : 'После входа'}
+              </Body>
             </View>
           </View>
           <View style={s.membershipProgress} />
@@ -325,7 +469,7 @@ export function Profile(props: ScreenProps) {
         >
           <View style={s.profileQrPlaceholder}>
             <Icon name="lock-closed-outline" size={30} color="#56647A" />
-            <Caption style={s.profileQrPlaceholderLabel}>После входа</Caption>
+            <Caption style={s.profileQrPlaceholderLabel}>Скоро</Caption>
           </View>
           <View style={ui.flex}>
             <Heading style={s.profileQrTitle}>QR для кассы</Heading>
@@ -405,11 +549,25 @@ export function Profile(props: ScreenProps) {
           />
         </ProfileGroup>
         <Button
-          title="Войти по номеру"
+          title={demo.account ? 'Выйти из профиля' : 'Войти по номеру'}
+          testID={demo.account ? 'demo-sign-out' : 'profile-sign-in'}
           secondary
+          disabled={demo.busy || !demo.ready}
           style={s.profileSignIn}
-          onPress={() => props.navigate('M02')}
+          onPress={() => {
+            if (!demo.account) props.navigate('M02');
+            else
+              void demo.signOut().then((success) => {
+                if (success) props.model.setNickname('');
+              });
+          }}
         />
+        {demo.error ? <Body style={[s.authError, { marginTop: 12 }]}>{demo.error}</Body> : null}
+        {demo.account ? (
+          <Caption style={s.profileVersion}>
+            Тестовые заказы привязаны к устройству. Вход по номеру не открывает чужую историю.
+          </Caption>
+        ) : null}
         <Caption style={s.profileVersion}>Pick Chick · приложение в тестировании</Caption>
         <View style={s.profileLegalLinks}>
           <Pressable
@@ -490,12 +648,16 @@ export function Support(props: ScreenProps) {
   );
 }
 export function DeleteAccount(props: ScreenProps) {
+  const demo = useDemoAccount();
   const [cleared, setCleared] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const clearPreferences = () => {
-    props.model.resetLocalData();
-    setConfirmVisible(false);
-    setCleared(true);
+    void demo.signOut().then((success) => {
+      if (!success) return;
+      props.model.resetLocalData();
+      setConfirmVisible(false);
+      setCleared(true);
+    });
   };
   const reset = () => {
     if (Platform.OS === 'web') {
@@ -504,7 +666,7 @@ export function DeleteAccount(props: ScreenProps) {
     }
     Alert.alert(
       'Очистить данные устройства?',
-      'Будут удалены локальный ник и корзина. Серверного аккаунта в этой версии ещё нет.',
+      'Будут удалены тестовый профиль, номер, ник и корзина на устройстве. Тестовые заказы и незавершённые запросы сохранятся.',
       [
         { text: 'Оставить', style: 'cancel' },
         {
@@ -528,8 +690,8 @@ export function DeleteAccount(props: ScreenProps) {
             <View testID="local-clear-confirmation" accessibilityViewIsModal style={s.confirmCard}>
               <Heading small>Очистить данные устройства?</Heading>
               <Body>
-                Ник, корзина и локальные настройки будут очищены. Тестовый сеанс, незавершённые
-                запросы и серверная история заказов останутся.
+                Тестовый профиль, номер, ник, корзина и локальные настройки будут очищены. Тестовый
+                сеанс, незавершённые запросы и серверная история заказов останутся.
               </Body>
               <Button title="Оставить данные" secondary onPress={() => setConfirmVisible(false)} />
               <Button
@@ -544,14 +706,27 @@ export function DeleteAccount(props: ScreenProps) {
       <Heading>Всё под вашим{`\n`}контролем</Heading>
       <Card>
         <Heading small>Аккаунт</Heading>
-        <Body muted>Вы не вошли в аккаунт. Регистрация по номеру ещё не подключена.</Body>
-        <Button title="Удалить аккаунт" disabled />
+        <Body muted>
+          {demo.account
+            ? 'Ваш тестовый профиль хранится на этом устройстве. Можно удалить номер и выйти; заказы этого устройства сохранятся.'
+            : 'Тестового профиля на устройстве нет. Регистрация с настоящей SMS готовится.'}
+        </Body>
+        <Button
+          title="Удалить тестовый профиль"
+          testID="delete-demo-profile"
+          disabled={!demo.account || demo.busy}
+          onPress={() =>
+            void demo.signOut().then((success) => {
+              if (success) props.model.setNickname('');
+            })
+          }
+        />
       </Card>
       <Card>
         <Heading small>На этом устройстве</Heading>
         <Body muted>
-          Можно очистить локальный ник и корзину. Эти данные не являются банковскими операциями или
-          историей заказов.
+          Можно очистить тестовый профиль, номер, ник и корзину. История тестовых заказов и
+          незавершённые запросы сохранятся.
         </Body>
         <Button
           title="Очистить локальные данные"
@@ -560,6 +735,7 @@ export function DeleteAccount(props: ScreenProps) {
           onPress={reset}
         />
       </Card>
+      {demo.error ? <Body style={s.authError}>{demo.error}</Body> : null}
       {cleared ? <Notice title="Готово">Локальные данные очищены.</Notice> : null}
       <Caption>
         Когда появится аккаунт, удалить его можно будет здесь после подтверждения личности.
@@ -600,8 +776,9 @@ export function Legal(props: ScreenProps) {
       <Card>
         <Heading small>Данные этой версии</Heading>
         <Body muted>
-          Корзина и ник хранятся локально. Телефон не запрашивается; платежи и бонусные операции не
-          выполняются.
+          Номер тестового профиля, ник и корзина хранятся только на устройстве. Тестовый код не
+          подтверждает владение номером; SMS не отправляется. Тестовые заказы хранятся на сервере
+          отдельно от номера. Реальные платежи и бонусные операции не выполняются.
         </Body>
         <NavRow title="Управлять локальными данными" onPress={() => props.navigate('M32')} />
       </Card>
@@ -954,6 +1131,28 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  authAction: { backgroundColor: colors.action },
+  authTitle: { fontFamily: font.display, fontSize: 34, lineHeight: 42, letterSpacing: -0.68 },
+  authError: { color: '#FFB0AB', fontSize: 14, lineHeight: 21 },
+  authDemoNote: { padding: 16, gap: 6, borderRadius: 16, backgroundColor: colors.surface },
+  authDemoTitle: { fontFamily: font.bold, fontSize: 14, lineHeight: 20 },
+  authDemoText: { fontSize: 13.5, lineHeight: 21 },
+  phonePrefix: {
+    fontFamily: font.heading,
+    fontSize: 26,
+    lineHeight: 36,
+    color: colors.muted,
+  },
+  phoneNumber: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 72,
+    paddingVertical: 14,
+    fontFamily: font.heading,
+    fontSize: 25,
+    lineHeight: 36,
+    color: colors.text,
+  },
   phoneInput: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -965,7 +1164,16 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   phoneDivider: { height: 24, width: 1, backgroundColor: colors.border },
-  otpRow: { flexDirection: 'row', gap: 7, marginVertical: 20 },
+  otpRow: { position: 'relative', marginVertical: 8 },
+  otpCells: { flexDirection: 'row', gap: 7 },
+  otpDigit: { fontFamily: font.heading, fontSize: 26, lineHeight: 36 },
+  otpCellActive: { borderColor: colors.action, borderWidth: 2 },
+  otpInput: {
+    ...StyleSheet.absoluteFill,
+    fontSize: 26,
+    color: 'transparent',
+    backgroundColor: 'transparent',
+  },
   otpCell: {
     flex: 1,
     minHeight: 63,
