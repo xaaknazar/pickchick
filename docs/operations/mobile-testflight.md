@@ -205,3 +205,31 @@ Apple Developer Program License Agreement. После обращения к вл
 [Сценарий проверки](mobile-beta-0.1.0.md); локальное свидетельство Apple-доставки —
 `delivery-verification.json` рядом с архивом. Контакты тестировщика и auth-секреты
 в этот файл и Git не включены.
+
+## Выпуск 0.1.0 (2) — фиксированные действия
+
+7 сентября 2026 по времени Алматы (6 сентября UTC) завершён выпуск из чистого
+`d644822c3085348b66ea63d75bb753869d2d3829`. Xcode archive и export прошли;
+проверены `kz.pickchick.app`, Team `DAJTP6MC3Q`, version `0.1.0`, build `2`,
+встроенный main.jsbundle, App Store profile/get-task-allow=false и strict codesign.
+Прежний distribution certificate/profile использован повторно; настройки
+native project и Keychain восстановлены.
+
+Локальный IPA: `~/Library/Caches/PickChick/releases/fixed-controls-20260906-2/export/PickChick.ipa`.
+SHA-256 локального export:
+`944fa1bc29e3c02fda7888f67c7a429002279d3f823a24ffc7b16815a3b32c82`.
+Upload выполняет отдельный App Store export; этот hash относится к локальному IPA.
+
+Apple processing завершён. ID сборки
+`a769ee18-a2d1-4a59-9b14-a55bd56b6e57`,
+[страница сборки](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/a769ee18-a2d1-4a59-9b14-a55bd56b6e57).
+Сборка назначена существующей `PickChick Internal` (один владелец аккаунта);
+в списке группы подтверждён статус **«Тестируется»**. «Что тестировать» заполнено
+на русском и сохранено. Новые тестировщики и внешняя группа не добавлялись.
+
+Run-9 прошёл 35 страниц, корзину и недоступную SMS; после найденного дефекта
+M04 Run-10 подтвердил fixed controls и сохранение при клавиатуре (2/2).
+[UI-протокол](../../tests/operations/verification-fixed-controls-2026-09-06.md).
+App Store Connect уже показывает установку предыдущей сборки 1; установка
+новой сборки 2 на физический iPhone пока не проверена. Это внутренний TEST beta,
+не публикация в общедоступном App Store и не рабочий приём денег рестораном.
