@@ -271,14 +271,19 @@ export function Onboarding(props: ScreenProps) {
       <View style={{ gap: 9 }}>
         <Caption>НИКНЕЙМ · НЕОБЯЗАТЕЛЬНО</Caption>
         <TextInput
+          // Reload only when the saved profile changes; keystrokes stay native.
+          key={props.model.nickname}
           testID="nickname-input"
           accessibilityLabel="Никнейм"
-          value={nickname}
+          defaultValue={props.model.nickname}
           onChangeText={setNickname}
           placeholder="Ваш ник"
           placeholderTextColor={colors.muted}
           autoComplete="nickname"
           autoCapitalize="words"
+          autoCorrect={false}
+          spellCheck={false}
+          smartInsertDelete={false}
           maxLength={32}
           style={ui.input}
         />
@@ -640,7 +645,7 @@ export function Support(props: ScreenProps) {
       <TextInput
         testID="support-draft"
         accessibilityLabel="Черновик сообщения, отправка недоступна"
-        value={message}
+        defaultValue=""
         onChangeText={setMessage}
         multiline
         maxLength={2000}
@@ -863,7 +868,6 @@ export function Settings(props: ScreenProps) {
 }
 export function Rating(props: ScreenProps) {
   const [rating, setRating] = useState(0);
-  const [message, setMessage] = useState('');
   return (
     <Page props={props} title="Как всё прошло?">
       <View style={s.ratingHero}>
@@ -896,8 +900,7 @@ export function Rating(props: ScreenProps) {
         ))}
       </Row>
       <TextInput
-        value={message}
-        onChangeText={setMessage}
+        defaultValue=""
         editable={props.preview}
         testID="rating-comment"
         accessibilityLabel="Комментарий к оценке"
