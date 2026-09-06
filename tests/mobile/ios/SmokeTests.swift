@@ -325,7 +325,29 @@ final class SmokeTests: XCTestCase {
                 heading.exists && heading.isHittable &&
                 heading.frame.minY >= chip.frame.maxY - 1 && chip.isSelected
             }
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: reached, object: heading)], timeout: 8), .completed,
+            let reachedResult = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: reached, object: heading)], timeout: 8)
+            if reachedResult != .completed {
+                XCTContext.runActivity(named: "Category anchor diagnostic: \(category)") { activity in
+                    let scroll = element("scroll-M06", in: app)
+                    let header = element("storefront-header", in: app)
+                    let details = [
+                        "category=\(category)",
+                        heading.exists ? "heading frame=\(heading.frame), hittable=\(heading.isHittable)" : "heading missing",
+                        chip.exists ? "chip frame=\(chip.frame), hittable=\(chip.isHittable), selected=\(chip.isSelected)" : "chip missing",
+                        bar.exists ? "strip frame=\(bar.frame)" : "strip missing",
+                        scroll.exists ? "scroll frame=\(scroll.frame)" : "scroll missing",
+                        header.exists ? "header frame=\(header.frame)" : "header missing",
+                        "tab frame=\(tab.frame), basket frame=\(basket.frame)",
+                    ].joined(separator: "\n")
+                    print(details)
+                    let attachment = XCTAttachment(string: details)
+                    attachment.name = "Category-\(category)-geometry"
+                    attachment.lifetime = .keepAlways
+                    activity.add(attachment)
+                    attachScreenshot("Category-\(category)-unsettled", of: app)
+                }
+            }
+            XCTAssertEqual(reachedResult, .completed,
                            "Category \(category) did not settle below the fixed strip")
             XCTAssertEqual(tab.frame.minY, tabY, accuracy: 1)
             XCTAssertEqual(basket.frame.minY, basketY, accuracy: 1)
