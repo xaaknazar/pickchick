@@ -2,7 +2,7 @@ import { UuidSchema } from '@pickchick/contracts';
 
 export interface ServiceConfig {
   service: 'api' | 'edge';
-  environment: 'local' | 'test';
+  environment: 'local' | 'test' | 'staging';
   databaseUrl: string;
   redisUrl?: string;
   branchId?: string;
@@ -37,11 +37,16 @@ export function loadConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): ServiceConfig {
   const environment = env.APP_ENV;
-  if (environment !== 'local' && environment !== 'test') {
-    throw new Error('Foundation only supports APP_ENV=local or test; production is not enabled');
+  if (environment !== 'local' && environment !== 'test' && environment !== 'staging') {
+    throw new Error('Unsupported APP_ENV; production is not enabled');
   }
+  if (environment === 'staging' && service !== 'api')
+    throw new Error('Staging is only enabled for the cloud API');
   const key = service === 'api' ? 'CLOUD_DATABASE_URL' : 'EDGE_DATABASE_URL';
-  const databaseUrl = localDatabaseUrl(required(env, key), key);
+  const databaseUrl =
+    environment === 'staging'
+      ? stagingUrl(required(env, key), 'postgresql:', 'cloud-db', '/pickchick_cloud', key)
+      : localDatabaseUrl(required(env, key), key);
   const expectedDatabase = service === 'api' ? '/pickchick_cloud' : '/pickchick_edge';
   if (new URL(databaseUrl).pathname !== expectedDatabase) {
     throw new Error(`Database scope mismatch: ${key}`);
@@ -64,11 +69,34 @@ export function loadConfig(
   } catch {
     throw new Error('Invalid REDIS_URL');
   }
-  if (
+  if (environment === 'staging') {
+    stagingUrl(redisUrl, 'redis:', 'redis-cache', '/0', 'REDIS_URL');
+  } else if (
     parsedRedis.protocol !== 'redis:' ||
     !['127.0.0.1', 'localhost', '[::1]'].includes(parsedRedis.hostname)
   ) {
     throw new Error('Foundation requires local Redis');
   }
   return { ...base, redisUrl };
+}
+
+// This is a private Docker network contract, not permission to connect to arbitrary hosts.
+function stagingUrl(value: string, protocol: string, host: string, path: string, name: string) {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol === protocol &&
+      url.hostname === host &&
+      url.pathname === path &&
+      url.username &&
+      /^[a-f0-9]{64}$/.test(url.password) &&
+      !url.search &&
+      !url.hash &&
+      url.port === (protocol === 'postgresql:' ? '5432' : '6379')
+    )
+      return value;
+  } catch {
+    /* Do not disclose the URL or password. */
+  }
+  throw new Error(`Invalid private staging configuration: ${name}`);
 }

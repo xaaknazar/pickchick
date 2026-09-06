@@ -11,7 +11,11 @@ import {
 const payload = JSON.stringify(menu);
 const checksum = createHash('sha256').update(payload).digest('hex');
 
-for (const service of ['api', 'edge']) {
+if (process.argv.slice(2).some((arg) => arg !== '--cloud-only'))
+  throw new Error('Unsupported seed argument');
+if (process.env.APP_ENV === 'staging' && !process.argv.includes('--cloud-only'))
+  throw new Error('Staging seed must explicitly select --cloud-only');
+for (const service of process.argv.includes('--cloud-only') ? ['api'] : ['api', 'edge']) {
   const config = loadConfig(service);
   const pool = createPool(config.databaseUrl);
   try {
