@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View, StyleSheet } from 'react-native';
+import { ScrollView, Text, TextInput, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
@@ -32,6 +32,21 @@ const statusNames: Record<TestOrder['state'], string> = {
   fulfilled: 'Выдан',
   cancelled: 'Отменён',
 };
+function ContinueSession({ props }: { props: ScreenProps }) {
+  const flow = props.model.testFlow;
+  if (!flow.sessionExpired) return null;
+  return (
+    <Button
+      title="Продлить тестовый доступ"
+      testID="test-continue-session"
+      secondary
+      disabled={flow.busy}
+      onPress={() => {
+        void flow.continueSession();
+      }}
+    />
+  );
+}
 function FlowNotice({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
   return (
@@ -45,6 +60,7 @@ function FlowNotice({ props }: { props: ScreenProps }) {
           {flow.error}
         </Notice>
       ) : null}
+      <ContinueSession props={props} />
       {flow.recoveryAvailable ? (
         <Button
           title="Восстановить проверку"
@@ -377,6 +393,12 @@ export function ConnectedOrder(props: ScreenProps) {
 }
 function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder }) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const [numberWidth, setNumberWidth] = useState<number | null>(null);
+  const numberFontSize = Math.min(
+    112,
+    Math.max(1, numberWidth ?? width - 48) / (order.number.length * 0.72),
+  );
   return (
     <View
       testID={`screen-${props.screenId}`}
@@ -398,15 +420,17 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
           </View>
           <Logo size={48} />
         </Row>
-        <Text
-          testID="connected-order-number"
-          accessibilityLabel={`Тестовый заказ ${order.number}`}
-          style={s.readyNumber}
-          adjustsFontSizeToFit
-          numberOfLines={1}
-        >
-          {order.number}
-        </Text>
+        <View onLayout={({ nativeEvent }) => setNumberWidth(nativeEvent.layout.width)}>
+          <Text
+            testID="connected-order-number"
+            accessibilityLabel={`Тестовый заказ ${order.number}`}
+            style={[s.readyNumber, { fontSize: numberFontSize }]}
+            adjustsFontSizeToFit
+            numberOfLines={1}
+          >
+            {order.number}
+          </Text>
+        </View>
         <Body
           testID="connected-order-state"
           style={[s.readyInk, { textAlign: 'center', fontFamily: font.bold, fontSize: 22 }]}
@@ -436,6 +460,7 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
           onPress={() => props.navigate('M19')}
         />
         {props.model.testFlow.error ? <Notice warning>{props.model.testFlow.error}</Notice> : null}
+        <ContinueSession props={props} />
         <Caption style={[s.readyInk, { textAlign: 'center' }]}>
           {props.model.branch?.name ?? 'Тестовая точка · Алматы'}
         </Caption>

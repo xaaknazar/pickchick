@@ -66,6 +66,21 @@ function harness() {
       result = previous.result;
     } else if (path === '/sessions') {
       result = session;
+    } else if (path === '/sessions/continue') {
+      if (
+        [...h.orders.values()].some(
+          (order) =>
+            !['fulfilled', 'cancelled'].includes(order.state) ||
+            order.payment_state === 'simulated_unknown',
+        )
+      )
+        throw new TestApiError(409, 'CONFLICT');
+      result = {
+        ...session,
+        expires_at:
+          Date.parse(session.expires_at) > h.clock ? session.expires_at : iso(h.clock + 7_200_000),
+      };
+      session.expires_at = result.expires_at;
     } else if (path === '/quotes') {
       const lines = body.items.map(({ product_id, quantity }) => ({
         id: product_id,
@@ -498,4 +513,89 @@ test('order observations are monotonic and checkout resumes only the matching ba
   assert.equal(cartMatchesOrder(order, cart('test-fries'), 'takeaway'), false);
   assert.equal(cartMatchesOrder(order, cart('test-burger', 2), 'takeaway'), false);
   assert.equal(cartMatchesOrder(order, [], 'takeaway'), false);
+});
+
+test('continuation is explicit, preserves pending intent and resumes the same customer', async () => {
+  const h = harness();
+  let drop = true;
+  h.before = async (request) => {
+    if (request.path === '/quotes' && drop) {
+      drop = false;
+      throw new TypeError('timeout');
+    }
+  };
+  await assert.rejects(h.client().create(cart(), 'takeaway'), /timeout/);
+  const pending = h.storage.get(DRAFT_KEY);
+  h.clock += 7_200_001;
+  const restarted = h.client();
+  await assert.rejects(restarted.orders(), failure('SESSION_EXPIRED'));
+  await assert.rejects(restarted.recoverPending(), failure('SESSION_EXPIRED'));
+  assert.equal(h.count('/sessions/continue').length, 0);
+  const continued = await restarted.continueSession();
+  assert.equal(continued.session_id, h.session.session_id);
+  assert.equal(continued.token, h.session.token);
+  assert.equal(h.storage.get(DRAFT_KEY), pending);
+  const order = await restarted.recoverPending();
+  assert.equal(order.snapshot.lines[0].id, 'test-burger');
+  assert.equal(h.count('/sessions').length, 1);
+  assert.equal(h.count('/sessions/continue').length, 1);
+  assert.deepEqual(h.count('/sessions/continue')[0].body, {});
+});
+
+test('lost continuation response retries the same token and expiry after restart', async () => {
+  const h = harness();
+  h.persistSession();
+  h.clock += 7_200_001;
+  let drop = true;
+  h.after = async (request) => {
+    if (request.path === '/sessions/continue' && drop) {
+      drop = false;
+      throw new TypeError('timeout');
+    }
+  };
+  await assert.rejects(h.client().continueSession(), /timeout/);
+  const firstExpiry = h.session.expires_at;
+  assert.notEqual(JSON.parse(h.storedSession).expires_at, firstExpiry);
+  const restarted = h.client();
+  const first = restarted.continueSession();
+  assert.equal(restarted.continueSession(), first);
+  const continued = await first;
+  assert.equal(continued.expires_at, firstExpiry);
+  assert.equal(JSON.parse(h.storedSession).expires_at, firstExpiry);
+  assert.equal(h.count('/sessions').length, 0);
+  assert.equal(h.count('/sessions/continue').length, 2);
+});
+
+test('denied continuation preserves expired identity and unknown command for operator resolution', async () => {
+  const h = harness();
+  const client = h.client();
+  const order = await client.create(cart(), 'takeaway');
+  h.after = async (request) => {
+    if (request.path.endsWith('/simulated-payment')) throw new TypeError('timeout');
+  };
+  await assert.rejects(
+    client.command(order, 'simulated-payment', { outcome: 'unknown' }),
+    /timeout/,
+  );
+  const pending = h.storage.get(COMMAND_KEY);
+  const storedSession = h.storedSession;
+  h.clock += 7_200_001;
+  await assert.rejects(h.client().continueSession(), failure('CONFLICT'));
+  assert.equal(h.storage.get(COMMAND_KEY), pending);
+  assert.equal(h.storedSession, storedSession);
+  assert.equal(h.count('/sessions').length, 1);
+  assert.equal([...h.orders.values()][0].payment_state, 'simulated_unknown');
+});
+
+test('continuation refuses missing identity or a response that substitutes a different customer', async () => {
+  const h = harness();
+  await assert.rejects(h.client().continueSession(), failure('STORED_SESSION_INVALID'));
+  assert.equal(h.requests.length, 0);
+  h.persistSession();
+  const storedSession = h.storedSession;
+  h.after = async (request, response) => {
+    if (request.path === '/sessions/continue') response.session_id = randomUUID();
+  };
+  await assert.rejects(h.client().continueSession(), failure('INVALID_CONTINUATION'));
+  assert.equal(h.storedSession, storedSession);
 });

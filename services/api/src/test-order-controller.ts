@@ -55,6 +55,12 @@ export class TestOrderController {
   @Post('sessions') session(@Body() body: unknown) {
     return this.execute((flow) => flow.issueSession(body));
   }
+  @Post('sessions/continue') @HttpCode(200) continueSession(
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute((flow) => flow.continueSession(this.token(auth), body));
+  }
   @Post('quotes') quote(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,

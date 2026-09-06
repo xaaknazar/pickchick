@@ -100,6 +100,7 @@ export class TestCustomerCore {
   private restored = false;
   private restorePromise: Promise<boolean> | null = null;
   private sessionPromise: Promise<TestSession> | null = null;
+  private continuationPromise: Promise<TestSession> | null = null;
   private operation: { fingerprint: string; promise: Promise<TestOrder> } | null = null;
   constructor(io: TestClientIO) {
     this.io = io;
@@ -213,6 +214,31 @@ export class TestCustomerCore {
         this.sessionPromise = null;
       });
     return this.sessionPromise;
+  }
+  continueSession(): Promise<TestSession> {
+    if (this.operation) return Promise.reject(new TestApiError(409, 'COMMAND_IN_PROGRESS'));
+    if (!this.continuationPromise)
+      this.continuationPromise = (async () => {
+        await this.restore();
+        const previous = this.session;
+        if (!previous) throw new TestApiError(401, 'STORED_SESSION_INVALID');
+        const continued = TestSessionSchema.parse(
+          await this.io.request('/sessions/continue', previous.token, {}),
+        );
+        if (
+          continued.session_id !== previous.session_id ||
+          continued.token !== previous.token ||
+          continued.channel !== previous.channel ||
+          Date.parse(continued.expires_at) <= this.io.now()
+        )
+          throw new TestApiError(503, 'INVALID_CONTINUATION');
+        await this.io.saveSession(JSON.stringify(continued));
+        this.session = continued;
+        return continued;
+      })().finally(() => {
+        this.continuationPromise = null;
+      });
+    return this.continuationPromise;
   }
   private singleFlight(fingerprint: string, run: () => Promise<TestOrder>): Promise<TestOrder> {
     if (this.operation)
