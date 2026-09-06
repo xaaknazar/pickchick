@@ -14,8 +14,12 @@
 TEST_FLOW_STAFF_DIR=/absolute/private/test-flow-staff \
   OPS_URL=https://pickchick.185.129.51.103.nip.io \
   MOBILE_URL=http://127.0.0.1:8081 \
-  .local/design-venv/bin/python tests/operations/browser_e2e.py
+.local/design-venv/bin/python tests/operations/browser_e2e.py
 ```
+
+`RUN_MODE=operations` выполняет только рабочие web-сценарии, `RUN_MODE=mobile` —
+только новый мобильный заказ с той же кухней/табло; по умолчанию выполняются оба.
+Режим записывается в результат, поэтому частичный прогон не выдаётся за полный.
 
 Проверяются киоск 1024×1366, мобильный web 390×844 и служебные экраны:
 серверное создание, потеря **после commit** ответа тестовой оплаты, перезагрузка
