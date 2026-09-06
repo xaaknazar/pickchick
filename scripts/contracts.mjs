@@ -6,6 +6,10 @@ import {
   ReadinessSchema,
   ErrorSchema,
   EventEnvelopeSchema,
+  MenuPublishedSchema,
+  MenuPullSchema,
+  MenuAckSchema,
+  AckReceiptSchema,
   jsonSchema,
 } from '@pickchick/contracts';
 
@@ -23,9 +27,9 @@ const openapi = {
   openapi: '3.1.0',
   info: {
     title: 'PickChick foundation API',
-    version: '0.1.0',
+    version: '0.2.0',
     description:
-      'Local-only, read-only foundation. No checkout, authentication or payment API is implemented.',
+      'Local-only foundation with authenticated edge menu pull/ACK. Device setup and menu publication are trusted local CLI operations. No customer/staff authentication, checkout or payments.',
   },
   paths: {
     '/health/live': get('liveness', 'Health'),
@@ -52,8 +56,47 @@ const openapi = {
     '/edge/v1/menu': get('getLocalMenu', 'MenuSnapshot', {
       404: response('Error', 'No local menu'),
     }),
+    '/internal/v1/edge/sync/pull': {
+      get: {
+        ...get('pullPendingMenu', 'MenuPull', {
+          401: response('Error', 'Invalid or inactive device identity'),
+        }).get,
+        security: [{ deviceBearer: [], deviceId: [] }],
+        description:
+          'Returns the oldest unacknowledged event for the authenticated edge branch, or null. Repeated delivery is expected. No caller cursor is accepted.',
+      },
+    },
+    '/internal/v1/edge/sync/ack': {
+      post: {
+        operationId: 'acknowledgeAppliedMenu',
+        security: [{ deviceBearer: [], deviceId: [] }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/MenuAck' } } },
+        },
+        responses: {
+          200: response('AckReceipt'),
+          400: response('Error', 'Malformed acknowledgment'),
+          401: response('Error', 'Invalid or inactive device identity'),
+          404: response('Error', 'Event outside device branch or missing'),
+          409: response('Error', 'Sequence, release or checksum mismatch'),
+          413: response('Error', 'Request body exceeds HTTP limit'),
+          500: response('Error', 'Internal error'),
+        },
+        description:
+          'Edge sends only after durable local commit. Cloud activates the release and stores the ACK in one transaction. Duplicate ACK is safe.',
+      },
+    },
   },
   components: {
+    securitySchemes: {
+      deviceBearer: {
+        type: 'http',
+        scheme: 'bearer',
+        description: 'Local provisioned 256-bit device key; revocable and expiring.',
+      },
+      deviceId: { type: 'apiKey', in: 'header', name: 'X-Device-Id' },
+    },
     schemas: {
       Branch: jsonSchema(BranchSchema),
       BranchList: {
@@ -66,6 +109,10 @@ const openapi = {
       Health: jsonSchema(HealthSchema),
       Readiness: jsonSchema(ReadinessSchema),
       Error: jsonSchema(ErrorSchema),
+      MenuPublished: jsonSchema(MenuPublishedSchema),
+      MenuPull: jsonSchema(MenuPullSchema),
+      MenuAck: jsonSchema(MenuAckSchema),
+      AckReceipt: jsonSchema(AckReceiptSchema),
     },
   },
 };

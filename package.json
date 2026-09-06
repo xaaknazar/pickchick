@@ -24,7 +24,12 @@
     "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "start:api": "node --env-file=.env services/api/dist/main.js",
-    "start:edge": "node --env-file=.env services/edge/dist/main.js"
+    "start:edge": "node --env-file=.env services/edge/dist/main.js",
+    "device:setup": "node --env-file=.env scripts/device-setup.mjs",
+    "device:revoke": "node --env-file=.env scripts/device-revoke.mjs",
+    "menu:publish": "node --env-file=.env scripts/menu-publish.mjs",
+    "sync:once": "node --env-file=.env scripts/menu-worker.mjs --once",
+    "sync:watch": "node --env-file=.env scripts/menu-worker.mjs"
   },
   "dependencies": {
     "@pickchick/contracts": "workspace:*",
@@ -32,7 +37,8 @@
     "@pickchick/platform": "workspace:*",
     "@pickchick/test-fixtures": "workspace:*",
     "@pickchick/api": "workspace:*",
-    "@pickchick/edge": "workspace:*"
+    "@pickchick/edge": "workspace:*",
+    "@pickchick/menu-sync": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

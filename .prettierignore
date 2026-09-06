@@ -7,3 +7,4 @@ docs/research
 docs/0*.md
 packages/contracts/openapi.json
 packages/contracts/event.schema.json
+.local/

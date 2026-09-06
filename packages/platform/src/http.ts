@@ -29,7 +29,13 @@ class SafeExceptionFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const request = http.getRequest<RequestContext>();
     const response = http.getResponse<ResponseContext>();
-    const status = error instanceof HttpException ? error.getStatus() : 500;
+    const oversizedBody =
+      error instanceof Error &&
+      'type' in error &&
+      error.type === 'entity.too.large' &&
+      'status' in error &&
+      error.status === 413;
+    const status = error instanceof HttpException ? error.getStatus() : oversizedBody ? 413 : 500;
     if (error instanceof ServiceUnavailableException) {
       const readiness = ReadinessSchema.safeParse(error.getResponse());
       if (readiness.success) {
@@ -40,11 +46,17 @@ class SafeExceptionFilter implements ExceptionFilter {
     const code =
       status === 400
         ? 'INVALID_REQUEST'
-        : status === 404
-          ? 'NOT_FOUND'
-          : status === 503
-            ? 'SERVICE_UNAVAILABLE'
-            : 'INTERNAL_ERROR';
+        : status === 401
+          ? 'UNAUTHORIZED'
+          : status === 409
+            ? 'CONFLICT'
+            : status === 413
+              ? 'PAYLOAD_TOO_LARGE'
+              : status === 404
+                ? 'NOT_FOUND'
+                : status === 503
+                  ? 'SERVICE_UNAVAILABLE'
+                  : 'INTERNAL_ERROR';
     const traceId = request.traceId ?? randomUUID();
     if (status >= 500) {
       console.error(JSON.stringify({ event: 'request_failed', code, trace_id: traceId }));

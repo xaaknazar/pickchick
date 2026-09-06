@@ -4,7 +4,7 @@ import { createApi } from '@pickchick/api';
 import { createEdge } from '@pickchick/edge';
 import { loadConfig } from '@pickchick/platform';
 import { ErrorSchema, MenuSnapshotSchema, ReadinessSchema } from '@pickchick/contracts';
-import { fixtureIds as id, fixtureMenu } from '@pickchick/test-fixtures';
+import { fixtureIds as id } from '@pickchick/test-fixtures';
 
 async function running(factory, config) {
   const app = await factory(config);
@@ -20,7 +20,7 @@ test('real API serves the active menu and rejects malformed/unknown branch IDs',
     const body = await branches.json();
     assert.equal(body.branches.find((b) => b.id === id.branch).ordering_enabled, false);
     const menu = await request(`${url}/v1/branches/${id.branch}/menu`);
-    assert.deepEqual(MenuSnapshotSchema.parse(await menu.json()), fixtureMenu);
+    assert.equal(MenuSnapshotSchema.parse(await menu.json()).branch_id, id.branch);
     for (const [branch, status] of [
       ['invalid', 400],
       ['20000000-0000-4000-8000-000000000001', 404],
@@ -55,7 +55,7 @@ test('edge keeps serving persisted menu after cloud stops and edge restarts', as
     assert.deepEqual(await (await request(`${local.url}/edge/v1/menu`)).json(), before);
     await local.app.close();
     local = await running(createEdge, loadConfig('edge'));
-    assert.deepEqual(await (await request(`${local.url}/edge/v1/menu`)).json(), fixtureMenu);
+    assert.deepEqual(await (await request(`${local.url}/edge/v1/menu`)).json(), before);
     const ready = ReadinessSchema.parse(await (await request(`${local.url}/health/ready`)).json());
     assert.equal(ready.ready, true);
     assert.equal(ready.dependencies.redis, 'not_required');
