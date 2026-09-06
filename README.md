@@ -5,7 +5,9 @@
 **Реализовано:** TypeScript/NestJS API и локальный edge, две PostgreSQL БД,
 Redis, миграции, регистрация edge и HTTP-доставка меню; локальные сессии/роли
 персонала, расчёт обычных SKU, стоп-лист и идемпотентный неоплаченный POS-заказ.
-Это локальный стенд без реальных оплат, чеков и передачи на кухню.
+Это инженерный стенд без реальных оплат, чеков и передачи на кухню.
+Для предоставленного VPS подготовлен [частный staging](docs/operations/staging-vps.md);
+фактические проверки deployment фиксируются в состоянии проекта.
 Запуск и команды: [локальная разработка](docs/operations/local-development.md).
 Контракты: [OpenAPI](packages/contracts/openapi.json) и [события](packages/contracts/event.schema.json).
 Принятые решения: [ADR 0001](docs/architecture/adr/0001-foundation.md).

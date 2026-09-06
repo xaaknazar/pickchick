@@ -1,0 +1,13 @@
+[Unit]
+Description=Encrypted PickChick staging database backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=pickchick-ops
+Group=pickchick-ops
+ExecStart=/bin/bash /opt/pickchick-staging/current/infra/staging/backup.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

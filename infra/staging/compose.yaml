@@ -1,0 +1,106 @@
+name: pickchick-staging
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+x-app: &app
+  image: pickchick-api:${RELEASE_SHA:?Set verified release SHA}
+  init: true
+  read_only: true
+  tmpfs: ['/tmp:size=32m,mode=1777']
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  mem_limit: 512m
+  cpus: 1.0
+  pids_limit: 128
+  logging: *logging
+  networks: [private]
+
+services:
+  cloud-db:
+    image: postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: pickchick_cloud
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?Generate a separate secret}
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256'
+    volumes: ['cloud-data:/var/lib/postgresql']
+    shm_size: 128m
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 128
+    logging: *logging
+    networks: [private]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d pickchick_cloud']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-cache:
+    image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+    restart: unless-stopped
+    # Password is in a read-only file, never in the redis-server command line.
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    volumes:
+      [
+        '${SECRETS_DIR:?Set protected secrets directory}/redis.conf:/usr/local/etc/redis/redis.conf:ro',
+      ]
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    logging: *logging
+    networks: [private]
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'REDISCLI_AUTH=$$(sed -n "s/^requirepass //p" /usr/local/etc/redis/redis.conf) redis-cli ping | grep -q PONG',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  api:
+    <<: *app
+    restart: unless-stopped
+    environment:
+      APP_ENV: staging
+      API_PORT: '3100'
+      CLOUD_DATABASE_URL: postgresql://pickchick_app:${DB_APP_PASSWORD:?Generate a separate secret}@cloud-db:5432/pickchick_cloud
+      REDIS_URL: redis://default:${REDIS_PASSWORD:?Generate a separate secret}@redis-cache:6379/0
+    ports: ['127.0.0.1:13100:3100']
+    depends_on:
+      cloud-db: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3100/health/ready',{signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+  provision:
+    <<: *app
+    profiles: [tools]
+    command: ['node', 'infra/staging/provision.mjs']
+    environment:
+      APP_ENV: staging
+      CLOUD_DATABASE_URL: postgresql://pickchick_owner:${DB_OWNER_PASSWORD:?Generate a separate secret}@cloud-db:5432/pickchick_cloud
+      REDIS_URL: redis://default:${REDIS_PASSWORD:?Generate a separate secret}@redis-cache:6379/0
+      DB_ADMIN_PASSWORD: ${DB_ADMIN_PASSWORD}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+    depends_on:
+      cloud-db: { condition: service_healthy }
+
+networks:
+  private:
+    internal: true
+volumes:
+  cloud-data:

@@ -49,3 +49,36 @@ jobs:
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  staging:
+    name: Private staging image and restricted database role
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Build immutable image
+        run: docker build -f infra/staging/Dockerfile --build-arg RELEASE_SHA=${{ github.sha }} -t pickchick-api:${{ github.sha }} .
+      - name: Create disposable secrets and start dependencies
+        run: |
+          python3 infra/staging/generate-secrets.py .local/staging-ci
+          echo RELEASE_SHA=${{ github.sha }} > .local/staging-ci/release.env
+          docker compose --env-file .local/staging-ci/staging.env --env-file .local/staging-ci/release.env -f infra/staging/compose.yaml up -d --wait cloud-db redis-cache
+      - name: Provision twice, seed and exercise deployed API permissions
+        run: |
+          dc() { docker compose --env-file .local/staging-ci/staging.env --env-file .local/staging-ci/release.env -f infra/staging/compose.yaml "$@"; }
+          dc run --rm provision
+          dc run --rm provision
+          dc run --rm provision node scripts/seed.mjs --cloud-only
+          dc up -d --wait api
+          dc run --rm provision node infra/staging/smoke.mjs
+          dc restart api
+          dc up -d --wait api
+          dc run --rm provision node infra/staging/smoke.mjs
+      - name: Remove disposable staging containers and volumes
+        if: always()
+        run: |
+          if test -f .local/staging-ci/release.env; then
+            docker compose --env-file .local/staging-ci/staging.env --env-file .local/staging-ci/release.env -f infra/staging/compose.yaml down --volumes
+          fi
