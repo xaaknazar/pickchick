@@ -94,7 +94,10 @@ export function Connection({
       </span>
       {error ? (
         <>
-          <span>{errorText(error)} Последние данные не заменены.</span>
+          <span>
+            {errorText(error)}{' '}
+            {observed ? 'Последние данные не заменены.' : 'Данные ещё не получены.'}
+          </span>
           <button onClick={() => void refresh()}>Повторить</button>
         </>
       ) : null}

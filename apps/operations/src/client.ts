@@ -35,14 +35,13 @@ export class ApiError extends Error {
 export function errorText(error: unknown): string {
   if (!(error instanceof ApiError))
     return 'Нет ответа сервера. Проверьте связь и повторите запрос.';
-  if (error.status === 401) return 'Срок доступа истёк или ключ не принят. Войдите снова.';
+  if (error.status === 401) return 'Срок доступа истёк или ключ не принят. Восстановите доступ.';
   if (error.status === 403) return 'У этого ключа нет прав для выбранного экрана.';
   if (error.code === 'QUOTE_EXPIRED')
     return 'Расчёт заказа истёк. Вернитесь в корзину для нового расчёта.';
   if (error.status === 409) return 'Заказ уже изменился. Обновите его состояние перед действием.';
   if (error.status === 429) return 'Достигнут лимит тестового контура. Повторите позднее.';
-  if (error.status === 503)
-    return 'Тестовый контур временно недоступен. Последние данные сохранены на экране.';
+  if (error.status === 503) return 'Тестовый контур временно недоступен. Повторите запрос позже.';
   return 'Сервер не принял запрос. Обновите данные и проверьте состав заказа.';
 }
 
@@ -89,6 +88,7 @@ async function request<T>(
 export const api = {
   catalog: () => request('/catalog', TestCatalogSchema),
   session: () => request('/sessions', TestSessionSchema, undefined, { channel: 'kiosk' }),
+  continueSession: (token: string) => request('/sessions/continue', TestSessionSchema, token, {}),
   orders: (token: string) => request('/orders', TestOrdersSchema, token),
   order: (token: string, id: string) => request(`/orders/${id}`, TestOrderSchema, token),
   quote: (

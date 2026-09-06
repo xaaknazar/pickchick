@@ -92,6 +92,8 @@ function restore(): Draft {
       base.pending = pending;
   }
   if (base.orderId || base.pending) base.screen = 'order';
+  else if (base.screen === 'order' || (base.screen === 'quote' && !base.quote))
+    base.screen = 'cart';
   return base;
 }
 
@@ -99,6 +101,8 @@ export function Kiosk() {
   const [draft, setDraft] = useState(restore);
   const draftRef = useRef(draft);
   const [session, setSession] = useState<Session | null>(readSession);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [sessionBlocked, setSessionBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [ack, setAck] = useState<TestOrder | null>(null);
@@ -118,6 +122,9 @@ export function Kiosk() {
   );
   const remote = usePoll(orderLoad, Boolean(session && draft.orderId));
   const order = remote.data && (!ack || remote.data.version >= ack.version) ? remote.data : ack;
+  const accessExpired = Boolean(
+    session && (sessionExpired || Date.parse(session.expires_at) <= Date.now()),
+  );
   const protectedOrder = Boolean(
     draft.pending ||
     (draft.orderId &&
@@ -128,6 +135,9 @@ export function Kiosk() {
   const products = catalog.data?.products ?? [];
   const selected = products.find((p) => p.id === draft.selected);
   const lines = products.filter((p) => (draft.counts[p.id] ?? 0) > 0);
+  const missingIds = catalog.data
+    ? Object.keys(draft.counts).filter((id) => !products.some((p) => p.id === id))
+    : [];
   const count = Object.values(draft.counts).reduce((n, q) => n + q, 0);
   const estimate = lines
     .reduce((n, p) => n + BigInt(p.price_minor) * BigInt(draft.counts[p.id] ?? 0), 0n)
@@ -147,6 +157,8 @@ export function Kiosk() {
     draftRef.current = next;
     setDraft(next);
     setSession(null);
+    setSessionExpired(false);
+    setSessionBlocked(false);
     setAck(null);
     setError(null);
     setHelp(false);
@@ -154,6 +166,32 @@ export function Kiosk() {
     setIdle(false);
     activity.current = Date.now();
   }, []);
+
+  useEffect(() => {
+    if ([error, remote.error].some((cause) => cause instanceof ApiError && cause.status === 401))
+      setSessionExpired(true);
+  }, [error, remote.error]);
+
+  async function continueSession() {
+    if (!session || busy) return;
+    setBusy(true);
+    setError(null);
+    setSessionBlocked(false);
+    try {
+      const next = await api.continueSession(session.token);
+      if (next.session_id !== session.session_id || next.channel !== 'kiosk')
+        throw new ApiError(502, 'INVALID_RESPONSE');
+      saveJson('pickchick.kiosk.session', next);
+      setSession(next);
+      setSessionExpired(false);
+      void remote.refresh();
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409) setSessionBlocked(true);
+      else setError(cause);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // Recover an active server order if the local route was lost; no fabricated queue.
   useEffect(() => {
@@ -232,7 +270,7 @@ export function Kiosk() {
     update({ selected: product.id, screen: 'product' });
   }
   async function calculate() {
-    if (!session || !catalog.data || !count || busy) return;
+    if (!session || accessExpired || !catalog.data || !count || missingIds.length || busy) return;
     setBusy(true);
     setError(null);
     const key = draft.quoteKey ?? crypto.randomUUID();
@@ -259,7 +297,7 @@ export function Kiosk() {
     }
   }
   async function execute(command: Pending) {
-    if (!session || busy) return;
+    if (!session || accessExpired || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -280,8 +318,8 @@ export function Kiosk() {
       void remote.refresh();
     } catch (cause) {
       setError(cause);
-      // An explicit rejection is final for this request; transport failure is not.
-      if (cause instanceof ApiError && [400, 401, 403, 404, 409, 422].includes(cause.status)) {
+      // Keep the exact command across expired credentials and ambiguous transport failures.
+      if (cause instanceof ApiError && [400, 403, 404, 409, 422].includes(cause.status)) {
         update({
           pending: null,
           ...(command.kind === 'create'
@@ -346,6 +384,22 @@ export function Kiosk() {
   return (
     <div className={`kiosk-shell screen-${draft.screen}`}>
       <TestBanner />
+      {accessExpired ? (
+        <section className="notice warning session-recovery" role="alert">
+          <h2>Срок тестового сеанса истёк</h2>
+          <p>
+            {sessionBlocked
+              ? 'Сервер не разрешил продление: управляющий должен завершить или отменить прежний тестовый заказ и разрешить неизвестную оплату. Затем повторите продление.'
+              : 'Корзина, заказ и незавершённый запрос сохранены. Продлите доступ к прежнему сеансу, чтобы проверить результат.'}
+          </p>
+          <button className="primary" disabled={busy} onClick={() => void continueSession()}>
+            {busy ? 'Проверяем доступ…' : 'Продлить тестовый сеанс'}
+          </button>
+          <button className="secondary" onClick={() => setHelp(true)}>
+            Нужна помощь с доступом
+          </button>
+        </section>
+      ) : null}
       {draft.screen === 'welcome' ? (
         <main className="attract" style={{ backgroundImage: `url(${assets.poster})` }}>
           <video
@@ -404,11 +458,15 @@ export function Kiosk() {
               backgroundImage: `linear-gradient(#063b99cc, #063b99cc), url(${assets.bluePattern})`,
             }}
           >
-            {routeBack[draft.screen] && !protectedOrder ? (
+            {routeBack[draft.screen] && !protectedOrder && !busy ? (
               <button
                 className="back"
                 aria-label="Назад"
-                onClick={() => update({ screen: routeBack[draft.screen] ?? 'menu' })}
+                onClick={() => {
+                  const screen = routeBack[draft.screen] ?? 'menu';
+                  if (screen === 'welcome') reset();
+                  else update({ screen });
+                }}
               >
                 ←
               </button>
@@ -427,7 +485,7 @@ export function Kiosk() {
               </button>
             ) : null}
           </header>
-          {draft.screen !== 'order' && draft.screen !== 'product' ? (
+          {draft.screen !== 'order' ? (
             <Connection
               observed={catalog.observed}
               error={catalog.error}
@@ -439,12 +497,32 @@ export function Kiosk() {
             <main className="mode-screen">
               <h1>{title}</h1>
               <div className="mode-options">
-                <button onClick={() => update({ mode: 'dine_in', screen: 'menu' })}>
+                <button
+                  onClick={() =>
+                    update({
+                      mode: 'dine_in',
+                      screen: 'menu',
+                      quote: null,
+                      quoteKey: null,
+                      createKey: null,
+                    })
+                  }
+                >
                   <span>⌂</span>
                   <strong>В ЗАЛЕ</strong>
                   <small>Насладись моментом здесь</small>
                 </button>
-                <button onClick={() => update({ mode: 'takeaway', screen: 'menu' })}>
+                <button
+                  onClick={() =>
+                    update({
+                      mode: 'takeaway',
+                      screen: 'menu',
+                      quote: null,
+                      quoteKey: null,
+                      createKey: null,
+                    })
+                  }
+                >
                   <span>↗</span>
                   <strong>С СОБОЙ</strong>
                   <small>Забери любимое с собой</small>
@@ -467,8 +545,16 @@ export function Kiosk() {
                 ))}
               </nav>
               <main className="menu-scroll">
-                {!catalog.data ? (
+                {!catalog.data && catalog.error ? (
+                  <Empty title="Меню не загрузилось">
+                    Проверьте связь и нажмите «Повторить» выше.
+                  </Empty>
+                ) : !catalog.data ? (
                   <Loading />
+                ) : !products.some((p) => category === 'Все' || p.category === category) ? (
+                  <Empty title="В меню пока нет блюд">
+                    Выберите другую категорию или обновите каталог.
+                  </Empty>
                 ) : (
                   <>
                     {products[0] ? (
@@ -572,6 +658,8 @@ export function Kiosk() {
                   </button>
                 </footer>
               </main>
+            ) : !catalog.data && !catalog.error ? (
+              <Loading />
             ) : (
               <Empty title="Блюдо недоступно">Вернитесь в меню и обновите каталог.</Empty>
             )
@@ -579,7 +667,36 @@ export function Kiosk() {
           {draft.screen === 'cart' ? (
             <main className="kiosk-body">
               <h1>{title}</h1>
-              {lines.length ? (
+              {missingIds.length ? (
+                <section className="cart-items" aria-label="Недоступные блюда">
+                  <Notice warning>
+                    Некоторые блюда исчезли из каталога. Удалите их перед расчётом.
+                  </Notice>
+                  {missingIds.map((id) => (
+                    <article key={id}>
+                      <div>
+                        <h2>Недоступное блюдо · {id}</h2>
+                        <span>Количество: {draft.counts[id]}</span>
+                      </div>
+                      <button
+                        className="secondary"
+                        onClick={() => changeCount(id, -(draft.counts[id] ?? 0))}
+                      >
+                        Удалить недоступное блюдо
+                      </button>
+                    </article>
+                  ))}
+                </section>
+              ) : null}
+              {!catalog.data ? (
+                catalog.error ? (
+                  <Empty title="Не удалось проверить корзину">
+                    Состав сохранён. Повторите загрузку каталога.
+                  </Empty>
+                ) : (
+                  <Loading />
+                )
+              ) : lines.length ? (
                 <>
                   <section className="cart-items">
                     {lines.map((p) => (
@@ -621,13 +738,17 @@ export function Kiosk() {
                     Точную сумму и доступность проверит сервер. Промокоды и Чики в этом тесте не
                     применяются.
                   </Notice>
-                  <button className="primary full" onClick={() => update({ screen: 'loyalty' })}>
+                  <button
+                    className="primary full"
+                    disabled={Boolean(missingIds.length)}
+                    onClick={() => update({ screen: 'loyalty' })}
+                  >
                     Продолжить →
                   </button>
                 </>
-              ) : (
+              ) : !missingIds.length ? (
                 <Empty title="Корзина пока пуста">Выберите блюда в меню.</Empty>
-              )}
+              ) : null}
               <button className="secondary full" onClick={() => update({ screen: 'menu' })}>
                 Добавить ещё
               </button>
@@ -645,9 +766,21 @@ export function Kiosk() {
                 </p>
               </div>
               <Notice>Денежных списаний и бонусных начислений в тестовом контуре нет.</Notice>
+              {missingIds.length ? (
+                <Notice warning>
+                  Состав изменился. Вернитесь в корзину и удалите недоступные блюда.
+                </Notice>
+              ) : null}
               <button
                 className="primary full"
-                disabled={busy || Boolean(catalog.error)}
+                disabled={
+                  busy ||
+                  accessExpired ||
+                  !catalog.data ||
+                  !count ||
+                  Boolean(catalog.error) ||
+                  Boolean(missingIds.length)
+                }
                 onClick={() => void calculate()}
               >
                 {busy ? 'Считаем на сервере…' : 'Рассчитать тестовый заказ'}
@@ -678,7 +811,7 @@ export function Kiosk() {
               </Notice>
               <button
                 className="primary full"
-                disabled={busy}
+                disabled={busy || accessExpired}
                 onClick={() =>
                   void execute({
                     kind: 'create',
@@ -702,14 +835,16 @@ export function Kiosk() {
                 <>
                   <h1>Проверяем результат операции</h1>
                   <Notice warning>
-                    {busy
-                      ? 'Ожидаем ответ сервера…'
-                      : 'Ответ не получен. Новый заказ и новая попытка заблокированы. Повторим тот же запрос с прежним идентификатором.'}
+                    {accessExpired
+                      ? 'Незавершённый запрос сохранён. Продлите прежний сеанс выше, затем повторите этот запрос.'
+                      : busy
+                        ? 'Ожидаем ответ сервера…'
+                        : 'Ответ не получен. Новый заказ и новая попытка заблокированы. Повторим тот же запрос с прежним идентификатором.'}
                   </Notice>
                   {error ? <p>{errorText(error)}</p> : null}
                   <button
                     className="primary full"
-                    disabled={busy}
+                    disabled={busy || accessExpired}
                     onClick={() => draft.pending && void execute(draft.pending)}
                   >
                     {busy ? 'Проверяем…' : 'Повторить прежний запрос'}
@@ -742,20 +877,20 @@ export function Kiosk() {
                       </Notice>
                       <button
                         className="primary full"
-                        disabled={busy || Boolean(remote.error)}
+                        disabled={busy || accessExpired || Boolean(remote.error)}
                         onClick={() => pay('approved')}
                       >
                         Тест: подтвердить оплату
                       </button>
                       <div className="simulation-options">
                         <button
-                          disabled={busy || Boolean(remote.error)}
+                          disabled={busy || accessExpired || Boolean(remote.error)}
                           onClick={() => pay('declined')}
                         >
                           Тест: отказ
                         </button>
                         <button
-                          disabled={busy || Boolean(remote.error)}
+                          disabled={busy || accessExpired || Boolean(remote.error)}
                           onClick={() => pay('unknown')}
                         >
                           Тест: неизвестный результат
@@ -763,7 +898,7 @@ export function Kiosk() {
                       </div>
                       <button
                         className="secondary full"
-                        disabled={busy}
+                        disabled={busy || accessExpired}
                         onClick={() =>
                           void execute({ kind: 'cancel', key: crypto.randomUUID(), order })
                         }
@@ -826,6 +961,12 @@ export function Kiosk() {
                     Чек: не применяется к тестовой операции · Чики не начисляются
                   </p>
                 </>
+              ) : remote.error ? (
+                <Empty title="Не удалось восстановить заказ">
+                  {accessExpired
+                    ? 'Продлите прежний сеанс выше. Ссылка на заказ сохранена.'
+                    : 'Ссылка на заказ сохранена. Проверьте связь и нажмите «Повторить» выше.'}
+                </Empty>
               ) : (
                 <Loading>Восстанавливаем сохранённый заказ…</Loading>
               )}
@@ -858,8 +999,9 @@ export function Kiosk() {
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
             <h2 id="help-title">Обратитесь к управляющему</h2>
             <p>
-              Номер {order?.number}. Повторную оплату не запускайте. Управляющий может разрешить
-              неизвестный результат в тестовом контуре.
+              {accessExpired
+                ? `Срок доступа истёк. Попросите управляющего найти прежний TEST-заказ${order?.number ? ` ${order.number}` : ''}, проверить неизвестный платёж и завершить выдачу или отмену. Затем вернитесь сюда и продлите прежний сеанс. Корзина и незавершённый запрос сохраняются.`
+                : `Номер ${order?.number}. Повторную оплату не запускайте. Управляющий может разрешить неизвестный результат в тестовом контуре.`}
             </p>
             <button className="primary full" autoFocus onClick={() => setHelp(false)}>
               Вернуться к проверке
