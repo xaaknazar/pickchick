@@ -11,6 +11,10 @@
     "./contracts": {
       "types": "./dist/contracts.d.ts",
       "default": "./dist/contracts.js"
+    },
+    "./complete-catalog": {
+      "types": "./dist/complete-catalog.d.ts",
+      "default": "./dist/complete-catalog.js"
     }
   },
   "scripts": {

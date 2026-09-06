@@ -8,9 +8,16 @@ import {
   Inject,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { RESOURCE, Resources } from '@pickchick/platform';
-import { TestFlowError, TestOrderFlow } from '@pickchick/test-order-flow';
+import {
+  TestFlowError,
+  TestOrderFlow,
+  TestCatalogVersionSchema,
+  TEST_CATALOG_VERSION,
+  legacyTestResponse,
+} from '@pickchick/test-order-flow';
 
 @Controller('v1/test')
 export class TestOrderController {
@@ -25,9 +32,12 @@ export class TestOrderController {
   private token(value?: string) {
     return value?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '';
   }
-  private async execute<T>(run: (flow: TestOrderFlow) => T | Promise<T>) {
+  private async execute<T>(run: (flow: TestOrderFlow) => T | Promise<T>, representation?: string) {
     try {
-      return await run(this.flow());
+      const version = TestCatalogVersionSchema.safeParse(representation ?? TEST_CATALOG_VERSION);
+      if (!version.success) throw new TestFlowError('INVALID_REQUEST');
+      const result = await run(this.flow());
+      return version.data === TEST_CATALOG_VERSION ? legacyTestResponse(result) : result;
     } catch (error) {
       if (error instanceof TestFlowError) {
         const statuses = {
@@ -49,64 +59,95 @@ export class TestOrderController {
       throw error;
     }
   }
-  @Get('catalog') catalog() {
-    return this.execute((flow) => flow.catalog());
+  @Get('catalog') catalog(@Query('catalog_version') representation?: string) {
+    return this.execute((flow) => flow.catalog(representation), representation);
   }
-  @Post('sessions') session(@Body() body: unknown) {
-    return this.execute((flow) => flow.issueSession(body));
+  @Post('sessions') session(
+    @Body() body: unknown,
+    @Query('catalog_version') representation?: string,
+  ) {
+    return this.execute((flow) => flow.issueSession(body), representation);
   }
   @Post('sessions/continue') @HttpCode(200) continueSession(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) => flow.continueSession(this.token(auth), body));
+    return this.execute((flow) => flow.continueSession(this.token(auth), body), representation);
   }
   @Post('quotes') quote(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) => flow.quote(this.token(auth), key ?? '', body));
+    return this.execute((flow) => flow.quote(this.token(auth), key ?? '', body), representation);
   }
   @Post('orders') order(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) => flow.createOrder(this.token(auth), key ?? '', body));
+    return this.execute(
+      (flow) => flow.createOrder(this.token(auth), key ?? '', body),
+      representation,
+    );
   }
-  @Get('orders') orders(@Headers('authorization') auth?: string) {
-    return this.execute((flow) => flow.ownOrders(this.token(auth)));
+  @Get('orders') orders(
+    @Headers('authorization') auth?: string,
+    @Query('catalog_version') representation?: string,
+  ) {
+    return this.execute((flow) => flow.ownOrders(this.token(auth)), representation);
   }
-  @Get('orders/:id') read(@Param('id') orderId: string, @Headers('authorization') auth?: string) {
-    return this.execute((flow) => flow.readOrder(this.token(auth), orderId));
+  @Get('orders/:id') read(
+    @Param('id') orderId: string,
+    @Headers('authorization') auth?: string,
+    @Query('catalog_version') representation?: string,
+  ) {
+    return this.execute((flow) => flow.readOrder(this.token(auth), orderId), representation);
   }
   @Post('orders/:id/simulated-payment') @HttpCode(200) payment(
     @Param('id') orderId: string,
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) => flow.simulatePayment(this.token(auth), key ?? '', orderId, body));
+    return this.execute(
+      (flow) => flow.simulatePayment(this.token(auth), key ?? '', orderId, body),
+      representation,
+    );
   }
   @Post('orders/:id/resolve-payment') @HttpCode(200) resolve(
     @Param('id') orderId: string,
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) => flow.resolvePayment(this.token(auth), key ?? '', orderId, body));
+    return this.execute(
+      (flow) => flow.resolvePayment(this.token(auth), key ?? '', orderId, body),
+      representation,
+    );
   }
   @Post('orders/:id/cancel') @HttpCode(200) cancel(
     @Param('id') orderId: string,
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) => flow.cancel(this.token(auth), key ?? '', orderId, body));
+    return this.execute(
+      (flow) => flow.cancel(this.token(auth), key ?? '', orderId, body),
+      representation,
+    );
   }
-  @Get('kitchen') kitchen(@Headers('authorization') auth?: string) {
-    return this.execute((flow) => flow.kitchen(this.token(auth)));
+  @Get('kitchen') kitchen(
+    @Headers('authorization') auth?: string,
+    @Query('catalog_version') representation?: string,
+  ) {
+    return this.execute((flow) => flow.kitchen(this.token(auth)), representation);
   }
   @Post('orders/:id/tasks/:taskId/complete') @HttpCode(200) complete(
     @Param('id') orderId: string,
@@ -114,9 +155,11 @@ export class TestOrderController {
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) =>
-      flow.completeTask(this.token(auth), key ?? '', orderId, taskId, body),
+    return this.execute(
+      (flow) => flow.completeTask(this.token(auth), key ?? '', orderId, taskId, body),
+      representation,
     );
   }
   @Post('orders/:id/handoff') @HttpCode(200) handoff(
@@ -124,13 +167,23 @@ export class TestOrderController {
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
+    @Query('catalog_version') representation?: string,
   ) {
-    return this.execute((flow) => flow.handoff(this.token(auth), key ?? '', orderId, body));
+    return this.execute(
+      (flow) => flow.handoff(this.token(auth), key ?? '', orderId, body),
+      representation,
+    );
   }
-  @Get('display') display(@Headers('authorization') auth?: string) {
-    return this.execute((flow) => flow.display(this.token(auth)));
+  @Get('display') display(
+    @Headers('authorization') auth?: string,
+    @Query('catalog_version') representation?: string,
+  ) {
+    return this.execute((flow) => flow.display(this.token(auth)), representation);
   }
-  @Get('manager/orders') manager(@Headers('authorization') auth?: string) {
-    return this.execute((flow) => flow.managerOrders(this.token(auth)));
+  @Get('manager/orders') manager(
+    @Headers('authorization') auth?: string,
+    @Query('catalog_version') representation?: string,
+  ) {
+    return this.execute((flow) => flow.managerOrders(this.token(auth)), representation);
   }
 }
