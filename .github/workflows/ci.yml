@@ -62,6 +62,8 @@ jobs:
             sleep 1
           done
           .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
+          .local/design-venv/bin/python tests/mobile/browser_demo_account.py
+          .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
           .local/design-venv/bin/python tests/operations/layout_regression.py
           .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
       - name: Check dependency advisories
