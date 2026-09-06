@@ -102,7 +102,24 @@ export function Onboarding(props: ScreenProps) {
   const [nickname, setNickname] = useState(props.model.nickname);
   const [saved, setSaved] = useState(false);
   return (
-    <Page props={props} title="Знакомство">
+    <Page
+      props={props}
+      title="Знакомство"
+      footer={
+        <>
+          <Button
+            title="Сохранить и продолжить"
+            testID="nickname-save"
+            onPress={() => {
+              props.model.setNickname(nickname.trim());
+              setSaved(true);
+              props.navigate('M30');
+            }}
+          />
+          <Button title="Пока пропустить" secondary onPress={() => props.navigate('M06')} />
+        </>
+      }
+    >
       <View style={s.avatar}>
         <Icon name="person-outline" size={36} color={colors.accent} />
       </View>
@@ -145,16 +162,6 @@ export function Onboarding(props: ScreenProps) {
         и отдельного согласия.
       </Notice>
       {saved ? <Body style={{ color: colors.success }}>Ник сохранён на устройстве</Body> : null}
-      <Button
-        title="Сохранить и продолжить"
-        testID="nickname-save"
-        onPress={() => {
-          props.model.setNickname(nickname.trim());
-          setSaved(true);
-          props.navigate('M30');
-        }}
-      />
-      <Button title="Пока пропустить" secondary onPress={() => props.navigate('M06')} />
     </Page>
   );
 }
@@ -248,6 +255,14 @@ export function Profile(props: ScreenProps) {
       </View>
       <Button title="Войти по номеру" secondary onPress={() => props.navigate('M02')} />
       <Caption style={{ textAlign: 'center' }}>Pick Chick · приложение в тестировании</Caption>
+      {!props.preview && props.openReview ? (
+        <NavRow
+          testID="open-design-review"
+          title="Все экраны дизайна"
+          subtitle="Отдельные примеры для проверки интерфейса"
+          onPress={props.openReview}
+        />
+      ) : null}
     </Page>
   );
 }

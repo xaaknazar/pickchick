@@ -8,6 +8,15 @@ export interface ServiceConfig {
   branchId?: string;
   testOrderFlowEnabled?: boolean;
   port: number;
+  databasePoolMax?: number;
+  httpMaxInFlight?: number;
+}
+
+function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
+  const value = env[name] ?? String(fallback);
+  if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max)
+    throw new Error(`Invalid configuration: ${name}`);
+  return Number(value);
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -68,6 +77,8 @@ export function loadConfig(
     databaseUrl,
     port: Number(portText),
     testOrderFlowEnabled: testOrderFlow === 'true',
+    databasePoolMax: boundedInteger(env, 'DB_POOL_MAX', 5, 64),
+    httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

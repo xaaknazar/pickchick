@@ -38,7 +38,7 @@ with sync_playwright() as p:
         requests.append((request.method, path))
         assert request.method == 'GET', 'Reading order screens must not issue any mutation'
         if path == '/v1/test/orders' and mode['orders'] == 'success':
-            route.fulfill(json={**META, 'orders': [ORDER]}, headers={'Access-Control-Allow-Origin': '*'})
+            route.fulfill(json={**META, 'orders': [({**ORDER, 'version': 3, 'state': 'fulfilled', 'payment_state': 'simulated_approved'} if mode.get('terminal') else ORDER)]}, headers={'Access-Control-Allow-Origin': '*'})
         else:
             route.abort('failed')
     context.route('**/v1/**', intercept)
@@ -75,6 +75,13 @@ with sync_playwright() as p:
     expect(page.get_by_text('Доступность пока не подтверждена', exact=True)).to_be_visible(timeout=15000)
     page.get_by_role('button', name='Обновить доступность', exact=True).click()
     expect(page.get_by_text('Доступность пока не подтверждена', exact=True)).to_be_visible()
+    mode['terminal'] = True
+    page.goto(URL + '/screen/M19')
+    expect(page.get_by_text('Выдан ·', exact=False)).to_be_visible(timeout=10000)
+    terminal_reads = len([path for _, path in requests if path == '/v1/test/orders'])
+    # Observe actual scheduled network activity over more than two old poll periods.
+    page.wait_for_timeout(7500)
+    assert len([path for _, path in requests if path == '/v1/test/orders']) == terminal_reads
     assert not any(method != 'GET' for method, _ in requests)
     browser.close()
 

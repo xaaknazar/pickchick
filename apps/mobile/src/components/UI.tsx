@@ -3,6 +3,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -201,7 +203,11 @@ export function Page({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <View testID={`screen-${props.screenId}`} style={[styles.page, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      testID={`screen-${props.screenId}`}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.page, { paddingTop: insets.top }]}
+    >
       <Row style={styles.pageHeader}>
         {noBack ? null : <IconButton name="chevron-back" label="Назад" onPress={props.goBack} />}
         <Heading small style={styles.flex}>
@@ -210,6 +216,9 @@ export function Page({
         <Logo size={34} />
       </Row>
       <ScrollView
+        testID={`scroll-${props.screenId}`}
+        style={styles.scroll}
+        keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.pageContent,
@@ -220,11 +229,29 @@ export function Page({
         {props.preview ? <ReviewBadge /> : null}
         {children}
       </ScrollView>
-      {footer ? (
-        <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom) }]}>
-          {footer}
-        </View>
-      ) : null}
+      {footer ? <BottomActions safeArea={!props.inTabLayout}>{footer}</BottomActions> : null}
+    </KeyboardAvoidingView>
+  );
+}
+
+// A sibling of the bounded scroll view: its measured height reserves space for
+// dynamic text and safe-area insets, without an absolute overlay hiding content.
+export function BottomActions({
+  children,
+  safeArea = true,
+  style,
+}: {
+  children: ReactNode;
+  safeArea?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      testID="bottom-actions"
+      style={[styles.footer, { paddingBottom: Math.max(16, safeArea ? insets.bottom : 0) }, style]}
+    >
+      {children}
     </View>
   );
 }
@@ -325,8 +352,9 @@ export function MinorMoney(value: string | bigint): string {
   return `${grouped}${fraction ? `,${fraction.toString().padStart(2, '0')}` : ''} ₸`;
 }
 export const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.background },
-  pageHeader: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, gap: 8 },
+  page: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  scroll: { flex: 1, minHeight: 0 },
+  pageHeader: { flexShrink: 0, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, gap: 8 },
   pageContent: { paddingHorizontal: 18, gap: 20, flexGrow: 1 },
   body: { fontFamily: font.body, color: colors.text, fontSize: 16, lineHeight: 24 },
   muted: { color: colors.muted },
@@ -408,6 +436,7 @@ export const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   footer: {
+    flexShrink: 0,
     padding: 18,
     backgroundColor: colors.background,
     borderTopWidth: 1,

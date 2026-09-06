@@ -56,6 +56,7 @@ def main():
         ('/internal/v1/edge/sync/pull', 'GET'),
         ('/internal/v1/edge/sync/ack', 'POST'),
         ('/health/ready', 'GET'),
+        ('/health/metrics', 'GET'),
         ('/v1/branches', 'POST'),
         ('/v1/capabilities', 'POST'),
         ('/v1/orders', 'POST'),

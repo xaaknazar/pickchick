@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "kz.pickchick.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "kz.pickchick.app",
-      "versionCode": 1
+      "versionCode": 2
     },
     "web": { "bundler": "metro", "output": "single" },
     "plugins": [

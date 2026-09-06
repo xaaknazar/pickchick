@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { orderPollDelay } from './poll-cadence';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import { TestApiError, TestCustomerClient } from './test-client';
 import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
@@ -61,10 +62,12 @@ export function useTestOrders(
   const [recoveryAvailable, setRecoveryAvailable] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const polling = useRef(false);
+  const failures = useRef(0);
   const current = orders.find((order) => order.order_id === currentId) ?? null;
   const generation = useRef(0);
 
   const apply = useCallback((order: TestOrder) => {
+    failures.current = 0;
     setOrders((previous) => mergeObservedOrder(previous, order));
     setCurrentId(order.order_id);
     setObservedAt(new Date().toISOString());
@@ -91,8 +94,10 @@ export function useTestOrders(
       setObservedAt(observation.state === 'observed' ? new Date().toISOString() : null);
       setError(null);
       setSessionExpired(false);
+      failures.current = 0;
     } catch (failure) {
       if (epoch === generation.current) {
+        failures.current += 1;
         setError(errorMessage(failure));
         if (failure instanceof TestApiError && failure.status === 401) setSessionExpired(true);
       }
@@ -109,19 +114,35 @@ export function useTestOrders(
       generation.current += 1;
     };
   }, [refresh]);
+  const hasActiveOrders = orders.some((order) => !['fulfilled', 'cancelled'].includes(order.state));
+  const pollState = useRef({ active: false, expired: false });
+  pollState.current = {
+    active: recoveryAvailable || hasActiveOrders,
+    expired: sessionExpired,
+  };
   useEffect(() => {
     if (!restored || (!hasSavedSession && !recoveryAvailable)) return;
-    const timer = setInterval(() => {
-      if (AppState.currentState === 'active') void refresh();
-    }, 3000);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (cancelled) return;
+      const delay = orderPollDelay({ ...pollState.current, failures: failures.current });
+      if (delay === null) return;
+      timer = setTimeout(async () => {
+        if (AppState.currentState === 'active') await refresh();
+        schedule();
+      }, delay);
+    };
+    schedule();
     const listener = AppState.addEventListener('change', (state) => {
       if (state === 'active') void refresh();
     });
     return () => {
-      clearInterval(timer);
+      cancelled = true;
+      clearTimeout(timer);
       listener.remove();
     };
-  }, [restored, hasSavedSession, recoveryAvailable, refresh]);
+  }, [restored, hasSavedSession, recoveryAvailable, sessionExpired, refresh, hasActiveOrders]);
 
   const run = async (command: () => Promise<TestOrder>): Promise<TestOrder | null> => {
     if (!restored || busyRef.current) return null;

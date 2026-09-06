@@ -8,6 +8,7 @@ import { colors, font } from '../theme';
 import { DiningSelector, HeroVideo, LoyaltyCard } from '../components/Brand';
 import {
   Body,
+  BottomActions,
   Button,
   Caption,
   Card,
@@ -148,8 +149,10 @@ export function Menu(props: ScreenProps) {
   return (
     <View testID="screen-M06" style={ui.page}>
       <ScrollView
+        testID="scroll-M06"
+        style={ui.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: count ? 100 : 30 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
       >
         <View style={[s.hero, { height: 620 + insets.top }]}>
           <HeroVideo />
@@ -298,19 +301,21 @@ export function Menu(props: ScreenProps) {
         </View>
       </ScrollView>
       {count ? (
-        <Pressable
-          testID="open-cart"
-          accessibilityRole="button"
-          accessibilityLabel={`Корзина, ${count} позиций, ${MinorMoney(total)}`}
-          onPress={() => props.navigate('M09')}
-          style={s.floatingCart}
-        >
-          <Icon name="bag-handle-outline" />
-          <Body style={{ fontFamily: font.bold }}>Корзина · {count}</Body>
-          <Body style={[ui.flex, { textAlign: 'right', fontFamily: font.bold }]}>
-            {MinorMoney(total)}
-          </Body>
-        </Pressable>
+        <BottomActions safeArea={!props.inTabLayout} style={{ paddingTop: 10, borderTopWidth: 0 }}>
+          <Pressable
+            testID="open-cart"
+            accessibilityRole="button"
+            accessibilityLabel={`Корзина, ${count} позиций, ${MinorMoney(total)}`}
+            onPress={() => props.navigate('M09')}
+            style={s.floatingCart}
+          >
+            <Icon name="bag-handle-outline" />
+            <Body style={{ fontFamily: font.bold }}>Корзина · {count}</Body>
+            <Body style={[ui.flex, { textAlign: 'right', fontFamily: font.bold }]}>
+              {MinorMoney(total)}
+            </Body>
+          </Pressable>
+        </BottomActions>
       ) : null}
     </View>
   );
@@ -333,7 +338,9 @@ export function ProductDetail(props: ScreenProps) {
   return (
     <View testID="screen-M07" style={ui.page}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 120 }}
+        testID="scroll-M07"
+        style={ui.scroll}
+        contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ height: 360 + insets.top, backgroundColor: '#E9EFF6' }}>
@@ -400,18 +407,7 @@ export function ProductDetail(props: ScreenProps) {
           <Caption>Изображения из фирменного меню Pick Chick.</Caption>
         </View>
       </ScrollView>
-      <View
-        style={[
-          ui.footer,
-          {
-            paddingBottom: Math.max(insets.bottom, 16),
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-          },
-        ]}
-      >
+      <BottomActions safeArea={!props.inTabLayout}>
         <Button
           title={`Добавить · ${MinorMoney(product.priceMinor)}`}
           testID="product-add"
@@ -420,7 +416,7 @@ export function ProductDetail(props: ScreenProps) {
             props.navigate('M09');
           }}
         />
-      </View>
+      </BottomActions>
     </View>
   );
 }
@@ -754,10 +750,6 @@ const s = StyleSheet.create({
   compactProduct: { width: '47%', flexDirection: 'column' },
   compactPhoto: { width: '100%', height: 145 },
   floatingCart: {
-    position: 'absolute',
-    bottom: 14,
-    left: 18,
-    right: 18,
     minHeight: 58,
     borderRadius: 18,
     backgroundColor: colors.action,

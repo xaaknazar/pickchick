@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { TestOrderSchema, TestQuoteSchema } from '@pickchick/test-order-flow/contracts';
 import {
   api,
@@ -665,7 +665,24 @@ export function Kiosk() {
             )
           ) : null}
           {draft.screen === 'cart' ? (
-            <main className="kiosk-body">
+            <KioskStep
+              actions={
+                <>
+                  <button className="secondary full" onClick={() => update({ screen: 'menu' })}>
+                    Добавить ещё
+                  </button>
+                  {catalog.data && lines.length ? (
+                    <button
+                      className="primary full"
+                      disabled={Boolean(missingIds.length)}
+                      onClick={() => update({ screen: 'loyalty' })}
+                    >
+                      Продолжить →
+                    </button>
+                  ) : null}
+                </>
+              }
+            >
               <h1>{title}</h1>
               {missingIds.length ? (
                 <section className="cart-items" aria-label="Недоступные блюда">
@@ -738,24 +755,31 @@ export function Kiosk() {
                     Точную сумму и доступность проверит сервер. Промокоды и Чики в этом тесте не
                     применяются.
                   </Notice>
-                  <button
-                    className="primary full"
-                    disabled={Boolean(missingIds.length)}
-                    onClick={() => update({ screen: 'loyalty' })}
-                  >
-                    Продолжить →
-                  </button>
                 </>
               ) : !missingIds.length ? (
                 <Empty title="Корзина пока пуста">Выберите блюда в меню.</Empty>
               ) : null}
-              <button className="secondary full" onClick={() => update({ screen: 'menu' })}>
-                Добавить ещё
-              </button>
-            </main>
+            </KioskStep>
           ) : null}
           {draft.screen === 'loyalty' ? (
-            <main className="kiosk-body">
+            <KioskStep
+              actions={
+                <button
+                  className="primary full"
+                  disabled={
+                    busy ||
+                    accessExpired ||
+                    !catalog.data ||
+                    !count ||
+                    Boolean(catalog.error) ||
+                    Boolean(missingIds.length)
+                  }
+                  onClick={() => void calculate()}
+                >
+                  {busy ? 'Считаем на сервере…' : 'Рассчитать тестовый заказ'}
+                </button>
+              }
+            >
               <h1>Продолжим без регистрации</h1>
               <div className="loyalty-card">
                 <span>✦</span>
@@ -771,24 +795,26 @@ export function Kiosk() {
                   Состав изменился. Вернитесь в корзину и удалите недоступные блюда.
                 </Notice>
               ) : null}
-              <button
-                className="primary full"
-                disabled={
-                  busy ||
-                  accessExpired ||
-                  !catalog.data ||
-                  !count ||
-                  Boolean(catalog.error) ||
-                  Boolean(missingIds.length)
-                }
-                onClick={() => void calculate()}
-              >
-                {busy ? 'Считаем на сервере…' : 'Рассчитать тестовый заказ'}
-              </button>
-            </main>
+            </KioskStep>
           ) : null}
           {draft.screen === 'quote' && draft.quote ? (
-            <main className="kiosk-body">
+            <KioskStep
+              actions={
+                <button
+                  className="primary full"
+                  disabled={busy || accessExpired}
+                  onClick={() =>
+                    void execute({
+                      kind: 'create',
+                      quote: draft.quote!,
+                      key: draft.createKey ?? crypto.randomUUID(),
+                    })
+                  }
+                >
+                  Создать тестовый заказ →
+                </button>
+              }
+            >
               <h1>{title}</h1>
               <p className="eyebrow">Расчёт подтверждён сервером</p>
               <section className="summary-lines">
@@ -809,20 +835,7 @@ export function Kiosk() {
                 Сейчас создадим тестовый заказ. На следующем экране можно выбрать результат
                 симулятора оплаты; Kaspi не вызывается.
               </Notice>
-              <button
-                className="primary full"
-                disabled={busy || accessExpired}
-                onClick={() =>
-                  void execute({
-                    kind: 'create',
-                    quote: draft.quote!,
-                    key: draft.createKey ?? crypto.randomUUID(),
-                  })
-                }
-              >
-                Создать тестовый заказ →
-              </button>
-            </main>
+            </KioskStep>
           ) : null}
           {draft.screen === 'order' ? (
             <main className="kiosk-body order-screen">
@@ -1010,5 +1023,14 @@ export function Kiosk() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function KioskStep({ children, actions }: { children: ReactNode; actions: ReactNode }) {
+  return (
+    <section className="kiosk-step">
+      <main className="kiosk-body">{children}</main>
+      <footer className="kiosk-actions">{actions}</footer>
+    </section>
   );
 }
