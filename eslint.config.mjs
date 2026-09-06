@@ -6,6 +6,7 @@ export default [
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      '.local/**',
       'PickChick-technical-plan-v1/**',
       'docs/research/**',
     ],
@@ -22,6 +23,7 @@ export default [
         URL: 'readonly',
         fetch: 'readonly',
         AbortSignal: 'readonly',
+        AbortController: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
       },

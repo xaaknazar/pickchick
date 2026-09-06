@@ -6,7 +6,13 @@ import {
   Module,
   NotFoundException,
   Param,
+  Post,
+  Body,
+  Headers,
+  HttpCode,
+  HttpException,
 } from '@nestjs/common';
+import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
 import { BranchSchema, MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
 import {
   createHttpApplication,
@@ -44,10 +50,55 @@ class BranchesController {
   }
 }
 
+@Controller('internal/v1/edge/sync')
+class MenuSyncController {
+  constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
+
+  private async execute(
+    deviceId: string | undefined,
+    authorization: string | undefined,
+    body?: unknown,
+  ) {
+    const auth = {
+      deviceId: deviceId ?? '',
+      token: authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
+    };
+    try {
+      return body === undefined
+        ? await pullMenu(this.resources.pool, auth)
+        : await acknowledgeMenu(this.resources.pool, auth, body);
+    } catch (error) {
+      if (error instanceof SyncError) {
+        const statuses = { INVALID_REQUEST: 400, UNAUTHORIZED: 401, CONFLICT: 409, NOT_FOUND: 404 };
+        throw new HttpException(error.code, statuses[error.code]);
+      }
+      throw error;
+    }
+  }
+
+  @Get('pull')
+  pull(
+    @Headers('x-device-id') deviceId?: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.execute(deviceId, authorization);
+  }
+
+  @Post('ack')
+  @HttpCode(200)
+  ack(
+    @Body() body: unknown,
+    @Headers('x-device-id') deviceId?: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.execute(deviceId, authorization, body ?? null);
+  }
+}
+
 export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
-    controllers: [HealthController, BranchesController],
+    controllers: [HealthController, BranchesController, MenuSyncController],
     providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],
   })
   class ApiModule {}

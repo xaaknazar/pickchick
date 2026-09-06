@@ -1,5 +1,5 @@
 {
-  "name": "@pickchick/api",
+  "name": "@pickchick/menu-sync",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,11 +14,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@nestjs/common": "12.0.1",
-    "@pickchick/platform": "workspace:*",
     "@pickchick/contracts": "workspace:*",
-    "@pickchick/database": "workspace:*",
-    "@pickchick/menu-sync": "workspace:*"
+    "@pickchick/database": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",

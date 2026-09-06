@@ -37,9 +37,15 @@ test('fresh migrations serialize concurrent runners and remain idempotent', asyn
       migrate(pool, migrationDir, 'cloud'),
       migrate(pool, migrationDir, 'cloud'),
     ]);
-    assert.equal(result.flat().length, 2);
+    const migrationCount = (await readdir(migrationDir)).filter((file) =>
+      file.endsWith('.sql'),
+    ).length;
+    assert.equal(result.flat().length, migrationCount);
     assert.deepEqual(await migrate(pool, migrationDir, 'cloud'), []);
-    assert.equal((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count, '2');
+    assert.equal(
+      Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count),
+      migrationCount,
+    );
     await assert.rejects(
       migrate(pool, fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url)), 'edge'),
       /another scope/,
