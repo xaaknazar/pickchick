@@ -60,23 +60,41 @@ with sync_playwright() as p:
     page.wait_for_selector('[data-table-search]')
     page.locator('[data-table-search]').fill('Яндекс')
     assert page.locator('#preview tbody tr:visible').count() == 1
+    # Reference-specific behavior survives the visual revision.
+    page.goto(base + '/#M06')
+    page.wait_for_selector('.ref-mobile-video')
+    page.locator('[data-action="video-toggle"]').click()
+    assert page.locator('video').evaluate('(v)=>v.paused')
+    assert page.locator('.bottom-nav button[data-go="M19"]').count() == 1
+    assert page.locator('.bottom-nav button[data-go="M23"]').count() == 0
+    page.goto(base + '/#K01')
+    page.wait_for_selector('[data-go="K02"]')
+    page.locator('#preview [data-go="K02"]').first.click()
+    page.wait_for_function('()=>document.title.startsWith("K02")')
     page.set_viewport_size({'width': 2100, 'height': 1550})
-    for (id, name) in [('M06', 'mobile-menu'), ('K03', 'kiosk-menu'), ('P03', 'pos-sale'), ('D01', 'kitchen-a'), ('D02', 'kitchen-b'), ('T01', 'display'), ('B02', 'backoffice')]:
+    for (id, name) in [('M06', 'mobile-menu'), ('M07', 'mobile-product'), ('M18', 'mobile-ready'), ('M23', 'mobile-wallet'), ('M30', 'mobile-profile'), ('K01', 'kiosk-welcome'), ('K03', 'kiosk-menu'), ('P03', 'pos-sale'), ('D01', 'kitchen-a'), ('D02', 'kitchen-b'), ('T01', 'display'), ('B02', 'backoffice')]:
         page.goto(base + '/')
         page.reload()
         page.wait_for_load_state('networkidle')
         page.goto(base + '/#' + id)
         page.wait_for_function('(id)=>document.title.startsWith(id)', arg=id)
         page.wait_for_load_state('networkidle')
-        page.locator('#preview').evaluate('(e)=>{e.style.transform="none";e.style.position="relative";}')
+        page.locator('#preview').evaluate('(e)=>{e.style.transform="scale(1)";e.style.position="relative";}')
+        if page.locator('#preview video').count():
+            page.locator('#preview video').evaluate_all('(videos)=>videos.forEach(v=>{v.pause();v.currentTime=4;})')
+            page.wait_for_function('()=>Array.from(document.querySelectorAll("#preview video")).every(v=>!v.seeking)')
         page.locator('#preview').screenshot(path=str(root / 'design/previews' / f'{name}.png'))
+        if id == 'M06':
+            page.locator('#preview .frame-content').evaluate('(e)=>e.scrollTop=640')
+            page.locator('#preview').screenshot(path=str(root / 'design/previews/mobile-menu-scrolled.png'))
     page.set_viewport_size({'width': 390, 'height': 900})
     page.goto(base + '/#M06')
-    page.wait_for_selector('#preview')
+    page.wait_for_function('()=>document.title.startsWith("M06")')
+    page.wait_for_function('()=>document.body.scrollWidth<=window.innerWidth+2')
     assert page.locator('body').evaluate('(e)=>e.scrollWidth<=window.innerWidth+2')
     page.screenshot(path=str(output / 'review-at-390.png'), full_page=True)
     browser.close()
-result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout']}
+result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout', 'reference video pause', 'source bottom navigation', 'kiosk attract transition']}
 (output / 'results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(result, ensure_ascii=False))
 assert not errors and (not broken) and (not overflows)

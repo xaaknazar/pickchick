@@ -76,38 +76,80 @@ export const navList = (items) =>
   `<div class="card flush">${items.map(([title, sub, target]) => `<button class="list-item" data-go="${target}"><span><strong>${title}</strong><small>${sub}</small></span>${icon('arrow')}</button>`).join('')}</div>`;
 export const products = [
   {
-    name: 'Чик Бургер комбо',
-    desc: 'Бургер, картофель, соус и напиток',
+    name: 'Pick Combo',
+    desc: 'Фингерсы, соус и напиток',
     price: 3490,
-    image: 'combo.jpg',
+    image: 'mockup/i7.jpg',
     category: 'Комбо',
   },
   {
-    name: 'Стрипсы на двоих',
-    desc: 'Хрустящие стрипсы и два напитка',
+    name: 'Master Combo',
+    desc: 'Фингерсы, соус и напиток',
     price: 5690,
-    image: 'strips-set.jpg',
-    category: 'Курица',
-  },
-  {
-    name: 'Дабл Чик комбо',
-    desc: 'Два бургера. Вдвое вкуснее',
-    price: 6290,
-    image: 'duo.jpg',
+    image: 'mockup/i8.jpg',
     category: 'Комбо',
   },
   {
-    name: 'Большой Чик сет',
-    desc: 'Для большой компании',
+    name: 'Burger Combo',
+    desc: 'Фингерсы, соус и напиток',
+    price: 6290,
+    image: 'mockup/i9.jpg',
+    category: 'Комбо',
+  },
+  {
+    name: 'Solo Combo',
+    desc: 'Фингерсы, соус и напиток',
+    price: 2490,
+    image: 'mockup/i10.jpg',
+    category: 'Комбо',
+  },
+  {
+    name: 'Finger Duo',
+    desc: 'Фингерсы, соус и напиток',
+    price: 5690,
+    image: 'mockup/i11.jpg',
+    category: 'На двоих',
+  },
+  {
+    name: 'Mix Duo',
+    desc: 'Фингерсы, соус и напиток',
+    price: 6290,
+    image: 'mockup/i13.jpg',
+    category: 'На двоих',
+  },
+  {
+    name: '25 Fingers',
+    desc: 'Фингерсы, соус и напиток',
     price: 12990,
-    image: 'party.jpg',
-    category: 'Курица',
+    image: 'mockup/i14.jpg',
+    category: 'На компанию',
+  },
+  {
+    name: 'Фингерс',
+    desc: 'Куриный фингерс',
+    price: 590,
+    image: 'mockup/i4.jpg',
+    category: 'Допы',
+  },
+  {
+    name: 'Тост',
+    desc: 'К любимому комбо',
+    price: 290,
+    image: 'mockup/i5.jpg',
+    category: 'Допы',
+  },
+  {
+    name: 'Coca-Cola',
+    desc: '0,5 л',
+    price: 690,
+    image: 'mockup/i2.jpg',
+    category: 'Напитки',
   },
   {
     name: 'Фирменный соус',
     desc: 'К любимому хрусту',
     price: 290,
-    image: 'sauce.jpg',
+    image: 'mockup/i18.jpg',
     category: 'Соусы',
   },
 ];
@@ -124,7 +166,7 @@ export function productGrid(target, category = 'Все') {
     : notice('В этой категории пока нет доступных блюд. Выберите другую категорию.');
 }
 export const categories = (chosen = 'Все') =>
-  `<div class="chips" aria-label="Категории меню">${['Все', 'Комбо', 'Курица', 'Соусы'].map((c) => `<button class="chip ${c === chosen ? 'selected' : ''}" data-category="${c}" aria-pressed="${c === chosen}">${c}</button>`).join('')}</div>`;
+  `<div class="chips" aria-label="Категории меню">${['Все', 'Комбо', 'На двоих', 'На компанию', 'Допы', 'Напитки', 'Соусы'].map((c) => `<button class="chip ${c === chosen ? 'selected' : ''}" data-category="${c}" aria-pressed="${c === chosen}">${c}</button>`).join('')}</div>`;
 export const timeline = (items) =>
   `<div class="timeline">${items.map(([label, sub, state]) => `<div class="timeline-item ${state}"><span class="timeline-dot"></span><div><strong>${label}</strong><small>${sub}</small></div></div>`).join('')}</div>`;
 export function table(headers, rows, target) {

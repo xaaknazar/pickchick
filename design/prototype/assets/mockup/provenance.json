@@ -1,0 +1,350 @@
+[
+  {
+    "file": "logo.png",
+    "source": "offline/logo.png",
+    "sha256": "128559e071a3bbaf07505fc94e2308fddffd62fe23b7079d85d1265494f32ed2",
+    "transform": "none"
+  },
+  {
+    "file": "bg-blue.png",
+    "source": "assets/bg-blue.png",
+    "sha256": "5b12ae75683094c1f831aede8044fe4ec0ad17c4cfac28f03d08bea07a6e09be",
+    "transform": "none"
+  },
+  {
+    "file": "bg-orange.png",
+    "source": "assets/bg-orange.png",
+    "sha256": "ffb71ab2e76269456187673ddce506b6cd6c5c8ee47d716d97f343b38460f3fa",
+    "transform": "none"
+  },
+  {
+    "file": "bg-mix.png",
+    "source": "assets/bg-mix.png",
+    "sha256": "064c278fabb77c102a8ad839e0e9f889deaee5723316fa05fb0d2235e1a27d14",
+    "transform": "none"
+  },
+  {
+    "file": "hero.mp4",
+    "source": "uploads/IMG_7060.mp4",
+    "sha256": "7593b191a624401bcaf129097f5b2604c1d34587337584db3935effad302099b",
+    "transform": "none"
+  },
+  {
+    "file": "promo-pick-combo-cut.png",
+    "source": "assets/promo-pick-combo-cut.png",
+    "sha256": "85a610ac6cd63e638c4c39c4a4aef904df2c5b4cd745b778e208f82e46c56e8d",
+    "transform": "none"
+  },
+  {
+    "file": "skyline.svg",
+    "source": "assets/almaty-skyline.svg",
+    "sha256": "ccc198a79b5f3013644746a35f44acc20cd71326679a2ecada9f374ea54a5914",
+    "transform": "none"
+  },
+  {
+    "file": "pickrun-poster.png",
+    "source": "assets/pickrun-poster.png",
+    "sha256": "da99fd018c142a72c03a13f04a8d0d5ba7de7091faf6c6307c69ee1e749d05e2",
+    "transform": "none"
+  },
+  {
+    "file": "i0.jpg",
+    "source": "offline/i0.jpg",
+    "sha256": "885edc401a2f5c98c0794bef8589543ad5a6d784a9e77d618abfcc5232b6eab7",
+    "transform": "none"
+  },
+  {
+    "file": "i1.jpg",
+    "source": "offline/i1.jpg",
+    "sha256": "d6377af51b23212d62858e13505f750fe955b4fc180621e0a8bc8ea42f032cf5",
+    "transform": "none"
+  },
+  {
+    "file": "i2.jpg",
+    "source": "offline/i2.jpg",
+    "sha256": "398d749bbaeba3281682074d9327de56372d6821c5cc0f6858e0cd4880557f0d",
+    "transform": "none"
+  },
+  {
+    "file": "i4.jpg",
+    "source": "offline/i4.jpg",
+    "sha256": "902ed9a4267e563006a7036d6db4bc5157ceaa7a4268a91b501a77229ccc065b",
+    "transform": "none"
+  },
+  {
+    "file": "i5.jpg",
+    "source": "offline/i5.jpg",
+    "sha256": "28cda0a55c7f0c8254e906f977b6cdde123881159d56e0b5088419ee0d17d5f8",
+    "transform": "none"
+  },
+  {
+    "file": "i6.jpg",
+    "source": "offline/i6.jpg",
+    "sha256": "079c98037e3bc71b78a99e45491ce81812644310f262eecd6e80383c5a7474bc",
+    "transform": "none"
+  },
+  {
+    "file": "i7.jpg",
+    "source": "offline/i7.jpg",
+    "sha256": "700d7ca43551019996d63d73549ba41fd5aa84f7b5e5665566e0d9f5493035e2",
+    "transform": "none"
+  },
+  {
+    "file": "i8.jpg",
+    "source": "offline/i8.jpg",
+    "sha256": "a0bcccb3f15569bfae7fe453b6251d46ac6c6956e5987c2e7a0eef0701dfb2a1",
+    "transform": "none"
+  },
+  {
+    "file": "i9.jpg",
+    "source": "offline/i9.jpg",
+    "sha256": "47e90e35cc4c89c46c5d0a9114824b05aeb55481cb15ab0c0e95751129fecaf4",
+    "transform": "none"
+  },
+  {
+    "file": "i10.jpg",
+    "source": "offline/i10.jpg",
+    "sha256": "6e007218b802bdb5d5988c57505abd9a4d882bc577ab3de06833e3a28701f883",
+    "transform": "none"
+  },
+  {
+    "file": "i11.jpg",
+    "source": "offline/i11.jpg",
+    "sha256": "c9956e6e456b4345261cb87bd60eb4d22465a0e8b1fb81f73af091ef1be97819",
+    "transform": "none"
+  },
+  {
+    "file": "i12.jpg",
+    "source": "offline/i12.jpg",
+    "sha256": "1fd832da9293543d0980dd1620d6f755a16b0a3dee308d10431ce8308d0889db",
+    "transform": "none"
+  },
+  {
+    "file": "i13.jpg",
+    "source": "offline/i13.jpg",
+    "sha256": "496e9030e34ef9b63dac721bf99ed8a6b493e72533aaed00e8c370245b4dde4a",
+    "transform": "none"
+  },
+  {
+    "file": "i14.jpg",
+    "source": "offline/i14.jpg",
+    "sha256": "f8ac3b0388758bfec159c25b00fba34e1b1d5c17a37fbcbffef40465713294ca",
+    "transform": "none"
+  },
+  {
+    "file": "i15.jpg",
+    "source": "offline/i15.jpg",
+    "sha256": "94261e951f1880cc470e3d19b542586cf269becf6b9d18c58a253b675aba604a",
+    "transform": "none"
+  },
+  {
+    "file": "i16.jpg",
+    "source": "offline/i16.jpg",
+    "sha256": "4212cb6f029d7c312885e66fcbcdf67f25a2e0531968dfcaef6fec99971fa1cb",
+    "transform": "none"
+  },
+  {
+    "file": "i17.jpg",
+    "source": "offline/i17.jpg",
+    "sha256": "e26fae60e81df0d0db8414a88bce622ceffc5a438ee456c928aeb512ce720261",
+    "transform": "none"
+  },
+  {
+    "file": "i18.jpg",
+    "source": "offline/i18.jpg",
+    "sha256": "5651511d4f0e17e42a238341d3a65185bb1c4fc73ac3ee522f215ab98f2d6312",
+    "transform": "none"
+  },
+  {
+    "file": "i19.jpg",
+    "source": "offline/i19.jpg",
+    "sha256": "14b9224f0c1f12d459d5bba8ef2bc3ac8848eff1f7f1e544e4bc1855a476c92f",
+    "transform": "none"
+  },
+  {
+    "file": "i20.jpg",
+    "source": "offline/i20.jpg",
+    "sha256": "495b2e49f3286f643abc1d12a4caa99bb00c7b1c9c76347014c2c4013e728033",
+    "transform": "none"
+  },
+  {
+    "file": "i22.jpg",
+    "source": "offline/i22.jpg",
+    "sha256": "b03a13c13a7cb8b05364348d030c9bbcb730fa4f90f0baebd886c71c0ba782ab",
+    "transform": "none"
+  },
+  {
+    "file": "i23.jpg",
+    "source": "offline/i23.jpg",
+    "sha256": "61dfb151dde96415755c26ac1c9b9c6bece86da2989534dcf7064ae37f6257b7",
+    "transform": "none"
+  },
+  {
+    "file": "i27.jpg",
+    "source": "offline/i27.jpg",
+    "sha256": "f773c45c333eb04c260853ee6c142f736758ea886f73106964c92d748e75291f",
+    "transform": "none"
+  },
+  {
+    "file": "i28.jpg",
+    "source": "offline/i28.jpg",
+    "sha256": "53a1aef5289209c035b19437eac8796563997770a521f9da5b13c86387aba665",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/jost-184c3af415cd.woff2",
+    "source": "Pick Chick App v2 (offline).html#3915d774-a9f9-4827-bfbc-590444f70d2a",
+    "sha256": "184c3af415cddd52af31cf70166bf351adb70b09e64fdb1948109192a26c2c0d",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/jost-b2a539cd1f2b.woff2",
+    "source": "Pick Chick App v2 (offline).html#74dfe5b6-f6ca-4956-a70d-8248cafae329",
+    "sha256": "b2a539cd1f2bbf123e66bafa988bbd32249a7ba3335aec377a9fc1b37734b1ed",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/jost-235d8f8964bf.woff2",
+    "source": "Pick Chick App v2 (offline).html#671ea4c3-05fb-4eaa-9a7a-8b6de369d47e",
+    "sha256": "235d8f8964bfdf105fc0c3e4c77b5e70f31bee1dad611d59318b5f2a5cb64d90",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/manrope-e8c0b39992f0.woff2",
+    "source": "Pick Chick App v2 (offline).html#71974134-8c18-4c07-86bc-7ddee76783a7",
+    "sha256": "e8c0b39992f06b3dc9a9834494088014859f363bf6ca8792b6bb07e17c7965f3",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/manrope-95a493061fe0.woff2",
+    "source": "Pick Chick App v2 (offline).html#10920d12-3d43-4e2c-9fc3-3a5eeb9d1de8",
+    "sha256": "95a493061fe0a8d0d027c2892747134ba747141112d3be4d5022e70ab7d3a1a6",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/manrope-40af11327fe5.woff2",
+    "source": "Pick Chick App v2 (offline).html#ee909a7d-1267-45e0-97ad-26b4196ea35c",
+    "sha256": "40af11327fe5308166c6cb5787808b042db6da889abf602f0a4876c49675d87e",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/manrope-bab757f8a0a1.woff2",
+    "source": "Pick Chick App v2 (offline).html#8b37c70c-a8eb-4ff4-b82a-fea35fc96e16",
+    "sha256": "bab757f8a0a1bc04055ee98cb5777f3254aab11f6d222366e1f40a36f390506a",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/manrope-ce093b341d9c.woff2",
+    "source": "Pick Chick App v2 (offline).html#3c91bc3a-b9bc-4143-81aa-dfb173eafd65",
+    "sha256": "ce093b341d9c10658ee1eaa85c5f8042ff3307bc6ccfc5f405616eb437f0009e",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/manrope-e310b55a7fd9.woff2",
+    "source": "Pick Chick App v2 (offline).html#28372a15-2d50-47d3-80e3-75b0f579d2f6",
+    "sha256": "e310b55a7fd9677f5e3555e6c6c4d064fa1f1d24393f0ddbe217cea12a8c432f",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/golos-text-10aa879203c4.woff2",
+    "source": "Pick Chick Kiosk (offline).html#07087623-b97d-438f-b224-7322fa7e62d0",
+    "sha256": "10aa879203c4b62f61841bdeee64a2ca5d97f1cf21e717f45c96914ce7629710",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/golos-text-2f175b8fc40e.woff2",
+    "source": "Pick Chick Kiosk (offline).html#afa47c8b-c6b0-4c6f-b12d-6424979ac7cf",
+    "sha256": "2f175b8fc40ed4e826742879f92ec903256fc2612d8d95c7c287232fd7138e4b",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/golos-text-90256a7b8eb3.woff2",
+    "source": "Pick Chick Kiosk (offline).html#46e93949-512c-419f-bb5c-6349dda394fb",
+    "sha256": "90256a7b8eb3b6b7b1c8f8aeb0e80eed7980a411d8c49faf7958fef6951ba863",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/golos-text-f8d71091110f.woff2",
+    "source": "Pick Chick Kiosk (offline).html#f5dc4878-3fa2-4140-a250-4d918e33edf5",
+    "sha256": "f8d71091110f0113ba8bd16bee2ac68b51dd6491c5b9404e9fbb82b20ae632f1",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/montserrat-744830a0e77d.woff2",
+    "source": "Pick Chick Kiosk (offline).html#4f4c07f7-4792-4eaa-99bd-f30d90e0a03f",
+    "sha256": "744830a0e77dd14dd543a4230d6e3ce67ca961634074b5d536ebafc66c732301",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/montserrat-0b00fbd6edcc.woff2",
+    "source": "Pick Chick Kiosk (offline).html#766fb5ac-9cbe-4d31-abdc-fd5bd660cd59",
+    "sha256": "0b00fbd6edcc84cd5f77364bbeb06b75ed263c740061eba34511f1e2ac1a82d3",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/montserrat-9e2672d100bc.woff2",
+    "source": "Pick Chick Kiosk (offline).html#12b8d811-3737-4385-b685-4d396d7a5c54",
+    "sha256": "9e2672d100bc36a37073fb250abfaa7394f5151bf5dda3f4d5fc281345eb391b",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/montserrat-920711de9ae9.woff2",
+    "source": "Pick Chick Kiosk (offline).html#c731eef1-19b2-4297-9433-ec14d539b090",
+    "sha256": "920711de9ae96c18970fa4faca73cd302b93ac5ed57ebeb6bfec2ddeff930082",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/montserrat-6438d7b8ea9c.woff2",
+    "source": "Pick Chick Kiosk (offline).html#ed49a32e-a0d9-42cd-a43e-7a9f1d2d283e",
+    "sha256": "6438d7b8ea9c7c3992d5e2fd2afdb1ff948570a3ef0bedae76247b51632960ba",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/inter-fccca918fea4.woff2",
+    "source": "Pick Chick Бэк-офис (offline).html#fe673278-9d57-42ff-9d4d-fa68b4c146ed",
+    "sha256": "fccca918fea40089dacadc7045861314d1a6bc91f1f323cc1eeb22ebcdb321b5",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/inter-aebf2ab4a4ce.woff2",
+    "source": "Pick Chick Бэк-офис (offline).html#586b11b2-a083-43a0-879b-b22e78546ec8",
+    "sha256": "aebf2ab4a4ce6810d73c1ac7be7cafb4e5ec4cee2d6db5fb3e09691747ec4bd6",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/inter-a2e2c783ca6f.woff2",
+    "source": "Pick Chick Бэк-офис (offline).html#fcc11a30-c331-4726-8396-32e13ebb7428",
+    "sha256": "a2e2c783ca6f9c20486e81e72a279203e86730bbf8f01ff6a5ee9dbd09e1c271",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/inter-46dd4cdca58c.woff2",
+    "source": "Pick Chick Бэк-офис (offline).html#cbb96b3a-44e1-4f75-8e7a-0e99cf4f1186",
+    "sha256": "46dd4cdca58c26ae87cc6927657bf83b2e8abfc39ffd0ab176e301a8d28d22bf",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/inter-8db00ff46c67.woff2",
+    "source": "Pick Chick Бэк-офис (offline).html#73ac4d79-2c3a-4cc3-b515-f9395435ca6a",
+    "sha256": "8db00ff46c67b22cda8bed865acf7077651cac8d2841d5b40980556b48961931",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/inter-a28eb6d3ccb5.woff2",
+    "source": "Pick Chick Бэк-офис (offline).html#e54e98d8-2937-411a-b585-59ad5b48f990",
+    "sha256": "a28eb6d3ccb534ae0c94ca999371df024aab60b08c3c8a5720ee9e32fa0faaa2",
+    "transform": "none"
+  },
+  {
+    "file": "fonts/inter-c940764593d0.woff2",
+    "source": "Pick Chick Бэк-офис (offline).html#0bf61980-ba54-4cab-89f7-98e5e85f79e7",
+    "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4",
+    "transform": "none"
+  },
+  {
+    "file": "hero-poster.jpg",
+    "source": "uploads/IMG_7060.mp4",
+    "sha256": "b7b5141add58a68641ab3c202e1b0b6e651d46949fd792a8a21c2a4158dc7f54",
+    "transform": "Browser video frame capture at 4 seconds; original video dimensions, JPEG quality 95."
+  }
+]

@@ -1,8 +1,8 @@
 .kiosk .rk-screen {
-  --blue: #0047bb;
-  --orange: #ff671f;
-  --ink: #0e1524;
-  --muted: #5a6478;
+  --blue: var(--kiosk-action);
+  --orange: var(--kiosk-accent);
+  --ink: var(--kiosk-text);
+  --muted: var(--kiosk-muted);
   height: 1346px;
   min-height: 0;
   overflow: hidden;

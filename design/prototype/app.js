@@ -47,6 +47,12 @@ function changeScreen(id) {
   }
 }
 function previewRules(s) {
+  if (s.id === 'M04')
+    return [
+      'Ник необязателен; шаг можно пропустить без потери доступа к заказу.',
+      'Публичное отображение требует отдельного согласия и фильтрации имени.',
+      'По умолчанию на табло только номер заказа; согласие можно отозвать в профиле.',
+    ];
   const common = [
     'Клиент не подтверждает деньги, выдачу или Чики самостоятельно.',
     'Сумма и состав проверяются сервером; демонстрационные цены не являются прайсом.',
@@ -314,6 +320,21 @@ document.addEventListener('click', async (event) => {
     sync: 'Демо: повтор обмена не должен создавать новые бизнес-операции.',
     audit: 'Журнал: сотрудник, операция, версия и причина. В макете данные демонстрационные.',
   };
+  if (action === 'video-toggle') {
+    const video = document.querySelector('#preview video');
+    if (video) {
+      if (video.paused) {
+        await video.play();
+        el.textContent = 'Ⅱ';
+        el.setAttribute('aria-label', 'Остановить фоновое видео');
+      } else {
+        video.pause();
+        el.textContent = '▶';
+        el.setAttribute('aria-label', 'Включить фоновое видео');
+      }
+    }
+    return;
+  }
   if (action) toast(messages[action] ?? 'Демонстрация действия. Внешние системы не вызываются.');
 });
 document.addEventListener('change', (event) => {

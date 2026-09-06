@@ -1,9 +1,9 @@
 /* Visual language from the supplied editable Pick Chick operations mockups. */
 .ref-office {
-  --ink: #e8edf5;
-  --muted: #a2b0c8;
+  --ink: var(--backoffice-text);
+  --muted: var(--backoffice-muted);
   --border: #1e2a42;
-  --blue: #60a5fa;
+  --blue: var(--backoffice-action);
   --success: #34d399;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
@@ -1149,4 +1149,28 @@
 .ref-board-message p {
   font-size: 30px;
   color: #59677d;
+}
+
+/* POS has no separate source mockup; share kiosk / kitchen materials. */
+.frame.pos {
+  font-family: 'Golos Text', sans-serif;
+  background: #f4f6fa;
+}
+.pos h1,
+.pos h2,
+.pos h3 {
+  font-family: Montserrat, sans-serif;
+}
+.pos .app-topbar {
+  background:
+    linear-gradient(100deg, #0047bbf2, #001744e8),
+    url('/design/prototype/assets/mockup/bg-blue.png') center/cover;
+  color: white;
+  border-bottom: 3px solid #ff671f;
+}
+.pos .app-topbar .muted {
+  color: #b8cdf0;
+}
+.pos .app-topbar .station-line {
+  color: #e5efff;
 }

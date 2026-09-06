@@ -35,6 +35,22 @@ for (const [key, hex] of Object.entries(tokens.color)) {
     key.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
   assert(css.toLowerCase().includes(`--${name}: ${hex.toLowerCase()};`), `Color drift: ${key}`);
 }
+for (const [theme, colors] of Object.entries(tokens.theme)) {
+  for (const [key, hex] of Object.entries(colors)) {
+    const name = `${theme}-${key.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())}`;
+    assert(css.toLowerCase().includes(`--${name}: ${hex.toLowerCase()};`), `Theme drift: ${name}`);
+  }
+}
+for (const asset of JSON.parse(await read('design/prototype/assets/mockup/provenance.json'))) {
+  const bytes = await readFile(
+    new URL('../design/prototype/assets/mockup/' + asset.file, import.meta.url),
+  );
+  assert.equal(
+    createHash('sha256').update(bytes).digest('hex'),
+    asset.sha256,
+    `Mockup asset drift: ${asset.file}`,
+  );
+}
 for (const asset of JSON.parse(await read('design/prototype/assets/provenance.json'))) {
   const bytes = await readFile(
     new URL('../design/prototype/assets/' + asset.file, import.meta.url),
@@ -70,7 +86,7 @@ const contrast = pairs.map(([fg, bg]) => {
   return `| ${fg} / ${bg} | ${ratio.toFixed(2)}:1 |`;
 });
 const lines = [
-  '# Каталог экранов PickChick v0.1',
+  '# Каталог экранов PickChick v0.2',
   '',
   'Генерируется командой `pnpm design:catalog` из `design/prototype/screens.json`. Редактировать источник, затем обновлять каталог. `pnpm design:check` проверяет связи, покрытие именованных требований, токены и неизменность исходных изображений.',
   '',

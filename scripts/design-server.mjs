@@ -13,6 +13,9 @@ const types = {
   '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.mp4': 'video/mp4',
 };
 createServer(async (req, res) => {
   try {
@@ -33,15 +36,42 @@ createServer(async (req, res) => {
       return;
     }
     const body = await readFile(file);
-    res.writeHead(200, {
+    const headers = {
       'Content-Type':
         types[extname(file)] +
         (['.html', '.css', '.js', '.json'].includes(extname(file)) ? '; charset=utf-8' : ''),
-      'Cache-Control': 'no-store',
+      'Cache-Control': ['.mp4', '.woff2', '.jpg', '.png'].includes(extname(file))
+        ? 'private, max-age=3600'
+        : 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy':
         "default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
-    });
+    };
+    if (req.headers.range && extname(file) === '.mp4') {
+      const match = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range);
+      const start = match ? Number(match[1]) : NaN;
+      const end = match?.[2] ? Number(match[2]) : body.length - 1;
+      if (
+        !Number.isSafeInteger(start) ||
+        start < 0 ||
+        start >= body.length ||
+        end < start ||
+        end >= body.length
+      ) {
+        res.writeHead(416, { ...headers, 'Content-Range': `bytes */${body.length}` });
+        res.end();
+        return;
+      }
+      res.writeHead(206, {
+        ...headers,
+        'Accept-Ranges': 'bytes',
+        'Content-Range': `bytes ${start}-${end}/${body.length}`,
+        'Content-Length': end - start + 1,
+      });
+      res.end(req.method === 'HEAD' ? undefined : body.subarray(start, end + 1));
+      return;
+    }
+    res.writeHead(200, { ...headers, 'Content-Length': body.length });
     res.end(req.method === 'HEAD' ? undefined : body);
   } catch {
     res.writeHead(404);

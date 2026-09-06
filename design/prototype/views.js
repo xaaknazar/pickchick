@@ -1,3 +1,6 @@
+import { mobileReferenceView, mobileReferenceShell } from './reference-mobile.js';
+import { kioskView, kioskShell } from './reference-kiosk.js';
+import { operationsView, operationsShell } from './reference-operations.js';
 import {
   icon,
   esc,
@@ -940,6 +943,8 @@ export function stateView(s, state) {
   }${act(state === 'denied' ? 'Обратиться к управляющему' : state === 'limited' ? 'Понятно' : state === 'pending' ? 'Проверить состояние' : 'Вернуться к основному виду', 'restore-state', 'full')}<p class="fineprint">Это отдельное состояние дизайна ${s.id}, демонстрационный режим.</p></div>`;
 }
 export function view(s, m) {
+  const reference = mobileReferenceView(s, m) ?? kioskView(s, m) ?? operationsView(s, m);
+  if (reference !== null) return reference;
   if (s.surface === 'display') return board(s, m);
   if (s.surface === 'kitchen') return kitchen(s, m);
   if (s.kind === 'offline') return offline(s);
@@ -950,6 +955,9 @@ export function view(s, m) {
   );
 }
 export function appShell(s, content) {
+  const reference =
+    mobileReferenceShell(s, content) ?? kioskShell(s, content) ?? operationsShell(s, content);
+  if (reference !== null) return reference;
   if (s.surface === 'mobile') {
     if (s.kind === 'welcome') return content;
     const top =
