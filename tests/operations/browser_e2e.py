@@ -18,6 +18,8 @@ MOBILE = os.environ.get('MOBILE_URL', 'http://127.0.0.1:8081').rstrip('/')
 STAFF = Path(os.environ.get('TEST_FLOW_STAFF_DIR', str(ROOT / '.local/test-flow-staff')))
 OUTPUT = ROOT / '.local/operations-e2e'
 OUTPUT.mkdir(parents=True, exist_ok=True)
+MODE = os.environ.get('RUN_MODE', 'all')
+assert MODE in ('all', 'operations', 'mobile'), 'Invalid RUN_MODE'
 stage = 'preflight'
 errors = []
 broken = []
@@ -138,118 +140,120 @@ def run():
         display = staff_page(browser, 'display', tokens['display'])
         manager = staff_page(browser, 'manager', tokens['manager'])
 
-        stage = 'role isolation'
-        denied = browser.new_page(viewport={'width': 1024, 'height': 1366})
-        watch(denied)
-        denied.goto(OPS + '/kitchen/prep')
-        denied.get_by_label('Ключ доступа', exact=True).fill(tokens['display'])
-        denied.get_by_role('button', name='Открыть рабочий экран', exact=True).click()
-        expect(denied.get_by_role('alert')).to_contain_text('нет прав')
-        assert denied.locator('.ticket').count() == 0
-        denied.close(); checks.append('display key cannot open kitchen')
+        if MODE != 'mobile':
+            stage = 'role isolation'
+            denied = browser.new_page(viewport={'width': 1024, 'height': 1366})
+            watch(denied)
+            denied.goto(OPS + '/kitchen/prep')
+            denied.get_by_label('Ключ доступа', exact=True).fill(tokens['display'])
+            denied.get_by_role('button', name='Открыть рабочий экран', exact=True).click()
+            expect(denied.get_by_role('alert')).to_contain_text('нет прав')
+            assert denied.locator('.ticket').count() == 0
+            denied.close(); checks.append('display key cannot open kitchen')
 
-        stage = 'kiosk create'
-        context = browser.new_context(viewport={'width': 1024, 'height': 1366})
-        kiosk = context.new_page(); watch(kiosk)
-        kiosk.goto(OPS + '/kiosk')
-        first = create_kiosk(kiosk)
-        first_session = kiosk.evaluate('()=>sessionStorage.getItem("pickchick.kiosk.session")')
+            stage = 'kiosk create'
+            context = browser.new_context(viewport={'width': 1024, 'height': 1366})
+            kiosk = context.new_page(); watch(kiosk)
+            kiosk.goto(OPS + '/kiosk')
+            first = create_kiosk(kiosk)
+            first_session = kiosk.evaluate('()=>sessionStorage.getItem("pickchick.kiosk.session")')
 
-        stage = 'lost response / exact retry after reload'
-        attempts = []
-        injected = False
-        def lose_response(route):
-            nonlocal injected
-            attempts.append({'key': route.request.header_value('idempotency-key'), 'body': route.request.post_data})
-            if not injected:
-                injected = True
-                response = route.fetch()
-                assert response.ok, 'Injected payment was not committed'
-                route.abort('failed')
-            else:
-                route.continue_()
-        kiosk.route('**/simulated-payment', lose_response)
-        kiosk.get_by_role('button', name='Тест: подтвердить оплату', exact=True).click()
-        expect(kiosk.get_by_role('button', name='Повторить прежний запрос', exact=True)).to_be_enabled()
-        assert kiosk.get_by_role('button', name='Следующий гость', exact=True).count() == 0
-        kiosk.reload()
-        expect(kiosk.get_by_role('button', name='Повторить прежний запрос', exact=True)).to_be_enabled()
-        kiosk.get_by_role('button', name='Повторить прежний запрос', exact=True).click()
-        expect(kiosk.get_by_role('heading', name='Ваш заказ на кухне', exact=True)).to_be_visible(timeout=15000)
-        assert len(attempts) == 2 and attempts[0] == attempts[1], 'Retry changed key or payload'
-        kiosk.unroute('**/simulated-payment', lose_response)
-        checks.append('committed payment response lost; reload retries same key/body')
+            stage = 'lost response / exact retry after reload'
+            attempts = []
+            injected = False
+            def lose_response(route):
+                nonlocal injected
+                attempts.append({'key': route.request.header_value('idempotency-key'), 'body': route.request.post_data})
+                if not injected:
+                    injected = True
+                    response = route.fetch()
+                    assert response.ok, 'Injected payment was not committed'
+                    route.abort('failed')
+                else:
+                    route.continue_()
+            kiosk.route('**/simulated-payment', lose_response)
+            kiosk.get_by_role('button', name='Тест: подтвердить оплату', exact=True).click()
+            expect(kiosk.get_by_role('button', name='Повторить прежний запрос', exact=True)).to_be_enabled()
+            assert kiosk.get_by_role('button', name='Следующий гость', exact=True).count() == 0
+            kiosk.reload()
+            expect(kiosk.get_by_role('button', name='Повторить прежний запрос', exact=True)).to_be_enabled()
+            kiosk.get_by_role('button', name='Повторить прежний запрос', exact=True).click()
+            expect(kiosk.get_by_role('heading', name='Ваш заказ на кухне', exact=True)).to_be_visible(timeout=15000)
+            assert len(attempts) == 2 and attempts[0] == attempts[1], 'Retry changed key or payload'
+            kiosk.unroute('**/simulated-payment', lose_response)
+            checks.append('committed payment response lost; reload retries same key/body')
 
-        stage = 'next guest before first handoff'
-        kiosk.get_by_role('button', name='Следующий гость', exact=True).click()
-        expect(kiosk.locator('.attract')).to_be_visible()
-        assert kiosk.evaluate('()=>sessionStorage.getItem("pickchick.kiosk.session")') is None
-        assert first['number'] not in kiosk.locator('body').inner_text()
-        kiosk.get_by_role('button', name='НАЧАТЬ →', exact=True).click()
-        kiosk.get_by_role('button', name=re.compile('С СОБОЙ')).click()
-        assert kiosk.evaluate('()=>sessionStorage.getItem("pickchick.kiosk.session")') != first_session
-        assert first['number'] not in kiosk.locator('body').inner_text()
-        expect(kiosk.locator('.cart-bar')).to_contain_text('В корзине: 0')
-        current = api_request.get(API + '/orders/' + first['order_id'], headers={'Authorization': 'Bearer ' + tokens['manager']})
-        assert current.ok and current.json()['state'] == 'preparing', 'New guest altered first order'
-        checks.append('new guest clears local session while first server order stays preparing')
+            stage = 'next guest before first handoff'
+            kiosk.get_by_role('button', name='Следующий гость', exact=True).click()
+            expect(kiosk.locator('.attract')).to_be_visible()
+            assert kiosk.evaluate('()=>sessionStorage.getItem("pickchick.kiosk.session")') is None
+            assert first['number'] not in kiosk.locator('body').inner_text()
+            kiosk.get_by_role('button', name='НАЧАТЬ →', exact=True).click()
+            kiosk.get_by_role('button', name=re.compile('С СОБОЙ')).click()
+            assert kiosk.evaluate('()=>sessionStorage.getItem("pickchick.kiosk.session")') != first_session
+            assert first['number'] not in kiosk.locator('body').inner_text()
+            expect(kiosk.locator('.cart-bar')).to_contain_text('В корзине: 0')
+            current = api_request.get(API + '/orders/' + first['order_id'], headers={'Authorization': 'Bearer ' + tokens['manager']})
+            assert current.ok and current.json()['state'] == 'preparing', 'New guest altered first order'
+            checks.append('new guest clears local session while first server order stays preparing')
 
-        stage = 'kiosk kitchen assembly display'
-        prepare_and_assemble(prep, assembly, display, first['number'])
-        assert_layout(prep, 'kitchen-prep')
-        assert_layout(assembly, 'kitchen-assembly')
-        assert_layout(display, 'display-ready')
-        handoff(assembly, display, first['number'])
-        checks.append('kiosk → prep → assembly → display → staff handoff')
+            stage = 'kiosk kitchen assembly display'
+            prepare_and_assemble(prep, assembly, display, first['number'])
+            assert_layout(prep, 'kitchen-prep')
+            assert_layout(assembly, 'kitchen-assembly')
+            assert_layout(display, 'display-ready')
+            handoff(assembly, display, first['number'])
+            checks.append('kiosk → prep → assembly → display → staff handoff')
 
-        stage = 'unknown payment survives reload'
-        unknown = create_kiosk(kiosk, start=False)
-        kiosk.get_by_role('button', name='Тест: неизвестный результат', exact=True).click()
-        expect(kiosk.get_by_role('heading', name='Проверяем тестовую оплату', exact=True)).to_be_visible()
-        kiosk.reload()
-        expect(kiosk.locator('.order-number')).to_have_text(unknown['number'])
-        assert kiosk.get_by_role('button', name='Тест: подтвердить оплату', exact=True).count() == 0
-        assert kiosk.get_by_role('button', name='Следующий гость', exact=True).count() == 0
-        kiosk.get_by_role('button', name='Нужна помощь', exact=True).click()
-        expect(kiosk.get_by_role('dialog')).to_contain_text(unknown['number'])
-        assert kiosk.get_by_role('button', name='Завершить сеанс', exact=True).count() == 0
-        kiosk.get_by_role('button', name='Вернуться к проверке', exact=True).click()
-        manager_open(manager, unknown['number'])
-        manager.locator('.order-details').get_by_role('button', name='Тест: подтвердить', exact=True).click()
-        expect(kiosk.get_by_role('heading', name='Ваш заказ на кухне', exact=True)).to_be_visible(timeout=15000)
-        assert_layout(kiosk, 'kiosk-confirmed-1024')
-        # Cancel only the order created by this run; no unrelated user/test orders touched.
-        manager.locator('.order-details').get_by_label('Причина отмены тестового заказа').fill('Завершение браузерной проверки неизвестного результата')
-        manager.locator('.order-details').get_by_role('button', name='Отменить с причиной', exact=True).click()
-        expect(kiosk.get_by_role('heading', name='Заказ отменён', exact=True)).to_be_visible(timeout=15000)
-        checks.append('unknown persists; no new guest/payment; manager resolves same order')
+            stage = 'unknown payment survives reload'
+            unknown = create_kiosk(kiosk, start=False)
+            kiosk.get_by_role('button', name='Тест: неизвестный результат', exact=True).click()
+            expect(kiosk.get_by_role('heading', name='Проверяем тестовую оплату', exact=True)).to_be_visible()
+            kiosk.reload()
+            expect(kiosk.locator('.order-number')).to_have_text(unknown['number'])
+            assert kiosk.get_by_role('button', name='Тест: подтвердить оплату', exact=True).count() == 0
+            assert kiosk.get_by_role('button', name='Следующий гость', exact=True).count() == 0
+            kiosk.get_by_role('button', name='Нужна помощь', exact=True).click()
+            expect(kiosk.get_by_role('dialog')).to_contain_text(unknown['number'])
+            assert kiosk.get_by_role('button', name='Завершить сеанс', exact=True).count() == 0
+            kiosk.get_by_role('button', name='Вернуться к проверке', exact=True).click()
+            manager_open(manager, unknown['number'])
+            manager.locator('.order-details').get_by_role('button', name='Тест: подтвердить', exact=True).click()
+            expect(kiosk.get_by_role('heading', name='Ваш заказ на кухне', exact=True)).to_be_visible(timeout=15000)
+            assert_layout(kiosk, 'kiosk-confirmed-1024')
+            # Cancel only the order created by this run; no unrelated user/test orders touched.
+            manager.locator('.order-details').get_by_label('Причина отмены тестового заказа').fill('Завершение браузерной проверки неизвестного результата')
+            manager.locator('.order-details').get_by_role('button', name='Отменить с причиной', exact=True).click()
+            expect(kiosk.get_by_role('heading', name='Заказ отменён', exact=True)).to_be_visible(timeout=15000)
+            checks.append('unknown persists; no new guest/payment; manager resolves same order')
 
-        stage = 'mobile web create'
-        mobile_context = browser.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
-        mobile = mobile_context.new_page(); watch(mobile)
-        mobile.goto(MOBILE + '/screen/M06')
-        mobile.get_by_test_id('product-pick-combo').click(timeout=60000)
-        mobile.get_by_test_id('product-add').click()
-        mobile.get_by_test_id('cart-checkout').click()
-        with mobile.expect_response(lambda r: r.request.method == 'POST' and r.url == API + '/orders') as received:
-            mobile.get_by_test_id('test-checkout-create').click()
-        assert received.value.ok, 'Mobile order creation rejected'
-        mobile_order = received.value.json()
-        numbers.append(mobile_order['number']); created_ids.append(mobile_order['order_id'])
-        assert mobile_order['snapshot']['channel'] == 'mobile'
-        expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'])
-        mobile.get_by_role('button', name='Тест: подтвердить и передать на кухню', exact=True).click()
-        expect(mobile.get_by_text('Задания уже появились на двух кухонных экранах.', exact=True)).to_be_visible(timeout=15000)
-        mobile.reload()
-        expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'], timeout=60000)
-        stage = 'mobile kitchen display handoff'
-        prepare_and_assemble(prep, assembly, display, mobile_order['number'])
-        expect(mobile.get_by_text('Можно забирать', exact=True)).to_be_visible(timeout=15000)
-        assert_layout(mobile, 'mobile-ready-390')
-        assert_layout(manager, 'manager-orders')
-        handoff(assembly, display, mobile_order['number'])
-        expect(mobile.get_by_text('Выдача подтверждена на кухне. Заказ убран с табло.', exact=True)).to_be_visible(timeout=15000)
-        checks.append('mobile persisted order → both kitchen stations → display + own status → handoff')
+        if MODE != 'operations':
+            stage = 'mobile web create'
+            mobile_context = browser.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+            mobile = mobile_context.new_page(); watch(mobile)
+            mobile.goto(MOBILE + '/screen/M06')
+            mobile.get_by_test_id('product-pick-combo').click(timeout=60000)
+            mobile.get_by_test_id('product-add').click()
+            mobile.get_by_test_id('cart-checkout').click()
+            with mobile.expect_response(lambda r: r.request.method == 'POST' and r.url == API + '/orders') as received:
+                mobile.get_by_test_id('test-checkout-create').click()
+            assert received.value.ok, 'Mobile order creation rejected'
+            mobile_order = received.value.json()
+            numbers.append(mobile_order['number']); created_ids.append(mobile_order['order_id'])
+            assert mobile_order['snapshot']['channel'] == 'mobile'
+            expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'])
+            mobile.get_by_role('button', name='Тест: подтвердить и передать на кухню', exact=True).click()
+            expect(mobile.get_by_text('Задания уже появились на двух кухонных экранах.', exact=True)).to_be_visible(timeout=15000)
+            mobile.reload()
+            expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'], timeout=60000)
+            stage = 'mobile kitchen display handoff'
+            prepare_and_assemble(prep, assembly, display, mobile_order['number'])
+            expect(mobile.get_by_text('Можно забирать', exact=True)).to_be_visible(timeout=15000)
+            assert_layout(mobile, 'mobile-ready-390')
+            assert_layout(manager, 'manager-orders')
+            handoff(assembly, display, mobile_order['number'])
+            expect(mobile.get_by_text('Выдача подтверждена на кухне. Заказ убран с табло.', exact=True)).to_be_visible(timeout=15000)
+            checks.append('mobile persisted order → both kitchen stations → display + own status → handoff')
 
         stage = 'result verification'
         for order_id in created_ids:
@@ -262,11 +266,11 @@ def run():
 
 try:
     run()
-    result = {'success': True, 'synthetic': True, 'checks': checks, 'orders': numbers,
+    result = {'success': True, 'synthetic': True, 'mode': MODE, 'checks': checks, 'orders': numbers,
               'browser_errors': errors, 'failed_resources': broken}
 except Exception as failure:
     # Playwright exceptions may include filled field values. Never emit their raw text.
-    result = {'success': False, 'stage': stage, 'error_type': type(failure).__name__,
+    result = {'success': False, 'mode': MODE, 'stage': stage, 'error_type': type(failure).__name__,
               'checks': checks, 'orders': numbers, 'browser_errors': errors, 'failed_resources': broken}
     if isinstance(failure, AssertionError):
         result['assertion'] = str(failure)
