@@ -105,17 +105,23 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel="Открыть мои Чики"
+      testID="loyalty-card"
       style={({ pressed }) => [brand.loyalty, pressed && ui.pressed]}
     >
       <Image
-        source={require('../../../../design/prototype/assets/mockup/skyline.svg')}
+        source={assets.skyline}
+        testID="loyalty-skyline"
+        pointerEvents="none"
         style={brand.skyline}
         contentFit="cover"
+        contentPosition="bottom"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       />
       <View style={brand.ring}>
-        <Body style={{ fontFamily: font.display, fontSize: 14 }}>{preview ? '66%' : 'Ч'}</Body>
+        <Body style={{ fontFamily: font.display, fontSize: 14, lineHeight: 18 }}>
+          {preview ? '66%' : 'Ч'}
+        </Body>
       </View>
       <View style={ui.flex}>
         <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
@@ -215,15 +221,26 @@ const brand = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     backgroundColor: colors.surface,
-    overflow: 'hidden',
+    // The supplied skyline deliberately rises above the card's top edge.
+    overflow: 'visible',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
   },
-  skyline: { position: 'absolute', left: 0, bottom: 0, right: 0, top: -26, opacity: 0.34 },
+  skyline: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    right: 0,
+    top: -26,
+    opacity: 0.34,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
   ring: {
     width: 52,
     height: 52,
+    flexShrink: 0,
     borderRadius: 26,
     borderWidth: 6,
     borderColor: colors.accent,

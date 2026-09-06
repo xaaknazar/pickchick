@@ -29,7 +29,54 @@ export function Icon({
   size?: number;
   color?: string;
 }) {
-  return <Ionicons name={name} size={size} color={color} />;
+  return (
+    <View
+      pointerEvents="none"
+      accessible={false}
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <Ionicons
+        name={name}
+        size={size}
+        color={color}
+        allowFontScaling={false}
+        style={{ includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' }}
+      />
+    </View>
+  );
+}
+// Exact 24×24 outlines from the supplied mobile v2 mockup. An image gives all
+// four tabs the same optical box without platform icon-font baseline offsets.
+export function TabIcon({
+  name,
+  color,
+}: {
+  name: 'menu' | 'events' | 'orders' | 'profile';
+  color: string;
+}) {
+  const paths = {
+    menu: '<path d="M3 6h18M3 12h18M3 18h12"/>',
+    events: '<rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+    orders: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><path d="M9 7h6M9 11h6"/>',
+    profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>',
+  };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+  return (
+    <Image
+      source={{ uri: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` }}
+      style={{ width: 23, height: 23, flexShrink: 0 }}
+      contentFit="contain"
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    />
+  );
 }
 export function Body({
   children,
@@ -134,6 +181,7 @@ export function IconButton({
   onPress,
   style,
   testID,
+  disabled = false,
 }: {
   name: IconName;
   color?: string;
@@ -141,14 +189,22 @@ export function IconButton({
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed, style]}
+      style={({ pressed }) => [
+        styles.iconButton,
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
+        style,
+      ]}
     >
       <Icon name={name} color={color} />
     </Pressable>
@@ -186,7 +242,9 @@ export function ReviewBadge() {
   return (
     <View style={styles.reviewBadge}>
       <Icon name="color-palette-outline" size={16} color={colors.warning} />
-      <Caption style={{ color: colors.warning }}>Просмотр дизайна · пример, не операция</Caption>
+      <Caption style={{ color: colors.warning, flex: 1 }}>
+        Просмотр дизайна · пример, не операция
+      </Caption>
     </View>
   );
 }
@@ -374,7 +432,7 @@ export const styles = StyleSheet.create({
   headingSmall: { fontSize: 24, lineHeight: 29 },
   caption: { fontFamily: font.body, color: colors.muted, fontSize: 13, lineHeight: 19 },
   logo: { overflow: 'hidden', borderRadius: 12, backgroundColor: '#0047BB' },
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   card: {
     borderRadius: 20,
@@ -401,6 +459,8 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 25,
     textAlign: 'center',
+    flexShrink: 1,
+    minWidth: 0,
   },
   secondaryButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   secondaryButtonText: { color: colors.text },
