@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from kiosk_ux import check_kiosk_ux
 root = Path(__file__).resolve().parents[2]
 screens = json.loads((root / 'design/prototype/screens.json').read_text())
 base = os.environ.get('DESIGN_URL', 'http://127.0.0.1:4173')
@@ -89,6 +90,7 @@ with sync_playwright() as p:
     cold.locator('.toast').filter(has_text='Видео недоступно. Меню работает; показываем обложку.').wait_for()
     assert cold.locator('#preview video').evaluate('(v)=>v.paused')
     cold.close()
+    kiosk_checks = check_kiosk_ux(browser, base)
     page.set_viewport_size({'width': 2100, 'height': 1550})
     for (id, name) in [('M06', 'mobile-menu'), ('M07', 'mobile-product'), ('M18', 'mobile-ready'), ('M23', 'mobile-wallet'), ('M30', 'mobile-profile'), ('K01', 'kiosk-welcome'), ('K03', 'kiosk-menu'), ('P03', 'pos-sale'), ('D01', 'kitchen-a'), ('D02', 'kitchen-b'), ('T01', 'display'), ('B02', 'backoffice')]:
         page.goto(base + '/')
@@ -116,6 +118,7 @@ with sync_playwright() as p:
     page.screenshot(path=str(output / 'review-at-390.png'), full_page=True)
     browser.close()
 result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'video_poster_fallbacks': video_fallbacks, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout', 'reference video pause', 'source bottom navigation', 'kiosk attract transition', 'pause before media can play', 'unavailable media resume fallback']}
+result['interactive_checks'].extend(kiosk_checks)
 (output / 'results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(result, ensure_ascii=False))
 assert not errors and (not broken) and (not overflows)
