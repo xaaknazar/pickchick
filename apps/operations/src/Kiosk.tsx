@@ -120,7 +120,10 @@ export function Kiosk() {
   const order = remote.data && (!ack || remote.data.version >= ack.version) ? remote.data : ack;
   const protectedOrder = Boolean(
     draft.pending ||
-    (draft.orderId && (!order || !['fulfilled', 'cancelled'].includes(order.state))),
+    (draft.orderId &&
+      (!order ||
+        (!['fulfilled', 'cancelled'].includes(order.state) &&
+          order.payment_state !== 'simulated_approved'))),
   );
   const products = catalog.data?.products ?? [];
   const selected = products.find((p) => p.id === draft.selected);
@@ -789,6 +792,18 @@ export function Kiosk() {
                   ) : null}
                   {order.state === 'ready' ? (
                     <Notice>Назовите номер сотруднику. Выдачу подтверждает сотрудник кухни.</Notice>
+                  ) : null}
+                  {['preparing', 'ready'].includes(order.state) &&
+                  order.payment_state === 'simulated_approved' ? (
+                    <>
+                      <p className="fine">
+                        Запомните номер: {order.number}. Заказ останется на кухне после завершения
+                        этого экрана.
+                      </p>
+                      <button className="primary full" onClick={reset}>
+                        Следующий гость
+                      </button>
+                    </>
                   ) : null}
                   {['fulfilled', 'cancelled'].includes(order.state) ? (
                     <button className="primary full" onClick={reset}>
