@@ -8,6 +8,7 @@ import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
 import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { MobileProvider } from '../store';
+import { DemoAccountProvider } from '../useDemoAccount';
 
 export default function Layout() {
   const [loaded, error] = useFonts({
@@ -39,9 +40,13 @@ export default function Layout() {
       </View>
     );
   return (
-    <MobileProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#04143A' } }} />
-    </MobileProvider>
+    <DemoAccountProvider>
+      <MobileProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#04143A' } }}
+        />
+      </MobileProvider>
+    </DemoAccountProvider>
   );
 }
