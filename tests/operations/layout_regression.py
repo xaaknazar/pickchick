@@ -11,6 +11,9 @@ from kiosk_recovery import KioskRecovery, Fixture, BRANCH
 class KioskLayout(KioskRecovery):
     # Inherit setup/helpers, not the eight existing recovery tests.
     def test_fixed_actions_in_portrait_landscape_and_short_viewports(self):
+        self.assertEqual(self.page.locator('.video-toggle').count(), 0)
+        self.page.emulate_media(reduced_motion='reduce')
+        self.page.wait_for_function('()=>{const v=document.querySelector(".attract video");return v && v.paused && !v.autoplay;}')
         self.start()
         self.add()
         for width, height in [(768, 1024), (820, 1180), (1024, 768), (1180, 820), (1024, 600)]:
@@ -106,6 +109,8 @@ class MobileLayout(unittest.TestCase):
                 page.get_by_test_id('tab-' + tab).click()
                 expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
                 self.fixed(page, 'tab-' + tab, 'scroll-' + screen, 390, bottom_gap=0)
+                self.fixed(page, 'open-cart', 'scroll-' + screen, 390)
+                self.assertEqual(page.get_by_test_id('open-cart').count(), 1)
             self.assertEqual(errors, [])
             browser.close()
 

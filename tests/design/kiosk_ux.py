@@ -31,8 +31,8 @@ def check_kiosk_ux(browser, base):
         assert not undersized, (screen, undersized)
 
     visit('K01')
-    page.locator('#preview [data-action="video-toggle"]').click()
-    assert page.locator('#preview video').evaluate('(v)=>v.paused && !v.autoplay')
+    assert page.locator('#preview [data-action="video-toggle"]').count() == 0
+    assert page.locator('#preview video').evaluate('(v)=>!v.controls && v.muted && v.loop')
     click_route('K02')
     page.locator('#preview [data-mode="В зале"]').click()
     page.wait_for_selector('.rk-menu-scroll')
@@ -102,7 +102,7 @@ def check_kiosk_ux(browser, base):
     assert page.locator('.rk-quantity strong').inner_text() == '1'
     assert not errors, errors
     page.close()
-    return ['K01–K16 native 64px touch targets', 'kiosk video pause',
+    return ['K01–K16 native 64px touch targets', 'kiosk video without playback controls',
             'fixed cart footer while scrolling', 'modifiers survive quantity and resume',
             'combo selection and previous step', 'phone keyboard focus order',
             'unknown-payment help has no new-session shortcut', 'new guest resets choices']

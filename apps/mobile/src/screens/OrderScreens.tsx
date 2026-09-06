@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
-import { FeatureTile, LoyaltyCard } from '../components/Brand';
 import {
   Body,
   Button,
@@ -384,60 +383,200 @@ export function Refund(props: ScreenProps) {
   );
 }
 export function Wallet(props: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const levels = [
+    { name: 'Новичок', rate: '3%', threshold: '0 ₸', width: '100%' as const },
+    { name: 'Свой', rate: '5%', threshold: '25 000 ₸', width: '100%' as const },
+    { name: 'Пик-мастер', rate: '7%', threshold: '75 000 ₸', width: '66%' as const },
+    { name: 'Пик', rate: '10%', threshold: '200 000 ₸', width: '0%' as const },
+  ];
   return (
-    <Page props={props} title="Мои Чики">
-      <View>
-        <Caption>ТВОЯ ЛОЯЛЬНОСТЬ</Caption>
-        <Heading>Чики</Heading>
+    <View testID="screen-M23" style={[s.walletPage, { paddingTop: insets.top }]}>
+      <View style={s.walletHeader}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Назад"
+          onPress={props.goBack}
+          style={s.walletBack}
+        >
+          <Icon name="chevron-back" size={21} color={colors.action} />
+          <Text style={s.walletBackLabel}>Назад</Text>
+        </Pressable>
       </View>
-      <View style={s.walletCard}>
-        <Image
-          source={assets.blue}
-          style={[StyleSheet.absoluteFill, { opacity: 0.55 }]}
-          contentFit="cover"
-        />
-        <Row>
-          <Body style={ui.flex}>{props.preview ? 'Доступно · пример' : 'Ваш баланс'}</Body>
-          <Icon name="sparkles-outline" size={30} />
-        </Row>
-        <Text style={s.walletBalance}>
-          {props.preview ? '1 240' : '—'} <Text style={{ fontSize: 38 }}>Ч</Text>
-        </Text>
-        <Body>Копи, выбирай, обменивай</Body>
-        <Button title="Мой QR" secondary onPress={() => props.navigate('M29')} />
-      </View>
-      {!props.preview ? (
-        <Notice title="Чики скоро появятся">
-          Баланс станет доступен после входа и запуска программы лояльности.
-        </Notice>
-      ) : null}
-      <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M25')} />
-      <Row>
-        <FeatureTile
-          title="История"
-          subtitle="Все операции"
-          icon="receipt-outline"
-          onPress={() => props.navigate('M24')}
-        />
-        <FeatureTile
-          title="Дорога наград"
-          subtitle="Твой следующий пик"
-          icon="star-outline"
-          orange
-          onPress={() => props.navigate('M25')}
-        />
-      </Row>
-      <NavRow
-        title="События"
-        subtitle="Игры и новые впечатления"
-        onPress={() => props.navigate('M26')}
-      />
-      <NavRow
-        title="Правила программы"
-        subtitle="Начисление и обмен"
-        onPress={() => props.navigate('M33')}
-      />
-    </Page>
+      <ScrollView
+        testID="scroll-M23"
+        style={ui.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          s.walletContent,
+          { paddingBottom: Math.max(40, insets.bottom + 16) },
+        ]}
+      >
+        {props.preview ? <ReviewBadge /> : null}
+        <View style={s.walletCard}>
+          <Image
+            source={assets.mix}
+            style={[StyleSheet.absoluteFill, { opacity: 0.55 }]}
+            contentFit="cover"
+          />
+          <Text style={s.walletEyebrow}>КОШЕЛЁК ЧИКОВ</Text>
+          <Row style={s.walletBalanceRow}>
+            <Text style={s.walletBalance}>{props.preview ? '1 240' : '—'}</Text>
+            <Text style={s.walletMoney}>
+              {props.preview ? '= 1 240 ₸ · пример' : 'Баланс ещё недоступен'}
+            </Text>
+          </Row>
+          <Row style={s.walletMetrics}>
+            <View style={s.walletMetric}>
+              <Text style={s.walletMetricLabel}>
+                {props.preview ? 'Сгорит · пример' : 'Срок действия'}
+              </Text>
+              <Text style={s.walletMetricValue}>{props.preview ? '240' : '—'}</Text>
+            </View>
+            <View style={s.walletMetric}>
+              <Text style={s.walletMetricLabel}>Заработано за 90 дней</Text>
+              <Text style={s.walletMetricValue}>{props.preview ? '3 180' : '—'}</Text>
+            </View>
+          </Row>
+          <Text style={s.walletNote}>
+            {props.preview
+              ? 'Пример кошелька. Начисления, курс и условия программы ещё согласуются.'
+              : 'Чики появятся после входа и запуска программы лояльности.'}
+          </Text>
+          <View style={s.walletLogo}>
+            <Logo size={44} />
+          </View>
+        </View>
+
+        <Heading style={s.walletSection}>Уровни</Heading>
+        <View style={s.walletLevelList}>
+          {levels.map((level, index) => (
+            <View
+              key={level.name}
+              style={[s.walletLevel, props.preview && index === 2 && s.walletLevelCurrent]}
+            >
+              <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <Row style={{ gap: 10 }}>
+                  <Text style={s.walletLevelName}>{level.name}</Text>
+                  {props.preview && index === 2 ? (
+                    <Text style={s.walletLevelBadge}>ПРИМЕР УРОВНЯ</Text>
+                  ) : null}
+                </Row>
+                <Text
+                  style={[
+                    s.walletLevelRate,
+                    props.preview && index === 2 && { color: colors.accent },
+                  ]}
+                >
+                  {props.preview ? level.rate : '—'}
+                </Text>
+              </Row>
+              <Body muted style={s.walletLevelDetail}>
+                {props.preview
+                  ? 'Образец уровня: условия и преимущества ещё согласуются.'
+                  : 'Условия и преимущества появятся к запуску программы.'}
+              </Body>
+              <Row style={s.walletLevelProgressRow}>
+                <View style={s.walletLevelTrack}>
+                  {props.preview ? (
+                    <View
+                      style={[
+                        s.walletLevelFill,
+                        {
+                          width: level.width,
+                          backgroundColor: index === 2 ? colors.accent : colors.muted,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </View>
+                <Text style={s.walletLevelThreshold}>
+                  {props.preview ? level.threshold : 'Скоро'}
+                </Text>
+              </Row>
+            </View>
+          ))}
+        </View>
+
+        <Heading style={s.walletSection}>Как быстрее копить</Heading>
+        <View style={s.walletInsetList}>
+          {[
+            {
+              badge: 'Ч',
+              title: 'Чики за заказы',
+              detail: 'Начисление после запуска лояльности',
+              target: 'M33' as const,
+            },
+            {
+              badge: '★',
+              title: 'События недели',
+              detail: 'Игры и события Pick Chick',
+              target: 'M26' as const,
+            },
+            {
+              badge: '↑',
+              title: 'Дорога наград',
+              detail: 'Узнайте о следующих уровнях',
+              target: 'M25' as const,
+            },
+          ].map((item) => (
+            <Pressable
+              key={item.title}
+              accessibilityRole="button"
+              onPress={() => props.navigate(item.target)}
+              style={s.walletInsetRow}
+            >
+              <View style={s.walletEarnBadge}>
+                <Text style={s.walletEarnSymbol}>{item.badge}</Text>
+              </View>
+              <View style={ui.flex}>
+                <Body style={s.walletRowTitle}>{item.title}</Body>
+                <Caption style={s.walletRowDetail}>{item.detail}</Caption>
+              </View>
+              <Icon name="chevron-forward" size={17} color={colors.muted} />
+            </Pressable>
+          ))}
+        </View>
+
+        <Heading style={s.walletSection}>История</Heading>
+        <View style={s.walletInsetList}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => props.navigate('M24')}
+            style={s.walletInsetRow}
+          >
+            <View style={ui.flex}>
+              <Body style={s.walletRowTitle}>
+                {props.preview ? 'За любимый заказ · пример' : 'Операций пока нет'}
+              </Body>
+              <Caption style={s.walletRowDetail}>
+                {props.preview
+                  ? 'Посмотреть образцы операций'
+                  : 'Здесь будут начисления и списания'}
+              </Caption>
+            </View>
+            {props.preview ? <Text style={s.walletHistoryAmount}>+120</Text> : null}
+            <Icon name="chevron-forward" size={17} color={colors.muted} />
+          </Pressable>
+        </View>
+        <View style={[s.walletInsetList, { marginTop: 22 }]}>
+          {[
+            { title: 'Мой QR', target: 'M29' as const },
+            { title: 'Правила программы', target: 'M33' as const },
+          ].map((item) => (
+            <Pressable
+              key={item.title}
+              accessibilityRole="button"
+              onPress={() => props.navigate(item.target)}
+              style={s.walletInsetRow}
+            >
+              <Body style={[s.walletRowTitle, ui.flex]}>{item.title}</Body>
+              <Icon name="chevron-forward" size={17} color={colors.muted} />
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 export function Ledger(props: ScreenProps) {
@@ -573,20 +712,125 @@ const s = StyleSheet.create({
   },
   receiptInk: { color: '#24304A', textAlign: 'center' },
   receiptRule: { height: 1, width: '100%', backgroundColor: '#CBD3DF' },
-  walletCard: {
-    padding: 24,
-    backgroundColor: colors.action,
-    borderRadius: 25,
-    overflow: 'hidden',
-    gap: 15,
+  walletPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  walletHeader: {
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
+  walletBack: {
+    minHeight: 44,
+    flexDirection: 'row',
+    gap: 2,
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  walletBackLabel: { fontFamily: font.medium, fontSize: 17, color: colors.action },
+  walletContent: { paddingHorizontal: 18, paddingTop: 16 },
+  walletCard: {
+    padding: 22,
+    backgroundColor: colors.action,
+    borderRadius: 26,
+    overflow: 'hidden',
+  },
+  walletEyebrow: { fontFamily: font.bold, fontSize: 11.5, letterSpacing: 1.38, color: '#FFFFFFB3' },
+  walletBalanceRow: { marginTop: 10, gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' },
   walletBalance: {
     fontFamily: font.display,
     color: colors.white,
-    fontSize: 66,
-    lineHeight: 76,
-    letterSpacing: -2,
+    fontSize: 52,
+    lineHeight: 56,
+    letterSpacing: -1.56,
   },
+  walletMoney: { fontFamily: font.body, fontSize: 14, color: '#FFFFFFBF', paddingBottom: 6 },
+  walletMetrics: { marginTop: 18, gap: 10, alignItems: 'stretch' },
+  walletMetric: { flex: 1, backgroundColor: '#FFFFFF29', borderRadius: 14, padding: 12 },
+  walletMetricLabel: { fontFamily: font.body, fontSize: 11.5, lineHeight: 16, color: '#FFFFFFBF' },
+  walletMetricValue: {
+    marginTop: 4,
+    fontFamily: font.display,
+    fontSize: 19,
+    lineHeight: 25,
+    color: '#FFFFFF',
+  },
+  walletNote: {
+    marginTop: 14,
+    paddingRight: 54,
+    fontFamily: font.body,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: '#FFFFFFB3',
+  },
+  walletLogo: { position: 'absolute', right: 16, bottom: 16, opacity: 0.95 },
+  walletSection: {
+    fontFamily: font.display,
+    fontSize: 20,
+    lineHeight: 26,
+    letterSpacing: -0.2,
+    marginTop: 22,
+  },
+  walletLevelList: { marginTop: 12, gap: 10 },
+  walletLevel: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  walletLevelCurrent: { borderColor: colors.accent },
+  walletLevelName: { fontFamily: font.display, fontSize: 18, lineHeight: 24, color: colors.text },
+  walletLevelBadge: {
+    fontFamily: font.bold,
+    fontSize: 10.5,
+    letterSpacing: 0.63,
+    backgroundColor: colors.accent,
+    color: '#FFFFFF',
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  walletLevelRate: { fontFamily: font.display, fontSize: 17, lineHeight: 24, color: colors.muted },
+  walletLevelDetail: { marginTop: 8, fontSize: 13, lineHeight: 20 },
+  walletLevelProgressRow: { marginTop: 10, gap: 10 },
+  walletLevelTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    backgroundColor: colors.raised,
+  },
+  walletLevelFill: { height: 6, borderRadius: 3 },
+  walletLevelThreshold: { fontFamily: font.medium, fontSize: 12, color: colors.muted },
+  walletInsetList: {
+    marginTop: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  walletInsetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    minHeight: 48,
+    gap: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  walletEarnBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FF7A3D24',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletEarnSymbol: { fontFamily: font.display, fontSize: 15, color: colors.accent },
+  walletRowTitle: { fontFamily: font.medium, fontSize: 14.5, lineHeight: 21 },
+  walletRowDetail: { marginTop: 2, fontSize: 12.5, lineHeight: 18 },
+  walletHistoryAmount: { fontFamily: font.display, fontSize: 16, color: colors.success },
   rewardRoad: { gap: 35, paddingVertical: 24 },
   rewardNode: {
     width: 76,

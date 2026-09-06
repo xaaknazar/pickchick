@@ -788,16 +788,7 @@
   gap: 20px;
   align-items: center;
 }
-.kiosk .rk-video-control {
-  min-width: 64px;
-  min-height: 64px;
-  padding: 0;
-  color: white;
-  border: 2px solid #ffffff80;
-  background: #070c1699;
-  font-size: 28px;
-}
-.kiosk .rk-body .status-hero {
+.kiosk .kiosk .rk-body .status-hero {
   padding: 35px 30px;
 }
 .kiosk .rk-body .status-hero h2 {

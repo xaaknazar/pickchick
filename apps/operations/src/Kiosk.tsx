@@ -110,10 +110,28 @@ export function Kiosk() {
   const [quantity, setQuantity] = useState(1);
   const [idle, setIdle] = useState(false);
   const [idleLeft, setIdleLeft] = useState(15);
-  const [paused, setPaused] = useState(false);
   const [help, setHelp] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const activity = useRef(Date.now());
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => {
+      const element = video.current;
+      if (!element) return;
+      const play = !reduced.matches && !document.hidden;
+      element.autoplay = play;
+      if (play) void element.play().catch(() => {});
+      else element.pause();
+    };
+    sync();
+    reduced.addEventListener('change', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      reduced.removeEventListener('change', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [draft.screen]);
+
   const catalogLoad = useCallback(() => api.catalog(), []);
   const catalog = usePoll(catalogLoad);
   const orderLoad = useCallback(
@@ -415,25 +433,6 @@ export function Kiosk() {
           <div className="attract-shade" />
           <header>
             <Brand />
-            <button
-              className="video-toggle"
-              aria-label={paused ? 'Включить фоновое видео' : 'Остановить фоновое видео'}
-              onClick={() => {
-                if (!video.current) return;
-                if (!paused) {
-                  video.current.autoplay = false;
-                  video.current.pause();
-                  setPaused(true);
-                } else {
-                  void video.current
-                    .play()
-                    .then(() => setPaused(false))
-                    .catch(() => setPaused(true));
-                }
-              }}
-            >
-              {paused ? '▶' : 'Ⅱ'}
-            </button>
           </header>
           <div className="attract-copy">
             <h1>

@@ -2,14 +2,33 @@ import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  AppState,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { assets } from '../assets';
+import { WebHeroVideo } from './WebHeroVideo';
 import { colors, font } from '../theme';
-import { Body, Caption, Heading, Icon, IconButton, Row, styles as ui } from './UI';
+import { Body, Caption, Heading, Icon, Row, styles as ui } from './UI';
 
-export function HeroVideo() {
+export function HeroVideo({ shaded = true }: { shaded?: boolean }) {
+  return Platform.OS === 'web' ? (
+    <WebHeroVideo gradient={shaded ? gradient : undefined} />
+  ) : (
+    <NativeHeroVideo shaded={shaded} />
+  );
+}
+function NativeHeroVideo({ shaded = true }: { shaded?: boolean }) {
   const [reduced, setReduced] = useState(true);
-  const [playing, setPlaying] = useState(true);
+  const [firstFrame, setFirstFrame] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [active, setActive] = useState(AppState.currentState === 'active');
   const player = useVideoPlayer(assets.hero, (video) => {
     video.loop = true;
     video.muted = true;
@@ -19,19 +38,32 @@ export function HeroVideo() {
     void AccessibilityInfo.isReduceMotionEnabled().then((value) => {
       if (mounted) setReduced(value);
     });
+    const appState = AppState.addEventListener('change', (state) => setActive(state === 'active'));
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
     return () => {
       mounted = false;
       subscription.remove();
+      appState.remove();
     };
   }, []);
+  useEffect(() => {
+    const status = player.addListener('statusChange', ({ status }) => {
+      if (status === 'error') setFailed(true);
+    });
+    return () => status.remove();
+  }, [player]);
   useFocusEffect(
     useCallback(() => {
-      if (!reduced && playing) player.play();
-      else player.pause();
-      return () => player.pause();
-    }, [player, reduced, playing]),
+      setFocused(true);
+      // useVideoPlayer releases the native object during unmount. Focus cleanup
+      // only changes state; calling pause here would access an already freed player.
+      return () => setFocused(false);
+    }, []),
   );
+  useEffect(() => {
+    if (!reduced && active && focused && !failed) player.play();
+    else player.pause();
+  }, [player, reduced, active, focused, failed]);
   return (
     <>
       <Image
@@ -41,29 +73,28 @@ export function HeroVideo() {
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       />
-      {!reduced ? (
+      {!reduced && !failed ? (
         <VideoView
           player={player}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           nativeControls={false}
+          onFirstFrameRender={() => setFirstFrame(true)}
           accessible={false}
         />
       ) : null}
-      <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor: '#03102630' }]}
-      />
-      <View pointerEvents="none" style={brand.heroShadeTop} />
-      <View pointerEvents="none" style={brand.heroShadeBottom} />
-      {!reduced ? (
-        <IconButton
-          name={playing ? 'pause' : 'play'}
-          label={playing ? 'Остановить фоновое видео' : 'Включить фоновое видео'}
-          testID="hero-video-toggle"
-          onPress={() => setPlaying(!playing)}
-          style={brand.videoControl}
+      {!firstFrame || failed ? (
+        <Image
+          source={assets.poster}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
         />
+      ) : null}
+      {shaded ? (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, heroGradient]} />
       ) : null}
     </>
   );
@@ -76,23 +107,25 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
       accessibilityLabel="Открыть мои Чики"
       style={({ pressed }) => [brand.loyalty, pressed && ui.pressed]}
     >
-      <View style={brand.skyline} pointerEvents="none">
-        {[28, 42, 22, 62, 36, 48, 23, 72, 43, 55, 31, 61].map((height, index) => (
-          <View key={index} style={[brand.building, { height }]} />
-        ))}
-      </View>
+      <Image
+        source={require('../../../../design/prototype/assets/mockup/skyline.svg')}
+        style={brand.skyline}
+        contentFit="cover"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
       <View style={brand.ring}>
-        <Body style={{ fontFamily: font.bold, fontSize: 14 }}>{preview ? '66%' : 'Ч'}</Body>
+        <Body style={{ fontFamily: font.display, fontSize: 14 }}>{preview ? '66%' : 'Ч'}</Body>
       </View>
       <View style={ui.flex}>
-        <Heading small style={{ fontSize: 21 }}>
-          {preview ? 'Пик-мастер' : 'Твой следующий пик'}
+        <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
+          {preview ? 'Пик-мастер · кэшбэк 7%' : 'Чики за любимый вкус'}
         </Heading>
-        <Caption style={{ color: '#D6E3FA', marginTop: 3 }}>
-          {preview ? '1 240 Чиков · пример баланса' : 'Чики, награды и любимый вкус'}
+        <Caption style={{ color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 3 }}>
+          {preview ? '1 240 Чиков · пример баланса' : 'Программа лояльности · скоро'}
         </Caption>
       </View>
-      <Icon name="chevron-forward" size={20} />
+      <Icon name="chevron-forward" size={17} color={colors.muted} />
     </Pressable>
   );
 }
@@ -145,6 +178,7 @@ export function DiningSelector({
         <Pressable
           key={option.value}
           testID={`dining-${option.value}`}
+          hitSlop={{ top: 4, bottom: 4 }}
           accessibilityRole="radio"
           accessibilityState={{ selected: value === option.value }}
           onPress={() => onChange(option.value)}
@@ -154,69 +188,49 @@ export function DiningSelector({
             pressed && ui.pressed,
           ]}
         >
-          <Body style={{ fontFamily: font.bold, fontSize: 14 }}>{option.label}</Body>
+          <Body
+            style={{
+              fontFamily: font.medium,
+              fontSize: 13.5,
+              lineHeight: 19,
+              color: value === option.value ? '#0047BB' : '#FFFFFFDD',
+            }}
+          >
+            {option.label}
+          </Body>
         </Pressable>
       ))}
     </Row>
   );
 }
+// Original v2 hero gradient; use the matching native and web style properties.
+const gradient =
+  'linear-gradient(180deg, rgba(4,20,58,0.45) 0%, rgba(4,20,58,0.05) 26%, rgba(4,20,58,0) 52%, rgba(4,20,58,0.35) 78%, #04143A 100%)';
+const heroGradient = (
+  Platform.OS === 'web' ? { backgroundImage: gradient } : { experimental_backgroundImage: gradient }
+) as ViewStyle;
 const brand = StyleSheet.create({
-  heroShadeTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 185,
-    backgroundColor: '#03112670',
-  },
-  heroShadeBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 165,
-    backgroundColor: '#03112665',
-  },
-  videoControl: { position: 'absolute', bottom: 49, right: 18, backgroundColor: '#04143A99' },
   loyalty: {
-    position: 'relative',
-    minHeight: 108,
-    borderRadius: 22,
-    padding: 17,
-    backgroundColor: '#0B2B61',
-    borderWidth: 1,
-    borderColor: '#315181',
+    minHeight: 84,
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
+    gap: 14,
   },
-  skyline: {
-    position: 'absolute',
-    left: 0,
-    bottom: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    opacity: 0.45,
-  },
-  building: {
-    width: 23,
-    backgroundColor: '#18447E',
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
-  },
+  skyline: { position: 'absolute', left: 0, bottom: 0, right: 0, top: -26, opacity: 0.34 },
   ring: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 5,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 6,
     borderColor: colors.accent,
-    borderRightColor: '#305183',
+    borderRightColor: colors.raised,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   tile: {
     flex: 1,
@@ -228,14 +242,14 @@ const brand = StyleSheet.create({
     borderColor: colors.border,
     gap: 5,
   },
-  segment: { backgroundColor: '#071C3BAA', padding: 5, borderRadius: 17, gap: 5 },
+  segment: { backgroundColor: '#FFFFFF33', padding: 2, borderRadius: 11, gap: 0 },
   segmentItem: {
-    minHeight: 48,
-    borderRadius: 12,
+    minHeight: 36,
+    borderRadius: 9,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
-  segmentSelected: { backgroundColor: '#FFFFFF25', borderWidth: 1, borderColor: '#FFFFFF50' },
+  segmentSelected: { backgroundColor: '#FFFFFF' },
 });

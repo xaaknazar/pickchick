@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Product, ScreenProps } from '../model';
 import { assets } from '../assets';
+import { CartShortcut } from '../components/CartShortcut';
 import { colors, font } from '../theme';
 import { DiningSelector, HeroVideo, LoyaltyCard } from '../components/Brand';
 import {
@@ -32,28 +33,36 @@ import {
 export function Welcome(props: ScreenProps) {
   const insets = useSafeAreaInsets();
   return (
-    <View testID="screen-M01" style={[ui.page, { paddingTop: insets.top }]}>
-      <Image source={assets.blue} style={StyleSheet.absoluteFill} contentFit="cover" />
+    <View
+      testID="screen-M01"
+      style={[ui.page, { paddingTop: insets.top, backgroundColor: '#0047BB' }]}
+    >
+      <Image
+        source={assets.mix}
+        style={[StyleSheet.absoluteFill, { opacity: 0.65 }]}
+        contentFit="cover"
+      />
       <ScrollView
-        contentContainerStyle={[s.welcome, { paddingBottom: Math.max(insets.bottom, 24) }]}
+        contentContainerStyle={[s.welcome, { paddingBottom: Math.max(insets.bottom, 30) }]}
       >
-        <Row>
-          <Logo size={60} />
-          <Heading>Pick Chick</Heading>
-        </Row>
-        {props.preview ? <ReviewBadge /> : null}
-        <View style={s.welcomeArt}>
-          <Image source={assets.combo} style={s.welcomeFood} contentFit="cover" />
-          <View style={s.welcomeSticker}>
-            <Icon name="sparkles" color={colors.orangeInk} size={28} />
-            <Body style={s.stickerText}>PICK YOUR PEAK</Body>
-          </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => props.navigate('M06')}
+          style={{ alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' }}
+        >
+          <Body style={{ color: '#FFFFFFAA', fontFamily: font.medium, fontSize: 15 }}>
+            Пропустить
+          </Body>
+        </Pressable>
+        <View style={{ flex: 1, justifyContent: 'center', gap: 28, paddingVertical: 30 }}>
+          <Logo size={128} />
+          <Heading style={s.welcomeHeading}>Куриные фингерсы для тех, кто в движении</Heading>
+          <Body style={{ color: '#FFFFFFBF', lineHeight: 24 }}>
+            Один продукт, доведённый до пика вкуса. Своё производство, свои соусы.
+          </Body>
+          {props.preview ? <ReviewBadge /> : null}
         </View>
-        <Heading style={s.welcomeHeading}>Твой выбор.{`\n`}Твой пик.</Heading>
-        <Body style={{ color: '#DFE9FF' }}>
-          Хрустящий вкус и любимые комбо.{`\n`}Добро пожаловать в Pick Chick.
-        </Body>
-        <Row style={{ marginVertical: 8 }}>
+        <Row style={{ gap: 6, marginBottom: 4 }}>
           <View style={s.dotActive} />
           <View style={s.dot} />
           <View style={s.dot} />
@@ -132,67 +141,102 @@ export function Branches(props: ScreenProps) {
 }
 export function Menu(props: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const scroll = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
   const [category, setCategory] = useState('Комбо');
+  const [collapsed, setCollapsed] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(insets.top + 64);
+  const [collapsedHeaderHeight, setCollapsedHeaderHeight] = useState(insets.top + 62);
+  const [categoryTop, setCategoryTop] = useState(0);
+  const [categoryHeight, setCategoryHeight] = useState(62);
+  const [catalogTop, setCatalogTop] = useState(0);
   const categories = [...new Set(props.model.products.map((product) => product.category))];
-  const currentCategory = categories.includes(category) ? category : categories[0];
-  const products = props.model.products.filter((product) => product.category === currentCategory);
-  const compact = ['Допы', 'Напитки', 'Соусы'].includes(currentCategory ?? '');
-  const total = props.model.cart.reduce(
-    (sum, line) => sum + BigInt(line.product.priceMinor) * BigInt(line.quantity),
-    0n,
-  );
-  const count = props.model.cart.reduce((sum, line) => sum + line.quantity, 0);
   function openProduct(product: Product) {
     props.model.selectProduct(product.id);
     props.navigate('M07');
   }
+  const categoryBar = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={s.categoryList}
+    >
+      {categories.map((item) => (
+        <Pressable
+          key={item}
+          testID={`category-${item}`}
+          hitSlop={{ top: 4, bottom: 4 }}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: category === item }}
+          onPress={() => {
+            setCategory(item);
+            scroll.current?.scrollTo({
+              y: Math.max(
+                0,
+                catalogTop + (sectionY.current[item] ?? 0) - collapsedHeaderHeight - categoryHeight,
+              ),
+              animated: true,
+            });
+          }}
+          style={({ pressed }) => [
+            s.category,
+            category === item && s.categorySelected,
+            pressed && ui.pressed,
+          ]}
+        >
+          <Body style={s.categoryText}>{item}</Body>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
   return (
-    <View testID="screen-M06" style={ui.page}>
+    <View testID="screen-M06" style={[ui.page, { overflow: 'hidden' }]}>
       <ScrollView
+        ref={scroll}
         testID="scroll-M06"
         style={ui.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 24 }}
+        scrollEventThrottle={32}
+        onScroll={({ nativeEvent }) => {
+          const y = nativeEvent.contentOffset.y;
+          setCollapsed(y > 100);
+          setScrollY(y);
+          const visible = categories
+            .filter(
+              (item) =>
+                catalogTop + (sectionY.current[item] ?? 0) <=
+                y + headerHeight + categoryHeight + 28,
+            )
+            .at(-1);
+          if (visible) setCategory(visible);
+        }}
       >
-        <View style={[s.hero, { height: 620 + insets.top }]}>
+        <View
+          testID="storefront-hero"
+          style={[s.hero, { height: Math.max(560, Math.min(660, (width * 660) / 402)) }]}
+        >
           <HeroVideo />
-          <View style={[s.heroHeader, { paddingTop: insets.top + 12 }]}>
-            <Row>
-              <Logo />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Выбрать ресторан"
-                onPress={() => props.navigate('M05')}
-                style={ui.flex}
-              >
-                <Body style={{ fontFamily: font.bold }}>Pick Chick</Body>
-                <Caption style={{ color: '#E0E9FA' }}>
-                  {props.model.branch?.name ?? 'Выбрать ресторан'}⌄
-                </Caption>
-              </Pressable>
-              <IconButton
-                name="notifications-outline"
-                label="Уведомления"
-                onPress={() => props.navigate('M34')}
-                style={s.heroBell}
-              />
-            </Row>
-            <DiningSelector value={props.model.diningMode} onChange={props.model.setDiningMode} />
-          </View>
-          <View style={s.heroCaption}>
-            <Heading style={{ fontSize: 35, color: colors.white }}>Твой хрустящий пик</Heading>
-            <Body style={{ color: colors.white }}>Любимые комбо. Твой выбор.</Body>
-          </View>
+          <Pressable
+            testID="hero-promotion"
+            accessibilityRole="button"
+            accessibilityLabel="Комбо недели, подробнее"
+            onPress={() => {
+              const combo = props.model.products.find((item) => item.category === 'Комбо');
+              if (combo) openProduct(combo);
+              else props.navigate('M08');
+            }}
+            style={s.heroCaption}
+          >
+            <Heading style={s.heroTitle}>Комбо недели</Heading>
+            <Body style={s.heroSubtitle}>подробнее</Body>
+          </Pressable>
         </View>
         <View style={s.menuBody}>
           <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
           {props.preview ? <ReviewBadge /> : null}
-          {props.model.testFlow.available ? (
-            <Notice title="Заказ на тестовую кухню">
-              Вы можете проверить весь путь до выдачи. Деньги не списываются, ресторан тестовые
-              заказы не готовит.
-            </Notice>
-          ) : null}
           {props.model.testFlow.available && props.model.testFlow.current ? (
             <NavRow
               title={`Заказ ${props.model.testFlow.current.number}`}
@@ -227,71 +271,84 @@ export function Menu(props: ScreenProps) {
               <NavRow title="Проверить изменения корзины" onPress={() => props.navigate('M10')} />
             </>
           ) : null}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.categoryList}
-          >
-            {categories.map((item) => (
-              <Pressable
+        </View>
+        <View
+          onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
+          style={{ height: categoryHeight }}
+        />
+        <View style={s.catalogSections} onLayout={(e) => setCatalogTop(e.nativeEvent.layout.y)}>
+          {categories.map((item) => {
+            const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
+            return (
+              <View
                 key={item}
-                testID={`category-${item}`}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: currentCategory === item }}
-                onPress={() => setCategory(item)}
-                style={({ pressed }) => [
-                  s.category,
-                  currentCategory === item && s.categorySelected,
-                  pressed && ui.pressed,
-                ]}
+                onLayout={(e) => {
+                  sectionY.current[item] = e.nativeEvent.layout.y;
+                }}
               >
-                <Body style={s.categoryText}>{item}</Body>
-              </Pressable>
-            ))}
-          </ScrollView>
-          <Heading small>{currentCategory ?? 'Меню ресторана'}</Heading>
-          <View style={compact ? s.compactGrid : s.productList}>
-            {products.map((product, index) => (
-              <Pressable
-                key={product.id}
-                testID={`product-${product.id}`}
-                accessibilityRole="button"
-                accessibilityLabel={`${product.name}, ${MinorMoney(product.priceMinor)}`}
-                onPress={() => openProduct(product)}
-                style={({ pressed }) => [
-                  s.product,
-                  compact && s.compactProduct,
-                  pressed && ui.pressed,
-                ]}
-              >
-                <View style={[s.productPhotoWrap, compact && s.compactPhoto]}>
-                  <Image
-                    source={product.image}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                  />
-                  {index === 0 && props.model.catalogMode === 'design' ? (
-                    <View style={s.hit}>
-                      <Caption style={s.hitText}>ХИТ</Caption>
-                    </View>
-                  ) : null}
+                <Heading small style={s.sectionTitle}>
+                  {item}
+                </Heading>
+                <View style={compact ? s.compactGrid : s.productList}>
+                  {props.model.products
+                    .filter((product) => product.category === item)
+                    .map((product, index) => (
+                      <Pressable
+                        key={product.id}
+                        testID={`product-${product.id}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${product.name}, ${MinorMoney(product.priceMinor)}, выбрать`}
+                        onPress={() => openProduct(product)}
+                        style={({ pressed }) => [
+                          s.product,
+                          compact && [s.compactProduct, { width: (width - 48) / 2 }],
+                          pressed && ui.pressed,
+                        ]}
+                      >
+                        <View
+                          testID={`product-photo-${product.id}`}
+                          style={[s.productPhotoWrap, compact && s.compactPhoto]}
+                        >
+                          <Image
+                            source={product.image}
+                            style={StyleSheet.absoluteFill}
+                            contentFit="cover"
+                          />
+                          {index === 0 &&
+                          item === 'Комбо' &&
+                          props.model.catalogMode === 'design' ? (
+                            <View style={s.hit}>
+                              <Caption style={s.hitText}>ХИТ</Caption>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={s.productInfo}>
+                          <Heading small style={compact ? s.compactTitle : s.productTitle}>
+                            {product.name}
+                          </Heading>
+                          {!compact ? (
+                            <Caption style={s.productDescription}>{product.description}</Caption>
+                          ) : null}
+                          <Row style={s.productPriceRow}>
+                            <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
+                              {MinorMoney(product.priceMinor)}
+                            </Body>
+                            <View style={compact ? s.productPlus : s.productChoose}>
+                              {compact ? (
+                                <Icon name="add" color={colors.white} size={20} />
+                              ) : (
+                                <Body style={s.productChooseText}>Выбрать</Body>
+                              )}
+                            </View>
+                          </Row>
+                        </View>
+                      </Pressable>
+                    ))}
                 </View>
-                <View style={s.productInfo}>
-                  <Heading small style={{ fontSize: 21 }}>
-                    {product.name}
-                  </Heading>
-                  <Caption style={s.productDescription}>{product.description}</Caption>
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <Body style={s.productPrice}>{MinorMoney(product.priceMinor)}</Body>
-                    <View style={s.productPlus}>
-                      <Icon name="add" color={colors.accent} size={20} />
-                    </View>
-                  </Row>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-          {!products.length && props.model.connection.status !== 'loading' ? (
+              </View>
+            );
+          })}
+          {!props.model.products.length && props.model.connection.status !== 'loading' ? (
             <Empty
               title="Меню скоро появится"
               detail="Мы готовим каталог этого ресторана."
@@ -300,22 +357,54 @@ export function Menu(props: ScreenProps) {
           ) : null}
         </View>
       </ScrollView>
-      {count ? (
-        <BottomActions safeArea={!props.inTabLayout} style={{ paddingTop: 10, borderTopWidth: 0 }}>
-          <Pressable
-            testID="open-cart"
-            accessibilityRole="button"
-            accessibilityLabel={`Корзина, ${count} позиций, ${MinorMoney(total)}`}
-            onPress={() => props.navigate('M09')}
-            style={s.floatingCart}
-          >
-            <Icon name="bag-handle-outline" />
-            <Body style={{ fontFamily: font.bold }}>Корзина · {count}</Body>
-            <Body style={[ui.flex, { textAlign: 'right', fontFamily: font.bold }]}>
-              {MinorMoney(total)}
-            </Body>
-          </Pressable>
-        </BottomActions>
+      <View
+        testID="storefront-header"
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        style={[s.heroHeader, { paddingTop: insets.top + 8 }, collapsed && s.heroHeaderCollapsed]}
+      >
+        <View
+          onLayout={(e) =>
+            setCollapsedHeaderHeight(
+              insets.top + 18 + e.nativeEvent.layout.height + StyleSheet.hairlineWidth,
+            )
+          }
+        >
+          <Row style={{ gap: 12 }}>
+            <Logo size={38} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Выбрать ресторан"
+              onPress={() => props.navigate('M05')}
+              style={s.branchTitle}
+            >
+              <Heading style={s.brandTitle}>Pick Chick</Heading>
+              <Caption style={s.branchCaption}>
+                {props.model.branch?.name ?? 'Выбрать ресторан'}⌄
+              </Caption>
+            </Pressable>
+            <IconButton
+              name="notifications-outline"
+              label="Уведомления"
+              onPress={() => props.navigate('M34')}
+              style={s.heroBell}
+            />
+          </Row>
+        </View>
+        {!collapsed ? (
+          <DiningSelector value={props.model.diningMode} onChange={props.model.setDiningMode} />
+        ) : null}
+      </View>
+      <View
+        onLayout={(e) => setCategoryHeight(e.nativeEvent.layout.height)}
+        style={[
+          s.stickyCategories,
+          { top: Math.max(headerHeight, categoryTop - scrollY), opacity: categoryTop ? 1 : 0 },
+        ]}
+      >
+        {categoryBar}
+      </View>
+      {!props.inTabLayout ? (
+        <CartShortcut model={props.model} onPress={() => props.navigate('M09')} safeArea />
       ) : null}
     </View>
   );
@@ -343,20 +432,29 @@ export function ProductDetail(props: ScreenProps) {
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ height: 360 + insets.top, backgroundColor: '#E9EFF6' }}>
-          <Image source={product.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <View style={{ aspectRatio: 1, backgroundColor: '#E9EFF6' }}>
+          {product.id === 'pick-combo' ? (
+            <HeroVideo shaded={false} />
+          ) : (
+            <Image source={product.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+          )}
           <IconButton
             testID="product-close"
             name="close"
             label="Закрыть блюдо"
             onPress={props.goBack}
-            style={[s.productClose, { top: insets.top + 12 }]}
+            style={[s.productClose, { top: insets.top + 8 }]}
+            color="#12151C"
           />
         </View>
         <View style={s.detailBody}>
           {props.preview ? <ReviewBadge /> : null}
-          <Heading>{product.name}</Heading>
-          <Body muted>{product.description}</Body>
+          <Heading style={{ fontFamily: font.display, fontSize: 30, lineHeight: 32 }}>
+            {product.name}
+          </Heading>
+          <Body muted style={{ fontSize: 14.5, lineHeight: 22 }}>
+            {product.description}
+          </Body>
           <NavRow
             title="Состав и аллергены"
             subtitle="Что внутри любимого блюда"
@@ -474,6 +572,35 @@ export function Cart(props: ScreenProps) {
     <Page
       props={props}
       title="Корзина"
+      header={
+        <Row style={s.cartHeader}>
+          <IconButton
+            name="chevron-back"
+            label="Назад"
+            onPress={props.goBack}
+            style={s.cartHeaderButton}
+            color="#9DC0FF"
+          />
+          <Pressable
+            onPress={() => props.navigate('M05')}
+            accessibilityRole="button"
+            accessibilityLabel="Выбрать ресторан"
+            style={s.branchTitle}
+          >
+            <Heading style={s.brandTitle}>Pick Chick</Heading>
+            <Caption style={s.branchCaption}>
+              {props.model.branch?.name ?? 'Выбрать ресторан'} · корзина
+            </Caption>
+          </Pressable>
+          <IconButton
+            name="trash-outline"
+            label="Очистить корзину"
+            onPress={() => props.model.clearCart()}
+            style={s.cartHeaderButton}
+            color="#FF6B6E"
+          />
+        </Row>
+      }
       footer={
         props.model.cart.length ? (
           <>
@@ -495,12 +622,13 @@ export function Cart(props: ScreenProps) {
         />
       ) : (
         <>
-          <NavRow
-            title={props.model.branch?.name ?? 'Выберите ресторан'}
-            subtitle={props.model.diningMode === 'takeaway' ? 'Заберу сам' : 'В зале'}
-            icon="location-outline"
-            onPress={() => props.navigate('M05')}
-          />
+          <Row style={s.cartFulfilment}>
+            <Icon name="bag-handle-outline" size={16} color={colors.accent} />
+            <Body style={{ fontSize: 13.5, fontFamily: font.medium }}>
+              {props.model.diningMode === 'takeaway' ? 'Заберу сам' : 'В зале'} · после
+              подтверждения заказа
+            </Body>
+          </Row>
           {props.model.catalogMode === 'design' ? (
             <Notice warning>Это корзина из образцов дизайна. Заказ и оплата недоступны.</Notice>
           ) : null}
@@ -508,45 +636,67 @@ export function Cart(props: ScreenProps) {
             <View key={line.product.id} style={s.cartLine}>
               <Image source={line.product.image} style={s.cartImage} contentFit="cover" />
               <View style={ui.flex}>
-                <Heading small style={{ fontSize: 19 }}>
+                <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
                   {line.product.name}
                 </Heading>
-                <Body style={{ marginVertical: 6 }}>
-                  {MinorMoney(BigInt(line.product.priceMinor) * BigInt(line.quantity))}
-                </Body>
-                <Row style={s.stepper}>
-                  <IconButton
-                    name={line.quantity === 1 ? 'trash-outline' : 'remove'}
-                    label={
-                      line.quantity === 1
-                        ? `Удалить ${line.product.name}`
-                        : `Уменьшить ${line.product.name}`
-                    }
-                    testID={`cart-minus-${line.product.id}`}
-                    onPress={() => props.model.setQuantity(line.product.id, line.quantity - 1)}
-                  />
-                  <Body
-                    testID={`cart-quantity-${line.product.id}`}
-                    style={{ minWidth: 22, textAlign: 'center', fontFamily: font.bold }}
-                  >
-                    {line.quantity}
+                <Caption style={{ fontSize: 12, lineHeight: 17, marginTop: 4 }}>
+                  {line.product.description}
+                </Caption>
+                <Row
+                  style={{
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginTop: 10,
+                  }}
+                >
+                  <Row style={s.stepper}>
+                    <IconButton
+                      style={{ width: 44, height: 44 }}
+                      name={line.quantity === 1 ? 'trash-outline' : 'remove'}
+                      label={
+                        line.quantity === 1
+                          ? `Удалить ${line.product.name}`
+                          : `Уменьшить ${line.product.name}`
+                      }
+                      testID={`cart-minus-${line.product.id}`}
+                      onPress={() => props.model.setQuantity(line.product.id, line.quantity - 1)}
+                    />
+                    <Body
+                      testID={`cart-quantity-${line.product.id}`}
+                      style={{ minWidth: 16, textAlign: 'center', fontFamily: font.bold }}
+                    >
+                      {line.quantity}
+                    </Body>
+                    <IconButton
+                      style={{ width: 44, height: 44 }}
+                      name="add"
+                      label={`Добавить ещё ${line.product.name}`}
+                      testID={`cart-plus-${line.product.id}`}
+                      onPress={() => props.model.setQuantity(line.product.id, line.quantity + 1)}
+                    />
+                  </Row>
+                  <Body style={{ fontFamily: font.display, fontSize: 17 }}>
+                    {MinorMoney(BigInt(line.product.priceMinor) * BigInt(line.quantity))}
                   </Body>
-                  <IconButton
-                    name="add"
-                    label={`Добавить ещё ${line.product.name}`}
-                    testID={`cart-plus-${line.product.id}`}
-                    onPress={() => props.model.setQuantity(line.product.id, line.quantity + 1)}
-                  />
                 </Row>
               </View>
             </View>
           ))}
-          <NavRow title="Промокод" subtitle="Скоро можно будет применить при оформлении" disabled />
-          <NavRow
-            title="Использовать Чики"
-            subtitle="После входа и подключения программы"
-            disabled
-          />
+          <View
+            style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 16 }}
+          >
+            <NavRow
+              title="Промокод"
+              subtitle="Скоро можно будет применить при оформлении"
+              disabled
+            />
+            <NavRow
+              title="Чики за этот заказ"
+              subtitle="Начисление появится после подключения программы"
+              disabled
+            />
+          </View>
           <Button
             title="Добавить ещё что-нибудь"
             secondary
@@ -680,103 +830,185 @@ export function Checkout(props: ScreenProps) {
   );
 }
 const s = StyleSheet.create({
-  welcome: { flexGrow: 1, padding: 24, gap: 16 },
-  welcomeArt: { height: 205, marginVertical: 18, alignItems: 'center', justifyContent: 'center' },
-  welcomeFood: { width: 226, height: 195, borderRadius: 46, transform: [{ rotate: '-8deg' }] },
-  welcomeSticker: {
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    padding: 12,
-    position: 'absolute',
-    bottom: -5,
-    right: 0,
-    flexDirection: 'row',
-    gap: 7,
-    alignItems: 'center',
-    transform: [{ rotate: '5deg' }],
+  welcome: { flexGrow: 1, paddingHorizontal: 26, gap: 14 },
+  welcomeHeading: {
+    fontFamily: font.display,
+    fontSize: 36,
+    lineHeight: 39,
+    letterSpacing: -0.72,
+    color: colors.white,
   },
-  stickerText: { fontFamily: font.display, color: colors.orangeInk, fontSize: 14 },
-  welcomeHeading: { fontFamily: font.display, fontSize: 46, lineHeight: 48 },
-  dotActive: { width: 24, height: 7, borderRadius: 4, backgroundColor: colors.accent },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#7897CA' },
+  dotActive: { width: 24, height: 4, borderRadius: 4, backgroundColor: colors.accent },
+  dot: { width: 7, height: 4, borderRadius: 4, backgroundColor: '#7897CA' },
   hero: { backgroundColor: colors.background, overflow: 'hidden' },
-  heroHeader: { paddingHorizontal: 18, gap: 22 },
-  heroBell: { backgroundColor: '#FFFFFF1F' },
-  heroCaption: { position: 'absolute', left: 22, right: 74, bottom: 53, gap: 7 },
-  menuBody: { paddingHorizontal: 18, marginTop: -26, gap: 22 },
-  categoryList: { gap: 8, paddingVertical: 4 },
+  heroHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 18,
+    paddingBottom: 10,
+    gap: 12,
+    zIndex: 10,
+  },
+  heroHeaderCollapsed: {
+    backgroundColor: '#04143AF5',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  branchTitle: { flex: 1, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
+  brandTitle: {
+    fontFamily: font.display,
+    fontSize: 19,
+    lineHeight: 23,
+    letterSpacing: -0.19,
+    textAlign: 'center',
+  },
+  branchCaption: { fontSize: 12, lineHeight: 17, color: '#FFFFFFBB', textAlign: 'center' },
+  heroBell: { width: 44, height: 44, backgroundColor: '#FFFFFF33' },
+  heroCaption: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 164,
+    gap: 6,
+    alignItems: 'center',
+    minHeight: 54,
+  },
+  heroTitle: {
+    fontFamily: font.display,
+    fontSize: 34,
+    lineHeight: 36,
+    letterSpacing: -0.68,
+    color: colors.white,
+    textAlign: 'center',
+    textShadowColor: '#04143A88',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 18,
+  },
+  heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
+  menuBody: { paddingHorizontal: 18, marginTop: -104, gap: 16 },
+  stickyCategories: { position: 'absolute', left: 0, right: 0, zIndex: 9 },
+  categoryList: {
+    gap: 8,
+    paddingTop: 18,
+    paddingBottom: 10,
+    paddingHorizontal: 18,
+    backgroundColor: colors.background,
+  },
   category: {
-    minHeight: 48,
-    paddingHorizontal: 17,
-    borderRadius: 24,
-    backgroundColor: '#102957',
+    minHeight: 36,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#294169',
+    borderColor: colors.border,
     justifyContent: 'center',
   },
   categorySelected: { backgroundColor: colors.action, borderColor: colors.action },
-  categoryText: { fontSize: 14, fontFamily: font.bold },
-  productList: { gap: 24 },
-  product: { flexDirection: 'row', gap: 15 },
+  categoryText: { fontSize: 13.5, lineHeight: 19, fontFamily: font.medium },
+  catalogSections: { paddingHorizontal: 18, gap: 26 },
+  sectionTitle: {
+    fontFamily: font.display,
+    fontSize: 24,
+    lineHeight: 30,
+    marginBottom: 12,
+    letterSpacing: -0.36,
+  },
+  productList: { gap: 12 },
+  product: {
+    flexDirection: 'row',
+    gap: 14,
+    borderRadius: 22,
+    padding: 12,
+    backgroundColor: colors.surface,
+  },
   productPhotoWrap: {
-    width: 116,
-    height: 116,
-    borderRadius: 20,
+    width: 112,
+    height: 112,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#EAF0F8',
   },
-  productInfo: { flex: 1, gap: 5, paddingVertical: 2 },
-  productDescription: { fontSize: 12, lineHeight: 18 },
-  productPrice: { fontFamily: font.heading, fontSize: 20, color: colors.accent },
+  productInfo: { flex: 1, gap: 5 },
+  productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 22, letterSpacing: -0.19 },
+  productDescription: { fontSize: 12.5, lineHeight: 18 },
+  productPriceRow: {
+    marginTop: 'auto',
+    paddingTop: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  productPrice: { fontFamily: font.display, fontSize: 19, color: colors.text },
+  productChoose: {
+    minHeight: 36,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: colors.action,
+    justifyContent: 'center',
+  },
+  productChooseText: { fontFamily: font.medium, fontSize: 14, color: colors.white },
   productPlus: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#15315B',
+    backgroundColor: colors.action,
     alignItems: 'center',
     justifyContent: 'center',
   },
   hit: {
     position: 'absolute',
-    top: 7,
-    left: 7,
+    top: 8,
+    left: 8,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 7,
+    paddingVertical: 4,
+    borderRadius: 20,
     backgroundColor: colors.accent,
   },
-  hitText: { color: colors.orangeInk, fontFamily: font.bold, fontSize: 10 },
-  compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  compactProduct: { width: '47%', flexDirection: 'column' },
-  compactPhoto: { width: '100%', height: 145 },
-  floatingCart: {
-    minHeight: 58,
-    borderRadius: 18,
-    backgroundColor: colors.action,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    shadowColor: '#000000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 14,
-    elevation: 5,
+  hitText: { color: colors.white, fontFamily: font.bold, fontSize: 10, lineHeight: 13 },
+  compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  compactProduct: { flexDirection: 'column', padding: 10, borderRadius: 20, gap: 9 },
+  compactPhoto: { width: '100%', height: 'auto', aspectRatio: 1, borderRadius: 14 },
+  compactTitle: { fontFamily: font.medium, fontSize: 13.5, lineHeight: 18 },
+  productClose: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: '#FFFFFFE6',
+    width: 44,
+    height: 44,
   },
-  productClose: { position: 'absolute', right: 16, backgroundColor: '#04143AD9' },
-  detailBody: { padding: 20, gap: 20 },
+  detailBody: { paddingVertical: 20, paddingHorizontal: 18, gap: 16 },
   extraPhoto: { flex: 1, height: 122, borderRadius: 20, overflow: 'hidden' },
   comboPhoto: { width: '100%', height: 242, borderRadius: 24 },
   choiceImage: { width: 54, height: 54, borderRadius: 12 },
-  cartLine: {
-    flexDirection: 'row',
-    gap: 16,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
+  cartHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 10,
+    marginBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  cartImage: { width: 98, height: 98, borderRadius: 18 },
-  stepper: { backgroundColor: colors.raised, borderRadius: 15, alignSelf: 'flex-start', gap: 0 },
+  cartHeaderButton: { width: 44, height: 44, backgroundColor: colors.raised },
+  cartFulfilment: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  cartLine: {
+    flexDirection: 'row',
+    gap: 13,
+    padding: 12,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+  },
+  cartImage: { width: 80, height: 80, borderRadius: 14 },
+  stepper: { backgroundColor: colors.raised, borderRadius: 22, alignSelf: 'flex-start', gap: 0 },
   largeIcon: {
     width: 94,
     height: 94,

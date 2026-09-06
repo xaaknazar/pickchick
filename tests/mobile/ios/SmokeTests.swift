@@ -22,6 +22,15 @@ final class SmokeTests: XCTestCase {
         tap("product-pick-combo", in: app)
         tap("product-add", in: app)
         tap("cart-checkout", in: app)
+        // Reuse the owned synthetic identity through the app's normal renewal
+        // flow; repeated UI runs may outlive its short access token.
+        let renewal = element("test-continue-session", in: app)
+        if renewal.waitForExistence(timeout: 3) {
+            reveal(renewal, in: app)
+            renewal.tap()
+            let completed = NSPredicate(format: "exists == false")
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: completed, object: renewal)], timeout: 15), .completed)
+        }
         tap("test-checkout-create", in: app)
         let number = element("connected-order-number", in: app)
         guard number.waitForExistence(timeout: 20) else {
@@ -87,6 +96,35 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(payment.waitForExistence(timeout: 10))
         XCTAssertFalse(payment.isEnabled, "Staging must not enable an unconnected payment flow")
         attachScreenshot("Checkout-disabled", of: app)
+    }
+
+    @MainActor
+    func testOriginalMockupCompositionAndDecorativeVideo() throws {
+        let app = launchApp()
+        let hero = element("hero-promotion", in: app)
+        XCTAssertTrue(hero.waitForExistence(timeout: 10))
+        XCTAssertFalse(element("hero-video-toggle", in: app).exists)
+        XCTAssertEqual(hero.frame.midX, app.frame.midX, accuracy: 2)
+        attachScreenshot("Mockup-menu", of: app)
+        tap("category-Комбо", in: app)
+        let product = element("product-pick-combo", in: app)
+        reveal(product, in: app)
+        attachScreenshot("Mockup-catalog", of: app)
+        product.tap()
+        assertScreen("M07", in: app)
+        XCTAssertFalse(element("hero-video-toggle", in: app).exists)
+        attachScreenshot("Mockup-product", of: app)
+        tap("product-add", in: app)
+        assertScreen("M09", in: app)
+        attachScreenshot("Mockup-cart", of: app)
+        app.buttons["Назад"].firstMatch.tap()
+        app.buttons["Закрыть блюдо"].firstMatch.tap()
+        tap("tab-profile", in: app)
+        assertScreen("M30", in: app)
+        attachScreenshot("Mockup-profile", of: app)
+        tap("tab-events", in: app)
+        assertScreen("M26", in: app)
+        attachScreenshot("Mockup-events", of: app)
     }
 
     @MainActor

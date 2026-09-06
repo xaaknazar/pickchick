@@ -363,13 +363,7 @@ label {
   width: 88px;
   height: 88px;
 }
-.video-toggle {
-  width: 64px;
-  background: #071125aa;
-  border: 2px solid #ffffff66;
-  color: white;
-  font-size: 28px;
-}
+
 .attract-copy {
   display: flex;
   flex-direction: column;

@@ -2,6 +2,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import type { ScreenId } from './model';
 import { useMobile } from './store';
+import { CartShortcut } from './components/CartShortcut';
 import { MobileScreen } from './screens/MobileScreen';
 
 const tabRoutes = {
@@ -14,6 +15,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   const router = useRouter();
   const segments = useSegments();
   const model = useMobile(preview);
+  const activeTab =
+    segments[0] === '(tabs)' &&
+    id in tabRoutes &&
+    tabRoutes[id as keyof typeof tabRoutes] === `/${segments.join('/')}`;
   const navigate = (next: ScreenId) => {
     if (!preview && next in tabRoutes) router.navigate(tabRoutes[next as keyof typeof tabRoutes]);
     else
@@ -33,6 +38,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
         inTabLayout={segments[0] === '(tabs)'}
         openReview={() => router.push('/review')}
       />
+      {activeTab ? <CartShortcut model={model} onPress={() => navigate('M09')} /> : null}
       {preview ? (
         <Pressable
           testID="open-design-review"
