@@ -106,5 +106,64 @@ with sync_playwright() as p:
     expect(reduced_page.get_by_test_id('hero-promotion')).to_be_visible()
     assert reduced_page.locator('video').count() == 0, 'Reduced motion must use a still poster'
     assert reduced_page.get_by_test_id('hero-video-toggle').count() == 0
+    # Deterministic browser-media races: never suppress pageerror. The adapter
+    # owns each play() promise, including interruption before the first frame.
+    interrupted = browser.new_context(viewport={'width': 402, 'height': 874})
+    interrupted.route('**/v1/**', fixture_read)
+    interrupted.add_init_script("""
+        window.mediaCalls = { play: 0, pause: 0 };
+        window.mediaHidden = false;
+        Object.defineProperty(document, 'hidden', { get: () => window.mediaHidden });
+        HTMLMediaElement.prototype.play = function () {
+            window.mediaCalls.play++;
+            return new Promise((_, reject) => setTimeout(() => reject(
+                new DOMException('Playback superseded by navigation', 'AbortError')), 80));
+        };
+        const pause = HTMLMediaElement.prototype.pause;
+        HTMLMediaElement.prototype.pause = function () {
+            window.mediaCalls.pause++;
+            return pause.call(this);
+        };
+    """)
+    racing = interrupted.new_page()
+    race_errors = []
+    racing.on('pageerror', lambda error: race_errors.append(str(error)))
+    racing.goto(url + '/menu')
+    expect(racing.locator('video')).to_have_count(1)
+    racing.wait_for_function('window.mediaCalls.play > 0')
+    for _ in range(3):
+        racing.get_by_test_id('hero-promotion').click()
+        expect(racing.get_by_test_id('screen-M07')).to_be_visible()
+        racing.get_by_role('button', name='Закрыть блюдо', exact=True).click()
+        expect(racing.get_by_test_id('screen-M06')).to_be_visible()
+    before_pause = racing.evaluate('window.mediaCalls.pause')
+    racing.evaluate("window.mediaHidden = true; document.dispatchEvent(new Event('visibilitychange'))")
+    racing.wait_for_function('(before) => window.mediaCalls.pause > before', arg=before_pause)
+    before_play = racing.evaluate('window.mediaCalls.play')
+    racing.evaluate("window.mediaHidden = false; document.dispatchEvent(new Event('visibilitychange'))")
+    racing.wait_for_function('(before) => window.mediaCalls.play > before', arg=before_play)
+    racing.emulate_media(reduced_motion='reduce')
+    expect(racing.locator('video')).to_have_count(0)
+    racing.wait_for_timeout(150)
+    assert race_errors == [], race_errors
+
+    unsupported = browser.new_context(viewport={'width': 402, 'height': 874})
+    unsupported.route('**/v1/**', fixture_read)
+    unsupported.add_init_script("""
+        window.playAttempted = false;
+        HTMLMediaElement.prototype.play = function () {
+            window.playAttempted = true;
+            return Promise.reject(new DOMException('Unsupported media', 'NotSupportedError'));
+        };
+    """)
+    fallback = unsupported.new_page()
+    fallback_errors = []
+    fallback.on('pageerror', lambda error: fallback_errors.append(str(error)))
+    fallback.goto(url + '/menu')
+    fallback.wait_for_function('window.playAttempted')
+    expect(fallback.locator('video')).to_have_count(0)
+    expect(fallback.get_by_test_id('hero-promotion')).to_be_visible()
+    assert fallback.get_by_test_id('storefront-hero').locator('img').count() >= 1
+    assert fallback_errors == [], fallback_errors
     browser.close()
-print('Mockup composition, product/cart navigation and reduced-motion checks passed; no order writes')
+print('Mockup composition, product/cart navigation, reduced-motion, interrupted playback and poster fallback passed; no order writes')

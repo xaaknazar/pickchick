@@ -12,10 +12,18 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { assets } from '../assets';
+import { WebHeroVideo } from './WebHeroVideo';
 import { colors, font } from '../theme';
 import { Body, Caption, Heading, Icon, Row, styles as ui } from './UI';
 
 export function HeroVideo({ shaded = true }: { shaded?: boolean }) {
+  return Platform.OS === 'web' ? (
+    <WebHeroVideo gradient={shaded ? gradient : undefined} />
+  ) : (
+    <NativeHeroVideo shaded={shaded} />
+  );
+}
+function NativeHeroVideo({ shaded = true }: { shaded?: boolean }) {
   const [reduced, setReduced] = useState(true);
   const [firstFrame, setFirstFrame] = useState(false);
   const [failed, setFailed] = useState(false);
