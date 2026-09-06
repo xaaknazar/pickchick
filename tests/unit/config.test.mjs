@@ -91,3 +91,22 @@ test('TEST flow gate defaults closed and needs exact opt-in on a non-production 
     loadConfig('api', { ...env, APP_ENV: 'production', TEST_ORDER_FLOW_ENABLED: 'true' }),
   );
 });
+
+test('database and HTTP limits are bounded and default to conservative per-process budgets', () => {
+  assert.equal(loadConfig('api', env).databasePoolMax, 5);
+  assert.equal(loadConfig('api', env).httpMaxInFlight, 32);
+  assert.equal(loadConfig('api', { ...env, DB_POOL_MAX: '12' }).databasePoolMax, 12);
+  for (const [key, invalid] of [
+    ['DB_POOL_MAX', ['0', '65', '-1', '1.5', 'Infinity', ' 5', 'secret-do-not-print']],
+    ['HTTP_MAX_IN_FLIGHT', ['0', '1025', '1e3', '', 'secret-do-not-print']],
+  ]) {
+    for (const value of invalid)
+      assert.throws(
+        () => loadConfig('api', { ...env, [key]: value }),
+        (e) => {
+          assert(!e.message.includes('secret-do-not-print'));
+          return true;
+        },
+      );
+  }
+});

@@ -62,6 +62,7 @@ jobs:
             sleep 1
           done
           .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
+          .local/design-venv/bin/python tests/operations/layout_regression.py
       - name: Check dependency advisories
         run: pnpm audit --audit-level=high
       - name: Stop test infrastructure

@@ -7,10 +7,11 @@ export type DatabasePool = pg.Pool;
 export type DatabaseClient = pg.PoolClient;
 export type DatabaseScope = 'cloud' | 'edge';
 
-export function createPool(connectionString: string): DatabasePool {
+export function createPool(connectionString: string, max = 5): DatabasePool {
+  if (!Number.isInteger(max) || max < 1 || max > 64) throw new Error('Invalid database pool limit');
   const pool = new pg.Pool({
     connectionString,
-    max: 5,
+    max,
     connectionTimeoutMillis: 1500,
     idleTimeoutMillis: 10000,
     statement_timeout: 5000,

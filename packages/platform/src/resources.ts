@@ -1,3 +1,4 @@
+import { Admission } from './admission.js';
 import { createPool } from '@pickchick/database';
 import type { DatabasePool } from '@pickchick/database';
 import type { OnApplicationShutdown } from '@nestjs/common';
@@ -9,12 +10,26 @@ export const RESOURCE = Symbol('PICKCHICK_RESOURCES');
 
 export class Resources implements OnApplicationShutdown {
   readonly pool: DatabasePool;
+  readonly admission: Admission;
+  private readinessPending: Promise<Readiness> | undefined;
 
   constructor(readonly config: ServiceConfig) {
-    this.pool = createPool(config.databaseUrl);
+    this.pool = createPool(config.databaseUrl, config.databasePoolMax);
+    this.admission = new Admission(config.httpMaxInFlight);
   }
 
-  async readiness(): Promise<Readiness> {
+  readiness(): Promise<Readiness> {
+    // Concurrent probes share one bounded check. Do not cache a previously
+    // healthy result across probes: dependency failures must remain observable.
+    if (!this.readinessPending) {
+      this.readinessPending = this.checkReadiness().finally(() => {
+        this.readinessPending = undefined;
+      });
+    }
+    return this.readinessPending;
+  }
+
+  private async checkReadiness(): Promise<Readiness> {
     let database: 'up' | 'down' = 'down';
     let schema: 'up' | 'down' = 'down';
     try {

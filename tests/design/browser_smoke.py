@@ -37,6 +37,16 @@ with sync_playwright() as p:
             bad = page.locator('#preview').evaluate('(e)=>e.scrollWidth>e.clientWidth+2')
             if bad:
                 overflows.append([screen['id'], state])
+            if screen['id'].startswith('M') and page.locator('#preview .bottom-nav').count():
+                geometry = page.locator('#preview').evaluate('''frame=>{
+                    const scroll=frame.querySelector('.frame-content'), nav=frame.querySelector('.bottom-nav');
+                    const before=nav.getBoundingClientRect();
+                    scroll.scrollTop=scroll.scrollHeight;
+                    const after=nav.getBoundingClientRect(), bounds=frame.getBoundingClientRect();
+                    return {before:before.bottom,after:after.bottom,frame:bounds.bottom};
+                }''')
+                assert abs(geometry['after'] - geometry['before']) < 1, (screen['id'], state, geometry)
+                assert abs(geometry['after'] - geometry['frame']) < 2, (screen['id'], state, geometry)
             checked += 1
     page.goto(base + '/#M06')
     page.wait_for_selector('.product-card')

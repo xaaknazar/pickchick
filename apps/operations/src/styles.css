@@ -277,8 +277,9 @@ label {
   display: flex;
   flex-direction: column;
   max-width: 1024px;
+  height: 100vh;
   height: 100dvh;
-  min-height: 700px;
+  min-height: 0;
   margin: auto;
   overflow: hidden;
   background: #f4f6fa;
@@ -733,6 +734,24 @@ label {
 }
 .kiosk-body > h1 {
   margin: 10px 0 14px;
+}
+.kiosk-step {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.kiosk-actions {
+  flex: none;
+  display: flex;
+  gap: 16px;
+  padding: 16px 24px max(16px, env(safe-area-inset-bottom));
+  background: #f4f6fa;
+  border-top: 1px solid #dfe5ed;
+}
+.kiosk-actions > button {
+  flex: 1;
+  min-width: 0;
 }
 .cart-items {
   display: grid;
@@ -1566,9 +1585,6 @@ label {
   }
 }
 @media (max-width: 760px) {
-  .kiosk-shell {
-    min-height: 600px;
-  }
   .kiosk-header {
     padding: 12px 16px;
     gap: 12px;

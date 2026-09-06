@@ -70,6 +70,8 @@ services:
     environment:
       APP_ENV: staging
       API_PORT: '3100'
+      DB_POOL_MAX: ${DB_POOL_MAX:-5}
+      HTTP_MAX_IN_FLIGHT: ${HTTP_MAX_IN_FLIGHT:-32}
       TEST_ORDER_FLOW_ENABLED: ${TEST_ORDER_FLOW_ENABLED:-false}
       CLOUD_DATABASE_URL: postgresql://pickchick_app:${DB_APP_PASSWORD:?Generate a separate secret}@cloud-db:5432/pickchick_cloud
       REDIS_URL: redis://default:${REDIS_PASSWORD:?Generate a separate secret}@redis-cache:6379/0

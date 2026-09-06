@@ -90,6 +90,63 @@ final class SmokeTests: XCTestCase {
     }
 
     @MainActor
+    func testBottomControlsStayVisibleWhileScrolling() throws {
+        let app = launchApp()
+        let tab = element("tab-menu", in: app)
+        XCTAssertTrue(tab.waitForExistence(timeout: 10))
+        let initialTabY = tab.frame.minY
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertEqual(tab.frame.minY, initialTabY, accuracy: 1)
+        XCTAssertTrue(tab.isHittable)
+        tap("product-pick-combo", in: app)
+        let add = element("product-add", in: app)
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        let addY = add.frame.minY
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertEqual(add.frame.minY, addY, accuracy: 1)
+        XCTAssertTrue(add.isHittable)
+        tap("product-add", in: app)
+        let checkout = element("cart-checkout", in: app)
+        XCTAssertTrue(checkout.waitForExistence(timeout: 10))
+        let checkoutY = checkout.frame.minY
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertEqual(checkout.frame.minY, checkoutY, accuracy: 1)
+        XCTAssertTrue(checkout.isHittable)
+        app.buttons["Назад"].firstMatch.tap()
+        app.buttons["Закрыть блюдо"].firstMatch.tap()
+        assertScreen("M06", in: app)
+        let basket = element("open-cart", in: app)
+        XCTAssertTrue(basket.waitForExistence(timeout: 10))
+        XCTAssertTrue(basket.isHittable)
+        XCTAssertGreaterThanOrEqual(tab.frame.minY - basket.frame.maxY, 0)
+        XCTAssertLessThanOrEqual(tab.frame.minY - basket.frame.maxY, 20)
+        XCTAssertLessThanOrEqual(app.frame.maxY - tab.frame.maxY, 60)
+        let basketY = basket.frame.minY
+        app.scrollViews.firstMatch.swipeDown()
+        XCTAssertEqual(basket.frame.minY, basketY, accuracy: 1)
+        XCTAssertEqual(tab.frame.minY, initialTabY, accuracy: 1)
+        attachScreenshot("Fixed-cart-and-navigation", of: app)
+    }
+
+    @MainActor
+    func testKeyboardLeavesLocalProfileActionReachable() throws {
+        let app = launchApp()
+        openDesignScreen("M04", in: app)
+        tap("nickname-input", in: app)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        element("nickname-input", in: app).typeText("Layout")
+        let save = element("nickname-save", in: app)
+        reveal(save, in: app)
+        XCTAssertTrue(save.isHittable)
+        if app.keyboards.firstMatch.exists {
+            XCTAssertLessThanOrEqual(save.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
+        }
+        save.tap()
+        assertScreen("M30", in: app)
+        attachScreenshot("Keyboard-local-profile", of: app)
+    }
+
+    @MainActor
     func testPhoneAuthenticationRemainsUnavailable() throws {
         let app = launchApp()
         openDesignScreen("M02", in: app)
@@ -121,12 +178,13 @@ final class SmokeTests: XCTestCase {
                               file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(element("screen-\(id)", in: app).waitForExistence(timeout: 30),
                       "Expected native screen \(id)", file: file, line: line)
-        XCTAssertTrue(element("open-design-review", in: app).exists,
-                      "Design catalog must remain accessible on \(id)", file: file, line: line)
     }
 
     @MainActor
     private func openDesignScreen(_ id: String, in app: XCUIApplication) {
+        if !element("open-design-review", in: app).exists {
+            tap("tab-profile", in: app)
+        }
         tap("open-design-review", in: app)
         let firstScreen = element("review-M01", in: app)
         XCTAssertTrue(firstScreen.waitForExistence(timeout: 10), "Expected the native design catalog")
