@@ -247,16 +247,35 @@ def run():
             assert mobile_order['snapshot']['channel'] == 'mobile'
             expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'])
             mobile.get_by_role('button', name='Тест: подтвердить и передать на кухню', exact=True).click()
-            expect(mobile.get_by_text('Задания уже появились на двух кухонных экранах.', exact=True)).to_be_visible(timeout=15000)
+            # React Navigation retains earlier stack screens in the DOM; scope the active route.
+            active_order = mobile.get_by_test_id('screen-M17')
+            expect(active_order.get_by_text('Задания уже появились на двух кухонных экранах.', exact=True)).to_be_visible(timeout=15000)
             mobile.reload()
-            expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'], timeout=60000)
+            expect(active_order.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'], timeout=60000)
             stage = 'mobile kitchen display handoff'
             prepare_and_assemble(prep, assembly, display, mobile_order['number'])
-            expect(mobile.get_by_text('Можно забирать', exact=True)).to_be_visible(timeout=15000)
-            assert_layout(mobile, 'mobile-ready-390')
+            expect(active_order.get_by_test_id('connected-order-state')).to_have_text('Можно забирать', timeout=15000)
+            for width in (320, 390, 430):
+                stage = f'mobile ready layout {width}'
+                mobile.set_viewport_size({'width': width, 'height': 844})
+                # React Native Web's adjustsFontSizeToFit alone can leave an ellipsis.
+                # Wait for responsive layout, then measure all text against its visible box.
+                mobile.wait_for_function('''width=>{
+                    const e=document.querySelector('[data-testid="screen-M17"] [data-testid="connected-order-number"]');
+                    if (!e || window.innerWidth!==width) return false;
+                    const range=document.createRange();range.selectNodeContents(e);
+                    return range.getBoundingClientRect().width<=e.clientWidth+1 && e.scrollWidth<=e.clientWidth+1;
+                }''', arg=width, timeout=8000)
+                expect(active_order.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'])
+                assert_layout(mobile, f'mobile-ready-{width}')
             assert_layout(manager, 'manager-orders')
+            for width in (1024, 1280, 1440):
+                display.set_viewport_size({'width': width, 'height': 1050})
+                expect(display.locator('.display-numbers').get_by_text(mobile_order['number'], exact=True)).to_be_visible()
+                assert_layout(display, f'display-mobile-ready-{width}')
+            stage = 'mobile staff handoff'
             handoff(assembly, display, mobile_order['number'])
-            expect(mobile.get_by_text('Выдача подтверждена на кухне. Заказ убран с табло.', exact=True)).to_be_visible(timeout=15000)
+            expect(active_order.get_by_text('Выдача подтверждена на кухне. Заказ убран с табло.', exact=True)).to_be_visible(timeout=15000)
             checks.append('mobile persisted order → both kitchen stations → display + own status → handoff')
 
         stage = 'result verification'
