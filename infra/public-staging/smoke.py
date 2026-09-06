@@ -72,7 +72,8 @@ def main():
         ('/v1/test/orders/10000000-0000-4000-8000-000000000003', 'DELETE'),
     ]:
         status, headers, denied = request(path, method)
-        assert status == 404 and denied['code'] == 'NOT_FOUND'
+        assert status == 404
+        assert (denied is None if method == 'HEAD' else denied['code'] == 'NOT_FOUND')
         assert headers.get('Access-Control-Allow-Origin') is None
     status, headers, catalog = request('/v1/test/catalog')
     assert status == (200 if enabled else 404)

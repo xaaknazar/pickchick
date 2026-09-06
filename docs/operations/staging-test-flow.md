@@ -128,6 +128,9 @@ Web пути: `/kiosk`, `/kitchen/prep`, `/kitchen/assembly`, `/display`, `/mana
    анонимного доступа к TEST-заказам/станциям. В браузере проверить пять web
    путей и макет, отсутствие ошибок assets/шрифтов; web HTML должен иметь
    Content-Type text/html, API — application/json.
+   `python3 infra/public-staging/static-smoke.py --manifest <PUBLIC_WEB_DIR>/.release.json`
+   дополнительно сверяет по HTTPS хеш каждого опубликованного runtime-файла,
+   пять SPA путей и запрет публикации внутренних файлов.
 7. Выпустить роли trusted CLI и выполнить реальный HTTPS-сценарий:
    `python3 infra/public-staging/test-flow-smoke.py --staff-dir .local/test-flow-staff`.
    Он создаёт два TEST-заказа mobile/kiosk, проверяет replay/изоляцию,
