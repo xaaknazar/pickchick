@@ -1,16 +1,19 @@
 # PickChick — технический план экосистемы
 
-Технический план v1.0 · API v0.2.0 · 6 сентября 2026.
+Технический план v1.0 · API v0.3.0 · 6 сентября 2026.
 
 **Реализовано:** TypeScript/NestJS API и локальный edge, две PostgreSQL БД,
-Redis, миграции, локальная регистрация устройств и HTTP-доставка меню с
-подтверждением через outbox/inbox. Это локальный стенд без приёма заказов.
+Redis, миграции, регистрация edge и HTTP-доставка меню; локальные сессии/роли
+персонала, расчёт обычных SKU, стоп-лист и идемпотентный неоплаченный POS-заказ.
+Это локальный стенд без реальных оплат, чеков и передачи на кухню.
 Запуск и команды: [локальная разработка](docs/operations/local-development.md).
 Контракты: [OpenAPI](packages/contracts/openapi.json) и [события](packages/contracts/event.schema.json).
 Принятые решения: [ADR 0001](docs/architecture/adr/0001-foundation.md).
 Регистрация и синхронизация: [инструкция](docs/operations/menu-sync.md),
 [ADR 0002](docs/architecture/adr/0002-device-menu-sync.md).
 Размещение: [предложение VPS и порядок внедрения](docs/operations/vps-plan.md).
+Первый заказ: [локальный POS](docs/operations/local-orders.md),
+[ADR 0003](docs/architecture/adr/0003-local-orders.md).
 
 Канонический GitHub: [xaaknazar/pickchick](https://github.com/xaaknazar/pickchick).
 Текущий этап: [состояние проекта](docs/project-status.md).

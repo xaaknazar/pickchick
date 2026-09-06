@@ -29,7 +29,10 @@
     "device:revoke": "node --env-file=.env scripts/device-revoke.mjs",
     "menu:publish": "node --env-file=.env scripts/menu-publish.mjs",
     "sync:once": "node --env-file=.env scripts/menu-worker.mjs --once",
-    "sync:watch": "node --env-file=.env scripts/menu-worker.mjs"
+    "sync:watch": "node --env-file=.env scripts/menu-worker.mjs",
+    "staff:setup": "node --env-file=.env scripts/staff-setup.mjs",
+    "staff:revoke": "node --env-file=.env scripts/staff-revoke.mjs",
+    "local:request": "node --env-file=.env scripts/local-request.mjs"
   },
   "dependencies": {
     "@pickchick/contracts": "workspace:*",
@@ -38,7 +41,8 @@
     "@pickchick/test-fixtures": "workspace:*",
     "@pickchick/api": "workspace:*",
     "@pickchick/edge": "workspace:*",
-    "@pickchick/menu-sync": "workspace:*"
+    "@pickchick/menu-sync": "workspace:*",
+    "@pickchick/local-orders": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
