@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import { TestApiError, TestCustomerClient } from './test-client';
+import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
 import type { CartLine, DiningMode } from './model';
 
 export interface TestFlowModel {
@@ -11,6 +12,8 @@ export interface TestFlowModel {
   observedAt: string | null;
   orders: TestOrder[];
   current: TestOrder | null;
+  recoveryAvailable: boolean;
+  recoverPending(): Promise<TestOrder | null>;
   select(id: string): void;
   refresh(): void;
   submit(): Promise<TestOrder | null>;
@@ -23,8 +26,12 @@ function errorMessage(error: unknown): string {
     if (error.status === 401)
       return 'Тестовый сеанс истёк. Его заказы остаются на тестовой кухне; попросите оператора завершить проверку.';
     if (error.status === 429) return 'Лимит тестового контура достигнут. Повторите позже.';
-    if (error.code === 'PREVIOUS_ORDER_PENDING')
-      return 'Сначала восстановите прежнюю корзину и повторите проверку: результат создания предыдущего заказа ещё неизвестен.';
+    if (error.code === 'PREVIOUS_ORDER_PENDING' || error.code === 'PREVIOUS_COMMAND_PENDING')
+      return 'Сохранена незавершённая проверка. Нажмите «Восстановить проверку», чтобы получить её результат без нового заказа.';
+    if (error.code === 'PREVIOUS_SESSION_PENDING' || error.code === 'RECOVERY_DATA_INVALID')
+      return 'Не удалось восстановить данные прежней проверки. Новый сеанс не создаём; обратитесь к оператору тестового контура.';
+    if (error.code === 'QUOTE_EXPIRED')
+      return 'Расчёт устарел. Повторите сохранённую проверку — цена будет снова рассчитана сервером.';
     if (error.status === 409)
       return 'Состояние изменилось. Обновите заказ перед следующим действием.';
     if (error.status === 400) return 'Проверьте состав заказа. Сервер не принял эти данные.';
@@ -45,15 +52,13 @@ export function useTestOrders(
   const [error, setError] = useState<string | null>(null);
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [recoveryAvailable, setRecoveryAvailable] = useState(false);
   const polling = useRef(false);
   const current = orders.find((order) => order.order_id === currentId) ?? null;
   const generation = useRef(0);
 
   const apply = useCallback((order: TestOrder) => {
-    setOrders((previous) => [
-      order,
-      ...previous.filter((candidate) => candidate.order_id !== order.order_id),
-    ]);
+    setOrders((previous) => mergeObservedOrder(previous, order));
     setCurrentId(order.order_id);
     setObservedAt(new Date().toISOString());
   }, []);
@@ -64,10 +69,13 @@ export function useTestOrders(
     try {
       const next = await client.orders();
       if (epoch !== generation.current) return;
-      setOrders(next);
+      const pending = await client.hasPending();
+      if (epoch !== generation.current) return;
+      setOrders((previous) => mergeObservedOrders(previous, next));
+      setRecoveryAvailable(pending);
       setCurrentId(
         (previous) =>
-          previous ??
+          (previous && next.some((order) => order.order_id === previous) ? previous : null) ??
           next.find((order) => !['fulfilled', 'cancelled'].includes(order.state))?.order_id ??
           next[0]?.order_id ??
           null,
@@ -84,17 +92,23 @@ export function useTestOrders(
   useEffect(() => {
     let active = true;
     generation.current += 1;
+    setRestored(false);
     if (!available) return;
     void client
       .restore()
-      .then(() => {
+      .then(async () => {
+        const pending = await client.hasPending();
         if (active) {
           setRestored(true);
+          setRecoveryAvailable(pending);
           void refresh();
         }
       })
       .catch((failure) => {
-        if (active) setError(errorMessage(failure));
+        if (active) {
+          setRestored(true);
+          setError(errorMessage(failure));
+        }
       });
     return () => {
       active = false;
@@ -116,31 +130,41 @@ export function useTestOrders(
   }, [available, restored, refresh]);
 
   const run = async (command: () => Promise<TestOrder>): Promise<TestOrder | null> => {
-    if (!available || busyRef.current) return null;
+    if (!available || !restored || busyRef.current) return null;
     generation.current += 1;
+    const epoch = generation.current;
     busyRef.current = true;
     setBusy(true);
     setError(null);
     try {
       const order = await command();
+      if (epoch !== generation.current) return null;
       apply(order);
       return order;
     } catch (failure) {
-      setError(errorMessage(failure));
+      if (epoch === generation.current) setError(errorMessage(failure));
       return null;
     } finally {
       busyRef.current = false;
       setBusy(false);
+      try {
+        const pending = await client.hasPending();
+        if (epoch === generation.current) setRecoveryAvailable(pending);
+      } catch (failure) {
+        if (epoch === generation.current) setError(errorMessage(failure));
+      }
     }
   };
 
   return {
     available,
-    busy,
+    busy: busy || (available && !restored),
     error,
     observedAt,
     orders,
     current,
+    recoveryAvailable,
+    recoverPending: () => run(() => client.recoverPending()),
     select: setCurrentId,
     refresh: () => {
       void refresh();

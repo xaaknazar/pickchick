@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Text, TextInput, View, StyleSheet } from 'react-native';
+import { ScrollView, Text, TextInput, View, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
 import {
@@ -9,15 +11,19 @@ import {
   Card,
   Empty,
   Heading,
+  Logo,
   NavRow,
   Notice,
   Page,
   Pill,
+  Row,
   SummaryRow,
   styles as ui,
 } from '../components/UI';
 import { colors, font } from '../theme';
 import { money, cartTotal } from '../domain';
+import { assets } from '../assets';
+import { cartMatchesOrder } from '../test-order-session';
 
 const statusNames: Record<TestOrder['state'], string> = {
   awaiting_test_payment: 'Ждёт тестовой оплаты',
@@ -38,6 +44,19 @@ function FlowNotice({ props }: { props: ScreenProps }) {
         <Notice warning title="Не удалось обновить">
           {flow.error}
         </Notice>
+      ) : null}
+      {flow.recoveryAvailable ? (
+        <Button
+          title="Восстановить проверку"
+          testID="test-recover-pending"
+          secondary
+          disabled={flow.busy}
+          onPress={() => {
+            void flow.recoverPending().then((order) => {
+              if (order) props.navigate('M20');
+            });
+          }}
+        />
       ) : null}
       {flow.observedAt ? (
         <Caption>
@@ -70,8 +89,15 @@ function OrderLines({ order }: { order: TestOrder }) {
 
 export function ConnectedCheckout(props: ScreenProps) {
   const flow = props.model.testFlow;
-  const pending = flow.current?.state === 'awaiting_test_payment' ? flow.current : null;
+  const unknown = flow.orders.find((order) => order.payment_state === 'simulated_unknown');
+  const matching = flow.orders.find(
+    (order) =>
+      order.state === 'awaiting_test_payment' &&
+      cartMatchesOrder(order, props.model.cart, props.model.diningMode),
+  );
+  const pending = unknown ?? matching ?? null;
   const submit = async () => {
+    if (pending) flow.select(pending.order_id);
     const order = pending ?? (await flow.submit());
     if (order) props.navigate(order.payment_state === 'simulated_unknown' ? 'M14' : 'M13');
   };
@@ -98,6 +124,12 @@ export function ConnectedCheckout(props: ScreenProps) {
     >
       <Heading>Проверим ваш{`\n`}заказ</Heading>
       <FlowNotice props={props} />
+      {unknown ? (
+        <Notice warning>
+          Прежде чем создавать другой заказ, нужно уточнить результат проверки {unknown.number}.
+          Новая корзина остаётся на устройстве.
+        </Notice>
+      ) : null}
       <Card>
         <Heading small>{props.model.branch?.name ?? 'Тестовая точка PickChick'}</Heading>
         <Body>{props.model.diningMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
@@ -118,6 +150,14 @@ export function ConnectedCheckout(props: ScreenProps) {
         </Card>
       )}
       <Button title="Kaspi ещё подключается" disabled testID="checkout-pay-disabled" />
+      {flow.current?.state === 'awaiting_test_payment' &&
+      flow.current.order_id !== pending?.order_id ? (
+        <NavRow
+          title={`Ранее созданный ${flow.current.number}`}
+          subtitle="Открыть отдельно от этой корзины"
+          onPress={() => props.navigate('M20')}
+        />
+      ) : null}
       <Caption>
         В первой проверке используется отдельный симулятор. Он не выдаёт банковское подтверждение
         или фискальный чек.
@@ -131,7 +171,12 @@ export function ConnectedHistory(props: ScreenProps) {
   return (
     <Page props={props} title="Мои заказы" noBack>
       <FlowNotice props={props} />
-      <Button title="Обновить заказы" secondary onPress={flow.refresh} />
+      <Button
+        title="Обновить заказы"
+        testID="test-refresh-order"
+        secondary
+        onPress={flow.refresh}
+      />
       {!flow.orders.length ? (
         <Empty
           title="Заказов пока нет"
@@ -179,7 +224,8 @@ export function ConnectedOrder(props: ScreenProps) {
   const pay = async (outcome: 'approved' | 'declined' | 'unknown') => {
     const next = await flow.pay(outcome);
     if (next) {
-      if (next.payment_state === 'simulated_approved') props.model.clearCart();
+      if (next.payment_state === 'simulated_approved')
+        props.model.clearCart(next.snapshot.lines.map(({ id, quantity }) => ({ id, quantity })));
       props.navigate(
         next.payment_state === 'simulated_unknown'
           ? 'M14'
@@ -192,6 +238,7 @@ export function ConnectedOrder(props: ScreenProps) {
   const receipt = props.screenId === 'M21';
   const cancel = props.screenId === 'M22';
   const ready = order.state === 'ready' && !receipt && !cancel && props.screenId !== 'M20';
+  if (ready) return <ConnectedReady props={props} order={order} />;
   return (
     <Page
       props={props}
@@ -200,6 +247,7 @@ export function ConnectedOrder(props: ScreenProps) {
       <FlowNotice props={props} />
       <View style={[s.status, ready && s.ready]}>
         <Pill>Тестовый заказ</Pill>
+        <Body testID="connected-order-state">{statusNames[order.state]}</Body>
         <Heading style={ready ? { color: '#241208' } : undefined}>
           {unknown ? 'Уточняем результат' : statusNames[order.state]}
         </Heading>
@@ -216,7 +264,7 @@ export function ConnectedOrder(props: ScreenProps) {
             ? 'Повторная попытка заблокирована. Результат проверит оператор тестового контура.'
             : order.state === 'preparing'
               ? 'Задания уже появились на двух кухонных экранах.'
-              : ready
+              : order.state === 'ready'
                 ? 'Тестовая сборка завершена. Оператор может отметить выдачу.'
                 : order.state === 'fulfilled'
                   ? 'Выдача подтверждена на кухне. Заказ убран с табло.'
@@ -304,19 +352,113 @@ export function ConnectedOrder(props: ScreenProps) {
           />
         </Card>
       ) : null}
-      <Button title="Обновить статус" secondary onPress={flow.refresh} />
+      <Button
+        title="Обновить статус"
+        testID="test-refresh-order"
+        secondary
+        onPress={flow.refresh}
+      />
       {!receipt ? <NavRow title="Информация о чеке" onPress={() => props.navigate('M21')} /> : null}
       {!cancel && !unknown && !['fulfilled', 'cancelled'].includes(order.state) ? (
-        <NavRow title="Отменить тестовый заказ" onPress={() => props.navigate('M22')} />
+        <NavRow
+          title="Отменить тестовый заказ"
+          testID="test-open-cancel"
+          onPress={() => props.navigate('M22')}
+        />
       ) : null}
-      <Button title="Мои заказы" secondary onPress={() => props.navigate('M19')} />
+      <Button
+        title="Мои заказы"
+        testID="test-open-history"
+        secondary
+        onPress={() => props.navigate('M19')}
+      />
     </Page>
+  );
+}
+function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      testID={`screen-${props.screenId}`}
+      style={[
+        s.readyPage,
+        { paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 24) },
+      ]}
+    >
+      <Image
+        source={assets.orange}
+        style={[StyleSheet.absoluteFill, { opacity: 0.3 }]}
+        contentFit="cover"
+      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.readyContent}>
+        <Row>
+          <View style={ui.flex}>
+            <Heading style={s.readyTitle}>Готово!</Heading>
+            <Body style={s.readyInk}>Тестовая сборка завершена</Body>
+          </View>
+          <Logo size={48} />
+        </Row>
+        <Text
+          testID="connected-order-number"
+          accessibilityLabel={`Тестовый заказ ${order.number}`}
+          style={s.readyNumber}
+          adjustsFontSizeToFit
+          numberOfLines={1}
+        >
+          {order.number}
+        </Text>
+        <Body
+          testID="connected-order-state"
+          style={[s.readyInk, { textAlign: 'center', fontFamily: font.bold, fontSize: 22 }]}
+        >
+          Можно забирать
+        </Body>
+        <Body style={[s.readyInk, { textAlign: 'center' }]}>
+          Это тест: ресторан не готовит этот заказ. Выдачу в системе подтвердит оператор.
+        </Body>
+        <View style={ui.flex} />
+        <Button
+          title="Состав и чек"
+          testID="test-ready-details"
+          secondary
+          onPress={() => props.navigate('M20')}
+        />
+        <Button
+          title="Обновить статус"
+          testID="test-refresh-order"
+          secondary
+          onPress={props.model.testFlow.refresh}
+        />
+        <Button
+          title="Мои заказы"
+          testID="test-open-history"
+          secondary
+          onPress={() => props.navigate('M19')}
+        />
+        {props.model.testFlow.error ? <Notice warning>{props.model.testFlow.error}</Notice> : null}
+        <Caption style={[s.readyInk, { textAlign: 'center' }]}>
+          {props.model.branch?.name ?? 'Тестовая точка · Алматы'}
+        </Caption>
+      </ScrollView>
+    </View>
   );
 }
 const s = StyleSheet.create({
   status: { gap: 16, padding: 22, borderRadius: 28, backgroundColor: colors.raised },
   ready: { backgroundColor: colors.accent },
   number: { color: colors.text, fontFamily: font.display, fontSize: 56 },
+  readyPage: { flex: 1, backgroundColor: colors.accent },
+  readyContent: { paddingHorizontal: 24, gap: 24, flexGrow: 1 },
+  readyTitle: { color: colors.orangeInk, fontSize: 46, lineHeight: 52 },
+  readyInk: { color: colors.orangeInk },
+  readyNumber: {
+    color: colors.orangeInk,
+    fontFamily: font.display,
+    fontSize: 112,
+    letterSpacing: -3,
+    textAlign: 'center',
+    marginVertical: 32,
+  },
   input: {
     minHeight: 90,
     borderWidth: 1,
