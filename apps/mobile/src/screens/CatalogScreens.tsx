@@ -209,9 +209,20 @@ export function Menu(props: ScreenProps) {
           {props.model.connection.status !== 'online' &&
           props.model.catalogMode === 'server' &&
           props.model.connection.status !== 'loading' ? (
-            <Notice warning title="Нет свежего меню">
-              {props.model.connection.message ?? 'Проверьте интернет и повторите загрузку.'}
-            </Notice>
+            <>
+              <Notice warning title="Нет свежего меню">
+                {props.model.connection.message ?? 'Проверьте интернет и повторите загрузку.'}
+              </Notice>
+              <NavRow title="Проверить доступность" onPress={() => props.navigate('M11')} />
+            </>
+          ) : null}
+          {props.model.connection.status === 'online' && props.model.connection.message ? (
+            <>
+              <Notice warning title="Меню обновилось">
+                {props.model.connection.message}
+              </Notice>
+              <NavRow title="Проверить изменения корзины" onPress={() => props.navigate('M10')} />
+            </>
           ) : null}
           <ScrollView
             horizontal
@@ -570,7 +581,8 @@ export function ChangedCart(props: ScreenProps) {
         </Card>
       ) : (
         <Notice>
-          Подтверждённого предложения от ресторана пока нет. Вернитесь в корзину и проверьте меню.
+          {props.model.connection.message ??
+            'Корзина сверяется с текущей версией меню. При смене версии её нужно собрать заново; новый состав и цену подтвердит сервер при оформлении.'}
         </Notice>
       )}
       <Button title="Вернуться в корзину" onPress={() => props.navigate('M09')} />
@@ -579,18 +591,37 @@ export function ChangedCart(props: ScreenProps) {
   );
 }
 export function Unavailable(props: ScreenProps) {
+  const online = props.model.connection.status === 'online';
+  const testAvailable = props.model.testFlow.available;
   return (
-    <Page props={props} title="Ресторан недоступен">
+    <Page props={props} title="Доступность ресторана">
       <Empty
         icon="storefront-outline"
-        title="Небольшая пауза"
-        detail="Сейчас этот ресторан не принимает заказы. Ваша корзина остаётся на устройстве."
+        title={
+          testAvailable
+            ? 'Тестовый приём доступен'
+            : online
+              ? 'Реальные заказы ещё не открыты'
+              : 'Доступность пока не подтверждена'
+        }
+        detail={
+          testAvailable
+            ? 'Можно проверить заказ до тестовой кухни. Ресторан этот заказ не готовит, деньги не списываются.'
+            : 'Сбой загрузки не означает отмену заказа. Ваша корзина и прежний тестовый сеанс остаются на устройстве.'
+        }
         action={<Button title="Выбрать ресторан" onPress={() => props.navigate('M05')} />}
       />
       <Card>
         <Heading small>{props.model.branch?.name ?? 'Pick Chick'}</Heading>
-        <Body muted>Приём заказов пока выключен</Body>
+        <Body muted>
+          {props.model.connection.message ??
+            (online ? 'Состояние меню получено с сервера' : 'Проверьте связь и повторите загрузку')}
+        </Body>
+        {props.model.connection.status === 'loading' ? (
+          <Loading title="Проверяем доступность" />
+        ) : null}
         <Button title="Обновить доступность" secondary onPress={props.model.refresh} />
+        <Button title="Вернуться в меню" onPress={() => props.navigate('M06')} />
       </Card>
     </Page>
   );

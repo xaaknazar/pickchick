@@ -3,10 +3,13 @@ import { AppState } from 'react-native';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import { TestApiError, TestCustomerClient } from './test-client';
 import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
+import { canCreateTestOrder, observeSavedOrders } from './test-order-observation';
 import type { CartLine, DiningMode } from './model';
 
 export interface TestFlowModel {
   available: boolean;
+  restored: boolean;
+  hasSavedSession: boolean;
   busy: boolean;
   error: string | null;
   observedAt: string | null;
@@ -54,6 +57,7 @@ export function useTestOrders(
   const [error, setError] = useState<string | null>(null);
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [hasSavedSession, setHasSavedSession] = useState(false);
   const [recoveryAvailable, setRecoveryAvailable] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const polling = useRef(false);
@@ -66,16 +70,17 @@ export function useTestOrders(
     setObservedAt(new Date().toISOString());
   }, []);
   const refresh = useCallback(async () => {
-    if (!available || polling.current || busyRef.current) return;
+    if (polling.current || busyRef.current) return;
     const epoch = generation.current;
     polling.current = true;
     try {
-      const next = await client.orders();
+      const observation = await observeSavedOrders(client);
       if (epoch !== generation.current) return;
-      const pending = await client.hasPending();
-      if (epoch !== generation.current) return;
+      setHasSavedSession(observation.hasSavedSession);
+      setRecoveryAvailable(observation.hasPending);
+      if (observation.state === 'unavailable') throw observation.error;
+      const next = observation.orders;
       setOrders((previous) => mergeObservedOrders(previous, next));
-      setRecoveryAvailable(pending);
       setCurrentId(
         (previous) =>
           (previous && next.some((order) => order.order_id === previous) ? previous : null) ??
@@ -83,7 +88,7 @@ export function useTestOrders(
           next[0]?.order_id ??
           null,
       );
-      setObservedAt(new Date().toISOString());
+      setObservedAt(observation.state === 'observed' ? new Date().toISOString() : null);
       setError(null);
       setSessionExpired(false);
     } catch (failure) {
@@ -92,38 +97,20 @@ export function useTestOrders(
         if (failure instanceof TestApiError && failure.status === 401) setSessionExpired(true);
       }
     } finally {
+      if (epoch === generation.current) setRestored(true);
       polling.current = false;
     }
-  }, [available, client]);
+  }, [client]);
 
   useEffect(() => {
-    let active = true;
     generation.current += 1;
-    setRestored(false);
-    if (!available) return;
-    void client
-      .restore()
-      .then(async () => {
-        const pending = await client.hasPending();
-        if (active) {
-          setRestored(true);
-          setRecoveryAvailable(pending);
-          void refresh();
-        }
-      })
-      .catch((failure) => {
-        if (active) {
-          setRestored(true);
-          setError(errorMessage(failure));
-        }
-      });
+    void refresh();
     return () => {
-      active = false;
       generation.current += 1;
     };
-  }, [available, client, refresh]);
+  }, [refresh]);
   useEffect(() => {
-    if (!available || !restored) return;
+    if (!restored || (!hasSavedSession && !recoveryAvailable)) return;
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') void refresh();
     }, 3000);
@@ -134,10 +121,10 @@ export function useTestOrders(
       clearInterval(timer);
       listener.remove();
     };
-  }, [available, restored, refresh]);
+  }, [restored, hasSavedSession, recoveryAvailable, refresh]);
 
   const run = async (command: () => Promise<TestOrder>): Promise<TestOrder | null> => {
-    if (!available || !restored || busyRef.current) return null;
+    if (!restored || busyRef.current) return null;
     generation.current += 1;
     const epoch = generation.current;
     busyRef.current = true;
@@ -147,6 +134,7 @@ export function useTestOrders(
       const order = await command();
       if (epoch !== generation.current) return null;
       apply(order);
+      setHasSavedSession(true);
       return order;
     } catch (failure) {
       if (epoch === generation.current) {
@@ -167,7 +155,7 @@ export function useTestOrders(
   };
 
   const continueSession = async (): Promise<boolean> => {
-    if (!available || !restored || busyRef.current) return false;
+    if (!hasSavedSession || !restored || busyRef.current) return false;
     generation.current += 1;
     const epoch = generation.current;
     busyRef.current = true;
@@ -196,7 +184,9 @@ export function useTestOrders(
 
   return {
     available,
-    busy: busy || (available && !restored),
+    restored,
+    hasSavedSession,
+    busy: busy || !restored,
     error,
     observedAt,
     orders,
@@ -209,7 +199,10 @@ export function useTestOrders(
     refresh: () => {
       void refresh();
     },
-    submit: () => run(() => client.create(cart, diningMode)),
+    submit: () =>
+      canCreateTestOrder(available, restored)
+        ? run(() => client.create(cart, diningMode))
+        : Promise.resolve(null),
     pay: (outcome) =>
       current
         ? run(() => client.command(current, 'simulated-payment', { outcome }))

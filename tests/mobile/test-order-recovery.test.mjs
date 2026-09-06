@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
+  observeSavedOrders,
+  canCreateTestOrder,
+} from '../../apps/mobile/src/test-order-observation.ts';
+import {
   TestCustomerCore,
   TestApiError,
   DRAFT_KEY,
@@ -186,6 +190,72 @@ function harness() {
   };
   return h;
 }
+
+test('catalog outage does not hide or replace a saved customer and committed order', async () => {
+  const h = harness();
+  h.after = async (request) => {
+    if (request.path === '/orders' && request.body) throw new TypeError('lost response');
+  };
+  await assert.rejects(h.client().create(cart(), 'takeaway'), /lost response/);
+  assert.equal(h.storage.has(DRAFT_KEY), true);
+  const session = h.storedSession;
+  h.requests.length = 0;
+  const observation = await observeSavedOrders(h.client());
+  assert.equal(canCreateTestOrder(false, true), false, 'catalog outage still blocks a new cart');
+  assert.equal(observation.state, 'observed');
+  assert.equal(observation.orders.length, 1);
+  assert.equal(observation.hasSavedSession, true);
+  assert.equal(observation.hasPending, false, 'history reconciles the saved committed order');
+  assert.equal(h.storedSession, session);
+  assert.deepEqual(
+    h.requests.map(({ path, body }) => [path, body]),
+    [['/orders', undefined]],
+  );
+});
+
+test('failed saved-order read stays unknown and retains pending work until connectivity returns', async () => {
+  const h = harness();
+  h.before = async (request) => {
+    if (request.path === '/orders' && request.body) throw new TypeError('request lost');
+  };
+  await assert.rejects(h.client().create(cart(), 'takeaway'), /request lost/);
+  const saved = h.storage.get(DRAFT_KEY);
+  const restarted = h.client();
+  h.before = async (request) => {
+    if (request.path === '/orders') throw new TypeError('offline');
+  };
+  const failed = await observeSavedOrders(restarted);
+  assert.equal(failed.state, 'unavailable');
+  assert.equal(failed.hasSavedSession, true);
+  assert.equal(failed.hasPending, true);
+  assert.equal(h.storage.get(DRAFT_KEY), saved);
+  h.before = async () => {};
+  const next = await observeSavedOrders(restarted);
+  assert.equal(next.state, 'observed');
+  assert.equal(next.hasPending, true, 'an empty history cannot discard uncommitted intent');
+  assert.equal(h.count('/sessions').length, 1);
+});
+
+test('opening order screens without a saved identity performs no HTTP or implicit registration', async () => {
+  const h = harness();
+  const observation = await observeSavedOrders(h.client());
+  assert.equal(observation.state, 'empty');
+  assert.equal(observation.hasSavedSession, false);
+  assert.deepEqual(h.requests, []);
+  assert.equal(h.storedSession, null);
+  assert.equal(canCreateTestOrder(true, false), false, 'restoration must finish before creation');
+});
+
+test('expired saved identity is an unavailable history, never an empty new session', async () => {
+  const h = harness();
+  h.persistSession();
+  h.clock += 7_200_001;
+  const observation = await observeSavedOrders(h.client());
+  assert.equal(observation.state, 'unavailable');
+  assert.equal(observation.hasSavedSession, true);
+  assert.equal(observation.error.code, 'SESSION_EXPIRED');
+  assert.deepEqual(h.requests, []);
+});
 
 test('authentication waits for an in-flight restore and never replaces a saved customer', async () => {
   const h = harness();
