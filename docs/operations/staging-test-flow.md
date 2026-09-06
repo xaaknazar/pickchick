@@ -17,15 +17,16 @@ TEST-оплаты не обращается к Kaspi и не означает п
 
 Публичный gateway пропускает только следующие сочетания метода и пути:
 
-| Метод | `/v1/test/…`                                                                                           | Доступ                                                  |
-| ----- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| GET   | `catalog`                                                                                              | Публичный синтетический каталог                         |
-| POST  | `sessions`                                                                                             | Ограниченная по сроку гостевая TEST-сессия mobile/kiosk |
-| GET   | `orders`, `orders/:orderId`                                                                            | Bearer, изоляция клиента/роли проверяется API           |
-| POST  | `quotes`, `orders`                                                                                     | Customer Bearer, UUID `Idempotency-Key`                 |
-| POST  | `orders/:orderId/simulated-payment`, `orders/:orderId/cancel`                                          | Bearer + idempotency + version                          |
-| GET   | `kitchen`, `display`, `manager/orders`                                                                 | Выделенные роли TEST-персонала                          |
-| POST  | `orders/:orderId/tasks/:taskId/complete`, `orders/:orderId/handoff`, `orders/:orderId/resolve-payment` | Роль станции/управляющего, idempotency + version        |
+| Метод | `/v1/test/…`                                                                                           | Доступ                                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| GET   | `catalog`                                                                                              | Публичный синтетический каталог                                                                    |
+| POST  | `sessions`                                                                                             | Ограниченная по сроку гостевая TEST-сессия mobile/kiosk                                            |
+| POST  | `sessions/continue`                                                                                    | Прежний customer Bearer, пустое тело `{}`, только завершённые заказы; сохраняются identity и квоты |
+| GET   | `orders`, `orders/:orderId`                                                                            | Bearer, изоляция клиента/роли проверяется API                                                      |
+| POST  | `quotes`, `orders`                                                                                     | Customer Bearer, UUID `Idempotency-Key`                                                            |
+| POST  | `orders/:orderId/simulated-payment`, `orders/:orderId/cancel`                                          | Bearer + idempotency + version                                                                     |
+| GET   | `kitchen`, `display`, `manager/orders`                                                                 | Выделенные роли TEST-персонала                                                                     |
+| POST  | `orders/:orderId/tasks/:taskId/complete`, `orders/:orderId/handoff`, `orders/:orderId/resolve-payment` | Роль станции/управляющего, idempotency + version                                                   |
 
 UUID проверяются в gateway и API. Остальные методы/маршруты — 404. Bearer
 передаётся upstream только внутри этого allowlist; Cookie и X-Device-Id
@@ -42,6 +43,7 @@ Readiness при включённом gate требует migration `004_cloud_t
 SELECT/INSERT и UPDATE изменяемых полей заказа/задачи, блокировку singleton,
 USAGE единственной TEST sequence. DELETE test_actors нужен ограниченной очистке
 давно истёкших TEST-сессий; все её каскады остаются в TEST-таблицах. Runtime
+получает UPDATE только expires_at у test_actors для явного продолжения;
 не получает UPDATE test_quotes/test_outbox, изменение staff revoked_at, DDL
 или изменение migration ledger. Обычные меню и branch ordering flag не меняются.
 

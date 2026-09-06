@@ -118,3 +118,20 @@ python3 scripts/mobile/ios_release.py upload --release ios-0.1.0-1 --asc-app-id 
 реального запуска и ограничения функций в `docs/project-status.md`. См.
 [Expo: iOS submission](https://docs.expo.dev/submit/ios/) и
 [Apple: загрузка сборок](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds).
+
+## Проверка выпуска 6 сентября 2026
+
+Зарегистрированы Bundle ID `kz.pickchick.app` и отдельная карточка
+[PickChick — 6809208492](https://appstoreconnect.apple.com/apps/6809208492/distribution)
+в Team DAJTP6MC3Q. SKU `pickchick-ios`, основной язык русский; новые пользователи
+не добавлялись. Нативный Release XCUITest прошёл заказ T-000013: создание,
+симуляцию, приготовление, восстановление после перезапуска, историю и отмену.
+
+Попытка `archive --release connected-20260906-1` завершилась Xcode65:
+не найден iOS App Development profile для нового bundle и нет зарегистрированных
+устройств для его автоматического выпуска. Это отдельная задача подписи;
+успешная сборка симулятора не создаёт App Store distribution profile.
+
+App Store Connect требует принятия обновлённого Apple Developer Program License
+Agreement перед отправкой новых приложений. Владельцу предложено самостоятельно
+просмотреть и принять соглашение. Загрузка и Apple processing ещё не выполнены.

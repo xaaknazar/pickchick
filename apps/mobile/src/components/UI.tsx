@@ -50,13 +50,19 @@ export function Heading({
   children,
   small = false,
   style,
+  testID,
 }: {
   children: ReactNode;
   small?: boolean;
+  testID?: string;
   style?: StyleProp<TextStyle>;
 }) {
   return (
-    <Text accessibilityRole="header" style={[styles.heading, small && styles.headingSmall, style]}>
+    <Text
+      testID={testID}
+      accessibilityRole="header"
+      style={[styles.heading, small && styles.headingSmall, style]}
+    >
       {children}
     </Text>
   );

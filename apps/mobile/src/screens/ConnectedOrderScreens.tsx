@@ -289,8 +289,7 @@ export function ConnectedOrder(props: ScreenProps) {
       <FlowNotice props={props} />
       <View style={[s.status, ready && s.ready]}>
         <Pill>Тестовый заказ</Pill>
-        <Body testID="connected-order-state">{statusNames[order.state]}</Body>
-        <Heading style={ready ? { color: '#241208' } : undefined}>
+        <Heading testID="connected-order-state" style={ready ? { color: '#241208' } : undefined}>
           {unknown ? 'Уточняем результат' : statusNames[order.state]}
         </Heading>
         <Text

@@ -43,6 +43,11 @@ API на тот момент ещё не развёрнуто.
 `display-mobile-ready-1024.png`, `display-mobile-ready-1280.png`,
 `display-mobile-ready-1440.png`.
 
+Три проверенных снимка сохранены в Git:
+[mobile Ready](../../docs/design/verification/2026-09-06/mobile-ready-390.png),
+[подтверждение киоска](../../docs/design/verification/2026-09-06/kiosk-confirmed-1024.png),
+[станция сборки](../../docs/design/verification/2026-09-06/kitchen-assembly.png).
+
 Это приёмка браузерной реализации связанного тестового потока. Нативные сборки,
 физические iPad/касса, Apple TestFlight, работа без WAN и production-интеграции
 требуют собственных проверок и не считаются готовыми на основании этого отчёта.

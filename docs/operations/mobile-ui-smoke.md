@@ -28,7 +28,10 @@ xcrun simctl list devices available
 
 Первая команда — dry run. Вторая идемпотентно добавляет `PickChickUITests`
 и отдельную общую схему Release в сгенерированный, исключённый из Git проект.
-Исходная схема PickChick и подпись приложения сохраняются. После нового clean
+Исходная схема PickChick и подпись для устройств/архива сохраняются. Только
+Release для iphonesimulator получает локальную ad-hoc подпись и собственную
+Keychain-группу; глобальный `CODE_SIGNING_ALLOWED=NO` использовать нельзя, иначе
+SecureStore не сможет восстановить сеанс. После нового clean
 prebuild команду установки нужно повторить. Скрипт переиспользует `xcodeproj`
 из CocoaPods; при нестандартной установке передайте `PICKCHICK_POD_GEM_HOME`
 с путём к CocoaPods `libexec`. Глобальные gems не устанавливаются.
@@ -42,10 +45,15 @@ xcodebuild test \
   -configuration Release \
   -destination 'platform=iOS Simulator,id=<SIMULATOR_UUID>' \
   -parallel-testing-enabled NO \
-  -derivedDataPath .local/mobile-ui-smoke/DerivedData \
+  -derivedDataPath "$HOME/Library/Caches/PickChick/simulator-derived" \
   -resultBundlePath .local/mobile-ui-smoke/Run-<UNIQUE_ID>.xcresult \
-  CODE_SIGNING_ALLOWED=NO
+  ONLY_ACTIVE_ARCH=YES
 ```
+
+DerivedData должен находиться вне iCloud/Documents: FileProvider добавляет
+FinderInfo к framework-каталогам, и codesign отвергает такую сборку. Удаление
+атрибутов внутри синхронизируемой папки не помогает, поскольку они возвращаются.
+Пользовательские исходные файлы и метаданные ради сборки не очищаются.
 
 Путь `.xcresult` должен быть новым для каждого запуска. Для быстрой проверки
 корзины добавьте `-only-testing:PickChickUITests/SmokeTests/testPreviewCartQuantityAndDisabledPayment`.
@@ -57,3 +65,17 @@ xcodebuild test \
 `--install` не дублирует target/source/dependency и оставляет project/scheme
 побайтово прежними. Это не заменяет фактический `xcodebuild test`; результат
 нативного прогона следует записывать только после чтения `.xcresult`.
+
+## Подтверждённые результаты
+
+6 сентября 2026, Xcode 26.6 / iOS Simulator 26.5 / iPhone 17 Pro:
+три автономных сценария успешно завершены в Run-3. Первый connected-тест
+выявил отсутствие Keychain entitlements в неподписанном симуляторе. Run-4
+остановился на iCloud FinderInfo в сгенерированном framework. После отдельной
+подписи симулятора и переноса DerivedData в Library/Caches connected-тест
+прошёл в Run-5 и на финальном интерфейсе в Run-6 (38,127 с, T-000013).
+Последний подтверждает создание на VPS, симуляцию оплаты, восстановление
+после перезапуска из истории и отмену. Снимок
+[восстановленного заказа](../design/verification/2026-09-06/native-restored.png)
+сохранён в Git; полные xcresult остаются приватными локальными артефактами.
+Это нативный тест соединения, но не загрузка в TestFlight и не физический iPad.
