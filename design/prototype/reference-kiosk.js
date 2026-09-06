@@ -68,7 +68,7 @@ export function kioskView(s, m) {
     case 'K01':
       return full(
         'rk-attract',
-        `${video()}<div class="rk-attract-veil"></div><button class="rk-attract-target" data-go="K02" aria-label="Коснитесь экрана, чтобы начать заказ"></button><header class="rk-attract-header">${logo()}<div class="rk-attract-controls">${act('Ⅱ', 'video-toggle', 'rk-video-control', 'aria-label="Остановить фоновое видео"')}${language()}</div></header><div class="rk-attract-copy"><div><h1>PICK YOUR<br>PEAK</h1><p>Твой вкус. Твой момент.</p></div>${go(`НАЧАТЬ ${icon('arrow')}`, 'K02', 'rk-start')}<span>Коснись экрана и сделай свой выбор</span></div>`,
+        `${video()}<div class="rk-attract-veil"></div><button class="rk-attract-target" data-go="K02" aria-label="Коснитесь экрана, чтобы начать заказ"></button><header class="rk-attract-header">${logo()}<div class="rk-attract-controls">${language()}</div></header><div class="rk-attract-copy"><div><h1>PICK YOUR<br>PEAK</h1><p>Твой вкус. Твой момент.</p></div>${go(`НАЧАТЬ ${icon('arrow')}`, 'K02', 'rk-start')}<span>Коснись экрана и сделай свой выбор</span></div>`,
       );
     case 'K02':
       return full(

@@ -122,19 +122,21 @@ export function Button({
         style,
       ]}
     >
-      {icon ? <Icon name={icon} color={secondary ? colors.text : colors.orangeInk} /> : null}
+      {icon ? <Icon name={icon} color={secondary ? colors.text : colors.white} /> : null}
       <Text style={[styles.buttonText, secondary && styles.secondaryButtonText]}>{title}</Text>
     </Pressable>
   );
 }
 export function IconButton({
   name,
+  color,
   label,
   onPress,
   style,
   testID,
 }: {
   name: IconName;
+  color?: string;
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
@@ -148,7 +150,7 @@ export function IconButton({
       testID={testID}
       style={({ pressed }) => [styles.iconButton, pressed && styles.pressed, style]}
     >
-      <Icon name={name} />
+      <Icon name={name} color={color} />
     </Pressable>
   );
 }
@@ -194,12 +196,14 @@ export function Page({
   children,
   footer,
   noBack = false,
+  header,
 }: {
   props: ScreenProps;
   title: string;
   children: ReactNode;
   footer?: ReactNode;
   noBack?: boolean;
+  header?: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -208,13 +212,15 @@ export function Page({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.page, { paddingTop: insets.top }]}
     >
-      <Row style={styles.pageHeader}>
-        {noBack ? null : <IconButton name="chevron-back" label="Назад" onPress={props.goBack} />}
-        <Heading small style={styles.flex}>
-          {title}
-        </Heading>
-        <Logo size={34} />
-      </Row>
+      {header ?? (
+        <Row style={styles.pageHeader}>
+          {noBack ? null : <IconButton name="chevron-back" label="Назад" onPress={props.goBack} />}
+          <Heading small style={styles.flex}>
+            {title}
+          </Heading>
+          <Logo size={34} />
+        </Row>
+      )}
       <ScrollView
         testID={`scroll-${props.screenId}`}
         style={styles.scroll}
@@ -359,7 +365,7 @@ export const styles = StyleSheet.create({
   body: { fontFamily: font.body, color: colors.text, fontSize: 16, lineHeight: 24 },
   muted: { color: colors.muted },
   heading: {
-    fontFamily: font.heading,
+    fontFamily: font.display,
     color: colors.text,
     fontSize: 34,
     lineHeight: 39,
@@ -380,7 +386,7 @@ export const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: colors.accent,
-    minHeight: 56,
+    minHeight: 54,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 14,
@@ -390,7 +396,7 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   buttonText: {
-    color: colors.orangeInk,
+    color: colors.white,
     fontFamily: font.heading,
     fontSize: 18,
     lineHeight: 25,

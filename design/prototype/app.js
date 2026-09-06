@@ -149,7 +149,28 @@ function render() {
         '',
       )}</nav>${overview ? overviewHtml() : `<div class="workspace ${!spec ? 'no-spec' : ''}"><section class="review-stage"><div class="preview-meta"><span class="prototype-label">Дизайн-прототип · демонстрационные данные</span><label>Состояние <select id="state-select" aria-label="Состояние экрана">${s.states.map((v) => `<option value="${v}" ${state === v ? 'selected' : ''}>${stateNames[v]}</option>`).join('')}</select></label></div><div class="viewport-holder" id="holder"><div class="frame ${s.surface}" id="preview" tabindex="-1"><div class="frame-content">${appShell(s, stateView(s, state) ?? view(s, model))}</div></div></div></section>${spec ? inspector(s) : ''}</div>`}</main></div>`;
   requestAnimationFrame(fit);
+  syncDecorativeVideo();
 }
+function syncDecorativeVideo() {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('#preview video').forEach((video) => {
+    video.addEventListener(
+      'error',
+      () => {
+        video.autoplay = false;
+        video.pause();
+      },
+      { capture: true, once: true },
+    );
+    video.autoplay = !reduced && !document.hidden;
+    if (video.autoplay) void video.play().catch(() => video.pause());
+    else video.pause();
+  });
+}
+window
+  .matchMedia('(prefers-reduced-motion: reduce)')
+  .addEventListener('change', syncDecorativeVideo);
+document.addEventListener('visibilitychange', syncDecorativeVideo);
 function fit() {
   const holder = document.querySelector('#holder'),
     frame = document.querySelector('#preview');
@@ -348,40 +369,6 @@ document.addEventListener('click', async (event) => {
     sync: 'Демо: повтор обмена не должен создавать новые бизнес-операции.',
     audit: 'Журнал: сотрудник, операция, версия и причина. В макете данные демонстрационные.',
   };
-  if (action === 'video-toggle') {
-    const video = document.querySelector('#preview video');
-    if (video) {
-      // Before the first decoded frame, paused can still be true despite autoplay.
-      // Follow the displayed command so Pause also cancels pending autoplay.
-      if (el.dataset.videoCommand !== 'play') {
-        video.autoplay = false;
-        video.pause();
-        el.dataset.videoCommand = 'play';
-        el.textContent = '▶';
-        el.setAttribute('aria-label', 'Включить фоновое видео');
-      } else {
-        if (video.error || video.networkState === video.NETWORK_NO_SOURCE) {
-          video.pause();
-          toast('Видео недоступно. Меню работает; показываем обложку.');
-          return;
-        }
-        try {
-          await video.play();
-          if (!el.isConnected) {
-            video.pause();
-            return;
-          }
-          el.dataset.videoCommand = 'pause';
-          el.textContent = 'Ⅱ';
-          el.setAttribute('aria-label', 'Остановить фоновое видео');
-        } catch {
-          video.pause();
-          toast('Видео недоступно. Меню работает; показываем обложку.');
-        }
-      }
-    }
-    return;
-  }
   if (action) toast(messages[action] ?? 'Демонстрация действия. Внешние системы не вызываются.');
 });
 document.addEventListener('change', (event) => {

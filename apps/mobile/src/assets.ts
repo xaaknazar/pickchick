@@ -3,6 +3,9 @@ import type { ImageSourcePropType } from 'react-native';
 
 export const assets = {
   logo: require('../../../design/prototype/assets/mockup/logo.png') as ImageSourcePropType,
+  skyline: require('../../../design/prototype/assets/mockup/skyline.svg') as ImageSourcePropType,
+  mix: require('../../../design/prototype/assets/mockup/bg-mix.png') as ImageSourcePropType,
+  pickrunRunner: require('../../../design/prototype/assets/mockup/i26.jpg') as ImageSourcePropType,
   blue: require('../../../design/prototype/assets/mockup/bg-blue.png') as ImageSourcePropType,
   orange: require('../../../design/prototype/assets/mockup/bg-orange.png') as ImageSourcePropType,
   poster: require('../../../design/prototype/assets/mockup/hero-poster.jpg') as ImageSourcePropType,

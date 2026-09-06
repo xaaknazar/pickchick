@@ -90,6 +90,35 @@ final class SmokeTests: XCTestCase {
     }
 
     @MainActor
+    func testOriginalMockupCompositionAndDecorativeVideo() throws {
+        let app = launchApp()
+        let hero = element("hero-promotion", in: app)
+        XCTAssertTrue(hero.waitForExistence(timeout: 10))
+        XCTAssertFalse(element("hero-video-toggle", in: app).exists)
+        XCTAssertEqual(hero.frame.midX, app.frame.midX, accuracy: 2)
+        attachScreenshot("Mockup-menu", of: app)
+        tap("category-Комбо", in: app)
+        let product = element("product-pick-combo", in: app)
+        reveal(product, in: app)
+        attachScreenshot("Mockup-catalog", of: app)
+        product.tap()
+        assertScreen("M07", in: app)
+        XCTAssertFalse(element("hero-video-toggle", in: app).exists)
+        attachScreenshot("Mockup-product", of: app)
+        tap("product-add", in: app)
+        assertScreen("M09", in: app)
+        attachScreenshot("Mockup-cart", of: app)
+        app.buttons["Назад"].firstMatch.tap()
+        app.buttons["Закрыть блюдо"].firstMatch.tap()
+        tap("tab-profile", in: app)
+        assertScreen("M30", in: app)
+        attachScreenshot("Mockup-profile", of: app)
+        tap("tab-events", in: app)
+        assertScreen("M26", in: app)
+        attachScreenshot("Mockup-events", of: app)
+    }
+
+    @MainActor
     func testBottomControlsStayVisibleWhileScrolling() throws {
         let app = launchApp()
         let tab = element("tab-menu", in: app)

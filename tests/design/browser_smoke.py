@@ -77,28 +77,23 @@ with sync_playwright() as p:
     # Reference-specific behavior survives the visual revision.
     page.goto(base + '/#M06')
     page.wait_for_selector('.ref-mobile-video')
-    page.locator('[data-action="video-toggle"]').click()
-    assert page.locator('video').evaluate('(v)=>v.paused')
-    assert page.locator('video').evaluate('(v)=>!v.autoplay')
+    assert page.locator('[data-action="video-toggle"]').count() == 0
+    assert page.locator('video').evaluate('(v)=>!v.controls && v.muted && v.loop')
     assert page.locator('.bottom-nav button[data-go="M19"]').count() == 1
     assert page.locator('.bottom-nav button[data-go="M23"]').count() == 0
     page.goto(base + '/#K01')
     page.wait_for_selector('[data-go="K02"]')
     page.locator('#preview [data-go="K02"]').first.click()
     page.wait_for_function('()=>document.title.startsWith("K02")')
-    # Cold/unsupported media must not turn a visible Pause command into Play.
+    # Decorative video has no playback buttons; a failed source retains the poster and menu.
     cold = browser.new_page(viewport={'width': 1600, 'height': 1200})
     cold.on('pageerror', lambda e: errors.append(str(e)))
     cold.route('**/assets/mockup/hero.mp4', lambda route: route.abort())
     cold.goto(base + '/#M06')
     cold.wait_for_function('()=>{const v=document.querySelector("#preview video");return v && v.networkState===v.NETWORK_NO_SOURCE;}')
-    assert cold.locator('#preview video').evaluate('(v)=>v.paused')
-    cold.locator('[data-action="video-toggle"]').click()
-    assert cold.locator('#preview video').evaluate('(v)=>v.paused && !v.autoplay')
-    assert cold.locator('[data-action="video-toggle"]').get_attribute('aria-label') == 'Включить фоновое видео'
-    cold.locator('[data-action="video-toggle"]').click()
-    cold.locator('.toast').filter(has_text='Видео недоступно. Меню работает; показываем обложку.').wait_for()
-    assert cold.locator('#preview video').evaluate('(v)=>v.paused')
+    assert cold.locator('#preview video').evaluate('(v)=>v.paused && !v.controls && Boolean(v.poster)')
+    assert cold.locator('[data-action="video-toggle"]').count() == 0
+    assert cold.locator('.bottom-nav button[data-go="M19"]').count() == 1
     cold.close()
     kiosk_checks = check_kiosk_ux(browser, base)
     page.set_viewport_size({'width': 2100, 'height': 1550})
@@ -127,7 +122,7 @@ with sync_playwright() as p:
     assert page.locator('body').evaluate('(e)=>e.scrollWidth<=window.innerWidth+2')
     page.screenshot(path=str(output / 'review-at-390.png'), full_page=True)
     browser.close()
-result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'video_poster_fallbacks': video_fallbacks, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout', 'reference video pause', 'source bottom navigation', 'kiosk attract transition', 'pause before media can play', 'unavailable media resume fallback']}
+result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'video_poster_fallbacks': video_fallbacks, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout', 'decorative video without playback controls', 'source bottom navigation', 'kiosk attract transition', 'no pause control before media loads', 'unavailable media poster fallback']}
 result['interactive_checks'].extend(kiosk_checks)
 (output / 'results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(result, ensure_ascii=False))

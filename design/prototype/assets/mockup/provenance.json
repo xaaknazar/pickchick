@@ -346,5 +346,11 @@
     "source": "uploads/IMG_7060.mp4",
     "sha256": "b7b5141add58a68641ab3c202e1b0b6e651d46949fd792a8a21c2a4158dc7f54",
     "transform": "Browser video frame capture at 4 seconds; original video dimensions, JPEG quality 95."
+  },
+  {
+    "file": "i26.jpg",
+    "source": "offline/i26.jpg",
+    "sha256": "d8fb0d7818ab60f649b2c863efb8e57ce64f807e43c51756236c7e05c01a65ed",
+    "transform": "none"
   }
 ]

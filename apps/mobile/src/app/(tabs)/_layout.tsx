@@ -10,7 +10,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: '#93BCFF',
+        tabBarActiveTintColor: '#4A85F0',
         tabBarInactiveTintColor: '#93A6C9',
         tabBarLabelPosition: 'below-icon',
         tabBarStyle: {
@@ -28,7 +28,7 @@ export default function TabLayout() {
           title: 'Меню',
           tabBarButtonTestID: 'tab-menu',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bag-outline" color={color} size={size} />
+            <Ionicons name="menu-outline" color={color} size={size} />
           ),
         }}
       />
@@ -38,7 +38,7 @@ export default function TabLayout() {
           title: 'События',
           tabBarButtonTestID: 'tab-events',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="game-controller-outline" color={color} size={size} />
+            <Ionicons name="calendar-outline" color={color} size={size} />
           ),
         }}
       />
