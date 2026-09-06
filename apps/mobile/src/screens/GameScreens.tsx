@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { Animated, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  AppState,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
@@ -15,49 +26,146 @@ import {
   Notice,
   Page,
   Pill,
+  ReviewBadge,
   Row,
   styles as ui,
+  type IconName,
 } from '../components/UI';
 
 export function Events(props: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const posterGradient =
+    'linear-gradient(180deg, rgba(4,20,58,0.35) 0%, rgba(4,20,58,0) 34%, rgba(2,10,30,0.88) 100%)';
+  const gradientStyle = (
+    Platform.OS === 'web'
+      ? { backgroundImage: posterGradient }
+      : { experimental_backgroundImage: posterGradient }
+  ) as ViewStyle;
   return (
-    <Page props={props} title="События" noBack>
-      <Heading>Играй. Собирай.{`\n`}Открывай новое.</Heading>
-      <Body muted>Ещё один повод заглянуть к нам.</Body>
-      <Pressable
-        testID="pickrun-open"
-        accessibilityRole="button"
-        accessibilityLabel="Играть в Pick Run, тренировочный режим"
-        onPress={() => props.navigate('M27')}
-        style={s.eventPoster}
+    <View testID="screen-M26" style={s.eventsPage}>
+      <ScrollView
+        testID="scroll-M26"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          s.eventsContent,
+          { paddingTop: insets.top + 6, paddingBottom: Math.max(28, insets.bottom + 16) },
+        ]}
       >
-        <Image source={assets.pickrun} style={StyleSheet.absoluteFill} contentFit="cover" />
-        <View style={s.eventBadge}>
-          <Pill>Доступно · тренировка</Pill>
+        {props.preview ? <ReviewBadge /> : null}
+        <Heading style={s.eventsTitle}>События</Heading>
+        <Body muted style={s.eventsSubtitle}>
+          Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.
+        </Body>
+
+        <View style={s.streakCard}>
+          <Image source={assets.skyline} style={s.skyline} contentFit="cover" />
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={ui.flex}>
+              <Caption style={s.streakLabel}>СТРИК ЗАКАЗОВ · АЛМАТЫ</Caption>
+              <Row style={s.streakCountRow}>
+                <Text style={s.streakCount}>{props.preview ? '5' : '—'}</Text>
+                <Text style={s.streakWeeks}>недели подряд</Text>
+              </Row>
+            </View>
+            <View style={s.freezeChip}>
+              <Icon name="snow-outline" size={13} color={colors.muted} />
+              <Text style={s.freezeLabel}>{props.preview ? 'Пример' : 'Скоро'}</Text>
+            </View>
+          </Row>
+          <View style={s.streakTrack}>
+            {props.preview ? <View style={s.streakFill} /> : null}
+            {['Соус', 'Лимонад', '−30%', 'Комбо'].map((label, index) => (
+              <View
+                key={label}
+                style={[
+                  s.streakFlag,
+                  { left: `${(index + 1) * 25}%`, marginLeft: index === 3 ? -45 : -36 },
+                ]}
+              >
+                <View style={[s.streakMarker, props.preview && index < 2 && s.streakMarkerDone]}>
+                  <Text
+                    style={[s.streakWeekNumber, props.preview && index < 2 && { color: '#C2410C' }]}
+                  >
+                    {(index + 1) * 2}
+                  </Text>
+                </View>
+                <Text style={s.streakReward}>{props.preview ? label : 'Неделя'}</Text>
+              </View>
+            ))}
+          </View>
+          {!props.preview ? (
+            <Caption style={s.streakHint}>
+              Программа готовится · прогресс ещё не начисляется
+            </Caption>
+          ) : null}
         </View>
-      </Pressable>
-      <Row>
-        <View style={ui.flex}>
-          <Heading small>Pick Run</Heading>
-          <Caption>Твой хрустящий забег</Caption>
+
+        <Heading style={s.eventSection}>Игры</Heading>
+        <View style={s.eventPoster}>
+          <Image source={assets.pickrun} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, gradientStyle]} />
+          <Row style={s.posterTags}>
+            <Text style={[s.posterTag, s.posterTagBlue]}>ИГРА</Text>
+            <Text style={s.posterTag}>ГОТОВИТСЯ</Text>
+          </Row>
+          <Row style={s.posterBottom}>
+            <View style={ui.flex}>
+              <Heading style={s.posterTitle}>PICK MAN</Heading>
+              <Body style={s.posterDescription}>Полёт на паутине над городом</Body>
+            </View>
+            <Text style={s.posterSoon}>Скоро</Text>
+          </Row>
         </View>
-        <Button title="Играть" onPress={() => props.navigate('M27')} />
-      </Row>
-      <Notice>
-        Тренировка работает на устройстве. Игровые очки не превращаются в Чики и не дают денежные
-        награды.
-      </Notice>
-      <View style={s.nextEvent}>
-        <Image
-          source={assets.blue}
-          style={[StyleSheet.absoluteFill, { opacity: 0.32 }]}
-          contentFit="cover"
-        />
-        <Caption style={{ color: '#DFE9FF' }}>СКОРО</Caption>
-        <Heading>Больше поводов{`\n`}заглянуть к нам</Heading>
-        <Body>Следи за событиями Pick Chick</Body>
-      </View>
-    </Page>
+        <Pressable
+          testID="pickrun-open"
+          accessibilityRole="button"
+          accessibilityLabel="Играть в Pick Run, тренировочный режим без начисления Чиков"
+          onPress={() => props.navigate('M27')}
+          style={s.eventPoster}
+        >
+          <Image
+            source={assets.pickrunRunner}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            contentPosition={{ top: '30%', left: '50%' }}
+          />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, gradientStyle]} />
+          <Row style={s.posterTags}>
+            <Text style={s.posterTag}>ТРЕНИРОВКА</Text>
+            <Text style={s.posterTag}>3 ПОПЫТКИ</Text>
+          </Row>
+          <Row style={s.posterBottom}>
+            <View style={ui.flex}>
+              <Heading style={s.posterTitle}>PICK RUN</Heading>
+              <Body style={s.posterDescription}>
+                Прыжки через препятствия.{`\n`}Без начисления Чиков.
+              </Body>
+            </View>
+            <View style={s.posterPlay}>
+              <Icon name="play" size={25} color="#FFFFFF" />
+            </View>
+          </Row>
+        </Pressable>
+        <Heading style={s.eventSection}>Скоро</Heading>
+        <View style={s.upcomingList}>
+          {[
+            ['gift-outline', 'События недели', 'Условия и награды готовятся'],
+            ['trophy-outline', 'Лидерборд Pick Run', 'Рейтинг появится после запуска'],
+            ['sparkles-outline', 'День рождения', 'Праздничные предложения Pick Chick'],
+          ].map(([icon, title, detail]) => (
+            <Row key={title} style={s.upcomingRow}>
+              <View style={s.upcomingIcon}>
+                <Icon name={icon as IconName} size={22} color={colors.muted} />
+              </View>
+              <View style={ui.flex}>
+                <Body style={s.upcomingTitle}>{title}</Body>
+                <Caption style={s.upcomingDetail}>{detail}</Caption>
+              </View>
+            </Row>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 type GameStatus = 'idle' | 'running' | 'paused';
@@ -285,22 +393,133 @@ export function GameResult(props: ScreenProps) {
   );
 }
 const s = StyleSheet.create({
-  eventPoster: {
-    height: 350,
+  eventsPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  eventsContent: { paddingHorizontal: 18 },
+  eventsTitle: { fontFamily: font.display, fontSize: 34, lineHeight: 41, letterSpacing: -0.68 },
+  eventsSubtitle: { fontSize: 14, lineHeight: 21, marginTop: 6 },
+  streakCard: {
+    marginTop: 18,
+    padding: 18,
     borderRadius: 24,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
-    backgroundColor: colors.action,
   },
-  eventBadge: { position: 'absolute', bottom: 16, left: 16 },
-  nextEvent: {
-    backgroundColor: colors.action,
-    borderRadius: 24,
+  skyline: { position: 'absolute', left: 0, right: 0, top: 0, height: 118, opacity: 0.4 },
+  streakLabel: { fontFamily: font.bold, fontSize: 10.5, letterSpacing: 1.26, lineHeight: 15 },
+  streakCountRow: { alignItems: 'baseline', gap: 7, marginTop: 5 },
+  streakCount: { fontFamily: font.display, color: colors.accent, fontSize: 38, lineHeight: 42 },
+  streakWeeks: { fontFamily: font.heading, color: colors.text, fontSize: 17 },
+  freezeChip: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    backgroundColor: colors.raised,
+    alignItems: 'center',
+  },
+  freezeLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.muted },
+  streakTrack: {
+    marginTop: 40,
+    marginBottom: 38,
+    height: 10,
+    borderRadius: 6,
+    backgroundColor: colors.raised,
+  },
+  streakFill: { width: '62%', height: 10, borderRadius: 6, backgroundColor: colors.accent },
+  streakFlag: { position: 'absolute', top: -12, width: 72, alignItems: 'center' },
+  streakMarker: {
+    width: 24,
+    height: 34,
+    borderRadius: 7,
+    backgroundColor: colors.raised,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streakMarkerDone: { backgroundColor: '#FFFFFF', borderColor: colors.accent },
+  streakWeekNumber: { fontFamily: font.display, fontSize: 11.5, color: colors.muted },
+  streakReward: { marginTop: 8, fontFamily: font.medium, fontSize: 11, color: colors.muted },
+  streakHint: { fontSize: 11, lineHeight: 16 },
+  eventSection: {
+    fontFamily: font.display,
+    fontSize: 20,
+    lineHeight: 26,
+    marginTop: 24,
+    letterSpacing: -0.2,
+  },
+  eventPoster: {
+    minHeight: 212,
+    marginTop: 12,
+    borderRadius: 26,
     overflow: 'hidden',
-    padding: 24,
-    minHeight: 225,
-    gap: 17,
+    backgroundColor: colors.background,
+  },
+  posterTags: { padding: 14, gap: 7, flexWrap: 'wrap' },
+  posterTag: {
+    fontFamily: font.bold,
+    fontSize: 10.5,
+    letterSpacing: 0.63,
+    color: '#FFFFFF',
+    backgroundColor: '#FFFFFF38',
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  posterTagBlue: { backgroundColor: colors.action },
+  posterBottom: { flex: 1, alignItems: 'flex-end', padding: 16, paddingTop: 45, gap: 14 },
+  posterTitle: {
+    fontFamily: font.display,
+    fontSize: 34,
+    lineHeight: 34,
+    letterSpacing: -0.85,
+    color: '#FFFFFF',
+  },
+  posterDescription: { marginTop: 7, fontSize: 12.5, lineHeight: 18, color: '#FFFFFFE0' },
+  posterSoon: {
+    fontFamily: font.medium,
+    fontSize: 13.5,
+    color: '#FFFFFF',
+    backgroundColor: '#FFFFFF29',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    overflow: 'hidden',
+  },
+  posterPlay: {
+    width: 58,
+    height: 58,
+    flexShrink: 0,
+    borderRadius: 29,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 3,
+  },
+  upcomingList: {
+    marginTop: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  upcomingRow: {
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    gap: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  upcomingIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: colors.raised,
+    alignItems: 'center',
     justifyContent: 'center',
   },
+  upcomingTitle: { fontFamily: font.medium, fontSize: 14.5, lineHeight: 21 },
+  upcomingDetail: { fontSize: 12.5, lineHeight: 18, marginTop: 2 },
   gameStats: { paddingVertical: 4, justifyContent: 'space-between' },
   gameField: { height: 305, borderRadius: 24, backgroundColor: '#235491', overflow: 'hidden' },
   sun: {
