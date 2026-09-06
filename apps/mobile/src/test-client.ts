@@ -16,19 +16,22 @@ export async function testRequest(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(`${API_URL}/v1/test${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
-      credentials: 'omit',
-      redirect: 'error',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(key ? { 'Idempotency-Key': key } : {}),
+    const response = await fetch(
+      `${API_URL}/v1/test${path}${path.includes('?') ? '&' : '?'}catalog_version=mockup-v0.3`,
+      {
+        method: body === undefined ? 'GET' : 'POST',
+        credentials: 'omit',
+        redirect: 'error',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(key ? { 'Idempotency-Key': key } : {}),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+    );
     if (Number(response.headers.get('content-length') ?? 0) > 2000000)
       throw new TestApiError(503, 'RESPONSE_TOO_LARGE');
     const raw = await response.text();

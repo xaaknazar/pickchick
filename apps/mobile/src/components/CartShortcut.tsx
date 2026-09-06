@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet } from 'react-native';
+import { cartTotal } from '../domain';
 import type { MobileModel } from '../model';
 import { colors, font } from '../theme';
 import { Body, BottomActions, MinorMoney, styles as ui } from './UI';
@@ -15,10 +16,7 @@ export function CartShortcut({
 }) {
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   if (!count) return null;
-  const total = model.cart.reduce(
-    (sum, line) => sum + BigInt(line.product.priceMinor) * BigInt(line.quantity),
-    0n,
-  );
+  const total = cartTotal(model.cart);
   return (
     <BottomActions safeArea={safeArea} style={{ paddingTop: 10, borderTopWidth: 0 }}>
       <Pressable

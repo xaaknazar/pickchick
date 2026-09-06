@@ -22,7 +22,15 @@ import {
   styles as ui,
 } from '../components/UI';
 import { colors, font } from '../theme';
-import { money, cartTotal } from '../domain';
+import { PaymentChoice, paymentName } from '../components/PaymentChoice';
+import {
+  money,
+  cartTotal,
+  cartLineKey,
+  lineUnitPrice,
+  selectionDescription,
+  preparationMinutes,
+} from '../domain';
 import { assets } from '../assets';
 import { cartMatchesOrder } from '../test-order-session';
 
@@ -52,10 +60,6 @@ function FlowNotice({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
   return (
     <>
-      <Notice warning title="Тестовый контур">
-        Заказ сохраняется на сервере и связан с тестовой кухней. Деньги не списываются, ресторан его
-        не готовит.
-      </Notice>
       {!flow.available ? (
         <Notice warning title="Новое оформление недоступно">
           Свежее меню и разрешение тестовых заказов ещё не получены. Сохранённый сеанс и его
@@ -100,8 +104,8 @@ function OrderLines({ order }: { order: TestOrder }) {
       <Heading small>Состав заказа</Heading>
       {order.snapshot.lines.map((line) => (
         <SummaryRow
-          key={line.id}
-          label={`${line.quantity} × ${line.name}`}
+          key={'line_id' in line ? line.line_id : line.id}
+          label={`${line.quantity} × ${line.name}${'selections' in line && line.selections.length ? ` · ${line.selections.map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : '')).join(' · ')}` : ''}`}
           value={money(line.line_total_minor)}
         />
       ))}
@@ -116,7 +120,7 @@ export function ConnectedCheckout(props: ScreenProps) {
   const matching = flow.orders.find(
     (order) =>
       order.state === 'awaiting_test_payment' &&
-      cartMatchesOrder(order, props.model.cart, props.model.diningMode),
+      cartMatchesOrder(order, props.model.cart, props.model.diningMode, props.model.paymentMethod),
   );
   const pending = unknown ?? matching ?? null;
   const submit = async () => {
@@ -136,7 +140,7 @@ export function ConnectedCheckout(props: ScreenProps) {
               ? 'Сохраняем заказ…'
               : pending
                 ? `Продолжить ${pending.number}`
-                : 'Создать тестовый заказ'
+                : 'Перейти к тестовой оплате'
           }
           disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
           onPress={() => {
@@ -158,7 +162,16 @@ export function ConnectedCheckout(props: ScreenProps) {
       ) : null}
       <Card>
         <Heading small>{props.model.branch?.name ?? 'Тестовая точка PickChick'}</Heading>
-        <Body>{props.model.diningMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
+        <Body>
+          {(pending?.snapshot.service_mode ?? props.model.diningMode) === 'takeaway'
+            ? 'С собой'
+            : 'В зале'}{' '}
+          · Приготовим за ~
+          {pending && 'estimated_minutes' in pending.snapshot
+            ? pending.snapshot.estimated_minutes.min
+            : preparationMinutes(props.model.cart)}{' '}
+          мин
+        </Body>
       </Card>
       {pending ? (
         <OrderLines order={pending} />
@@ -166,16 +179,31 @@ export function ConnectedCheckout(props: ScreenProps) {
         <Card>
           {props.model.cart.map((line) => (
             <SummaryRow
-              key={line.product.id}
-              label={`${line.quantity} × ${line.product.name}`}
-              value={money((BigInt(line.product.priceMinor) * BigInt(line.quantity)).toString())}
+              key={cartLineKey(line)}
+              label={`${line.quantity} × ${line.product.name}${selectionDescription(line) ? ` · ${selectionDescription(line)}` : ''}`}
+              value={money((BigInt(lineUnitPrice(line)) * BigInt(line.quantity)).toString())}
             />
           ))}
           <SummaryRow label="Предварительно" value={money(cartTotal(props.model.cart))} strong />
           <Caption>Окончательная сумма будет рассчитана и сохранена сервером.</Caption>
         </Card>
       )}
-      <Button title="Kaspi ещё подключается" disabled testID="checkout-pay-disabled" />
+      {pending ? (
+        <SummaryRow
+          label="Способ оплаты"
+          value={
+            'payment_method' in pending.snapshot
+              ? paymentName(pending.snapshot.payment_method)
+              : 'Тестовая оплата'
+          }
+        />
+      ) : (
+        <PaymentChoice model={props.model} />
+      )}
+      <Caption>
+        Имитация оплаты: деньги не списываются, заказ поступит на тестовые экраны кухни. Ресторан
+        его не готовит.
+      </Caption>
       {flow.current?.state === 'awaiting_test_payment' &&
       flow.current.order_id !== pending?.order_id ? (
         <NavRow
@@ -267,7 +295,12 @@ export function ConnectedOrder(props: ScreenProps) {
     const next = await flow.pay(outcome);
     if (next) {
       if (next.payment_state === 'simulated_approved')
-        props.model.clearCart(next.snapshot.lines.map(({ id, quantity }) => ({ id, quantity })));
+        props.model.clearCart(
+          next.snapshot.lines.map((line) => ({
+            id: 'line_id' in line ? line.line_id : line.id,
+            quantity: line.quantity,
+          })),
+        );
       props.navigate(
         next.payment_state === 'simulated_unknown'
           ? 'M14'
@@ -285,6 +318,25 @@ export function ConnectedOrder(props: ScreenProps) {
     <Page
       props={props}
       title={receipt ? 'Электронный чек' : cancel ? 'Отмена заказа' : order.number}
+      footer={
+        cancel ? (
+          <Button
+            testID="test-cancel-order"
+            title="Отменить тестовый заказ"
+            disabled={
+              flow.busy ||
+              reason.trim().length < 3 ||
+              unknown ||
+              ['fulfilled', 'cancelled'].includes(order.state)
+            }
+            onPress={() => {
+              void flow.cancel(reason).then((next) => {
+                if (next) props.navigate('M20');
+              });
+            }}
+          />
+        ) : undefined
+      }
     >
       <FlowNotice props={props} />
       <View style={[s.status, ready && s.ready]}>
@@ -322,11 +374,18 @@ export function ConnectedOrder(props: ScreenProps) {
       ) : null}
       {canPay && !receipt && !cancel ? (
         <Card>
-          <Heading small>Симулятор для проверки</Heading>
+          <Heading small>
+            {'payment_method' in order.snapshot
+              ? paymentName(order.snapshot.payment_method)
+              : 'Kaspi'}{' '}
+            · тестовая оплата
+          </Heading>
           <Caption>Только тестовые состояния, без обращения к банку.</Caption>
           <Button
             testID="test-payment-approve"
-            title={flow.busy ? 'Проверяем…' : 'Тест: подтвердить и передать на кухню'}
+            title={
+              flow.busy ? 'Проверяем…' : `Оплатить ${money(order.snapshot.total_minor)} · тест`
+            }
             disabled={flow.busy}
             onPress={() => {
               void pay('approved');
@@ -370,26 +429,15 @@ export function ConnectedOrder(props: ScreenProps) {
           <TextInput
             testID="test-cancel-reason"
             accessibilityLabel="Причина отмены тестового заказа"
-            value={reason}
+            // Native owns edits; reason keeps the latest draft for remount and submission.
+            defaultValue={reason}
             onChangeText={setReason}
+            autoCorrect={false}
+            spellCheck={false}
+            smartInsertDelete={false}
             maxLength={300}
             multiline
             style={[s.input, ui.body]}
-          />
-          <Button
-            testID="test-cancel-order"
-            title="Отменить тестовый заказ"
-            disabled={
-              flow.busy ||
-              reason.trim().length < 3 ||
-              unknown ||
-              ['fulfilled', 'cancelled'].includes(order.state)
-            }
-            onPress={() => {
-              void flow.cancel(reason).then((next) => {
-                if (next) props.navigate('M20');
-              });
-            }}
           />
         </Card>
       ) : null}

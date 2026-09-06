@@ -1,15 +1,30 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Animated, {
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Product, ScreenProps } from '../model';
 import { assets } from '../assets';
+import {
+  cartLineKey,
+  defaultSelections,
+  cartTotal,
+  lineUnitPrice,
+  preparationMinutes,
+  selectionDescription,
+} from '../domain';
+import { PaymentChoice } from '../components/PaymentChoice';
 import { CartShortcut } from '../components/CartShortcut';
 import { colors, font } from '../theme';
 import { DiningSelector, HeroVideo, LoyaltyCard } from '../components/Brand';
 import {
   Body,
-  BottomActions,
   Button,
   Caption,
   Card,
@@ -146,20 +161,99 @@ export function Menu(props: ScreenProps) {
   const sectionY = useRef<Record<string, number>>({});
   const [category, setCategory] = useState('Комбо');
   const [collapsed, setCollapsed] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
+  // Scroll geometry stays on the UI thread; React only sees a category/threshold change.
+  const scrollY = useSharedValue(0);
+  const offsets = useSharedValue<number[]>([]);
+  const requestedCategory = useSharedValue(-1);
+  const requestedY = useSharedValue(0);
+  const contentHeight = useSharedValue(0);
+  const viewportHeight = useSharedValue(0);
+  const chips = useRef<ScrollView>(null);
+  const chipLayouts = useRef<Record<string, { x: number; width: number }>>({});
   const [headerHeight, setHeaderHeight] = useState(insets.top + 64);
   const [collapsedHeaderHeight, setCollapsedHeaderHeight] = useState(insets.top + 62);
   const [categoryTop, setCategoryTop] = useState(0);
   const [categoryHeight, setCategoryHeight] = useState(62);
   const [catalogTop, setCatalogTop] = useState(0);
-  const categories = [...new Set(props.model.products.map((product) => product.category))];
+  const categories = useMemo(
+    () => [...new Set(props.model.products.map((product) => product.category))],
+    [props.model.products],
+  );
+  const sections = useMemo(
+    () =>
+      categories.map((name) => ({
+        name,
+        products: props.model.products.filter((p) => p.category === name),
+      })),
+    [categories, props.model.products],
+  );
+  const updateOffsets = () => {
+    offsets.value = categories.map((name) => catalogTop + (sectionY.current[name] ?? 0));
+  };
+  useEffect(updateOffsets, [catalogTop, categories]);
+  const selectVisibleCategory = (index: number) => {
+    const name = categories[index];
+    if (name) setCategory(name);
+  };
+  useAnimatedReaction(
+    () => scrollY.value > 100,
+    (value, previous) => {
+      if (value !== previous) runOnJS(setCollapsed)(value);
+    },
+  );
+  useAnimatedReaction(
+    () => {
+      const y = scrollY.value + collapsedHeaderHeight + categoryHeight + 28;
+      if (requestedCategory.value >= 0) {
+        if (Math.abs(scrollY.value - requestedY.value) < 5) requestedCategory.value = -1;
+        else return requestedCategory.value;
+      }
+      if (
+        contentHeight.value > viewportHeight.value &&
+        scrollY.value >= contentHeight.value - viewportHeight.value - 4
+      )
+        return offsets.value.length - 1;
+      let visible = 0;
+      for (let i = 0; i < offsets.value.length; i++)
+        if ((offsets.value[i] ?? Infinity) <= y) visible = i;
+      return visible;
+    },
+    (index, previous) => {
+      if (index !== previous) runOnJS(selectVisibleCategory)(index);
+    },
+  );
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+    onBeginDrag: () => {
+      requestedCategory.value = -1;
+    },
+    onMomentumEnd: () => {
+      requestedCategory.value = -1;
+    },
+  });
+  const stickyStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
+    opacity: categoryTop ? 1 : 0,
+  }));
+  useEffect(() => {
+    const layout = chipLayouts.current[category];
+    if (layout)
+      chips.current?.scrollTo({
+        x: Math.max(0, layout.x - (width - layout.width) / 2),
+        animated: true,
+      });
+  }, [category, width]);
   function openProduct(product: Product) {
     props.model.selectProduct(product.id);
     props.navigate('M07');
   }
   const categoryBar = (
     <ScrollView
+      ref={chips}
       horizontal
+      directionalLockEnabled
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={s.categoryList}
     >
@@ -167,18 +261,26 @@ export function Menu(props: ScreenProps) {
         <Pressable
           key={item}
           testID={`category-${item}`}
+          onLayout={(e) => {
+            chipLayouts.current[item] = e.nativeEvent.layout;
+          }}
           hitSlop={{ top: 4, bottom: 4 }}
           accessibilityRole="tab"
+          aria-selected={category === item}
           accessibilityState={{ selected: category === item }}
           onPress={() => {
+            requestedCategory.value = categories.indexOf(item);
             setCategory(item);
-            scroll.current?.scrollTo({
-              y: Math.max(
+            const targetY = Math.min(
+              Math.max(0, contentHeight.value - viewportHeight.value),
+              Math.max(
                 0,
                 catalogTop + (sectionY.current[item] ?? 0) - collapsedHeaderHeight - categoryHeight,
               ),
-              animated: true,
-            });
+            );
+            requestedY.value = targetY;
+            // Native shared-value writes are scheduled; use the local target for this command.
+            scroll.current?.scrollTo({ y: targetY, animated: true });
           }}
           style={({ pressed }) => [
             s.category,
@@ -193,26 +295,24 @@ export function Menu(props: ScreenProps) {
   );
   return (
     <View testID="screen-M06" style={[ui.page, { overflow: 'hidden' }]}>
-      <ScrollView
+      <Animated.ScrollView
         ref={scroll}
         testID="scroll-M06"
         style={ui.scroll}
         showsVerticalScrollIndicator={false}
+        directionalLockEnabled
         contentContainerStyle={{ paddingBottom: 24 }}
-        scrollEventThrottle={32}
-        onScroll={({ nativeEvent }) => {
-          const y = nativeEvent.contentOffset.y;
-          setCollapsed(y > 100);
-          setScrollY(y);
-          const visible = categories
-            .filter(
-              (item) =>
-                catalogTop + (sectionY.current[item] ?? 0) <=
-                y + headerHeight + categoryHeight + 28,
-            )
-            .at(-1);
-          if (visible) setCategory(visible);
+        onContentSizeChange={(_, height) => {
+          contentHeight.value = height;
         }}
+        onLayout={(e) => {
+          viewportHeight.value = e.nativeEvent.layout.height;
+        }}
+        onTouchStart={() => {
+          requestedCategory.value = -1;
+        }}
+        scrollEventThrottle={16}
+        onScroll={scrollHandler}
       >
         <View
           testID="storefront-hero"
@@ -263,87 +363,76 @@ export function Menu(props: ScreenProps) {
               <NavRow title="Проверить доступность" onPress={() => props.navigate('M11')} />
             </>
           ) : null}
-          {props.model.connection.status === 'online' && props.model.connection.message ? (
-            <>
-              <Notice warning title="Меню обновилось">
-                {props.model.connection.message}
-              </Notice>
-              <NavRow title="Проверить изменения корзины" onPress={() => props.navigate('M10')} />
-            </>
-          ) : null}
         </View>
         <View
           onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
           style={{ height: categoryHeight }}
         />
         <View style={s.catalogSections} onLayout={(e) => setCatalogTop(e.nativeEvent.layout.y)}>
-          {categories.map((item) => {
+          {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
             return (
               <View
                 key={item}
                 onLayout={(e) => {
                   sectionY.current[item] = e.nativeEvent.layout.y;
+                  updateOffsets();
                 }}
               >
-                <Heading small style={s.sectionTitle}>
+                <Heading small testID={`category-heading-${item}`} style={s.sectionTitle}>
                   {item}
                 </Heading>
                 <View style={compact ? s.compactGrid : s.productList}>
-                  {props.model.products
-                    .filter((product) => product.category === item)
-                    .map((product, index) => (
-                      <Pressable
-                        key={product.id}
-                        testID={`product-${product.id}`}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${product.name}, ${MinorMoney(product.priceMinor)}, выбрать`}
-                        onPress={() => openProduct(product)}
-                        style={({ pressed }) => [
-                          s.product,
-                          compact && [s.compactProduct, { width: (width - 48) / 2 }],
-                          pressed && ui.pressed,
-                        ]}
+                  {products.map((product, index) => (
+                    <Pressable
+                      key={product.id}
+                      testID={`product-${product.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${product.name}, ${MinorMoney(product.priceMinor)}, выбрать`}
+                      onPress={() => openProduct(product)}
+                      style={({ pressed }) => [
+                        s.product,
+                        compact && [s.compactProduct, { width: (width - 48) / 2 }],
+                        pressed && ui.pressed,
+                      ]}
+                    >
+                      <View
+                        testID={`product-photo-${product.id}`}
+                        style={[s.productPhotoWrap, compact && s.compactPhoto]}
                       >
-                        <View
-                          testID={`product-photo-${product.id}`}
-                          style={[s.productPhotoWrap, compact && s.compactPhoto]}
-                        >
-                          <Image
-                            source={product.image}
-                            style={StyleSheet.absoluteFill}
-                            contentFit="cover"
-                          />
-                          {index === 0 &&
-                          item === 'Комбо' &&
-                          props.model.catalogMode === 'design' ? (
-                            <View style={s.hit}>
-                              <Caption style={s.hitText}>ХИТ</Caption>
-                            </View>
-                          ) : null}
-                        </View>
-                        <View style={s.productInfo}>
-                          <Heading small style={compact ? s.compactTitle : s.productTitle}>
-                            {product.name}
-                          </Heading>
-                          {!compact ? (
-                            <Caption style={s.productDescription}>{product.description}</Caption>
-                          ) : null}
-                          <Row style={s.productPriceRow}>
-                            <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
-                              {MinorMoney(product.priceMinor)}
-                            </Body>
-                            <View style={compact ? s.productPlus : s.productChoose}>
-                              {compact ? (
-                                <Icon name="add" color={colors.white} size={20} />
-                              ) : (
-                                <Body style={s.productChooseText}>Выбрать</Body>
-                              )}
-                            </View>
-                          </Row>
-                        </View>
-                      </Pressable>
-                    ))}
+                        <Image
+                          source={product.image}
+                          style={StyleSheet.absoluteFill}
+                          contentFit="cover"
+                        />
+                        {index === 0 && item === 'Комбо' && props.model.catalogMode === 'design' ? (
+                          <View style={s.hit}>
+                            <Caption style={s.hitText}>ХИТ</Caption>
+                          </View>
+                        ) : null}
+                      </View>
+                      <View style={s.productInfo}>
+                        <Heading small style={compact ? s.compactTitle : s.productTitle}>
+                          {product.name}
+                        </Heading>
+                        {!compact ? (
+                          <Caption style={s.productDescription}>{product.description}</Caption>
+                        ) : null}
+                        <Row style={s.productPriceRow}>
+                          <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
+                            {MinorMoney(product.priceMinor)}
+                          </Body>
+                          <View style={compact ? s.productPlus : s.productChoose}>
+                            {compact ? (
+                              <Icon name="add" color={colors.white} size={20} />
+                            ) : (
+                              <Body style={s.productChooseText}>Выбрать</Body>
+                            )}
+                          </View>
+                        </Row>
+                      </View>
+                    </Pressable>
+                  ))}
                 </View>
               </View>
             );
@@ -356,7 +445,7 @@ export function Menu(props: ScreenProps) {
             />
           ) : null}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
       <View
         testID="storefront-header"
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
@@ -394,180 +483,24 @@ export function Menu(props: ScreenProps) {
           <DiningSelector value={props.model.diningMode} onChange={props.model.setDiningMode} />
         ) : null}
       </View>
-      <View
+      <Animated.View
         onLayout={(e) => setCategoryHeight(e.nativeEvent.layout.height)}
-        style={[
-          s.stickyCategories,
-          { top: Math.max(headerHeight, categoryTop - scrollY), opacity: categoryTop ? 1 : 0 },
-        ]}
+        style={[s.stickyCategories, stickyStyle]}
       >
         {categoryBar}
-      </View>
+      </Animated.View>
       {!props.inTabLayout ? (
         <CartShortcut model={props.model} onPress={() => props.navigate('M09')} safeArea />
       ) : null}
     </View>
   );
 }
-export function ProductDetail(props: ScreenProps) {
-  const insets = useSafeAreaInsets();
-  const product = props.model.selectedProduct ?? props.model.products[0];
-  const [details, setDetails] = useState(false);
-  const [sauce, setSauce] = useState('Фирменный');
-  if (!product)
-    return (
-      <Page props={props} title="Блюдо">
-        <Empty
-          title="Блюдо не выбрано"
-          detail="Вернитесь в меню и выберите, что хочется попробовать."
-          action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
-        />
-      </Page>
-    );
-  return (
-    <View testID="screen-M07" style={ui.page}>
-      <ScrollView
-        testID="scroll-M07"
-        style={ui.scroll}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ aspectRatio: 1, backgroundColor: '#E9EFF6' }}>
-          {product.id === 'pick-combo' ? (
-            <HeroVideo shaded={false} />
-          ) : (
-            <Image source={product.image} style={StyleSheet.absoluteFill} contentFit="cover" />
-          )}
-          <IconButton
-            testID="product-close"
-            name="close"
-            label="Закрыть блюдо"
-            onPress={props.goBack}
-            style={[s.productClose, { top: insets.top + 8 }]}
-            color="#12151C"
-          />
-        </View>
-        <View style={s.detailBody}>
-          {props.preview ? <ReviewBadge /> : null}
-          <Heading style={{ fontFamily: font.display, fontSize: 30, lineHeight: 32 }}>
-            {product.name}
-          </Heading>
-          <Body muted style={{ fontSize: 14.5, lineHeight: 22 }}>
-            {product.description}
-          </Body>
-          <NavRow
-            title="Состав и аллергены"
-            subtitle="Что внутри любимого блюда"
-            icon="information-circle-outline"
-            onPress={() => setDetails(!details)}
-          />
-          {details ? (
-            <Notice>
-              Подробный состав, вес и аллергены пока не опубликованы рестораном. Уточните их у
-              сотрудника до покупки.
-            </Notice>
-          ) : null}
-          {props.preview ? (
-            <>
-              <Heading small>Соус на выбор</Heading>
-              {['Фирменный', 'Томатный'].map((item) => (
-                <Pressable
-                  key={item}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: sauce === item }}
-                  onPress={() => setSauce(item)}
-                >
-                  <Card style={sauce === item ? { borderColor: colors.action } : undefined}>
-                    <Row>
-                      <View style={ui.flex}>
-                        <Body>{item}</Body>
-                        <Caption>Входит в комбо · пример</Caption>
-                      </View>
-                      <Icon
-                        name={sauce === item ? 'radio-button-on' : 'radio-button-off'}
-                        color={colors.accent}
-                      />
-                    </Row>
-                  </Card>
-                </Pressable>
-              ))}
-              <Caption>Выбор показан для оценки дизайна и не изменяет состав корзины.</Caption>
-            </>
-          ) : null}
-          <Heading small>Ещё немного хруста</Heading>
-          <Row>
-            {[assets.fingers, assets.wedges].map((image, index) => (
-              <View key={index} style={s.extraPhoto}>
-                <Image source={image} style={StyleSheet.absoluteFill} contentFit="cover" />
-              </View>
-            ))}
-          </Row>
-          <Caption>Изображения из фирменного меню Pick Chick.</Caption>
-        </View>
-      </ScrollView>
-      <BottomActions safeArea={!props.inTabLayout}>
-        <Button
-          title={`Добавить · ${MinorMoney(product.priceMinor)}`}
-          testID="product-add"
-          onPress={() => {
-            props.model.addToCart(product.id);
-            props.navigate('M09');
-          }}
-        />
-      </BottomActions>
-    </View>
-  );
-}
-export function Combo(props: ScreenProps) {
-  const [selected, setSelected] = useState('Фирменный');
-  return (
-    <Page
-      props={props}
-      title="Собери свой комбо"
-      footer={<Button title="Комбо скоро появятся" disabled />}
-    >
-      <Image source={assets.combo} style={s.comboPhoto} contentFit="cover" />
-      <Heading>Твой идеальный{`\n`}Pick Combo</Heading>
-      <Body muted>Хрустящие фингерсы, любимый соус и напиток.</Body>
-      <Row>
-        <Pill>1 · Основное</Pill>
-        <Pill>2 · Соус</Pill>
-        <Pill>3 · Напиток</Pill>
-      </Row>
-      <Heading small>Выберите соус</Heading>
-      <Caption>Один соус в составе комбо</Caption>
-      {['Фирменный', 'Томатный'].map((item) => (
-        <Pressable
-          key={item}
-          disabled={!props.preview}
-          accessibilityRole="radio"
-          accessibilityState={{ selected: selected === item, disabled: !props.preview }}
-          onPress={() => setSelected(item)}
-        >
-          <Card>
-            <Row>
-              <Image source={assets.sauce} style={s.choiceImage} contentFit="cover" />
-              <Body style={ui.flex}>{item}</Body>
-              <Icon
-                name={selected === item ? 'radio-button-on' : 'radio-button-off'}
-                color={colors.accent}
-              />
-            </Row>
-          </Card>
-        </Pressable>
-      ))}
-      <Notice>
-        Ресторан ещё не опубликовал состав и доступные варианты комбо. Оформление откроется после
-        настройки меню.
-      </Notice>
-    </Page>
-  );
-}
+export {
+  ProductConfiguration as ProductDetail,
+  ProductConfiguration as Combo,
+} from './ProductConfiguration';
 export function Cart(props: ScreenProps) {
-  const total = props.model.cart.reduce(
-    (sum, line) => sum + BigInt(line.product.priceMinor) * BigInt(line.quantity),
-    0n,
-  );
+  const total = cartTotal(props.model.cart);
   return (
     <Page
       props={props}
@@ -604,7 +537,13 @@ export function Cart(props: ScreenProps) {
       footer={
         props.model.cart.length ? (
           <>
-            <SummaryRow label="Итого по меню" value={MinorMoney(total)} strong />
+            <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <PaymentChoice model={props.model} />
+              <View style={{ alignItems: 'flex-end' }}>
+                <Caption>К оплате</Caption>
+                <Heading small>{MinorMoney(total)}</Heading>
+              </View>
+            </Row>
             <Button
               title="К оформлению"
               onPress={() => props.navigate('M12')}
@@ -625,22 +564,22 @@ export function Cart(props: ScreenProps) {
           <Row style={s.cartFulfilment}>
             <Icon name="bag-handle-outline" size={16} color={colors.accent} />
             <Body style={{ fontSize: 13.5, fontFamily: font.medium }}>
-              {props.model.diningMode === 'takeaway' ? 'Заберу сам' : 'В зале'} · после
-              подтверждения заказа
+              {props.model.diningMode === 'takeaway' ? 'Заберу сам' : 'В зале'} · Приготовим за ~
+              {preparationMinutes(props.model.cart)} мин
             </Body>
           </Row>
           {props.model.catalogMode === 'design' ? (
             <Notice warning>Это корзина из образцов дизайна. Заказ и оплата недоступны.</Notice>
           ) : null}
           {props.model.cart.map((line) => (
-            <View key={line.product.id} style={s.cartLine}>
+            <View key={cartLineKey(line)} style={s.cartLine}>
               <Image source={line.product.image} style={s.cartImage} contentFit="cover" />
               <View style={ui.flex}>
                 <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
                   {line.product.name}
                 </Heading>
                 <Caption style={{ fontSize: 12, lineHeight: 17, marginTop: 4 }}>
-                  {line.product.description}
+                  {selectionDescription(line) || line.product.description}
                 </Caption>
                 <Row
                   style={{
@@ -660,7 +599,7 @@ export function Cart(props: ScreenProps) {
                           : `Уменьшить ${line.product.name}`
                       }
                       testID={`cart-minus-${line.product.id}`}
-                      onPress={() => props.model.setQuantity(line.product.id, line.quantity - 1)}
+                      onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity - 1)}
                     />
                     <Body
                       testID={`cart-quantity-${line.product.id}`}
@@ -673,16 +612,82 @@ export function Cart(props: ScreenProps) {
                       name="add"
                       label={`Добавить ещё ${line.product.name}`}
                       testID={`cart-plus-${line.product.id}`}
-                      onPress={() => props.model.setQuantity(line.product.id, line.quantity + 1)}
+                      disabled={line.quantity >= 20}
+                      onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity + 1)}
                     />
                   </Row>
                   <Body style={{ fontFamily: font.display, fontSize: 17 }}>
-                    {MinorMoney(BigInt(line.product.priceMinor) * BigInt(line.quantity))}
+                    {MinorMoney(BigInt(lineUnitPrice(line)) * BigInt(line.quantity))}
                   </Body>
                 </Row>
               </View>
             </View>
           ))}
+          <View style={{ gap: 12 }}>
+            <Heading small style={{ fontSize: 21, lineHeight: 28 }}>
+              Всегда кстати
+            </Heading>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 11, paddingBottom: 4 }}
+            >
+              {props.model.upsellProductIds
+                .flatMap((id) => {
+                  const product = props.model.products.find((p) => p.id === id);
+                  return product ? [product] : [];
+                })
+                .map((product) => {
+                  const selections = defaultSelections(product);
+                  const existing = props.model.cart.find(
+                    (line) => cartLineKey(line) === cartLineKey({ product, selections }),
+                  );
+                  const disabled = existing
+                    ? existing.quantity >= 20
+                    : props.model.cart.length >= 11;
+                  return (
+                    <Pressable
+                      key={product.id}
+                      testID={`upsell-${product.id}`}
+                      disabled={disabled}
+                      accessibilityState={{ disabled }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Добавить ${product.name}, ${MinorMoney(product.priceMinor)}`}
+                      onPress={() => props.model.addToCart(product.id)}
+                      style={({ pressed }) => [
+                        s.upsell,
+                        disabled && ui.disabled,
+                        pressed && ui.pressed,
+                      ]}
+                    >
+                      <Image
+                        source={product.image}
+                        style={{ width: '100%', aspectRatio: 1, borderRadius: 12 }}
+                        contentFit="cover"
+                      />
+                      <Body style={{ fontSize: 13, lineHeight: 19, fontFamily: font.medium }}>
+                        {product.name}
+                      </Body>
+                      <Row
+                        style={{
+                          marginTop: 'auto',
+                          flexWrap: 'wrap',
+                          gap: 4,
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <Body style={{ fontFamily: font.display, fontSize: 15 }}>
+                          {MinorMoney(product.priceMinor)}
+                        </Body>
+                        <View style={[s.productPlus, { width: 28, height: 28 }]}>
+                          <Icon name="add" size={19} color={colors.white} />
+                        </View>
+                      </Row>
+                    </Pressable>
+                  );
+                })}
+            </ScrollView>
+          </View>
           <View
             style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 16 }}
           >
@@ -773,10 +778,7 @@ export function Unavailable(props: ScreenProps) {
   );
 }
 export function Checkout(props: ScreenProps) {
-  const total = props.model.cart.reduce(
-    (sum, line) => sum + BigInt(line.product.priceMinor) * BigInt(line.quantity),
-    0n,
-  );
+  const total = cartTotal(props.model.cart);
   return (
     <Page
       props={props}
@@ -888,7 +890,7 @@ const s = StyleSheet.create({
   },
   heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
   menuBody: { paddingHorizontal: 18, marginTop: -104, gap: 16 },
-  stickyCategories: { position: 'absolute', left: 0, right: 0, zIndex: 9 },
+  stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
   categoryList: {
     gap: 8,
     paddingTop: 18,
@@ -897,7 +899,8 @@ const s = StyleSheet.create({
     backgroundColor: colors.background,
   },
   category: {
-    minHeight: 36,
+    minHeight: 44,
+    paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 20,
     backgroundColor: colors.surface,
@@ -930,8 +933,8 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#EAF0F8',
   },
-  productInfo: { flex: 1, gap: 5 },
-  productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 22, letterSpacing: -0.19 },
+  productInfo: { flex: 1, minWidth: 0, gap: 5 },
+  productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 25, letterSpacing: -0.19 },
   productDescription: { fontSize: 12.5, lineHeight: 18 },
   productPriceRow: {
     marginTop: 'auto',
@@ -1007,6 +1010,7 @@ const s = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: colors.surface,
   },
+  upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
   cartImage: { width: 80, height: 80, borderRadius: 14 },
   stepper: { backgroundColor: colors.raised, borderRadius: 22, alignSelf: 'flex-start', gap: 0 },
   largeIcon: {

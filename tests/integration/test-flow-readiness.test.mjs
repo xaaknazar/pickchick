@@ -27,27 +27,32 @@ test('actual API registers TEST routes only behind its config gate and keeps rea
   });
 });
 
-test('enabled TEST readiness fails when migration004 is missing; disabled API keeps serving its earlier schema', async () => {
-  await withSyncDatabases(async ({ cloud }) => {
-    await cloud.pool.query('DELETE FROM schema_migrations WHERE scope=$1 AND version=$2', [
-      'cloud',
-      '004_cloud_test_order_flow.sql',
-    ]);
-    for (const enabled of [true, false]) {
-      const api = await running(createApi, { ...cloud.config, testOrderFlowEnabled: enabled });
-      try {
-        const response = await request(`${api.url}/health/ready`);
-        const readiness = ReadinessSchema.parse(await response.json());
-        assert.equal(response.status, enabled ? 503 : 200);
-        assert.equal(readiness.ready, !enabled);
-        assert.equal(readiness.dependencies.database, 'up');
-        assert.equal(readiness.dependencies.schema, enabled ? 'down' : 'up');
-      } finally {
-        await api.app.close();
+for (const migration of [
+  '004_cloud_test_order_flow.sql',
+  '005_cloud_test_modifier_task_titles.sql',
+]) {
+  test(`enabled TEST readiness fails when ${migration} is missing; disabled API keeps serving its earlier schema`, async () => {
+    await withSyncDatabases(async ({ cloud }) => {
+      await cloud.pool.query('DELETE FROM schema_migrations WHERE scope=$1 AND version=$2', [
+        'cloud',
+        migration,
+      ]);
+      for (const enabled of [true, false]) {
+        const api = await running(createApi, { ...cloud.config, testOrderFlowEnabled: enabled });
+        try {
+          const response = await request(`${api.url}/health/ready`);
+          const readiness = ReadinessSchema.parse(await response.json());
+          assert.equal(response.status, enabled ? 503 : 200);
+          assert.equal(readiness.ready, !enabled);
+          assert.equal(readiness.dependencies.database, 'up');
+          assert.equal(readiness.dependencies.schema, enabled ? 'down' : 'up');
+        } finally {
+          await api.app.close();
+        }
       }
-    }
+    });
   });
-});
+}
 
 test('TEST readiness verifies actual serving tables as well as migration ledger', async () => {
   await withSyncDatabases(async ({ cloud }) => {

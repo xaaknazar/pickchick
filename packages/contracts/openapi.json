@@ -1444,7 +1444,22 @@
         ],
         "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Synthetic customer data only.",
         "security": [],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1557,7 +1572,22 @@
         ],
         "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Synthetic customer data only.",
         "security": [],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1685,6 +1715,20 @@
           }
         ],
         "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
           {
             "name": "Idempotency-Key",
             "in": "header",
@@ -1821,7 +1865,22 @@
             "testBearer": []
           }
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1948,7 +2007,22 @@
             "testBearer": []
           }
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -2064,6 +2138,20 @@
           }
         ],
         "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
           {
             "name": "Idempotency-Key",
             "in": "header",
@@ -2209,6 +2297,20 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
           }
         ],
         "responses": {
@@ -2335,6 +2437,20 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
             }
           },
           {
@@ -2484,6 +2600,20 @@
             }
           },
           {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
@@ -2630,6 +2760,20 @@
             }
           },
           {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
@@ -2765,7 +2909,22 @@
             "testBearer": []
           }
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -2899,6 +3058,20 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
             }
           },
           {
@@ -3048,6 +3221,20 @@
             }
           },
           {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
@@ -3183,7 +3370,22 @@
             "testBearer": []
           }
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -3300,7 +3502,22 @@
             "testBearer": []
           }
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -4887,17 +5104,526 @@
       },
       "TestCart": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "catalog_version": {
+                "type": "string",
+                "const": "mockup-v0.2"
+              },
+              "service_mode": {
+                "type": "string",
+                "enum": [
+                  "takeaway",
+                  "dine_in"
+                ]
+              },
+              "items": {
+                "minItems": 1,
+                "maxItems": 11,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "product_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20
+                    }
+                  },
+                  "required": [
+                    "product_id",
+                    "quantity"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "catalog_version",
+              "service_mode",
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "catalog_version": {
+                "type": "string",
+                "const": "mockup-v0.3"
+              },
+              "service_mode": {
+                "type": "string",
+                "enum": [
+                  "takeaway",
+                  "dine_in"
+                ]
+              },
+              "payment_method": {
+                "default": "kaspi",
+                "type": "string",
+                "enum": [
+                  "kaspi",
+                  "card"
+                ]
+              },
+              "items": {
+                "minItems": 1,
+                "maxItems": 11,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "product_id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20
+                    },
+                    "selections": {
+                      "maxItems": 40,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "option_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 40
+                          }
+                        },
+                        "required": [
+                          "group_id",
+                          "option_id",
+                          "quantity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "product_id",
+                    "quantity",
+                    "selections"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "catalog_version",
+              "service_mode",
+              "payment_method",
+              "items"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TestCatalog": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "synthetic": {
+                "type": "boolean",
+                "const": true
+              },
+              "namespace": {
+                "type": "string",
+                "const": "pickchick-test"
+              },
+              "branch_id": {
+                "type": "string",
+                "const": "10000000-0000-4000-8000-000000000003"
+              },
+              "catalog_version": {
+                "type": "string",
+                "const": "mockup-v0.2"
+              },
+              "currency": {
+                "type": "string",
+                "const": "KZT"
+              },
+              "products": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    },
+                    "image_id": {
+                      "type": "string"
+                    },
+                    "prep_required": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "category",
+                    "price_minor",
+                    "image_id",
+                    "prep_required"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "synthetic",
+              "namespace",
+              "branch_id",
+              "catalog_version",
+              "currency",
+              "products"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "synthetic": {
+                "type": "boolean",
+                "const": true
+              },
+              "namespace": {
+                "type": "string",
+                "const": "pickchick-test"
+              },
+              "branch_id": {
+                "type": "string",
+                "const": "10000000-0000-4000-8000-000000000003"
+              },
+              "catalog_version": {
+                "type": "string",
+                "const": "mockup-v0.3"
+              },
+              "currency": {
+                "type": "string",
+                "const": "KZT"
+              },
+              "products": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    },
+                    "image_id": {
+                      "type": "string"
+                    },
+                    "prep_required": {
+                      "type": "boolean"
+                    },
+                    "serving_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "ingredients": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "allergens": {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "prep_minutes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 120
+                    },
+                    "nutrition": {
+                      "type": "object",
+                      "properties": {
+                        "basis": {
+                          "type": "string",
+                          "enum": [
+                            "per_100_g",
+                            "per_serving"
+                          ]
+                        },
+                        "energy_kcal": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100000
+                        },
+                        "protein_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "fat_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "carbs_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "basis",
+                        "energy_kcal",
+                        "protein_g",
+                        "fat_g",
+                        "carbs_g"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "nutrition_provenance": {
+                      "type": "string",
+                      "enum": [
+                        "source_mockup",
+                        "demo_fixture"
+                      ]
+                    },
+                    "modifier_groups": {
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "min": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "max": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          },
+                          "options": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 150
+                                },
+                                "price_delta_minor": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                                },
+                                "default_quantity": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 40
+                                },
+                                "max_quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 40
+                                },
+                                "available": {
+                                  "type": "boolean"
+                                },
+                                "nutrition_multiplier": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 100
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "label",
+                                "price_delta_minor",
+                                "default_quantity",
+                                "max_quantity",
+                                "available"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "min",
+                          "max",
+                          "options"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "category",
+                    "price_minor",
+                    "image_id",
+                    "prep_required",
+                    "serving_label",
+                    "ingredients",
+                    "allergens",
+                    "prep_minutes",
+                    "nutrition",
+                    "nutrition_provenance",
+                    "modifier_groups"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "estimated_minutes": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ],
+                "additionalProperties": false
+              },
+              "upsell_product_ids": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                }
+              }
+            },
+            "required": [
+              "synthetic",
+              "namespace",
+              "branch_id",
+              "catalog_version",
+              "currency",
+              "products",
+              "estimated_minutes",
+              "upsell_product_ids"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TestCatalogVersion": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string",
+        "enum": [
+          "mockup-v0.2",
+          "mockup-v0.3"
+        ]
+      },
+      "TestChannel": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string",
+        "enum": [
+          "mobile",
+          "kiosk"
+        ]
+      },
+      "TestCompleteCart": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
           "catalog_version": {
             "type": "string",
-            "const": "mockup-v0.2"
+            "const": "mockup-v0.3"
           },
           "service_mode": {
             "type": "string",
             "enum": [
               "takeaway",
               "dine_in"
+            ]
+          },
+          "payment_method": {
+            "default": "kaspi",
+            "type": "string",
+            "enum": [
+              "kaspi",
+              "card"
             ]
           },
           "items": {
@@ -4909,18 +5635,46 @@
               "properties": {
                 "product_id": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 40
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
                 },
                 "quantity": {
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 20
+                },
+                "selections": {
+                  "maxItems": 40,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "group_id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      },
+                      "option_id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      },
+                      "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 40
+                      }
+                    },
+                    "required": [
+                      "group_id",
+                      "option_id",
+                      "quantity"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
                 "product_id",
-                "quantity"
+                "quantity",
+                "selections"
               ],
               "additionalProperties": false
             }
@@ -4929,11 +5683,12 @@
         "required": [
           "catalog_version",
           "service_mode",
+          "payment_method",
           "items"
         ],
         "additionalProperties": false
       },
-      "TestCatalog": {
+      "TestCompleteCatalog": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
@@ -4951,13 +5706,668 @@
           },
           "catalog_version": {
             "type": "string",
-            "const": "mockup-v0.2"
+            "const": "mockup-v0.3"
           },
           "currency": {
             "type": "string",
             "const": "KZT"
           },
           "products": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "price_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                },
+                "image_id": {
+                  "type": "string"
+                },
+                "prep_required": {
+                  "type": "boolean"
+                },
+                "serving_label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "ingredients": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "allergens": {
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "prep_minutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 120
+                },
+                "nutrition": {
+                  "type": "object",
+                  "properties": {
+                    "basis": {
+                      "type": "string",
+                      "enum": [
+                        "per_100_g",
+                        "per_serving"
+                      ]
+                    },
+                    "energy_kcal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100000
+                    },
+                    "protein_g": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10000
+                    },
+                    "fat_g": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10000
+                    },
+                    "carbs_g": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10000
+                    }
+                  },
+                  "required": [
+                    "basis",
+                    "energy_kcal",
+                    "protein_g",
+                    "fat_g",
+                    "carbs_g"
+                  ],
+                  "additionalProperties": false
+                },
+                "nutrition_provenance": {
+                  "type": "string",
+                  "enum": [
+                    "source_mockup",
+                    "demo_fixture"
+                  ]
+                },
+                "modifier_groups": {
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "min": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      },
+                      "options": {
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 150
+                            },
+                            "price_delta_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,15})$"
+                            },
+                            "default_quantity": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 40
+                            },
+                            "max_quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 40
+                            },
+                            "available": {
+                              "type": "boolean"
+                            },
+                            "nutrition_multiplier": {
+                              "type": "number",
+                              "exclusiveMinimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "label",
+                            "price_delta_minor",
+                            "default_quantity",
+                            "max_quantity",
+                            "available"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "min",
+                      "max",
+                      "options"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "description",
+                "category",
+                "price_minor",
+                "image_id",
+                "prep_required",
+                "serving_label",
+                "ingredients",
+                "allergens",
+                "prep_minutes",
+                "nutrition",
+                "nutrition_provenance",
+                "modifier_groups"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "estimated_minutes": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 120
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 120
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false
+          },
+          "upsell_product_ids": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+            }
+          }
+        },
+        "required": [
+          "synthetic",
+          "namespace",
+          "branch_id",
+          "catalog_version",
+          "currency",
+          "products",
+          "estimated_minutes",
+          "upsell_product_ids"
+        ],
+        "additionalProperties": false
+      },
+      "TestCompleteLine": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "price_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,15})$"
+          },
+          "image_id": {
+            "type": "string"
+          },
+          "prep_required": {
+            "type": "boolean"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "line_total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,15})$"
+          },
+          "serving_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "nutrition": {
+            "type": "object",
+            "properties": {
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "per_100_g",
+                  "per_serving"
+                ]
+              },
+              "energy_kcal": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "protein_g": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "fat_g": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "carbs_g": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "basis",
+              "energy_kcal",
+              "protein_g",
+              "fat_g",
+              "carbs_g"
+            ],
+            "additionalProperties": false
+          },
+          "nutrition_provenance": {
+            "type": "string",
+            "enum": [
+              "source_mockup",
+              "demo_fixture"
+            ]
+          },
+          "line_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "base_price_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,15})$"
+          },
+          "selections": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                },
+                "option_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 40
+                },
+                "group_label": {
+                  "type": "string"
+                },
+                "option_label": {
+                  "type": "string"
+                },
+                "price_delta_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                }
+              },
+              "required": [
+                "group_id",
+                "option_id",
+                "quantity",
+                "group_label",
+                "option_label",
+                "price_delta_minor"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "category",
+          "price_minor",
+          "image_id",
+          "prep_required",
+          "quantity",
+          "line_total_minor",
+          "serving_label",
+          "nutrition",
+          "nutrition_provenance",
+          "line_id",
+          "base_price_minor",
+          "selections"
+        ],
+        "additionalProperties": false
+      },
+      "TestCompleteProduct": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "price_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,15})$"
+          },
+          "image_id": {
+            "type": "string"
+          },
+          "prep_required": {
+            "type": "boolean"
+          },
+          "serving_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "ingredients": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "allergens": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "prep_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "nutrition": {
+            "type": "object",
+            "properties": {
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "per_100_g",
+                  "per_serving"
+                ]
+              },
+              "energy_kcal": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "protein_g": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "fat_g": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "carbs_g": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "basis",
+              "energy_kcal",
+              "protein_g",
+              "fat_g",
+              "carbs_g"
+            ],
+            "additionalProperties": false
+          },
+          "nutrition_provenance": {
+            "type": "string",
+            "enum": [
+              "source_mockup",
+              "demo_fixture"
+            ]
+          },
+          "modifier_groups": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "min": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "options": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 150
+                      },
+                      "price_delta_minor": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,15})$"
+                      },
+                      "default_quantity": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 40
+                      },
+                      "max_quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 40
+                      },
+                      "available": {
+                        "type": "boolean"
+                      },
+                      "nutrition_multiplier": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "label",
+                      "price_delta_minor",
+                      "default_quantity",
+                      "max_quantity",
+                      "available"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "min",
+                "max",
+                "options"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "category",
+          "price_minor",
+          "image_id",
+          "prep_required",
+          "serving_label",
+          "ingredients",
+          "allergens",
+          "prep_minutes",
+          "nutrition",
+          "nutrition_provenance",
+          "modifier_groups"
+        ],
+        "additionalProperties": false
+      },
+      "TestCompleteQuote": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "synthetic": {
+            "type": "boolean",
+            "const": true
+          },
+          "namespace": {
+            "type": "string",
+            "const": "pickchick-test"
+          },
+          "quote_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "branch_id": {
+            "type": "string",
+            "const": "10000000-0000-4000-8000-000000000003"
+          },
+          "catalog_version": {
+            "type": "string",
+            "const": "mockup-v0.3"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "kiosk"
+            ]
+          },
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "takeaway",
+              "dine_in"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "const": "KZT"
+          },
+          "total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,15})$"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 11,
             "type": "array",
             "items": {
               "type": "object",
@@ -4983,6 +6393,117 @@
                 },
                 "prep_required": {
                   "type": "boolean"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                "line_total_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                },
+                "serving_label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "nutrition": {
+                  "type": "object",
+                  "properties": {
+                    "basis": {
+                      "type": "string",
+                      "enum": [
+                        "per_100_g",
+                        "per_serving"
+                      ]
+                    },
+                    "energy_kcal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100000
+                    },
+                    "protein_g": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10000
+                    },
+                    "fat_g": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10000
+                    },
+                    "carbs_g": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10000
+                    }
+                  },
+                  "required": [
+                    "basis",
+                    "energy_kcal",
+                    "protein_g",
+                    "fat_g",
+                    "carbs_g"
+                  ],
+                  "additionalProperties": false
+                },
+                "nutrition_provenance": {
+                  "type": "string",
+                  "enum": [
+                    "source_mockup",
+                    "demo_fixture"
+                  ]
+                },
+                "line_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                },
+                "base_price_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                },
+                "selections": {
+                  "maxItems": 40,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "group_id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      },
+                      "option_id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      },
+                      "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 40
+                      },
+                      "group_label": {
+                        "type": "string"
+                      },
+                      "option_label": {
+                        "type": "string"
+                      },
+                      "price_delta_minor": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,15})$"
+                      }
+                    },
+                    "required": [
+                      "group_id",
+                      "option_id",
+                      "quantity",
+                      "group_label",
+                      "option_label",
+                      "price_delta_minor"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
@@ -4992,29 +6513,74 @@
                 "category",
                 "price_minor",
                 "image_id",
-                "prep_required"
+                "prep_required",
+                "quantity",
+                "line_total_minor",
+                "serving_label",
+                "nutrition",
+                "nutrition_provenance",
+                "line_id",
+                "base_price_minor",
+                "selections"
               ],
               "additionalProperties": false
             }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "kaspi",
+              "card"
+            ]
+          },
+          "estimated_minutes": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 120
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 120
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "synthetic",
           "namespace",
+          "quote_id",
           "branch_id",
           "catalog_version",
+          "channel",
+          "service_mode",
           "currency",
-          "products"
+          "total_minor",
+          "lines",
+          "created_at",
+          "expires_at",
+          "payment_method",
+          "estimated_minutes"
         ],
         "additionalProperties": false
-      },
-      "TestChannel": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "string",
-        "enum": [
-          "mobile",
-          "kiosk"
-        ]
       },
       "TestContinueSessionInput": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5197,130 +6763,397 @@
                   "const": "not_applicable"
                 },
                 "snapshot": {
-                  "type": "object",
-                  "properties": {
-                    "synthetic": {
-                      "type": "boolean",
-                      "const": true
-                    },
-                    "namespace": {
-                      "type": "string",
-                      "const": "pickchick-test"
-                    },
-                    "quote_id": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "branch_id": {
-                      "type": "string",
-                      "const": "10000000-0000-4000-8000-000000000003"
-                    },
-                    "catalog_version": {
-                      "type": "string",
-                      "const": "mockup-v0.2"
-                    },
-                    "channel": {
-                      "type": "string",
-                      "enum": [
-                        "mobile",
-                        "kiosk"
-                      ]
-                    },
-                    "service_mode": {
-                      "type": "string",
-                      "enum": [
-                        "takeaway",
-                        "dine_in"
-                      ]
-                    },
-                    "currency": {
-                      "type": "string",
-                      "const": "KZT"
-                    },
-                    "total_minor": {
-                      "type": "string",
-                      "pattern": "^(0|[1-9]\\d{0,15})$"
-                    },
-                    "lines": {
-                      "minItems": 1,
-                      "maxItems": 11,
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "category": {
-                            "type": "string"
-                          },
-                          "price_minor": {
-                            "type": "string",
-                            "pattern": "^(0|[1-9]\\d{0,15})$"
-                          },
-                          "image_id": {
-                            "type": "string"
-                          },
-                          "prep_required": {
-                            "type": "boolean"
-                          },
-                          "quantity": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 20
-                          },
-                          "line_total_minor": {
-                            "type": "string",
-                            "pattern": "^(0|[1-9]\\d{0,15})$"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "synthetic": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "const": "pickchick-test"
+                        },
+                        "quote_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "branch_id": {
+                          "type": "string",
+                          "const": "10000000-0000-4000-8000-000000000003"
+                        },
+                        "catalog_version": {
+                          "type": "string",
+                          "const": "mockup-v0.2"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "mobile",
+                            "kiosk"
+                          ]
+                        },
+                        "service_mode": {
+                          "type": "string",
+                          "enum": [
+                            "takeaway",
+                            "dine_in"
+                          ]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "KZT"
+                        },
+                        "total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "lines": {
+                          "minItems": 1,
+                          "maxItems": 11,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "image_id": {
+                                "type": "string"
+                              },
+                              "prep_required": {
+                                "type": "boolean"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "description",
+                              "category",
+                              "price_minor",
+                              "image_id",
+                              "prep_required",
+                              "quantity",
+                              "line_total_minor"
+                            ],
+                            "additionalProperties": false
                           }
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "description",
-                          "category",
-                          "price_minor",
-                          "image_id",
-                          "prep_required",
-                          "quantity",
-                          "line_total_minor"
-                        ],
-                        "additionalProperties": false
-                      }
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "synthetic",
+                        "namespace",
+                        "quote_id",
+                        "branch_id",
+                        "catalog_version",
+                        "channel",
+                        "service_mode",
+                        "currency",
+                        "total_minor",
+                        "lines",
+                        "created_at",
+                        "expires_at"
+                      ],
+                      "additionalProperties": false
                     },
-                    "created_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                    },
-                    "expires_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "synthetic": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "const": "pickchick-test"
+                        },
+                        "quote_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "branch_id": {
+                          "type": "string",
+                          "const": "10000000-0000-4000-8000-000000000003"
+                        },
+                        "catalog_version": {
+                          "type": "string",
+                          "const": "mockup-v0.3"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "mobile",
+                            "kiosk"
+                          ]
+                        },
+                        "service_mode": {
+                          "type": "string",
+                          "enum": [
+                            "takeaway",
+                            "dine_in"
+                          ]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "KZT"
+                        },
+                        "total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "lines": {
+                          "minItems": 1,
+                          "maxItems": 11,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "image_id": {
+                                "type": "string"
+                              },
+                              "prep_required": {
+                                "type": "boolean"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "serving_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "nutrition": {
+                                "type": "object",
+                                "properties": {
+                                  "basis": {
+                                    "type": "string",
+                                    "enum": [
+                                      "per_100_g",
+                                      "per_serving"
+                                    ]
+                                  },
+                                  "energy_kcal": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  "protein_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "fat_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "carbs_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  }
+                                },
+                                "required": [
+                                  "basis",
+                                  "energy_kcal",
+                                  "protein_g",
+                                  "fat_g",
+                                  "carbs_g"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "nutrition_provenance": {
+                                "type": "string",
+                                "enum": [
+                                  "source_mockup",
+                                  "demo_fixture"
+                                ]
+                              },
+                              "line_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4000
+                              },
+                              "base_price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "selections": {
+                                "maxItems": 40,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "group_id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    "option_id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    "quantity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 40
+                                    },
+                                    "group_label": {
+                                      "type": "string"
+                                    },
+                                    "option_label": {
+                                      "type": "string"
+                                    },
+                                    "price_delta_minor": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                                    }
+                                  },
+                                  "required": [
+                                    "group_id",
+                                    "option_id",
+                                    "quantity",
+                                    "group_label",
+                                    "option_label",
+                                    "price_delta_minor"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "description",
+                              "category",
+                              "price_minor",
+                              "image_id",
+                              "prep_required",
+                              "quantity",
+                              "line_total_minor",
+                              "serving_label",
+                              "nutrition",
+                              "nutrition_provenance",
+                              "line_id",
+                              "base_price_minor",
+                              "selections"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "payment_method": {
+                          "type": "string",
+                          "enum": [
+                            "kaspi",
+                            "card"
+                          ]
+                        },
+                        "estimated_minutes": {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            },
+                            "max": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            }
+                          },
+                          "required": [
+                            "min",
+                            "max"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "synthetic",
+                        "namespace",
+                        "quote_id",
+                        "branch_id",
+                        "catalog_version",
+                        "channel",
+                        "service_mode",
+                        "currency",
+                        "total_minor",
+                        "lines",
+                        "created_at",
+                        "expires_at",
+                        "payment_method",
+                        "estimated_minutes"
+                      ],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "synthetic",
-                    "namespace",
-                    "quote_id",
-                    "branch_id",
-                    "catalog_version",
-                    "channel",
-                    "service_mode",
-                    "currency",
-                    "total_minor",
-                    "lines",
-                    "created_at",
-                    "expires_at"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "tasks": {
                   "maxItems": 12,
@@ -5419,6 +7252,256 @@
         ],
         "additionalProperties": false
       },
+      "TestLegacyCart": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "catalog_version": {
+            "type": "string",
+            "const": "mockup-v0.2"
+          },
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "takeaway",
+              "dine_in"
+            ]
+          },
+          "items": {
+            "minItems": 1,
+            "maxItems": 11,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                }
+              },
+              "required": [
+                "product_id",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "catalog_version",
+          "service_mode",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "TestLegacyCatalog": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "synthetic": {
+            "type": "boolean",
+            "const": true
+          },
+          "namespace": {
+            "type": "string",
+            "const": "pickchick-test"
+          },
+          "branch_id": {
+            "type": "string",
+            "const": "10000000-0000-4000-8000-000000000003"
+          },
+          "catalog_version": {
+            "type": "string",
+            "const": "mockup-v0.2"
+          },
+          "currency": {
+            "type": "string",
+            "const": "KZT"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "price_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                },
+                "image_id": {
+                  "type": "string"
+                },
+                "prep_required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "description",
+                "category",
+                "price_minor",
+                "image_id",
+                "prep_required"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "synthetic",
+          "namespace",
+          "branch_id",
+          "catalog_version",
+          "currency",
+          "products"
+        ],
+        "additionalProperties": false
+      },
+      "TestLegacyQuote": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "synthetic": {
+            "type": "boolean",
+            "const": true
+          },
+          "namespace": {
+            "type": "string",
+            "const": "pickchick-test"
+          },
+          "quote_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "branch_id": {
+            "type": "string",
+            "const": "10000000-0000-4000-8000-000000000003"
+          },
+          "catalog_version": {
+            "type": "string",
+            "const": "mockup-v0.2"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "kiosk"
+            ]
+          },
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "takeaway",
+              "dine_in"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "const": "KZT"
+          },
+          "total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,15})$"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 11,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "price_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                },
+                "image_id": {
+                  "type": "string"
+                },
+                "prep_required": {
+                  "type": "boolean"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                "line_total_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "description",
+                "category",
+                "price_minor",
+                "image_id",
+                "prep_required",
+                "quantity",
+                "line_total_minor"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "synthetic",
+          "namespace",
+          "quote_id",
+          "branch_id",
+          "catalog_version",
+          "channel",
+          "service_mode",
+          "currency",
+          "total_minor",
+          "lines",
+          "created_at",
+          "expires_at"
+        ],
+        "additionalProperties": false
+      },
       "TestLine": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -5465,6 +7548,130 @@
           "prep_required",
           "quantity",
           "line_total_minor"
+        ],
+        "additionalProperties": false
+      },
+      "TestModifierGroup": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "min": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "max": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "options": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "price_delta_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                },
+                "default_quantity": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 40
+                },
+                "max_quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 40
+                },
+                "available": {
+                  "type": "boolean"
+                },
+                "nutrition_multiplier": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "price_delta_minor",
+                "default_quantity",
+                "max_quantity",
+                "available"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "min",
+          "max",
+          "options"
+        ],
+        "additionalProperties": false
+      },
+      "TestNutrition": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "basis": {
+            "type": "string",
+            "enum": [
+              "per_100_g",
+              "per_serving"
+            ]
+          },
+          "energy_kcal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "protein_g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "fat_g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "carbs_g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "basis",
+          "energy_kcal",
+          "protein_g",
+          "fat_g",
+          "carbs_g"
         ],
         "additionalProperties": false
       },
@@ -5534,130 +7741,397 @@
             "const": "not_applicable"
           },
           "snapshot": {
-            "type": "object",
-            "properties": {
-              "synthetic": {
-                "type": "boolean",
-                "const": true
-              },
-              "namespace": {
-                "type": "string",
-                "const": "pickchick-test"
-              },
-              "quote_id": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "branch_id": {
-                "type": "string",
-                "const": "10000000-0000-4000-8000-000000000003"
-              },
-              "catalog_version": {
-                "type": "string",
-                "const": "mockup-v0.2"
-              },
-              "channel": {
-                "type": "string",
-                "enum": [
-                  "mobile",
-                  "kiosk"
-                ]
-              },
-              "service_mode": {
-                "type": "string",
-                "enum": [
-                  "takeaway",
-                  "dine_in"
-                ]
-              },
-              "currency": {
-                "type": "string",
-                "const": "KZT"
-              },
-              "total_minor": {
-                "type": "string",
-                "pattern": "^(0|[1-9]\\d{0,15})$"
-              },
-              "lines": {
-                "minItems": 1,
-                "maxItems": 11,
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string"
-                    },
-                    "category": {
-                      "type": "string"
-                    },
-                    "price_minor": {
-                      "type": "string",
-                      "pattern": "^(0|[1-9]\\d{0,15})$"
-                    },
-                    "image_id": {
-                      "type": "string"
-                    },
-                    "prep_required": {
-                      "type": "boolean"
-                    },
-                    "quantity": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 20
-                    },
-                    "line_total_minor": {
-                      "type": "string",
-                      "pattern": "^(0|[1-9]\\d{0,15})$"
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "synthetic": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "namespace": {
+                    "type": "string",
+                    "const": "pickchick-test"
+                  },
+                  "quote_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "branch_id": {
+                    "type": "string",
+                    "const": "10000000-0000-4000-8000-000000000003"
+                  },
+                  "catalog_version": {
+                    "type": "string",
+                    "const": "mockup-v0.2"
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "mobile",
+                      "kiosk"
+                    ]
+                  },
+                  "service_mode": {
+                    "type": "string",
+                    "enum": [
+                      "takeaway",
+                      "dine_in"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string",
+                    "const": "KZT"
+                  },
+                  "total_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,15})$"
+                  },
+                  "lines": {
+                    "minItems": 1,
+                    "maxItems": 11,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "price_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "image_id": {
+                          "type": "string"
+                        },
+                        "prep_required": {
+                          "type": "boolean"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 20
+                        },
+                        "line_total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "description",
+                        "category",
+                        "price_minor",
+                        "image_id",
+                        "prep_required",
+                        "quantity",
+                        "line_total_minor"
+                      ],
+                      "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "id",
-                    "name",
-                    "description",
-                    "category",
-                    "price_minor",
-                    "image_id",
-                    "prep_required",
-                    "quantity",
-                    "line_total_minor"
-                  ],
-                  "additionalProperties": false
-                }
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "synthetic",
+                  "namespace",
+                  "quote_id",
+                  "branch_id",
+                  "catalog_version",
+                  "channel",
+                  "service_mode",
+                  "currency",
+                  "total_minor",
+                  "lines",
+                  "created_at",
+                  "expires_at"
+                ],
+                "additionalProperties": false
               },
-              "created_at": {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-              },
-              "expires_at": {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              {
+                "type": "object",
+                "properties": {
+                  "synthetic": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "namespace": {
+                    "type": "string",
+                    "const": "pickchick-test"
+                  },
+                  "quote_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "branch_id": {
+                    "type": "string",
+                    "const": "10000000-0000-4000-8000-000000000003"
+                  },
+                  "catalog_version": {
+                    "type": "string",
+                    "const": "mockup-v0.3"
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "mobile",
+                      "kiosk"
+                    ]
+                  },
+                  "service_mode": {
+                    "type": "string",
+                    "enum": [
+                      "takeaway",
+                      "dine_in"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string",
+                    "const": "KZT"
+                  },
+                  "total_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,15})$"
+                  },
+                  "lines": {
+                    "minItems": 1,
+                    "maxItems": 11,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "price_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "image_id": {
+                          "type": "string"
+                        },
+                        "prep_required": {
+                          "type": "boolean"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 20
+                        },
+                        "line_total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "serving_label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "nutrition": {
+                          "type": "object",
+                          "properties": {
+                            "basis": {
+                              "type": "string",
+                              "enum": [
+                                "per_100_g",
+                                "per_serving"
+                              ]
+                            },
+                            "energy_kcal": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            "protein_g": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "fat_g": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "carbs_g": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 10000
+                            }
+                          },
+                          "required": [
+                            "basis",
+                            "energy_kcal",
+                            "protein_g",
+                            "fat_g",
+                            "carbs_g"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "nutrition_provenance": {
+                          "type": "string",
+                          "enum": [
+                            "source_mockup",
+                            "demo_fixture"
+                          ]
+                        },
+                        "line_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4000
+                        },
+                        "base_price_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "selections": {
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "group_id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                              },
+                              "option_id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 40
+                              },
+                              "group_label": {
+                                "type": "string"
+                              },
+                              "option_label": {
+                                "type": "string"
+                              },
+                              "price_delta_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              }
+                            },
+                            "required": [
+                              "group_id",
+                              "option_id",
+                              "quantity",
+                              "group_label",
+                              "option_label",
+                              "price_delta_minor"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "description",
+                        "category",
+                        "price_minor",
+                        "image_id",
+                        "prep_required",
+                        "quantity",
+                        "line_total_minor",
+                        "serving_label",
+                        "nutrition",
+                        "nutrition_provenance",
+                        "line_id",
+                        "base_price_minor",
+                        "selections"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "payment_method": {
+                    "type": "string",
+                    "enum": [
+                      "kaspi",
+                      "card"
+                    ]
+                  },
+                  "estimated_minutes": {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      }
+                    },
+                    "required": [
+                      "min",
+                      "max"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "synthetic",
+                  "namespace",
+                  "quote_id",
+                  "branch_id",
+                  "catalog_version",
+                  "channel",
+                  "service_mode",
+                  "currency",
+                  "total_minor",
+                  "lines",
+                  "created_at",
+                  "expires_at",
+                  "payment_method",
+                  "estimated_minutes"
+                ],
+                "additionalProperties": false
               }
-            },
-            "required": [
-              "synthetic",
-              "namespace",
-              "quote_id",
-              "branch_id",
-              "catalog_version",
-              "channel",
-              "service_mode",
-              "currency",
-              "total_minor",
-              "lines",
-              "created_at",
-              "expires_at"
-            ],
-            "additionalProperties": false
+            ]
           },
           "tasks": {
             "maxItems": 12,
@@ -5818,130 +8292,397 @@
                   "const": "not_applicable"
                 },
                 "snapshot": {
-                  "type": "object",
-                  "properties": {
-                    "synthetic": {
-                      "type": "boolean",
-                      "const": true
-                    },
-                    "namespace": {
-                      "type": "string",
-                      "const": "pickchick-test"
-                    },
-                    "quote_id": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "branch_id": {
-                      "type": "string",
-                      "const": "10000000-0000-4000-8000-000000000003"
-                    },
-                    "catalog_version": {
-                      "type": "string",
-                      "const": "mockup-v0.2"
-                    },
-                    "channel": {
-                      "type": "string",
-                      "enum": [
-                        "mobile",
-                        "kiosk"
-                      ]
-                    },
-                    "service_mode": {
-                      "type": "string",
-                      "enum": [
-                        "takeaway",
-                        "dine_in"
-                      ]
-                    },
-                    "currency": {
-                      "type": "string",
-                      "const": "KZT"
-                    },
-                    "total_minor": {
-                      "type": "string",
-                      "pattern": "^(0|[1-9]\\d{0,15})$"
-                    },
-                    "lines": {
-                      "minItems": 1,
-                      "maxItems": 11,
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "category": {
-                            "type": "string"
-                          },
-                          "price_minor": {
-                            "type": "string",
-                            "pattern": "^(0|[1-9]\\d{0,15})$"
-                          },
-                          "image_id": {
-                            "type": "string"
-                          },
-                          "prep_required": {
-                            "type": "boolean"
-                          },
-                          "quantity": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 20
-                          },
-                          "line_total_minor": {
-                            "type": "string",
-                            "pattern": "^(0|[1-9]\\d{0,15})$"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "synthetic": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "const": "pickchick-test"
+                        },
+                        "quote_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "branch_id": {
+                          "type": "string",
+                          "const": "10000000-0000-4000-8000-000000000003"
+                        },
+                        "catalog_version": {
+                          "type": "string",
+                          "const": "mockup-v0.2"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "mobile",
+                            "kiosk"
+                          ]
+                        },
+                        "service_mode": {
+                          "type": "string",
+                          "enum": [
+                            "takeaway",
+                            "dine_in"
+                          ]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "KZT"
+                        },
+                        "total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "lines": {
+                          "minItems": 1,
+                          "maxItems": 11,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "image_id": {
+                                "type": "string"
+                              },
+                              "prep_required": {
+                                "type": "boolean"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "description",
+                              "category",
+                              "price_minor",
+                              "image_id",
+                              "prep_required",
+                              "quantity",
+                              "line_total_minor"
+                            ],
+                            "additionalProperties": false
                           }
                         },
-                        "required": [
-                          "id",
-                          "name",
-                          "description",
-                          "category",
-                          "price_minor",
-                          "image_id",
-                          "prep_required",
-                          "quantity",
-                          "line_total_minor"
-                        ],
-                        "additionalProperties": false
-                      }
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "synthetic",
+                        "namespace",
+                        "quote_id",
+                        "branch_id",
+                        "catalog_version",
+                        "channel",
+                        "service_mode",
+                        "currency",
+                        "total_minor",
+                        "lines",
+                        "created_at",
+                        "expires_at"
+                      ],
+                      "additionalProperties": false
                     },
-                    "created_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                    },
-                    "expires_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "synthetic": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "const": "pickchick-test"
+                        },
+                        "quote_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "branch_id": {
+                          "type": "string",
+                          "const": "10000000-0000-4000-8000-000000000003"
+                        },
+                        "catalog_version": {
+                          "type": "string",
+                          "const": "mockup-v0.3"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "mobile",
+                            "kiosk"
+                          ]
+                        },
+                        "service_mode": {
+                          "type": "string",
+                          "enum": [
+                            "takeaway",
+                            "dine_in"
+                          ]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "KZT"
+                        },
+                        "total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "lines": {
+                          "minItems": 1,
+                          "maxItems": 11,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "image_id": {
+                                "type": "string"
+                              },
+                              "prep_required": {
+                                "type": "boolean"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "serving_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "nutrition": {
+                                "type": "object",
+                                "properties": {
+                                  "basis": {
+                                    "type": "string",
+                                    "enum": [
+                                      "per_100_g",
+                                      "per_serving"
+                                    ]
+                                  },
+                                  "energy_kcal": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  "protein_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "fat_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "carbs_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  }
+                                },
+                                "required": [
+                                  "basis",
+                                  "energy_kcal",
+                                  "protein_g",
+                                  "fat_g",
+                                  "carbs_g"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "nutrition_provenance": {
+                                "type": "string",
+                                "enum": [
+                                  "source_mockup",
+                                  "demo_fixture"
+                                ]
+                              },
+                              "line_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4000
+                              },
+                              "base_price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "selections": {
+                                "maxItems": 40,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "group_id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    "option_id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    "quantity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 40
+                                    },
+                                    "group_label": {
+                                      "type": "string"
+                                    },
+                                    "option_label": {
+                                      "type": "string"
+                                    },
+                                    "price_delta_minor": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                                    }
+                                  },
+                                  "required": [
+                                    "group_id",
+                                    "option_id",
+                                    "quantity",
+                                    "group_label",
+                                    "option_label",
+                                    "price_delta_minor"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "description",
+                              "category",
+                              "price_minor",
+                              "image_id",
+                              "prep_required",
+                              "quantity",
+                              "line_total_minor",
+                              "serving_label",
+                              "nutrition",
+                              "nutrition_provenance",
+                              "line_id",
+                              "base_price_minor",
+                              "selections"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "payment_method": {
+                          "type": "string",
+                          "enum": [
+                            "kaspi",
+                            "card"
+                          ]
+                        },
+                        "estimated_minutes": {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            },
+                            "max": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            }
+                          },
+                          "required": [
+                            "min",
+                            "max"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "synthetic",
+                        "namespace",
+                        "quote_id",
+                        "branch_id",
+                        "catalog_version",
+                        "channel",
+                        "service_mode",
+                        "currency",
+                        "total_minor",
+                        "lines",
+                        "created_at",
+                        "expires_at",
+                        "payment_method",
+                        "estimated_minutes"
+                      ],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "synthetic",
-                    "namespace",
-                    "quote_id",
-                    "branch_id",
-                    "catalog_version",
-                    "channel",
-                    "service_mode",
-                    "currency",
-                    "total_minor",
-                    "lines",
-                    "created_at",
-                    "expires_at"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 "tasks": {
                   "maxItems": 12,
@@ -6095,130 +8836,397 @@
       },
       "TestQuote": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "synthetic": {
-            "type": "boolean",
-            "const": true
-          },
-          "namespace": {
-            "type": "string",
-            "const": "pickchick-test"
-          },
-          "quote_id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "branch_id": {
-            "type": "string",
-            "const": "10000000-0000-4000-8000-000000000003"
-          },
-          "catalog_version": {
-            "type": "string",
-            "const": "mockup-v0.2"
-          },
-          "channel": {
-            "type": "string",
-            "enum": [
-              "mobile",
-              "kiosk"
-            ]
-          },
-          "service_mode": {
-            "type": "string",
-            "enum": [
-              "takeaway",
-              "dine_in"
-            ]
-          },
-          "currency": {
-            "type": "string",
-            "const": "KZT"
-          },
-          "total_minor": {
-            "type": "string",
-            "pattern": "^(0|[1-9]\\d{0,15})$"
-          },
-          "lines": {
-            "minItems": 1,
-            "maxItems": 11,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "description": {
-                  "type": "string"
-                },
-                "category": {
-                  "type": "string"
-                },
-                "price_minor": {
-                  "type": "string",
-                  "pattern": "^(0|[1-9]\\d{0,15})$"
-                },
-                "image_id": {
-                  "type": "string"
-                },
-                "prep_required": {
-                  "type": "boolean"
-                },
-                "quantity": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 20
-                },
-                "line_total_minor": {
-                  "type": "string",
-                  "pattern": "^(0|[1-9]\\d{0,15})$"
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "synthetic": {
+                "type": "boolean",
+                "const": true
+              },
+              "namespace": {
+                "type": "string",
+                "const": "pickchick-test"
+              },
+              "quote_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "branch_id": {
+                "type": "string",
+                "const": "10000000-0000-4000-8000-000000000003"
+              },
+              "catalog_version": {
+                "type": "string",
+                "const": "mockup-v0.2"
+              },
+              "channel": {
+                "type": "string",
+                "enum": [
+                  "mobile",
+                  "kiosk"
+                ]
+              },
+              "service_mode": {
+                "type": "string",
+                "enum": [
+                  "takeaway",
+                  "dine_in"
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "const": "KZT"
+              },
+              "total_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,15})$"
+              },
+              "lines": {
+                "minItems": 1,
+                "maxItems": 11,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    },
+                    "image_id": {
+                      "type": "string"
+                    },
+                    "prep_required": {
+                      "type": "boolean"
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20
+                    },
+                    "line_total_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "category",
+                    "price_minor",
+                    "image_id",
+                    "prep_required",
+                    "quantity",
+                    "line_total_minor"
+                  ],
+                  "additionalProperties": false
                 }
               },
-              "required": [
-                "id",
-                "name",
-                "description",
-                "category",
-                "price_minor",
-                "image_id",
-                "prep_required",
-                "quantity",
-                "line_total_minor"
-              ],
-              "additionalProperties": false
-            }
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "synthetic",
+              "namespace",
+              "quote_id",
+              "branch_id",
+              "catalog_version",
+              "channel",
+              "service_mode",
+              "currency",
+              "total_minor",
+              "lines",
+              "created_at",
+              "expires_at"
+            ],
+            "additionalProperties": false
           },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-          },
-          "expires_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          {
+            "type": "object",
+            "properties": {
+              "synthetic": {
+                "type": "boolean",
+                "const": true
+              },
+              "namespace": {
+                "type": "string",
+                "const": "pickchick-test"
+              },
+              "quote_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "branch_id": {
+                "type": "string",
+                "const": "10000000-0000-4000-8000-000000000003"
+              },
+              "catalog_version": {
+                "type": "string",
+                "const": "mockup-v0.3"
+              },
+              "channel": {
+                "type": "string",
+                "enum": [
+                  "mobile",
+                  "kiosk"
+                ]
+              },
+              "service_mode": {
+                "type": "string",
+                "enum": [
+                  "takeaway",
+                  "dine_in"
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "const": "KZT"
+              },
+              "total_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,15})$"
+              },
+              "lines": {
+                "minItems": 1,
+                "maxItems": 11,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    },
+                    "image_id": {
+                      "type": "string"
+                    },
+                    "prep_required": {
+                      "type": "boolean"
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20
+                    },
+                    "line_total_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    },
+                    "serving_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "nutrition": {
+                      "type": "object",
+                      "properties": {
+                        "basis": {
+                          "type": "string",
+                          "enum": [
+                            "per_100_g",
+                            "per_serving"
+                          ]
+                        },
+                        "energy_kcal": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100000
+                        },
+                        "protein_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "fat_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "carbs_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "basis",
+                        "energy_kcal",
+                        "protein_g",
+                        "fat_g",
+                        "carbs_g"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "nutrition_provenance": {
+                      "type": "string",
+                      "enum": [
+                        "source_mockup",
+                        "demo_fixture"
+                      ]
+                    },
+                    "line_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    },
+                    "base_price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    },
+                    "selections": {
+                      "maxItems": 40,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "option_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 40
+                          },
+                          "group_label": {
+                            "type": "string"
+                          },
+                          "option_label": {
+                            "type": "string"
+                          },
+                          "price_delta_minor": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9]\\d{0,15})$"
+                          }
+                        },
+                        "required": [
+                          "group_id",
+                          "option_id",
+                          "quantity",
+                          "group_label",
+                          "option_label",
+                          "price_delta_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "category",
+                    "price_minor",
+                    "image_id",
+                    "prep_required",
+                    "quantity",
+                    "line_total_minor",
+                    "serving_label",
+                    "nutrition",
+                    "nutrition_provenance",
+                    "line_id",
+                    "base_price_minor",
+                    "selections"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "payment_method": {
+                "type": "string",
+                "enum": [
+                  "kaspi",
+                  "card"
+                ]
+              },
+              "estimated_minutes": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "synthetic",
+              "namespace",
+              "quote_id",
+              "branch_id",
+              "catalog_version",
+              "channel",
+              "service_mode",
+              "currency",
+              "total_minor",
+              "lines",
+              "created_at",
+              "expires_at",
+              "payment_method",
+              "estimated_minutes"
+            ],
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "synthetic",
-          "namespace",
-          "quote_id",
-          "branch_id",
-          "catalog_version",
-          "channel",
-          "service_mode",
-          "currency",
-          "total_minor",
-          "lines",
-          "created_at",
-          "expires_at"
-        ],
-        "additionalProperties": false
+        ]
       },
       "TestResolvePayment": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6253,6 +9261,31 @@
           "display",
           "manager"
         ]
+      },
+      "TestSelection": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+          },
+          "option_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40
+          }
+        },
+        "required": [
+          "group_id",
+          "option_id",
+          "quantity"
+        ],
+        "additionalProperties": false
       },
       "TestSessionInput": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

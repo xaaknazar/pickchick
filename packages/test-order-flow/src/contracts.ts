@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 export const TEST_BRANCH_ID = '10000000-0000-4000-8000-000000000003';
 export const TEST_CATALOG_VERSION = 'mockup-v0.2';
+export const TEST_COMPLETE_CATALOG_VERSION = 'mockup-v0.3';
+export const TestCatalogVersionSchema = z.enum([
+  TEST_CATALOG_VERSION,
+  TEST_COMPLETE_CATALOG_VERSION,
+]);
 export const TEST_NAMESPACE = 'pickchick-test';
 const Synthetic = { synthetic: z.literal(true), namespace: z.literal(TEST_NAMESPACE) };
 const Uuid = z.uuid();
@@ -27,14 +32,14 @@ export const TestProductSchema = z.strictObject({
   image_id: z.string(),
   prep_required: z.boolean(),
 });
-export const TestCatalogSchema = z.strictObject({
+export const TestLegacyCatalogSchema = z.strictObject({
   ...Synthetic,
   branch_id: z.literal(TEST_BRANCH_ID),
   catalog_version: z.literal(TEST_CATALOG_VERSION),
   currency: z.literal('KZT'),
   products: z.array(TestProductSchema),
 });
-export const TestCartSchema = z
+export const TestLegacyCartSchema = z
   .strictObject({
     catalog_version: z.literal(TEST_CATALOG_VERSION),
     service_mode: z.enum(['takeaway', 'dine_in']),
@@ -53,7 +58,7 @@ export const TestLineSchema = TestProductSchema.extend({
   quantity: z.int().min(1).max(20),
   line_total_minor: Minor,
 });
-export const TestQuoteSchema = z.strictObject({
+export const TestLegacyQuoteSchema = z.strictObject({
   ...Synthetic,
   quote_id: Uuid,
   branch_id: z.literal(TEST_BRANCH_ID),
@@ -66,6 +71,128 @@ export const TestQuoteSchema = z.strictObject({
   created_at: z.iso.datetime(),
   expires_at: z.iso.datetime(),
 });
+const CatalogId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/);
+export const TestSelectionSchema = z.strictObject({
+  group_id: CatalogId,
+  option_id: CatalogId,
+  quantity: z.int().min(1).max(40),
+});
+export type TestSelection = z.infer<typeof TestSelectionSchema>;
+// Delimiters cannot occur in CatalogId; ordering does not change line identity.
+export function testLineId(productId: string, selections: readonly TestSelection[] = []): string {
+  const selected = selections
+    .map((item) => `${item.group_id}:${item.option_id}:${item.quantity}`)
+    .sort();
+  return selected.length ? `${productId}|${selected.join(',')}` : productId;
+}
+export const TestModifierGroupSchema = z.strictObject({
+  id: CatalogId,
+  title: z.string().min(1).max(100),
+  min: z.int().min(0).max(100),
+  max: z.int().min(1).max(100),
+  options: z
+    .array(
+      z.strictObject({
+        id: CatalogId,
+        label: z.string().min(1).max(150),
+        price_delta_minor: Minor,
+        default_quantity: z.int().min(0).max(40),
+        max_quantity: z.int().min(1).max(40),
+        available: z.boolean(),
+        nutrition_multiplier: z.number().positive().max(100).optional(),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+export type TestModifierGroup = z.infer<typeof TestModifierGroupSchema>;
+export const TestNutritionSchema = z.strictObject({
+  basis: z.enum(['per_100_g', 'per_serving']),
+  energy_kcal: z.number().nonnegative().max(100000),
+  protein_g: z.number().nonnegative().max(10000),
+  fat_g: z.number().nonnegative().max(10000),
+  carbs_g: z.number().nonnegative().max(10000),
+});
+export const TestCompleteProductSchema = TestProductSchema.extend({
+  id: CatalogId,
+  serving_label: z.string().min(1).max(100),
+  ingredients: z.string().max(2000),
+  allergens: z.array(z.string().min(1).max(100)).max(30),
+  prep_minutes: z.int().min(1).max(120),
+  nutrition: TestNutritionSchema,
+  nutrition_provenance: z.enum(['source_mockup', 'demo_fixture']),
+  modifier_groups: z.array(TestModifierGroupSchema).max(10),
+});
+const EstimatedMinutes = z.strictObject({
+  min: z.int().min(1).max(120),
+  max: z.int().min(1).max(120),
+});
+export const TestCompleteCatalogSchema = TestLegacyCatalogSchema.extend({
+  catalog_version: z.literal(TEST_COMPLETE_CATALOG_VERSION),
+  products: z.array(TestCompleteProductSchema).min(1).max(100),
+  estimated_minutes: EstimatedMinutes,
+  upsell_product_ids: z.array(CatalogId).max(20),
+});
+export type TestCompleteCatalog = z.infer<typeof TestCompleteCatalogSchema>;
+export const TestCatalogSchema = z.union([TestLegacyCatalogSchema, TestCompleteCatalogSchema]);
+export const TestCompleteCartSchema = z
+  .strictObject({
+    catalog_version: z.literal(TEST_COMPLETE_CATALOG_VERSION),
+    service_mode: z.enum(['takeaway', 'dine_in']),
+    payment_method: z.enum(['kaspi', 'card']).default('kaspi'),
+    items: z
+      .array(
+        z.strictObject({
+          product_id: CatalogId,
+          quantity: z.int().min(1).max(20),
+          selections: z.array(TestSelectionSchema).max(40),
+        }),
+      )
+      .min(1)
+      .max(11),
+  })
+  .superRefine((cart, ctx) => {
+    if (
+      new Set(cart.items.map((item) => testLineId(item.product_id, item.selections))).size !==
+      cart.items.length
+    )
+      ctx.addIssue({ code: 'custom', message: 'Duplicate variant' });
+    for (const item of cart.items) {
+      if (
+        new Set(item.selections.map((selection) => `${selection.group_id}:${selection.option_id}`))
+          .size !== item.selections.length
+      )
+        ctx.addIssue({ code: 'custom', message: 'Duplicate selection' });
+    }
+  });
+export const TestCartSchema = z.union([TestLegacyCartSchema, TestCompleteCartSchema]);
+// A quote stores purchased facts, not every option that could have been chosen.
+// The full modifier directory belongs only to the published catalog.
+export const TestCompleteLineSchema = TestLineSchema.extend({
+  serving_label: TestCompleteProductSchema.shape.serving_label,
+  nutrition: TestNutritionSchema,
+  nutrition_provenance: TestCompleteProductSchema.shape.nutrition_provenance,
+  line_id: z.string().min(1).max(4000),
+  base_price_minor: Minor,
+  quantity: z.int().min(1).max(20),
+  line_total_minor: Minor,
+  selections: z
+    .array(
+      TestSelectionSchema.extend({
+        group_label: z.string(),
+        option_label: z.string(),
+        price_delta_minor: Minor,
+      }),
+    )
+    .max(40),
+});
+export const TestCompleteQuoteSchema = TestLegacyQuoteSchema.extend({
+  catalog_version: z.literal(TEST_COMPLETE_CATALOG_VERSION),
+  lines: z.array(TestCompleteLineSchema).min(1).max(11),
+  payment_method: z.enum(['kaspi', 'card']),
+  estimated_minutes: EstimatedMinutes,
+});
+export const TestQuoteSchema = z.union([TestLegacyQuoteSchema, TestCompleteQuoteSchema]);
 export type TestQuote = z.infer<typeof TestQuoteSchema>;
 export const TestCreateOrderSchema = z.strictObject({ quote_id: Uuid });
 export const TestVersionSchema = z.strictObject({ expected_version: z.int().min(1) });

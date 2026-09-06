@@ -519,6 +519,90 @@ test('HTTP refuses public staff issuance and unauthorized kitchen, validates bod
         body: JSON.stringify({ ...cart, total_minor: '1' }),
       });
       assert.equal(tamper.status, 400);
+      const legacyCatalog = await (await request(`${api.url}/v1/test/catalog`)).json();
+      assert.equal(legacyCatalog.catalog_version, 'mockup-v0.2');
+      assert.equal(legacyCatalog.products.length, 11);
+      assert.deepEqual(
+        Object.keys(legacyCatalog.products[0]).sort(),
+        [
+          'id',
+          'name',
+          'description',
+          'category',
+          'price_minor',
+          'image_id',
+          'prep_required',
+        ].sort(),
+      );
+      assert.equal(legacyCatalog.products[0].price_minor, '349000');
+      const completeCatalog = await (
+        await request(`${api.url}/v1/test/catalog?catalog_version=mockup-v0.3`)
+      ).json();
+      assert.equal(completeCatalog.products.length, 24);
+      assert.equal(completeCatalog.catalog_version, 'mockup-v0.3');
+      assert.equal(completeCatalog.products[0].price_minor, '419000');
+      assert.equal(
+        (await request(`${api.url}/v1/test/catalog?catalog_version=future`)).status,
+        400,
+      );
+      assert.equal(
+        (
+          await request(
+            `${api.url}/v1/test/catalog?catalog_version=mockup-v0.3&catalog_version=mockup-v0.2`,
+          )
+        ).status,
+        400,
+      );
+      const newQuote = await (
+        await request(`${api.url}/v1/test/quotes?catalog_version=mockup-v0.3`, {
+          method: 'POST',
+          headers: { ...headers, 'Idempotency-Key': randomUUID() },
+          body: JSON.stringify({
+            catalog_version: 'mockup-v0.3',
+            service_mode: 'takeaway',
+            payment_method: 'kaspi',
+            items: [
+              {
+                product_id: 'sauce',
+                quantity: 1,
+                selections: [{ group_id: 'size', option_id: 'size-2', quantity: 1 }],
+              },
+            ],
+          }),
+        })
+      ).json();
+      assert.equal(newQuote.catalog_version, 'mockup-v0.3');
+      assert.equal(newQuote.total_minor, '149000');
+      const newOrder = await (
+        await request(`${api.url}/v1/test/orders?catalog_version=mockup-v0.3`, {
+          method: 'POST',
+          headers: { ...headers, 'Idempotency-Key': randomUUID() },
+          body: JSON.stringify({ quote_id: newQuote.quote_id }),
+        })
+      ).json();
+      const legacyRead = await (
+        await request(`${api.url}/v1/test/orders/${newOrder.order_id}`, { headers })
+      ).json();
+      assert.equal(legacyRead.snapshot.catalog_version, 'mockup-v0.2');
+      assert.equal(legacyRead.snapshot.lines[0].price_minor, '149000');
+      assert.ok(legacyRead.snapshot.lines[0].name.includes('0,4 л'));
+      assert.deepEqual(Object.keys(legacyRead.snapshot).sort(), Object.keys(q).sort());
+      assert.deepEqual(
+        Object.keys(legacyRead.snapshot.lines[0]).sort(),
+        Object.keys(q.lines[0]).sort(),
+      );
+      const mixedLegacy = await (await request(`${api.url}/v1/test/orders`, { headers })).json();
+      assert.ok(
+        mixedLegacy.orders.every((item) => item.snapshot.catalog_version === 'mockup-v0.2'),
+      );
+      const oldOnNewClient = await (
+        await request(`${api.url}/v1/test/orders/${order.order_id}?catalog_version=mockup-v0.3`, {
+          headers,
+        })
+      ).json();
+      assert.deepEqual(oldOnNewClient, order);
+      const actual = await ctx.flow.readOrder(ctx.customer.token, newOrder.order_id);
+      assert.deepEqual(actual.snapshot, newQuote);
     } finally {
       await api.app.close();
     }
@@ -539,5 +623,232 @@ test('disabled or production config and non-synthetic branch binding cannot enab
       [TEST_BRANCH_ID],
     );
     await assert.rejects(ctx.flow.issueSession({ channel: 'mobile' }), code('BRANCH_UNAVAILABLE'));
+  });
+});
+
+test('complete catalog prices distinct combo variants, snapshots choices and dispatches them independently', async () => {
+  await withDesk(async (ctx) => {
+    const catalog = ctx.flow.catalog('mockup-v0.3');
+    assert.equal(catalog.products.length, 24);
+    const selections = [
+      { group_id: 'drink', option_id: 'lemonade', quantity: 1 },
+      { group_id: 'sauce', option_id: 'hot', quantity: 1 },
+      { group_id: 'extras', option_id: 'fingers', quantity: 2 },
+      { group_id: 'extras', option_id: 'toast', quantity: 1 },
+    ];
+    const body = {
+      catalog_version: 'mockup-v0.3',
+      service_mode: 'dine_in',
+      payment_method: 'card',
+      items: [
+        { product_id: 'pick-combo', quantity: 2, selections },
+        {
+          product_id: 'pick-combo',
+          quantity: 1,
+          selections: [
+            { group_id: 'drink', option_id: 'cola-bottle', quantity: 1 },
+            { group_id: 'sauce', option_id: 'pick', quantity: 1 },
+          ],
+        },
+      ],
+    };
+    const { quote, order: created } = await ctx.make(ctx.customer, body);
+    assert.equal(quote.lines[0].base_price_minor, '419000');
+    assert.equal(quote.lines[0].price_minor, '616000');
+    assert.equal(quote.total_minor, '1651000');
+    assert.equal(quote.payment_method, 'card');
+    assert.deepEqual(quote.estimated_minutes, { min: 10, max: 10 });
+    assert.notEqual(quote.lines[0].line_id, quote.lines[1].line_id);
+    assert.equal(
+      quote.lines[0].selections.find((item) => item.option_id === 'fingers').quantity,
+      2,
+    );
+    let order = await approve(ctx, created);
+    const prep = order.tasks.filter((task) => task.station === 'prep');
+    assert.equal(prep.length, 2);
+    assert.ok(
+      prep.some(
+        (task) =>
+          task.title.includes('Фирменный лимонад') &&
+          task.title.includes('Фингерс, 1 шт × 2') &&
+          task.title.includes('Острый соус'),
+      ),
+    );
+    assert.ok(prep.some((task) => task.title.includes('Coca-Cola 0.5 л, бутылка')));
+    await assert.rejects(complete(ctx, order, 'assembly'), code('CONFLICT'));
+    order = await complete(ctx, order, 'prep');
+    await assert.rejects(complete(ctx, order, 'assembly'), code('CONFLICT'));
+    order = await complete(ctx, order, 'prep');
+    order = await complete(ctx, order, 'assembly');
+    assert.equal(order.state, 'ready');
+    assert.deepEqual(order.snapshot, quote);
+    const persisted = (
+      await ctx.cloud.pool.query('SELECT snapshot FROM test_orders WHERE id=$1', [order.order_id])
+    ).rows[0].snapshot;
+    assert.deepEqual(persisted, quote);
+    await assert.rejects(
+      ctx.cloud.pool.query(
+        "UPDATE test_quotes SET snapshot=jsonb_set(snapshot,'{lines,0,selections,0,option_label}','\"Forged\"') WHERE id=$1",
+        [quote.quote_id],
+      ),
+    );
+    await assert.rejects(
+      ctx.cloud.pool.query(
+        "UPDATE test_orders SET snapshot=jsonb_set(snapshot,'{lines,0,selections,0,option_label}','\"Forged\"'),version=version+1 WHERE id=$1",
+        [order.order_id],
+      ),
+    );
+  });
+});
+
+test('complete catalog enforces required selection quantities, availability, option limits and server-only prices', async () => {
+  await withDesk(async (ctx) => {
+    const base = {
+      catalog_version: 'mockup-v0.3',
+      service_mode: 'takeaway',
+      items: [
+        {
+          product_id: 'pick-combo',
+          quantity: 1,
+          selections: [
+            { group_id: 'drink', option_id: 'cola-bottle', quantity: 1 },
+            { group_id: 'sauce', option_id: 'pick', quantity: 1 },
+          ],
+        },
+      ],
+    };
+    const withSelections = (selections) => ({ ...base, items: [{ ...base.items[0], selections }] });
+    for (const input of [
+      withSelections([]),
+      withSelections([
+        ...base.items[0].selections,
+        { group_id: 'drink', option_id: 'lemonade', quantity: 1 },
+      ]),
+      withSelections([
+        { group_id: 'drink', option_id: 'fuse-watermelon', quantity: 1 },
+        base.items[0].selections[1],
+      ]),
+      withSelections([
+        ...base.items[0].selections,
+        { group_id: 'extras', option_id: 'fingers', quantity: 11 },
+      ]),
+      withSelections([
+        ...base.items[0].selections,
+        { group_id: 'not-a-group', option_id: 'pick', quantity: 1 },
+      ]),
+      withSelections([
+        ...base.items[0].selections,
+        { group_id: 'sauce', option_id: 'not-an-option', quantity: 1 },
+      ]),
+      withSelections([...base.items[0].selections, { ...base.items[0].selections[1] }]),
+      withSelections([
+        { ...base.items[0].selections[0], price_delta_minor: '1' },
+        base.items[0].selections[1],
+      ]),
+      { ...base, items: [{ ...base.items[0], price_minor: '1' }] },
+      {
+        ...base,
+        items: [
+          ...base.items,
+          { ...base.items[0], selections: [...base.items[0].selections].reverse() },
+        ],
+      },
+      {
+        ...base,
+        items: [{ product_id: 'finger-duo', quantity: 1, selections: base.items[0].selections }],
+      },
+      { ...base, payment_method: 'real-kaspi' },
+    ])
+      await assert.rejects(
+        async () => ctx.flow.quote(ctx.customer.token, randomUUID(), input),
+        code('INVALID_REQUEST'),
+      );
+    // All published fixtures have enough available defaults and can be priced.
+    for (const product of ctx.flow.catalog('mockup-v0.3').products) {
+      const selections = product.modifier_groups.flatMap((group) =>
+        group.options
+          .filter((option) => option.default_quantity)
+          .map((option) => ({
+            group_id: group.id,
+            option_id: option.id,
+            quantity: option.default_quantity,
+          })),
+      );
+      const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), {
+        ...base,
+        items: [{ product_id: product.id, quantity: 1, selections }],
+      });
+      assert.equal(quote.total_minor, product.price_minor, product.id);
+      assert.equal(quote.payment_method, 'kaspi');
+      assert.equal(quote.lines[0].nutrition_provenance, 'source_mockup');
+      assert.ok(quote.lines[0].description.length > 15);
+      assert.equal(quote.lines[0].nutrition.basis, 'per_serving');
+    }
+  });
+});
+
+test('maximum owned TEST history retains selected compositions without copying the entire option directory', async (t) => {
+  await withDesk(async (ctx) => {
+    const product = ctx.flow
+      .catalog('mockup-v0.3')
+      .products.find((item) => item.id === 'pick-combo');
+    const selections = product.modifier_groups.flatMap((group) =>
+      group.options
+        .filter((option) => group.id === 'extras' || option.default_quantity)
+        .map((option) => ({
+          group_id: group.id,
+          option_id: option.id,
+          quantity: group.id === 'extras' ? option.max_quantity : option.default_quantity,
+        })),
+    );
+    // Eleven distinct variants with every paid extra selected: the largest
+    // currently allowed per-customer history is 20 orders × 11 such lines.
+    const body = {
+      catalog_version: 'mockup-v0.3',
+      service_mode: 'takeaway',
+      items: Array.from({ length: 11 }, (_, fingers) => ({
+        product_id: product.id,
+        quantity: 20,
+        selections: selections
+          .map((selection) =>
+            selection.group_id === 'extras' && selection.option_id === 'fingers'
+              ? { ...selection, quantity: fingers }
+              : selection,
+          )
+          .filter((selection) => selection.quantity > 0),
+      })),
+    };
+    for (let index = 0; index < 20; index++) await ctx.make(ctx.customer, body);
+    const history = await ctx.flow.ownOrders(ctx.customer.token);
+    const bytes = Buffer.byteLength(JSON.stringify(history));
+    t.diagnostic(`20 orders × 11 detailed variants: ${bytes} UTF-8 JSON bytes`);
+    assert.equal(history.orders.length, 20);
+    assert.ok(bytes < 1024 * 1024, `Customer history ${bytes} bytes exceeds 1MiB safety budget`);
+    assert.equal(history.orders[0].snapshot.lines.length, 11);
+    for (const order of history.orders)
+      for (const line of order.snapshot.lines) {
+        assert.equal('modifier_groups' in line, false);
+        assert.equal('ingredients' in line, false);
+        assert.equal(line.nutrition_provenance, 'source_mockup');
+        assert.ok(
+          line.selections.some(
+            (selection) =>
+              selection.option_id === 'toast' &&
+              selection.quantity === 10 &&
+              selection.price_delta_minor === '39000',
+          ),
+        );
+        assert.ok(
+          line.selections.every((selection) => selection.group_label && selection.option_label),
+        );
+      }
+    assert.ok(
+      product.modifier_groups.find((group) => group.id === 'drink').options.length > 10,
+      'Full choices remain available in the fresh catalog',
+    );
+    assert.ok(
+      !JSON.stringify(history).includes('Fuse Tea Арбуз'),
+      'Unselected catalog choices must not leak into every historical line',
+    );
   });
 });

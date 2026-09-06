@@ -5,7 +5,7 @@ import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import { TestApiError, TestCustomerClient } from './test-client';
 import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
 import { canCreateTestOrder, observeSavedOrders } from './test-order-observation';
-import type { CartLine, DiningMode } from './model';
+import type { CartLine, DiningMode, PaymentMethod } from './model';
 
 export interface TestFlowModel {
   available: boolean;
@@ -49,6 +49,7 @@ export function useTestOrders(
   available: boolean,
   cart: CartLine[],
   diningMode: DiningMode,
+  paymentMethod: PaymentMethod = 'kaspi',
 ): TestFlowModel {
   const client = useMemo(() => new TestCustomerClient(), []);
   const [orders, setOrders] = useState<TestOrder[]>([]);
@@ -222,7 +223,7 @@ export function useTestOrders(
     },
     submit: () =>
       canCreateTestOrder(available, restored)
-        ? run(() => client.create(cart, diningMode))
+        ? run(() => client.create(cart, diningMode, paymentMethod))
         : Promise.resolve(null),
     pay: (outcome) =>
       current

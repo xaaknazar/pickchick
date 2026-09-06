@@ -1,5 +1,6 @@
 import {
   TestCartSchema,
+  testLineId,
   TestSessionSchema,
   TestQuoteSchema,
   TestOrderSchema,
@@ -7,6 +8,7 @@ import {
   TestPaymentSchema,
   TestCancellationSchema,
 } from '@pickchick/test-order-flow/contracts';
+import type { Selection, PaymentMethod } from './model';
 import type { TestOrder, TestSession } from '@pickchick/test-order-flow/contracts';
 
 export const SESSION_KEY = 'pickchick.test.customer.v1';
@@ -66,6 +68,22 @@ function object(raw: string): Record<string, unknown> {
 function normalizeCart(input: unknown): Cart {
   const parsed = TestCartSchema.safeParse(input);
   if (!parsed.success) throw new TestApiError(400, 'INVALID_CART');
+  if (parsed.data.catalog_version === 'mockup-v0.3')
+    return {
+      ...parsed.data,
+      items: parsed.data.items
+        .map((item) => ({
+          ...item,
+          selections: [...item.selections].sort((a, b) =>
+            `${a.group_id}:${a.option_id}`.localeCompare(`${b.group_id}:${b.option_id}`),
+          ),
+        }))
+        .sort((a, b) =>
+          testLineId(a.product_id, a.selections).localeCompare(
+            testLineId(b.product_id, b.selections),
+          ),
+        ),
+    };
   return {
     ...parsed.data,
     items: [...parsed.data.items].sort((a, b) => a.product_id.localeCompare(b.product_id)),
@@ -73,12 +91,27 @@ function normalizeCart(input: unknown): Cart {
 }
 export function cartMatchesOrder(
   order: TestOrder,
-  lines: { product: { id: string }; quantity: number }[],
+  lines: {
+    product: { id: string; catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3' };
+    quantity: number;
+    selections?: Selection[];
+  }[],
   serviceMode: 'takeaway' | 'dine_in',
+  paymentMethod?: PaymentMethod,
 ): boolean {
   if (!lines.length || order.snapshot.service_mode !== serviceMode) return false;
-  const expected = order.snapshot.lines.map((line) => `${line.id}:${line.quantity}`).sort();
-  const actual = lines.map((line) => `${line.product.id}:${line.quantity}`).sort();
+  if (
+    paymentMethod &&
+    'payment_method' in order.snapshot &&
+    order.snapshot.payment_method !== paymentMethod
+  )
+    return false;
+  const expected = order.snapshot.lines
+    .map((line) => `${'line_id' in line ? line.line_id : line.id}:${line.quantity}`)
+    .sort();
+  const actual = lines
+    .map((line) => `${testLineId(line.product.id, line.selections)}:${line.quantity}`)
+    .sort();
   return JSON.stringify(expected) === JSON.stringify(actual);
 }
 export function mergeObservedOrder(previous: TestOrder[], order: TestOrder): TestOrder[] {
@@ -290,15 +323,26 @@ export class TestCustomerCore {
     return TestOrderSchema.parse(await this.io.request(`/orders/${orderId}`, session.token));
   }
   create(
-    lines: { product: { id: string }; quantity: number }[],
+    lines: {
+      product: { id: string; catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3' };
+      quantity: number;
+      selections?: Selection[];
+    }[],
     serviceMode: 'takeaway' | 'dine_in',
+    paymentMethod: PaymentMethod = 'kaspi',
   ): Promise<TestOrder> {
     let payload: Cart;
     try {
+      const complete = lines.every((line) => line.product.catalogVersion === 'mockup-v0.3');
       payload = normalizeCart({
-        catalog_version: 'mockup-v0.2',
+        catalog_version: complete ? 'mockup-v0.3' : 'mockup-v0.2',
         service_mode: serviceMode,
-        items: lines.map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
+        ...(complete ? { payment_method: paymentMethod } : {}),
+        items: lines.map((line) => ({
+          product_id: line.product.id,
+          quantity: line.quantity,
+          ...(complete ? { selections: line.selections ?? [] } : {}),
+        })),
       });
     } catch (error) {
       return Promise.reject(error);

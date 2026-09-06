@@ -18,6 +18,8 @@ import {
   parsePreferences,
   restoreCart,
   updateQuantity,
+  cartLineKey,
+  defaultSelections,
   clearMatchingCart,
   type SavedPreferences,
 } from './domain';
@@ -29,6 +31,7 @@ import type {
   DiningMode,
   Locale,
   MobileModel,
+  PaymentMethod,
 } from './model';
 
 const STORAGE_KEY = 'pickchick.mobile.preferences.v1';
@@ -37,6 +40,7 @@ const Context = createContext<{ live: MobileModel; preview: MobileModel } | null
 export function MobileProvider({ children }: { children: ReactNode }) {
   const [catalogMode, setMode] = useState<CatalogMode>('server');
   const [diningMode, setDiningMode] = useState<DiningMode>('takeaway');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('kaspi');
   const [locale, setLocale] = useState<Locale>('ru');
   const [nickname, setNickname] = useState('');
   const [practiceScore, setPracticeScore] = useState<number | null>(null);
@@ -49,6 +53,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [previewCart, setPreviewCart] = useState<CartLine[]>([]);
   const [previewSelectedId, setPreviewSelectedId] = useState<string | null>(null);
   const [previewDiningMode, setPreviewDiningMode] = useState<DiningMode>('takeaway');
+  const [previewPaymentMethod, setPreviewPaymentMethod] = useState<PaymentMethod>('kaspi');
   const [previewNickname, setPreviewNickname] = useState('');
   const [previewLocale, setPreviewLocale] = useState<Locale>('ru');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -75,6 +80,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           restoration.current = saved;
           setMode(saved.catalogMode);
           setDiningMode(saved.diningMode);
+          setPaymentMethod(saved.paymentMethod ?? 'kaspi');
           setLocale(saved.locale);
           setNickname(saved.nickname);
           setRequestedBranchId(saved.branchId);
@@ -110,8 +116,6 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           ? `test:${testCatalog.catalog_version}`
           : result.menu.release_id;
         const changed = serverRelease.current !== null && serverRelease.current !== nextRelease;
-        const savedChanged =
-          restoration.current !== null && restoration.current.releaseId !== nextRelease;
         serverRelease.current = nextRelease;
         setBranches(result.branches);
         setMenu(result.menu);
@@ -131,8 +135,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         setConnection({
           status: 'online',
           checkedAt: new Date().toISOString(),
-          message:
-            changed || savedChanged ? 'Меню обновилось. Соберите корзину по новым ценам.' : null,
+          message: null,
         });
       })
       .catch(() => {
@@ -167,6 +170,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     connectedCatalog !== null && catalogMode === 'server' && connection.status === 'online',
     cart,
     diningMode,
+    paymentMethod,
   );
 
   useEffect(() => {
@@ -176,13 +180,18 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       version: 1,
       catalogMode,
       diningMode,
+      paymentMethod,
       locale,
       nickname,
       branchId: branch?.id ?? requestedBranchId,
       releaseId: pendingCart?.releaseId ?? releaseId,
       lines:
         pendingCart?.lines ??
-        cart.map((line) => ({ id: line.product.id, quantity: line.quantity })),
+        cart.map((line) => ({
+          id: line.product.id,
+          quantity: line.quantity,
+          ...(line.selections ? { selections: line.selections } : {}),
+        })),
     };
     persistQueue.current = persistQueue.current
       .catch(() => {})
@@ -192,6 +201,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     hydrated,
     catalogMode,
     diningMode,
+    paymentMethod,
     locale,
     nickname,
     branch?.id,
@@ -206,6 +216,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setNickname('');
     setLocale('ru');
     setDiningMode('takeaway');
+    setPaymentMethod('kaspi');
     setMode('server');
     setRequestedBranchId(null);
     setMenu(null);
@@ -221,9 +232,14 @@ export function MobileProvider({ children }: { children: ReactNode }) {
 
   const model: MobileModel = {
     products,
+    upsellProductIds:
+      connectedCatalog && 'upsell_product_ids' in connectedCatalog
+        ? connectedCatalog.upsell_product_ids
+        : ['toast', 'sauce', 'cola'],
     cart,
     catalogMode,
     diningMode,
+    paymentMethod,
     locale,
     branches,
     branch,
@@ -236,6 +252,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setNickname: (value) => setNickname(value.slice(0, 32)),
     setLocale,
     setDiningMode,
+    setPaymentMethod,
     setBranch: (id) => {
       if (!branches.some((candidate) => candidate.id === id)) return;
       if (branch?.id === id) return;
@@ -253,23 +270,27 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setMode(mode);
     },
     selectProduct: setSelectedId,
-    addToCart: (id) => {
+    addToCart: (id, selections, quantity = 1) => {
       const product = products.find((candidate) => candidate.id === id);
       if (!product) return;
+      const chosen = selections ?? defaultSelections(product);
+      const key = cartLineKey({ product, selections: chosen });
       restoration.current = null;
       setCart((previous) =>
         updateQuantity(
           previous,
           product,
-          (previous.find((line) => line.product.id === id)?.quantity ?? 0) + 1,
+          (previous.find((line) => cartLineKey(line) === key)?.quantity ?? 0) + quantity,
+          chosen,
         ),
       );
     },
     setQuantity: (id, quantity) => {
-      const product = products.find((candidate) => candidate.id === id);
-      if (!product) return;
       restoration.current = null;
-      setCart((previous) => updateQuantity(previous, product, quantity));
+      setCart((previous) => {
+        const line = previous.find((l) => cartLineKey(l) === id);
+        return line ? updateQuantity(previous, line.product, quantity, line.selections) : previous;
+      });
     },
     clearCart: (expected) => {
       restoration.current = null;
@@ -298,6 +319,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       cancel: async () => null,
     },
     products: designProducts,
+    upsellProductIds: ['toast', 'sauce', 'cola'],
     cart: previewCart,
     catalogMode: 'design',
     selectedProduct:
@@ -305,6 +327,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       designProducts[0] ??
       null,
     diningMode: previewDiningMode,
+    paymentMethod: previewPaymentMethod,
+    setPaymentMethod: setPreviewPaymentMethod,
     setDiningMode: setPreviewDiningMode,
     nickname: previewNickname,
     setNickname: (value) => setPreviewNickname(value.slice(0, 32)),
@@ -315,25 +339,30 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setCatalogMode: () => {},
     setBranch: () => {},
     selectProduct: setPreviewSelectedId,
-    addToCart: (id) => {
+    addToCart: (id, selections, quantity = 1) => {
       const product = designProducts.find((candidate) => candidate.id === id);
-      if (product)
-        setPreviewCart((previous) =>
-          updateQuantity(
-            previous,
-            product,
-            (previous.find((line) => line.product.id === id)?.quantity ?? 0) + 1,
-          ),
-        );
+      if (!product) return;
+      const chosen = selections ?? defaultSelections(product);
+      const key = cartLineKey({ product, selections: chosen });
+      setPreviewCart((previous) =>
+        updateQuantity(
+          previous,
+          product,
+          (previous.find((l) => cartLineKey(l) === key)?.quantity ?? 0) + quantity,
+          chosen,
+        ),
+      );
     },
-    setQuantity: (id, quantity) => {
-      const product = designProducts.find((candidate) => candidate.id === id);
-      if (product) setPreviewCart((previous) => updateQuantity(previous, product, quantity));
-    },
+    setQuantity: (id, quantity) =>
+      setPreviewCart((previous) => {
+        const line = previous.find((l) => cartLineKey(l) === id);
+        return line ? updateQuantity(previous, line.product, quantity, line.selections) : previous;
+      }),
     clearCart: (expected) => setPreviewCart((previous) => clearMatchingCart(previous, expected)),
     resetLocalData: () => {
       setPreviewCart([]);
       setPreviewNickname('');
+      setPreviewPaymentMethod('kaspi');
     },
   };
   return (
