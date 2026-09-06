@@ -205,6 +205,30 @@ test('customer ownership, station scopes, token hashing, expiry and revocation f
     await assert.rejects(ctx.flow.kitchen(''), code('UNAUTHORIZED'));
   });
 });
+test('JSON null cannot bypass immutable test snapshot identity, money or synthetic namespace constraints', async () => {
+  await withDesk(async (ctx) => {
+    const { quote } = await ctx.make();
+    for (const field of ['quote_id', 'branch_id', 'total_minor', 'synthetic', 'namespace']) {
+      const quoteId = randomUUID();
+      const snapshot = { ...quote, quote_id: quoteId, [field]: null };
+      await assert.rejects(
+        ctx.cloud.pool.query(
+          'INSERT INTO test_quotes(id,actor_id,branch_id,snapshot,total_minor,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)',
+          [
+            quoteId,
+            ctx.customer.session_id,
+            TEST_BRANCH_ID,
+            snapshot,
+            quote.total_minor,
+            quote.created_at,
+            quote.expires_at,
+          ],
+        ),
+        (error) => error.code === '23514',
+      );
+    }
+  });
+});
 test('concurrent retries return identical outcomes; stale commands and changed idempotency payload conflict', async () => {
   await withDesk(async (ctx) => {
     const key = randomUUID();
