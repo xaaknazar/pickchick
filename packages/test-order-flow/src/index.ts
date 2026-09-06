@@ -93,7 +93,15 @@ function priceCompleteLine(item: {
     BigInt(product.price_minor),
   );
   return TestCompleteLineSchema.parse({
-    ...product,
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    category: product.category,
+    image_id: product.image_id,
+    prep_required: product.prep_required,
+    serving_label: product.serving_label,
+    nutrition: product.nutrition,
+    nutrition_provenance: product.nutrition_provenance,
     line_id: testLineId(product.id, selections),
     base_price_minor: product.price_minor,
     price_minor: unit.toString(),

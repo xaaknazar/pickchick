@@ -166,7 +166,12 @@ export const TestCompleteCartSchema = z
     }
   });
 export const TestCartSchema = z.union([TestLegacyCartSchema, TestCompleteCartSchema]);
-export const TestCompleteLineSchema = TestCompleteProductSchema.extend({
+// A quote stores purchased facts, not every option that could have been chosen.
+// The full modifier directory belongs only to the published catalog.
+export const TestCompleteLineSchema = TestLineSchema.extend({
+  serving_label: TestCompleteProductSchema.shape.serving_label,
+  nutrition: TestNutritionSchema,
+  nutrition_provenance: TestCompleteProductSchema.shape.nutrition_provenance,
   line_id: z.string().min(1).max(4000),
   base_price_minor: Minor,
   quantity: z.int().min(1).max(20),
