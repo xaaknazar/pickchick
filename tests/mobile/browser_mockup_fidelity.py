@@ -1,6 +1,7 @@
 """Source-composition and decorative-video regressions on an isolated local client."""
 import os
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 from playwright.sync_api import expect, sync_playwright
@@ -32,6 +33,29 @@ def fixture_read(route):
         route.fulfill(json=data[path], headers={'Access-Control-Allow-Origin': '*'})
     else:
         route.abort()
+
+def settled_catalog_geometry(page):
+    # Read every dependent rectangle atomically, then require 150ms without
+    # movement. Fixed sleeps and separate protocol calls mix animation frames
+    # while the catalog's smooth anchor scroll is still settling on CI.
+    previous = None
+    stable_since = time.monotonic()
+    deadline = stable_since + 5
+    while time.monotonic() < deadline:
+        current = page.get_by_role('heading', name='Напитки', exact=True).evaluate("""(section) => {
+            const rect = (id) => document.querySelector(`[data-testid="${id}"]`)
+                .getBoundingClientRect().toJSON();
+            return { section: section.getBoundingClientRect().toJSON(),
+                chip: rect('category-Напитки'),
+                first: rect('product-photo-cat-4-0'), second: rect('product-photo-cat-4-1') };
+        }""")
+        if current != previous:
+            stable_since = time.monotonic()
+            previous = current
+        elif time.monotonic() - stable_since >= 0.15:
+            return current
+        page.wait_for_timeout(40)
+    raise AssertionError(f'Catalog geometry did not settle: {previous}')
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
@@ -89,13 +113,11 @@ with sync_playwright() as p:
         last_category = page.get_by_test_id('category-Напитки')
         expect(last_category).to_be_visible()
         last_category.click()
-        page.wait_for_timeout(700)
-        chip = last_category.bounding_box()
+        geometry = settled_catalog_geometry(page)
+        chip, section = geometry['chip'], geometry['section']
+        first, second = geometry['first'], geometry['second']
         assert chip['x'] >= 0 and chip['x'] + chip['width'] <= width + 1, chip
-        section = page.get_by_role('heading', name='Напитки', exact=True).bounding_box()
         assert section['y'] >= chip['y'] + chip['height'] - 1, (section, chip)
-        first = page.get_by_test_id('product-photo-cat-4-0').bounding_box()
-        second = page.get_by_test_id('product-photo-cat-4-1').bounding_box()
         assert abs(first['width'] - first['height']) < 1, first
         assert abs(first['y'] - second['y']) < 1 and second['x'] > first['x'], (first, second)
     assert errors == [], errors
