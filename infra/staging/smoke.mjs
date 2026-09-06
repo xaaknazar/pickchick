@@ -86,6 +86,19 @@ async function testOrderFlowSmoke(config, owner, runtime, request) {
     const manager = await send('/v1/test/manager/orders', tokenFor('manager'));
     assert.ok(manager.orders.some((row) => row.order_id === order.order_id));
     assert.equal((await send(`/v1/test/${path}`, session.token)).state, 'fulfilled');
+    // The next-day client must explicitly recover the same completed session;
+    // this exercises the only additional runtime column grant.
+    await owner.query(
+      "UPDATE test_actors SET created_at=created_at-interval '3 hours', expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",
+      [session.session_id],
+    );
+    const continued = await command('sessions/continue', session.token, {});
+    assert.equal(continued.session_id, session.session_id);
+    assert.equal(continued.token, session.token);
+    assert.ok(Date.parse(continued.expires_at) > Date.now());
+    const repeatedContinuation = await command('sessions/continue', session.token, {});
+    assert.equal(repeatedContinuation.expires_at, continued.expires_at);
+    assert.equal((await send(`/v1/test/${path}`, session.token)).state, 'fulfilled');
     for (const sql of [
       'UPDATE test_actors SET role=role',
       'UPDATE test_actors SET revoked_at=revoked_at',

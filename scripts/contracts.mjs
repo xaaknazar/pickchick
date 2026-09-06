@@ -330,6 +330,16 @@ Object.assign(openapi.paths, {
     idempotent: true,
     status: 201,
   }),
+  '/v1/test/sessions/continue': testOperation(
+    'post',
+    'continueTestSession',
+    'TestSession',
+    'TestContinueSessionInput',
+    {
+      roles:
+        'Explicit continuation for an unrevoked customer with no active or unknown orders. Same actor/token/history/quotas; expired access extends by two hours, active access is unchanged.',
+    },
+  ),
   '/v1/test/orders': {
     ...testOperation('get', 'listOwnTestOrders', 'TestOrders'),
     ...testOperation('post', 'createTestOrder', 'TestOrder', 'TestCreateOrder', {

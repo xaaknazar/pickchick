@@ -14,7 +14,13 @@ import { DESIGN_RELEASE, designProducts, serverProducts, connectedProducts } fro
 import { loadTestCatalog } from './test-client';
 import { useTestOrders } from './useTestOrders';
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
-import { parsePreferences, restoreCart, updateQuantity, type SavedPreferences } from './domain';
+import {
+  parsePreferences,
+  restoreCart,
+  updateQuantity,
+  clearMatchingCart,
+  type SavedPreferences,
+} from './domain';
 import type {
   Branch,
   CartLine,
@@ -265,9 +271,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       restoration.current = null;
       setCart((previous) => updateQuantity(previous, product, quantity));
     },
-    clearCart: () => {
+    clearCart: (expected) => {
       restoration.current = null;
-      setCart([]);
+      setCart((previous) => clearMatchingCart(previous, expected));
     },
     refresh: () => setRefreshIndex((previous) => previous + 1),
     resetLocalData,
@@ -277,6 +283,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     testFlow: {
       ...testFlow,
       available: false,
+      recoveryAvailable: false,
+      recoverPending: async () => null,
+      sessionExpired: false,
+      continueSession: async () => false,
       current: null,
       orders: [],
       select: () => {},
@@ -318,7 +328,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       const product = designProducts.find((candidate) => candidate.id === id);
       if (product) setPreviewCart((previous) => updateQuantity(previous, product, quantity));
     },
-    clearCart: () => setPreviewCart([]),
+    clearCart: (expected) => setPreviewCart((previous) => clearMatchingCart(previous, expected)),
     resetLocalData: () => {
       setPreviewCart([]);
       setPreviewNickname('');

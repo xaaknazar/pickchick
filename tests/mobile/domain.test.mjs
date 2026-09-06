@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   money,
   cartTotal,
+  clearMatchingCart,
   updateQuantity,
   parsePreferences,
   restoreCart,
@@ -47,6 +48,17 @@ test('local basket bounds quantities and never combines design with server items
   assert.deepEqual(updateQuantity(lines, product, 1.5), lines);
   assert.deepEqual(updateQuantity(lines, { ...product, id: 'design', source: 'design' }, 1), lines);
   assert.deepEqual(updateQuantity(lines, product, 0), []);
+});
+
+test('delayed order approval never clears a different current basket', () => {
+  const paid = [{ id: product.id, quantity: 1 }];
+  const original = [{ product, quantity: 1 }];
+  const changedQuantity = updateQuantity(original, product, 2);
+  const newItem = updateQuantity(original, { ...product, id: 'second' }, 1);
+  assert.deepEqual(clearMatchingCart(original, paid), []);
+  assert.equal(clearMatchingCart(changedQuantity, paid), changedQuantity);
+  assert.equal(clearMatchingCart(newItem, paid), newItem);
+  assert.deepEqual(clearMatchingCart(newItem), []);
 });
 
 test('untrusted local preferences reject corrupt, oversized, duplicate and invalid quantities', () => {

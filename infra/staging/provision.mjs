@@ -64,6 +64,7 @@ async function provision() {
         test_orders, test_kitchen_tasks, test_command_results, test_outbox TO pickchick_app;
         GRANT UPDATE (id) ON test_flow_lock TO pickchick_app;
         GRANT INSERT, DELETE ON test_actors TO pickchick_app;
+        GRANT UPDATE (expires_at) ON test_actors TO pickchick_app;
         GRANT INSERT ON test_quotes, test_orders, test_kitchen_tasks,
           test_command_results, test_outbox TO pickchick_app;
         GRANT UPDATE (version, state, payment_state, payment_attempt_id,

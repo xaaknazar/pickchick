@@ -15,8 +15,8 @@ def main():
     context = ssl.create_default_context()
     checks = []
 
-    def request(path, method='GET', headers=None):
-        req = urllib.request.Request(base + path, method=method, headers=headers or {})
+    def request(path, method='GET', headers=None, data=None):
+        req = urllib.request.Request(base + path, method=method, headers=headers or {}, data=data)
         try:
             response = urllib.request.urlopen(req, timeout=15, context=context)
         except urllib.error.HTTPError as error:
@@ -66,6 +66,8 @@ def main():
         ('/v1/capabilities', 'HEAD'),
         ('/v1/test/staff', 'POST'),
         ('/v1/test/sessions', 'GET'),
+        ('/v1/test/sessions/continue', 'GET'),
+        ('/v1/test/sessions/continue/extra', 'POST'),
         ('/v1/test/catalog', 'POST'),
         ('/v1/test/manager/orders', 'POST'),
         ('/v1/test/orders/not-a-uuid', 'GET'),
@@ -86,7 +88,12 @@ def main():
             assert status == 401 and denied['code'] == 'UNAUTHORIZED'
             assert headers['Access-Control-Allow-Origin'] == '*'
             assert headers.get('Access-Control-Allow-Credentials') is None
-    for path, method in [('/v1/test/catalog', 'GET'), ('/v1/test/sessions', 'POST'), ('/v1/test/orders', 'POST')]:
+    if enabled:
+        status, headers, denied = request('/v1/test/sessions/continue', 'POST', {'Content-Type': 'application/json'}, b'{}')
+        assert status == 401 and denied['code'] == 'UNAUTHORIZED'
+        assert headers['Access-Control-Allow-Origin'] == '*'
+        assert headers.get('Access-Control-Allow-Credentials') is None
+    for path, method in [('/v1/test/catalog', 'GET'), ('/v1/test/sessions', 'POST'), ('/v1/test/sessions/continue', 'POST'), ('/v1/test/orders', 'POST')]:
         status, headers, _ = request(path, 'OPTIONS', {
             'Origin': 'http://localhost:8081',
             'Access-Control-Request-Method': method,

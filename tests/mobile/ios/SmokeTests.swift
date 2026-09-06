@@ -8,6 +8,50 @@ final class SmokeTests: XCTestCase {
     // Run against the Release build: JavaScript and brand assets are bundled,
     // and a Metro development server is not a prerequisite for app launch.
     @MainActor
+    func testConnectedOrderSurvivesRelaunch() async throws {
+        // A separate, explicitly synthetic scenario. No staff credentials are
+        // compiled into the app or tests and no real bank endpoint is called.
+        let url = URL(string: "https://pickchick.185.129.51.103.nip.io/v1/capabilities")!
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let flags = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let features = flags?["features"] as? [String: Any],
+              features["test_order_flow"] as? Bool == true else {
+            throw XCTSkip("Connected synthetic API is not enabled")
+        }
+        let app = launchApp()
+        tap("product-pick-combo", in: app)
+        tap("product-add", in: app)
+        tap("cart-checkout", in: app)
+        tap("test-checkout-create", in: app)
+        let number = element("connected-order-number", in: app)
+        guard number.waitForExistence(timeout: 20) else {
+            attachScreenshot("Connected-create-failed", of: app)
+            XCTFail("The connected order did not appear after checkout")
+            return
+        }
+        let savedNumber = number.label
+        XCTAssertTrue(savedNumber.hasPrefix("T-"), "Expected an isolated TEST number")
+        tap("test-payment-approve", in: app)
+        let state = element("connected-order-state", in: app)
+        assertLabel("Готовится", on: state)
+        attachScreenshot("Connected-preparing", of: app)
+        app.terminate()
+        app.launch()
+        assertScreen("M06", in: app)
+        tap("tab-orders", in: app)
+        let saved = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", savedNumber)).firstMatch
+        reveal(saved, in: app)
+        saved.tap()
+        assertLabel(savedNumber, on: element("connected-order-number", in: app))
+        assertLabel("Готовится", on: element("connected-order-state", in: app))
+        attachScreenshot("Connected-restored", of: app)
+        tap("test-open-cancel", in: app)
+        tap("test-cancel-order", in: app)
+        assertLabel("Отменён", on: element("connected-order-state", in: app))
+        attachScreenshot("Connected-cancelled", of: app)
+    }
+
+    @MainActor
     func testReleaseLaunchAndAll35DesignScreens() throws {
         let app = launchApp()
         assertScreen("M06", in: app)

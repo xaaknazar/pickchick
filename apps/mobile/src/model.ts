@@ -50,7 +50,7 @@ export interface MobileModel {
   selectProduct(id: string): void;
   addToCart(id: string): void;
   setQuantity(id: string, quantity: number): void;
-  clearCart(): void;
+  clearCart(expected?: { id: string; quantity: number }[]): void;
   refresh(): void;
   resetLocalData(): void;
 }

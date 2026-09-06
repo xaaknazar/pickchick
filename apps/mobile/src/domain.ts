@@ -16,6 +16,24 @@ export function cartTotal(lines: CartLine[]): string {
     .toString();
 }
 
+// A late approval response must not erase a different basket the guest built
+// while the request was pending, or while viewing an older order.
+export function clearMatchingCart(
+  lines: CartLine[],
+  expected?: { id: string; quantity: number }[],
+): CartLine[] {
+  if (
+    expected &&
+    (lines.length !== expected.length ||
+      new Set(expected.map((line) => line.id)).size !== expected.length ||
+      !lines.every((line) =>
+        expected.some((item) => item.id === line.product.id && item.quantity === line.quantity),
+      ))
+  )
+    return lines;
+  return [];
+}
+
 export function updateQuantity(lines: CartLine[], product: Product, quantity: number): CartLine[] {
   if (!Number.isInteger(quantity) || quantity < 0 || quantity > MAX_ITEM_QUANTITY) return lines;
   if (lines.some((line) => line.product.source !== product.source)) return lines;
