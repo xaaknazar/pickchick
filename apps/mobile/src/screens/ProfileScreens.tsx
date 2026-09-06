@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -36,10 +36,15 @@ import {
 
 export function Phone(props: ScreenProps) {
   const demo = useDemoAccount();
-  const [phone, setPhone] = useState(() => demo.challenge?.phone.slice(2) ?? '');
+  const input = useRef<TextInput>(null);
+  const initialPhone = useRef(demo.challenge?.phone.slice(2) ?? '');
+  const [phone, setPhone] = useState(initialPhone.current);
   const [submitted, setSubmitted] = useState(false);
   useEffect(() => {
-    if (!demo.account && !demo.challenge) setPhone('');
+    if (!demo.account && !demo.challenge) {
+      input.current?.clear();
+      setPhone('');
+    }
   }, [demo.account, demo.challenge]);
   const valid = normalizeDemoPhone(phone) !== null;
   const request = async () => {
@@ -70,17 +75,14 @@ export function Phone(props: ScreenProps) {
         <View style={s.phoneInput}>
           <Body style={s.phonePrefix}>+7</Body>
           <TextInput
+            ref={input}
             accessibilityLabel="Мобильный номер Казахстана, 10 цифр после +7"
             testID="phone-input"
-            value={phone}
+            // Native owns edits; reflecting every event back as value can lose fast keystrokes.
+            defaultValue={initialPhone.current}
             editable={demo.ready && !demo.busy}
             onChangeText={(value) => {
-              const digits = value.replace(/\D/g, '');
-              setPhone(
-                digits.length === 11 && /^[78]/.test(digits)
-                  ? digits.slice(1)
-                  : digits.slice(0, 11),
-              );
+              setPhone(value);
               setSubmitted(false);
             }}
             placeholder="7__ ___ __ __"
@@ -89,6 +91,10 @@ export function Phone(props: ScreenProps) {
             underlineColorAndroid="transparent"
             textContentType="telephoneNumber"
             autoComplete="tel-national"
+            autoCorrect={false}
+            spellCheck={false}
+            smartInsertDelete={false}
+            autoCapitalize="none"
             maxLength={30}
             returnKeyType="done"
             onSubmitEditing={() => valid && void request()}
@@ -118,6 +124,7 @@ export function Phone(props: ScreenProps) {
 }
 export function Otp(props: ScreenProps) {
   const demo = useDemoAccount();
+  const input = useRef<TextInput>(null);
   const [code, setCode] = useState('');
   const [now, setNow] = useState(Date.now);
   const [submitted, setSubmitted] = useState(false);
@@ -126,6 +133,11 @@ export function Otp(props: ScreenProps) {
     return () => clearInterval(timer);
   }, []);
   const challenge = demo.challenge;
+  useEffect(() => {
+    input.current?.clear();
+    setCode('');
+    setSubmitted(false);
+  }, [challenge?.phone, challenge?.resendAt]);
   const remaining = Math.max(0, Math.ceil(((challenge?.resendAt ?? 0) - now) / 1000));
   const expired = challenge ? now >= challenge.expiresAt : false;
   const canVerify = Boolean(
@@ -139,7 +151,6 @@ export function Otp(props: ScreenProps) {
     if (!challenge) return;
     setSubmitted(true);
     if (await demo.requestCode(challenge.phone)) {
-      setCode('');
       setNow(Date.now());
       setSubmitted(false);
     }
@@ -173,20 +184,25 @@ export function Otp(props: ScreenProps) {
           ))}
         </View>
         <TextInput
+          ref={input}
           testID="otp-input"
           accessibilityLabel="Код подтверждения, 6 цифр"
-          value={code}
+          defaultValue=""
           editable={
             Boolean(challenge) && !demo.busy && !expired && (challenge?.attemptsLeft ?? 0) > 0
           }
           onChangeText={(value) => {
-            setCode(value.replace(/\D/g, '').slice(0, 6));
+            setCode(value);
             setSubmitted(false);
           }}
           keyboardType="number-pad"
           underlineColorAndroid="transparent"
           textContentType="oneTimeCode"
           autoComplete="sms-otp"
+          autoCorrect={false}
+          spellCheck={false}
+          smartInsertDelete={false}
+          autoCapitalize="none"
           maxLength={6}
           caretHidden
           selectionColor="transparent"

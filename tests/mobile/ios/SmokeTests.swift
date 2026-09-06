@@ -338,6 +338,10 @@ final class SmokeTests: XCTestCase {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: previous.count))
         }
         field.typeText(value)
+        let typedValue = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value),
+                                                  object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [typedValue], timeout: 5), .completed,
+                       "Native field must retain every typed character")
     }
 
     @MainActor
