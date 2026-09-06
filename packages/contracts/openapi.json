@@ -5964,8 +5964,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+            "type": "string"
           },
           "name": {
             "type": "string"
@@ -5986,28 +5985,19 @@
           "prep_required": {
             "type": "boolean"
           },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "line_total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,15})$"
+          },
           "serving_label": {
             "type": "string",
             "minLength": 1,
             "maxLength": 100
-          },
-          "ingredients": {
-            "type": "string",
-            "maxLength": 2000
-          },
-          "allergens": {
-            "maxItems": 30,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
-            }
-          },
-          "prep_minutes": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 120
           },
           "nutrition": {
             "type": "object",
@@ -6056,107 +6046,12 @@
               "demo_fixture"
             ]
           },
-          "modifier_groups": {
-            "maxItems": 10,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                },
-                "title": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 100
-                },
-                "min": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 100
-                },
-                "max": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 100
-                },
-                "options": {
-                  "minItems": 1,
-                  "maxItems": 20,
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                      },
-                      "label": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 150
-                      },
-                      "price_delta_minor": {
-                        "type": "string",
-                        "pattern": "^(0|[1-9]\\d{0,15})$"
-                      },
-                      "default_quantity": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 40
-                      },
-                      "max_quantity": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 40
-                      },
-                      "available": {
-                        "type": "boolean"
-                      },
-                      "nutrition_multiplier": {
-                        "type": "number",
-                        "exclusiveMinimum": 0,
-                        "maximum": 100
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "label",
-                      "price_delta_minor",
-                      "default_quantity",
-                      "max_quantity",
-                      "available"
-                    ],
-                    "additionalProperties": false
-                  }
-                }
-              },
-              "required": [
-                "id",
-                "title",
-                "min",
-                "max",
-                "options"
-              ],
-              "additionalProperties": false
-            }
-          },
           "line_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 4000
           },
           "base_price_minor": {
-            "type": "string",
-            "pattern": "^(0|[1-9]\\d{0,15})$"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 20
-          },
-          "line_total_minor": {
             "type": "string",
             "pattern": "^(0|[1-9]\\d{0,15})$"
           },
@@ -6210,17 +6105,13 @@
           "price_minor",
           "image_id",
           "prep_required",
-          "serving_label",
-          "ingredients",
-          "allergens",
-          "prep_minutes",
-          "nutrition",
-          "nutrition_provenance",
-          "modifier_groups",
-          "line_id",
-          "base_price_minor",
           "quantity",
           "line_total_minor",
+          "serving_label",
+          "nutrition",
+          "nutrition_provenance",
+          "line_id",
+          "base_price_minor",
           "selections"
         ],
         "additionalProperties": false
@@ -6482,8 +6373,7 @@
               "type": "object",
               "properties": {
                 "id": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                  "type": "string"
                 },
                 "name": {
                   "type": "string"
@@ -6504,28 +6394,19 @@
                 "prep_required": {
                   "type": "boolean"
                 },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                "line_total_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,15})$"
+                },
                 "serving_label": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 100
-                },
-                "ingredients": {
-                  "type": "string",
-                  "maxLength": 2000
-                },
-                "allergens": {
-                  "maxItems": 30,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100
-                  }
-                },
-                "prep_minutes": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 120
                 },
                 "nutrition": {
                   "type": "object",
@@ -6574,107 +6455,12 @@
                     "demo_fixture"
                   ]
                 },
-                "modifier_groups": {
-                  "maxItems": 10,
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                      },
-                      "title": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 100
-                      },
-                      "min": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 100
-                      },
-                      "max": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 100
-                      },
-                      "options": {
-                        "minItems": 1,
-                        "maxItems": 20,
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                            },
-                            "label": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 150
-                            },
-                            "price_delta_minor": {
-                              "type": "string",
-                              "pattern": "^(0|[1-9]\\d{0,15})$"
-                            },
-                            "default_quantity": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 40
-                            },
-                            "max_quantity": {
-                              "type": "integer",
-                              "minimum": 1,
-                              "maximum": 40
-                            },
-                            "available": {
-                              "type": "boolean"
-                            },
-                            "nutrition_multiplier": {
-                              "type": "number",
-                              "exclusiveMinimum": 0,
-                              "maximum": 100
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "label",
-                            "price_delta_minor",
-                            "default_quantity",
-                            "max_quantity",
-                            "available"
-                          ],
-                          "additionalProperties": false
-                        }
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "title",
-                      "min",
-                      "max",
-                      "options"
-                    ],
-                    "additionalProperties": false
-                  }
-                },
                 "line_id": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 4000
                 },
                 "base_price_minor": {
-                  "type": "string",
-                  "pattern": "^(0|[1-9]\\d{0,15})$"
-                },
-                "quantity": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 20
-                },
-                "line_total_minor": {
                   "type": "string",
                   "pattern": "^(0|[1-9]\\d{0,15})$"
                 },
@@ -6728,17 +6514,13 @@
                 "price_minor",
                 "image_id",
                 "prep_required",
-                "serving_label",
-                "ingredients",
-                "allergens",
-                "prep_minutes",
-                "nutrition",
-                "nutrition_provenance",
-                "modifier_groups",
-                "line_id",
-                "base_price_minor",
                 "quantity",
                 "line_total_minor",
+                "serving_label",
+                "nutrition",
+                "nutrition_provenance",
+                "line_id",
+                "base_price_minor",
                 "selections"
               ],
               "additionalProperties": false
@@ -7162,8 +6944,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                "type": "string"
                               },
                               "name": {
                                 "type": "string"
@@ -7184,28 +6965,19 @@
                               "prep_required": {
                                 "type": "boolean"
                               },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
                               "serving_label": {
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 100
-                              },
-                              "ingredients": {
-                                "type": "string",
-                                "maxLength": 2000
-                              },
-                              "allergens": {
-                                "maxItems": 30,
-                                "type": "array",
-                                "items": {
-                                  "type": "string",
-                                  "minLength": 1,
-                                  "maxLength": 100
-                                }
-                              },
-                              "prep_minutes": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 120
                               },
                               "nutrition": {
                                 "type": "object",
@@ -7254,107 +7026,12 @@
                                   "demo_fixture"
                                 ]
                               },
-                              "modifier_groups": {
-                                "maxItems": 10,
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string",
-                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                                    },
-                                    "title": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "maxLength": 100
-                                    },
-                                    "min": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "max": {
-                                      "type": "integer",
-                                      "minimum": 1,
-                                      "maximum": 100
-                                    },
-                                    "options": {
-                                      "minItems": 1,
-                                      "maxItems": 20,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "id": {
-                                            "type": "string",
-                                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                                          },
-                                          "label": {
-                                            "type": "string",
-                                            "minLength": 1,
-                                            "maxLength": 150
-                                          },
-                                          "price_delta_minor": {
-                                            "type": "string",
-                                            "pattern": "^(0|[1-9]\\d{0,15})$"
-                                          },
-                                          "default_quantity": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 40
-                                          },
-                                          "max_quantity": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 40
-                                          },
-                                          "available": {
-                                            "type": "boolean"
-                                          },
-                                          "nutrition_multiplier": {
-                                            "type": "number",
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 100
-                                          }
-                                        },
-                                        "required": [
-                                          "id",
-                                          "label",
-                                          "price_delta_minor",
-                                          "default_quantity",
-                                          "max_quantity",
-                                          "available"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "title",
-                                    "min",
-                                    "max",
-                                    "options"
-                                  ],
-                                  "additionalProperties": false
-                                }
-                              },
                               "line_id": {
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 4000
                               },
                               "base_price_minor": {
-                                "type": "string",
-                                "pattern": "^(0|[1-9]\\d{0,15})$"
-                              },
-                              "quantity": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 20
-                              },
-                              "line_total_minor": {
                                 "type": "string",
                                 "pattern": "^(0|[1-9]\\d{0,15})$"
                               },
@@ -7408,17 +7085,13 @@
                               "price_minor",
                               "image_id",
                               "prep_required",
-                              "serving_label",
-                              "ingredients",
-                              "allergens",
-                              "prep_minutes",
-                              "nutrition",
-                              "nutrition_provenance",
-                              "modifier_groups",
-                              "line_id",
-                              "base_price_minor",
                               "quantity",
                               "line_total_minor",
+                              "serving_label",
+                              "nutrition",
+                              "nutrition_provenance",
+                              "line_id",
+                              "base_price_minor",
                               "selections"
                             ],
                             "additionalProperties": false
@@ -8249,8 +7922,7 @@
                       "type": "object",
                       "properties": {
                         "id": {
-                          "type": "string",
-                          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          "type": "string"
                         },
                         "name": {
                           "type": "string"
@@ -8271,28 +7943,19 @@
                         "prep_required": {
                           "type": "boolean"
                         },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 20
+                        },
+                        "line_total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
                         "serving_label": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 100
-                        },
-                        "ingredients": {
-                          "type": "string",
-                          "maxLength": 2000
-                        },
-                        "allergens": {
-                          "maxItems": 30,
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 100
-                          }
-                        },
-                        "prep_minutes": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 120
                         },
                         "nutrition": {
                           "type": "object",
@@ -8341,107 +8004,12 @@
                             "demo_fixture"
                           ]
                         },
-                        "modifier_groups": {
-                          "maxItems": 10,
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string",
-                                "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                              },
-                              "title": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 100
-                              },
-                              "min": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 100
-                              },
-                              "max": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 100
-                              },
-                              "options": {
-                                "minItems": 1,
-                                "maxItems": 20,
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string",
-                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                                    },
-                                    "label": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "maxLength": 150
-                                    },
-                                    "price_delta_minor": {
-                                      "type": "string",
-                                      "pattern": "^(0|[1-9]\\d{0,15})$"
-                                    },
-                                    "default_quantity": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 40
-                                    },
-                                    "max_quantity": {
-                                      "type": "integer",
-                                      "minimum": 1,
-                                      "maximum": 40
-                                    },
-                                    "available": {
-                                      "type": "boolean"
-                                    },
-                                    "nutrition_multiplier": {
-                                      "type": "number",
-                                      "exclusiveMinimum": 0,
-                                      "maximum": 100
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "label",
-                                    "price_delta_minor",
-                                    "default_quantity",
-                                    "max_quantity",
-                                    "available"
-                                  ],
-                                  "additionalProperties": false
-                                }
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "title",
-                              "min",
-                              "max",
-                              "options"
-                            ],
-                            "additionalProperties": false
-                          }
-                        },
                         "line_id": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 4000
                         },
                         "base_price_minor": {
-                          "type": "string",
-                          "pattern": "^(0|[1-9]\\d{0,15})$"
-                        },
-                        "quantity": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 20
-                        },
-                        "line_total_minor": {
                           "type": "string",
                           "pattern": "^(0|[1-9]\\d{0,15})$"
                         },
@@ -8495,17 +8063,13 @@
                         "price_minor",
                         "image_id",
                         "prep_required",
-                        "serving_label",
-                        "ingredients",
-                        "allergens",
-                        "prep_minutes",
-                        "nutrition",
-                        "nutrition_provenance",
-                        "modifier_groups",
-                        "line_id",
-                        "base_price_minor",
                         "quantity",
                         "line_total_minor",
+                        "serving_label",
+                        "nutrition",
+                        "nutrition_provenance",
+                        "line_id",
+                        "base_price_minor",
                         "selections"
                       ],
                       "additionalProperties": false
@@ -8909,8 +8473,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                "type": "string"
                               },
                               "name": {
                                 "type": "string"
@@ -8931,28 +8494,19 @@
                               "prep_required": {
                                 "type": "boolean"
                               },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
                               "serving_label": {
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 100
-                              },
-                              "ingredients": {
-                                "type": "string",
-                                "maxLength": 2000
-                              },
-                              "allergens": {
-                                "maxItems": 30,
-                                "type": "array",
-                                "items": {
-                                  "type": "string",
-                                  "minLength": 1,
-                                  "maxLength": 100
-                                }
-                              },
-                              "prep_minutes": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 120
                               },
                               "nutrition": {
                                 "type": "object",
@@ -9001,107 +8555,12 @@
                                   "demo_fixture"
                                 ]
                               },
-                              "modifier_groups": {
-                                "maxItems": 10,
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string",
-                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                                    },
-                                    "title": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "maxLength": 100
-                                    },
-                                    "min": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "max": {
-                                      "type": "integer",
-                                      "minimum": 1,
-                                      "maximum": 100
-                                    },
-                                    "options": {
-                                      "minItems": 1,
-                                      "maxItems": 20,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "id": {
-                                            "type": "string",
-                                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                                          },
-                                          "label": {
-                                            "type": "string",
-                                            "minLength": 1,
-                                            "maxLength": 150
-                                          },
-                                          "price_delta_minor": {
-                                            "type": "string",
-                                            "pattern": "^(0|[1-9]\\d{0,15})$"
-                                          },
-                                          "default_quantity": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 40
-                                          },
-                                          "max_quantity": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 40
-                                          },
-                                          "available": {
-                                            "type": "boolean"
-                                          },
-                                          "nutrition_multiplier": {
-                                            "type": "number",
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 100
-                                          }
-                                        },
-                                        "required": [
-                                          "id",
-                                          "label",
-                                          "price_delta_minor",
-                                          "default_quantity",
-                                          "max_quantity",
-                                          "available"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "title",
-                                    "min",
-                                    "max",
-                                    "options"
-                                  ],
-                                  "additionalProperties": false
-                                }
-                              },
                               "line_id": {
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 4000
                               },
                               "base_price_minor": {
-                                "type": "string",
-                                "pattern": "^(0|[1-9]\\d{0,15})$"
-                              },
-                              "quantity": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 20
-                              },
-                              "line_total_minor": {
                                 "type": "string",
                                 "pattern": "^(0|[1-9]\\d{0,15})$"
                               },
@@ -9155,17 +8614,13 @@
                               "price_minor",
                               "image_id",
                               "prep_required",
-                              "serving_label",
-                              "ingredients",
-                              "allergens",
-                              "prep_minutes",
-                              "nutrition",
-                              "nutrition_provenance",
-                              "modifier_groups",
-                              "line_id",
-                              "base_price_minor",
                               "quantity",
                               "line_total_minor",
+                              "serving_label",
+                              "nutrition",
+                              "nutrition_provenance",
+                              "line_id",
+                              "base_price_minor",
                               "selections"
                             ],
                             "additionalProperties": false
@@ -9562,8 +9017,7 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      "type": "string"
                     },
                     "name": {
                       "type": "string"
@@ -9584,28 +9038,19 @@
                     "prep_required": {
                       "type": "boolean"
                     },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20
+                    },
+                    "line_total_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                    },
                     "serving_label": {
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 100
-                    },
-                    "ingredients": {
-                      "type": "string",
-                      "maxLength": 2000
-                    },
-                    "allergens": {
-                      "maxItems": 30,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 100
-                      }
-                    },
-                    "prep_minutes": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 120
                     },
                     "nutrition": {
                       "type": "object",
@@ -9654,107 +9099,12 @@
                         "demo_fixture"
                       ]
                     },
-                    "modifier_groups": {
-                      "maxItems": 10,
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                          },
-                          "title": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 100
-                          },
-                          "min": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 100
-                          },
-                          "max": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 100
-                          },
-                          "options": {
-                            "minItems": 1,
-                            "maxItems": 20,
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "id": {
-                                  "type": "string",
-                                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
-                                },
-                                "label": {
-                                  "type": "string",
-                                  "minLength": 1,
-                                  "maxLength": 150
-                                },
-                                "price_delta_minor": {
-                                  "type": "string",
-                                  "pattern": "^(0|[1-9]\\d{0,15})$"
-                                },
-                                "default_quantity": {
-                                  "type": "integer",
-                                  "minimum": 0,
-                                  "maximum": 40
-                                },
-                                "max_quantity": {
-                                  "type": "integer",
-                                  "minimum": 1,
-                                  "maximum": 40
-                                },
-                                "available": {
-                                  "type": "boolean"
-                                },
-                                "nutrition_multiplier": {
-                                  "type": "number",
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 100
-                                }
-                              },
-                              "required": [
-                                "id",
-                                "label",
-                                "price_delta_minor",
-                                "default_quantity",
-                                "max_quantity",
-                                "available"
-                              ],
-                              "additionalProperties": false
-                            }
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "title",
-                          "min",
-                          "max",
-                          "options"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
                     "line_id": {
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 4000
                     },
                     "base_price_minor": {
-                      "type": "string",
-                      "pattern": "^(0|[1-9]\\d{0,15})$"
-                    },
-                    "quantity": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 20
-                    },
-                    "line_total_minor": {
                       "type": "string",
                       "pattern": "^(0|[1-9]\\d{0,15})$"
                     },
@@ -9808,17 +9158,13 @@
                     "price_minor",
                     "image_id",
                     "prep_required",
-                    "serving_label",
-                    "ingredients",
-                    "allergens",
-                    "prep_minutes",
-                    "nutrition",
-                    "nutrition_provenance",
-                    "modifier_groups",
-                    "line_id",
-                    "base_price_minor",
                     "quantity",
                     "line_total_minor",
+                    "serving_label",
+                    "nutrition",
+                    "nutrition_provenance",
+                    "line_id",
+                    "base_price_minor",
                     "selections"
                   ],
                   "additionalProperties": false

@@ -786,3 +786,69 @@ test('complete catalog enforces required selection quantities, availability, opt
     }
   });
 });
+
+test('maximum owned TEST history retains selected compositions without copying the entire option directory', async (t) => {
+  await withDesk(async (ctx) => {
+    const product = ctx.flow
+      .catalog('mockup-v0.3')
+      .products.find((item) => item.id === 'pick-combo');
+    const selections = product.modifier_groups.flatMap((group) =>
+      group.options
+        .filter((option) => group.id === 'extras' || option.default_quantity)
+        .map((option) => ({
+          group_id: group.id,
+          option_id: option.id,
+          quantity: group.id === 'extras' ? option.max_quantity : option.default_quantity,
+        })),
+    );
+    // Eleven distinct variants with every paid extra selected: the largest
+    // currently allowed per-customer history is 20 orders × 11 such lines.
+    const body = {
+      catalog_version: 'mockup-v0.3',
+      service_mode: 'takeaway',
+      items: Array.from({ length: 11 }, (_, fingers) => ({
+        product_id: product.id,
+        quantity: 20,
+        selections: selections
+          .map((selection) =>
+            selection.group_id === 'extras' && selection.option_id === 'fingers'
+              ? { ...selection, quantity: fingers }
+              : selection,
+          )
+          .filter((selection) => selection.quantity > 0),
+      })),
+    };
+    for (let index = 0; index < 20; index++) await ctx.make(ctx.customer, body);
+    const history = await ctx.flow.ownOrders(ctx.customer.token);
+    const bytes = Buffer.byteLength(JSON.stringify(history));
+    t.diagnostic(`20 orders × 11 detailed variants: ${bytes} UTF-8 JSON bytes`);
+    assert.equal(history.orders.length, 20);
+    assert.ok(bytes < 1024 * 1024, `Customer history ${bytes} bytes exceeds 1MiB safety budget`);
+    assert.equal(history.orders[0].snapshot.lines.length, 11);
+    for (const order of history.orders)
+      for (const line of order.snapshot.lines) {
+        assert.equal('modifier_groups' in line, false);
+        assert.equal('ingredients' in line, false);
+        assert.equal(line.nutrition_provenance, 'source_mockup');
+        assert.ok(
+          line.selections.some(
+            (selection) =>
+              selection.option_id === 'toast' &&
+              selection.quantity === 10 &&
+              selection.price_delta_minor === '39000',
+          ),
+        );
+        assert.ok(
+          line.selections.every((selection) => selection.group_label && selection.option_label),
+        );
+      }
+    assert.ok(
+      product.modifier_groups.find((group) => group.id === 'drink').options.length > 10,
+      'Full choices remain available in the fresh catalog',
+    );
+    assert.ok(
+      !JSON.stringify(history).includes('Fuse Tea Арбуз'),
+      'Unselected catalog choices must not leak into every historical line',
+    );
+  });
+});
