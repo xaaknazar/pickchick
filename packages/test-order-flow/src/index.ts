@@ -2,9 +2,15 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { transaction, type DatabaseClient, type DatabasePool } from '@pickchick/database';
 import { testCatalog } from './catalog.js';
+import { testCompleteCatalog } from './complete-catalog.js';
 import {
   TEST_BRANCH_ID,
   TEST_CATALOG_VERSION,
+  TEST_COMPLETE_CATALOG_VERSION,
+  TestCatalogVersionSchema,
+  TestCompleteLineSchema,
+  type TestSelection,
+  testLineId,
   TEST_NAMESPACE,
   TestActorSchema,
   TestCancellationSchema,
@@ -26,7 +32,8 @@ import {
   type TestRole,
 } from './contracts.js';
 export * from './contracts.js';
-export { testCatalog };
+export { testCatalog, testCompleteCatalog };
+export * from './representation.js';
 
 export interface TestFlowConfig {
   enabled: boolean;
@@ -47,6 +54,79 @@ export class TestFlowError extends Error {
     super(code);
     this.name = 'TestFlowError';
   }
+}
+function priceCompleteLine(item: {
+  product_id: string;
+  quantity: number;
+  selections: TestSelection[];
+}) {
+  const product = testCompleteCatalog.products.find(
+    (candidate) => candidate.id === item.product_id,
+  );
+  if (!product) throw new TestFlowError('INVALID_REQUEST');
+  const selections = item.selections
+    .map((selection) => {
+      const group = product.modifier_groups.find(
+        (candidate) => candidate.id === selection.group_id,
+      );
+      const option = group?.options.find((candidate) => candidate.id === selection.option_id);
+      if (!group || !option || !option.available || selection.quantity > option.max_quantity)
+        throw new TestFlowError('INVALID_REQUEST');
+      return {
+        ...selection,
+        group_label: group.title,
+        option_label: option.label,
+        price_delta_minor: option.price_delta_minor,
+      };
+    })
+    .sort((left, right) =>
+      `${left.group_id}:${left.option_id}`.localeCompare(`${right.group_id}:${right.option_id}`),
+    );
+  for (const group of product.modifier_groups) {
+    const quantity = selections
+      .filter((selection) => selection.group_id === group.id)
+      .reduce((total, selection) => total + selection.quantity, 0);
+    if (quantity < group.min || quantity > group.max) throw new TestFlowError('INVALID_REQUEST');
+  }
+  const unit = selections.reduce(
+    (total, selection) => total + BigInt(selection.price_delta_minor) * BigInt(selection.quantity),
+    BigInt(product.price_minor),
+  );
+  return TestCompleteLineSchema.parse({
+    ...product,
+    line_id: testLineId(product.id, selections),
+    base_price_minor: product.price_minor,
+    price_minor: unit.toString(),
+    quantity: item.quantity,
+    line_total_minor: (unit * BigInt(item.quantity)).toString(),
+    selections,
+  });
+}
+function estimatePreparation(items: { product_id: string; quantity: number }[]) {
+  const baseline = Math.max(
+    ...items.map(
+      (item) =>
+        testCompleteCatalog.products.find((product) => product.id === item.product_id)
+          ?.prep_minutes ?? 1,
+    ),
+  );
+  const quantity = items.reduce((total, item) => total + item.quantity, 0);
+  // The source's estimate is retained as a demonstration, bounded independently
+  // of real kitchen admission/capacity (which this TEST namespace does not model).
+  const minutes = Math.min(120, Math.ceil(baseline + (quantity - 1) * 1.2));
+  return { min: minutes, max: minutes };
+}
+function kitchenLineTitle(line: TestOrder['snapshot']['lines'][number]) {
+  const choices =
+    'selections' in line
+      ? line.selections
+          .map(
+            (selection) =>
+              `${selection.group_label}: ${selection.option_label} × ${selection.quantity}`,
+          )
+          .join('; ')
+      : '';
+  return `${line.name} × ${line.quantity}${choices ? ` — ${choices}` : ''}`;
 }
 const synthetic = { synthetic: true as const, namespace: TEST_NAMESPACE };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -211,7 +291,12 @@ async function dispatch(client: DatabaseClient, order: TestOrder) {
   for (const line of order.snapshot.lines.filter((line) => line.prep_required)) {
     await client.query(
       "INSERT INTO test_kitchen_tasks(id,order_id,task_key,station,title) VALUES ($1,$2,$3,'prep',$4)",
-      [randomUUID(), order.order_id, `prep:${line.id}`, `${line.name} × ${line.quantity}`],
+      [
+        randomUUID(),
+        order.order_id,
+        `prep:${'line_id' in line ? line.line_id : line.id}`,
+        kitchenLineTitle(line),
+      ],
     );
   }
   await client.query(
@@ -228,9 +313,10 @@ export class TestOrderFlow {
     private readonly pool: DatabasePool,
     private readonly config: TestFlowConfig,
   ) {}
-  catalog() {
+  catalog(requestedVersion: unknown = TEST_CATALOG_VERSION) {
     enabled(this.config);
-    return testCatalog;
+    const selected = parse(TestCatalogVersionSchema, requestedVersion);
+    return selected === TEST_COMPLETE_CATALOG_VERSION ? testCompleteCatalog : testCatalog;
   }
   private async read<T>(
     token: string,
@@ -368,15 +454,20 @@ export class TestOrderFlow {
         )
       ).rows[0];
       if (Number(count?.count) >= 40) throw new TestFlowError('RATE_LIMITED');
-      const lines = body.items.map((item) => {
-        const product = testCatalog.products.find((product) => product.id === item.product_id);
-        if (!product) throw new TestFlowError('INVALID_REQUEST');
-        return {
-          ...product,
-          quantity: item.quantity,
-          line_total_minor: (BigInt(product.price_minor) * BigInt(item.quantity)).toString(),
-        };
-      });
+      const lines =
+        body.catalog_version === TEST_COMPLETE_CATALOG_VERSION
+          ? body.items.map((item) => priceCompleteLine(item))
+          : body.items.map((item) => {
+              const product = testCatalog.products.find(
+                (product) => product.id === item.product_id,
+              );
+              if (!product) throw new TestFlowError('INVALID_REQUEST');
+              return {
+                ...product,
+                quantity: item.quantity,
+                line_total_minor: (BigInt(product.price_minor) * BigInt(item.quantity)).toString(),
+              };
+            });
       const created = (await client.query<{ time: Date }>('SELECT clock_timestamp() AS time'))
         .rows[0]?.time;
       if (!created) throw new Error('Database clock missing');
@@ -384,7 +475,13 @@ export class TestOrderFlow {
         ...synthetic,
         quote_id: randomUUID(),
         branch_id: actor.branch_id,
-        catalog_version: TEST_CATALOG_VERSION,
+        catalog_version: body.catalog_version,
+        ...(body.catalog_version === TEST_COMPLETE_CATALOG_VERSION
+          ? {
+              payment_method: body.payment_method,
+              estimated_minutes: estimatePreparation(body.items),
+            }
+          : {}),
         channel: actor.channel,
         service_mode: body.service_mode,
         currency: 'KZT',

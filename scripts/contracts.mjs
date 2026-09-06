@@ -273,6 +273,14 @@ function testOperation(method, operationId, result, input, options = {}) {
     required: true,
     schema: { type: 'string', format: 'uuid' },
   }));
+  parameters.push({
+    name: 'catalog_version',
+    in: 'query',
+    required: false,
+    description:
+      'Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.',
+    schema: { type: 'string', enum: ['mockup-v0.2', 'mockup-v0.3'], default: 'mockup-v0.2' },
+  });
   if (options.idempotent)
     parameters.push({
       name: 'Idempotency-Key',
