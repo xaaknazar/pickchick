@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   TextInput,
@@ -11,7 +14,6 @@ import {
 } from 'react-native';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
-import { FeatureTile, LoyaltyCard } from '../components/Brand';
 import {
   Body,
   Button,
@@ -20,10 +22,13 @@ import {
   Empty,
   Heading,
   Icon,
+  Logo,
   NavRow,
   Notice,
   Page,
   Row,
+  ReviewBadge,
+  type IconName,
   styles as ui,
 } from '../components/UI';
 
@@ -193,77 +198,248 @@ export function Qr(props: ScreenProps) {
     </Page>
   );
 }
-export function Profile(props: ScreenProps) {
+function ProfileRow({
+  title,
+  icon,
+  value,
+  onPress,
+  testID,
+  orange = false,
+  last = false,
+}: {
+  title: string;
+  icon: IconName;
+  value?: string;
+  onPress?: () => void;
+  testID?: string;
+  orange?: boolean;
+  last?: boolean;
+}) {
   return (
-    <Page props={props} title="Профиль" noBack>
-      <Row>
-        <View style={ui.flex}>
-          <Caption>ЛИЧНЫЙ КАБИНЕТ</Caption>
-          <Heading style={{ marginTop: 5 }}>
-            Привет,{`\n`}
-            {props.model.nickname || 'гость'}!
-          </Heading>
-        </View>
-        <View style={s.avatar}>
-          <Icon name="person-outline" size={34} color={colors.accent} />
-        </View>
-      </Row>
-      <Body muted>Твой вкус. Твои Чики. Твой пик.</Body>
-      <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
-      <Row>
-        <FeatureTile
-          title="Мой QR"
-          subtitle="Показать на кассе"
-          icon="qr-code-outline"
-          onPress={() => props.navigate('M29')}
-        />
-        <FeatureTile
-          title="Мои награды"
-          subtitle="На пути к новому пику"
-          icon="star-outline"
-          orange
-          onPress={() => props.navigate('M25')}
-        />
-      </Row>
-      <View>
-        <NavRow
-          title="Мои заказы"
-          subtitle="История и чеки"
-          onPress={() => props.navigate('M19')}
-        />
-        <NavRow
-          title="Личные данные"
-          subtitle="Ник на этом устройстве"
-          onPress={() => props.navigate('M04')}
-        />
-        <NavRow
-          title="Уведомления и язык"
-          subtitle="Русский · настройки push"
-          onPress={() => props.navigate('M34')}
-        />
-        <NavRow title="Помощь" subtitle="Мы рядом" onPress={() => props.navigate('M31')} />
-        <NavRow
-          title="Документы"
-          subtitle="Условия и конфиденциальность"
-          onPress={() => props.navigate('M33')}
-        />
-        <NavRow
-          title="Управление данными"
-          subtitle="Аккаунт и данные устройства"
-          onPress={() => props.navigate('M32')}
-        />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !onPress }}
+      disabled={!onPress}
+      testID={testID}
+      onPress={onPress}
+      style={({ pressed }) => [s.profileRow, !last && s.profileRowDivider, pressed && ui.pressed]}
+    >
+      <View style={[s.profileRowIcon, orange && s.profileRowIconOrange]}>
+        <Icon name={icon} size={18} color={orange ? colors.accent : colors.text} />
       </View>
-      <Button title="Войти по номеру" secondary onPress={() => props.navigate('M02')} />
-      <Caption style={{ textAlign: 'center' }}>Pick Chick · приложение в тестировании</Caption>
-      {!props.preview && props.openReview ? (
-        <NavRow
-          testID="open-design-review"
-          title="Все экраны дизайна"
-          subtitle="Отдельные примеры для проверки интерфейса"
-          onPress={props.openReview}
-        />
+      <Body style={s.profileRowTitle}>{title}</Body>
+      {value ? (
+        <Body muted style={s.profileRowValue}>
+          {value}
+        </Body>
       ) : null}
-    </Page>
+      {onPress ? <Icon name="chevron-forward" size={16} color={colors.muted} /> : null}
+    </Pressable>
+  );
+}
+function ProfileGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={s.profileSection}>
+      <Caption style={s.profileSectionTitle}>{title}</Caption>
+      <View style={s.profileGroup}>{children}</View>
+    </View>
+  );
+}
+export function Profile(props: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const name = props.model.nickname || 'Гость';
+  return (
+    <View testID="screen-M30" style={s.profileScreen}>
+      <ScrollView
+        testID="scroll-M30"
+        style={s.profileScroll}
+        contentContainerStyle={[
+          s.profileContent,
+          { paddingTop: insets.top + 10, paddingBottom: Math.max(28, insets.bottom + 16) },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {props.preview ? (
+          <View style={{ marginBottom: 16 }}>
+            <ReviewBadge />
+          </View>
+        ) : null}
+        <Row style={{ justifyContent: 'space-between' }}>
+          <Heading style={s.profileTitle}>Профиль</Heading>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Настройки профиля"
+            onPress={() => props.navigate('M34')}
+            style={({ pressed }) => [s.profileSettings, pressed && ui.pressed]}
+          >
+            <Icon name="settings-outline" size={20} />
+          </Pressable>
+        </Row>
+        <View style={s.membershipCard}>
+          <Image
+            source={require('../../../../design/prototype/assets/mockup/i27.jpg')}
+            style={s.membershipImage}
+            contentFit="cover"
+          />
+          <View pointerEvents="none" style={s.membershipShade} />
+          <Row style={{ gap: 14 }}>
+            <View style={s.membershipAvatar}>
+              <Body style={s.membershipInitial}>{name.charAt(0).toUpperCase()}</Body>
+            </View>
+            <View style={ui.flex}>
+              <Body style={s.membershipName}>{name}</Body>
+              <Caption style={s.membershipSubtitle}>Без входа в аккаунт</Caption>
+            </View>
+            <View style={s.membershipLogo}>
+              <Logo size={42} />
+            </View>
+          </Row>
+          <View style={s.membershipBalanceRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Баланс Чиков пока недоступен. Открыть программу лояльности"
+              onPress={() => props.navigate('M23')}
+              style={{ minHeight: 48 }}
+            >
+              <Caption style={s.membershipBalanceLabel}>БАЛАНС</Caption>
+              <View style={s.membershipBalanceValue}>
+                <Body style={s.membershipAmount}>—</Body>
+                <Body style={s.membershipCurrency}>Чиков ›</Body>
+              </View>
+            </Pressable>
+            <View style={s.membershipTier}>
+              <View style={s.membershipDot} />
+              <Body style={s.membershipTierText}>После входа</Body>
+            </View>
+          </View>
+          <View style={s.membershipProgress} />
+          <Body style={s.membershipProgressLabel}>
+            Баланс и уровень появятся после подключения Чиков
+          </Body>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="QR для кассы. Пока недоступен"
+          onPress={() => props.navigate('M29')}
+          style={({ pressed }) => [s.profileQrCard, pressed && ui.pressed]}
+        >
+          <View style={s.profileQrPlaceholder}>
+            <Icon name="lock-closed-outline" size={30} color="#56647A" />
+            <Caption style={s.profileQrPlaceholderLabel}>После входа</Caption>
+          </View>
+          <View style={ui.flex}>
+            <Heading style={s.profileQrTitle}>QR для кассы</Heading>
+            <Body muted style={s.profileQrDescription}>
+              Здесь будет код для начисления Чиков. Программа лояльности пока подключается.
+            </Body>
+          </View>
+        </Pressable>
+        <ProfileGroup title="ЛОЯЛЬНОСТЬ">
+          <ProfileRow
+            title="Мои Чики и уровни"
+            icon="ellipse-outline"
+            value="—"
+            orange
+            onPress={() => props.navigate('M23')}
+          />
+          <ProfileRow
+            title="Награды и миссии"
+            icon="ribbon-outline"
+            onPress={() => props.navigate('M25')}
+          />
+          <ProfileRow title="Промокоды" icon="ticket-outline" value="Скоро" last />
+        </ProfileGroup>
+        <View style={s.profileReferral}>
+          <Image
+            source={require('../../../../design/prototype/assets/mockup/i28.jpg')}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+          <View pointerEvents="none" style={s.profileReferralShade} />
+          <View style={ui.flex}>
+            <Heading style={s.profileReferralTitle}>Пригласите друга</Heading>
+            <Body style={s.profileReferralDescription}>
+              Приглашения и подарки появятся с программой Чиков.
+            </Body>
+          </View>
+          <View style={s.profileComingSoon}>
+            <Body style={s.profileComingSoonText}>Скоро</Body>
+          </View>
+        </View>
+        <ProfileGroup title="АККАУНТ">
+          <ProfileRow
+            title="Мои данные"
+            icon="person-outline"
+            value={props.model.nickname || 'Гость'}
+            onPress={() => props.navigate('M04')}
+          />
+          <ProfileRow
+            title="Мои заказы"
+            icon="receipt-outline"
+            onPress={() => props.navigate('M19')}
+          />
+          <ProfileRow
+            title="Уведомления"
+            icon="notifications-outline"
+            onPress={() => props.navigate('M34')}
+          />
+          <ProfileRow
+            title="Язык"
+            icon="globe-outline"
+            value={props.model.locale === 'kk' ? 'Қазақша' : 'Русский'}
+            onPress={() => props.navigate('M34')}
+            last
+          />
+        </ProfileGroup>
+        <ProfileGroup title="ЕЩЁ">
+          <ProfileRow
+            title="Наши рестораны"
+            icon="location-outline"
+            onPress={() => props.navigate('M05')}
+          />
+          <ProfileRow
+            title="Помощь"
+            icon="headset-outline"
+            onPress={() => props.navigate('M31')}
+            last
+          />
+        </ProfileGroup>
+        <Button
+          title="Войти по номеру"
+          secondary
+          style={s.profileSignIn}
+          onPress={() => props.navigate('M02')}
+        />
+        <Caption style={s.profileVersion}>Pick Chick · приложение в тестировании</Caption>
+        <View style={s.profileLegalLinks}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => props.navigate('M33')}
+            style={s.profileLegalLink}
+          >
+            <Caption>Условия и конфиденциальность</Caption>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => props.navigate('M32')}
+            style={s.profileLegalLink}
+          >
+            <Caption>Управление данными</Caption>
+          </Pressable>
+        </View>
+        {!props.preview && props.openReview ? (
+          <View style={[s.profileGroup, { marginTop: 14 }]}>
+            <ProfileRow
+              testID="open-design-review"
+              title="Все экраны дизайна"
+              icon="color-palette-outline"
+              onPress={props.openReview}
+              last
+            />
+          </View>
+        ) : null}
+      </ScrollView>
+    </View>
   );
 }
 export function Support(props: ScreenProps) {
@@ -560,6 +736,199 @@ export function UnknownScreen(props: ScreenProps) {
   );
 }
 const s = StyleSheet.create({
+  profileScreen: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  profileScroll: { flex: 1, minHeight: 0 },
+  profileContent: { paddingHorizontal: 18 },
+  profileTitle: { fontFamily: font.display, fontSize: 34, lineHeight: 44, letterSpacing: -0.68 },
+  profileSettings: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  membershipCard: {
+    marginTop: 16,
+    padding: 20,
+    borderRadius: 26,
+    overflow: 'hidden',
+    backgroundColor: '#0B4FC4',
+  },
+  membershipImage: {
+    position: 'absolute',
+    width: 640,
+    height: 494,
+    left: '50%',
+    top: '50%',
+    transform: [{ translateX: -320 }, { translateY: -247 }],
+  },
+  membershipShade: {
+    ...StyleSheet.absoluteFill,
+    ...(Platform.OS === 'web'
+      ? { backgroundImage: 'linear-gradient(rgba(0,40,110,0.74), rgba(0,26,80,0.9))' }
+      : {
+          experimental_backgroundImage: 'linear-gradient(rgba(0,40,110,0.74), rgba(0,26,80,0.9))',
+        }),
+  },
+  membershipAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF29',
+  },
+  membershipInitial: { fontFamily: font.display, fontSize: 23, lineHeight: 30, color: '#FFFFFF' },
+  membershipName: {
+    fontFamily: font.display,
+    fontSize: 23,
+    lineHeight: 26,
+    color: '#FFFFFF',
+    letterSpacing: -0.23,
+  },
+  membershipSubtitle: { marginTop: 3, fontSize: 13, lineHeight: 18, color: '#FFFFFFB3' },
+  membershipLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF24',
+  },
+  membershipBalanceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 18,
+  },
+  membershipBalanceLabel: {
+    fontFamily: font.bold,
+    fontSize: 11.5,
+    lineHeight: 16,
+    letterSpacing: 0.92,
+    color: '#FFFFFF9E',
+  },
+  membershipBalanceValue: { flexDirection: 'row', alignItems: 'baseline', gap: 7, marginTop: 5 },
+  membershipAmount: {
+    fontFamily: font.display,
+    fontSize: 34,
+    lineHeight: 38,
+    color: colors.accent,
+  },
+  membershipCurrency: {
+    fontFamily: font.medium,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: '#FFFFFFD1',
+  },
+  membershipTier: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 8,
+    paddingHorizontal: 13,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF29',
+  },
+  membershipDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
+  membershipTierText: { fontFamily: font.bold, fontSize: 12.5, lineHeight: 18, color: '#FFFFFF' },
+  membershipProgress: { height: 8, marginTop: 18, borderRadius: 4, backgroundColor: '#FFFFFF33' },
+  membershipProgressLabel: { marginTop: 9, fontSize: 12, lineHeight: 17, color: '#FFFFFFB8' },
+  profileQrCard: {
+    marginTop: 14,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+  },
+  profileQrPlaceholder: {
+    width: 94,
+    height: 94,
+    borderRadius: 14,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  profileQrPlaceholderLabel: { fontSize: 9, lineHeight: 13, color: '#56647A', textAlign: 'center' },
+  profileQrTitle: { fontFamily: font.display, fontSize: 16, lineHeight: 22, letterSpacing: -0.16 },
+  profileQrDescription: { marginTop: 5, fontSize: 12.5, lineHeight: 18 },
+  profileSection: { marginTop: 22 },
+  profileSectionTitle: {
+    paddingLeft: 4,
+    marginBottom: 9,
+    fontFamily: font.bold,
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: 0.72,
+  },
+  profileGroup: { borderRadius: 20, backgroundColor: colors.surface, overflow: 'hidden' },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 64,
+  },
+  profileRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  profileRowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: colors.raised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileRowIconOrange: { backgroundColor: '#FF7A3D1F' },
+  profileRowTitle: { flex: 1, fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
+  profileRowValue: { flexShrink: 1, maxWidth: '35%', fontSize: 13.5, lineHeight: 20 },
+  profileReferral: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 18,
+    borderRadius: 22,
+    overflow: 'hidden',
+    marginTop: 14,
+    backgroundColor: '#0B4FC4',
+  },
+  profileReferralShade: {
+    ...StyleSheet.absoluteFill,
+    ...(Platform.OS === 'web'
+      ? { backgroundImage: 'linear-gradient(rgba(11,79,196,0.55), rgba(11,79,196,0.8))' }
+      : {
+          experimental_backgroundImage:
+            'linear-gradient(rgba(11,79,196,0.55), rgba(11,79,196,0.8))',
+        }),
+  },
+  profileReferralTitle: {
+    fontFamily: font.display,
+    fontSize: 17,
+    lineHeight: 23,
+    letterSpacing: -0.17,
+    color: '#FFB48A',
+  },
+  profileReferralDescription: { marginTop: 4, fontSize: 13, lineHeight: 19, color: '#FFFFFFD9' },
+  profileComingSoon: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 21,
+    backgroundColor: '#FF7A3D33',
+  },
+  profileComingSoonText: { fontFamily: font.bold, fontSize: 14, lineHeight: 20, color: '#FFB48A' },
+  profileSignIn: { marginTop: 14, borderRadius: 20 },
+  profileVersion: { marginTop: 18, textAlign: 'center', fontSize: 12.5, lineHeight: 20 },
+  profileLegalLinks: { alignItems: 'center' },
+  profileLegalLink: { paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
   confirmBackdrop: {
     flex: 1,
     padding: 24,
