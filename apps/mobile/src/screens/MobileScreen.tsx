@@ -40,7 +40,7 @@ import {
 
 /** Native counterparts of the canonical design catalog M01–M35. */
 export function MobileScreen(props: ScreenProps) {
-  if (!props.preview && props.model.testFlow.available) {
+  if (!props.preview) {
     if (props.screenId === 'M12') return <ConnectedCheckout {...props} />;
     if (props.screenId === 'M19') return <ConnectedHistory {...props} />;
     if (['M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M20', 'M21', 'M22'].includes(props.screenId))

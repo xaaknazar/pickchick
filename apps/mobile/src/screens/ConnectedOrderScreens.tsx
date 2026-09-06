@@ -12,6 +12,7 @@ import {
   Empty,
   Heading,
   Logo,
+  Loading,
   NavRow,
   Notice,
   Page,
@@ -55,6 +56,12 @@ function FlowNotice({ props }: { props: ScreenProps }) {
         Заказ сохраняется на сервере и связан с тестовой кухней. Деньги не списываются, ресторан его
         не готовит.
       </Notice>
+      {!flow.available ? (
+        <Notice warning title="Новое оформление недоступно">
+          Свежее меню и разрешение тестовых заказов ещё не получены. Сохранённый сеанс и его
+          незавершённые запросы остаются на устройстве; их статус проверяется отдельно.
+        </Notice>
+      ) : null}
       {flow.error ? (
         <Notice warning title="Не удалось обновить">
           {flow.error}
@@ -131,7 +138,7 @@ export function ConnectedCheckout(props: ScreenProps) {
                 ? `Продолжить ${pending.number}`
                 : 'Создать тестовый заказ'
           }
-          disabled={flow.busy || (!pending && props.model.cart.length === 0)}
+          disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
           onPress={() => {
             void submit();
           }}
@@ -140,6 +147,9 @@ export function ConnectedCheckout(props: ScreenProps) {
     >
       <Heading>Проверим ваш{`\n`}заказ</Heading>
       <FlowNotice props={props} />
+      {!flow.available ? (
+        <Button title="Обновить меню" secondary onPress={props.model.refresh} />
+      ) : null}
       {unknown ? (
         <Notice warning>
           Прежде чем создавать другой заказ, нужно уточнить результат проверки {unknown.number}.
@@ -193,7 +203,16 @@ export function ConnectedHistory(props: ScreenProps) {
         secondary
         onPress={flow.refresh}
       />
-      {!flow.orders.length ? (
+      {!flow.restored ? (
+        <Loading title="Восстанавливаем тестовый сеанс" />
+      ) : !flow.orders.length && (flow.error || flow.recoveryAvailable) ? (
+        <Empty
+          title={
+            flow.error ? 'Историю пока не удалось проверить' : 'Сохранена незавершённая проверка'
+          }
+          detail="Неизвестный результат не означает отсутствие заказов. Используйте восстановление или обновите статус; сохранённая проверка не удаляется."
+        />
+      ) : !flow.orders.length ? (
         <Empty
           title="Заказов пока нет"
           detail="Соберите корзину, чтобы проверить передачу заказа на тестовую кухню."
@@ -228,11 +247,18 @@ export function ConnectedOrder(props: ScreenProps) {
   if (!order)
     return (
       <Page props={props} title="Заказ">
+        <FlowNotice props={props} />
+        {!flow.restored ? <Loading title="Восстанавливаем тестовый сеанс" /> : null}
         <Empty
-          title="Выберите заказ"
-          detail="Здесь появится его сохранённый на сервере статус."
+          title={flow.error ? 'Статус пока не удалось проверить' : 'Выберите заказ'}
+          detail={
+            flow.error
+              ? 'Сохранённый сеанс остаётся на устройстве. Не создавайте замену неизвестному заказу; обновите его статус.'
+              : 'Здесь появится его сохранённый на сервере статус.'
+          }
           action={<Button title="Мои заказы" onPress={() => props.navigate('M19')} />}
         />
+        <Button title="Обновить статус" secondary onPress={flow.refresh} />
       </Page>
     );
   const unknown = order.payment_state === 'simulated_unknown';

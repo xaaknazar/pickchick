@@ -164,7 +164,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         ? `test:${connectedCatalog.catalog_version}`
         : (menu?.release_id ?? null);
   const testFlow = useTestOrders(
-    connectedCatalog !== null && catalogMode === 'server',
+    connectedCatalog !== null && catalogMode === 'server' && connection.status === 'online',
     cart,
     diningMode,
   );
@@ -283,6 +283,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     testFlow: {
       ...testFlow,
       available: false,
+      restored: true,
+      hasSavedSession: false,
       recoveryAvailable: false,
       recoverPending: async () => null,
       sessionExpired: false,
