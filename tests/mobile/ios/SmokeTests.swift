@@ -185,7 +185,15 @@ final class SmokeTests: XCTestCase {
     }
 
     @MainActor
-    func testLocalDemoLoginRejectsWrongCodeAndPersistsProfile() throws {
+    func testLocalDemoPhoneInputAndAccountLifecycle() throws {
+        XCTContext.runActivity(named: "native-input-v2") { activity in
+            let bundleURL = Bundle(for: SmokeTests.self).bundleURL
+            print("native-input-v2 test bundle: \(bundleURL.absoluteString)")
+            let attachment = XCTAttachment(string: bundleURL.absoluteString)
+            attachment.name = "native-input-v2-test-bundle"
+            attachment.lifetime = .keepAlways
+            activity.add(attachment)
+        }
         // The fixed demonstration code never sends SMS or authenticates this
         // synthetic phone with the ordering API. Exercise the live profile UI.
         let app = launchApp()
