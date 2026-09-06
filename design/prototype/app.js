@@ -9,6 +9,10 @@ const model = {
   category: 'Все',
   mode: 'С собой',
   comboStep: 1,
+  kioskChoices: {},
+  kioskCartKind: 'product',
+  kioskResume: 'K03',
+  kioskHelpFrom: null,
   score: 0,
   paused: false,
   rating: 0,
@@ -189,8 +193,27 @@ document.addEventListener('click', async (event) => {
     model.mode = el.dataset.mode;
   }
   if (el.dataset.go) {
+    if (el.dataset.go === 'K16' && selected !== 'K16') {
+      model.kioskHelpFrom = ['K09', 'K11'].includes(selected) ? selected : null;
+    }
+    if (el.dataset.go === 'K14' && selected !== 'K14' && surface === 'kiosk') {
+      model.kioskResume = selected;
+    }
+    if (el.dataset.go === 'K06' && ['K04', 'K05'].includes(selected)) {
+      model.kioskCartKind = selected === 'K05' ? 'combo' : 'product';
+    }
     if (byId.get(el.dataset.go)?.kind === 'welcome') {
       Object.assign(model, { qty: 1, category: 'Все', comboStep: 1, score: 0, assembled: false });
+      if (el.dataset.go === 'K01') {
+        Object.assign(model, {
+          product: 0,
+          mode: 'С собой',
+          kioskChoices: {},
+          kioskCartKind: 'product',
+          kioskResume: 'K03',
+          kioskHelpFrom: null,
+        });
+      }
     }
     changeScreen(el.dataset.go);
     return;
@@ -266,6 +289,11 @@ document.addEventListener('click', async (event) => {
     render();
     return;
   }
+  if (action === 'kiosk-combo-back') {
+    model.comboStep = Math.max(1, model.comboStep - 1);
+    render();
+    return;
+  }
   if (action === 'coin') {
     if (!model.paused) model.score += 1;
     render();
@@ -288,7 +316,7 @@ document.addEventListener('click', async (event) => {
     return;
   }
   if (action === 'resume') {
-    changeScreen('K03');
+    changeScreen(model.kioskResume);
     return;
   }
   if (action === 'restore-state') {
@@ -357,6 +385,10 @@ document.addEventListener('click', async (event) => {
   if (action) toast(messages[action] ?? 'Демонстрация действия. Внешние системы не вызываются.');
 });
 document.addEventListener('change', (event) => {
+  if (event.target.dataset.kioskChoice) {
+    model.kioskChoices[event.target.dataset.kioskChoice] =
+      event.target.type === 'checkbox' ? event.target.checked : Number(event.target.value);
+  }
   if (event.target.id === 'state-select') setState(event.target.value);
   if (event.target.dataset.action === 'assemble') {
     model.assembled = event.target.checked;
