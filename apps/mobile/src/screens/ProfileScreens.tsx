@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  TextInput,
+  View,
+} from 'react-native';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
 import { FeatureTile, LoyaltyCard } from '../components/Brand';
@@ -291,7 +300,17 @@ export function Support(props: ScreenProps) {
 }
 export function DeleteAccount(props: ScreenProps) {
   const [cleared, setCleared] = useState(false);
-  const reset = () =>
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const clearPreferences = () => {
+    props.model.resetLocalData();
+    setConfirmVisible(false);
+    setCleared(true);
+  };
+  const reset = () => {
+    if (Platform.OS === 'web') {
+      setConfirmVisible(true);
+      return;
+    }
     Alert.alert(
       'Очистить данные устройства?',
       'Будут удалены локальный ник и корзина. Серверного аккаунта в этой версии ещё нет.',
@@ -300,15 +319,37 @@ export function DeleteAccount(props: ScreenProps) {
         {
           text: 'Очистить',
           style: 'destructive',
-          onPress: () => {
-            props.model.resetLocalData();
-            setCleared(true);
-          },
+          onPress: clearPreferences,
         },
       ],
     );
+  };
   return (
     <Page props={props} title="Управление данными">
+      {Platform.OS === 'web' ? (
+        <Modal
+          visible={confirmVisible}
+          transparent
+          animationType="none"
+          onRequestClose={() => setConfirmVisible(false)}
+        >
+          <View style={s.confirmBackdrop}>
+            <View testID="local-clear-confirmation" accessibilityViewIsModal style={s.confirmCard}>
+              <Heading small>Очистить данные устройства?</Heading>
+              <Body>
+                Ник, корзина и локальные настройки будут очищены. Тестовый сеанс, незавершённые
+                запросы и серверная история заказов останутся.
+              </Body>
+              <Button title="Оставить данные" secondary onPress={() => setConfirmVisible(false)} />
+              <Button
+                title="Очистить"
+                testID="confirm-clear-local-data"
+                onPress={clearPreferences}
+              />
+            </View>
+          </View>
+        </Modal>
+      ) : null}
       <Heading>Всё под вашим{`\n`}контролем</Heading>
       <Card>
         <Heading small>Аккаунт</Heading>
@@ -504,6 +545,23 @@ export function UnknownScreen(props: ScreenProps) {
   );
 }
 const s = StyleSheet.create({
+  confirmBackdrop: {
+    flex: 1,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000AA',
+  },
+  confirmCard: {
+    width: '100%',
+    maxWidth: 440,
+    padding: 24,
+    gap: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   avatar: {
     width: 76,
     height: 76,
