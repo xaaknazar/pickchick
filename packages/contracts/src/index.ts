@@ -60,6 +60,11 @@ export const ErrorSchema = z.strictObject({
   code: z.enum([
     'INVALID_REQUEST',
     'UNAUTHORIZED',
+    'FORBIDDEN',
+    'QUOTE_EXPIRED',
+    'MENU_CHANGED',
+    'BRANCH_UNAVAILABLE',
+    'ITEM_STOPPED',
     'CONFLICT',
     'PAYLOAD_TOO_LARGE',
     'NOT_FOUND',
@@ -119,6 +124,100 @@ export const AckReceiptSchema = z.strictObject({
 export type DeviceIdentity = z.infer<typeof DeviceIdentitySchema>;
 export type MenuPublished = z.infer<typeof MenuPublishedSchema>;
 export type MenuAck = z.infer<typeof MenuAckSchema>;
+
+export const StaffRoleSchema = z.enum(['cashier', 'shift_manager', 'kitchen']);
+export const StaffSetupSchema = z.strictObject({
+  staff_id: UuidSchema,
+  terminal_id: UuidSchema,
+  name: z.string().trim().min(1).max(100),
+  role: StaffRoleSchema,
+});
+export const StaffSessionSchema = z.strictObject({
+  session_id: UuidSchema,
+  staff_id: UuidSchema,
+  terminal_id: UuidSchema,
+  branch_id: UuidSchema,
+  role: StaffRoleSchema,
+  expires_at: z.iso.datetime(),
+});
+export const StaffCredentialSchema = StaffSessionSchema.extend({
+  token: z.string().regex(/^[a-f0-9]{64}$/),
+});
+export const CartSchema = z.strictObject({
+  release_id: UuidSchema,
+  service_mode: z.enum(['dine_in', 'takeaway']),
+  items: z
+    .array(z.strictObject({ variant_id: UuidSchema, quantity: z.number().int().min(1).max(99) }))
+    .min(1)
+    .max(50),
+});
+export const QuoteLineSchema = z.strictObject({
+  product_id: UuidSchema,
+  variant_id: UuidSchema,
+  name: LocalizedTextSchema,
+  quantity: z.number().int().min(1).max(99),
+  unit_price_minor: MoneyMinorSchema,
+  total_minor: MoneyMinorSchema,
+});
+export const QuoteSchema = z.strictObject({
+  quote_id: UuidSchema,
+  branch_id: UuidSchema,
+  release_id: UuidSchema,
+  menu_version: z.number().int().positive().max(2147483647),
+  service_mode: z.enum(['dine_in', 'takeaway']),
+  channel: z.literal('pos'),
+  lines: z.array(QuoteLineSchema).min(1).max(50),
+  currency: z.literal('KZT'),
+  subtotal_minor: MoneyMinorSchema,
+  discount_minor: z.literal('0'),
+  total_minor: MoneyMinorSchema,
+  created_at: z.iso.datetime(),
+  expires_at: z.iso.datetime(),
+});
+export const CreateLocalOrderSchema = z.strictObject({ quote_id: UuidSchema });
+export const CancelLocalOrderSchema = z.strictObject({
+  expected_version: z.number().int().positive().max(2147483647),
+  reason: z.string().trim().min(1).max(300),
+});
+export const LocalOrderSchema = z.strictObject({
+  order_id: UuidSchema,
+  branch_id: UuidSchema,
+  quote_id: UuidSchema,
+  version: z.number().int().positive().max(2147483647),
+  state: z.enum(['awaiting_payment', 'cancelled']),
+  payment_state: z.literal('not_started'),
+  fiscal_state: z.literal('not_requested'),
+  fulfillment_state: z.literal('blocked'),
+  next_action: z.enum(['payment_not_available', 'none']),
+  snapshot: QuoteSchema,
+  created_at: z.iso.datetime(),
+  cancellation_reason: z.string().nullable(),
+});
+export const OrderingCommandSchema = z.strictObject({
+  expected_version: z.number().int().positive().max(2147483647),
+});
+export const OrderingStateSchema = z.strictObject({
+  branch_id: UuidSchema,
+  ordering_enabled: z.boolean(),
+  version: z.number().int().positive().max(2147483647),
+});
+export const StopCommandSchema = z.strictObject({
+  variant_id: UuidSchema,
+  stopped: z.boolean(),
+  expected_version: z.number().int().nonnegative().max(2147483647),
+  reason: z.string().trim().min(1).max(300),
+});
+export const StopStateSchema = z.strictObject({
+  variant_id: UuidSchema,
+  stopped: z.boolean(),
+  version: z.number().int().nonnegative().max(2147483647),
+});
+export type StaffSession = z.infer<typeof StaffSessionSchema>;
+export type StaffCredential = z.infer<typeof StaffCredentialSchema>;
+export type StaffRole = z.infer<typeof StaffRoleSchema>;
+export type Cart = z.infer<typeof CartSchema>;
+export type Quote = z.infer<typeof QuoteSchema>;
+export type LocalOrder = z.infer<typeof LocalOrderSchema>;
 
 // OpenAPI and event JSON Schema are generated from these runtime schemas.
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);

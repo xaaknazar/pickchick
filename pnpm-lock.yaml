@@ -20,6 +20,9 @@ importers:
       '@pickchick/edge':
         specifier: workspace:*
         version: link:services/edge
+      '@pickchick/local-orders':
+        specifier: workspace:*
+        version: link:packages/local-orders
       '@pickchick/menu-sync':
         specifier: workspace:*
         version: link:packages/menu-sync
@@ -74,6 +77,25 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/local-orders:
+    dependencies:
+      '@pickchick/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/menu-sync':
+        specifier: workspace:*
+        version: link:../menu-sync
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -177,6 +199,9 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@pickchick/local-orders':
+        specifier: workspace:*
+        version: link:../../packages/local-orders
       '@pickchick/platform':
         specifier: workspace:*
         version: link:../../packages/platform

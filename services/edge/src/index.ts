@@ -8,6 +8,7 @@ import {
   Resources,
 } from '@pickchick/platform';
 import type { ServiceConfig } from '@pickchick/platform';
+import { LocalOrdersController } from './orders-controller.js';
 
 @Controller('edge/v1')
 class LocalMenuController {
@@ -30,7 +31,7 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
   if (config.service !== 'edge' || !config.branchId)
     throw new Error('Edge requires branch binding');
   @Module({
-    controllers: [HealthController, LocalMenuController],
+    controllers: [HealthController, LocalMenuController, LocalOrdersController],
     providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],
   })
   class EdgeModule {}

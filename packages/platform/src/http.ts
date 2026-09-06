@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { HealthSchema, ReadinessSchema, UuidSchema } from '@pickchick/contracts';
+import { ErrorSchema, HealthSchema, ReadinessSchema, UuidSchema } from '@pickchick/contracts';
 import { RESOURCE, Resources } from './resources.js';
 
 interface RequestContext {
@@ -43,20 +43,28 @@ class SafeExceptionFilter implements ExceptionFilter {
         return;
       }
     }
-    const code =
+    const defaultCode =
       status === 400
         ? 'INVALID_REQUEST'
         : status === 401
           ? 'UNAUTHORIZED'
-          : status === 409
-            ? 'CONFLICT'
-            : status === 413
-              ? 'PAYLOAD_TOO_LARGE'
-              : status === 404
-                ? 'NOT_FOUND'
-                : status === 503
-                  ? 'SERVICE_UNAVAILABLE'
-                  : 'INTERNAL_ERROR';
+          : status === 403
+            ? 'FORBIDDEN'
+            : status === 409
+              ? 'CONFLICT'
+              : status === 413
+                ? 'PAYLOAD_TOO_LARGE'
+                : status === 404
+                  ? 'NOT_FOUND'
+                  : status === 503
+                    ? 'SERVICE_UNAVAILABLE'
+                    : 'INTERNAL_ERROR';
+    const details = error instanceof HttpException ? error.getResponse() : null;
+    const declared =
+      details && typeof details === 'object' && 'code' in details
+        ? ErrorSchema.shape.code.safeParse(details.code)
+        : null;
+    const code = declared?.success ? declared.data : defaultCode;
     const traceId = request.traceId ?? randomUUID();
     if (status >= 500) {
       console.error(JSON.stringify({ event: 'request_failed', code, trace_id: traceId }));
