@@ -13,7 +13,12 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
-import { BranchSchema, MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
+import {
+  BranchSchema,
+  CapabilitiesSchema,
+  MenuSnapshotSchema,
+  UuidSchema,
+} from '@pickchick/contracts';
 import {
   createHttpApplication,
   HealthController,
@@ -22,6 +27,34 @@ import {
   Resources,
 } from '@pickchick/platform';
 import type { ServiceConfig } from '@pickchick/platform';
+import { TestOrderController } from './test-order-controller.js';
+
+@Controller('v1/capabilities')
+class CapabilitiesController {
+  constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
+
+  @Get()
+  get() {
+    return CapabilitiesSchema.parse({
+      schema_version: 1,
+      environment: this.resources.config.environment,
+      data_mode: 'synthetic',
+      ordering_enabled: false,
+      features: {
+        phone_auth: false,
+        checkout: false,
+        payments: false,
+        fiscal: false,
+        loyalty: false,
+        test_order_flow: this.resources.config.testOrderFlowEnabled === true,
+      },
+      notice: {
+        ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',
+        kk: 'PickChick сынақ ортасы. Сынақ режимі қосылғанда тек синтетикалық TEST сценарийі қолжетімді. Нақты тапсырыстар, SMS, төлемдер мен чектер қолжетімсіз.',
+      },
+    });
+  }
+}
 
 @Controller('v1/branches')
 class BranchesController {
@@ -98,7 +131,13 @@ class MenuSyncController {
 export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
-    controllers: [HealthController, BranchesController, MenuSyncController],
+    controllers: [
+      HealthController,
+      CapabilitiesController,
+      BranchesController,
+      MenuSyncController,
+      ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
+    ],
     providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],
   })
   class ApiModule {}

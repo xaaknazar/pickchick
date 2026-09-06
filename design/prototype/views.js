@@ -1,5 +1,5 @@
 import { mobileReferenceView, mobileReferenceShell } from './reference-mobile.js';
-import { kioskView, kioskShell } from './reference-kiosk.js';
+import { kioskView, kioskShell, kioskCartDescription } from './reference-kiosk.js';
 import { operationsView, operationsShell } from './reference-operations.js';
 import {
   icon,
@@ -57,9 +57,9 @@ const links = (s) =>
         };
 const card = (html) => `<div class="card">${html}</div>`;
 const amount = (model) => products[model.product].price * model.qty;
-const cartLine = (model) => {
+const cartLine = (model, surface = '') => {
   const p = products[model.product];
-  return `<div class="cart-line">${photo(p.image, p.name)}<div><h3>${p.name}</h3><small class="muted">Фирменный соус · стандарт</small><div class="stepper"><button data-action="decrement" aria-label="Уменьшить количество">−</button><strong>${model.qty}</strong><button data-action="increment" aria-label="Увеличить количество">+</button></div></div><strong class="line-amount" style="margin-left:auto">${money(amount(model))}</strong></div>`;
+  return `<div class="cart-line">${photo(p.image, p.name)}<div><h3>${p.name}</h3><small class="muted">${surface === 'kiosk' ? esc(kioskCartDescription(model)) : 'Фирменный соус · стандарт'}</small><div class="stepper"><button data-action="decrement" aria-label="Уменьшить количество">−</button><strong>${model.qty}</strong><button data-action="increment" aria-label="Увеличить количество">+</button></div></div><strong class="line-amount" style="margin-left:auto">${money(amount(model))}</strong></div>`;
 };
 const checkoutSummary = (model) =>
   summary([
@@ -92,7 +92,7 @@ function mobileView(s, m) {
     case 'combo':
       return `<div class="content"><div class="step-head"><span class="on"></span><span class="${m.comboStep > 1 ? 'on' : ''}"></span><span class="${m.comboStep > 2 ? 'on' : ''}"></span></div><p class="eyebrow muted">Шаг ${m.comboStep} из 3 · ${['', 'Основа', 'Соус', 'Напиток'][m.comboStep]}</p>${photo('duo.jpg', 'Комбо на двоих', 'product-hero')}<h2>${['', 'Выберите основу', 'Добавьте соус', 'И напиток'][m.comboStep]}</h2>${(m.comboStep === 1 ? ['Два Чик Бургера', 'Стрипсы на двоих'] : m.comboStep === 2 ? ['Фирменный', 'Томатный'] : ['Cola · 0,5 л', 'Вода · 0,5 л']).map((name, i) => `<label class="choice ${i === 0 ? 'selected' : ''}"><span>${name}<small>Входит в комбо</small></span><input type="radio" name="combo" ${i === 0 ? 'checked' : ''}/></label>`).join('')}${m.comboStep < 3 ? act('Далее', 'combo-next', 'full') : go('Добавить выбранное комбо', l.cart, 'full')}${notice('Подтверждение доступно после обязательного выбора в каждой группе.')}</div>`;
     case 'cart':
-      return `<div class="content">${card(cartLine(m))}${card(`<h3>Есть промокод?</h3><div style="margin-top:12px">${field('Промокод', '', 'text', 'Введите код')}</div>${act('Применить', 'promo', 'secondary full')}`)}${card(checkoutSummary(m))}<p class="fineprint">Чики за покупку появятся после подтверждённой оплаты и выдачи. Правила начисления ещё согласуются.</p>${go('Продолжить', s.surface === 'kiosk' ? 'K07' : 'M12', 'full')}${go('Добавить ещё', l.menu, 'secondary full')}</div>`;
+      return `<div class="content">${card(cartLine(m, s.surface))}${card(`<h3>Есть промокод?</h3><div style="margin-top:12px">${field('Промокод', '', 'text', 'Введите код')}</div>${act('Применить', 'promo', 'secondary full')}`)}${card(checkoutSummary(m))}<p class="fineprint">Чики за покупку появятся после подтверждённой оплаты и выдачи. Правила начисления ещё согласуются.</p>${go('Продолжить', s.surface === 'kiosk' ? 'K07' : 'M12', 'full')}${go('Добавить ещё', l.menu, 'secondary full')}</div>`;
     case 'changed':
       return `<div class="content">${notice('Пока вы выбирали, меню обновилось. Проверьте изменения перед оплатой.', 'warning')}${card(
         summary([

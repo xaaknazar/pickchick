@@ -22,6 +22,22 @@ export const BranchSchema = z.strictObject({
   ordering_enabled: z.boolean(),
 });
 
+export const CapabilitiesSchema = z.strictObject({
+  schema_version: z.literal(1),
+  environment: z.enum(['local', 'test', 'staging']),
+  data_mode: z.literal('synthetic'),
+  ordering_enabled: z.literal(false),
+  features: z.strictObject({
+    phone_auth: z.literal(false),
+    checkout: z.literal(false),
+    payments: z.literal(false),
+    fiscal: z.literal(false),
+    loyalty: z.literal(false),
+    test_order_flow: z.boolean(),
+  }),
+  notice: LocalizedTextSchema,
+});
+
 export const MenuItemSchema = z.strictObject({
   product_id: UuidSchema,
   variant_id: UuidSchema,
@@ -69,6 +85,7 @@ export const ErrorSchema = z.strictObject({
     'PAYLOAD_TOO_LARGE',
     'NOT_FOUND',
     'SERVICE_UNAVAILABLE',
+    'RATE_LIMITED',
     'INTERNAL_ERROR',
   ]),
   message_key: z.string(),

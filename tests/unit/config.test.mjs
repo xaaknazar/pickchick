@@ -47,6 +47,11 @@ test('private staging only permits cloud API with dedicated service hosts and se
     REDIS_URL: `redis://default:${secret}@redis-cache:6379/0`,
   };
   assert.equal(loadConfig('api', staging).environment, 'staging');
+  assert.equal(loadConfig('api', staging).testOrderFlowEnabled, false);
+  assert.equal(
+    loadConfig('api', { ...staging, TEST_ORDER_FLOW_ENABLED: 'true' }).testOrderFlowEnabled,
+    true,
+  );
   assert.throws(() => loadConfig('edge', { ...env, ...staging }));
   for (const changes of [
     { CLOUD_DATABASE_URL: env.CLOUD_DATABASE_URL },
@@ -64,4 +69,25 @@ test('private staging only permits cloud API with dedicated service hosts and se
         return true;
       },
     );
+});
+
+test('TEST flow gate defaults closed and needs exact opt-in on a non-production cloud API', () => {
+  for (const APP_ENV of ['local', 'test']) {
+    assert.equal(loadConfig('api', { ...env, APP_ENV }).testOrderFlowEnabled, false);
+    assert.equal(
+      loadConfig('api', { ...env, APP_ENV, TEST_ORDER_FLOW_ENABLED: 'false' }).testOrderFlowEnabled,
+      false,
+    );
+    assert.equal(
+      loadConfig('api', { ...env, APP_ENV, TEST_ORDER_FLOW_ENABLED: 'true' }).testOrderFlowEnabled,
+      true,
+    );
+    assert.throws(() => loadConfig('edge', { ...env, APP_ENV, TEST_ORDER_FLOW_ENABLED: 'true' }));
+  }
+  for (const value of ['', '1', 'TRUE', 'False', ' true ', 'yes']) {
+    assert.throws(() => loadConfig('api', { ...env, TEST_ORDER_FLOW_ENABLED: value }));
+  }
+  assert.throws(() =>
+    loadConfig('api', { ...env, APP_ENV: 'production', TEST_ORDER_FLOW_ENABLED: 'true' }),
+  );
 });

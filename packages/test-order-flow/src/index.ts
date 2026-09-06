@@ -1,0 +1,665 @@
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { z } from 'zod';
+import { transaction, type DatabaseClient, type DatabasePool } from '@pickchick/database';
+import { testCatalog } from './catalog.js';
+import {
+  TEST_BRANCH_ID,
+  TEST_CATALOG_VERSION,
+  TEST_NAMESPACE,
+  TestActorSchema,
+  TestCancellationSchema,
+  TestCartSchema,
+  TestCreateOrderSchema,
+  TestDisplaySchema,
+  TestKitchenSchema,
+  TestOrderSchema,
+  TestOrdersSchema,
+  TestPaymentSchema,
+  TestQuoteSchema,
+  TestResolvePaymentSchema,
+  TestRoleSchema,
+  TestSessionInputSchema,
+  TestContinueSessionInputSchema,
+  TestSessionSchema,
+  TestVersionSchema,
+  type TestOrder,
+  type TestRole,
+} from './contracts.js';
+export * from './contracts.js';
+export { testCatalog };
+
+export interface TestFlowConfig {
+  enabled: boolean;
+  environment: string;
+}
+export type TestFlowErrorCode =
+  | 'DISABLED'
+  | 'INVALID_REQUEST'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'QUOTE_EXPIRED'
+  | 'RATE_LIMITED'
+  | 'BRANCH_UNAVAILABLE';
+export class TestFlowError extends Error {
+  constructor(readonly code: TestFlowErrorCode) {
+    super(code);
+    this.name = 'TestFlowError';
+  }
+}
+const synthetic = { synthetic: true as const, namespace: TEST_NAMESPACE };
+const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+const id = (value: string) => {
+  if (!z.uuid().safeParse(value).success) throw new TestFlowError('INVALID_REQUEST');
+  return value;
+};
+function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw new TestFlowError('INVALID_REQUEST');
+  return result.data;
+}
+function enabled(config: TestFlowConfig) {
+  if (!config.enabled || !['local', 'test', 'staging'].includes(config.environment))
+    throw new TestFlowError('DISABLED');
+}
+interface Actor {
+  id: string;
+  role: TestRole;
+  branch_id: string;
+  channel: 'mobile' | 'kiosk' | null;
+}
+async function authenticate(
+  client: DatabaseClient,
+  token: string,
+  roles: TestRole[],
+): Promise<Actor> {
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new TestFlowError('UNAUTHORIZED');
+  const actor = (
+    await client.query<Actor>(
+      'SELECT id,role,branch_id,channel FROM test_actors WHERE token_hash=$1 AND expires_at>clock_timestamp() AND revoked_at IS NULL',
+      [hash(token)],
+    )
+  ).rows[0];
+  if (!actor) throw new TestFlowError('UNAUTHORIZED');
+  if (!roles.includes(actor.role)) throw new TestFlowError('FORBIDDEN');
+  return actor;
+}
+async function lockFlow(client: DatabaseClient) {
+  await client.query('SELECT id FROM test_flow_lock WHERE id=true FOR UPDATE');
+}
+async function checkBranch(client: DatabaseClient) {
+  if (
+    !(
+      await client.query(
+        "SELECT 1 FROM branches WHERE id=$1 AND code='TEST-ALMATY-01' AND ordering_enabled=false",
+        [TEST_BRANCH_ID],
+      )
+    ).rowCount
+  )
+    throw new TestFlowError('BRANCH_UNAVAILABLE');
+}
+async function prune(client: DatabaseClient) {
+  // All FK cascades stay within the explicitly disposable test namespace.
+  return (
+    (
+      await client.query(
+        "DELETE FROM test_actors WHERE expires_at<clock_timestamp()-interval '7 days'",
+      )
+    ).rowCount ?? 0
+  );
+}
+export async function cleanupTestFlow(pool: DatabasePool, config: TestFlowConfig) {
+  enabled(config);
+  return transaction(pool, async (client) => {
+    await lockFlow(client);
+    return { ...synthetic, removed_actors: await prune(client) };
+  });
+}
+export async function provisionTestActor(
+  pool: DatabasePool,
+  config: TestFlowConfig,
+  role: unknown,
+) {
+  enabled(config);
+  const validRole = parse(TestRoleSchema.exclude(['customer']), role);
+  return transaction(pool, async (client) => {
+    await lockFlow(client);
+    await checkBranch(client);
+    await prune(client);
+    const count = (
+      await client.query<{ count: string }>(
+        "SELECT count(*) FROM test_actors WHERE role<>'customer' AND expires_at>clock_timestamp() AND revoked_at IS NULL",
+      )
+    ).rows[0];
+    if (Number(count?.count) >= 20) throw new TestFlowError('RATE_LIMITED');
+    const token = randomBytes(32).toString('hex');
+    const row = (
+      await client.query<{ id: string; expires_at: Date }>(
+        "INSERT INTO test_actors(id,branch_id,token_hash,role,expires_at) VALUES ($1,$2,$3,$4,clock_timestamp()+interval '8 hours') RETURNING id,expires_at",
+        [randomUUID(), TEST_BRANCH_ID, hash(token), validRole],
+      )
+    ).rows[0];
+    return TestActorSchema.parse({
+      ...synthetic,
+      actor_id: row?.id,
+      token,
+      role: validRole,
+      branch_id: TEST_BRANCH_ID,
+      expires_at: row?.expires_at.toISOString(),
+    });
+  });
+}
+export async function revokeTestActor(pool: DatabasePool, config: TestFlowConfig, actorId: string) {
+  enabled(config);
+  id(actorId);
+  return transaction(pool, async (client) => {
+    await lockFlow(client);
+    await client.query('UPDATE test_actors SET revoked_at=clock_timestamp() WHERE id=$1', [
+      actorId,
+    ]);
+    return { ...synthetic, revoked: true };
+  });
+}
+
+const orderSelect = `SELECT o.*, 'T-' || lpad(o.sequence::text,GREATEST(length(o.sequence::text),6),'0') AS number,
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('task_id',t.id,'station',t.station,'title',t.title,'state',t.state,'mandatory',t.mandatory)
+  ORDER BY t.station DESC,t.task_key) FROM test_kitchen_tasks t WHERE t.order_id=o.id),'[]'::jsonb) AS tasks FROM test_orders o`;
+function projectOrder(row: Record<string, unknown>): TestOrder {
+  if (!(row.created_at instanceof Date) || !(row.updated_at instanceof Date))
+    throw new Error('Invalid database timestamps');
+  return TestOrderSchema.parse({
+    ...synthetic,
+    order_id: row.id,
+    number: row.number,
+    branch_id: row.branch_id,
+    version: row.version,
+    state: row.state,
+    payment_state: row.payment_state,
+    payment_attempt_id: row.payment_attempt_id,
+    fiscal_state: 'not_applicable',
+    snapshot: row.snapshot,
+    tasks: row.tasks,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+    cancellation_reason: row.cancellation_reason,
+  });
+}
+async function loadOrder(
+  client: DatabaseClient,
+  actor: Actor,
+  orderId: string,
+  lock = false,
+): Promise<TestOrder> {
+  const row = (
+    await client.query<Record<string, unknown>>(
+      `${orderSelect} WHERE o.id=$1 AND o.branch_id=$2 ${lock ? 'FOR UPDATE OF o' : ''}`,
+      [orderId, actor.branch_id],
+    )
+  ).rows[0];
+  if (!row || (actor.role === 'customer' && row.actor_id !== actor.id))
+    throw new TestFlowError('NOT_FOUND');
+  return projectOrder(row);
+}
+async function emit(client: DatabaseClient, order: TestOrder, event: string) {
+  await client.query(
+    'INSERT INTO test_outbox(id,order_id,aggregate_version,event_type,payload) VALUES ($1,$2,$3,$4,$5)',
+    [randomUUID(), order.order_id, order.version, `test.${event}`, order],
+  );
+}
+async function dispatch(client: DatabaseClient, order: TestOrder) {
+  for (const line of order.snapshot.lines.filter((line) => line.prep_required)) {
+    await client.query(
+      "INSERT INTO test_kitchen_tasks(id,order_id,task_key,station,title) VALUES ($1,$2,$3,'prep',$4)",
+      [randomUUID(), order.order_id, `prep:${line.id}`, `${line.name} × ${line.quantity}`],
+    );
+  }
+  await client.query(
+    "INSERT INTO test_kitchen_tasks(id,order_id,task_key,station,title) VALUES ($1,$2,'assembly','assembly','Проверить состав и собрать тестовый заказ')",
+    [randomUUID(), order.order_id],
+  );
+}
+function version(order: TestOrder, expected: number) {
+  if (order.version !== expected) throw new TestFlowError('CONFLICT');
+}
+
+export class TestOrderFlow {
+  constructor(
+    private readonly pool: DatabasePool,
+    private readonly config: TestFlowConfig,
+  ) {}
+  catalog() {
+    enabled(this.config);
+    return testCatalog;
+  }
+  private async read<T>(
+    token: string,
+    roles: TestRole[],
+    run: (client: DatabaseClient, actor: Actor) => Promise<T>,
+  ) {
+    enabled(this.config);
+    return transaction(this.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const actor = await authenticate(client, token, roles);
+      return run(client, actor);
+    });
+  }
+  private async command<T>(
+    token: string,
+    roles: TestRole[],
+    key: string,
+    type: string,
+    input: unknown,
+    run: (client: DatabaseClient, actor: Actor) => Promise<T>,
+  ): Promise<T> {
+    enabled(this.config);
+    id(key);
+    const requestHash = hash(JSON.stringify({ type, input }));
+    return transaction(this.pool, async (client) => {
+      // One synthetic branch uses a common short-lived write lock: quota/command/order lock order never inverts.
+      await lockFlow(client);
+      const actor = await authenticate(client, token, roles);
+      await checkBranch(client);
+      const old = (
+        await client.query<{ request_hash: string; result: T }>(
+          'SELECT request_hash,result FROM test_command_results WHERE actor_id=$1 AND idempotency_key=$2',
+          [actor.id, key],
+        )
+      ).rows[0];
+      if (old) {
+        if (old.request_hash !== requestHash) throw new TestFlowError('CONFLICT');
+        return old.result;
+      }
+      const result = await run(client, actor);
+      await client.query(
+        'INSERT INTO test_command_results(actor_id,idempotency_key,request_hash,result) VALUES ($1,$2,$3,$4)',
+        [actor.id, key, requestHash, result],
+      );
+      return result;
+    });
+  }
+  async issueSession(input: unknown) {
+    enabled(this.config);
+    const body = parse(TestSessionInputSchema, input);
+    return transaction(this.pool, async (client) => {
+      await lockFlow(client);
+      await checkBranch(client);
+      await prune(client);
+      const row = (
+        await client.query<{ active: string; today: string }>(
+          "SELECT count(*) FILTER(WHERE expires_at>clock_timestamp() AND revoked_at IS NULL)::text AS active,count(*) FILTER(WHERE created_at>=date_trunc('day',clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::text AS today FROM test_actors WHERE role='customer'",
+        )
+      ).rows[0];
+      if (Number(row?.active) >= 100 || Number(row?.today) >= 200)
+        throw new TestFlowError('RATE_LIMITED');
+      const token = randomBytes(32).toString('hex');
+      const inserted = (
+        await client.query<{ id: string; expires_at: Date }>(
+          "INSERT INTO test_actors(id,branch_id,token_hash,role,channel,expires_at) VALUES ($1,$2,$3,'customer',$4,clock_timestamp()+interval '2 hours') RETURNING id,expires_at",
+          [randomUUID(), TEST_BRANCH_ID, hash(token), body.channel],
+        )
+      ).rows[0];
+      return TestSessionSchema.parse({
+        ...synthetic,
+        session_id: inserted?.id,
+        token,
+        expires_at: inserted?.expires_at.toISOString(),
+        channel: body.channel,
+      });
+    });
+  }
+  async continueSession(token: string, input: unknown) {
+    enabled(this.config);
+    parse(TestContinueSessionInputSchema, input);
+    if (!/^[a-f0-9]{64}$/.test(token)) throw new TestFlowError('UNAUTHORIZED');
+    return transaction(this.pool, async (client) => {
+      await lockFlow(client);
+      await checkBranch(client);
+      // Expired credentials are accepted solely here, never for order operations.
+      const actor = (
+        await client.query<Actor & { expires_at: Date; active: boolean }>(
+          'SELECT id,role,branch_id,channel,expires_at,expires_at>clock_timestamp() AS active FROM test_actors WHERE token_hash=$1 AND revoked_at IS NULL',
+          [hash(token)],
+        )
+      ).rows[0];
+      if (!actor) throw new TestFlowError('UNAUTHORIZED');
+      if (actor.role !== 'customer' || actor.branch_id !== TEST_BRANCH_ID)
+        throw new TestFlowError('FORBIDDEN');
+      const unfinished = await client.query(
+        "SELECT 1 FROM test_orders WHERE actor_id=$1 AND (state NOT IN ('fulfilled','cancelled') OR payment_state='simulated_unknown') LIMIT 1",
+        [actor.id],
+      );
+      if (unfinished.rowCount) throw new TestFlowError('CONFLICT');
+      let expiresAt = actor.expires_at;
+      if (!actor.active) {
+        const count = (
+          await client.query<{ count: string }>(
+            "SELECT count(*) FROM test_actors WHERE role='customer' AND expires_at>clock_timestamp() AND revoked_at IS NULL",
+          )
+        ).rows[0];
+        if (Number(count?.count) >= 100) throw new TestFlowError('RATE_LIMITED');
+        const extended = (
+          await client.query<{ expires_at: Date }>(
+            "UPDATE test_actors SET expires_at=clock_timestamp()+interval '2 hours' WHERE id=$1 RETURNING expires_at",
+            [actor.id],
+          )
+        ).rows[0];
+        if (!extended) throw new TestFlowError('UNAUTHORIZED');
+        expiresAt = extended.expires_at;
+      }
+      // Returning the caller's token introduces no plaintext token storage. Keeping
+      // this actor preserves history, daily issuance counts and per-actor quotas.
+      return TestSessionSchema.parse({
+        ...synthetic,
+        session_id: actor.id,
+        token,
+        expires_at: expiresAt.toISOString(),
+        channel: actor.channel,
+      });
+    });
+  }
+  quote(token: string, key: string, input: unknown) {
+    const body = parse(TestCartSchema, input);
+    return this.command(token, ['customer'], key, 'quote.create', body, async (client, actor) => {
+      const count = (
+        await client.query<{ count: string }>(
+          'SELECT count(*) FROM test_quotes WHERE actor_id=$1',
+          [actor.id],
+        )
+      ).rows[0];
+      if (Number(count?.count) >= 40) throw new TestFlowError('RATE_LIMITED');
+      const lines = body.items.map((item) => {
+        const product = testCatalog.products.find((product) => product.id === item.product_id);
+        if (!product) throw new TestFlowError('INVALID_REQUEST');
+        return {
+          ...product,
+          quantity: item.quantity,
+          line_total_minor: (BigInt(product.price_minor) * BigInt(item.quantity)).toString(),
+        };
+      });
+      const created = (await client.query<{ time: Date }>('SELECT clock_timestamp() AS time'))
+        .rows[0]?.time;
+      if (!created) throw new Error('Database clock missing');
+      const quote = TestQuoteSchema.parse({
+        ...synthetic,
+        quote_id: randomUUID(),
+        branch_id: actor.branch_id,
+        catalog_version: TEST_CATALOG_VERSION,
+        channel: actor.channel,
+        service_mode: body.service_mode,
+        currency: 'KZT',
+        total_minor: lines
+          .reduce((total, line) => total + BigInt(line.line_total_minor), 0n)
+          .toString(),
+        lines,
+        created_at: created.toISOString(),
+        expires_at: new Date(created.getTime() + 300000).toISOString(),
+      });
+      await client.query(
+        'INSERT INTO test_quotes(id,actor_id,branch_id,snapshot,total_minor,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [
+          quote.quote_id,
+          actor.id,
+          actor.branch_id,
+          quote,
+          quote.total_minor,
+          quote.created_at,
+          quote.expires_at,
+        ],
+      );
+      return quote;
+    });
+  }
+  createOrder(token: string, key: string, input: unknown) {
+    const body = parse(TestCreateOrderSchema, input);
+    return this.command(token, ['customer'], key, 'order.create', body, async (client, actor) => {
+      const q = (
+        await client.query(
+          'SELECT *,expires_at>clock_timestamp() AS valid FROM test_quotes WHERE id=$1 AND actor_id=$2',
+          [body.quote_id, actor.id],
+        )
+      ).rows[0];
+      if (!q) throw new TestFlowError('NOT_FOUND');
+      if (!q.valid) throw new TestFlowError('QUOTE_EXPIRED');
+      if ((await client.query('SELECT 1 FROM test_orders WHERE quote_id=$1', [q.id])).rowCount)
+        throw new TestFlowError('CONFLICT');
+      if (
+        (
+          await client.query(
+            "SELECT 1 FROM test_orders WHERE actor_id=$1 AND payment_state='simulated_unknown'",
+            [actor.id],
+          )
+        ).rowCount
+      )
+        throw new TestFlowError('CONFLICT');
+      const counts = (
+        await client.query<{ owned: string; active: string }>(
+          "SELECT count(*) FILTER(WHERE actor_id=$1)::text AS owned,count(*) FILTER(WHERE state NOT IN ('fulfilled','cancelled'))::text AS active FROM test_orders",
+          [actor.id],
+        )
+      ).rows[0];
+      if (Number(counts?.owned) >= 20 || Number(counts?.active) >= 2000)
+        throw new TestFlowError('RATE_LIMITED');
+      const orderId = randomUUID();
+      await client.query(
+        'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor) VALUES ($1,$2,$3,$4,$5,$6)',
+        [orderId, actor.id, actor.branch_id, q.id, q.snapshot, q.total_minor],
+      );
+      const order = await loadOrder(client, actor, orderId);
+      await emit(client, order, 'order.created');
+      return order;
+    });
+  }
+  readOrder(token: string, orderId: string) {
+    id(orderId);
+    return this.read(token, ['customer', 'prep', 'assembly', 'manager'], (client, actor) =>
+      loadOrder(client, actor, orderId),
+    );
+  }
+  ownOrders(token: string) {
+    return this.listOrders(token, ['customer']);
+  }
+  managerOrders(token: string) {
+    return this.listOrders(token, ['manager']);
+  }
+  private listOrders(token: string, roles: TestRole[]) {
+    return this.read(token, roles, async (client, actor) => {
+      const rows = (
+        await client.query<Record<string, unknown>>(
+          `${orderSelect} WHERE o.branch_id=$1 ${actor.role === 'customer' ? 'AND o.actor_id=$2' : ''} ORDER BY o.created_at DESC,o.id LIMIT 2000`,
+          actor.role === 'customer' ? [actor.branch_id, actor.id] : [actor.branch_id],
+        )
+      ).rows;
+      const orders = rows.map(projectOrder);
+      return TestOrdersSchema.parse({ ...synthetic, orders });
+    });
+  }
+  simulatePayment(token: string, key: string, orderId: string, input: unknown) {
+    id(orderId);
+    const body = parse(TestPaymentSchema, input);
+    return this.payment(token, ['customer'], key, orderId, body, false);
+  }
+  resolvePayment(token: string, key: string, orderId: string, input: unknown) {
+    id(orderId);
+    const body = parse(TestResolvePaymentSchema, input);
+    return this.payment(token, ['manager'], key, orderId, body, true);
+  }
+  private payment(
+    token: string,
+    roles: TestRole[],
+    key: string,
+    orderId: string,
+    body: z.infer<typeof TestPaymentSchema>,
+    resolving: boolean,
+  ) {
+    return this.command(
+      token,
+      roles,
+      key,
+      resolving ? 'payment.resolve' : 'payment.simulate',
+      { order_id: orderId, ...body },
+      async (client, actor) => {
+        const old = await loadOrder(client, actor, orderId, true);
+        version(old, body.expected_version);
+        if (
+          old.state !== 'awaiting_test_payment' ||
+          (resolving
+            ? old.payment_state !== 'simulated_unknown'
+            : !['not_started', 'simulated_declined'].includes(old.payment_state))
+        )
+          throw new TestFlowError('CONFLICT');
+        if (
+          !resolving &&
+          (
+            await client.query(
+              "SELECT 1 FROM test_orders WHERE actor_id=$1 AND payment_state='simulated_unknown' AND id<>$2",
+              [actor.id, orderId],
+            )
+          ).rowCount
+        )
+          throw new TestFlowError('CONFLICT');
+        const paymentState = `simulated_${body.outcome}`;
+        await client.query(
+          'UPDATE test_orders SET payment_state=$2,payment_attempt_id=$3,state=$4,version=version+1,updated_at=clock_timestamp() WHERE id=$1',
+          [
+            orderId,
+            paymentState,
+            resolving ? old.payment_attempt_id : randomUUID(),
+            body.outcome === 'approved' ? 'preparing' : 'awaiting_test_payment',
+          ],
+        );
+        if (body.outcome === 'approved') await dispatch(client, old);
+        const order = await loadOrder(client, actor, orderId);
+        await emit(client, order, resolving ? 'payment.resolved' : 'payment.simulated');
+        return order;
+      },
+    );
+  }
+  cancel(token: string, key: string, orderId: string, input: unknown) {
+    id(orderId);
+    const body = parse(TestCancellationSchema, input);
+    return this.command(
+      token,
+      ['customer', 'manager'],
+      key,
+      'order.cancel',
+      { order_id: orderId, ...body },
+      async (client, actor) => {
+        const old = await loadOrder(client, actor, orderId, true);
+        version(old, body.expected_version);
+        if (
+          ['fulfilled', 'cancelled'].includes(old.state) ||
+          old.payment_state === 'simulated_unknown'
+        )
+          throw new TestFlowError('CONFLICT');
+        await client.query(
+          "UPDATE test_orders SET state='cancelled',cancellation_reason=$2,version=version+1,updated_at=clock_timestamp() WHERE id=$1",
+          [orderId, body.reason],
+        );
+        const order = await loadOrder(client, actor, orderId);
+        await emit(client, order, 'order.cancelled');
+        return order;
+      },
+    );
+  }
+  kitchen(token: string) {
+    return this.read(token, ['prep', 'assembly', 'manager'], async (client, actor) => {
+      const rows = (
+        await client.query<Record<string, unknown>>(
+          `${orderSelect} WHERE o.branch_id=$1 AND o.state IN ('preparing','ready') ORDER BY o.created_at,o.id LIMIT 2000`,
+          [actor.branch_id],
+        )
+      ).rows;
+      const orders = rows
+        .map(projectOrder)
+        .filter(
+          (order) =>
+            actor.role === 'manager' || order.tasks.some((task) => task.station === actor.role),
+        );
+      return TestKitchenSchema.parse({ ...synthetic, station: actor.role, orders });
+    });
+  }
+  completeTask(token: string, key: string, orderId: string, taskId: string, input: unknown) {
+    id(orderId);
+    id(taskId);
+    const body = parse(TestVersionSchema, input);
+    return this.command(
+      token,
+      ['prep', 'assembly', 'manager'],
+      key,
+      'task.complete',
+      { order_id: orderId, task_id: taskId, ...body },
+      async (client, actor) => {
+        const old = await loadOrder(client, actor, orderId, true);
+        version(old, body.expected_version);
+        if (old.state !== 'preparing') throw new TestFlowError('CONFLICT');
+        const task = old.tasks.find((task) => task.task_id === taskId);
+        if (!task) throw new TestFlowError('NOT_FOUND');
+        if (actor.role !== 'manager' && actor.role !== task.station)
+          throw new TestFlowError('FORBIDDEN');
+        if (task.state === 'done') throw new TestFlowError('CONFLICT');
+        if (
+          task.station === 'assembly' &&
+          old.tasks.some(
+            (other) => other.station === 'prep' && other.mandatory && other.state !== 'done',
+          )
+        )
+          throw new TestFlowError('CONFLICT');
+        await client.query("UPDATE test_kitchen_tasks SET state='done' WHERE id=$1", [taskId]);
+        await client.query(
+          'UPDATE test_orders SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE id=$1',
+          [orderId, task.station === 'assembly' ? 'ready' : 'preparing'],
+        );
+        const order = await loadOrder(client, actor, orderId);
+        await emit(client, order, task.station === 'assembly' ? 'order.ready' : 'task.completed');
+        return order;
+      },
+    );
+  }
+  handoff(token: string, key: string, orderId: string, input: unknown) {
+    id(orderId);
+    const body = parse(TestVersionSchema, input);
+    return this.command(
+      token,
+      ['assembly', 'manager'],
+      key,
+      'order.handoff',
+      { order_id: orderId, ...body },
+      async (client, actor) => {
+        const old = await loadOrder(client, actor, orderId, true);
+        version(old, body.expected_version);
+        if (old.state !== 'ready') throw new TestFlowError('CONFLICT');
+        await client.query(
+          "UPDATE test_orders SET state='fulfilled',version=version+1,updated_at=clock_timestamp() WHERE id=$1",
+          [orderId],
+        );
+        const order = await loadOrder(client, actor, orderId);
+        await emit(client, order, 'order.fulfilled');
+        return order;
+      },
+    );
+  }
+  display(token: string) {
+    return this.read(token, ['display', 'manager'], async (client, actor) => {
+      const rows = (
+        await client.query<{ number: string; channel: 'mobile' | 'kiosk'; state: string }>(
+          "SELECT 'T-' || lpad(sequence::text,GREATEST(length(sequence::text),6),'0') AS number,snapshot->>'channel' AS channel,state FROM test_orders WHERE branch_id=$1 AND state IN ('preparing','ready') ORDER BY created_at,id LIMIT 2000",
+          [actor.branch_id],
+        )
+      ).rows;
+      const time = (await client.query<{ time: Date }>('SELECT clock_timestamp() AS time')).rows[0]
+        ?.time;
+      return TestDisplaySchema.parse({
+        ...synthetic,
+        branch_id: actor.branch_id,
+        preparing: rows
+          .filter((row) => row.state === 'preparing')
+          .map(({ number, channel }) => ({ number, channel })),
+        ready: rows
+          .filter((row) => row.state === 'ready')
+          .map(({ number, channel }) => ({ number, channel })),
+        observed_at: time?.toISOString(),
+      });
+    });
+  }
+}

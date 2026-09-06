@@ -44,6 +44,24 @@ jobs:
           pnpm db:seed
       - name: Test PostgreSQL constraints and HTTP failure scenarios
         run: pnpm test:integration
+      - name: Mobile state, API and release invariants
+        run: pnpm test:mobile
+      - name: Export native and web JavaScript bundles
+        run: pnpm --filter @pickchick/mobile export
+      - name: Browser recovery regressions (isolated HTTP fixtures)
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          .local/design-venv/bin/python tests/operations/kiosk_recovery.py
+          MOBILE_PREVIEW_PORT=4182 node scripts/mobile/preview-server.mjs > .local/mobile-recovery-server.log 2>&1 &
+          recovery_pid=$!
+          trap 'kill "$recovery_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4182/ > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
       - name: Check dependency advisories
         run: pnpm audit --audit-level=high
       - name: Stop test infrastructure
@@ -64,6 +82,7 @@ jobs:
         run: |
           python3 infra/staging/generate-secrets.py .local/staging-ci
           echo RELEASE_SHA=${{ github.sha }} > .local/staging-ci/release.env
+          echo TEST_ORDER_FLOW_ENABLED=true >> .local/staging-ci/release.env
           docker compose --env-file .local/staging-ci/staging.env --env-file .local/staging-ci/release.env -f infra/staging/compose.yaml up -d --wait cloud-db redis-cache
       - name: Provision twice, seed and exercise deployed API permissions
         run: |

@@ -18,7 +18,8 @@
     "@pickchick/platform": "workspace:*",
     "@pickchick/contracts": "workspace:*",
     "@pickchick/database": "workspace:*",
-    "@pickchick/menu-sync": "workspace:*"
+    "@pickchick/menu-sync": "workspace:*",
+    "@pickchick/test-order-flow": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",
