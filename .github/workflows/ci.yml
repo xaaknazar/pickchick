@@ -44,6 +44,10 @@ jobs:
           pnpm db:seed
       - name: Test PostgreSQL constraints and HTTP failure scenarios
         run: pnpm test:integration
+      - name: Mobile state, API and release invariants
+        run: pnpm test:mobile
+      - name: Export native and web JavaScript bundles
+        run: pnpm --filter @pickchick/mobile export
       - name: Check dependency advisories
         run: pnpm audit --audit-level=high
       - name: Stop test infrastructure

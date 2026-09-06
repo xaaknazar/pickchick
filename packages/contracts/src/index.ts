@@ -69,6 +69,7 @@ export const ErrorSchema = z.strictObject({
     'PAYLOAD_TOO_LARGE',
     'NOT_FOUND',
     'SERVICE_UNAVAILABLE',
+    'RATE_LIMITED',
     'INTERNAL_ERROR',
   ]),
   message_key: z.string(),

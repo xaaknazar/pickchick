@@ -8,3 +8,6 @@ docs/0*.md
 packages/contracts/openapi.json
 packages/contracts/event.schema.json
 .local/
+**/.expo
+apps/mobile/ios
+apps/mobile/android

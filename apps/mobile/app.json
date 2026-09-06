@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "PickChick",
+    "slug": "pickchick",
+    "version": "0.1.0",
+    "icon": "../../design/prototype/assets/mockup/logo.png",
+    "orientation": "portrait",
+    "scheme": "pickchick",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "kz.pickchick.app",
+      "buildNumber": "1",
+      "appleTeamId": "DAJTP6MC3Q",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleLocalizations": ["ru", "kk"]
+      }
+    },
+    "android": {
+      "package": "kz.pickchick.app",
+      "versionCode": 1
+    },
+    "web": { "bundler": "metro", "output": "single" },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#04143A",
+          "image": "../../design/prototype/assets/mockup/logo.png",
+          "imageWidth": 180
+        }
+      ],
+      ["expo-video", { "supportsBackgroundPlayback": false, "supportsPictureInPicture": false }]
+    ],
+    "extra": {
+      "environment": "staging",
+      "apiUrl": "https://pickchick.185.129.51.103.nip.io",
+      "customerOperationsEnabled": false
+    }
+  }
+}

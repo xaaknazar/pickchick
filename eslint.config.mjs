@@ -6,6 +6,9 @@ export default [
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      '**/.expo/**',
+      'apps/mobile/ios/**',
+      'apps/mobile/android/**',
       '.local/**',
       'PickChick-technical-plan-v1/**',
       'docs/research/**',
@@ -13,6 +16,11 @@ export default [
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ['apps/mobile/**/*.ts', 'apps/mobile/**/*.tsx'],
+    languageOptions: { globals: { require: 'readonly' } },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
   {
     files: ['design/prototype/*.js'],
     languageOptions: {
@@ -27,6 +35,8 @@ export default [
         getComputedStyle: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
       },
     },
   },
@@ -41,6 +51,7 @@ export default [
         fetch: 'readonly',
         AbortSignal: 'readonly',
         AbortController: 'readonly',
+        Response: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
       },

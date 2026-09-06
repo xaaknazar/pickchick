@@ -40,3 +40,10 @@ __pycache__/
 *.dump
 *.sql.gz
 .local/
+
+# Expo native directories are generated from the versioned app config
+/apps/mobile/ios/
+/apps/mobile/android/
+*.xcarchive/
+*.ipa
+*.dSYM/

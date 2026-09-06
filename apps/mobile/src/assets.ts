@@ -1,5 +1,4 @@
 /* Metro requires literal paths to bundle these original, supplied brand assets. */
-/* eslint-disable @typescript-eslint/no-require-imports */
 import type { ImageSourcePropType } from 'react-native';
 
 export const assets = {

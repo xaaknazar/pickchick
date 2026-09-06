@@ -184,6 +184,19 @@ export function Menu(props: ScreenProps) {
         <View style={s.menuBody}>
           <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
           {props.preview ? <ReviewBadge /> : null}
+          {props.model.testFlow.available ? (
+            <Notice title="Заказ на тестовую кухню">
+              Вы можете проверить весь путь до выдачи. Деньги не списываются, ресторан тестовые
+              заказы не готовит.
+            </Notice>
+          ) : null}
+          {props.model.testFlow.available && props.model.testFlow.current ? (
+            <NavRow
+              title={`Заказ ${props.model.testFlow.current.number}`}
+              subtitle="Посмотреть актуальный статус кухни"
+              onPress={() => props.navigate('M20')}
+            />
+          ) : null}
           {props.model.catalogMode === 'design' ? (
             <Notice title="Образцы меню">
               Блюда и цены из макета. Эта корзина подходит для проверки дизайна; оформить заказ

@@ -54,11 +54,13 @@ class SafeExceptionFilter implements ExceptionFilter {
               ? 'CONFLICT'
               : status === 413
                 ? 'PAYLOAD_TOO_LARGE'
-                : status === 404
-                  ? 'NOT_FOUND'
-                  : status === 503
-                    ? 'SERVICE_UNAVAILABLE'
-                    : 'INTERNAL_ERROR';
+                : status === 429
+                  ? 'RATE_LIMITED'
+                  : status === 404
+                    ? 'NOT_FOUND'
+                    : status === 503
+                      ? 'SERVICE_UNAVAILABLE'
+                      : 'INTERNAL_ERROR';
     const details = error instanceof HttpException ? error.getResponse() : null;
     const declared =
       details && typeof details === 'object' && 'code' in details
@@ -73,7 +75,7 @@ class SafeExceptionFilter implements ExceptionFilter {
       code,
       message_key: `errors.${code.toLowerCase()}`,
       trace_id: traceId,
-      retryable: status === 503,
+      retryable: status === 503 || status === 429,
     });
   }
 }
