@@ -15,7 +15,6 @@
 
 :8080 {
 	header {
-		Content-Type application/json
 		Cache-Control no-store
 		X-Content-Type-Options nosniff
 		X-PickChick-Environment staging
@@ -27,27 +26,19 @@
 		max_size 16KB
 	}
 
-	@capabilities {
-		method GET
-		path /v1/capabilities
-	}
-	handle @capabilities {
-		header Access-Control-Allow-Origin *
-		respond `{"schema_version":1,"environment":"staging","data_mode":"synthetic","ordering_enabled":false,"features":{"phone_auth":false,"checkout":false,"payments":false,"fiscal":false,"loyalty":false},"notice":{"ru":"Тестовый стенд PickChick. Данные демонстрационные; оформление заказов, SMS, оплаты и чеки пока недоступны.","kk":"PickChick сынақ ортасы. Деректер демонстрациялық; тапсырыс беру, SMS, төлемдер мен чектер әзірге қолжетімсіз."}}` 200
-	}
-
 	@health {
 		method GET
 		path /health/live
 	}
 	handle @health {
 		header Access-Control-Allow-Origin *
+		header Content-Type application/json
 		respond `{"service":"pickchick-public-gateway","alive":true,"environment":"staging"}` 200
 	}
 
 	@catalog {
 		method GET
-		path /v1/branches /v1/branches/10000000-0000-4000-8000-000000000003/menu
+		path /v1/capabilities /v1/branches /v1/branches/10000000-0000-4000-8000-000000000003/menu
 	}
 	handle @catalog {
 		header Access-Control-Allow-Origin *
@@ -62,7 +53,100 @@
 		}
 	}
 
+	@test_get_preflight {
+		method OPTIONS
+		header Origin *
+		header Access-Control-Request-Method GET
+		path_regexp test_get_preflight ^/v1/test/(catalog|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|kitchen|display|manager/orders)$
+	}
+	handle @test_get_preflight {
+		header {
+			Access-Control-Allow-Origin *
+			Access-Control-Allow-Methods GET
+			Access-Control-Allow-Headers Authorization,Content-Type,Idempotency-Key
+			Access-Control-Max-Age 300
+		}
+		respond "" 204
+	}
+
+	@test_get {
+		method GET
+		path_regexp test_get ^/v1/test/(catalog|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|kitchen|display|manager/orders)$
+	}
+	handle @test_get {
+		header Access-Control-Allow-Origin *
+		# Bearer is forwarded only for these exact TEST contract routes.
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@test_post_preflight {
+		method OPTIONS
+		header Origin *
+		header Access-Control-Request-Method POST
+		path_regexp test_post_preflight ^/v1/test/(sessions|quotes|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
+	}
+	handle @test_post_preflight {
+		header {
+			Access-Control-Allow-Origin *
+			Access-Control-Allow-Methods POST
+			Access-Control-Allow-Headers Authorization,Content-Type,Idempotency-Key
+			Access-Control-Max-Age 300
+		}
+		respond "" 204
+	}
+
+	@test_post {
+		method POST
+		path_regexp test_post ^/v1/test/(sessions|quotes|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
+	}
+	handle @test_post {
+		header Access-Control-Allow-Origin *
+		# Bearer is forwarded only for these exact TEST contract routes.
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@operations {
+		method GET HEAD
+		path /kiosk /kitchen/prep /kitchen/assembly /display /manager
+	}
+	handle @operations {
+		root * /srv/public/operations
+		rewrite * /index.html
+		file_server
+	}
+	@operations_assets {
+		method GET HEAD
+		path /assets/*
+	}
+	handle @operations_assets {
+		root * /srv/public/operations
+		file_server
+	}
+	@prototype {
+		method GET HEAD
+		path /design/prototype/index.html /design/prototype/app.js /design/prototype/ui.js /design/prototype/views.js /design/prototype/screens.json /design/prototype/styles.css /design/prototype/reference-fonts.css /design/prototype/reference-mobile.css /design/prototype/reference-mobile.js /design/prototype/reference-kiosk.css /design/prototype/reference-kiosk.js /design/prototype/reference-operations.css /design/prototype/reference-operations.js /design/prototype/assets/* /packages/design-tokens/tokens.css /packages/design-tokens/tokens.json
+	}
+	handle @prototype {
+		root * /srv/public
+		file_server
+	}
+
 	handle {
+		header Content-Type application/json
 		respond `{"code":"NOT_FOUND","environment":"staging"}` 404
 	}
 }

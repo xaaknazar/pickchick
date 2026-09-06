@@ -16,7 +16,9 @@ services:
     cpus: 0.5
     tmpfs: ['/tmp:size=16m,mode=1777', '/config:size=4m,mode=0700', '/data:size=4m,mode=0700']
     command: ['caddy', 'run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']
-    volumes: ['./gateway.Caddyfile:/etc/caddy/Caddyfile:ro']
+    volumes:
+      - './gateway.Caddyfile:/etc/caddy/Caddyfile:ro'
+      - './public-web:/srv/public:ro'
     # No published ports, Docker socket, database network, or application secrets.
     networks: [front, api_ingress]
     logging:
