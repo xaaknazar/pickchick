@@ -5,6 +5,28 @@ export type ScreenId = `M${string}`;
 export type CatalogMode = 'server' | 'design';
 export type DiningMode = 'takeaway' | 'dine_in';
 export type Locale = 'ru' | 'kk';
+export interface Selection {
+  group_id: string;
+  option_id: string;
+  quantity: number;
+}
+export interface ModifierGroup {
+  id: string;
+  title: string;
+  min: number;
+  max: number;
+  options: {
+    id: string;
+    label: string;
+    price_delta_minor: string;
+    default_selected?: boolean;
+    available?: boolean;
+    default_quantity?: number;
+    max_quantity?: number;
+    nutrition_multiplier?: number;
+  }[];
+}
+export type PaymentMethod = 'kaspi' | 'card';
 export interface Product {
   id: string;
   name: string;
@@ -13,10 +35,24 @@ export interface Product {
   priceMinor: string;
   image: ImageSourcePropType;
   source: CatalogMode;
+  catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3';
+  servingLabel?: string;
+  nutrition?: {
+    basis: 'per_100_g' | 'per_serving';
+    energy_kcal: number;
+    protein_g: number;
+    fat_g: number;
+    carbs_g: number;
+  };
+  ingredients?: string;
+  allergens?: string[];
+  prepMinutes?: number;
+  modifierGroups?: ModifierGroup[];
 }
 export interface CartLine {
   product: Product;
   quantity: number;
+  selections?: Selection[];
 }
 export interface Branch {
   id: string;
@@ -33,6 +69,8 @@ export interface MobileModel {
   cart: CartLine[];
   catalogMode: CatalogMode;
   diningMode: DiningMode;
+  paymentMethod: PaymentMethod;
+  upsellProductIds: string[];
   locale: Locale;
   branches: Branch[];
   branch: Branch | null;
@@ -48,7 +86,8 @@ export interface MobileModel {
   setBranch(id: string): void;
   setCatalogMode(mode: CatalogMode): void;
   selectProduct(id: string): void;
-  addToCart(id: string): void;
+  addToCart(id: string, selections?: Selection[], quantity?: number): void;
+  setPaymentMethod(method: PaymentMethod): void;
   setQuantity(id: string, quantity: number): void;
   clearCart(expected?: { id: string; quantity: number }[]): void;
   refresh(): void;

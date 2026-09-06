@@ -246,7 +246,7 @@ def run():
             numbers.append(mobile_order['number']); created_ids.append(mobile_order['order_id'])
             assert mobile_order['snapshot']['channel'] == 'mobile'
             expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'])
-            mobile.get_by_role('button', name='Тест: подтвердить и передать на кухню', exact=True).click()
+            mobile.get_by_test_id('test-payment-approve').click()
             # React Navigation retains earlier stack screens in the DOM; scope the active route.
             active_order = mobile.get_by_test_id('screen-M17')
             expect(active_order.get_by_text('Задания уже появились на двух кухонных экранах.', exact=True)).to_be_visible(timeout=15000)

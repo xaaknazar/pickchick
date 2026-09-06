@@ -1,0 +1,142 @@
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { MobileModel, PaymentMethod } from '../model';
+import { Body, Caption, Heading, Icon, IconButton, Row, styles as ui } from './UI';
+import { colors, font } from '../theme';
+
+export function paymentName(method: PaymentMethod) {
+  return method === 'kaspi' ? 'Kaspi' : 'Банковская карта';
+}
+export function PaymentChoice({ model }: { model: MobileModel }) {
+  const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+  return (
+    <>
+      <Pressable
+        testID="payment-method"
+        accessibilityRole="button"
+        accessibilityLabel={`Способ оплаты: ${paymentName(model.paymentMethod)}, изменить`}
+        onPress={() => setOpen(true)}
+        style={s.trigger}
+      >
+        <Caption style={{ fontSize: 11, lineHeight: 16 }}>Способ оплаты</Caption>
+        <Row style={{ gap: 7 }}>
+          <Icon
+            name={model.paymentMethod === 'kaspi' ? 'wallet-outline' : 'card-outline'}
+            size={19}
+            color={colors.accent}
+          />
+          <Body style={{ fontFamily: font.bold, fontSize: 14, lineHeight: 21 }}>
+            {paymentName(model.paymentMethod)}
+          </Body>
+          <Icon name="chevron-up" size={16} />
+        </Row>
+      </Pressable>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <View style={s.modal}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Закрыть способы оплаты"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setOpen(false)}
+          />
+          <View accessibilityViewIsModal style={s.sheet}>
+            <ScrollView
+              contentContainerStyle={{
+                padding: 18,
+                gap: 12,
+                paddingBottom: Math.max(insets.bottom, 18),
+              }}
+            >
+              <Row>
+                <Heading small style={ui.flex}>
+                  Способ оплаты
+                </Heading>
+                <IconButton
+                  name="close"
+                  label="Закрыть способы оплаты"
+                  onPress={() => setOpen(false)}
+                />
+              </Row>
+              <Caption>
+                Имитация оплаты для теста. Деньги не списываются, реквизиты не нужны.
+              </Caption>
+              {(['kaspi', 'card'] as const).map((method) => (
+                <Pressable
+                  key={method}
+                  testID={`payment-method-${method}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: model.paymentMethod === method }}
+                  onPress={() => {
+                    model.setPaymentMethod(method);
+                    setOpen(false);
+                  }}
+                  style={[
+                    s.option,
+                    model.paymentMethod === method && {
+                      borderColor: colors.action,
+                      backgroundColor: colors.raised,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      s.mark,
+                      { backgroundColor: method === 'kaspi' ? '#E63132' : colors.action },
+                    ]}
+                  >
+                    <Icon
+                      name={method === 'kaspi' ? 'wallet-outline' : 'card-outline'}
+                      color={colors.white}
+                    />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                    <Body style={{ fontFamily: font.bold }}>{paymentName(method)}</Body>
+                    <Caption>
+                      {method === 'kaspi'
+                        ? 'Тестовый сценарий Kaspi'
+                        : 'Тестовая карта · без ввода номера'}
+                    </Caption>
+                  </View>
+                  <Icon
+                    name={model.paymentMethod === method ? 'radio-button-on' : 'radio-button-off'}
+                    color={colors.accent}
+                  />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+const s = StyleSheet.create({
+  trigger: {
+    minHeight: 54,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 15,
+    gap: 2,
+    backgroundColor: colors.raised,
+  },
+  modal: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
+  sheet: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    maxHeight: '90%',
+    backgroundColor: colors.surface,
+  },
+  option: {
+    minHeight: 76,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mark: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+});

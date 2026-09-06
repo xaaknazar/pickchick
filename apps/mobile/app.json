@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "kz.pickchick.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -19,9 +19,12 @@
     },
     "android": {
       "package": "kz.pickchick.app",
-      "versionCode": 3
+      "versionCode": 4
     },
-    "web": { "bundler": "metro", "output": "single" },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "plugins": [
       "expo-router",
       "expo-font",
@@ -34,7 +37,13 @@
           "imageWidth": 180
         }
       ],
-      ["expo-video", { "supportsBackgroundPlayback": false, "supportsPictureInPicture": false }]
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ]
     ],
     "extra": {
       "environment": "staging",

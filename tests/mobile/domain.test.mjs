@@ -86,3 +86,50 @@ test('restoration resolves server-owned product data and discards obsolete relea
   assert.deepEqual(restoreCart(preferences, [], 'release-1'), []);
   assert.deepEqual(restoreCart(preferences, [{ ...product, source: 'design' }], 'release-1'), []);
 });
+
+// Different combo choices must retain their own price/quantity through restart
+// and late payment responses, without trusting amounts saved on the device.
+test('combo variants preserve server-defined selection prices and independent lines', async () => {
+  const { defaultSelections, cartLineKey, lineUnitPrice, validSelections } =
+    await import('../../apps/mobile/src/domain.ts');
+  const { testCompleteCatalog } = await import('@pickchick/test-order-flow/complete-catalog');
+  const item = testCompleteCatalog.products.find((p) => p.id === 'pick-combo');
+  const combo = {
+    ...product,
+    id: item.id,
+    priceMinor: item.price_minor,
+    modifierGroups: item.modifier_groups,
+  };
+  const standard = defaultSelections(combo);
+  const changed = standard
+    .filter((s) => s.group_id !== 'drink')
+    .concat({ group_id: 'drink', option_id: 'lemonade', quantity: 1 });
+  const first = updateQuantity([], combo, 1, standard);
+  const both = updateQuantity(first, combo, 2, changed);
+  assert.equal(both.length, 2);
+  assert.equal(lineUnitPrice(both[0]), item.price_minor);
+  assert.equal(BigInt(lineUnitPrice(both[1])) - BigInt(item.price_minor), 20000n);
+  assert.equal(validSelections(combo, changed.concat(changed[0])), false);
+  assert.equal(
+    validSelections(combo, [{ group_id: 'drink', option_id: 'forged', quantity: 1 }]),
+    false,
+  );
+  const saved = {
+    ...preferences,
+    lines: both.map((l) => ({ id: l.product.id, quantity: l.quantity, selections: l.selections })),
+  };
+  const parsed = parsePreferences(JSON.stringify(saved));
+  assert.ok(parsed);
+  const restored = restoreCart(parsed, [combo], 'release-1');
+  assert.equal(cartTotal(restored), cartTotal(both));
+  assert.deepEqual(restored.map(cartLineKey), both.map(cartLineKey));
+  const paidDifferentChoice = [{ id: cartLineKey(both[0]), quantity: 2 }];
+  assert.equal(clearMatchingCart([both[1]], paidDifferentChoice)[0], both[1]);
+  assert.deepEqual(
+    clearMatchingCart(
+      both,
+      both.map((l) => ({ id: cartLineKey(l), quantity: l.quantity })),
+    ),
+    [],
+  );
+});

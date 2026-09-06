@@ -100,20 +100,24 @@ function NativeHeroVideo({ shaded = true }: { shaded?: boolean }) {
   );
 }
 export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: () => void }) {
+  const [cardHeight, setCardHeight] = useState(84);
+  // Source SVG peak y=44/240 remains 6px above the card at every text size.
+  const skylineTop = -(44 * cardHeight + 6 * 240) / (240 - 44);
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel="Открыть мои Чики"
       testID="loyalty-card"
+      onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
       style={({ pressed }) => [brand.loyalty, pressed && ui.pressed]}
     >
       <Image
         source={assets.skyline}
         testID="loyalty-skyline"
         pointerEvents="none"
-        style={brand.skyline}
-        contentFit="cover"
+        style={[brand.skyline, { top: skylineTop }]}
+        contentFit="fill"
         contentPosition="bottom"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
