@@ -122,19 +122,30 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
               ].map(([value, label], index) => (
                 <View
                   key={String(label)}
-                  style={{ flexGrow: 1, flexBasis: fontScale > 1.3 ? '40%' : '20%', gap: 3 }}
+                  style={{
+                    flexGrow: 1,
+                    flexBasis: fontScale > 1.3 ? '40%' : '20%',
+                    gap: 3,
+                    alignItems: 'center',
+                    backgroundColor: colors.raised,
+                    borderRadius: 14,
+                    paddingVertical: 10,
+                    paddingHorizontal: 5,
+                  }}
                 >
                   <Heading
                     small
                     style={{
-                      fontSize: 21,
-                      lineHeight: 28,
+                      fontSize: 19,
+                      lineHeight: 26,
                       color: index === 0 ? colors.accent : colors.text,
                     }}
                   >
                     {Math.round(Number(value) * multiplier)}
                   </Heading>
-                  <Caption style={{ fontSize: 12, lineHeight: 18 }}>{label}</Caption>
+                  <Caption style={{ fontSize: 11.5, lineHeight: 17, textAlign: 'center' }}>
+                    {label}
+                  </Caption>
                 </View>
               ))}
             </View>
@@ -165,7 +176,7 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
               .reduce((n, s) => n + s.quantity, 0);
             const radio = group.max === 1;
             const visible =
-              expanded[group.id] || group.options.length <= 5
+              group.id !== 'drink' || expanded[group.id] || group.options.length <= 5
                 ? group.options
                 : group.options.slice(0, 4);
             return (
@@ -214,12 +225,15 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                           pressed && ui.pressed,
                         ]}
                       >
-                        {label}
                         <Icon
                           name={selected ? 'radio-button-on' : 'radio-button-off'}
                           color={selected ? colors.accent : colors.muted}
                           size={23}
                         />
+                        <Body style={[s.optionName, { flex: 1, minWidth: 0 }]}>{option.label}</Body>
+                        <Caption style={{ maxWidth: 76, textAlign: 'right' }}>
+                          {unavailable ? 'Нет' : `+${MinorMoney(option.price_delta_minor)}`}
+                        </Caption>
                       </Pressable>
                     ) : (
                       <View
@@ -257,7 +271,7 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                     );
                   })}
                 </View>
-                {group.options.length > 5 ? (
+                {group.id === 'drink' && group.options.length > 5 ? (
                   <Button
                     title={
                       expanded[group.id]
@@ -325,26 +339,25 @@ const s = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
   info: { gap: 10, paddingHorizontal: 4 },
   group: { gap: 12, marginTop: 8 },
-  groupTitle: { fontSize: 22, lineHeight: 29 },
-  options: { gap: 8 },
+  groupTitle: { fontSize: 20, lineHeight: 27 },
+  options: { gap: 0, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.surface },
   option: {
     minHeight: 66,
-    borderWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    borderRadius: 18,
-    paddingVertical: 10,
+    paddingVertical: 13,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  selected: { borderColor: colors.action, backgroundColor: colors.raised },
-  optionName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21 },
+  selected: { backgroundColor: colors.surface },
+  optionName: { fontFamily: font.body, fontSize: 15, lineHeight: 22 },
   stepper: { gap: 0, borderRadius: 22, backgroundColor: colors.raised },
   quantity: {
     minWidth: 20,

@@ -78,7 +78,7 @@ def create_kiosk(page, start=True):
     page.get_by_role('button', name='Оформить заказ →', exact=True).click()
     page.get_by_role('button', name='Продолжить →', exact=True).click()
     page.get_by_role('button', name='Рассчитать тестовый заказ', exact=True).click()
-    with page.expect_response(lambda r: r.request.method == 'POST' and r.url == API + '/orders') as received:
+    with page.expect_response(lambda r: r.request.method == 'POST' and r.url.split('?')[0] == API + '/orders') as received:
         page.get_by_role('button', name='Создать тестовый заказ →', exact=True).click()
     assert received.value.ok, 'Kiosk order creation rejected'
     order = received.value.json()
@@ -237,14 +237,21 @@ def run():
             mobile = mobile_context.new_page(); watch(mobile)
             mobile.goto(MOBILE + '/screen/M06')
             mobile.get_by_test_id('product-pick-combo').click(timeout=60000)
+            mobile.get_by_test_id('modifier-drink-lemonade').click()
+            mobile.get_by_test_id('modifier-plus-extras-toast').click()
             mobile.get_by_test_id('product-add').click()
             mobile.get_by_test_id('cart-checkout').click()
-            with mobile.expect_response(lambda r: r.request.method == 'POST' and r.url == API + '/orders') as received:
+            with mobile.expect_response(lambda r: r.request.method == 'POST' and r.url.split('?')[0] == API + '/orders') as received:
                 mobile.get_by_test_id('test-checkout-create').click()
             assert received.value.ok, 'Mobile order creation rejected'
             mobile_order = received.value.json()
             numbers.append(mobile_order['number']); created_ids.append(mobile_order['order_id'])
             assert mobile_order['snapshot']['channel'] == 'mobile'
+            assert mobile_order['snapshot']['catalog_version'] == 'mockup-v0.3'
+            assert mobile_order['snapshot']['total_minor'] == '478000'
+            selections = mobile_order['snapshot']['lines'][0]['selections']
+            assert any(s['group_id'] == 'drink' and s['option_id'] == 'lemonade' for s in selections)
+            assert any(s['group_id'] == 'extras' and s['option_id'] == 'toast' and s['quantity'] == 1 for s in selections)
             expect(mobile.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'])
             mobile.get_by_test_id('test-payment-approve').click()
             # React Navigation retains earlier stack screens in the DOM; scope the active route.
@@ -253,6 +260,8 @@ def run():
             mobile.reload()
             expect(active_order.get_by_test_id('connected-order-number')).to_have_text(mobile_order['number'], timeout=60000)
             stage = 'mobile kitchen display handoff'
+            expect(ticket(prep, mobile_order['number'])).to_contain_text('Фирменный лимонад')
+            expect(ticket(prep, mobile_order['number'])).to_contain_text('Тост, 1 шт')
             prepare_and_assemble(prep, assembly, display, mobile_order['number'])
             expect(active_order.get_by_test_id('connected-order-state')).to_have_text('Можно забирать', timeout=15000)
             for width in (320, 390, 430):
