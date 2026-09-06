@@ -23,10 +23,10 @@ CREATE TABLE test_quotes (
   total_minor bigint NOT NULL CHECK(total_minor>0),
   created_at timestamptz NOT NULL,
   expires_at timestamptz NOT NULL CHECK(expires_at>created_at),
-  CHECK(snapshot->>'quote_id'=id::text AND snapshot->>'branch_id'=branch_id::text),
-  CHECK(snapshot->>'synthetic'='true' AND snapshot->>'namespace'='pickchick-test'),
+  CHECK((snapshot->>'quote_id'=id::text AND snapshot->>'branch_id'=branch_id::text) IS TRUE),
+  CHECK((snapshot->>'synthetic'='true' AND snapshot->>'namespace'='pickchick-test') IS TRUE),
   CHECK(snapshot ?& ARRAY['synthetic','namespace','quote_id','branch_id','total_minor','lines','created_at','expires_at']),
-  CHECK((snapshot->>'total_minor')::bigint=total_minor),
+  CHECK(((snapshot->>'total_minor')::bigint=total_minor) IS TRUE),
   UNIQUE(id, actor_id)
 );
 CREATE INDEX test_quotes_actor_idx ON test_quotes(actor_id);
@@ -46,9 +46,9 @@ CREATE TABLE test_orders (
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   FOREIGN KEY(quote_id,actor_id) REFERENCES test_quotes(id,actor_id) ON DELETE CASCADE,
-  CHECK(snapshot->>'synthetic'='true' AND snapshot->>'namespace'='pickchick-test'),
-  CHECK(snapshot->>'quote_id'=quote_id::text AND snapshot->>'branch_id'=branch_id::text),
-  CHECK((snapshot->>'total_minor')::bigint=total_minor),
+  CHECK((snapshot->>'synthetic'='true' AND snapshot->>'namespace'='pickchick-test') IS TRUE),
+  CHECK((snapshot->>'quote_id'=quote_id::text AND snapshot->>'branch_id'=branch_id::text) IS TRUE),
+  CHECK(((snapshot->>'total_minor')::bigint=total_minor) IS TRUE),
   CHECK((payment_state='not_started')=(payment_attempt_id IS NULL)),
   CHECK(state NOT IN ('preparing','ready','fulfilled') OR payment_state='simulated_approved'),
   CHECK((state='cancelled')=(cancellation_reason IS NOT NULL)),
@@ -79,7 +79,7 @@ CREATE TABLE test_outbox (
   order_id uuid NOT NULL REFERENCES test_orders(id) ON DELETE CASCADE,
   aggregate_version integer NOT NULL CHECK(aggregate_version>0),
   event_type text NOT NULL CHECK(event_type LIKE 'test.%'),
-  payload jsonb NOT NULL CHECK(payload->>'synthetic'='true' AND payload->>'namespace'='pickchick-test'),
+  payload jsonb NOT NULL CHECK((payload->>'synthetic'='true' AND payload->>'namespace'='pickchick-test') IS TRUE),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   UNIQUE(order_id,aggregate_version)
 );
