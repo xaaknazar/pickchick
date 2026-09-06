@@ -55,7 +55,7 @@ def main():
         except urllib.error.HTTPError as error:
             response = error
         with response:
-            checks.append({'method': req.method, 'path': path, 'status': response.status})
+            checks.append({'method': req.get_method(), 'path': path, 'status': response.status})
             assert response.status in expected, 'Unexpected status for ' + path
             assert response.headers['Access-Control-Allow-Origin'] == '*'
             assert response.headers.get('Access-Control-Allow-Credentials') is None
