@@ -1,7 +1,10 @@
 import { Tabs } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { TabIcon } from '../../components/UI';
+
+const activeColor = '#4A85F0';
+const inactiveColor = '#93A6C9';
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { fontScale } = useWindowDimensions();
@@ -10,8 +13,8 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: '#4A85F0',
-        tabBarInactiveTintColor: '#93A6C9',
+        tabBarActiveTintColor: activeColor,
+        tabBarInactiveTintColor: inactiveColor,
         tabBarLabelPosition: 'below-icon',
         tabBarStyle: {
           backgroundColor: '#04143A',
@@ -19,7 +22,14 @@ export default function TabLayout() {
           flexShrink: 0,
           height: 44 + Math.ceil(16 * fontScale) + insets.bottom,
         },
-        tabBarLabelStyle: { fontFamily: 'Manrope_600SemiBold', fontSize: 11, lineHeight: 16 },
+        tabBarIconStyle: { width: 24, height: 24 },
+        tabBarLabelStyle: {
+          fontFamily: 'Manrope_600SemiBold',
+          fontSize: 11,
+          lineHeight: 16,
+          includeFontPadding: false,
+          textAlign: 'center',
+        },
       }}
     >
       <Tabs.Screen
@@ -27,8 +37,8 @@ export default function TabLayout() {
         options={{
           title: 'Меню',
           tabBarButtonTestID: 'tab-menu',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="menu-outline" color={color} size={size} />
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="menu" color={focused ? activeColor : inactiveColor} />
           ),
         }}
       />
@@ -37,8 +47,8 @@ export default function TabLayout() {
         options={{
           title: 'События',
           tabBarButtonTestID: 'tab-events',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" color={color} size={size} />
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="events" color={focused ? activeColor : inactiveColor} />
           ),
         }}
       />
@@ -47,8 +57,8 @@ export default function TabLayout() {
         options={{
           title: 'Заказы',
           tabBarButtonTestID: 'tab-orders',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" color={color} size={size} />
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="orders" color={focused ? activeColor : inactiveColor} />
           ),
         }}
       />
@@ -57,8 +67,8 @@ export default function TabLayout() {
         options={{
           title: 'Профиль',
           tabBarButtonTestID: 'tab-profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" color={color} size={size} />
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="profile" color={focused ? activeColor : inactiveColor} />
           ),
         }}
       />
