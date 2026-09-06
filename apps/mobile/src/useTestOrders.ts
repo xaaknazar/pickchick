@@ -14,6 +14,8 @@ export interface TestFlowModel {
   current: TestOrder | null;
   recoveryAvailable: boolean;
   recoverPending(): Promise<TestOrder | null>;
+  sessionExpired: boolean;
+  continueSession(): Promise<boolean>;
   select(id: string): void;
   refresh(): void;
   submit(): Promise<TestOrder | null>;
@@ -24,7 +26,7 @@ export interface TestFlowModel {
 function errorMessage(error: unknown): string {
   if (error instanceof TestApiError) {
     if (error.status === 401)
-      return 'Тестовый сеанс истёк. Его заказы остаются на тестовой кухне; попросите оператора завершить проверку.';
+      return 'Тестовый доступ истёк. Продлите его после завершения всех заказов. Если заказ ещё на кухне, попросите оператора закончить проверку.';
     if (error.status === 429) return 'Лимит тестового контура достигнут. Повторите позже.';
     if (error.code === 'PREVIOUS_ORDER_PENDING' || error.code === 'PREVIOUS_COMMAND_PENDING')
       return 'Сохранена незавершённая проверка. Нажмите «Восстановить проверку», чтобы получить её результат без нового заказа.';
@@ -53,6 +55,7 @@ export function useTestOrders(
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [recoveryAvailable, setRecoveryAvailable] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const polling = useRef(false);
   const current = orders.find((order) => order.order_id === currentId) ?? null;
   const generation = useRef(0);
@@ -82,8 +85,12 @@ export function useTestOrders(
       );
       setObservedAt(new Date().toISOString());
       setError(null);
+      setSessionExpired(false);
     } catch (failure) {
-      if (epoch === generation.current) setError(errorMessage(failure));
+      if (epoch === generation.current) {
+        setError(errorMessage(failure));
+        if (failure instanceof TestApiError && failure.status === 401) setSessionExpired(true);
+      }
     } finally {
       polling.current = false;
     }
@@ -142,7 +149,10 @@ export function useTestOrders(
       apply(order);
       return order;
     } catch (failure) {
-      if (epoch === generation.current) setError(errorMessage(failure));
+      if (epoch === generation.current) {
+        setError(errorMessage(failure));
+        if (failure instanceof TestApiError && failure.status === 401) setSessionExpired(true);
+      }
       return null;
     } finally {
       busyRef.current = false;
@@ -156,6 +166,34 @@ export function useTestOrders(
     }
   };
 
+  const continueSession = async (): Promise<boolean> => {
+    if (!available || !restored || busyRef.current) return false;
+    generation.current += 1;
+    const epoch = generation.current;
+    busyRef.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      await client.continueSession();
+      if (epoch !== generation.current) return false;
+      setSessionExpired(false);
+      busyRef.current = false;
+      await refresh();
+      return true;
+    } catch (failure) {
+      if (epoch === generation.current)
+        setError(
+          failure instanceof TestApiError && failure.status === 409
+            ? 'Сначала оператор должен завершить все заказы этого сеанса и уточнить неизвестный результат. Затем повторите продление.'
+            : errorMessage(failure),
+        );
+      return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
   return {
     available,
     busy: busy || (available && !restored),
@@ -165,6 +203,8 @@ export function useTestOrders(
     current,
     recoveryAvailable,
     recoverPending: () => run(() => client.recoverPending()),
+    sessionExpired,
+    continueSession,
     select: setCurrentId,
     refresh: () => {
       void refresh();

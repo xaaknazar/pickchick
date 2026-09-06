@@ -19,6 +19,7 @@ import {
   TestResolvePaymentSchema,
   TestRoleSchema,
   TestSessionInputSchema,
+  TestContinueSessionInputSchema,
   TestSessionSchema,
   TestVersionSchema,
   type TestOrder,
@@ -304,6 +305,56 @@ export class TestOrderFlow {
         token,
         expires_at: inserted?.expires_at.toISOString(),
         channel: body.channel,
+      });
+    });
+  }
+  async continueSession(token: string, input: unknown) {
+    enabled(this.config);
+    parse(TestContinueSessionInputSchema, input);
+    if (!/^[a-f0-9]{64}$/.test(token)) throw new TestFlowError('UNAUTHORIZED');
+    return transaction(this.pool, async (client) => {
+      await lockFlow(client);
+      await checkBranch(client);
+      // Expired credentials are accepted solely here, never for order operations.
+      const actor = (
+        await client.query<Actor & { expires_at: Date; active: boolean }>(
+          'SELECT id,role,branch_id,channel,expires_at,expires_at>clock_timestamp() AS active FROM test_actors WHERE token_hash=$1 AND revoked_at IS NULL',
+          [hash(token)],
+        )
+      ).rows[0];
+      if (!actor) throw new TestFlowError('UNAUTHORIZED');
+      if (actor.role !== 'customer' || actor.branch_id !== TEST_BRANCH_ID)
+        throw new TestFlowError('FORBIDDEN');
+      const unfinished = await client.query(
+        "SELECT 1 FROM test_orders WHERE actor_id=$1 AND (state NOT IN ('fulfilled','cancelled') OR payment_state='simulated_unknown') LIMIT 1",
+        [actor.id],
+      );
+      if (unfinished.rowCount) throw new TestFlowError('CONFLICT');
+      let expiresAt = actor.expires_at;
+      if (!actor.active) {
+        const count = (
+          await client.query<{ count: string }>(
+            "SELECT count(*) FROM test_actors WHERE role='customer' AND expires_at>clock_timestamp() AND revoked_at IS NULL",
+          )
+        ).rows[0];
+        if (Number(count?.count) >= 100) throw new TestFlowError('RATE_LIMITED');
+        const extended = (
+          await client.query<{ expires_at: Date }>(
+            "UPDATE test_actors SET expires_at=clock_timestamp()+interval '2 hours' WHERE id=$1 RETURNING expires_at",
+            [actor.id],
+          )
+        ).rows[0];
+        if (!extended) throw new TestFlowError('UNAUTHORIZED');
+        expiresAt = extended.expires_at;
+      }
+      // Returning the caller's token introduces no plaintext token storage. Keeping
+      // this actor preserves history, daily issuance counts and per-actor quotas.
+      return TestSessionSchema.parse({
+        ...synthetic,
+        session_id: actor.id,
+        token,
+        expires_at: expiresAt.toISOString(),
+        channel: actor.channel,
       });
     });
   }

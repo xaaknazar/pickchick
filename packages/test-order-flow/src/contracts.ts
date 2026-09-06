@@ -10,6 +10,7 @@ export const TestChannelSchema = z.enum(['mobile', 'kiosk']);
 export const TestRoleSchema = z.enum(['customer', 'prep', 'assembly', 'display', 'manager']);
 export type TestRole = z.infer<typeof TestRoleSchema>;
 export const TestSessionInputSchema = z.strictObject({ channel: TestChannelSchema });
+export const TestContinueSessionInputSchema = z.strictObject({});
 export const TestSessionSchema = z.strictObject({
   ...Synthetic,
   session_id: Uuid,
