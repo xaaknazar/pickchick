@@ -55,8 +55,12 @@ final class SmokeTests: XCTestCase {
         assertLabel("Готовится", on: element("connected-order-state", in: app))
         attachScreenshot("Connected-restored", of: app)
         tap("test-open-cancel", in: app)
+        let cancellationReason = "Native TEST cancellation after relaunch: complete reason"
+        replaceText(in: element("test-cancel-reason", in: app), with: cancellationReason, app: app)
         tap("test-cancel-order", in: app)
         assertLabel("Отменён", on: element("connected-order-state", in: app))
+        let savedReason = app.staticTexts.matching(NSPredicate(format: "label == %@", cancellationReason)).firstMatch
+        XCTAssertTrue(savedReason.waitForExistence(timeout: 10), "Server must preserve the complete typed cancellation reason")
         attachScreenshot("Connected-cancelled", of: app)
     }
 
