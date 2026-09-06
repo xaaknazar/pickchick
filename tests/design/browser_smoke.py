@@ -12,6 +12,7 @@ errors = []
 broken = []
 overflows = []
 checked = 0
+video_fallbacks = []
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page(viewport={'width': 1600, 'height': 1200}, device_scale_factor=1)
@@ -26,6 +27,8 @@ with sync_playwright() as p:
             page.goto(base + '/#' + fragment)
             page.wait_for_function('(id)=>document.title.startsWith(id)', arg=screen['id'])
             page.wait_for_function('(value)=>document.querySelector("#state-select")?.value===value', arg=state)
+            # render() applies the surface's native size in requestAnimationFrame.
+            page.wait_for_function('()=>Boolean(document.querySelector("#preview")?.style.width) && document.fonts.status==="loaded"')
             body = page.locator('#preview').inner_text()
             assert 'Экран не определён' not in body, (screen['id'], state)
             assert 'undefined' not in body, (screen['id'], state)
@@ -65,12 +68,27 @@ with sync_playwright() as p:
     page.wait_for_selector('.ref-mobile-video')
     page.locator('[data-action="video-toggle"]').click()
     assert page.locator('video').evaluate('(v)=>v.paused')
+    assert page.locator('video').evaluate('(v)=>!v.autoplay')
     assert page.locator('.bottom-nav button[data-go="M19"]').count() == 1
     assert page.locator('.bottom-nav button[data-go="M23"]').count() == 0
     page.goto(base + '/#K01')
     page.wait_for_selector('[data-go="K02"]')
     page.locator('#preview [data-go="K02"]').first.click()
     page.wait_for_function('()=>document.title.startsWith("K02")')
+    # Cold/unsupported media must not turn a visible Pause command into Play.
+    cold = browser.new_page(viewport={'width': 1600, 'height': 1200})
+    cold.on('pageerror', lambda e: errors.append(str(e)))
+    cold.route('**/assets/mockup/hero.mp4', lambda route: route.abort())
+    cold.goto(base + '/#M06')
+    cold.wait_for_function('()=>{const v=document.querySelector("#preview video");return v && v.networkState===v.NETWORK_NO_SOURCE;}')
+    assert cold.locator('#preview video').evaluate('(v)=>v.paused')
+    cold.locator('[data-action="video-toggle"]').click()
+    assert cold.locator('#preview video').evaluate('(v)=>v.paused && !v.autoplay')
+    assert cold.locator('[data-action="video-toggle"]').get_attribute('aria-label') == 'Включить фоновое видео'
+    cold.locator('[data-action="video-toggle"]').click()
+    cold.locator('.toast').filter(has_text='Видео недоступно. Меню работает; показываем обложку.').wait_for()
+    assert cold.locator('#preview video').evaluate('(v)=>v.paused')
+    cold.close()
     page.set_viewport_size({'width': 2100, 'height': 1550})
     for (id, name) in [('M06', 'mobile-menu'), ('M07', 'mobile-product'), ('M18', 'mobile-ready'), ('M23', 'mobile-wallet'), ('M30', 'mobile-profile'), ('K01', 'kiosk-welcome'), ('K03', 'kiosk-menu'), ('P03', 'pos-sale'), ('D01', 'kitchen-a'), ('D02', 'kitchen-b'), ('T01', 'display'), ('B02', 'backoffice')]:
         page.goto(base + '/')
@@ -81,7 +99,10 @@ with sync_playwright() as p:
         page.wait_for_load_state('networkidle')
         page.locator('#preview').evaluate('(e)=>{e.style.transform="scale(1)";e.style.position="relative";}')
         if page.locator('#preview video').count():
-            page.locator('#preview video').evaluate_all('(videos)=>videos.forEach(v=>{v.pause();v.currentTime=4;})')
+            page.wait_for_function('()=>Array.from(document.querySelectorAll("#preview video")).every(v=>v.readyState>=1 || v.error || v.networkState===v.NETWORK_NO_SOURCE)')
+            if page.locator('#preview video').evaluate_all('(videos)=>videos.some(v=>v.error || v.networkState===v.NETWORK_NO_SOURCE)'):
+                video_fallbacks.append(id)
+            page.locator('#preview video').evaluate_all('(videos)=>videos.forEach(v=>{v.pause();if(!v.error && v.readyState>=1)v.currentTime=4;})')
             page.wait_for_function('()=>Array.from(document.querySelectorAll("#preview video")).every(v=>!v.seeking)')
         page.locator('#preview').screenshot(path=str(root / 'design/previews' / f'{name}.png'))
         if id == 'M06':
@@ -94,7 +115,7 @@ with sync_playwright() as p:
     assert page.locator('body').evaluate('(e)=>e.scrollWidth<=window.innerWidth+2')
     page.screenshot(path=str(output / 'review-at-390.png'), full_page=True)
     browser.close()
-result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout', 'reference video pause', 'source bottom navigation', 'kiosk attract transition']}
+result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'video_poster_fallbacks': video_fallbacks, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout', 'reference video pause', 'source bottom navigation', 'kiosk attract transition', 'pause before media can play', 'unavailable media resume fallback']}
 (output / 'results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(result, ensure_ascii=False))
 assert not errors and (not broken) and (not overflows)

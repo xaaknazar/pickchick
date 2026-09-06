@@ -323,14 +323,33 @@ document.addEventListener('click', async (event) => {
   if (action === 'video-toggle') {
     const video = document.querySelector('#preview video');
     if (video) {
-      if (video.paused) {
-        await video.play();
-        el.textContent = 'Ⅱ';
-        el.setAttribute('aria-label', 'Остановить фоновое видео');
-      } else {
+      // Before the first decoded frame, paused can still be true despite autoplay.
+      // Follow the displayed command so Pause also cancels pending autoplay.
+      if (el.dataset.videoCommand !== 'play') {
+        video.autoplay = false;
         video.pause();
+        el.dataset.videoCommand = 'play';
         el.textContent = '▶';
         el.setAttribute('aria-label', 'Включить фоновое видео');
+      } else {
+        if (video.error || video.networkState === video.NETWORK_NO_SOURCE) {
+          video.pause();
+          toast('Видео недоступно. Меню работает; показываем обложку.');
+          return;
+        }
+        try {
+          await video.play();
+          if (!el.isConnected) {
+            video.pause();
+            return;
+          }
+          el.dataset.videoCommand = 'pause';
+          el.textContent = 'Ⅱ';
+          el.setAttribute('aria-label', 'Остановить фоновое видео');
+        } catch {
+          video.pause();
+          toast('Видео недоступно. Меню работает; показываем обложку.');
+        }
       }
     }
     return;
