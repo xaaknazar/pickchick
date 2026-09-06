@@ -1,0 +1,128 @@
+SOURCE: /Users/xaknazar/Downloads/Pick Chick Табло (offline).html
+SHA256: ca8418908d8cf78bbf642e5103dee287b0884920cd4325fff4b272dc68f88333
+
+TEXT
+{{ t.board }}
+{{ t.point }}
+{{ clock }}
+{{ dateLabel }}
+{{ t.cooking }}
+{{ o.no }}
+{{ o.name }}
+{{ o.stage }}
+{{ o.left }}
+{{ t.ready }}
+{{ o.no }}
+{{ o.name }}
+{{ t.takeHint }}
+{{ k.text }}
+Приложение
+·
+Киоск
+·
+Табло
+·
+Кухня
+·
+Бэк-офис
+
+PROTOTYPE LOGIC (REFERENCE DATA ONLY)
+
+class Component extends DCLogic {
+  NAMES = ['Азамат', 'Айгерим', 'Данияр', 'Мадина', 'Ерлан', 'Аружан', 'Тимур', 'Алина', 'Санжар', 'Диана', 'Нурлан', 'Камила'];
+
+  state = { now: new Date(), cooking: [], ready: [], seq: 148, justReady: null };
+
+  T = {
+    ru: { board: 'Табло выдачи', point: 'Pick Chick · Алматы', cooking: 'ГОТОВИТСЯ', ready: 'ГОТОВО',
+      takeHint: 'Подойдите к стойке выдачи и назовите номер заказа', min: 'мин', soon: 'почти готово',
+      st1: 'в очереди', st2: 'готовим', st3: 'собираем',
+      ticker: [
+        'PICK YOUR PEAK',
+        'Скачайте приложение Pick Chick — 7% чиками с каждого заказа',
+        'Копите Чики и меняйте их на фингерсы, соусы и напитки',
+        'Новинка: Solo Combo — 3 фингерса, фри, соус и тост за 3 490 ₸',
+        'Новинка: острый фирменный соус — попробуйте с фингерсами',
+        'Приведите друга: вам 1 000 Чиков, другу — 500 на первый заказ',
+        'Сеты на компанию: 25 · 50 · 75 · 100 фингерсов',
+        'Фирменный соус 300 и 500 г — забирайте домой',
+        'Первый заказ в приложении — скидка 15% по промокоду PICK15'
+      ] },
+    kk: { board: 'Беру тақтасы', point: 'Pick Chick · Алматы', cooking: 'ДАЙЫНДАЛУДА', ready: 'ДАЙЫН',
+      takeHint: 'Беру сөресіне келіп, тапсырыс нөмірін айтыңыз', min: 'мин', soon: 'дерлік дайын',
+      st1: 'кезекте', st2: 'дайындалуда', st3: 'жиналуда',
+      ticker: [
+        'PICK YOUR PEAK',
+        'Pick Chick қосымшасын жүктеңіз — әр тапсырыстан 7% чик',
+        'Чик жинап, оларды фингерс, тұздық және сусынға айырбастаңыз',
+        'Жаңалық: Solo Combo — 3 фингерс, фри, тұздық және тост 3 490 ₸',
+        'Жаңалық: ащы фирмалық тұздық — фингерспен көріңіз',
+        'Досыңызды шақырыңыз: сізге 1 000 Чик, оған — алғашқы тапсырысқа 500',
+        'Компанияға сеттер: 25 · 50 · 75 · 100 фингерс',
+        'Фирмалық тұздық 300 және 500 г — үйге алыңыз',
+        'Қосымшадағы алғашқы тапсырысқа PICK15 промокодымен 15% жеңілдік'
+      ] }
+  };
+
+  componentDidMount() {
+    const seed = [];
+    for (let i = 0; i < 7; i++) seed.push(this.make(148 + i, 6 - i));
+    const ready = [this.make(144), this.make(145), this.make(146)];
+    this.setState({ cooking: seed, ready, seq: 155 });
+    this.clock = setInterval(() => this.setState({ now: new Date() }), 1000);
+    this.loop = setInterval(this.step, (this.props.tickSeconds || 6) * 1000);
+  }
+  componentWillUnmount() { clearInterval(this.clock); clearInterval(this.loop); }
+
+  make(no, offset) {
+    const tick = (this.props.tickSeconds || 6) * 1000;
+    const span = tick * (this.props.cookingSlots || 8);
+    return { no: String(no), name: this.NAMES[no % this.NAMES.length], start: Date.now() - (offset || 0) * tick, span };
+  }
+
+  step = () => {
+    const s = this.state;
+    if (!s.cooking.length) return;
+    const done = s.cooking[0];
+    const cooking = s.cooking.slice(1).concat(this.make(s.seq));
+    const ready = [done].concat(s.ready).slice(0, this.props.readySlots || 6);
+    this.setState({ cooking, ready, seq: s.seq + 1, justReady: done.no });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const t = this.T[this.props.lang || 'ru'] || this.T.ru;
+    const two = n => String(n).padStart(2, '0');
+    const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    const showNames = this.props.showNames !== false;
+    return {
+      t,
+      clock: two(s.now.getHours()) + ':' + two(s.now.getMinutes()),
+      dateLabel: s.now.getDate() + ' ' + months[s.now.getMonth()],
+      cooking: s.cooking.slice(0, this.props.cookingSlots || 8).map(o => {
+        const span = o.span || 48000;
+        const p = Math.max(0.04, Math.min(1, (Date.now() - o.start) / span));
+        const totalMin = this.props.etaMinutes || 12;
+        const leftMin = Math.max(1, Math.ceil(totalMin * (1 - p)));
+        const soon = p > 0.86;
+        return {
+          no: o.no, name: showNames ? o.name : '',
+          pct: Math.round(p * 100) + '%',
+          barBg: 'var(--orange)',
+          barGlow: soon ? '0 0 18px rgba(255,103,31,.45)' : 'none',
+          stage: p < 0.34 ? t.st1 : (p < 0.72 ? t.st2 : t.st3),
+          left: soon ? t.soon : '≈ ' + leftMin + ' ' + t.min,
+          leftFg: soon ? 'var(--orange)' : '#0047BB'
+        };
+      }),
+      ready: s.ready.map((o, i) => ({
+        no: o.no, name: showNames ? o.name : '',
+        size: i === 0 ? '104px' : '80px',
+        anim: o.no === s.justReady ? 'bPop .45s cubic-bezier(.2,.9,.3,1) both, bGlow 1.8s ease-out 2' : 'none'
+      })),
+      cookingCount: Math.min(s.cooking.length, this.props.cookingSlots || 6),
+      readyCount: s.ready.length,
+      ticker: t.ticker.concat(t.ticker).map(x => ({ text: x }))
+    };
+  }
+}

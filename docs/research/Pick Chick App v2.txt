@@ -1,0 +1,1321 @@
+SOURCE: /Users/xaknazar/Downloads/Pick Chick App v2 (offline).html
+SHA256: 8900ccf08504783f0ec355844ab1a24c598550c34fa956b11ab8a943a4e538a5
+
+TEXT
+Pick Chick
+ВЕРСИЯ 2 · APPLE-СТИЛЬ
+Что изменилось: фон больше не белый — холодный синеватый холст с белыми карточками, крупные заголовки, стеклянные панели, инсет-списки. «Игра» превратилась в
+События
+— афишу с активными и предстоящими механиками. Лояльность вынесена в отдельный экран
+Чики
+: кошелёк, уровни, ускорители, сгорание.
+ТЕМА
+{{ t.label }}
+ПОСТЕР ИГРЫ
+Масштаб
+{{ posterZoomLabel }}
+По горизонтали
+{{ posterX }}
+По вертикали
+{{ posterY }}
+ЭКРАНЫ
+{{ n.num }}
+{{ n.label }}
+Фото блюд: перетащите файл в любой слот — сохранится. Из Google Drive скачать не получилось, ссылки закрыты авторизацией.
+Пропустить
+{{ obTitle }}
+{{ obSub }}
+{{ obCta }}
+Меню без входа
+Ваш номер
+Код придёт в SMS. Номер нужен, чтобы копить Чики и видеть заказы во всех каналах.
++7
+{{ phoneMask }}
+Продолжая, вы соглашаетесь с
+офертой
+и
+политикой конфиденциальности
+.
+{{ k.label }}
+Получить код
+Изменить номер
+Код из SMS
+Отправили на +7 707 123-45-67
+{{ c.v }}
+Новый код можно запросить через 0:43
+Код подставляется автоматически: Android SMS Retriever, iOS autofill.
+Подтвердить
+Знакомимся
+Никнейм появится на табло выдачи, а в день рождения подарим комбо.
+НИКНЕЙМ
+@
+{{ regNickShown }}
+НОМЕР ТЕЛЕФОНА
++7 {{ phoneMask }}
+ДАТА РОЖДЕНИЯ
+{{ p.label }}
+{{ p.value }}
+{{ o.label }}
+ПОЛ
+{{ g.label }}
+За заполненный профиль начислим 300 Чиков сразу после регистрации.
+{{ regBtnLabel }}
+Заполню позже
+Pick Chick
+пр. Абая 44 · {{ fulfillShort }}
+▾
+Заберу сам
+В зале
+Комбо недели
+подробнее
+66%
+Пик-мастер · кэшбэк 7%
+{{ balanceLabel }} · до «Пик» 34 500 ₸
+›
+{{ orderNumber }}
+{{ trackerStageLabel }}
+Будет готов примерно в 14:32
+›
+{{ a.label }}
+{{ s.title }}
+{{ it.tag }}
+{{ it.name }}
+{{ it.comp }}
+{{ it.priceLabel }}
+Закончилось
+Выбрать
+{{ s.title }}
+{{ it.tag }}
+{{ it.name }}
+{{ it.priceLabel }}
++
+События
+Афиша недели: участвуете заказами, награда — Чики и блюда.
+СТРИК ЗАКАЗОВ · АЛМАТЫ
+{{ streakWeeks }}
+недели подряд
+❄
+{{ freezePill }}
+{{ freezeHint }}
+{{ f.week }}
+{{ f.label }}
+Идут сейчас
+до вс, 23:59
+ИГРА НЕДЕЛИ
+3 ПОПЫТКИ
+ЛУЧШИЙ СЧЁТ
+12
+PICK MAN
+Полёт на паутине над городом — до 300 Чиков в день
+ИГРА
+ВОЛНА 2
+PICK RUN
+Раннер: петух бежит по городу и собирает фингерсы
+Скоро
+{{ e.when }}
+{{ e.kind }}
+ПРОГРЕСС
+{{ e.progress }}
+{{ e.name }}
+{{ e.desc }}
+{{ e.reward }}
+{{ e.cta }}
+Скоро
+{{ s.date }}
+{{ s.name }}
+{{ s.note }}
+{{ s.status }}
+‹ Профиль
+Дорога наград
+Считаем все Чики, что вы заработали. Дорога не сбрасывается — награды открываются навсегда.
+ЗАРАБОТАНО ВСЕГО
+{{ earnedTotalLabel }}
+{{ roadPct }}
+{{ roadNext }}
+{{ r.mark }}
+{{ r.amount }}
+{{ r.state }}
+{{ r.reward }}
+Пройденные миссии
+✓
+{{ m.name }}
+{{ m.note }} · {{ m.date }}
+{{ m.reward }}
+Коллекция соусов
+3 / 7
+{{ c.mark }}
+Соберите все семь — бейдж в карте лояльности и 1 000 Чиков
+‹ Назад
+КОШЕЛЁК ЧИКОВ
+{{ balanceShort }}
+= {{ balanceLabelMoney }}
+Сгорит 18 сентября
+240
+Заработано за 90 дней
+3 180
+Любой заказ продлевает срок жизни всего баланса на 180 дней. На уровне «Пик» Чики не сгорают.
+Уровни
+{{ l.name }}
+ВАШ УРОВЕНЬ
+{{ l.cashback }}
+{{ l.perks }}
+{{ l.threshold }}
+Как быстрее копить
+{{ w.badge }}
+{{ w.name }}
+{{ w.note }}
+История
+{{ h.name }}
+{{ h.date }}
+{{ h.amount }}
+Заказы
+{{ orderNumber }}
+{{ trackerStageLabel }}
+Pick Chick на Абая · к 14:32
+ИСТОРИЯ
+{{ h.date }}
+{{ h.no }}
+{{ h.items }}
+{{ h.total }}
+{{ h.earned }}
+★
+Оценить заказ
+Профиль
+А
+Азамат
++7 707 *** 12 34
+БАЛАНС
+{{ balanceShort }}
+Чиков ›
+Пик-мастер · 7%
+До уровня «Пик» — 34 500 ₸
+кэшбэк 10%
+QR для кассы
+Покажите на кассе, чтобы начислить Чики. Обновится через 42 сек — скриншот не сработает.
+ЛОЯЛЬНОСТЬ
+Мои Чики и уровни
+{{ balanceShort }}
+Награды и миссии
+3 из 8
+Промокоды
+2 активных
+Пригласите друга
+Вам 1 000 Чиков, другу — 500 на первый заказ.
+Позвать
+АККАУНТ
+Мои данные
+Азамат
+Уведомления
+Язык
+Русский
+ЕЩЁ
+Наши рестораны
+1 точка
+Поддержка
+с 10:00 до 23:00
+Выйти
+Pick Chick · Алматы · версия 1.0 (24)
+Оферта
+·
+Политика конфиденциальности
+·
+Удалить аккаунт
+‹
+Pick Chick
+пр. Абая 44 · корзина
+{{ prepText }}
+Корзина пуста
+Соберите комбо — фингерсы, соус и напиток. Оформление займёт минуту.
+В меню
+{{ c.name }}
+✕
+{{ c.mods }}
+−
+{{ c.qty }}
++
+{{ c.total }}
+Всегда кстати
+{{ u.name }}
+{{ u.priceLabel }}
++
+{{ promoLabel }}
+{{ promoAction }}
+Чики за этот заказ
+Копятся на дорогу наград — тратить не нужно
++{{ earnLabel }}
+{{ t.label }}
+{{ t.value }}
+К оплате
+{{ payableLabel }}
++{{ earnLabel }} Чиков после получения · это 7% от оплаты деньгами
+Способ оплаты
+Спишем {{ payableLabel }} после подтверждения
+{{ m.mark }}
+{{ m.name }}
+{{ m.note }}
+Способ оплаты
+{{ payMark }}
+{{ payLabel }}
+К оплате
+{{ payableLabel }}
+{{ payCta }}
+Заказ даст +{{ earnLabel }} Чиков
+‹
+Заказ №{{ orderNumber }}
+Pick Chick на Абая · заберу сам
+{{ s.label }}
+{{ stageEta }}
+{{ trackerStageLabel }}
+{{ trackerHeadline }}
+{{ trackerSub }}
+{{ orderReadyLabel }}
+ориентировочно
+ВАШИ ПОЗИЦИИ
+{{ c.name }}
+× {{ c.qty }}
+{{ c.total }}
+{{ c.mods }}
+{{ payTitle }}
+{{ orderTotalLabel }}
++{{ orderEarnLabel }} Чиков после выдачи
+{{ trackerPaidNote }}
+ПОКА ЖДЁТЕ
+Pick Man
+Полёт на паутине над городом — до 300 Чиков
+›
+Показать номер на выдаче
+Заказ забрал
+Готово!
+Забирайте на кассе
+{{ orderNumber }}
+Покажите экран кассиру. {{ payTitle }} — {{ orderTotalLabel }}.
+Я забрал заказ
+✕
+{{ itemName }}
+{{ itemComp }}
+КБЖУ
+{{ itemWeight }} · порция
+{{ n.value }}
+{{ n.label }}
+Напиток
+ОБЯЗАТЕЛЬНО
+{{ d.name }}
+{{ d.delta }}
+{{ drinksToggleLabel }}
+Соус
+ОБЯЗАТЕЛЬНО
+{{ d.name }}
+{{ d.delta }}
+Добавить к комбо
+{{ c.name }}
+{{ c.priceLabel }}
+−
+{{ c.qty }}
++
+Объём
+ОБЯЗАТЕЛЬНО
+{{ z.name }}
+{{ z.delta }}
+Комментарий к позиции
+−
+{{ itemQty }}
++
+В корзину · {{ itemTotalLabel }}
+‹ События
+{{ gameAttempts }}
+Петух летит над городом на паутине. Держите палец — поднимается, отпустите — падает. Собирайте Чиков и не задевайте препятствия.
+Награда
+до 300 Чиков
+Лучший счёт
+{{ gameBest }}
+КАК ПОЛУЧИТЬ ПОПЫТКИ
++1
+Попытка за каждые 3 000 ₸ в заказе. Заказ на 9 000 ₸ — сразу три попытки
++1
+Одна бесплатная попытка каждый день, ещё одна — за выполненную миссию
+✦
+Копится максимум 3 попытки, лимит 300 Чиков в день
+Начать игру
+ПОЙМАНО
+{{ gameScore }}
++{{ gameReward }} Чиков
+Ч
+Держите палец — герой поднимается на паутине, отпустите — падает
+Собрано Чиков: {{ gameScore }}
++{{ gameReward }}
+10 Чиков за каждого поймать. Осталось попыток на сегодня: 2.
+Ещё попытка
+В события
+‹
+Заказ {{ ov.no }}
+{{ ov.date }} · Pick Chick на Абая
+{{ ov.items }}
+Сумма на момент заказа
+{{ ov.subtotal }}
+Чики
+{{ ov.spent }}
+Итого
+{{ ov.total }}
+{{ ov.method }}
+{{ ov.earned }}
+Фискальный чек Webkassa
+{{ ov.fpd }}
+›
+Ваша оценка
+★
+Оценить заказ
+Повторить заказ
+Проводим оплату
+{{ payableLabel }} · {{ payMethodName }}
+{{ p.mark }}
+{{ p.label }}
+Не закрывайте экран. Если платёж не пройдёт, заказ не создастся и деньги не спишутся.
+Как всё прошло?
+{{ ratingHint }}
+★
+{{ t.label }}
+Расскажите подробнее — увидит менеджер точки
+Отправить оценку
+Позже
+PICK CHICK
+{{ toastText }}
+{{ errorText }}
+Понятно
+Корзина · {{ cartCount }}
+{{ payableLabel }}
+Меню
+События
+Заказы
+Профиль
+Приложение
+·
+Киоск
+·
+Табло
+·
+Кухня
+·
+Бэк-офис
+
+PROTOTYPE LOGIC (REFERENCE DATA ONLY)
+
+class Component extends DCLogic {
+  state = {
+    theme: null, screen: 'menu', prev: 'menu', ob: 0, modal: false,
+    drink: 'lemonade', sauce: 'pick',
+    counters: { finger: 0, sauce60: 0, sauceHot: 0, sauceCheese: 0, sauceBbq: 0, toast: 1, coleslaw: 0, wedges: 0 },
+    itemQty: 1, expandDrinks: false, useChiki: true, slot: 0, stage: 1, dinein: false,
+    game: 'idle', gScore: 0, gCell: 4, modalId: 'pick', size: 0, cat: 'combo',
+    promoIdx: 0, promoPaused: false,
+    w: { y: 45, vy: 0, pull: false, items: [], tick: 0 },
+    pZoom: 100, pX: 50, pY: 22, earnedTotal: 3180, freezeLeft: 1, frozenWeek: null,
+    balance: 1240, orderNo: 146, activeOrder: null, payMethod: 'kaspi', payStep: 0,
+    promo: false, cutlery: 2, payListOpen: false, rating: 0,
+    regNick: '', regDay: null, regMonth: null, regYear: null, regGender: null, regPicker: null, ratingTags: [], toast: '', error: '',
+    orderView: null, rateFor: null,
+    orders: [
+      { no: 142, date: '21 августа, 13:40', total: 5570, subtotal: 6570, spent: 1000, items: 'Pick Combo · Фингерс ×2 · Фирменный лимонад', earned: 390, rating: 5, method: 'Kaspi QR', fpd: '4100712' },
+      { no: 138, date: '17 августа, 19:12', total: 7990, subtotal: 7990, spent: 0, items: 'Фингер Дуо · 2 соуса · 2 тоста', earned: 559, rating: 0, method: 'Карта 4400 •• 7712', fpd: '4100698' },
+      { no: 131, date: '9 августа, 12:05', total: 3490, subtotal: 3490, spent: 0, items: 'Solo Combo · Fuse Tea Персик', earned: 244, rating: 4, method: 'На кассе', fpd: '4100655' }
+    ],
+    cart: []
+  };
+
+  MONEY = n => n.toLocaleString('ru-RU').replace(/,/g, ' ') + ' ₸';
+  NUM = n => n.toLocaleString('ru-RU').replace(/,/g, ' ');
+
+  DRINKS = [
+    { id: 'cola', name: 'Coca-Cola 0.5 л, бутылка', d: 0 },
+    { id: 'lemonade', name: 'Фирменный лимонад 0.5 л', img: (window.__resources&&window.__resources['offline/i0.jpg']||'offline/i0.jpg'), d: 200 },
+    { id: 'Натуральный лимонад собственного приготовления из свежих апельсинов, лимонов, сахара и воды. Освежающий вкус без лишних добавок.', name: 'Fuse Tea Персик 0.5 л', img: (window.__resources&&window.__resources['offline/i1.jpg']||'offline/i1.jpg'), d: 0 },
+    { id: 'colacan', name: 'Coca-Cola 0.5 л, банка', img: (window.__resources&&window.__resources['offline/i2.jpg']||'offline/i2.jpg'), d: 100 },
+    { id: 'fanta', name: 'Fanta 0.5 л, бутылка', d: 0 },
+    { id: 'sprite', name: 'Sprite 0.5 л, бутылка', d: 0 },
+    { id: 'zero', name: 'Coca-Cola Zero 0.5 л, бутылка', d: 0 },
+    { id: 'tea', name: 'Фирменный холодный чай, сладкий', d: 0 },
+    { id: 'tea2', name: 'Фирменный холодный чай, несладкий', d: 0 },
+    { id: 'berry', name: 'Fuse Tea Ягода 0.5 л', d: 0 },
+    { id: 'melon', name: 'Fuse Tea Арбуз 0.5 л', img: (window.__resources&&window.__resources['offline/i3.jpg']||'offline/i3.jpg'), d: 0, out: true },
+    { id: 'mango', name: 'Fuse Tea Манго-Ромашка 0.5 л', d: 0 },
+    { id: 'bonaqua', name: 'Bonaqua негазированная 0.5 л', d: 0 },
+    { id: 'piko', name: 'Piko 0.2 л', d: 0 }
+  ];
+  SAUCES = [
+    { id: 'pick', name: 'Фирменный соус Pick Chick', d: 0 },
+    { id: 'hot', name: 'Острый соус Pick Chick', d: 0 },
+    { id: 'cheese', name: 'Heinz сырный', d: 0 },
+    { id: 'bbq', name: 'Heinz барбекю', d: 0, out: true }
+  ];
+  COUNTERS = [
+    { id: 'finger', name: 'Фингерс, 1 шт', vid: (window.__resources&&window.__resources['']||''), img: (window.__resources&&window.__resources['offline/i4.jpg']||'offline/i4.jpg'), p: 690 },
+    { id: 'Нежное куриное филе в хрустящей панировке, обжаренное до золотистой корочки. Сочное внутри, хрустящее снаружи', name: 'Фирменный соус, 60 мл', p: 390 },
+    { id: 'sauceHot', name: 'Острый соус, 60 мл', p: 390 },
+    { id: 'sauceCheese', name: 'Heinz сырный, 60 мл', p: 390 },
+    { id: 'sauceBbq', name: 'Heinz барбекю, 60 мл', p: 390 },
+    { id: 'toast', name: 'Тост, 1 шт', img: (window.__resources&&window.__resources['offline/i5.jpg']||'offline/i5.jpg'), p: 390 },
+    { id: 'Фирменный тост с хрустящей золотистой корочкой, пропитанный чесночным маслом.', name: 'Коулслоу, 90 г', img: (window.__resources&&window.__resources['offline/i6.jpg']||'offline/i6.jpg'), p: 690 },
+    { id: 'Свежий салат из белокочанной и краснокочанной капусты с морковью, заправленный фирменным соусом.', name: 'Картофельные дольки, 90 г', p: 890 }
+  ];
+  COMBOS = [
+    { id: 'Хрустящие картофельные дольки с золотистой корочкой', name: 'Pick Combo', vid: (window.__resources&&window.__resources['uploads/IMG_7060.mp4']||'uploads/IMG_7060.mp4'), comp: '4 фингерса · фри · соус · тост · коулслоу · напиток', price: 4190, tag: 'ХИТ', img: (window.__resources&&window.__resources['offline/i7.jpg']||'offline/i7.jpg'),
+      d: '4 фингерса, 1 порция фри, 1 соус, 1 тост, 1 коулслоу и напиток на выбор.', n: [520, 1240, 55, 72, 98] },
+    { id: 'master', name: 'Master Combo', vid: (window.__resources&&window.__resources['']||''), comp: '6 фингерсов · фри · 2 соуса · 2 тоста · коулслоу · напиток', price: 5490, img: (window.__resources&&window.__resources['offline/i8.jpg']||'offline/i8.jpg'),
+      d: '6 фингерсов, 1 порция фри, 2 соуса, 2 тоста, 1 коулслоу и напиток на выбор.', n: [720, 1780, 78, 104, 132] },
+    { id: 'burger', name: 'Burger Combo', comp: 'бургер · фри · соус · напиток', price: 3790, img: (window.__resources&&window.__resources['offline/i9.jpg']||'offline/i9.jpg'),
+      d: '1 бургер, 1 порция фри, 1 соус и напиток на выбор.', n: [480, 1140, 34, 70, 92] },
+    { id: 'solo', name: 'Solo Combo', vid: (window.__resources&&window.__resources['']||''), comp: '3 фингерса · фри · соус · тост · напиток', price: 3490, tag: 'НОВИНКА', img: (window.__resources&&window.__resources['offline/i10.jpg']||'offline/i10.jpg'),
+      d: '3 фингерса, 1 порция фри, 1 соус, 1 тост и напиток на выбор.', n: [420, 1000, 44, 58, 82] }
+  ];
+  DUO = [
+    { id: 'fduo', name: 'Фингер Дуо', comp: '8 фингерсов · 1,5 порции долек · 2 соуса · 2 коулслоу · 2 тоста · 2 напитка', price: 7990, img: (window.__resources&&window.__resources['offline/i11.jpg']||'offline/i11.jpg'),
+      d: 'Сытное комбо для двоих: 8 хрустящих куриных фингерсов, 1,5 порции картофельных долек, 2 фирменных соуса, 2 порции свежего коулслоу, 2 фирменных тоста, 2 напитка на выбор', n: [1100, 2600, 104, 152, 190] },
+    { id: 'bduo', name: 'Бургер Дуо', comp: '2 бургера · 1,5 порции долек · 2 соуса · 2 напитка', price: 6990, img: (window.__resources&&window.__resources['offline/i12.jpg']||'offline/i12.jpg'),
+      d: 'Сытный бургер комбо с хрустящими куриными фингерсами, фирменным соусом, свежим коулслоу и мягким поджаренным тостом. 1,5 порции картофельных долек, 2 фирменных соуса, 2 напитка на выбор', n: [900, 2100, 68, 128, 168] },
+    { id: 'mduo', name: 'Микс Дуо', comp: '4 фингерса · 1,5 порции долек · 2 соуса · коулслоу · тост · 2 напитка', price: 7490, img: (window.__resources&&window.__resources['offline/i13.jpg']||'offline/i13.jpg'),
+      d: 'Сытное микс-комбо для двоих: 4 хрустящих куриных фингерса, 1,5 порции картофельных долек, 2 фирменных соуса, 1 порция свежего коулслоу, 1 фирменный тост и 2 напитка на выбор.', n: [980, 2200, 82, 130, 172] }
+  ];
+  PARTY = [
+    { id: 'p25', name: '25 фингерсов', comp: 'Сет на 6–8 человек · 25 фингерсов · 8 фирменных соусов', price: 13990, img: (window.__resources&&window.__resources['offline/i14.jpg']||'offline/i14.jpg'),
+      d: 'Большой сет для компании из 6–8 человек. 25 хрустящих куриных фингерсов и 8 фирменных соусов', n: [1900, 5900, 300, 410, 260] },
+    { id: 'p50', name: '50 фингерсов', comp: 'Сет на 13–15 человек · 50 фингерсов · 16 соусов', price: 26990, img: (window.__resources&&window.__resources['offline/i15.jpg']||'offline/i15.jpg'),
+      d: 'Сет для компании из 13-15 человек. 50 хрустящих куриных фингерсов и 16 фирменных соусов', n: [3800, 11800, 600, 820, 520] },
+    { id: 'p75', name: '75 фингерсов', comp: 'Сет на 20–22 человека · 75 фингерсов · 24 соуса', price: 39990, img: (window.__resources&&window.__resources['offline/i16.jpg']||'offline/i16.jpg'),
+      d: 'Сет на 20–22 человека. 75 куриных фингерсов и 24 фирменных соуса', n: [5700, 17700, 900, 1230, 780] },
+    { id: 'p100', name: '100 фингерсов', comp: 'Сет на большую компанию · 100 фингерсов · 32 соуса', price: 52990, img: (window.__resources&&window.__resources['offline/i17.jpg']||'offline/i17.jpg'),
+      d: 'Большой сет для компании. 100 хрустящих куриных фингерсов и 32 фирменных соуса', n: [7600, 23600, 1200, 1640, 1040] }
+  ];
+  DOPS = [
+    { id: 'd1', name: 'Фингерс, 1 шт', vid: (window.__resources&&window.__resources['']||''), img: (window.__resources&&window.__resources['offline/i4.jpg']||'offline/i4.jpg'), price: 690,
+      d: 'Нежное куриное филе в хрустящей панировке, обжаренное до золотистой корочки. Сочное внутри, хрустящее снаружи.', n: [55, 165, 12, 9, 9] },
+    { id: 'd2', name: 'Соус фирменный', img: (window.__resources&&window.__resources['offline/i18.jpg']||'offline/i18.jpg'), price: 390, sizes: true,
+      d: 'Легендарный фирменный соус Pick Chick', n: [60, 230, 1, 23, 4] },
+    { id: 'd7', name: 'Соус острый', price: 390, img: (window.__resources&&window.__resources['offline/i19.jpg']||'offline/i19.jpg'), tag: 'НОВИНКА', sizes: true,
+      d: 'Фирменный соус Pick Chick с перцем чили — для тех, кто любит острее. 60, 180 или 300 г.', n: [60, 220, 1, 21, 5] },
+    { id: 'd3', name: 'Тост, 1 шт', img: (window.__resources&&window.__resources['offline/i5.jpg']||'offline/i5.jpg'), price: 390,
+      d: 'Фирменный тост с хрустящей золотистой корочкой, пропитанный чесночным маслом.', n: [40, 150, 4, 7, 18] },
+    { id: 'd4', name: 'Коулслоу, 90 г', img: (window.__resources&&window.__resources['offline/i6.jpg']||'offline/i6.jpg'), price: 690,
+      d: 'Свежий салат из белокочанной и краснокочанной капусты с морковью, заправленный фирменным соусом.', n: [90, 120, 1, 9, 7] },
+    { id: 'd5', name: 'Картофельные дольки, 90 г', price: 890, img: (window.__resources&&window.__resources['offline/i20.jpg']||'offline/i20.jpg'),
+      d: 'Хрустящие картофельные дольки с золотистой корочкой.', n: [90, 210, 3, 11, 25] },
+    { id: 'd6', name: 'Бургер, 1 шт', price: 2390, img: (window.__resources&&window.__resources['offline/shot.jpg']||'offline/shot.jpg'),
+      d: 'Сочный бургер с хрустящими куриными фингерсами, свежим коулслоу, фирменным соусом и мягкой булочкой бриошь.', n: [240, 620, 28, 33, 52] }
+  ];
+  DRINKS_CAT = [
+    { id: 'n1', name: 'Фирменный лимонад 0.5 л', img: (window.__resources&&window.__resources['offline/i0.jpg']||'offline/i0.jpg'), price: 1190,
+      d: 'Натуральный лимонад собственного приготовления из свежих апельсинов, лимонов, сахара и воды. Освежающий вкус без лишних добавок.', n: [500, 210, 0, 0, 52] },
+    { id: 'n2', name: 'Coca-Cola 0.5 л, банка', img: (window.__resources&&window.__resources['offline/i2.jpg']||'offline/i2.jpg'), price: 990, d: 'Coca-Cola Classic в железной банке, 0,5 л.', n: [500, 210, 0, 0, 53] },
+    { id: 'n3', name: 'Fuse Tea Персик 0.5 л', img: (window.__resources&&window.__resources['offline/i1.jpg']||'offline/i1.jpg'), price: 790, d: 'Холодный чай Fuse Tea со вкусом персика, 0,5 л.', n: [500, 90, 0, 0, 22] },
+    { id: 'n4', name: 'Холодный чай 0.5 л', price: 490, img: (window.__resources&&window.__resources['offline/i22.jpg']||'offline/i22.jpg'),
+      d: 'Освежающий холодный чай собственного приготовления. Есть сладкий и не сладкий, можно миксовать', n: [500, 110, 0, 0, 27] },
+    { id: 'n5', name: 'Bonaqua негаз. 0.5 л', img: (window.__resources&&window.__resources['offline/i23.jpg']||'offline/i23.jpg'), price: 590, d: 'Питьевая вода без газа, 0,5 л.', n: [500, 0, 0, 0, 0] },
+    { id: 'n6', name: 'Piko 0.2 л', price: 590, d: 'Трубочный напиток Piko, 0,2 л.', n: [200, 90, 1, 0, 22] }
+  ];
+  MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  PREP = { combo: 7, duo: 9, party: 13, dop: 3, drink: 1 };
+  prepFor(c) {
+    const id = String(c.slot || '').replace('ph2-', '');
+    if (this.DRINKS_CAT.some(x => x.id === id)) return this.PREP.drink;
+    if (this.DOPS.some(x => x.id === id)) return this.PREP.dop;
+    if (this.PARTY.some(x => x.id === id)) return this.PREP.party;
+    if (this.DUO.some(x => x.id === id)) return this.PREP.duo;
+    return this.PREP.combo;
+  }
+  prepMins() {
+    const cart = this.state.cart;
+    if (!cart.length) return 0;
+    const mx = Math.max.apply(null, cart.map(c => this.prepFor(c)));
+    const qty = cart.reduce((n, c) => n + c.qty, 0);
+    return Math.ceil(mx + (qty - 1) * 1.2);
+  }
+
+  SLOTS = ['Как можно скорее', '14:30', '14:45', '15:00', '15:15', '15:30'];
+
+  go = s => this.setState({ screen: s, modal: false });
+
+  PROMO = { code: 'PICK15', rate: 0.15 };
+  METHODS = [
+    { id: 'kaspi', name: 'Kaspi', note: 'Оплата в приложении Kaspi.kz', badge: '' },
+    { id: 'card', name: 'Карта 4400 •• 7712', note: 'Спишем сразу после оформления', badge: 'VISA' }
+  ];
+  subtotal() { return this.state.cart.reduce((s, c) => s + (c.price + c.extra) * c.qty, 0); }
+  discount() { return this.state.promo ? Math.floor(this.subtotal() * this.PROMO.rate) : 0; }
+  chikiMax() { return Math.min(this.state.balance, Math.floor((this.subtotal() - this.discount()) * 0.3)); }
+  chikiUsed() { return 0; }
+  payable() { return Math.max(0, this.subtotal() - this.discount() - this.chikiUsed()); }
+  earn() { return Math.round(this.payable() * 0.07); }
+  method() { return this.METHODS.find(m => m.id === this.state.payMethod) || this.METHODS[0]; }
+  clock(min) {
+    const t = new Date(Date.now() + min * 60000);
+    return ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2);
+  }
+  raf = 0;
+  startRun() {
+    clearInterval(this.raf);
+    this.setState({ screen: 'game', game: 'run', gScore: 0, w: { y: 45, vy: 0, pull: false, items: [], tick: 0 } });
+    const step = () => {
+      const w = this.state.w;
+      if (this.state.game !== 'run') { clearInterval(this.raf); return; }
+      let vy = w.vy + (w.pull ? -1.1 : 0.8);
+      vy = Math.max(-6, Math.min(6, vy));
+      let y = w.y + vy;
+      let over = false;
+      if (y < 4) { y = 4; vy = 0; }
+      if (y > 88) { y = 88; over = true; }
+      const tick = w.tick + 1;
+      let items = w.items.map(it => ({ ...it, x: it.x - 2.1 })).filter(it => it.x > -12);
+      if (tick % 22 === 0) {
+        const bad = Math.random() < 0.34;
+        items = items.concat([{ id: tick, x: 104, y: 12 + Math.random() * 66, type: bad ? 'bad' : 'coin' }]);
+      }
+      let score = this.state.gScore;
+      items = items.filter(it => {
+        const hit = Math.abs(it.x - 20) < 8 && Math.abs(it.y - y) < 9;
+        if (!hit) return true;
+        if (it.type === 'coin') { score += 1; return false; }
+        over = true; return false;
+      });
+      if (over) { clearInterval(this.raf); this.setState({ game: 'done', gScore: score, w: { ...w, y, vy: 0, items: [] } }); return; }
+      this.setState({ gScore: score, w: { y, vy, pull: w.pull, items, tick } });
+    };
+    this.raf = setInterval(step, 33);
+  }
+  pull(on) {
+    if (this.state.game !== 'run') return;
+    this.setState({ w: { ...this.state.w, pull: on } });
+  }
+  timers = [];
+  clearTimers() { this.timers.forEach(clearTimeout); this.timers = []; }
+  componentDidMount() {
+    this.onScroll = e => {
+      const sc = e.target;
+      if (!sc || !sc.getAttribute) return;
+      if (sc.getAttribute('data-scroller') !== 'menu') return;
+      const past = sc.scrollTop > 300;
+      if (past !== !!this.state.heroPast) this.setState({ heroPast: past });
+      const cats = Array.prototype.slice.call(sc.querySelectorAll('[data-cat]'));
+      if (!cats.length) return;
+      const base = sc.getBoundingClientRect().top;
+      let active = cats[0].getAttribute('data-cat');
+      cats.forEach(el => { if (el.getBoundingClientRect().top - base <= 140) active = el.getAttribute('data-cat'); });
+      if (active !== this.state.cat) this.setState({ cat: active });
+    };
+    document.addEventListener('scroll', this.onScroll, true);
+    this.kickHero = () => {
+      const v = document.querySelector('video[data-hero]');
+      if (!v) return;
+      v.muted = true; v.playsInline = true; v.loop = true;
+      if (!v.__pcHooked) {
+        v.__pcHooked = true;
+        ['canplay', 'loadeddata', 'stalled'].forEach(ev => v.addEventListener(ev, () => this.kickHero()));
+      }
+      if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+    };
+    [80, 400, 1200, 2500].forEach(ms => this.timers.push(setTimeout(this.kickHero, ms)));
+    this.heroPoll = setInterval(this.kickHero, 4000);
+    document.addEventListener('pointerdown', this.kickHero, true);
+    this.startPromo();
+  }
+  tweenTo(el, prop, target) {
+    if (!el) return;
+    const from = el[prop];
+    clearInterval(this.promoTween);
+    let step = 0;
+    this.promoTween = setInterval(() => {
+      step += 1;
+      const t = Math.min(1, step / 16);
+      el[prop] = from + (target - from) * (1 - Math.pow(1 - t, 3));
+      if (t >= 1) clearInterval(this.promoTween);
+    }, 16);
+  }
+  promoRow() { return document.querySelector('[data-promo="row"]'); }
+  startPromo() {
+    clearInterval(this.promoTimer);
+    this.promoTimer = setInterval(() => {
+      if (this.state.promoPaused || this.state.screen !== 'menu') return;
+      this.setState({ promoIdx: (this.state.promoIdx + 1) % 3 });
+    }, 5000);
+  }
+  goPromo(i) { this.setState({ promoIdx: i, promoPaused: true }); }
+  jumpTo(key) {
+    const sc = document.querySelector('[data-scroller="menu"]');
+    const el = sc && sc.querySelector('[data-cat="' + key + '"]');
+    if (!el) { this.setState({ cat: key }); return; }
+    const target = Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 168);
+    const from = sc.scrollTop;
+    clearInterval(this.scrollTween);
+    let step = 0;
+    this.scrollTween = setInterval(() => {
+      step += 1;
+      const t = Math.min(1, step / 14);
+      sc.scrollTop = from + (target - from) * (1 - Math.pow(1 - t, 3));
+      if (t >= 1) clearInterval(this.scrollTween);
+    }, 16);
+    this.setState({ cat: key });
+  }
+  componentWillUnmount() {
+    this.clearTimers(); clearInterval(this.raf); clearInterval(this.scrollTween); clearInterval(this.heroPoll);
+    document.removeEventListener('pointerdown', this.kickHero, true);
+    clearInterval(this.promoTimer); clearInterval(this.promoTween);
+    if (this.onScroll) document.removeEventListener('scroll', this.onScroll, true);
+  }
+  later(ms, fn) { this.timers.push(setTimeout(fn, ms)); }
+  say(msg) { this.setState({ toast: msg }); this.later(3600, () => this.setState({ toast: '' })); }
+
+  blockedItem() {
+    const stopped = this.COMBOS.concat(this.DUO, this.PARTY, this.DOPS, this.DRINKS_CAT).filter(x => x.out).map(x => x.name);
+    return this.state.cart.find(c => stopped.indexOf(c.name) >= 0);
+  }
+  placeOrder() {
+    const bad = this.blockedItem();
+    if (bad) { this.setState({ error: bad.name + ' только что попал в стоп-лист. Уберите позицию из корзины.' }); return; }
+    if (!this.state.cart.length) { this.setState({ screen: 'menu' }); return; }
+    this.setState({ payListOpen: false });
+    if (this.state.payMethod === 'cash') this.createOrder(false);
+    else this.runPayment();
+  }
+  runPayment() {
+    this.clearTimers();
+    this.setState({ screen: 'paying', payStep: 0 });
+    this.later(900, () => this.setState({ payStep: 1 }));
+    this.later(1900, () => this.setState({ payStep: 2 }));
+    this.later(2900, () => this.createOrder(true));
+  }
+  createOrder(paid) {
+    this.clearTimers();
+    const no = this.state.orderNo + 1;
+    const spent = this.chikiUsed();
+    const order = {
+      no, items: this.state.cart, subtotal: this.subtotal(), discount: this.discount(),
+      spent, total: this.payable(), earn: this.earn(), paid,
+      method: this.method().name, dinein: this.state.dinein,
+      slotLabel: this.clock(this.prepMins()),
+      ready: this.clock(this.prepMins()),
+      prep: this.prepMins(),
+      fpd: paid ? '4' + (100000000 + no * 7919) : null, stage: 0
+    };
+    this.setState({
+      orderNo: no, activeOrder: order, cart: [], stage: 0, screen: 'tracker',
+      balance: this.state.balance - spent, promo: false, useChiki: true, error: ''
+    });
+    this.later(7000, () => { this.setState({ stage: 1 }); this.say('Заказ №' + no + ': ваши фингерсы во фритюре'); });
+    this.later(16000, () => { this.setState({ stage: 2 }); this.say('Заказ №' + no + ' готов! Забирайте на кассе'); });
+  }
+  completeOrder() {
+    const o = this.state.activeOrder;
+    this.clearTimers();
+    if (!o) { this.setState({ stage: 3, screen: 'orders' }); return; }
+    const names = o.items.map(i => i.name + (i.qty > 1 ? ' ×' + i.qty : '')).join(' · ');
+    this.setState({
+      balance: this.state.balance + o.earn, earnedTotal: this.state.earnedTotal + o.earn,
+      stage: 3, screen: 'rate', activeOrder: null, rateFor: o.no,
+      orders: [{
+        no: o.no, date: 'сегодня, ' + this.clock(0), total: o.total, subtotal: o.subtotal,
+        spent: o.spent, items: names, earned: o.earn, rating: 0,
+        method: o.method, fpd: o.fpd || '—'
+      }].concat(this.state.orders)
+    });
+    this.say('+' + o.earn + ' Чиков за заказ №' + o.no);
+  }
+  sendRating() {
+    const r = this.state.rating;
+    const target = this.state.rateFor || (this.state.orders[0] && this.state.orders[0].no);
+    this.setState({
+      screen: 'orders', rating: 0, ratingTags: [], rateFor: null,
+      orders: this.state.orders.map(o => o.no === target ? { ...o, rating: r || o.rating } : o)
+    });
+    this.say(r && r <= 3 ? 'Передали менеджеру точки, разберёмся' : 'Спасибо за оценку');
+  }
+  repeatOrder(o) {
+    const src = o.items || [];
+    const cart = src.length ? src : [{ id: 'pick', name: 'Pick Combo', vid: (window.__resources&&window.__resources['uploads/IMG_7060.mp4']||'uploads/IMG_7060.mp4'), price: 4190, qty: 1, slot: 'ph2-pick', mods: o.items || '', extra: 0 }];
+    this.setState({ cart, screen: 'cart' });
+    this.say('Собрали заказ заново — проверьте корзину');
+  }
+  current() {
+    const all = this.COMBOS.concat(this.DUO, this.PARTY, this.DOPS, this.DRINKS_CAT);
+    return all.find(x => x.id === this.state.modalId) || this.COMBOS[0];
+  }
+  isCombo() {
+    return this.COMBOS.concat(this.DUO, this.PARTY).some(x => x.id === this.state.modalId);
+  }
+  SIZES = [['60 мл', 0, 1], ['0,3 л', 800, 5], ['0,4 л', 1100, 6.7], ['0,5 л', 1400, 8.3]];
+  sizeDelta() {
+    const it = this.current();
+    return it.sizes ? this.SIZES[this.state.size][1] : 0;
+  }
+  sizeFactor() {
+    const it = this.current();
+    return it.sizes ? this.SIZES[this.state.size][2] : 1;
+  }
+  itemTotal() {
+    const it = this.current();
+    if (!this.isCombo()) return (it.price + this.sizeDelta()) * this.state.itemQty;
+    const d = this.DRINKS.find(x => x.id === this.state.drink);
+    const s = this.SAUCES.find(x => x.id === this.state.sauce);
+    const add = this.COUNTERS.reduce((a, c) => a + c.p * (this.state.counters[c.id] || 0), 0);
+    return (it.price + (d ? d.d : 0) + (s ? s.d : 0) + add) * this.state.itemQty;
+  }
+  bumpCounter(id, n) {
+    const c = { ...this.state.counters };
+    c[id] = Math.max(0, Math.min(10, (c[id] || 0) + n));
+    this.setState({ counters: c });
+  }
+  cartQty(i, n) { this.setState({ cart: this.state.cart.map((c, k) => k === i ? { ...c, qty: Math.max(1, c.qty + n) } : c) }); }
+  removeCart(i) { this.setState({ cart: this.state.cart.filter((_, k) => k !== i) }); }
+  addItem() {
+    const it = this.current();
+    let extra = this.sizeDelta(), mods = it.sizes ? this.SIZES[this.state.size][0] : (it.comp || '');
+    if (this.isCombo()) {
+      const d = this.DRINKS.find(x => x.id === this.state.drink);
+      const s = this.SAUCES.find(x => x.id === this.state.sauce);
+      const adds = this.COUNTERS.filter(c => this.state.counters[c.id]).map(c => c.name + ' ×' + this.state.counters[c.id]);
+      extra = (d ? d.d : 0) + (s ? s.d : 0) + this.COUNTERS.reduce((a, c) => a + c.p * (this.state.counters[c.id] || 0), 0);
+      mods = [d.name + (d.d ? ' +' + this.MONEY(d.d) : ''), s.name].concat(adds).join(' · ');
+    }
+    this.setState({ cart: this.state.cart.concat([{ id: it.id + Date.now(), name: it.name, price: it.price, qty: this.state.itemQty, slot: 'ph2-' + it.id, mods, extra }]), modal: false });
+  }
+  qrCells() {
+    const cells = []; let seed = 7;
+    for (let y = 0; y < 13; y++) for (let x = 0; x < 13; x++) {
+      const finder = (x < 3 && y < 3) || (x > 9 && y < 3) || (x < 3 && y > 9);
+      const ring = (x < 4 && y < 4) || (x > 8 && y < 4) || (x < 4 && y > 8);
+      seed = (seed * 1103515245 + 12345) % 2147483647;
+      cells.push({ bg: finder ? '#0047BB' : ring ? '#ffffff' : ((seed % 100) > 52 ? '#0047BB' : '#ffffff') });
+    }
+    return cells;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const theme = s.theme || this.props.theme || 'light';
+    const dark = theme !== 'light';
+    const scr = s.screen;
+    const isTab = ['menu', 'events', 'orders', 'profile'].indexOf(scr) >= 0;
+    const chiki = s.balance;
+    const tabColor = n => scr === n ? 'var(--blue)' : 'var(--text2)';
+    const stageLabels = ['Принят', 'Готовится', 'Готов', 'Получен'];
+
+    const navDefs = [
+      ['01', 'Онбординг', 'ob'], ['02', 'Вход', 'phone'], ['03', 'Код', 'otp'], ['04', 'Профиль', 'reg'], ['05', 'Меню', 'menu'],
+      ['06', 'Карточка', 'item'], ['07', 'Корзина', 'cart'],
+      ['08', 'Заказ', 'tracker'], ['09', 'ГОТОВО', 'ready'],
+      ['10', 'События', 'events'], ['11', 'Чики', 'chiki'], ['12', 'Заказы', 'orders'], ['13', 'Кабинет', 'profile'],
+      ['14', 'Игра', 'game'], ['15', 'Награды', 'awards']
+    ];
+    const cur = s.modal ? 'item' : scr;
+
+    const mkItem = it => ({
+      name: it.name, comp: it.comp || '', priceLabel: this.MONEY(it.price), slot: 'ph2-' + it.id,
+      img: it.img || '',
+      tag: it.tag || false, tagBg: it.tag === 'ХИТ' ? 'var(--orange)' : 'var(--blue)',
+      tagFg: it.tag === 'ХИТ' ? '#0B2C6B' : '#FFFFFF',
+      out: !!it.out, inStock: !it.out, opacity: it.out ? '0.45' : '1',
+      open: () => { if (!it.out) this.setState({ modal: true, modalId: it.id, size: 0, screen: 'menu' }); }
+    });
+
+    const modRow = (d, sel) => ({
+      name: d.name, on: sel === d.id, ring: sel === d.id ? 'var(--blue)' : 'var(--line)',
+      delta: d.out ? 'нет' : (d.d ? '+' + this.MONEY(d.d) : '+0 ₸'),
+      strike: d.out ? 'line-through' : 'none', color: d.out ? 'var(--text2)' : 'var(--text)'
+    });
+
+    const totals = [{ label: 'Позиции (' + s.cart.reduce((a, c) => a + c.qty, 0) + ')', value: this.MONEY(this.subtotal()), color: 'var(--text)' }];
+    if (this.discount()) totals.push({ label: 'Промокод ' + this.PROMO.code, value: '−' + this.MONEY(this.discount()), color: 'var(--ok)' });
+    if (this.chikiUsed()) totals.push({ label: 'Списание Чиков', value: '−' + this.MONEY(this.chikiUsed()), color: 'var(--orange)' });
+    totals.push({ label: 'Способ оплаты', value: this.method().name, color: 'var(--text2)' });
+
+    return {
+      theme, isDark: dark,
+      themeBtns: [['light', 'Светлая'], ['brand', 'Синяя'], ['dark', 'Тёмная']].map(t => ({
+        label: t[1], bg: theme === t[0] ? '#F2F4F7' : 'transparent', fg: theme === t[0] ? '#14181F' : '#8D95A1',
+        set: () => this.setState({ theme: t[0] })
+      })),
+      navItems: navDefs.map(n => ({
+        num: n[0], label: n[1], bg: cur === n[2] ? '#FF671F' : 'transparent', fg: cur === n[2] ? '#fff' : '#B4BBC6',
+        go: () => n[2] === 'item' ? this.setState({ modal: true, modalId: 'pick', screen: 'menu' }) : this.go(n[2])
+      })),
+
+      showOnboard: scr === 'ob', showPhone: scr === 'phone', showOtp: scr === 'otp', showReg: scr === 'reg',
+      showMenu: scr === 'menu', showEvents: scr === 'events', showOrders: scr === 'orders',
+      showProfile: scr === 'profile', showCart: scr === 'cart',
+      showTracker: scr === 'tracker', showReady: scr === 'ready',
+      showChiki: scr === 'chiki', showItem: s.modal, showTabs: isTab, showCartPill: isTab && s.cart.length > 0,
+      showGame: scr === 'game',
+      gameIdle: s.game === 'idle', gameRun: s.game === 'run', gameDone: s.game === 'done',
+      gameScore: s.gScore, gameLeft: (15 - s.gScore) + ' шт',
+      gamePct: Math.round(s.gScore / 15 * 100) + '%',
+      gameAttempts: '3 ПОПЫТКИ СЕГОДНЯ', gameBest: '12',
+      heroTop: s.w.y + '%', heroRope: Math.max(0, s.w.y - 2) + '%',
+      pulling: s.w.pull, notPulling: !s.w.pull,
+      worldItems: s.w.items.map(it => ({
+        left: it.x + '%', top: it.y + '%', isCoin: it.type === 'coin', isBad: it.type === 'bad'
+      })),
+      gameReward: this.NUM(s.gScore * 10),
+      posterZoom: (s.pZoom / 100).toFixed(2), posterZoomVal: s.pZoom, posterZoomLabel: s.pZoom + '%',
+      posterX: s.pX + '%', posterXVal: s.pX, posterY: s.pY + '%', posterYVal: s.pY,
+      setZoom: e => this.setState({ pZoom: +e.target.value }),
+      setPosterX: e => this.setState({ pX: +e.target.value }),
+      setPosterY: e => this.setState({ pY: +e.target.value }),
+      pressStart: () => this.pull(true), pressEnd: () => this.pull(false),
+      openGame: () => this.setState({ screen: 'game', game: 'idle', modal: false }),
+      startGame: () => this.startRun(),
+
+      obTitle: ['Куриные фингерсы для тех, кто в движении', 'Заказывайте заранее — забирайте без очереди', 'Копите Чики и участвуйте в событиях'][s.ob],
+      obSub: ['Один продукт, доведённый до пика вкуса. Своё производство, свои соусы.', 'Выберите слот — заказ будет готов к вашему приходу.', 'Каждый заказ приближает к бесплатному комбо. 1 Чик = 1 тенге.'][s.ob],
+      obCta: s.ob < 2 ? 'Далее' : 'Начать',
+      obDots: [0, 1, 2].map(i => ({ w: i === s.ob ? '26px' : '10px', bg: i === s.ob ? '#FF671F' : 'rgba(255,255,255,.35)' })),
+      obNext: () => s.ob < 2 ? this.setState({ ob: s.ob + 1 }) : this.go('phone'),
+      skipOnboard: () => this.go('menu'),
+      phoneMask: '707 123-45-67',
+      keypad: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(k => ({ label: k })),
+      otpCells: ['4', '8', '1', '2', '9', ''].map((v, i) => ({ v, border: i === 5 ? 'var(--blue)' : 'transparent' })),
+      goOtp: () => this.go('otp'), goPhone: () => this.go('phone'), finishAuth: () => this.go('reg'),
+
+      regNickShown: s.regNick || 'pick_chick',
+      regNickFg: s.regNick ? 'var(--text)' : 'var(--text2)',
+      regDateParts: [
+        { key: 'day', label: 'День', flex: '1', value: s.regDay || '—' },
+        { key: 'month', label: 'Месяц', flex: '1.5', value: s.regMonth ? this.MONTHS[s.regMonth - 1] : '—' },
+        { key: 'year', label: 'Год', flex: '1.2', value: s.regYear || '—' }
+      ].map(p => ({
+        label: p.label, flex: p.flex, value: p.value,
+        fg: p.value === '—' ? 'var(--text2)' : 'var(--text)',
+        border: s.regPicker === p.key ? 'var(--blue)' : 'transparent',
+        pick: () => this.setState({ regPicker: s.regPicker === p.key ? null : p.key })
+      })),
+      regPickerOpen: !!s.regPicker,
+      regPickerCols: s.regPicker === 'month' ? 'repeat(3,minmax(0,1fr))' : 'repeat(6,minmax(0,1fr))',
+      regPickerOpts: (() => {
+        const p = s.regPicker;
+        if (!p) return [];
+        const list = p === 'day' ? Array.from({ length: 31 }, (_, i) => i + 1)
+          : p === 'month' ? this.MONTHS.map((m, i) => ({ v: i + 1, l: m }))
+          : Array.from({ length: 40 }, (_, i) => 2010 - i);
+        return list.map(x => {
+          const val = typeof x === 'object' ? x.v : x;
+          const label = typeof x === 'object' ? x.l : String(x);
+          const on = (p === 'day' ? s.regDay : p === 'month' ? s.regMonth : s.regYear) === val;
+          return {
+            label,
+            bg: on ? 'var(--blue)' : 'var(--surf2)',
+            fg: on ? '#FFFFFF' : 'var(--text)',
+            pick: () => this.setState(p === 'day' ? { regDay: val, regPicker: 'month' } : p === 'month' ? { regMonth: val, regPicker: 'year' } : { regYear: val, regPicker: null })
+          };
+        });
+      })(),
+      regGenders: [['f', 'Женский'], ['m', 'Мужской']].map(g => {
+        const on = s.regGender === g[0];
+        return {
+          label: g[1],
+          bg: on ? 'var(--blue)' : 'var(--surf)',
+          border: on ? 'var(--blue)' : 'transparent',
+          fg: on ? '#FFFFFF' : 'var(--text)',
+          shadow: on ? 'none' : 'var(--shadow)',
+          pick: () => this.setState({ regGender: g[0] })
+        };
+      }),
+      regDone: !!(s.regDay && s.regMonth && s.regYear && s.regGender),
+      regBtnLabel: (s.regDay && s.regMonth && s.regYear && s.regGender) ? 'Готово · +300 Чиков' : 'Заполните дату и пол',
+      regBtnBg: (s.regDay && s.regMonth && s.regYear && s.regGender) ? 'var(--orange)' : 'var(--surf2)',
+      regBtnFg: (s.regDay && s.regMonth && s.regYear && s.regGender) ? '#FFFFFF' : 'var(--text2)',
+      finishReg: () => { if (s.regDay && s.regMonth && s.regYear && s.regGender) this.go('menu'); },
+      skipReg: () => this.go('menu'),
+
+      setTakeaway: () => this.setState({ dinein: false }),
+      setDinein: () => this.setState({ dinein: true }),
+      takeawayBg: s.dinein ? 'transparent' : (theme === 'light' ? '#FFFFFF' : 'var(--blue)'),
+      takeawayFg: s.dinein ? 'var(--text2)' : (theme === 'light' ? 'var(--text)' : '#FFFFFF'),
+      takeawayShadow: s.dinein ? 'none' : (theme === 'light' ? '0 1px 3px rgba(16,24,40,.16)' : '0 1px 6px rgba(0,0,0,.45)'),
+      dineinBg: s.dinein ? (theme === 'light' ? '#FFFFFF' : 'var(--blue)') : 'transparent',
+      dineinFg: s.dinein ? (theme === 'light' ? 'var(--text)' : '#FFFFFF') : 'var(--text2)',
+      dineinShadow: s.dinein ? (theme === 'light' ? '0 1px 3px rgba(16,24,40,.16)' : '0 1px 6px rgba(0,0,0,.45)') : 'none',
+      fulfillLabel: s.dinein ? 'В ЗАЛЕ · СТОЛИК ЛЮБОЙ' : 'САМОВЫВОЗ · 1,2 КМ',
+      fulfillTitle: s.dinein ? 'ЕМ В ЗАЛЕ' : 'ЗАБЕРУ САМ',
+      balanceLabel: this.NUM(chiki) + ' Чиков', balanceShort: this.NUM(chiki), balanceLabelMoney: this.MONEY(chiki),
+      anchors: [['combo', 'Комбо'], ['duo', 'На двоих'], ['party', 'На компанию'], ['dops', 'Допы'], ['drinks', 'Напитки']].map(a => ({
+        label: a[1],
+        bg: s.cat === a[0] ? 'var(--blue)' : 'var(--surf)',
+        fg: s.cat === a[0] ? '#fff' : 'var(--text)',
+        border: s.cat === a[0] ? 'var(--blue)' : 'var(--line)',
+        go: () => this.jumpTo(a[0])
+      })),
+      wideSections: [
+        { key: 'combo', title: 'Комбо', items: this.COMBOS.map(mkItem) },
+        { key: 'duo', title: 'На двоих', items: this.DUO.map(mkItem) },
+        { key: 'party', title: 'На компанию', items: this.PARTY.map(mkItem) }
+      ],
+      gridSections: [
+        { key: 'dops', title: 'Допы', items: this.DOPS.map(mkItem) },
+        { key: 'drinks', title: 'Напитки', items: this.DRINKS_CAT.map(mkItem) }
+      ],
+
+      hasActiveOrder: !!s.activeOrder,
+      orderNumber: s.activeOrder ? s.activeOrder.no : 147,
+      orderReady: s.activeOrder ? s.activeOrder.ready : this.clock(25),
+      orderPaidNote: s.activeOrder && s.activeOrder.paid
+        ? 'Оплачено · ' + s.activeOrder.method + ' · чек ФПД ' + s.activeOrder.fpd
+        : 'Оплата на кассе при получении',
+      payTitle: s.activeOrder && s.activeOrder.paid ? 'Оплачено' : 'К оплате на кассе',
+      orderTotalLabel: this.MONEY(s.activeOrder ? s.activeOrder.total : this.payable()),
+      orderEarnLabel: this.NUM(s.activeOrder ? s.activeOrder.earn : this.earn()),
+      orderItems: (s.activeOrder ? s.activeOrder.items : s.cart).map(c => ({
+        name: c.name, mods: c.mods, qty: c.qty, total: this.MONEY((c.price + c.extra) * c.qty)
+      })),
+      trackerStageLabel: stageLabels[s.stage],
+      orderReadyLabel: s.activeOrder ? s.activeOrder.ready : this.clock(this.prepMins()),
+      trackerBars: [0, 1, 2, 3].map(i => ({ bg: i <= s.stage ? '#FF671F' : 'rgba(255,255,255,.28)' })),
+      stageFill: Math.round(s.stage / 3 * 100) + '%',
+      stageEta: s.stage >= 2 ? 'Заказ готов — забирайте на кассе' : s.stage === 1 ? 'Осталось ~' + Math.max(2, this.prepMins() - 4) + ' мин' : 'Будет готов через ~' + Math.max(3, this.prepMins()) + ' мин',
+      trackerSteps: stageLabels.map((l, i) => ({
+        label: l, done: i <= s.stage,
+        dotBg: i <= s.stage ? 'var(--orange)' : 'var(--surf)',
+        dotBorder: i <= s.stage ? 'var(--orange)' : 'var(--line)',
+        dotGlow: i === s.stage ? '0 0 0 5px rgba(255,103,31,.18)' : 'none',
+        bg: i <= s.stage ? 'var(--orange)' : 'var(--line)',
+        fg: i <= s.stage ? 'var(--text)' : 'var(--text2)',
+        go: () => this.setState({ stage: i, screen: i === 2 ? 'ready' : 'tracker' })
+      })),
+      trackerHeadline: ['Заказ принят кассой', 'Ваши фингерсы во фритюре', 'Готово — забирайте', 'Заказ выдан'][s.stage],
+      trackerSub: ['Кухня возьмёт заказ в работу через пару минут', 'Обжарка 6 минут, затем сборка и упаковка', 'Назовите номер на кассе', 'Оцените заказ — это влияет на смену'][s.stage],
+      trackerPaidNote: s.activeOrder && s.activeOrder.paid ? 'Оплачено · чек ФПД ' + s.activeOrder.fpd : 'Оплата на кассе при получении',
+      canCancel: s.stage === 0,
+      orderItems: ((s.activeOrder && s.activeOrder.items.length ? s.activeOrder.items : s.cart) || []).map(c => ({
+        name: c.name, mods: c.mods, qty: c.qty, slot: c.slot,
+        total: this.MONEY((c.price + c.extra) * c.qty),
+        img: (this.COMBOS.concat(this.DUO, this.PARTY, this.DOPS, this.DRINKS_CAT).find(x => 'ph2-' + x.id === c.slot) || {}).img || ''
+      })),
+      orderIsReady: s.stage >= 2,
+      trackerPadBottom: s.stage >= 2 ? '170px' : '18px',
+      goReady: () => this.go('ready'),
+      goGame: () => this.go('game'),
+      completeOrder: () => this.completeOrder(),
+      cancelOrder: () => { this.clearTimers(); this.setState({ activeOrder: null, screen: 'menu', balance: s.balance + (s.activeOrder ? s.activeOrder.spent : 0) }); this.say('Заказ отменён, Чики вернули на баланс'); },
+
+      cart: s.cart.map((c, i) => ({
+        name: c.name, mods: c.mods, qty: c.qty, slot: c.slot, total: this.MONEY((c.price + c.extra) * c.qty),
+        img: (this.COMBOS.concat(this.DUO, this.PARTY, this.DOPS, this.DRINKS_CAT).find(x => 'ph2-' + x.id === c.slot) || {}).img || '',
+        inc: () => this.cartQty(i, 1), dec: () => this.cartQty(i, -1), remove: () => this.removeCart(i)
+      })),
+      cartCount: s.cart.reduce((a, c) => a + c.qty, 0),
+      upsell: [
+        { id: 'd2', name: 'Соус фирменный', img: (window.__resources&&window.__resources['offline/i18.jpg']||'offline/i18.jpg'), price: 390 }, { id: 'd3', name: 'Тост, 1 шт', img: (window.__resources&&window.__resources['offline/i5.jpg']||'offline/i5.jpg'), price: 390 },
+        { id: 'd5', name: 'Дольки, 90 г', price: 890 }, { id: 'n3', name: 'Fuse Tea Персик', price: 790 }
+      ].map(u => ({
+        name: u.name, priceLabel: this.MONEY(u.price), slot: 'ph2-' + u.id,
+        img: (this.DOPS.concat(this.DRINKS_CAT).find(x => x.id === u.id) || {}).img || '',
+        add: () => {
+          const found = this.state.cart.findIndex(c => c.slot === 'ph2-' + u.id);
+          if (found >= 0) this.cartQty(found, 1);
+          else this.setState({ cart: this.state.cart.concat([{ id: u.id + Date.now(), name: u.name, price: u.price, qty: 1, slot: 'ph2-' + u.id, mods: '', extra: 0 }]) });
+          this.say(u.name + ' добавлен в заказ');
+        }
+      })),
+      totals, payableLabel: this.MONEY(this.payable()),
+      chikiMaxLabel: this.MONEY(this.chikiMax()),
+      chikiUsedLabel: this.MONEY(this.chikiUsed()), useChiki: s.useChiki && this.chikiUsed() > 0,
+      chikiTrack: this.chikiUsed() ? 'var(--orange)' : 'var(--surf2)',
+      chikiKnob: this.chikiUsed() ? 'flex-end' : 'flex-start',
+      toggleChiki: () => this.setState({ useChiki: !s.useChiki }),
+      earnLabel: this.NUM(this.earn()),
+      cartEmpty: s.cart.length === 0, cartHasItems: s.cart.length > 0,
+      clearCart: () => { this.setState({ cart: [] }); this.say('Корзина очищена'); },
+      fulfillShort: s.dinein ? 'в зале' : 'самовывоз',
+      heroPast: !!s.heroPast, heroTop: !s.heroPast,
+      heroGo: () => this.jumpTo('combo'),
+      hdrBg: s.heroPast ? 'var(--glass)' : 'transparent',
+      hdrBlur: s.heroPast ? 'saturate(180%) blur(20px)' : 'none',
+      hdrSep: s.heroPast ? 'var(--sep)' : 'transparent',
+      hdrFg: s.heroPast ? 'var(--text)' : '#FFFFFF',
+      hdrFg2: s.heroPast ? 'var(--text2)' : 'rgba(255,255,255,.82)',
+      hdrChipBg: s.heroPast ? 'var(--surf)' : 'rgba(255,255,255,.22)',
+      hdrChipShadow: s.heroPast ? 'var(--shadow)' : 'none',
+      segTakeBg: s.dinein ? 'transparent' : '#FFFFFF',
+      segTakeFg: s.dinein ? 'rgba(255,255,255,.85)' : '#0B2C6B',
+      segDineBg: s.dinein ? '#FFFFFF' : 'transparent',
+      segDineFg: s.dinein ? '#0B2C6B' : 'rgba(255,255,255,.85)',
+      isPromo0: s.promoIdx === 0, isPromo1: s.promoIdx === 1, isPromo2: s.promoIdx === 2,
+      promoDots: [0, 1, 2].map(i => ({
+        w: s.promoIdx === i ? '20px' : '6px',
+        bg: s.promoIdx === i ? 'var(--blue)' : 'var(--line)',
+        go: () => this.goPromo(i)
+      })),
+      pausePromo: () => this.setState({ promoPaused: true }),
+      balanceRow: this.NUM(s.balance),
+      promoApplied: s.promo,
+      promoLabel: s.promo ? 'Промокод ' + this.PROMO.code + ' · −15%' : 'У меня есть промокод',
+      promoAction: s.promo ? 'Убрать' : 'PICK15',
+      togglePromo: () => { this.setState({ promo: !s.promo }); this.say(s.promo ? 'Промокод снят' : 'Промокод PICK15 применён: −15%'); },
+      errorText: s.error, hasError: !!s.error,
+      dismissError: () => this.setState({ error: '' }),
+      toastText: s.toast, hasToast: !!s.toast,
+      prepText: 'Приготовим за ~' + this.prepMins() + ' мин',
+      payListOpen: !!s.payListOpen,
+      togglePayList: () => this.setState({ payListOpen: !s.payListOpen }),
+      payLabel: this.method().name,
+      payMark: this.method().badge,
+      payIconBg: s.payMethod === 'kaspi' ? '#F14635' : s.payMethod === 'card' ? 'var(--blue)' : 'var(--orange)',
+      payIconFg: '#FFFFFF',
+      startPay: () => this.placeOrder(),
+      payMethods: this.METHODS.map(m => ({
+        name: m.name, note: m.note, badge: m.badge, mark: m.badge, on: s.payMethod === m.id,
+        isKaspi: m.id === 'kaspi', isCard: m.id === 'card',
+        rowBg: s.payMethod === m.id ? 'var(--blue-soft)' : 'var(--surf2)',
+        rowBorder: s.payMethod === m.id ? 'var(--blue)' : 'transparent',
+        dotBg: s.payMethod === m.id ? 'var(--blue)' : 'transparent',
+        dotBorder: s.payMethod === m.id ? 'var(--blue)' : 'var(--line)',
+        iconBg: m.id === 'kaspi' ? '#F14635' : m.id === 'card' ? 'var(--blue)' : 'var(--orange)',
+        iconFg: '#FFFFFF',
+        ring: s.payMethod === m.id ? 'var(--blue)' : 'var(--line)',
+        border: s.payMethod === m.id ? 'var(--blue)' : 'var(--line)',
+        pick: () => this.setState({ payMethod: m.id, payListOpen: false })
+      })),
+      payMethodName: this.method().name,
+      isKaspi: s.payMethod === 'kaspi', isCard: s.payMethod === 'card',
+      payCta: s.payMethod === 'cash' ? 'Оформить заказ' : 'Оплатить через ' + this.method().name,
+      runPayment: () => this.runPayment(),
+      paySteps: ['Отправляем запрос в ' + (s.payMethod === 'kaspi' ? 'Kaspi Pay' : 'банк'), 'Подтверждаем платёж', 'Фискализируем чек через ОФД'].map((t, i) => ({
+        label: t, done: s.payStep > i, active: s.payStep === i,
+        color: s.payStep > i ? 'var(--ok)' : s.payStep === i ? '#fff' : 'rgba(255,255,255,.45)',
+        mark: s.payStep > i ? '✓' : s.payStep === i ? '•' : ''
+      })),
+      ratingStars: [1, 2, 3, 4, 5].map(i => ({
+        on: s.rating >= i, color: s.rating >= i ? 'var(--orange)' : 'var(--surf2)',
+        set: () => this.setState({ rating: i })
+      })),
+      ratingTags: ['быстро', 'вкусно', 'горячее', 'холодное', 'долго ждал', 'вежливо'].map(t => ({
+        label: t, on: s.ratingTags.indexOf(t) >= 0,
+        bg: s.ratingTags.indexOf(t) >= 0 ? 'var(--blue)' : 'var(--surf)',
+        fg: s.ratingTags.indexOf(t) >= 0 ? '#fff' : 'var(--text)',
+        toggle: () => this.setState({ ratingTags: s.ratingTags.indexOf(t) >= 0 ? s.ratingTags.filter(x => x !== t) : s.ratingTags.concat([t]) })
+      })),
+      ratingHint: s.rating === 0 ? 'Поставьте оценку' : s.rating <= 3 ? 'Расскажите, что пошло не так — создадим тикет менеджеру' : 'Спасибо! Что понравилось?',
+      sendRating: () => this.sendRating(),
+      cutlery: s.cutlery,
+      cutleryUp: () => this.setState({ cutlery: Math.min(10, s.cutlery + 1) }),
+      cutleryDown: () => this.setState({ cutlery: Math.max(0, s.cutlery - 1) }),
+
+      slots: this.SLOTS.map((l, i) => {
+        const full = l === '15:00', on = s.slot === i;
+        return {
+          label: l, cursor: full ? 'not-allowed' : 'pointer',
+          bg: on ? 'var(--blue)' : 'var(--surf)', fg: on ? '#fff' : full ? 'var(--text2)' : 'var(--text)',
+          border: on ? 'var(--blue)' : 'var(--line)', strike: full ? 'line-through' : 'none',
+          pick: () => { if (!full) this.setState({ slot: i }); }
+        };
+      }),
+      slotHint: s.slot === 0 ? 'Заберёте примерно в 14:32 · через 25 минут' : 'Заберёте в ' + this.SLOTS[s.slot] + ' · слот держим 10 минут',
+      confirmTime: s.slot === 0 ? 'Будет готов примерно в 14:32' : 'Заберёте в ' + this.SLOTS[s.slot],
+
+      streak: [1, 2, 3, 4, 5, 6, 7, 8].map(i => {
+        const frozen = s.frozenWeek === i;
+        const done = i <= 5;
+        const gifts = { 2: ['sauce', 'Острый соус'], 4: ['drink', 'Лимонад'], 6: ['off', 'Скидка 30%'], 8: ['combo', 'Pick Combo'] };
+        const g = gifts[i];
+        return {
+          gift: !!g, giftLabel: g ? g[1] : '',
+          isSauce: g && g[0] === 'sauce', isDrink: g && g[0] === 'drink',
+          isOff: g && g[0] === 'off', isCombo: g && g[0] === 'combo',
+          giftBg: g ? (done ? 'var(--orange)' : 'var(--surf2)') : 'transparent',
+          giftInk: g && done ? '#fff' : 'var(--text2)',
+          label: i, mark: i, done,
+          badge: frozen ? '❄' : done ? '✓' : '',
+          hasBadge: frozen || done,
+          badgeBg: frozen ? 'var(--blue)' : 'var(--ok)',
+          bg: frozen ? 'var(--blue)' : done ? 'var(--orange)' : 'var(--surf2)',
+          fg: frozen || done ? '#fff' : 'var(--text2)',
+          labelColor: frozen ? 'var(--blue-ink)' : done ? 'var(--text)' : 'var(--text2)',
+          milestone: i === 4 || i === 8
+        };
+      }),
+      freezePill: s.frozenWeek ? 'Заморозка на неделе ' + s.frozenWeek : (s.freezeLeft ? s.freezeLeft + ' заморозка' : 'Заморозок нет'),
+      freezeUsed: !!s.frozenWeek,
+      freezeAvailable: !s.frozenWeek && s.freezeLeft > 0,
+      freezeChipBg: s.frozenWeek ? 'var(--blue)' : 'var(--blue-soft)',
+      freezeChipFg: s.frozenWeek ? '#fff' : 'var(--blue-ink)',
+      freezeHint: s.frozenWeek ? 'нажмите, чтобы снять' : (s.freezeLeft ? 'нажмите, чтобы включить' : 'будет через 8 недель'),
+      toggleFreeze: () => {
+        if (s.frozenWeek) { this.setState({ frozenWeek: null, freezeLeft: 1 }); this.say('Заморозка снята'); }
+        else if (s.freezeLeft > 0) { this.setState({ frozenWeek: 6, freezeLeft: 0 }); this.say('Заморозка включена — 6-я неделя защищена, стрик не обнулится'); }
+        else this.say('Новая заморозка появится через 8 недель');
+      },
+      freezeTitle: s.frozenWeek ? 'Неделя ' + s.frozenWeek + ' защищена' : 'Заморозка недели',
+      freezeText: s.frozenWeek
+        ? 'Если на этой неделе заказа не будет, стрик не обнулится. Новая заморозка появится через 8 недель.'
+        : 'Не успеваете заказать на этой неделе? Включите заморозку — стрик сохранится, а прогресс встанет на паузу. Одна заморозка раз в 8 недель.',
+      useFreeze: () => { this.setState({ frozenWeek: 6, freezeLeft: 0 }); this.say('Заморозка включена — 6-я неделя защищена'); },
+      cancelFreeze: () => { this.setState({ frozenWeek: null, freezeLeft: 1 }); this.say('Заморозка снята'); },
+      streakWeeks: '5', streakPct: '62%',
+      streakFlags: [[2, 'Соус'], [4, 'Лимонад'], [6, '−30%'], [8, 'Комбо']].map((g, i, arr) => {
+        const done = 5 >= g[0];
+        const next = !done && arr.filter(x => 5 < x[0])[0][0] === g[0];
+        return {
+          week: g[0], label: g[1], pos: ((i + 1) * 25) + '%',
+          shift: i === arr.length - 1 ? '-62%' : '-50%',
+          bg: done ? '#FFFFFF' : next ? 'var(--blue-soft)' : 'var(--surf2)',
+          fg: done ? '#C2410C' : next ? 'var(--blue-ink)' : 'var(--text2)',
+          border: done ? 'var(--orange)' : next ? 'var(--blue)' : 'var(--surf)',
+          labelColor: done ? 'var(--text)' : next ? 'var(--blue-ink)' : 'var(--text2)'
+        };
+      }),
+      streakNext: 'Картофельные дольки бесплатно',
+      streakLeft: 'через 3 недели',
+      events: [
+        { name: 'Соус-сомелье', when: 'ДО ВС', kind: 'МИССИЯ', desc: 'Закажите три разных соуса за неделю — откроете карточку в коллекции.', progress: '2 / 3', pct: '66%', reward: '+500 Чиков', cta: 'В меню', bg: 'var(--blue)', bgImg: (window.__resources&&window.__resources['assets/pc-bg-blue.svg']||'assets/pc-bg-blue.svg'), ctaBg: 'var(--blue)', ctaFg: '#fff', action: () => this.go('menu') },
+        { name: 'Колесо Чика', when: 'СЕГОДНЯ', kind: 'РОЗЫГРЫШ', desc: 'Одна попытка в неделю плюс попытка за каждый заказ от 3 000 ₸. Джекпот — бесплатное комбо.', progress: '1 попытка', pct: '100%', reward: 'до 500 Чиков', cta: 'Крутить', bg: 'var(--orange)', bgImg: (window.__resources&&window.__resources['assets/pc-bg-orange.svg']||'assets/pc-bg-orange.svg'), ctaBg: 'var(--orange)', ctaFg: '#fff', action: () => {} },
+        { name: 'Ранняя пташка', when: 'БУДНИ', kind: 'МИССИЯ', desc: 'Заказ до 12:00 в любой рабочий день. Утро — самое свободное время кухни.', progress: '0 / 1', pct: '4%', reward: '+300 Чиков', cta: 'В меню', bg: 'var(--blue)', bgImg: (window.__resources&&window.__resources['assets/pc-bg-mix.svg']||'assets/pc-bg-mix.svg'), ctaBg: 'var(--blue)', ctaFg: '#fff', action: () => this.go('menu') },
+        { name: 'Не один', when: '2 НЕДЕЛИ', kind: 'МИССИЯ', desc: 'Возьмите любое комбо на двоих — Фингер, Бургер или Микс Дуо.', progress: '0 / 1', pct: '4%', reward: '+700 Чиков', cta: 'В меню', bg: 'var(--blue)', bgImg: (window.__resources&&window.__resources['assets/pc-bg-blue.svg']||'assets/pc-bg-blue.svg'), ctaBg: 'var(--blue)', ctaFg: '#fff', action: () => this.go('menu') }
+      ],
+      soon: [
+        { date: '01.09', name: 'Коллекция соусов: осень', note: 'Семь карточек, награда за полную полку', status: 'через 6 дней' },
+        { date: '15.09', name: 'Лидерборд Pick Run', note: 'Топ-3 недели по городу получают промокод', status: 'Волна 2' },
+        { date: '—', name: 'День рождения', note: 'Бесплатное комбо в течение 7 дней вокруг даты', status: 'по дате' }
+      ],
+
+      levels: [
+        { name: 'Новичок', cashback: '3%', perks: 'Приветственные 500 Чиков при регистрации.', threshold: '0 ₸', pct: '100%', current: false, border: 'transparent', barColor: 'var(--text2)', cbColor: 'var(--text2)' },
+        { name: 'Свой', cashback: '5%', perks: 'Бесплатный соус к каждому заказу.', threshold: '25 000 ₸', pct: '100%', current: false, border: 'transparent', barColor: 'var(--text2)', cbColor: 'var(--text2)' },
+        { name: 'Пик-мастер', cashback: '7%', perks: 'Плюс попытка колеса в неделю, подарок в день рождения, ранний доступ к акциям.', threshold: '75 000 ₸', pct: '66%', current: true, border: 'var(--orange)', barColor: 'var(--orange)', cbColor: 'var(--orange)' },
+        { name: 'Пик', cashback: '10%', perks: 'Чики не сгорают, приоритет в очереди приготовления, ранний доступ к новинкам, личный менеджер в чате.', threshold: '200 000 ₸', pct: '0%', current: false, border: 'transparent', barColor: 'var(--blue)', cbColor: 'var(--blue-ink)' }
+      ],
+      earnWays: [
+        { badge: '7%', name: 'Кэшбэк с каждого заказа', note: 'Начисляем на сумму, оплаченную деньгами, после выдачи' },
+        { badge: '×3', name: 'Вторник — тройные Чики', note: 'Один день в неделю вместо 7% начисляем 21%' },
+        { badge: '1К', name: 'Приглашение друга', note: '1 000 Чиков вам и другу после его первого заказа от 2 500 ₸' },
+        { badge: '★', name: 'События недели', note: 'Миссии и стрик — от 200 до 700 Чиков за штуку' },
+        { badge: 'ДР', name: 'День рождения', note: 'Бесплатное комбо и двойное начисление в свою неделю' }
+      ],
+      chikiLog: [
+        { name: 'Заказ №142', date: '21 августа', amount: '+390', color: 'var(--ok)' },
+        { name: 'Списание в заказе №142', date: '21 августа', amount: '−1 000', color: 'var(--orange)' },
+        { name: 'Миссия «Постоянство»', date: '18 августа', amount: '+500', color: 'var(--ok)' },
+        { name: 'Стрик 4 недели', date: '11 августа', amount: '+600', color: 'var(--ok)' }
+      ],
+      showAwards: scr === 'awards',
+      goAwards: () => this.setState({ prev: scr, screen: 'awards', modal: false }),
+      backFromAwards: () => this.go('profile'),
+      earnedTotalLabel: this.NUM(s.earnedTotal),
+      roadPct: Math.min(100, Math.round(s.earnedTotal / 8000 * 100)) + '%',
+      roadFill: (() => {
+        const m = [500, 1500, 3000, 5000, 8000];
+        const done = m.filter(x => s.earnedTotal >= x).length;
+        const prev = done === 0 ? 0 : m[done - 1];
+        const next = m[done] || m[m.length - 1];
+        const within = done >= m.length ? 1 : Math.max(0, Math.min(1, (s.earnedTotal - prev) / (next - prev)));
+        return Math.round(((done + within) / m.length) * 100 - (100 / m.length) / 2) + '%';
+      })(),
+      roadNext: (() => {
+        const m = [500, 1500, 3000, 5000, 8000].find(x => x > s.earnedTotal);
+        return m ? 'До следующей награды — ' + this.NUM(m - s.earnedTotal) + ' Чиков' : 'Все награды дороги собраны';
+      })(),
+      road: [
+        [500, 'Фирменный соус в подарок'], [1500, 'Тост к любому заказу'], [3000, 'Картофельные дольки'],
+        [5000, 'Solo Combo бесплатно'], [8000, 'Pick Combo бесплатно']
+      ].map((r, i, arr) => {
+        const got = s.earnedTotal >= r[0];
+        const prev = i === 0 ? 0 : arr[i - 1][0];
+        const cur = !got && s.earnedTotal >= prev;
+        return {
+          amount: this.NUM(r[0]) + ' Чиков', reward: r[1],
+          state: got ? 'Получено' : cur ? 'Ближайшая' : 'Закрыто',
+          nodeBg: got ? 'var(--orange)' : cur ? 'var(--blue)' : 'var(--surf2)',
+          nodeFg: got || cur ? '#fff' : 'var(--text2)',
+          mark: got ? '✓' : String(i + 1),
+          cardBg: cur ? 'var(--blue-soft)' : 'var(--surf)',
+          stateColor: got ? 'var(--orange)' : cur ? 'var(--blue-ink)' : 'var(--text2)',
+          rewardColor: got || cur ? 'var(--text)' : 'var(--text2)'
+        };
+      }),
+      doneMissions: [
+        { name: 'Постоянство', note: '3 заказа за 14 дней', reward: '+500 Чиков', date: '18 августа' },
+        { name: 'Стрик 4 недели', note: 'Четыре недели подряд', reward: '+600 Чиков', date: '11 августа' },
+        { name: 'Открыватель', note: 'Заказали новинку', reward: '+400 Чиков', date: '4 августа' },
+        { name: 'Первый заказ', note: 'Добро пожаловать', reward: '+500 Чиков', date: '12 июля' }
+      ],
+      collection: [1, 2, 3, 4, 5, 6, 7].map(i => ({
+        got: i <= 3, bg: i <= 3 ? 'var(--orange-soft)' : 'var(--surf2)',
+        fg: i <= 3 ? 'var(--orange)' : 'var(--text2)', mark: i <= 3 ? '✓' : '?'
+      })),
+      goChiki: () => this.setState({ prev: scr, screen: 'chiki', modal: false }),
+      backFromChiki: () => this.go(s.prev === 'chiki' ? 'menu' : s.prev),
+
+      history: s.orders.map(o => ({
+        no: '№ ' + ('00' + o.no).slice(-3), date: o.date.split(',')[0], total: this.MONEY(o.total), items: o.items,
+        earned: '+' + this.NUM(o.earned) + ' Чиков',
+        rated: o.rating > 0, notRated: !o.rating,
+        stars: [1, 2, 3, 4, 5].map(i => ({ color: i <= o.rating ? 'var(--orange)' : 'var(--surf2)' })),
+        open: () => this.setState({ orderView: o.no, screen: 'order' }),
+        rate: () => this.setState({ rateFor: o.no, rating: 0, ratingTags: [], screen: 'rate' }),
+        repeat: () => this.repeatOrder(o)
+      })),
+      showOrderCard: scr === 'order',
+      ov: (() => {
+        const o = s.orders.find(x => x.no === s.orderView) || s.orders[0] || {};
+        return {
+          no: '№ ' + ('00' + (o.no || 0)).slice(-3), date: o.date || '', items: o.items || '',
+          subtotal: this.MONEY(o.subtotal || 0), spent: '−' + this.MONEY(o.spent || 0),
+          total: this.MONEY(o.total || 0), earned: 'Чиков начислено +' + this.NUM(o.earned || 0),
+          method: o.method || '', fpd: '№ ' + (o.fpd || '') + ' · Webkassa',
+          rated: o.rating > 0, notRated: !o.rating,
+          stars: [1, 2, 3, 4, 5].map(i => ({ color: i <= (o.rating || 0) ? 'var(--orange)' : 'var(--surf2)' })),
+          rate: () => this.setState({ rateFor: o.no, rating: 0, ratingTags: [], screen: 'rate' }),
+          repeat: () => this.repeatOrder(o)
+        };
+      })(),
+      backFromOrder: () => this.go('orders'),
+      qr: this.qrCells(),
+
+      itemName: this.current().name,
+      itemComp: this.current().d || this.current().comp || 'Позиция меню Pick Chick',
+      itemWeight: this.current().sizes ? this.SIZES[s.size][0] : ((this.current().n ? this.NUM(this.current().n[0]) : '—') + ' г'),
+      itemNutrition: (() => {
+        const n = this.current().n || [0, 0, 0, 0, 0];
+        const k = this.sizeFactor();
+        const v = i => this.NUM(Math.round(n[i] * k));
+        return [
+          { label: 'ккал', value: v(1), color: 'var(--orange)' },
+          { label: 'белки, г', value: v(2), color: 'var(--text)' },
+          { label: 'жиры, г', value: v(3), color: 'var(--text)' },
+          { label: 'углеводы, г', value: v(4), color: 'var(--text)' }
+        ];
+      })(),
+      showComment: !this.current().sizes && this.state.modalId !== 'd4' && this.state.modalId.charAt(0) !== 'n',
+      itemSlot: 'ph2-' + this.current().id,
+      itemImg: this.current().img || '',
+      itemVid: this.current().vid || false,
+      isCombo: this.isCombo(),
+      isSizable: !!this.current().sizes,
+      sizeOpts: this.SIZES.map((z, i) => ({
+        name: z[0] + ' г', on: s.size === i,
+        ring: s.size === i ? 'var(--blue)' : 'var(--line)',
+        delta: z[1] ? '+' + this.MONEY(z[1]) : '+0 ₸',
+        pick: () => this.setState({ size: i })
+      })),
+      drinks: (s.expandDrinks ? this.DRINKS : this.DRINKS.slice(0, 4)).map(d => {
+        const r = modRow(d, s.drink); r.pick = () => { if (!d.out) this.setState({ drink: d.id }); }; return r;
+      }),
+      sauceOpts: this.SAUCES.map(d => {
+        const r = modRow(d, s.sauce); r.pick = () => { if (!d.out) this.setState({ sauce: d.id }); }; return r;
+      }),
+      drinksToggleLabel: s.expandDrinks ? 'Свернуть' : 'Показать все 18 напитков',
+      toggleDrinks: () => this.setState({ expandDrinks: !s.expandDrinks }),
+      counters: this.COUNTERS.map(c => ({
+        name: c.name, priceLabel: '+' + this.MONEY(c.p), qty: s.counters[c.id] || 0,
+        inc: () => this.bumpCounter(c.id, 1), dec: () => this.bumpCounter(c.id, -1)
+      })),
+      itemQty: s.itemQty,
+      incItemQty: () => this.setState({ itemQty: s.itemQty + 1 }),
+      decItemQty: () => this.setState({ itemQty: Math.max(1, s.itemQty - 1) }),
+      itemTotalLabel: this.MONEY(this.itemTotal()),
+      addToCart: () => this.addItem(), closeItem: () => this.setState({ modal: false }),
+
+      openCart: () => this.go('cart'), closeCart: () => this.go('menu'),
+      goCart: () => this.go('cart'),
+      placeOrder: () => this.placeOrder(),
+      showPaying: scr === 'paying', showRate: scr === 'rate',
+      goTracker: () => this.go('tracker'), goMenu: () => this.go('menu'),
+      goEvents: () => this.go('events'), goOrders: () => this.go('orders'), goProfile: () => this.go('profile'),
+      tabMenu: tabColor('menu'), tabEvents: tabColor('events'),
+      tabOrders: tabColor('orders'), tabProfile: tabColor('profile')
+    };
+  }
+}

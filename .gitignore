@@ -1,0 +1,41 @@
+# Local operating-system files
+.DS_Store
+._*
+Thumbs.db
+
+# Extracted duplicate of the versioned planning archive
+/PickChick-technical-plan-v1/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+*.keystore
+*.jks
+
+# Dependencies, generated builds and temporary output
+node_modules/
+.pnpm-store/
+.expo/
+.turbo/
+dist/
+build/
+coverage/
+*.log
+*.tsbuildinfo
+.venv/
+__pycache__/
+.idea/
+
+# Local databases and dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz

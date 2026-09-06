@@ -1,0 +1,931 @@
+SOURCE: /Users/xaknazar/Downloads/Pick Chick Бэк-офис (offline).html
+SHA256: 4cc129416b2631b86d0c26f78ec935fa63668a2d1f951696c534ee851e5b4644
+
+TEXT
+Pick Chick
+бэк-офис
+{{ n.label }}
+{{ n.badge }}
+{{ shiftLine1 }}
+{{ shiftLine2 }}
+Приложение
+·
+Киоск
+·
+Табло
+·
+Кухня
+{{ pageTitle }}
+{{ pageSub }}
+{{ p.label }}
+{{ p.label }}
+Закрыть смену
+download
+Экспорт
+{{ k.label }}
+{{ k.value }}
+{{ k.delta }}
+{{ k.sub }}
+{{ p.title }}
+{{ p.note }}
+{{ a.icon }}
+{{ a.label }}
+{{ c.label }}
+{{ c.text }}
+{{ c.text }}
+{{ c.sub }}
+{{ b.value }}
+{{ b.label }}
+{{ m.label }}
+{{ m.value }}
+{{ p.footer }}
+{{ a.badge }}
+{{ a.text }}
+{{ i.name }}
+{{ i.sub }}
+{{ i.value }}
+{{ i.action }}
+{{ c.name }}
+{{ c.sub }}
+{{ c.status }}
+{{ m.label }}
+{{ m.value }}
+{{ c.footer }}
+{{ r.stars }}
+{{ r.author }}
+{{ r.meta }}
+{{ r.text }}
+{{ r.tag }}
+{{ r.action }}
+{{ modal.title }}
+{{ modal.sub }}
+✕
+{{ c.label }}
+{{ f.label }}
+{{ f.value }}
+{{ f.hint }}
+{{ c.label }}
+{{ c.text }}
+{{ c.text }}
+{{ t.label }}
+{{ t.value }}
+{{ modal.note }}
+Отмена
+{{ modal.primary }}
+{{ toast }}
+
+PROTOTYPE LOGIC (REFERENCE DATA ONLY)
+
+class Component extends DCLogic {
+  state = {
+    screen: 'dash', period: (this.props && this.props.period) || 'day', scope: 'point', toast: '',
+    shiftOpen: true, modal: null, pick: 'full', cause: 'Пролили',
+    off: { fuse: true, bbq: true }, promoOff: { p4: true }, gameOff: { g4: true }
+  };
+
+  NUM = n => Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ');
+  MONEY = n => this.NUM(n) + ' ₸';
+  MLN = n => (n / 1000000).toFixed(1).replace('.', ',') + ' млн ₸';
+  PCT = v => (v > 0 ? '+' : '−') + Math.abs(v).toFixed(0) + '%';
+
+  NAV = [
+    ['dash', 'Дашборд'], ['orders', 'Заказы'], ['items', 'Номенклатура'], ['stock', 'Остатки'],
+    ['reports', 'Отчёты'], ['finance', 'Касса и бухгалтерия'], ['promo', 'Промо и баннеры'],
+    ['games', 'Игры и челленджи'], ['guests', 'Гости и push'], ['tickets', 'Обращения'],
+    ['reviews', 'Отзывы'], ['stations', 'Станции и маршруты'], ['devices', 'Устройства'],
+    ['shifts', 'Смены и оценки'], ['audit', 'Журнал аудита']
+  ].map(n => ({ id: n[0], label: n[1] }));
+
+  TITLES = {
+    dash: ['Дашборд смены', 'данные обновляются каждую минуту'],
+    orders: ['Заказы', 'канал, оплата, статус выдачи, фискальный чек'],
+    items: ['Номенклатура', 'цены, техкарты, КБЖУ, модификаторы и стоп-лист'],
+    stock: ['Остатки и склад', 'списание по техкартам, прогноз запаса, автостоп при нуле'],
+    reports: ['Отчёты', 'выгрузки для управляющего и бухгалтера'],
+    finance: ['Касса и бухгалтерия', 'фискализация Webkassa, эквайринг, налоги, выгрузка в 1С'],
+    promo: ['Промо и баннеры', 'карусель приложения, attract киоска, бегущая строка табло'],
+    games: ['Игры и челленджи', 'чики, стрик, колесо удачи и Пик-ран'],
+    guests: ['Гости и push', 'сегменты, карточка гостя, рассылки'],
+    tickets: ['Обращения', 'жалобы и вопросы гостей со всех каналов'],
+    reviews: ['Отзывы', '2ГИС и оценки после заказа в приложении'],
+    stations: ['Станции и маршруты', 'привязка позиция → станция, загрузка кухни'],
+    devices: ['Устройства', 'киоски, табло, кухня и касса по коду точки'],
+    shifts: ['Смены и оценки', 'смены, сотрудники, оценки и отзывы гостей'],
+    audit: ['Журнал аудита', 'кто и что менял в бэк-офисе']
+  };
+
+  KBJU = {
+    fuse0: '780 ккал · Б 42 · Ж 34 · У 68', fuse1: '640 ккал · Б 34 · Ж 28 · У 54', fuse2: '580 ккал · Б 30 · Ж 26 · У 48',
+    fuse3: '620 ккал · Б 46 · Ж 30 · У 32', fuse4: '390 ккал · Б 29 · Ж 19 · У 20', fuse5: '710 ккал · Б 38 · Ж 44 · У 24',
+    bbq: '90 ккал · Б 0 · Ж 6 · У 9', fuse: '120 ккал · Б 0 · Ж 0 · У 30', fuse6: '210 ккал · Б 12 · Ж 9 · У 18'
+  };
+
+  PERIODS = { day: 'День', week: 'Неделя', month: 'Месяц', quarter: 'Квартал' };
+  PK = { day: 1, week: 6.4, month: 27, quarter: 81 };
+
+  // ── ячейки таблиц
+  T = (text, o) => Object.assign({ isText: true, isBadge: false, isToggle: false, text: text, align: 'left', fg: 'var(--text)', fw: 'var(--fw-medium)', sub: false, click: undefined, cursor: 'default' }, o || {});
+  A = (text, fn) => this.T(text, { align: 'right', fg: 'var(--accent)', fw: 'var(--fw-semibold)', click: fn, cursor: 'pointer' });
+  R = (text, o) => this.T(text, Object.assign({ align: 'right', fg: 'var(--text2)' }, o || {}));
+  B = (text, bg, fg, align) => ({ isText: false, isToggle: false, isBadge: true, text: text, badgeBg: bg, badgeFg: fg, align: align || 'left' });
+  GOOD = t => this.B(t, 'var(--green-soft)', 'var(--green)');
+  WARN = t => this.B(t, 'var(--yellow-soft)', 'var(--yellow)');
+  BAD = t => this.B(t, 'var(--red-soft)', 'var(--red)');
+  INFO = t => this.B(t, 'var(--blue-soft)', 'var(--blue)');
+  ORA = t => this.B(t, 'rgba(255,103,31,.14)', 'var(--accent)');
+  MUT = t => this.B(t, 'var(--card-hi)', 'var(--text2)');
+  btn = (label, icon, fn, primary) => ({ label, icon, click: fn, bg: primary ? 'var(--accent)' : 'var(--card-hi)', bd: primary ? 'var(--accent)' : 'var(--border)', fg: primary ? '#0c1222' : 'var(--text)' });
+  SW = (on, fn) => ({ isText: false, isBadge: false, isToggle: true, align: 'right', toggle: fn, trackBg: on ? 'var(--green)' : '#3a2430', knobPos: on ? 'flex-end' : 'flex-start' });
+
+  say = m => { this.setState({ toast: m, modal: null }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2600); };
+
+  tbl = (title, note, grid, cols, rows, actions) => ({
+    title, note, grid, isTable: true, actions: actions || [],
+    cols: cols.map(c => ({ label: c[0], align: c[1] || 'left' })),
+    rows: rows.map(cells => ({ cells }))
+  });
+
+  renderVals() {
+    const s = this.state, k = this.PK[s.period] * (s.scope === 'all' ? 4.4 : 1);
+    const t = this.TITLES[s.screen] || this.TITLES.dash;
+    const point = s.scope === 'all' ? 'Все точки' : 'Абая 62';
+    const offCount = Object.keys(s.off).filter(x => s.off[x]).length;
+
+    const M = kind => () => this.setState({ modal: kind });
+    const nav = this.NAV.map(n => {
+      const on = s.screen === n.id;
+      let badge = false;
+      if (n.id === 'items') badge = offCount ? String(offCount) : false;
+      if (n.id === 'stock') badge = '3';
+      if (n.id === 'orders') badge = this.NUM(148 * k);
+      return {
+        label: n.label, badge: badge || false, go: () => this.setState({ screen: n.id }),
+        bg: on ? 'var(--card-hi)' : 'transparent',
+        fg: on ? 'var(--text)' : 'var(--text2)',
+        fw: on ? 'var(--fw-semibold)' : 'var(--fw-medium)',
+        dot: on ? 'var(--accent)' : 'var(--text3)',
+        badgeBg: on ? 'rgba(255,255,255,.1)' : 'var(--card-hi)',
+        badgeFg: on ? 'var(--text)' : 'var(--text3)'
+      };
+    });
+
+    const MODALS = {
+      shift: {
+        title: s.shiftOpen ? 'Закрыть смену · ' + point : 'Открыть смену · ' + point,
+        sub: s.shiftOpen ? 'Смена открыта в 07:30, кассир Айгерим С.' : 'Смена откроется от текущего времени, автозакрытие в 23:10',
+        isFields: true,
+        fields: [
+          { label: 'выручка', value: this.MONEY(512400), fg: 'var(--text)' },
+          { label: 'фискальных чеков', value: '146 из 148', fg: 'var(--yellow)', hint: '2 чека уходят в повтор' },
+          { label: 'наличные в сейфе', value: this.MONEY(25620), fg: 'var(--text)' },
+          { label: 'позиций в стопе', value: String(offCount), fg: 'var(--red)' }
+        ],
+        note: 'После закрытия правки в номенклатуре сохранятся, но не попадут в Z-отчёт этой смены. Z-отчёт уйдёт в бухгалтерию автоматически.',
+        primary: s.shiftOpen ? 'Закрыть смену и снять Z-отчёт' : 'Открыть смену',
+        confirm: () => { this.setState({ shiftOpen: !s.shiftOpen }); this.say(s.shiftOpen ? 'Смена закрыта · Z-отчёт отправлен' : 'Смена открыта · X-отчёт снят'); }
+      },
+      recipe: {
+        title: 'Техкарта · Мастер Комбо',
+        sub: 'Списание со склада идёт по этой норме, КБЖУ в приложении считается отсюда',
+        isTable: true, grid: 'minmax(0,2fr) .9fr 1fr 1.1fr',
+        cols: [{ label: 'ингредиент', align: 'left' }, { label: 'норма', align: 'right' }, { label: 'стоимость', align: 'right' }, { label: 'кбжу', align: 'right' }],
+        rows: [['Куриное филе', '160 г', 512, '265 ккал'], ['Панировка', '40 г', 88, '150 ккал'], ['Масло фритюрное', '18 мл', 54, '160 ккал'], ['Соус фирменный', '50 г', 96, '120 ккал'], ['Картофель фри', '120 г', 210, '290 ккал'], ['Упаковка комбо', '1 шт', 180, '—']]
+          .map(r => ({ cells: [this.T(r[0], { fw: 'var(--fw-semibold)' }), this.R(r[1]), this.R(this.MONEY(r[2]), { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.R(r[3])] })),
+        totals: [
+          { label: 'себестоимость', value: this.MONEY(1140), fg: 'var(--text)' },
+          { label: 'фудкост', value: '38%', fg: 'var(--yellow)' },
+          { label: 'кбжу порции', value: '780 ккал', fg: 'var(--text)' }
+        ],
+        note: 'Изменение техкарты уходит на киоск и в приложение сразу после сохранения. Каждая правка пишется в журнал аудита.',
+        primary: 'Сохранить техкарту',
+        confirm: () => this.say('Техкарта сохранена · пересчитан фудкост')
+      },
+      receipt: {
+        title: 'Принять поставку',
+        sub: 'Айналайын · накладная №4812 от 31 августа',
+        isTable: true, grid: 'minmax(0,2fr) .9fr .9fr 1fr 1fr',
+        cols: [{ label: 'позиция', align: 'left' }, { label: 'упак', align: 'right' }, { label: 'в ед.', align: 'right' }, { label: 'цена', align: 'right' }, { label: 'итог', align: 'right' }],
+        rows: [['Куриное филе', '6 ящ', '60 кг', 2400, 144000], ['Панировка', '4 меш', '40 кг', 1100, 44000], ['Соус фирменный', '2 кан', '20 л', 1900, 38000], ['Упаковка комбо', '5 кор', '1 000 шт', 52, 52000]]
+          .map(r => ({ cells: [this.T(r[0], { fw: 'var(--fw-semibold)' }), this.R(r[1]), this.R(r[2]), this.R(this.MONEY(r[3])), this.R(this.MONEY(r[4]), { fg: 'var(--text)', fw: 'var(--fw-semibold)' })] })),
+        totals: [{ label: 'итого по накладной', value: this.MONEY(278000), fg: 'var(--text)' }, { label: 'позиций', value: '4', fg: 'var(--text)' }],
+        note: 'Пересчёт упаковок в учётные единицы: 1 ящик = 10 кг, 1 мешок = 10 кг. Фото накладной — необязательно.',
+        primary: 'Сохранить · остатки обновятся',
+        confirm: () => this.say('Поставка принята · остатки обновлены')
+      },
+      writeoff: {
+        title: 'Ручное списание',
+        sub: 'Два шага, крупные кнопки — списывает повар между заказами. Управляющий видит сразу.',
+        isFields: true,
+        fields: [
+          { label: 'ингредиент', value: 'Куриное филе', fg: 'var(--text)' },
+          { label: 'количество', value: '1,8 кг', fg: 'var(--text)' },
+          { label: 'причина', value: s.cause, fg: 'var(--accent)' },
+          { label: 'автор', value: 'Ерасыл К. · повар', fg: 'var(--text)', hint: '31 августа, 11:22' }
+        ],
+        chips: ['Пролили', 'Пережарка', 'Истёк срок', 'Проба', 'Питание персонала', 'Другое'].map(c => {
+          const on = s.cause === c;
+          return { label: c, bg: on ? 'var(--accent)' : 'var(--card-hi)', bd: on ? 'var(--accent)' : 'var(--border)', fg: on ? '#0c1222' : 'var(--text2)', pick: () => this.setState({ cause: c }) };
+        }),
+        note: 'Операция уйдёт в журнал движений с автором и временем. Отменить можно только обратной операцией.',
+        primary: 'Списать',
+        confirm: () => this.say('Списано 1,8 кг · причина: ' + s.cause)
+      },
+      inventory: {
+        title: 'Инвентаризация · лист пересчёта',
+        sub: '29 августа · расхождение больше 5% уходит в красную зону',
+        isTable: true, grid: 'minmax(0,1.7fr) .9fr .8fr .9fr 1fr .9fr',
+        cols: [{ label: 'ингредиент', align: 'left' }, { label: 'расчёт', align: 'right' }, { label: 'факт', align: 'right' }, { label: 'разница', align: 'right' }, { label: 'в деньгах', align: 'right' }, { label: 'зона', align: 'left' }],
+        rows: [
+          ['Куриное филе', '42,0 кг', '38,9 кг', '−3,1 кг', 9920, 'bad', '7,4%'],
+          ['Панировка', '9,0 кг', '8,6 кг', '−0,4 кг', 440, 'warn', '4,1%'],
+          ['Соус фирменный', '14,0 л', '13,7 л', '−0,3 л', 570, 'good', '2,2%'],
+          ['Масло фритюрное', '60,0 л', '59,2 л', '−0,8 л', 1200, 'good', '1,4%'],
+          ['Стаканы 0,5', '1 240 шт', '1 240 шт', '0', 0, 'good', '0%']
+        ].map(r => ({ cells: [
+          this.T(r[0], { fw: 'var(--fw-semibold)' }), this.R(r[1]), this.R(r[2]),
+          this.R(r[3], { fg: r[5] === 'bad' ? 'var(--red)' : r[5] === 'warn' ? 'var(--yellow)' : 'var(--text2)', fw: 'var(--fw-bold)' }),
+          this.R(r[4] ? '−' + this.MONEY(r[4]) : '0', { fg: r[5] === 'bad' ? 'var(--red)' : r[5] === 'warn' ? 'var(--yellow)' : 'var(--text2)' }),
+          r[5] === 'bad' ? this.BAD(r[6]) : r[5] === 'warn' ? this.WARN(r[6]) : this.GOOD(r[6])
+        ] })),
+        totals: [{ label: 'итоговое расхождение', value: '−' + this.MONEY(12130), fg: 'var(--red)' }, { label: 'в красной зоне', value: '1 позиция', fg: 'var(--red)' }],
+        note: 'Применение акта скорректирует остатки и создаст операции недостачи. Прямая правка цифры невозможна — каждая величина раскручивается до операции.',
+        primary: 'Применить корректировки',
+        confirm: () => this.say('Акт применён · остатки скорректированы')
+      },
+      refund: {
+        title: 'Возврат по заказу 142',
+        sub: 'Приложение · Kaspi Pay · 2 640 ₸ · 31 августа, 10:58',
+        isFields: true,
+        fields: [
+          { label: 'тип возврата', value: s.pick === 'full' ? 'Полный · 2 640 ₸' : 'Частичный · 1 700 ₸', fg: 'var(--text)' },
+          { label: 'причина', value: 'Отмена на кухне — не было панировки', fg: 'var(--text)' },
+          { label: 'оформляет', value: 'Айгерим С. · менеджер', fg: 'var(--text)' },
+          { label: 'чиков будет снято', value: '185', fg: 'var(--red)', hint: 'начислено при оплате заказа' }
+        ],
+        chips: [['full', 'Полный возврат'], ['part', 'Частичный']].map(c => {
+          const on = s.pick === c[0];
+          return { label: c[1], bg: on ? 'var(--accent)' : 'var(--card-hi)', bd: on ? 'var(--accent)' : 'var(--border)', fg: on ? '#0c1222' : 'var(--text2)', pick: () => this.setState({ pick: c[0] }) };
+        }),
+        note: 'Пойдёт фискальный чек возврата в Webkassa и уведомление гостю в приложение. Чики за заказ будут сняты.',
+        primary: 'Оформить возврат',
+        confirm: () => this.say('Возврат оформлен · фискальный чек отправлен')
+      },
+      modgroup: {
+        title: 'Новая группа модификаторов',
+        sub: 'Группа появится в карточке позиции в приложении и на киоске',
+        isFields: true,
+        fields: [
+          { label: 'название', value: 'Пряности и посыпки', fg: 'var(--text)' },
+          { label: 'правило выбора', value: 'Один из списка · необязательно', fg: 'var(--text)' },
+          { label: 'надбавка', value: '+150 ₸', fg: 'var(--text)' },
+          { label: 'поправка кбжу', value: 'Б 1 · Ж 2 · У 3', fg: 'var(--text)', hint: 'уходит в расчёт калорий' },
+          { label: 'применить к', value: 'Фингерс (5 позиций)', fg: 'var(--text)' },
+          { label: 'сортировка', value: 'После соуса', fg: 'var(--text)' }
+        ],
+        note: 'Каждая правка пишется в журнал аудита и уходит на устройства в течение минуты.',
+        primary: 'Создать группу',
+        confirm: () => this.say('Группа модификаторов создана')
+      },
+      export1c: {
+        title: 'Выгрузка в 1С',
+        sub: 'Период: ' + this.PERIODS[s.period].toLowerCase() + ' · ' + point,
+        isFields: true,
+        fields: [
+          { label: 'выручка фискальная', value: this.MONEY(512400 * k), fg: 'var(--text)' },
+          { label: 'чеков', value: this.NUM(146 * k), fg: 'var(--text)' },
+          { label: 'эквайринг', value: this.MONEY(512400 * k * 0.019), fg: 'var(--text)' },
+          { label: 'формат', value: 'XML · CommerceML 2.08', fg: 'var(--text)' }
+        ],
+        note: 'Выгрузка включает чеки, возвраты, списания и поставки. Файл уходит в обмен 1С и дублируется на почту бухгалтера.',
+        primary: 'Выгрузить · XML',
+        confirm: () => this.say('Выгрузка в 1С сформирована')
+      }
+    };
+    const modalDef = s.modal ? MODALS[s.modal] : null;
+
+    const base = {
+      accentVar: (this.props && this.props.accent) || '#FF671F',
+      nav,
+      pageTitle: t[0],
+      pageSub: point + ' · 31 августа, 11:20 · ' + t[1],
+      showPeriod: true,
+      periodOpts: Object.keys(this.PERIODS).map(id => {
+        const on = s.period === id;
+        return { label: this.PERIODS[id], bg: on ? 'var(--accent)' : 'transparent', fg: on ? '#0c1222' : 'var(--text2)', shadow: on ? 'var(--sh-btn)' : 'none', pick: () => this.setState({ period: id }) };
+      }),
+      scopeOpts: [['point', 'Абая 62'], ['all', 'Все точки']].map(o => {
+        const on = s.scope === o[0];
+        return { label: o[1], bg: on ? 'var(--blue)' : 'transparent', fg: on ? '#0c1222' : 'var(--text2)', shadow: on ? 'var(--sh-btn)' : 'none', pick: () => this.setState({ scope: o[0] }) };
+      }),
+      shiftLine1: s.shiftOpen ? 'Смена открыта · 07:30' : 'Смена закрыта · Z-отчёт снят',
+      shiftLine2: point + ' · менеджер Айгерим',
+      closeShift: () => this.setState({ modal: 'shift' }),
+      shiftBtnLabel: s.shiftOpen ? 'Закрыть смену' : 'Открыть смену',
+      modalOpen: !!modalDef,
+      modal: modalDef ? Object.assign({ isFields: false, isTable: false, chips: false, totals: false, note: false, primaryBg: 'var(--accent)', primaryFg: '#0c1222' }, modalDef) : { isFields: false, isTable: false, chips: false, totals: false, note: false },
+      closeModal: () => this.setState({ modal: null }),
+      doExport: () => this.say('Выгрузка ' + this.PERIODS[s.period].toLowerCase() + ' готова — XLSX скачан'),
+      toast: s.toast,
+      kpis: [], hasKpis: false, panelRows: []
+    };
+
+    const kpi = (label, value, delta, deltaKind, sub, fg) => ({
+      label, value, sub, fg: fg || 'var(--text)',
+      delta: delta || false,
+      deltaBg: deltaKind === 'bad' ? 'var(--red-soft)' : deltaKind === 'warn' ? 'var(--yellow-soft)' : 'var(--blue-soft)',
+      deltaFg: deltaKind === 'bad' ? 'var(--red)' : deltaKind === 'warn' ? 'var(--yellow)' : 'var(--blue)'
+    });
+
+    // ── ДАШБОРД
+    if (s.screen === 'dash') {
+      const hours = [62.3, 145, 201, 222, 159, 180, 118, 96.9, 125, 152, 104, 76.2];
+      const max = Math.max.apply(null, hours);
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Выручка за смену', this.MONEY(512400 * k), '+14%', 'ok', 'к прошлой пятнице'),
+        kpi('Заказов', this.NUM(148 * k), '+9%', 'ok', 'из них ' + this.NUM(96 * k) + ' в приложении'),
+        kpi('Средний чек', this.MONEY(3462), '+4%', 'ok', 'допродажи дали +180 ₸'),
+        kpi('Среднее время выдачи', '6:20', '+40 с', 'warn', 'норма 6:00')
+      ];
+      base.panelRows = [
+        { grid: 'minmax(0,1.7fr) minmax(0,1fr)', panels: [
+          { title: 'Выручка по часам', note: 'пик 09:00–11:00 · 38% дня', isBars: true, bars: hours.map((v, i) => ({
+            label: String(8 + i).padStart(2, '0'),
+            value: this.NUM(v * k) + 'k',
+            valueFg: v === max ? 'var(--accent)' : 'var(--text2)',
+            h: Math.round(v / max * 100) + '%',
+            color: v === max ? 'var(--accent)' : '#22314f'
+          })) },
+          { title: 'Каналы и оплата', note: '', isMeters: true, footer: 'Среднее время выдачи 6 мин 20 с · просрочек ' + this.NUM(3 * k) + ' из ' + this.NUM(148 * k) + ' (2%)', items: [
+            { label: 'Приложение', value: this.NUM(96 * k) + ' · 65%', pct: '65%', color: 'var(--blue)' },
+            { label: 'Киоск iPad', value: this.NUM(52 * k) + ' · 35%', pct: '35%', color: 'var(--accent)' },
+            { label: 'Kaspi QR', value: this.NUM(118 * k) + ' · 80%', pct: '80%', color: '#f14635' },
+            { label: 'Карта / Halyk', value: this.NUM(30 * k) + ' · 20%', pct: '20%', color: 'var(--text2)' }
+          ] }
+        ]},
+        { grid: 'minmax(0,1fr) minmax(0,1fr)', panels: [
+          this.tbl('Топ позиций за день', 'по выручке', 'minmax(0,2.4fr) .7fr 1fr', [['позиция'], ['продано', 'right'], ['выручка', 'right']], [
+            [this.T('Мастер Комбо', { fw: 'var(--fw-semibold)' }), this.R(this.NUM(62 * k) + ' шт'), this.R(this.MONEY(186000 * k), { fg: 'var(--text)', fw: 'var(--fw-bold)' })],
+            [this.T('Пик Комбо', { fw: 'var(--fw-semibold)' }), this.R(this.NUM(48 * k) + ' шт'), this.R(this.MONEY(120000 * k), { fg: 'var(--text)', fw: 'var(--fw-bold)' })],
+            [this.T('Фингерс 8 шт', { fw: 'var(--fw-semibold)' }), this.R(this.NUM(41 * k) + ' шт'), this.R(this.MONEY(98400 * k), { fg: 'var(--text)', fw: 'var(--fw-bold)' })],
+            [this.T('Соло Комбо', { fw: 'var(--fw-semibold)' }), this.R(this.NUM(33 * k) + ' шт'), this.R(this.MONEY(75900 * k), { fg: 'var(--text)', fw: 'var(--fw-bold)' })],
+            [this.T('Картофель фри', { fw: 'var(--fw-semibold)' }), this.R(this.NUM(27 * k) + ' шт'), this.R(this.MONEY(16200 * k), { fg: 'var(--text)', fw: 'var(--fw-bold)' })]
+          ]),
+          { title: 'Требует внимания', note: '5 событий', isAlerts: true, items: [
+            { badge: 'Стоп', badgeBg: 'var(--red-soft)', badgeFg: 'var(--red)', bg: 'rgba(248,113,113,.07)', bd: 'rgba(248,113,113,.18)', text: 'Fuse Tea Арбуз — нет поставки. Позиция скрыта на киоске и в приложении.' },
+            { badge: 'Склад', badgeBg: 'var(--yellow-soft)', badgeFg: 'var(--yellow)', bg: 'rgba(240,194,64,.07)', bd: 'rgba(240,194,64,.18)', text: 'Панировка: осталось на 0,8 дня — закажи сегодня, иначе фингерс встанет к вечеру.' },
+            { badge: 'Минус', badgeBg: 'var(--red-soft)', badgeFg: 'var(--red)', bg: 'rgba(248,113,113,.07)', bd: 'rgba(248,113,113,.18)', text: 'Соус BBQ ушёл в минус (−0,4 л) — внесите поставку, продажи не блокируем.' },
+            { badge: 'Инвент.', badgeBg: 'var(--red-soft)', badgeFg: 'var(--red)', bg: 'rgba(248,113,113,.07)', bd: 'rgba(248,113,113,.18)', text: 'Расхождение по куриному филе 7,4% — красная зона, проверь техкарту и списания.' },
+            { badge: 'Кухня', badgeBg: 'var(--yellow-soft)', badgeFg: 'var(--yellow)', bg: 'rgba(240,194,64,.07)', bd: 'rgba(240,194,64,.18)', text: '3 заказа вышли за норму 8 минут — все в обед 12:40–13:10.' }
+          ] }
+        ]}
+      ];
+    }
+
+    // ── ЗАКАЗЫ
+    if (s.screen === 'orders') {
+      const ch = c => c === 'Киоск' ? this.B(c, 'rgba(255,103,31,.14)', 'var(--accent)') : c === 'Приложение' ? this.INFO(c) : this.B(c, 'var(--card-hi)', 'var(--text2)');
+      const st = x => x === 'Выдан' ? this.GOOD(x) : x === 'Готов' ? this.INFO(x) : x === 'Готовится' ? this.WARN(x) : this.BAD(x);
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Заказов', this.NUM(148 * k), null, 'ok', 'смена с 07:30'),
+        kpi('В работе', '6', null, 'ok', 'на кухне сейчас'),
+        kpi('Просрочек', this.NUM(3 * k), '2%', 'warn', 'дольше 8 минут'),
+        kpi('Отмен', this.NUM(2 * k), null, 'bad', 'возврат по Kaspi', 'var(--red)')
+      ];
+      base.panelRows = [{ grid: 'minmax(0,1fr)', panels: [
+        this.tbl('Лента заказов', 'обновляется каждую минуту', '.45fr .55fr .9fr minmax(0,1.8fr) .8fr .85fr .85fr .65fr .8fr',
+          [['№'], ['время'], ['канал'], ['состав'], ['сумма', 'right'], ['оплата'], ['статус'], ['выдача', 'right'], ['чек']], [
+          [this.T('148', { fw: 'var(--fw-bold)' }), this.T('11:20', { fg: 'var(--text2)' }), ch('Киоск'), this.T('Мастер Комбо, Фингерс 5 шт'), this.R('6 480 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Kaspi QR', { fg: 'var(--text2)' }), st('Готовится'), this.R('—'), this.GOOD('проведён')],
+          [this.T('147', { fw: 'var(--fw-bold)' }), this.T('11:18', { fg: 'var(--text2)' }), ch('Приложение'), this.T('Пик Комбо ×2, соус сырный'), this.R('5 900 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Kaspi Pay', { fg: 'var(--text2)' }), st('Готов'), this.R('5:40'), this.GOOD('проведён')],
+          [this.T('146', { fw: 'var(--fw-bold)' }), this.T('11:15', { fg: 'var(--text2)' }), ch('Касса'), this.T('Фингерс 8 шт, Coca-Cola'), this.R('3 250 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Наличные', { fg: 'var(--text2)' }), st('Выдан'), this.R('6:10'), this.GOOD('проведён')],
+          [this.T('145', { fw: 'var(--fw-bold)' }), this.T('11:12', { fg: 'var(--text2)' }), ch('Киоск'), this.T('Соло Комбо, суп дня'), this.R('4 140 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Halyk QR', { fg: 'var(--text2)' }), st('Выдан'), this.R('5:20'), this.WARN('повтор')],
+          [this.T('144', { fw: 'var(--fw-bold)' }), this.T('11:08', { fg: 'var(--text2)' }), ch('Приложение'), this.T('Мастер Комбо, чики −1 200'), this.R('2 800 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Kaspi Pay', { fg: 'var(--text2)' }), st('Выдан'), this.R('7:05'), this.GOOD('проведён')],
+          [this.T('143', { fw: 'var(--fw-bold)' }), this.T('11:04', { fg: 'var(--text2)' }), ch('Киоск'), this.T('Крылья 12 шт, фри ×2'), this.R('5 020 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Карта', { fg: 'var(--text2)' }), st('Выдан'), this.R('9:40', { fg: 'var(--red)' }), this.GOOD('проведён')],
+          [this.T('142', { fw: 'var(--fw-bold)' }), this.T('10:58', { fg: 'var(--text2)' }), ch('Приложение'), this.T('Фингерс 5 шт, лимонад'), this.R('2 640 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Kaspi Pay', { fg: 'var(--text2)' }), st('Отменён'), this.R('—'), this.BAD('возврат')],
+          [this.T('141', { fw: 'var(--fw-bold)' }), this.T('10:54', { fg: 'var(--text2)' }), ch('Касса'), this.T('Пик Комбо, соус фирменный'), this.R('2 950 ₸', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.T('Наличные', { fg: 'var(--text2)' }), st('Выдан'), this.R('6:00'), this.GOOD('проведён')]
+        ])
+      ]}];
+    }
+
+    // ── НОМЕНКЛАТУРА
+    if (s.screen === 'items') {
+      const rows = [
+        ['Мастер Комбо', 'Комбо', 3000, 1140, 62, 'fuse0'],
+        ['Пик Комбо', 'Комбо', 2500, 1025, 59, 'fuse1'],
+        ['Соло Комбо', 'Комбо', 2300, 989, 57, 'fuse2'],
+        ['Фингерс 8 шт', 'Фингерс', 2400, 864, 64, 'fuse3'],
+        ['Фингерс 5 шт', 'Фингерс', 1700, 663, 61, 'fuse4'],
+        ['Крылья 12 шт', 'Крылья', 2100, 1092, 48, 'fuse5'],
+        ['Соус BBQ', 'Соусы', 300, 66, 78, 'bbq'],
+        ['Fuse Tea Арбуз 0,5', 'Напитки', 700, 315, 55, 'fuse'],
+        ['Суп дня', 'Супы', 1200, 672, 44, 'fuse6']
+      ];
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Позиций в меню', '46', null, 'ok', '9 категорий'),
+        kpi('Скрыто', String(offCount), null, 'bad', 'не видно гостю', 'var(--red)'),
+        kpi('Средняя маржа', '58%', '+2%', 'ok', 'по всему меню'),
+        kpi('Изменено за неделю', '7', null, 'ok', 'цены и техкарты')
+      ];
+      base.panelRows = [{ grid: 'minmax(0,1fr)', panels: [
+        this.tbl('Позиции', 'выключенная позиция сразу пропадает с киоска и из приложения',
+          'minmax(0,1.35fr) .8fr .7fr .8fr .55fr minmax(0,1.4fr) .75fr 1.1fr .5fr',
+          [['позиция'], ['категория'], ['цена', 'right'], ['себест.', 'right'], ['маржа', 'right'], ['кбжу'], ['техкарта', 'right'], ['каналы'], ['вкл', 'right']],
+          rows.map(r => {
+            const on = !s.off[r[5]];
+            return [
+              this.T(r[0], { fw: 'var(--fw-semibold)' }),
+              this.T(r[1], { fg: 'var(--text2)' }),
+              this.R(this.MONEY(r[2]), { fg: 'var(--text)', fw: 'var(--fw-semibold)' }),
+              this.R(this.MONEY(r[3])),
+              this.R(r[4] + '%', { fg: r[4] >= 60 ? 'var(--green)' : r[4] >= 50 ? 'var(--text)' : 'var(--yellow)', fw: 'var(--fw-semibold)' }),
+              this.T(this.KBJU[r[5]] || '—', { fg: 'var(--text3)' }),
+              this.A('Открыть', M('recipe')),
+              on ? this.GOOD('киоск · апп · касса') : this.BAD('скрыта везде'),
+              this.SW(on, () => this.setState(st => ({ off: Object.assign({}, st.off, { [r[5]]: !st.off[r[5]] }) })))
+            ];
+          }))
+      ]},
+      { grid: 'minmax(0,1fr)', panels: [
+        { title: 'Группы модификаторов', note: 'видны в карточке позиции на киоске и в приложении', isCards: true, cardGrid: 'repeat(4,minmax(0,1fr))', items: [
+          { name: 'Соус', sub: 'Фирменный · Сырный · Острый · Чесночный · Кисло-сладкий', status: 'обязательно', stBg: 'var(--green-soft)', stFg: 'var(--green)', footer: 'Комбо, Фингерс · 6 позиций', metrics: [{ label: 'вариантов', value: '5', fg: 'var(--text)' }, { label: 'надбавка', value: '0 ₸', fg: 'var(--text)' }, { label: 'правило', value: 'один', fg: 'var(--text)' }, { label: 'в стопе', value: '1', fg: 'var(--red)' }] },
+          { name: 'Напиток', sub: 'Кола · Fanta · Sprite · Лимонад · Fuse Tea · Айран', status: 'обязательно', stBg: 'var(--green-soft)', stFg: 'var(--green)', footer: 'Все комбо · 3 позиции', metrics: [{ label: 'вариантов', value: '9', fg: 'var(--text)' }, { label: 'надбавка', value: 'до 300 ₸', fg: 'var(--text)' }, { label: 'правило', value: 'один', fg: 'var(--text)' }, { label: 'в стопе', value: '1', fg: 'var(--red)' }] },
+          { name: 'Размер', sub: 'M · L · XL — влияет на цену и КБЖУ', status: 'обязательно', stBg: 'var(--green-soft)', stFg: 'var(--green)', footer: 'Напитки, фри · 8 позиций', metrics: [{ label: 'вариантов', value: '3', fg: 'var(--text)' }, { label: 'надбавка', value: 'до 400 ₸', fg: 'var(--text)' }, { label: 'правило', value: 'один', fg: 'var(--text)' }, { label: 'в стопе', value: '0', fg: 'var(--green)' }] },
+          { name: 'Добавки', sub: 'Доп. соус · Сыр · Халапеньо · Кукуруза', status: 'по желанию', stBg: 'var(--card-hi)', stFg: 'var(--text2)', footer: 'Все позиции · необязательно', metrics: [{ label: 'вариантов', value: '6', fg: 'var(--text)' }, { label: 'надбавка', value: 'до 500 ₸', fg: 'var(--text)' }, { label: 'правило', value: 'много', fg: 'var(--text)' }, { label: 'в стопе', value: '0', fg: 'var(--green)' }] }
+        ] }
+      ]}];
+    }
+
+    // ── ОСТАТКИ
+    if (s.screen === 'stock') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Позиций склада', '38', null, 'ok', 'на точке ' + point),
+        kpi('Ниже минимума', '2', null, 'warn', 'панировка, стаканы 0,3', 'var(--yellow)'),
+        kpi('В минусе', '1', null, 'bad', 'соус BBQ −0,4 л', 'var(--red)'),
+        kpi('Инвентаризация', '29 авг', null, 'ok', 'расхождение 7,4% по филе')
+      ];
+      const st = x => x === 'норма' ? this.GOOD(x) : x === 'мало' ? this.WARN(x) : this.BAD(x);
+      base.panelRows = [
+        { grid: 'minmax(0,1fr)', panels: [
+          this.tbl('Склад точки', 'расход посчитан по среднему за 7 дней', 'minmax(0,2fr) .9fr .9fr 1fr .8fr 1.2fr',
+            [['ингредиент'], ['остаток', 'right'], ['хватит на', 'right'], ['расход в день', 'right'], ['статус'], ['последняя поставка', 'right']], [
+            [this.T('Куриное филе', { fw: 'var(--fw-semibold)' }), this.R('42 кг', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.R('1,5 дня'), this.R('28 кг'), st('норма'), this.R('30 авг, 06:40')],
+            [this.T('Панировка', { fw: 'var(--fw-semibold)' }), this.R('9 кг', { fg: 'var(--yellow)', fw: 'var(--fw-semibold)' }), this.R('0,8 дня', { fg: 'var(--yellow)' }), this.R('11 кг'), st('мало'), this.R('28 авг, 07:10')],
+            [this.T('Соус фирменный', { fw: 'var(--fw-semibold)' }), this.R('14 л', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.R('2 дня'), this.R('7 л'), st('норма'), this.R('30 авг, 06:40')],
+            [this.T('Соус BBQ', { fw: 'var(--fw-semibold)' }), this.R('−0,4 л', { fg: 'var(--red)', fw: 'var(--fw-bold)' }), this.R('—'), this.R('3 л'), st('минус'), this.R('24 авг, 07:00')],
+            [this.T('Масло фритюрное', { fw: 'var(--fw-semibold)' }), this.R('60 л', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.R('3 дня'), this.R('20 л'), st('норма'), this.R('29 авг, 06:50')],
+            [this.T('Стаканы 0,5', { fw: 'var(--fw-semibold)' }), this.R('1 240 шт', { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.R('4 дня'), this.R('310 шт'), st('норма'), this.R('27 авг, 08:20')],
+            [this.T('Fuse Tea Арбуз 0,5', { fw: 'var(--fw-semibold)' }), this.R('0 шт', { fg: 'var(--red)', fw: 'var(--fw-bold)' }), this.R('—'), this.R('84 шт'), st('минус'), this.R('22 авг, 07:30')]
+          ])
+        ]},
+        { grid: 'minmax(0,1fr) minmax(0,1fr)', panels: [
+          { title: 'Расхождения инвентаризации', note: '29 августа', isMeters: true, footer: 'Красная зона — расхождение больше 5%. Проверяются техкарта, списания и приёмка.', items: [
+            { label: 'Куриное филе', value: '7,4%', pct: '74%', color: 'var(--red)' },
+            { label: 'Панировка', value: '4,1%', pct: '41%', color: 'var(--yellow)' },
+            { label: 'Соус фирменный', value: '2,2%', pct: '22%', color: 'var(--green)' },
+            { label: 'Масло фритюрное', value: '1,4%', pct: '14%', color: 'var(--green)' }
+          ] },
+          { title: 'Списания за смену', note: 'на ' + this.MONEY(18400 * k), isList: true, items: [
+            { name: 'Фингерс — пережарка', sub: '11:05 · повар Ерасыл', value: '6 шт', fg: 'var(--red)' },
+            { name: 'Соус сырный — вскрыт', sub: '09:40 · срок годности', value: '1,2 л', fg: 'var(--yellow)' },
+            { name: 'Крылья — падение', sub: '13:20 · станция фритюр', value: '4 шт', fg: 'var(--red)' },
+            { name: 'Картофель фри — брак', sub: '15:10 · поставка', value: '2 кг', fg: 'var(--yellow)' }
+          ] }
+        ]}
+      ];
+    }
+
+    // ── ОТЧЁТЫ
+    if (s.screen === 'reports') {
+      base.panelRows = [{ grid: 'minmax(0,1fr) minmax(0,1fr)', panels: [
+        { title: 'Отчёты смены и точки', note: 'XLSX / PDF', isList: true, items: [
+          { name: 'X-отчёт текущей смены', sub: 'без закрытия · ' + point, value: this.MONEY(512400 * k), fg: 'var(--text)', action: 'Скачать' },
+          { name: 'Z-отчёт за 30 августа', sub: 'смена закрыта в 22:14', value: this.MONEY(486200), fg: 'var(--text)', action: 'Скачать' },
+          { name: 'Продажи по часам', sub: 'период: ' + this.PERIODS[s.period].toLowerCase(), value: 'CSV', fg: 'var(--text2)', action: 'Скачать' },
+          { name: 'ABC-анализ меню', sub: '46 позиций, 9 категорий', value: 'XLSX', fg: 'var(--text2)', action: 'Скачать' },
+          { name: 'Списания и порча', sub: 'с детализацией по поварам', value: 'XLSX', fg: 'var(--text2)', action: 'Скачать' }
+        ] },
+        { title: 'Регулярные выгрузки', note: 'уходят автоматически', isList: true, items: [
+          { name: 'Сводка дня управляющему', sub: 'каждый день в 23:30 · WhatsApp', value: 'вкл', fg: 'var(--green)', action: 'Настроить' },
+          { name: 'Сверка Kaspi и Halyk', sub: 'каждый день в 09:00 · бухгалтерия', value: 'вкл', fg: 'var(--green)', action: 'Настроить' },
+          { name: 'Отчёт по чикам', sub: 'по понедельникам · маркетинг', value: 'вкл', fg: 'var(--green)', action: 'Настроить' },
+          { name: 'Инвентаризация', sub: 'по 1 и 15 числу · склад', value: 'выкл', fg: 'var(--text3)', action: 'Настроить' },
+          { name: 'Оценки гостей', sub: 'по пятницам · операционный', value: 'вкл', fg: 'var(--green)', action: 'Настроить' }
+        ] }
+      ]}];
+    }
+
+    // ── БУХГАЛТЕРИЯ
+    if (s.screen === 'finance') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Выручка периода', this.MONEY(512400 * k), '+14%', 'ok', 'с НДС не работаем, УСН'),
+        kpi('Эквайринг', this.MONEY(512400 * k * 0.019), null, 'ok', 'Kaspi 1,9% · Halyk 2,1%'),
+        kpi('Налог 4%', this.MONEY(512400 * k * 0.04), null, 'ok', 'к уплате до 25 сентября'),
+        kpi('ФОТ смены', this.MONEY(96000 * (s.scope === 'all' ? 4.4 : 1) * (s.period === 'day' ? 1 : this.PK[s.period])), null, 'ok', '4 человека в смене')
+      ];
+      base.panelRows = [
+        { grid: 'minmax(0,1fr)', panels: [
+          this.tbl('Фискальные чеки · Webkassa', 'непроведённые уходят в повтор автоматически · ККМ 0012457', 'minmax(0,1.6fr) .7fr .8fr 1fr .95fr .7fr',
+            [['заказ'], ['время'], ['тип'], ['сумма', 'right'], ['статус'], ['', 'right']],
+            [
+              ['Заказ 148 · киоск', '11:20', 'продажа', 6480, 'ok'],
+              ['Заказ 147 · приложение', '11:18', 'продажа', 5900, 'ok'],
+              ['Заказ 145 · киоск', '11:12', 'продажа', 4140, 'retry'],
+              ['Возврат заказа 142', '11:02', 'возврат', -2640, 'ok'],
+              ['Заказ 141 · касса', '10:54', 'продажа', 2950, 'ok'],
+              ['Заказ 139 · приложение', '10:41', 'продажа', 3480, 'err']
+            ].map(r => [
+              this.T(r[0], { fw: 'var(--fw-semibold)' }), this.T(r[1], { fg: 'var(--text2)' }),
+              this.T(r[2], { fg: r[3] < 0 ? 'var(--red)' : 'var(--text2)' }),
+              this.R((r[3] < 0 ? '−' : '') + this.MONEY(Math.abs(r[3])), { fg: r[3] < 0 ? 'var(--red)' : 'var(--text)', fw: 'var(--fw-semibold)' }),
+              r[4] === 'ok' ? this.GOOD('проведён') : r[4] === 'retry' ? this.WARN('повтор') : this.BAD('ошибка ККМ'),
+              r[4] === 'ok' ? this.A('Чек', () => this.say('Фискальный чек открыт')) : this.A('Провести', () => this.say('Чек отправлен в Webkassa'))
+            ]))
+        ]},
+        { grid: 'minmax(0,1.3fr) minmax(0,1fr)', panels: [
+          this.tbl('Движение денег', 'период: ' + this.PERIODS[s.period].toLowerCase(), 'minmax(0,1.8fr) 1fr 1.1fr .9fr',
+            [['статья'], ['тип'], ['сумма', 'right'], ['статус']], [
+            [this.T('Выручка — Kaspi QR / Pay', { fw: 'var(--fw-semibold)' }), this.INFO('приход'), this.R(this.MONEY(409920 * k), { fg: 'var(--green)', fw: 'var(--fw-bold)' }), this.GOOD('на счёте')],
+            [this.T('Выручка — Halyk / карта', { fw: 'var(--fw-semibold)' }), this.INFO('приход'), this.R(this.MONEY(76860 * k), { fg: 'var(--green)', fw: 'var(--fw-bold)' }), this.GOOD('на счёте')],
+            [this.T('Выручка — наличные', { fw: 'var(--fw-semibold)' }), this.INFO('приход'), this.R(this.MONEY(25620 * k), { fg: 'var(--green)', fw: 'var(--fw-bold)' }), this.WARN('в сейфе')],
+            [this.T('Поставка — куриное филе', { fw: 'var(--fw-semibold)' }), this.B('расход', 'var(--card-hi)', 'var(--text2)'), this.R('−' + this.MONEY(184000), { fg: 'var(--red)', fw: 'var(--fw-bold)' }), this.GOOD('оплачено')],
+            [this.T('Поставка — упаковка', { fw: 'var(--fw-semibold)' }), this.B('расход', 'var(--card-hi)', 'var(--text2)'), this.R('−' + this.MONEY(42000), { fg: 'var(--red)', fw: 'var(--fw-bold)' }), this.WARN('счёт до 3 сент')],
+            [this.T('Аренда — Абая 62', { fw: 'var(--fw-semibold)' }), this.B('расход', 'var(--card-hi)', 'var(--text2)'), this.R('−' + this.MONEY(950000), { fg: 'var(--red)', fw: 'var(--fw-bold)' }), this.GOOD('оплачено')],
+            [this.T('Эквайринг — комиссия', { fw: 'var(--fw-semibold)' }), this.B('расход', 'var(--card-hi)', 'var(--text2)'), this.R('−' + this.MONEY(9736 * k), { fg: 'var(--red)', fw: 'var(--fw-bold)' }), this.GOOD('удержано')]
+          ]),
+          { title: 'Сверка с банками', note: 'за 30 августа', isList: true, items: [
+            { name: 'Kaspi Pay', sub: '118 транзакций · расхождений нет', value: 'ОК', fg: 'var(--green)', action: 'Отчёт' },
+            { name: 'Kaspi QR', sub: '96 транзакций · расхождений нет', value: 'ОК', fg: 'var(--green)', action: 'Отчёт' },
+            { name: 'Halyk / Homebank', sub: '30 транзакций · 1 не сошлась', value: '−2 950 ₸', fg: 'var(--red)', action: 'Разобрать' },
+            { name: 'Наличные в сейфе', sub: 'инкассация 31 авг, 18:00', value: this.MONEY(25620 * k), fg: 'var(--yellow)', action: 'Закрыть' },
+            { name: 'Возвраты', sub: '2 заказа · отмена на кухне', value: '−5 240 ₸', fg: 'var(--text2)', action: 'Отчёт' }
+          ] }
+        ]}
+      ];
+    }
+
+    // ── ПРОМО И БАННЕРЫ
+    if (s.screen === 'promo') {
+      const promo = [
+        { id: 'p1', name: 'Мастер Комбо −20%', sub: 'Киоск attract · приложение showcase', period: '25–31 августа', shows: 18400, conv: '6,2%', status: 'активен' },
+        { id: 'p2', name: 'Второй соус бесплатно', sub: 'Киоск — экран апселла', period: 'до 5 сентября', shows: 9120, conv: '11,4%', status: 'активен' },
+        { id: 'p3', name: 'Чики ×2 по вторникам', sub: 'Приложение push · табло выдачи', period: 'каждый вторник', shows: 4800, conv: '8,1%', status: 'активен' },
+        { id: 'p4', name: 'Комбо недели', sub: 'Приложение showcase', period: 'завершён 24 августа', shows: 22100, conv: '5,4%', status: 'завершён' }
+      ];
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Активных акций', '3', null, 'ok', 'на всех поверхностях'),
+        kpi('Показов', this.NUM(32320 * (s.scope === 'all' ? 4.4 : 1)), '+18%', 'ok', 'киоск, приложение, табло'),
+        kpi('Средняя конверсия', '8,6%', '+1,2 п.п.', 'ok', 'показ → добавление'),
+        kpi('Выручка с промо', this.MONEY(1840000), null, 'ok', 'за август')
+      ];
+      base.panelRows = [
+        { grid: 'minmax(0,1fr)', panels: [
+          { title: 'Баннеры и акции', note: 'выключение сразу убирает баннер со всех экранов', isCards: true, cardGrid: 'repeat(2,minmax(0,1fr))', items: promo.map(p => {
+            const on = !s.promoOff[p.id];
+            return {
+              name: p.name, sub: p.sub, status: on ? p.status : 'выключен',
+              stBg: on ? (p.status === 'активен' ? 'var(--green-soft)' : 'var(--card-hi)') : 'var(--card-hi)',
+              stFg: on ? (p.status === 'активен' ? 'var(--green)' : 'var(--text2)') : 'var(--text3)',
+              metrics: [
+                { label: 'показов', value: this.NUM(p.shows), fg: 'var(--text)' },
+                { label: 'конверсия', value: p.conv, fg: 'var(--accent)' },
+                { label: 'период', value: p.period.length > 14 ? p.period.slice(0, 13) + '…' : p.period, fg: 'var(--text)' },
+                { label: 'канал', value: p.sub.indexOf('Киоск') === 0 ? 'киоск' : 'приложение', fg: 'var(--text)' }
+              ],
+              footer: p.period,
+              hasToggle: true, trackBg: on ? 'var(--green)' : '#3a2430', knobPos: on ? 'flex-end' : 'flex-start',
+              toggle: () => this.setState(st => ({ promoOff: Object.assign({}, st.promoOff, { [p.id]: !st.promoOff[p.id] }) }))
+            };
+          }) }
+        ]},
+        { grid: 'minmax(0,1fr)', panels: [
+          this.tbl('Где показывается', 'приоритет решает, что видит гость первым', 'minmax(0,1.6fr) 1.4fr .8fr 1fr .9fr',
+            [['поверхность'], ['баннер'], ['приоритет', 'right'], ['показов', 'right'], ['статус']], [
+            [this.T('Киоск — attract', { fw: 'var(--fw-semibold)' }), this.T('Мастер Комбо −20%', { fg: 'var(--text2)' }), this.R('1'), this.R(this.NUM(12400)), this.GOOD('идёт')],
+            [this.T('Киоск — экран апселла', { fw: 'var(--fw-semibold)' }), this.T('Второй соус бесплатно', { fg: 'var(--text2)' }), this.R('1'), this.R(this.NUM(9120)), this.GOOD('идёт')],
+            [this.T('Приложение — showcase', { fw: 'var(--fw-semibold)' }), this.T('Мастер Комбо −20%', { fg: 'var(--text2)' }), this.R('2'), this.R(this.NUM(6000)), this.GOOD('идёт')],
+            [this.T('Табло выдачи — бегущая строка', { fw: 'var(--fw-semibold)' }), this.T('Чики ×2 по вторникам', { fg: 'var(--text2)' }), this.R('1'), this.R(this.NUM(4800)), this.GOOD('идёт')],
+            [this.T('Приложение — push', { fw: 'var(--fw-semibold)' }), this.T('Комбо недели', { fg: 'var(--text2)' }), this.R('—'), this.R(this.NUM(22100)), this.B('завершён', 'var(--card-hi)', 'var(--text2)')]
+          ])
+        ]}
+      ];
+    }
+
+    // ── ИГРЫ И ЧЕЛЛЕНДЖИ
+    if (s.screen === 'games') {
+      const games = [
+        ['g1', 'Стрик заказов', 'Заказ каждый день — растёт множитель чиков', '7 дней подряд', 4820, '38%', 'в эфире'],
+        ['g2', 'Колесо удачи', 'Один прокрут после каждого 3-го заказа', 'до 10 сентября', 3140, '61%', 'в эфире'],
+        ['g3', 'Пик-ран', 'Мини-игра в приложении, очки меняются на чики', 'постоянно', 2260, '24%', 'в эфире'],
+        ['g4', 'Челлендж «Собери комбо»', 'Три разных комбо за неделю — 2 000 чиков', 'завершён 24 августа', 1890, '17%', 'снят']
+      ];
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Участников', this.NUM(6420), '+412', 'ok', '51% активных гостей'),
+        kpi('Выполнено заданий', this.NUM(2180 * (s.scope === 'all' ? 4.4 : 1)), '+22%', 'ok', 'за период'),
+        kpi('Выдано подарков', this.NUM(384), null, 'ok', 'соусы, фри, комбо'),
+        kpi('Средний стрик', '3,4 дня', '+0,6', 'ok', 'у Пик-мастеров 5,8')
+      ];
+      base.panelRows = [
+        { grid: 'minmax(0,1fr)', panels: [
+          { title: 'Механики', note: 'выключение прячет механику в приложении сразу', isCards: true, cardGrid: 'repeat(4,minmax(0,1fr))',
+            items: games.map(g => {
+              const on = !s.gameOff[g[0]];
+              return {
+                name: g[1], sub: g[2], status: on ? g[6] : 'выключена',
+                stBg: on && g[6] === 'в эфире' ? 'var(--green-soft)' : 'var(--card-hi)',
+                stFg: on && g[6] === 'в эфире' ? 'var(--green)' : 'var(--text3)',
+                metrics: [
+                  { label: 'участников', value: this.NUM(g[4]), fg: 'var(--text)' },
+                  { label: 'вовлечение', value: g[5], fg: 'var(--accent)' },
+                  { label: 'награда', value: 'чики', fg: 'var(--text)' },
+                  { label: 'приоритет', value: on ? '1' : '—', fg: 'var(--text)' }
+                ],
+                footer: g[3],
+                hasToggle: true, trackBg: on ? 'var(--green)' : '#3a2430', knobPos: on ? 'flex-end' : 'flex-start',
+                toggle: () => this.setState(st => ({ gameOff: Object.assign({}, st.gameOff, { [g[0]]: !st.gameOff[g[0]] }) }))
+              };
+            }) }
+        ]},
+        { grid: 'minmax(0,1.3fr) minmax(0,1fr)', panels: [
+          this.tbl('Задания и награды', 'награда выдаётся автоматически в приложение', 'minmax(0,1.4fr) minmax(0,1.4fr) 1fr .8fr .85fr .8fr',
+            [['задание'], ['условие'], ['награда'], ['взяли', 'right'], ['выполнили', 'right'], ['статус']],
+            [
+              ['Три дня подряд', 'Заказ 3 дня без пропуска', '500 чиков', 2140, '42%', 1],
+              ['Попробуй новинку', 'Заказать суп дня', 'Соус в подарок', 1680, '31%', 1],
+              ['Приведи друга', 'Друг сделал первый заказ', '1 000 чиков обоим', 940, '18%', 1],
+              ['Пик-ран · 5 000 очков', 'Набрать за одну попытку', 'Фри в подарок', 2260, '24%', 1],
+              ['Собери комбо', 'Три разных комбо за неделю', '2 000 чиков', 1890, '17%', 0]
+            ].map(r => [
+              this.T(r[0], { fw: 'var(--fw-semibold)' }), this.T(r[1], { fg: 'var(--text2)' }),
+              this.T(r[2], { fg: 'var(--accent)', fw: 'var(--fw-semibold)' }),
+              this.R(this.NUM(r[3])), this.R(r[4]),
+              r[5] ? this.GOOD('в эфире') : this.MUT('снят')
+            ])),
+          { title: 'Эффект на бизнес', note: 'участники против остальных', isMeters: true, footer: 'Участники механик приходят чаще и берут комбо вместо соло. Колесо удачи даёт самый дешёвый возврат гостя.', items: [
+            { label: 'Частота заказов', value: '+38%', pct: '38%', color: 'var(--accent)' },
+            { label: 'Средний чек', value: '+12%', pct: '12%', color: 'var(--green)' },
+            { label: 'Доля комбо в чеке', value: '+21%', pct: '21%', color: 'var(--blue)' },
+            { label: 'Возврат за 30 дней', value: '+27%', pct: '27%', color: 'var(--purple)' }
+          ] }
+        ]}
+      ];
+    }
+
+    // ── ГОСТИ И PUSH
+    if (s.screen === 'guests') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Гостей в базе', this.NUM(12480), '+386', 'ok', 'за 30 дней'),
+        kpi('Активных', this.NUM(5240), '+9%', 'ok', 'заказ за последние 30 дней'),
+        kpi('Подписаны на push', '68%', null, 'ok', this.NUM(8486) + ' гостей'),
+        kpi('Начислено чиков', this.NUM(624000 * (s.scope === 'all' ? 4.4 : 1)), null, 'ok', '7% от выручки')
+      ];
+      base.panelRows = [
+        { grid: 'minmax(0,1fr) minmax(0,1.4fr)', panels: [
+          { title: 'Уровни гостей', note: 'система Чиков', isMeters: true, footer: 'Пик-мастера приходят в 2,3 раза чаще новичков и берут комбо вместо соло.', items: [
+            { label: 'Новичок', value: this.NUM(7100) + ' · 57%', pct: '57%', color: 'var(--text2)' },
+            { label: 'Пик-мастер', value: this.NUM(4020) + ' · 32%', pct: '32%', color: 'var(--accent)' },
+            { label: 'Легенда', value: this.NUM(1360) + ' · 11%', pct: '11%', color: 'var(--purple)' }
+          ] },
+          this.tbl('Push-кампании', 'за последние 30 дней', 'minmax(0,1.6fr) .8fr .9fr .9fr .9fr 1fr',
+            [['кампания'], ['дата'], ['отправлено', 'right'], ['открыто', 'right'], ['заказы', 'right'], ['выручка', 'right']], [
+            [this.T('Чики ×2 по вторникам', { fw: 'var(--fw-semibold)' }), this.T('26 авг', { fg: 'var(--text2)' }), this.R(this.NUM(8486)), this.R('34%'), this.R('412'), this.R(this.MONEY(1420000), { fg: 'var(--text)', fw: 'var(--fw-semibold)' })],
+            [this.T('Мастер Комбо −20%', { fw: 'var(--fw-semibold)' }), this.T('25 авг', { fg: 'var(--text2)' }), this.R(this.NUM(8302)), this.R('41%'), this.R('586'), this.R(this.MONEY(1758000), { fg: 'var(--text)', fw: 'var(--fw-semibold)' })],
+            [this.T('Вернись за фингерсом', { fw: 'var(--fw-semibold)' }), this.T('19 авг', { fg: 'var(--text2)' }), this.R(this.NUM(2140)), this.R('27%'), this.R('184'), this.R(this.MONEY(462000), { fg: 'var(--text)', fw: 'var(--fw-semibold)' })],
+            [this.T('Открытие Есентай Молл', { fw: 'var(--fw-semibold)' }), this.T('12 авг', { fg: 'var(--text2)' }), this.R(this.NUM(12480)), this.R('52%'), this.R('904'), this.R(this.MONEY(3120000), { fg: 'var(--text)', fw: 'var(--fw-semibold)' })],
+            [this.T('Суп дня в меню', { fw: 'var(--fw-semibold)' }), this.T('6 авг', { fg: 'var(--text2)' }), this.R(this.NUM(8180)), this.R('22%'), this.R('96'), this.R(this.MONEY(184000), { fg: 'var(--text)', fw: 'var(--fw-semibold)' })]
+          ])
+        ]},
+        { grid: 'minmax(0,1fr)', panels: [
+          { title: 'Воронка: киоск → приложение', note: 'шаги совпадают с экранами киоска', isMeters: true, items: [
+            { label: 'Экран лояльности показан', value: this.NUM(148 * k) + ' · 100%', pct: '100%', color: '#22314f' },
+            { label: 'Ввёл номер телефона', value: this.NUM(148 * k * 0.42) + ' · 42%', pct: '42%', color: 'var(--accent)' },
+            { label: 'Указал имя для табло', value: this.NUM(148 * k * 0.36) + ' · 36%', pct: '36%', color: 'var(--yellow)' },
+            { label: 'Скачал приложение', value: this.NUM(148 * k * 0.16) + ' · 16%', pct: '16%', color: 'var(--blue)' }
+          ] }
+        ]},
+        { grid: 'minmax(0,1fr)', panels: [
+          this.tbl('Гости', 'сегмент считается по дате последнего заказа', 'minmax(0,1.1fr) 1.1fr .7fr .8fr .8fr .9fr 1.1fr',
+            [['гость'], ['телефон'], ['заказов', 'right'], ['чиков', 'right'], ['стрик', 'right'], ['сегмент'], ['последний заказ', 'right']],
+            [
+              ['Аяулым К.', '+7 701 *** 42 18', '34', 4820, '6 дней', 'master', 'сегодня, 11:20'],
+              ['Мадина Т.', '+7 700 *** 88 04', '58', 9640, '11 дней', 'legend', 'сегодня, 09:40'],
+              ['Санжар О.', '+7 702 *** 17 90', '21', 2960, '4 дня', 'master', 'вчера, 18:12'],
+              ['Ерасыл Ж.', '+7 747 *** 31 56', '3', 280, '1 день', 'new', '29 авг, 13:05'],
+              ['Данияр С.', '+7 705 *** 09 73', '12', 1240, '0', 'sleep', '2 авг, 19:40']
+            ].map(r => [
+              this.T(r[0], { fw: 'var(--fw-semibold)' }), this.T(r[1], { fg: 'var(--text2)' }), this.R(r[2]),
+              this.R(this.NUM(r[3]), { fg: 'var(--text)', fw: 'var(--fw-semibold)' }), this.R(r[4]),
+              r[5] === 'master' ? this.ORA('Пик-мастер') : r[5] === 'legend' ? this.B('Легенда', 'rgba(167,139,250,.16)', 'var(--purple)') : r[5] === 'new' ? this.INFO('Новый') : this.MUT('Спящий'),
+              this.R(r[6])
+            ]))
+        ]}
+      ];
+    }
+
+    // ── ОБРАЩЕНИЯ
+    if (s.screen === 'tickets') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Открытых обращений', '3', null, 'bad', 'из них 1 просрочено', 'var(--red)'),
+        kpi('Среднее время ответа', '42 мин', '−12 мин', 'ok', 'SLA 2 часа'),
+        kpi('За месяц', '38', null, 'ok', '31 закрыто'),
+        kpi('Компенсаций', this.MONEY(46800), null, 'ok', 'чиками и возвратами')
+      ];
+      base.panelRows = [{ grid: 'minmax(0,1fr)', panels: [
+        this.tbl('Обращения гостей', 'канал определяется автоматически', '.5fr minmax(0,2fr) 1fr .9fr .9fr .8fr .9fr',
+          [['№'], ['тема'], ['точка'], ['канал'], ['создано'], ['sla'], ['статус']], [
+          [this.T('318', { fw: 'var(--fw-bold)' }), this.T('Ждал заказ 15 минут', { fw: 'var(--fw-semibold)', sub: 'Данияр С. · +7 701 ***' }), this.T('Розыбакиева 247', { fg: 'var(--text2)' }), this.INFO('2ГИС'), this.T('30 авг, 19:40', { fg: 'var(--text2)' }), this.BAD('просрочен'), this.BAD('открыт')],
+          [this.T('317', { fw: 'var(--fw-bold)' }), this.T('Нет арбузного Fuse Tea', { fw: 'var(--fw-semibold)', sub: 'Ерасыл Ж. · приложение' }), this.T('Мега Алматы', { fg: 'var(--text2)' }), this.B('Приложение', 'rgba(255,103,31,.14)', 'var(--accent)'), this.T('30 авг, 14:12', { fg: 'var(--text2)' }), this.WARN('1 ч 20 м'), this.WARN('в работе')],
+          [this.T('316', { fw: 'var(--fw-bold)' }), this.T('Чики не начислились', { fw: 'var(--fw-semibold)', sub: 'Мадина Т. · заказ 128' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.B('Приложение', 'rgba(255,103,31,.14)', 'var(--accent)'), this.T('30 авг, 11:05', { fg: 'var(--text2)' }), this.GOOD('в SLA'), this.WARN('в работе')],
+          [this.T('315', { fw: 'var(--fw-bold)' }), this.T('Киоск не печатает чек', { fw: 'var(--fw-semibold)', sub: 'сообщил кассир' }), this.T('Сатпаева 90', { fg: 'var(--text2)' }), this.B('Кассир', 'var(--card-hi)', 'var(--text2)'), this.T('29 авг, 17:30', { fg: 'var(--text2)' }), this.GOOD('в SLA'), this.GOOD('закрыт')],
+          [this.T('314', { fw: 'var(--fw-bold)' }), this.T('Холодные крылья', { fw: 'var(--fw-semibold)', sub: 'Аяулым К. · компенсация 1 200 чиков' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.INFO('2ГИС'), this.T('28 авг, 20:15', { fg: 'var(--text2)' }), this.GOOD('в SLA'), this.GOOD('закрыт')]
+        ])
+      ]}];
+    }
+
+    // ── ОТЗЫВЫ
+    if (s.screen === 'reviews') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Рейтинг 2ГИС', '4.7', '+0,1', 'ok', '556 отзывов'),
+        kpi('NPS', '+68', '−2', 'bad', 'опрос в приложении'),
+        kpi('Новых за месяц', '38', null, 'ok', '31 положительных'),
+        kpi('Без ответа', '3', null, 'warn', 'старейшему 2 дня', 'var(--yellow)')
+      ];
+      base.panelRows = [
+        { grid: 'minmax(0,1fr) minmax(0,1.5fr)', panels: [
+          { title: 'Распределение оценок', note: '556 отзывов', isMeters: true, footer: 'Темы негатива: скорость выдачи 14 · стоп-лист напитков 9 · температура блюда 6 · чистота зала 4', items: [
+            { label: '5 звёзд', value: '412 · 74%', pct: '74%', color: 'var(--green)' },
+            { label: '4 звезды', value: '96 · 17%', pct: '17%', color: '#a3e635' },
+            { label: '3 звезды', value: '28 · 5%', pct: '5%', color: 'var(--yellow)' },
+            { label: '2 звезды', value: '11 · 2%', pct: '2%', color: '#fb923c' },
+            { label: '1 звезда', value: '9 · 2%', pct: '2%', color: 'var(--red)' }
+          ] },
+          { title: 'Лента отзывов', note: 'без ответа: 3', isFeed: true, items: [
+            { stars: '★★★★★', author: 'Аяулым К.', meta: 'Абая 62 · 31 авг', text: 'Фингерсы огонь, соус фирменный лучший. На киоске заказ за минуту, номер вывели на табло — удобно.', tag: 'Киоск', tagBg: 'var(--green-soft)', tagFg: 'var(--green)', action: 'Поблагодарить' },
+            { stars: '★★☆☆☆', author: 'Данияр С.', meta: 'Розыбакиева 247 · 30 авг', text: 'Ждал 15 минут, хотя на табло было «готово». Крылья были тёплые.', tag: 'Скорость выдачи', tagBg: 'var(--red-soft)', tagFg: 'var(--red)', action: 'Ответить' },
+            { stars: '★★★★★', author: 'Мадина Т.', meta: 'Есентай Молл · 30 авг', text: 'Копила чики и взяла Мастер Комбо почти бесплатно. Приложение работает быстро.', tag: 'Лояльность', tagBg: 'var(--green-soft)', tagFg: 'var(--green)', action: 'Поблагодарить' },
+            { stars: '★★★★☆', author: 'Ерасыл Ж.', meta: 'Мега Алматы · 29 авг', text: 'Всё вкусно, но арбузного Fuse Tea снова нет. Верните, пожалуйста.', tag: 'Стоп-лист', tagBg: 'var(--yellow-soft)', tagFg: 'var(--yellow)', action: 'Ответить' }
+          ] }
+        ]}
+      ];
+    }
+
+    // ── СТАНЦИИ И МАРШРУТЫ
+    if (s.screen === 'stations') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Среднее время сборки', '6:20', '+40 с', 'warn', 'норма 6:00'),
+        kpi('Загрузка кухни', '78%', null, 'ok', 'пик 09:00–11:00'),
+        kpi('В очереди сейчас', '6', null, 'ok', '2 на фритюре'),
+        kpi('Просрочек', this.NUM(3 * k), '2%', 'warn', 'дольше 8 минут')
+      ];
+      base.panelRows = [
+        { grid: 'minmax(0,1fr)', panels: [
+          { title: 'Станции кухни', note: 'данные с экранов кухни', isCards: true, cardGrid: 'repeat(4,minmax(0,1fr))', items: [
+            { name: 'Фритюр', sub: 'фингерс, крылья, картофель', status: 'загружена', stBg: 'var(--yellow-soft)', stFg: 'var(--yellow)', footer: '2 повара · Ерасыл, Нурлан', metrics: [{ label: 'загрузка', value: '92%', fg: 'var(--yellow)' }, { label: 'ср. время', value: '4:10', fg: 'var(--text)' }, { label: 'в очереди', value: '2', fg: 'var(--text)' }, { label: 'просрочки', value: '2', fg: 'var(--red)' }] },
+            { name: 'Сборка', sub: 'комбо, соусы, упаковка', status: 'норма', stBg: 'var(--green-soft)', stFg: 'var(--green)', footer: '1 повар · Динара', metrics: [{ label: 'загрузка', value: '64%', fg: 'var(--green)' }, { label: 'ср. время', value: '1:20', fg: 'var(--text)' }, { label: 'в очереди', value: '3', fg: 'var(--text)' }, { label: 'просрочки', value: '0', fg: 'var(--green)' }] },
+            { name: 'Напитки', sub: 'лимонады, чай, кола', status: 'норма', stBg: 'var(--green-soft)', stFg: 'var(--green)', footer: '1 повар · Санжар', metrics: [{ label: 'загрузка', value: '48%', fg: 'var(--green)' }, { label: 'ср. время', value: '0:40', fg: 'var(--text)' }, { label: 'в очереди', value: '1', fg: 'var(--text)' }, { label: 'просрочки', value: '0', fg: 'var(--green)' }] },
+            { name: 'Выдача', sub: 'табло и передача гостю', status: 'норма', stBg: 'var(--green-soft)', stFg: 'var(--green)', footer: 'кассир Айгерим', metrics: [{ label: 'загрузка', value: '52%', fg: 'var(--green)' }, { label: 'ср. время', value: '0:30', fg: 'var(--text)' }, { label: 'ждут гостя', value: '2', fg: 'var(--text)' }, { label: 'просрочки', value: '1', fg: 'var(--yellow)' }] }
+          ] }
+        ]},
+        { grid: 'minmax(0,1fr) minmax(0,1fr)', panels: [
+          { title: 'Маршрут заказа', note: 'среднее по смене', isMeters: true, footer: 'Узкое место — фритюр в пик. Второй повар на фритюре с 09:00 снимает 50 секунд со сборки.', items: [
+            { label: '1. Принят на киоске / в приложении', value: '0:10', pct: '4%', color: '#22314f' },
+            { label: '2. Фритюр', value: '4:10', pct: '66%', color: 'var(--accent)' },
+            { label: '3. Сборка и упаковка', value: '1:20', pct: '21%', color: 'var(--yellow)' },
+            { label: '4. Выдача и табло', value: '0:40', pct: '11%', color: 'var(--green)' }
+          ] },
+          this.tbl('Просрочки смены', 'дольше 8 минут', 'minmax(0,.8fr) 1fr 1.2fr .9fr',
+            [['заказ'], ['время'], ['станция'], ['выдача', 'right']], [
+            [this.T('143', { fw: 'var(--fw-bold)' }), this.T('11:04', { fg: 'var(--text2)' }), this.T('Фритюр — крылья', { fg: 'var(--text2)' }), this.R('9:40', { fg: 'var(--red)', fw: 'var(--fw-bold)' })],
+            [this.T('131', { fw: 'var(--fw-bold)' }), this.T('12:48', { fg: 'var(--text2)' }), this.T('Фритюр — фингерс ×3', { fg: 'var(--text2)' }), this.R('10:20', { fg: 'var(--red)', fw: 'var(--fw-bold)' })],
+            [this.T('128', { fw: 'var(--fw-bold)' }), this.T('13:06', { fg: 'var(--text2)' }), this.T('Выдача — гость ушёл', { fg: 'var(--text2)' }), this.R('8:50', { fg: 'var(--red)', fw: 'var(--fw-bold)' })]
+          ])
+        ]},
+        { grid: 'minmax(0,1fr)', panels: [
+          this.tbl('Маршрутизация позиций', 'правило решает, на какой экран падает позиция', 'minmax(0,1.4fr) 1fr minmax(0,1.7fr) .9fr .9fr',
+            [['позиция / группа'], ['станция'], ['правило'], ['норма', 'right'], ['факт за смену', 'right']],
+            [
+              ['Все фингерс', 'Фритюр', 'По категории · приоритет 1', '4:00', '4:10', 1],
+              ['Крылья', 'Фритюр', 'По категории · приоритет 2', '5:30', '6:20', 0],
+              ['Комбо (сборка)', 'Сборка', 'После готовности фритюра', '1:30', '1:20', 1],
+              ['Все напитки', 'Напитки', 'Параллельно с фритюром', '0:45', '0:40', 1],
+              ['Суп дня', 'Сборка', 'Готово заранее · только налив', '0:30', '0:30', 1]
+            ].map(r => [
+              this.T(r[0], { fw: 'var(--fw-semibold)' }),
+              r[1] === 'Фритюр' ? this.ORA(r[1]) : this.INFO(r[1]),
+              this.T(r[2], { fg: 'var(--text2)' }),
+              this.R(r[3]),
+              this.R(r[4], { fg: r[5] ? 'var(--green)' : 'var(--red)', fw: 'var(--fw-semibold)' })
+            ]))
+        ]}
+      ];
+    }
+
+    // ── УСТРОЙСТВА
+    if (s.screen === 'devices') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Устройств онлайн', '17 из 18', null, 'ok', '6 точек'),
+        kpi('Требует внимания', '1', null, 'bad', 'принтер Сатпаева 90', 'var(--red)'),
+        kpi('Версия приложения киоска', '2.4.1', null, 'ok', 'обновлено 28 августа'),
+        kpi('Средний uptime', '99,4%', null, 'ok', 'за 30 дней')
+      ];
+      const st = x => x === 'онлайн' ? this.GOOD(x) : x === 'ошибка' ? this.BAD(x) : this.WARN(x);
+      base.panelRows = [{ grid: 'minmax(0,1fr)', panels: [
+        this.tbl('Устройства сети', 'пинг каждые 30 секунд', 'minmax(0,1.6fr) 1.1fr 1fr .9fr 1fr .8fr',
+          [['устройство'], ['точка'], ['тип'], ['версия'], ['последний пинг'], ['статус']], [
+          [this.T('Киоск iPad #1', { fw: 'var(--fw-semibold)' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('киоск', { fg: 'var(--text2)' }), this.T('2.4.1', { fg: 'var(--text2)' }), this.T('11:20:04', { fg: 'var(--text2)' }), st('онлайн')],
+          [this.T('Киоск iPad #2', { fw: 'var(--fw-semibold)' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('киоск', { fg: 'var(--text2)' }), this.T('2.4.1', { fg: 'var(--text2)' }), this.T('11:20:02', { fg: 'var(--text2)' }), st('онлайн')],
+          [this.T('Табло выдачи', { fw: 'var(--fw-semibold)' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('табло', { fg: 'var(--text2)' }), this.T('1.8.0', { fg: 'var(--text2)' }), this.T('11:20:05', { fg: 'var(--text2)' }), st('онлайн')],
+          [this.T('Экран кухни', { fw: 'var(--fw-semibold)' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('кухня', { fg: 'var(--text2)' }), this.T('1.6.2', { fg: 'var(--text2)' }), this.T('11:20:01', { fg: 'var(--text2)' }), st('онлайн')],
+          [this.T('Касса ККМ 0012457', { fw: 'var(--fw-semibold)' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('касса · Webkassa', { fg: 'var(--text2)' }), this.T('4.2.0', { fg: 'var(--text2)' }), this.T('11:19:44', { fg: 'var(--text2)' }), st('онлайн')],
+          [this.T('Принтер чеков', { fw: 'var(--fw-semibold)' }), this.T('Сатпаева 90', { fg: 'var(--text2)' }), this.T('принтер', { fg: 'var(--text2)' }), this.T('—', { fg: 'var(--text2)' }), this.T('09:42:18', { fg: 'var(--red)' }), st('ошибка')],
+          [this.T('Киоск iPad #1', { fw: 'var(--fw-semibold)' }), this.T('Мега Алматы', { fg: 'var(--text2)' }), this.T('киоск', { fg: 'var(--text2)' }), this.T('2.3.9', { fg: 'var(--yellow)' }), this.T('11:19:58', { fg: 'var(--text2)' }), st('обновить')],
+          [this.T('Табло выдачи', { fw: 'var(--fw-semibold)' }), this.T('Есентай Молл', { fg: 'var(--text2)' }), this.T('табло', { fg: 'var(--text2)' }), this.T('1.8.0', { fg: 'var(--text2)' }), this.T('11:20:03', { fg: 'var(--text2)' }), st('онлайн')]
+        ])
+      ]}];
+    }
+
+    // ── СМЕНЫ И ОЦЕНКИ
+    if (s.screen === 'shifts') {
+      base.hasKpis = true;
+      base.kpis = [
+        kpi('Смен за период', this.NUM(s.period === 'day' ? 1 : this.PK[s.period]), null, 'ok', point),
+        kpi('Средняя выручка смены', this.MONEY(486200), '+11%', 'ok', 'к прошлому периоду'),
+        kpi('Средняя оценка', '4.7', '+0,1', 'ok', 'опрос после заказа'),
+        kpi('Просрочек на смену', '3,4', '−0,8', 'ok', 'дольше 8 минут')
+      ];
+      base.panelRows = [{ grid: 'minmax(0,1fr)', panels: [
+        this.tbl('Смены', 'закрытие формирует Z-отчёт', 'minmax(0,1.2fr) 1.1fr 1.1fr 1.1fr .8fr .8fr .9fr',
+          [['смена'], ['точка'], ['менеджер'], ['выручка', 'right'], ['заказов', 'right'], ['оценка', 'right'], ['просрочки', 'right']], [
+          [this.T('31 авг · 07:30–…', { fw: 'var(--fw-semibold)', sub: 'открыта' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('Айгерим С.', { fg: 'var(--text2)' }), this.R(this.MONEY(512400), { fg: 'var(--text)', fw: 'var(--fw-bold)' }), this.R('148'), this.R('4.8', { fg: 'var(--green)', fw: 'var(--fw-semibold)' }), this.R('3', { fg: 'var(--yellow)' })],
+          [this.T('30 авг · 07:30–22:14', { fw: 'var(--fw-semibold)' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('Ерасыл К.', { fg: 'var(--text2)' }), this.R(this.MONEY(486200), { fg: 'var(--text)', fw: 'var(--fw-bold)' }), this.R('142'), this.R('4.6', { fg: 'var(--green)', fw: 'var(--fw-semibold)' }), this.R('5', { fg: 'var(--red)' })],
+          [this.T('30 авг · 07:30–22:08', { fw: 'var(--fw-semibold)' }), this.T('Достык Плаза', { fg: 'var(--text2)' }), this.T('Динара Т.', { fg: 'var(--text2)' }), this.R(this.MONEY(441800), { fg: 'var(--text)', fw: 'var(--fw-bold)' }), this.R('124'), this.R('4.7', { fg: 'var(--green)', fw: 'var(--fw-semibold)' }), this.R('2', { fg: 'var(--green)' })],
+          [this.T('29 авг · 07:30–22:20', { fw: 'var(--fw-semibold)' }), this.T('Абая 62', { fg: 'var(--text2)' }), this.T('Айгерим С.', { fg: 'var(--text2)' }), this.R(this.MONEY(462900), { fg: 'var(--text)', fw: 'var(--fw-bold)' }), this.R('136'), this.R('4.8', { fg: 'var(--green)', fw: 'var(--fw-semibold)' }), this.R('1', { fg: 'var(--green)' })],
+          [this.T('29 авг · 07:30–22:30', { fw: 'var(--fw-semibold)' }), this.T('Розыбакиева 247', { fg: 'var(--text2)' }), this.T('Мадина А.', { fg: 'var(--text2)' }), this.R(this.MONEY(298400), { fg: 'var(--text)', fw: 'var(--fw-bold)' }), this.R('86'), this.R('4.2', { fg: 'var(--yellow)', fw: 'var(--fw-semibold)' }), this.R('7', { fg: 'var(--red)' })],
+          [this.T('28 авг · 07:30–22:12', { fw: 'var(--fw-semibold)' }), this.T('Есентай Молл', { fg: 'var(--text2)' }), this.T('Санжар О.', { fg: 'var(--text2)' }), this.R(this.MONEY(184600), { fg: 'var(--text)', fw: 'var(--fw-bold)' }), this.R('46'), this.R('4.9', { fg: 'var(--green)', fw: 'var(--fw-semibold)' }), this.R('0', { fg: 'var(--green)' })]
+        ])
+      ]},
+      { grid: 'minmax(0,1fr) minmax(0,1.3fr)', panels: [
+        this.tbl('Сотрудники смены', 'роли задаются в настройках точки', 'minmax(0,1.1fr) 1.1fr .8fr .9fr',
+          [['сотрудник'], ['роль'], ['тикетов', 'right'], ['ср. время', 'right']],
+          [
+            ['Айгерим С.', 'менеджер', '—', '—'],
+            ['Ерасыл К.', 'повар · фритюр', '62', '4:10'],
+            ['Нурлан Б.', 'повар · фритюр', '54', '4:25'],
+            ['Динара Т.', 'повар · сборка', '148', '1:20'],
+            ['Санжар О.', 'бариста · напитки', '96', '0:40']
+          ].map(r => [this.T(r[0], { fw: 'var(--fw-semibold)' }), this.T(r[1], { fg: 'var(--text2)' }), this.R(r[2]), this.R(r[3])])),
+        { title: 'Последние отзывы', note: 'без ответа: 3', isFeed: true, items: [
+          { stars: '★★★★★', author: 'Аяулым К.', meta: 'заказ 148 · сегодня', text: 'Фингерсы огонь, соус фирменный лучший. На киоске заказ за минуту, номер вывели на табло — удобно.', tag: 'Киоск', tagBg: 'var(--green-soft)', tagFg: 'var(--green)', action: 'Поблагодарить' },
+          { stars: '★★☆☆☆', author: 'Данияр С.', meta: 'заказ 112 · 30 авг', text: 'Ждал 15 минут, хотя на табло было «готово». Крылья были тёплые.', tag: 'Скорость выдачи', tagBg: 'var(--red-soft)', tagFg: 'var(--red)', action: 'Ответить' },
+          { stars: '★★★★★', author: 'Мадина Т.', meta: 'заказ 131 · 30 авг', text: 'Копила чики и взяла Мастер Комбо почти бесплатно. Стрик считается честно.', tag: 'Лояльность', tagBg: 'var(--green-soft)', tagFg: 'var(--green)', action: 'Поблагодарить' },
+          { stars: '★★★★☆', author: 'Ерасыл Ж.', meta: 'заказ 118 · 29 авг', text: 'Всё вкусно, но арбузного Fuse Tea снова нет. Верните, пожалуйста.', tag: 'Стоп-лист', tagBg: 'var(--yellow-soft)', tagFg: 'var(--yellow)', action: 'Ответить' }
+        ] }
+      ]}];
+    }
+
+    // ── ЖУРНАЛ АУДИТА
+    if (s.screen === 'audit') {
+      base.panelRows = [{ grid: 'minmax(0,1fr)', panels: [
+        this.tbl('Действия в бэк-офисе', 'храним 12 месяцев', '1fr 1.1fr minmax(0,1.6fr) minmax(0,1.6fr) 1fr',
+          [['время'], ['пользователь'], ['действие'], ['объект'], ['точка']], [
+          [this.T('31 авг, 11:14', { fg: 'var(--text2)' }), this.T('Айгерим С.', { fw: 'var(--fw-semibold)', sub: 'менеджер' }), this.T('Выключила позицию'), this.T('Fuse Tea Арбуз 0,5', { fg: 'var(--text2)' }), this.T('Абая 62', { fg: 'var(--text2)' })],
+          [this.T('31 авг, 10:42', { fg: 'var(--text2)' }), this.T('Азамат Ж.', { fw: 'var(--fw-semibold)', sub: 'управляющий' }), this.T('Изменил цену'), this.T('Мастер Комбо · 2 800 → 3 000 ₸', { fg: 'var(--text2)' }), this.T('Все точки', { fg: 'var(--text2)' })],
+          [this.T('31 авг, 09:20', { fg: 'var(--text2)' }), this.T('Ерасыл К.', { fw: 'var(--fw-semibold)', sub: 'менеджер' }), this.T('Внёс поставку'), this.T('Куриное филе · 60 кг', { fg: 'var(--text2)' }), this.T('Абая 62', { fg: 'var(--text2)' })],
+          [this.T('30 авг, 22:14', { fg: 'var(--text2)' }), this.T('Ерасыл К.', { fw: 'var(--fw-semibold)', sub: 'менеджер' }), this.T('Закрыл смену'), this.T('Z-отчёт · 486 200 ₸', { fg: 'var(--text2)' }), this.T('Абая 62', { fg: 'var(--text2)' })],
+          [this.T('30 авг, 18:05', { fg: 'var(--text2)' }), this.T('Асель Н.', { fw: 'var(--fw-semibold)', sub: 'маркетинг' }), this.T('Запустила баннер'), this.T('Второй соус бесплатно · киоск', { fg: 'var(--text2)' }), this.T('Все точки', { fg: 'var(--text2)' })],
+          [this.T('30 авг, 14:30', { fg: 'var(--text2)' }), this.T('Асель Н.', { fw: 'var(--fw-semibold)', sub: 'маркетинг' }), this.T('Отправила push'), this.T('Чики ×2 по вторникам · 8 486', { fg: 'var(--text2)' }), this.T('Все точки', { fg: 'var(--text2)' })],
+          [this.T('29 авг, 20:12', { fg: 'var(--text2)' }), this.T('Айгерим С.', { fw: 'var(--fw-semibold)', sub: 'менеджер' }), this.T('Провела списание'), this.T('Фингерс · 6 шт · пережарка', { fg: 'var(--text2)' }), this.T('Абая 62', { fg: 'var(--text2)' })],
+          [this.T('29 авг, 12:00', { fg: 'var(--text2)' }), this.T('Бухгалтер', { fw: 'var(--fw-semibold)', sub: 'интеграция' }), this.T('Сверка эквайринга'), this.T('Halyk · расхождение −2 950 ₸', { fg: 'var(--text2)' }), this.T('Абая 62', { fg: 'var(--text2)' })]
+        ])
+      ]}];
+    }
+
+    const PB = {
+      'Лента заказов': [this.btn('Оформить возврат', 'undo', M('refund'), true)],
+      'Позиции': [this.btn('Техкарта', 'description', M('recipe')), this.btn('Добавить группу', 'add', M('modgroup'), true)],
+      'Склад точки': [this.btn('Принять поставку', 'local_shipping', M('receipt'), true), this.btn('Списать', 'remove_circle', M('writeoff')), this.btn('Инвентаризация', 'fact_check', M('inventory'))],
+      'Фискальные чеки · Webkassa': [this.btn('Снять X-отчёт', 'receipt_long', () => this.say('X-отчёт снят'))],
+      'Движение денег': [this.btn('Выгрузить в 1С · XML', 'download', M('export1c'), true)],
+      'Устройства сети': [this.btn('Новый код точки', 'key', () => this.say('Новый код точки: PC-5194'), true)],
+      'Смены': [this.btn(s.shiftOpen ? 'Закрыть смену' : 'Открыть смену', 'schedule', M('shift'), true)],
+      'Механики': [this.btn('Новая механика', 'add', () => this.say('Черновик механики создан'), true)],
+      'Карусель и баннеры': [this.btn('Опубликовать слайд', 'add', () => this.say('Слайд отправлен в эфир'), true)],
+      'Баннеры и акции': [this.btn('Опубликовать слайд', 'add', () => this.say('Слайд отправлен в эфир'), true)],
+      'Группы модификаторов': [this.btn('Добавить группу', 'add', M('modgroup'), true)],
+      'Гости': [this.btn('Новая кампания', 'campaign', () => this.say('Кампания уйдёт гостям с opt-in'), true)],
+      'Маршрутизация позиций': [this.btn('Изменить правило', 'route', () => this.say('Правило маршрутизации сохранено'))]
+    };
+    base.panelRows = base.panelRows.map(r => ({ grid: r.grid, panels: r.panels.map(p => Object.assign({ actions: PB[p.title] || [] }, { isTable: false, isBars: false, isMeters: false, isAlerts: false, isList: false, isCards: false, isFeed: false, note: '', footer: false }, p, { actions: PB[p.title] || [] })) }));
+    return base;
+  }
+}

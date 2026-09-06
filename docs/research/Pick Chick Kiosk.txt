@@ -1,0 +1,806 @@
+SOURCE: /Users/xaknazar/Downloads/Pick Chick Kiosk (offline).html
+SHA256: 239ca6ffee862a4670eb999eab9da438a38f16c43392a596360780abfaa2e406
+
+TEXT
+KZ
+RU
+PICK YOUR
+PEAK
+{{ t.attractSub }}
+{{ t.start }}
+{{ t.tapAnywhere }}
+‹
+KZ
+RU
+{{ t.s1Title }}
+{{ t.here }}
+{{ t.hereSub }}
+{{ t.togo }}
+{{ t.togoSub }}
+‹
+{{ modeLabel }}
+{{ t.cancel }}
+KZ
+RU
+{{ c.label }}
+{{ t.promoKicker }}
+{{ promoName }}
+{{ promoComp }}
+{{ promoPrice }}
+{{ t.pickIt }}
+{{ t.soldOut }}
+{{ it.tag }}
+{{ it.name }}
+{{ it.comp }}
+{{ it.priceLabel }}
++
+{{ t.cartWord }}: {{ cartCountLabel }}
+{{ cartTotalLabel }}
+{{ t.checkout }} →
+✕
+{{ itemName }}
+{{ itemDesc }}
+{{ itemNutrition }}
+{{ t.volume }}
+{{ o.label }}
+{{ o.note }}
+{{ t.drink }}
+{{ drinkStateLabel }}
+{{ o.label }}
+{{ o.note }}
+{{ showAllLabel }}
+{{ t.sauce }}
+{{ o.label }}
+{{ o.note }}
+{{ t.addLbl }}
+{{ a.name }}
+{{ a.priceLabel }}
+−
+{{ a.qty }}
++
+−
+{{ qty }}
++
+{{ t.toCart }} · {{ addPriceLabel }}
+{{ t.drink }}
+✕
+{{ o.label }}
+{{ o.note }}
+‹
+{{ wizStepLabel }}
+{{ wizTitle }}
+✕
+{{ wizCount }}
+{{ wizName }}
+{{ wizDesc }}
+{{ wizPpl }}
+{{ wizSauceNote }}
+{{ w.name }}
+−
+{{ w.qty }}
++
+{{ wizSauceCount }}
+{{ w.name }}
+{{ w.priceLabel }}
+−
+{{ w.qty }}
++
+{{ wizName }}
+{{ wizPriceLabel }}
+{{ t.skip }}
+{{ wizNextLabel }}
+{{ t.upsellTitle }}
+{{ u.name }}
+{{ u.priceLabel }}
+{{ u.btnLabel }}
+{{ t.next }}
+‹
+{{ t.yourOrder }}
+{{ t.cancel }}
+KZ
+RU
+{{ l.name }}
+{{ l.mods }}
+{{ t.remove }}
+−
+{{ l.qty }}
++
+{{ l.total }}
+{{ t.emptyCart }}
+{{ t.loyaltyTitle }}
+{{ t.loyaltyBody }}
+{{ t.enterPhone }}
+{{ userTitle }}
+{{ userBalance }}
+{{ userAccrual }}
+{{ t.gifts }}
+{{ g.check }}
+{{ g.name }}
+{{ g.note }}
+{{ t.phoneOnlyNote }}
+{{ t.total }}
+{{ cartTotalLabel }}
++ {{ t.addMore }}
+{{ t.checkout }}
+{{ identifyTitle }}
+✕
++7
+{{ phoneMask }}
+{{ t.phoneWhy }}
+{{ k.label }}
+{{ t.done }}
+‹
+KZ
+RU
+{{ t.nameQ }}
+{{ t.nameHint }}
+{{ nameShown }}
+{{ k.label }}
+{{ t.space }}
+⌫
+{{ t.skip }}
+{{ t.next }}
+‹
+{{ modeLabel }}
+{{ t.payTitle }}
+{{ t.toPay }}
+{{ cartTotalLabel }}
+{{ r.name }}
+{{ r.mods }}
+{{ r.total }}
+{{ t.total }}
+{{ cartTotalLabel }}
+{{ t.payChoose }}
+{{ p.badge }}
+{{ p.label }}
+{{ p.note }}
+{{ p.check }}
+{{ payBtnLabel }}
+{{ t.ready }}
+{{ guestName }}
+{{ t.yourNumber }}
+{{ orderNo }}
+{{ t.numberNote }}
+{{ t.takeReceipt }}
+{{ t.stillHere }}
+{{ t.willCancel }}
+{{ warnLeft }}
+{{ t.continueOrder }}
+{{ t.restart }}
+{{ t.cancelQ }}
+{{ t.continueOrder }}
+{{ t.yesCancel }}
+{{ toast }}
+Приложение
+·
+Киоск
+·
+Табло
+·
+Кухня
+·
+Бэк-офис
+
+PROTOTYPE LOGIC (REFERENCE DATA ONLY)
+
+class Component extends DCLogic {
+  state = {
+    lang: null, step: 'attract', dinein: true, cat: 'combo',
+    open: null, qty: 1, sauce: 'pick', drink: null, addons: {}, drinksSheet: false, flash: false,
+    wiz: null, cart: [], upsellShown: false,
+    identify: null, phone: '', user: null, gifts: {}, name: '', pay: null,
+    orderNo: '', idle: 0, doneLeft: 8, toast: '', confirmCancel: false
+  };
+
+  MONEY = n => n.toLocaleString('ru-RU').replace(/,/g, ' ') + ' ₸';
+  NUM = n => n.toLocaleString('ru-RU').replace(/,/g, ' ');
+
+  T = {
+    ru: {
+      s1Title: 'Как будете есть?', here: 'ЗДЕСЬ', hereSub: 'в ресторане', togo: 'С СОБОЙ', togoSub: 'заберу и уйду',
+      start: 'НАЧАТЬ', attractSub: 'Соберите свой заказ на экране', tapAnywhere: 'Коснитесь экрана, чтобы начать',
+      cancel: 'Отменить', cartWord: 'Корзина', soldOut: 'ЗАКОНЧИЛОСЬ', checkout: 'Оформить заказ',
+      volume: 'ОБЪЁМ', drink: 'НАПИТОК', sauce: 'СОУС', addLbl: 'ДОБАВИТЬ', choose: 'выберите', chosen: 'выбрано',
+      showAll: 'Показать все', toCart: 'В корзину', skip: 'Пропустить', next: 'Дальше',
+      upsellTitle: 'Добавить к заказу?', yourOrder: 'Ваш заказ', remove: 'Убрать', addMore: 'Добавить ещё',
+      total: 'Итого', emptyCart: 'Заказ пуст. Вернитесь в меню и выберите блюдо.',
+      loyaltyTitle: 'Копите Чики?', loyaltyBody: 'Введите номер телефона — начислим 7% чиками за этот заказ', scan: 'Ввести номер',
+      showQr: 'Покажите QR из приложения', qrHint: 'Откройте Pick Chick → Профиль → Карта лояльности', qrSim: '(прототип: коснитесь видоискателя)',
+      or: 'или', enterPhone: 'Ввести номер телефона', phoneWhy: 'Начислим чики на этот номер. Подарки и уровни — в приложении Pick Chick.',
+      done: 'Готово', clear: 'Очистить', gifts: 'ДОСТУПНЫЕ ПОДАРКИ', phoneOnlyNote: 'Подарки и уровни — в приложении Pick Chick',
+      review: 'Проверьте заказ', toPay: 'К оплате', placeOrder: 'Оформить и оплатить на кассе', backToOrder: 'Вернуться к заказу',
+      ready: 'Готово!', yourNumber: 'ВАШ НОМЕР', numberNote: 'Имя и номер появятся на табло выдачи, когда заказ будет готов', takeReceipt: 'Заберите чек',
+      stillHere: 'Вы ещё здесь?', willCancel: 'Заказ будет отменён через', continueOrder: 'Продолжить заказ', restart: 'Начать заново',
+      cancelQ: 'Отменить заказ?', yesCancel: 'Да, отменить',
+      wq1: 'Сколько фингерсов?', wq2: 'Какие соусы?', wq3: 'Добавить напитки?', step: 'ШАГ', persons: 'человек',
+      inOrder: '— в заказе', dine: 'ЗДЕСЬ', take: 'С СОБОЙ', accrual: 'За этот заказ', andChiki: 'чиков', gift: 'Подарок',
+      nameQ: 'Как вас зовут?', nameHint: 'Имя появится на табло выдачи рядом с номером заказа', namePh: 'Ваше имя', space: 'Пробел',
+      promoKicker: 'ХИТ НЕДЕЛИ', pickIt: 'Выбрать',
+      payTitle: 'Как оплатите?', payChoose: 'СПОСОБ ОПЛАТЫ', payNow: 'Оплатить', payPick: 'Выберите способ оплаты',
+      kaspiNote: 'Оплата по QR в приложении Kaspi', halyk: 'Halyk / Homebank', halykNote: 'Оплата по QR в Homebank',
+      cashier: 'На кассе', cashierNote: 'Картой или наличными у кассира'
+    },
+    kk: {
+      s1Title: 'Қалай тамақтанасыз?', here: 'ОСЫНДА', hereSub: 'мейрамханада', togo: 'ӨЗІММЕН', togoSub: 'алып кетемін',
+      start: 'БАСТАУ', attractSub: 'Тапсырысыңызды экраннан жинаңыз', tapAnywhere: 'Бастау үшін экранды түртіңіз',
+      cancel: 'Бас тарту', cartWord: 'Себет', soldOut: 'ТАУСЫЛДЫ', checkout: 'Тапсырыс беру',
+      volume: 'КӨЛЕМ', drink: 'СУСЫН', sauce: 'ТҰЗДЫҚ', addLbl: 'ҚОСУ', choose: 'таңдаңыз', chosen: 'таңдалды',
+      showAll: 'Барлығын көрсету', toCart: 'Себетке', skip: 'Өткізу', next: 'Әрі қарай',
+      upsellTitle: 'Тапсырысқа қосасыз ба?', yourOrder: 'Сіздің тапсырысыңыз', remove: 'Алып тастау', addMore: 'Тағы қосу',
+      total: 'Барлығы', emptyCart: 'Себет бос. Мәзірге оралып, тағам таңдаңыз.',
+      loyaltyTitle: 'Чик жинайсыз ба?', loyaltyBody: 'Телефон нөмірін енгізіңіз — осы тапсырыс үшін 7% чик қосамыз', scan: 'Нөмір енгізу',
+      showQr: 'Қосымшадағы QR көрсетіңіз', qrHint: 'Pick Chick ашыңыз → Профиль → Адалдық картасы', qrSim: '(прототип: көрініс тапқышты басыңыз)',
+      or: 'немесе', enterPhone: 'Телефон нөмірін енгізу', phoneWhy: 'Чиктерді осы нөмірге қосамыз. Сыйлықтар мен деңгейлер — Pick Chick қосымшасында.',
+      done: 'Дайын', clear: 'Тазалау', gifts: 'ҚОЛЖЕТІМДІ СЫЙЛЫҚТАР', phoneOnlyNote: 'Сыйлықтар мен деңгейлер — Pick Chick қосымшасында',
+      review: 'Тапсырысты тексеріңіз', toPay: 'Төлеуге', placeOrder: 'Рәсімдеп, кассада төлеу', backToOrder: 'Тапсырысқа оралу',
+      ready: 'Дайын!', yourNumber: 'СІЗДІҢ НӨМІРІҢІЗ', numberNote: 'Тапсырыс дайын болғанда атыңыз бен нөміріңіз беру тақтасында көрсетіледі', takeReceipt: 'Чекті алыңыз',
+      stillHere: 'Сіз осындасыз ба?', willCancel: 'Тапсырыс мына уақыттан кейін жойылады', continueOrder: 'Тапсырысты жалғастыру', restart: 'Қайта бастау',
+      cancelQ: 'Тапсырысты жою керек пе?', yesCancel: 'Иә, жою',
+      wq1: 'Қанша фингерс?', wq2: 'Қандай тұздықтар?', wq3: 'Сусын қосасыз ба?', step: 'ҚАДАМ', persons: 'адам',
+      inOrder: '— себетте', dine: 'ОСЫНДА', take: 'ӨЗІММЕН', accrual: 'Осы тапсырыс үшін', andChiki: 'чик', gift: 'Сыйлық',
+      nameQ: 'Атыңыз кім?', nameHint: 'Атыңыз беру тақтасында тапсырыс нөмірімен бірге көрсетіледі', namePh: 'Атыңыз', space: 'Бос орын',
+      promoKicker: 'АПТА ХИТІ', pickIt: 'Таңдау',
+      payTitle: 'Қалай төлейсіз?', payChoose: 'ТӨЛЕМ ӘДІСІ', payNow: 'Төлеу', payPick: 'Төлем әдісін таңдаңыз',
+      kaspiNote: 'Kaspi қосымшасындағы QR арқылы', halyk: 'Halyk / Homebank', halykNote: 'Homebank QR арқылы төлем',
+      cashier: 'Кассада', cashierNote: 'Кассирге картамен немесе қолма-қол'
+    }
+  };
+  lang() { return this.state.lang || this.props.defaultLang || 'ru'; }
+  t() { return this.T[this.lang()] || this.T.ru; }
+
+  SAUCES = [
+    { id: 'pick', name: 'Фирменный' }, { id: 'hot', name: 'Острый' },
+    { id: 'cheese', name: 'Heinz сырный' }, { id: 'bbq', name: 'Heinz барбекю', out: true }
+  ];
+  DRINKS = [
+    { id: 'cola', name: 'Coca-Cola 0.5', d: 0 },
+    { id: 'fanta', name: 'Fanta 0.5', d: 0 },
+    { id: 'lemonade', name: 'Фирменный лимонад', d: 200 },
+    { id: 'tea', name: 'Холодный чай', d: 0 },
+    { id: 'zero', name: 'Coca-Cola Zero', d: 0 },
+    { id: 'sprite', name: 'Sprite 0.5', d: 0 },
+    { id: 'peach', name: 'Fuse Tea Персик', d: 0 },
+    { id: 'bonaqua', name: 'Bonaqua 0.5', d: 0 },
+    { id: 'melon', name: 'Fuse Tea Арбуз', d: 0, out: true }
+  ];
+  SIZES = [['60 г', 0], ['180 г', 600], ['300 г', 1000]];
+  ADDONS = [['d1', 690], ['d2', 390], ['d5', 890]];
+
+  COMBOS = [
+    { id: 'pick', name: 'Pick Combo', vid: 'uploads/IMG_7060.mp4', comp: '4 фингерса · фри · соус · тост · коулслоу · напиток', price: 4190, tag: 'ХИТ', combo: true, img: 'offline/i7.jpg',
+      d: '4 фингерса, 1 порция фри, 1 соус, 1 тост, 1 коулслоу и напиток на выбор.', n: [520, 1240, 55, 72, 98] },
+    { id: 'master', name: 'Master Combo', vid: '', comp: '6 фингерсов · фри · 2 соуса · 2 тоста · коулслоу · напиток', price: 5490, img: 'offline/i8.jpg', combo: true,
+      d: '6 фингерсов, 1 порция фри, 2 соуса, 2 тоста, 1 коулслоу и напиток на выбор.', n: [720, 1780, 78, 104, 132] },
+    { id: 'burger', name: 'Burger Combo', comp: 'бургер · фри · соус · напиток', price: 3790, combo: true, img: 'offline/i9.jpg',
+      d: '1 бургер, 1 порция фри, 1 соус и напиток на выбор.', n: [480, 1140, 34, 70, 92] },
+    { id: 'solo', name: 'Solo Combo', vid: '', comp: '3 фингерса · фри · соус · тост · напиток', price: 3490, tag: 'НОВИНКА', combo: true, img: 'offline/i10.jpg',
+      d: '3 фингерса, 1 порция фри, 1 соус, 1 тост и напиток на выбор.', n: [420, 1000, 44, 58, 82] }
+  ];
+  DUO = [
+    { id: 'fduo', name: 'Фингер Дуо', comp: '8 фингерсов · 1,5 порции долек · 2 соуса · 2 коулслоу · 2 тоста · 2 напитка', price: 7990, combo: true, img: 'offline/i11.jpg',
+      d: 'Сытное комбо для двоих: 8 хрустящих куриных фингерсов, 1,5 порции картофельных долек, 2 фирменных соуса, 2 порции свежего коулслоу, 2 фирменных тоста, 2 напитка на выбор', n: [1100, 2600, 104, 152, 190] },
+    { id: 'bduo', name: 'Бургер Дуо', comp: '2 бургера · 1,5 порции долек · 2 соуса · 2 напитка', price: 6990, combo: true, img: 'offline/i12.jpg',
+      d: 'Сытный бургер комбо с хрустящими куриными фингерсами, фирменным соусом, свежим коулслоу и мягким поджаренным тостом. 1,5 порции картофельных долек, 2 фирменных соуса, 2 напитка на выбор', n: [900, 2100, 68, 128, 168] },
+    { id: 'mduo', name: 'Микс Дуо', comp: '4 фингерса · 1,5 порции долек · 2 соуса · коулслоу · тост · 2 напитка', price: 7490, combo: true, img: 'offline/i13.jpg',
+      d: 'Сытное микс-комбо для двоих: 4 хрустящих куриных фингерса, 1,5 порции картофельных долек, 2 фирменных соуса, 1 порция свежего коулслоу, 1 фирменный тост и 2 напитка на выбор.', n: [980, 2200, 82, 130, 172] }
+  ];
+  PARTY = [
+    { id: 'p25', name: '25 фингерсов', comp: 'Сет на 6–8 человек · 8 соусов', price: 13990, party: true, fingers: 25, sauces: 8, ppl: '6–8', img: 'offline/i14.jpg',
+      d: 'Большой сет для компании из 6–8 человек. 25 хрустящих куриных фингерсов и 8 фирменных соусов' },
+    { id: 'p50', name: '50 фингерсов', comp: 'Сет на 13–15 человек · 16 соусов', price: 26990, party: true, fingers: 50, sauces: 16, ppl: '13–15', img: 'offline/i15.jpg',
+      d: 'Сет для компании из 13-15 человек. 50 хрустящих куриных фингерсов и 16 фирменных соусов' },
+    { id: 'p75', name: '75 фингерсов', comp: 'Сет на 20–22 человека · 24 соуса', price: 39990, party: true, fingers: 75, sauces: 24, ppl: '20–22', img: 'offline/i16.jpg',
+      d: 'Сет на 20–22 человека. 75 куриных фингерсов и 24 фирменных соуса' },
+    { id: 'p100', name: '100 фингерсов', comp: 'Сет на большую компанию · 32 соуса', price: 52990, party: true, fingers: 100, sauces: 32, ppl: '25+', img: 'offline/i17.jpg',
+      d: 'Большой сет для компании. 100 хрустящих куриных фингерсов и 32 фирменных соуса' }
+  ];
+  DOPS = [
+    { id: 'd1', name: 'Фингерс, 1 шт', vid: '', img: 'offline/i4.jpg', comp: 'Куриное филе в панировке', price: 690, d: 'Нежное куриное филе в хрустящей панировке, обжаренное до золотистой корочки. Сочное внутри, хрустящее снаружи', n: [55, 165, 12, 9, 9] },
+    { id: 'd2', name: 'Соус фирменный', img: 'offline/i18.jpg', comp: '60 · 180 · 300 г', price: 390, sizes: true, d: 'Легендарный фирменный соус Pick Chick', n: [60, 230, 1, 23, 4] },
+    { id: 'd7', name: 'Соус острый', comp: '60 · 180 · 300 г', price: 390, img: 'offline/i19.jpg', tag: 'НОВИНКА', sizes: true, d: 'Фирменный соус с перцем чили.', n: [60, 220, 1, 21, 5] },
+    { id: 'd3', name: 'Тост, 1 шт', img: 'offline/i5.jpg', comp: 'Чесночное масло', price: 390, d: 'Фирменный тост с хрустящей золотистой корочкой, пропитанный чесночным маслом.', n: [40, 150, 4, 7, 18] },
+    { id: 'd4', name: 'Коулслоу, 90 г', img: 'offline/i6.jpg', comp: 'Капуста, морковь, соус', price: 690, d: 'Свежий салат из белокочанной и краснокочанной капусты с морковью, заправленный фирменным соусом.', n: [90, 120, 1, 9, 7] },
+    { id: 'd5', name: 'Картофельные дольки, 90 г', comp: 'Хрустящие, с корочкой', price: 890, img: 'offline/i20.jpg', d: 'Хрустящие картофельные дольки с золотистой корочкой', n: [90, 210, 3, 11, 25] },
+    { id: 'd6', name: 'Бургер, 1 шт', comp: 'Фингерсы, коулслоу, бриошь', price: 2390, img: 'offline/shot.jpg', d: 'Сочный бургер с хрустящими куриными фингерсами, свежим коулслоу, фирменным соусом и мягкой булочкой бриошь.', n: [240, 620, 28, 33, 52] },
+    { id: 'n1', name: 'Фирменный лимонад 0.5 л', img: 'offline/i0.jpg', comp: 'Апельсин, лимон', price: 1190, d: 'Натуральный лимонад собственного приготовления из свежих апельсинов, лимонов, сахара и воды. Освежающий вкус без лишних добавок.', n: [500, 210, 0, 0, 52] },
+    { id: 'n2', name: 'Coca-Cola 0.5 л, банка', img: 'offline/i2.jpg', comp: 'Классическая', price: 990, d: 'Coca-Cola Classic, 0,5 л.', n: [500, 210, 0, 0, 53] },
+    { id: 'n3', name: 'Fuse Tea Персик 0.5 л', img: 'offline/i1.jpg', comp: 'Холодный чай', price: 790, d: 'Fuse Tea со вкусом персика.', n: [500, 90, 0, 0, 22] },
+    { id: 'n7', name: 'Fuse Tea Арбуз 0.5 л', img: 'offline/i3.jpg', comp: 'Холодный чай', price: 790, out: true, d: 'Fuse Tea со вкусом арбуза.', n: [500, 90, 0, 0, 22] },
+    { id: 'n4', name: 'Холодный чай 0.5 л', comp: 'Сладкий или несладкий', price: 490, img: 'offline/i22.jpg', d: 'Освежающий холодный чай собственного приготовления. Есть сладкий и не сладкий, можно миксовать', n: [500, 110, 0, 0, 27] },
+    { id: 'n5', name: 'Bonaqua негаз. 0.5 л', img: 'offline/i23.jpg', comp: 'Вода без газа', price: 590, d: 'Питьевая вода без газа.', n: [500, 0, 0, 0, 0] }
+  ];
+  CATS = [['combo', 'КОМБО', 'КОМБО'], ['duo', 'НА ДВОИХ', 'ЕКЕУГЕ'], ['party', 'СЕТЫ', 'СЕТТЕР'], ['dops', 'ДОПЫ И НАПИТКИ', 'ҚОСЫМША ЖӘНЕ СУСЫН']];
+
+  list(k) { return k === 'combo' ? this.COMBOS : k === 'duo' ? this.DUO : k === 'party' ? this.PARTY : this.DOPS; }
+  all() { return this.COMBOS.concat(this.DUO, this.PARTY, this.DOPS); }
+  cur() { return this.all().find(x => x.id === this.state.open) || this.COMBOS[0]; }
+
+  extra() {
+    const it = this.cur(), s = this.state;
+    let e = 0;
+    if (it.sizes) e += this.SIZES[s.sizeIdx || 0][1];
+    if (it.combo && s.drink) { const d = this.DRINKS.find(x => x.id === s.drink); if (d) e += d.d; }
+    return e;
+  }
+  giftLines() {
+    const g = [];
+    if (this.state.gifts.g1) g.push('Фирменный соус');
+    if (this.state.gifts.g2) g.push('Картофельные дольки');
+    return g;
+  }
+  total() { return this.state.cart.reduce((s, c) => s + (c.price + c.extra) * c.qty, 0); }
+  chiki() { return Math.round(this.total() * 0.07); }
+  count() { return this.state.cart.reduce((s, c) => s + c.qty, 0); }
+  plural(n) {
+    if (this.state.lang === 'kk') return n + ' тағам';
+    return n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'позиция' : (n % 10 > 1 && n % 10 < 5 && (n % 100 < 10 || n % 100 > 20) ? 'позиции' : 'позиций'));
+  }
+  say(m) { this.setState({ toast: m }); this.timers.push(setTimeout(() => this.setState({ toast: '' }), 1500)); }
+  // Прототип «базы»: гости копятся в localStorage. На проде — POST /api/guests
+  saveGuest(patch) {
+    try {
+      const key = 'pickchick.kiosk.guests';
+      const db = JSON.parse(localStorage.getItem(key) || '[]');
+      const phone = patch.phone || (this.state.phone ? '+7' + this.state.phone : '');
+      if (!phone) return;
+      const i = db.findIndex(g => g.phone === phone);
+      const rec = { phone, name: patch.name || (i >= 0 ? db[i].name : '') || '', updated: new Date().toISOString() };
+      if (i >= 0) db[i] = { ...db[i], ...rec }; else db.push(rec);
+      localStorage.setItem(key, JSON.stringify(db));
+    } catch (e) {}
+  }
+  timers = [];
+
+  bump = () => { if (this.state.idle) this.setState({ idle: 0 }); };
+  resetAll = () => {
+    this.setState({ lang: null, step: 'attract', cart: [], open: null, wiz: null, qty: 1, sauce: 'pick', drink: null, addons: {}, drinksSheet: false, upsellShown: false, identify: null, phone: '', user: null, gifts: {}, name: '', pay: null, idle: 0, dinein: true, cat: 'combo', toast: '', confirmCancel: false, doneLeft: 8 });
+    this.timers.push(setTimeout(this.kickHero, 100));
+  };
+  kickHero = () => {
+    const v = document.querySelector('video[data-hero]');
+    if (!v) return;
+    v.muted = true; v.playsInline = true; v.loop = true;
+    if (!v.__k) { v.__k = true; ['canplay', 'loadeddata', 'stalled'].forEach(e => v.addEventListener(e, () => this.kickHero())); }
+    if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+  };
+  componentDidMount() {
+    [80, 400, 1200].forEach(ms => this.timers.push(setTimeout(this.kickHero, ms)));
+    this.tick = setInterval(() => {
+      const s = this.state;
+      if (s.step === 'attract') { this.kickHero(); return; }
+      if (s.step === 'number') {
+        if (s.doneLeft <= 1) this.resetAll(); else this.setState({ doneLeft: s.doneLeft - 1 });
+        return;
+      }
+      const idleMax = (this.props.idleSeconds || 60) + 30;
+      if (s.idle + 1 >= idleMax) this.resetAll(); else this.setState({ idle: s.idle + 1 });
+    }, 1000);
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); clearInterval(this.tick); }
+
+  addLine(cart, it, mods, extra, qty) {
+    const key = it.id + '|' + (mods || '');
+    const i = cart.findIndex(c => c.key === key);
+    if (i >= 0) cart[i] = { ...cart[i], qty: cart[i].qty + qty };
+    else cart.push({ key, id: it.id, name: it.name, price: it.price, extra: extra || 0, qty, mods: mods || '' });
+    return cart;
+  }
+  openItem(x) {
+    if (x.out) return;
+    if (x.party) {
+      const sauces = {}; sauces.pick = x.sauces;
+      this.setState({ wiz: { id: x.id, step: 2, sauces, drinks: {} }, idle: 0 });
+      return;
+    }
+    this.setState({ open: x.id, qty: 1, sizeIdx: 0, sauce: 'pick', drink: null, addons: {}, flash: false, idle: 0 });
+  }
+  quickAdd(x) {
+    if (x.out) return;
+    const cart = this.state.cart.slice();
+    let mods = '', extra = 0;
+    if (x.combo) mods = 'Фирменный соус · Coca-Cola 0.5';
+    if (x.sizes) mods = '60 г';
+    if (x.party) mods = 'Фирменный соус ×' + x.sauces;
+    this.addLine(cart, x, mods, extra, 1);
+    this.setState({ cart, idle: 0 });
+    this.say(x.name + ' ' + this.t().inOrder);
+  }
+  wizItem() { return this.PARTY.find(p => p.id === (this.state.wiz || {}).id) || this.PARTY[0]; }
+  wizDrinkTotal() {
+    const w = this.state.wiz || { drinks: {} };
+    return Object.keys(w.drinks).reduce((s, id) => { const d = this.DOPS.find(x => x.id === id); return s + (d ? d.price * w.drinks[id] : 0); }, 0);
+  }
+  wizCommit(withDrinks) {
+    const w = this.state.wiz, it = this.wizItem();
+    const sauceStr = this.SAUCES.filter(x => w.sauces[x.id]).map(x => x.name + ' ×' + w.sauces[x.id]).join(', ');
+    let cart = this.state.cart.slice();
+    this.addLine(cart, it, sauceStr, 0, 1);
+    if (withDrinks) Object.keys(w.drinks).forEach(id => {
+      if (!w.drinks[id]) return;
+      const d = this.DOPS.find(x => x.id === id);
+      this.addLine(cart, d, '', 0, w.drinks[id]);
+    });
+    this.setState({ cart, wiz: null, idle: 0 });
+    this.say(it.name + ' ' + this.t().inOrder);
+  }
+
+  renderVals() {
+    const s = this.state, t = this.t(), it = this.cur();
+    const lang = this.lang();
+    const active = { bg: 'var(--blue)', fg: '#FFFFFF', border: 'var(--blue)' };
+    const idleStart = this.props.idleSeconds || 60;
+    const pick = on => on
+      ? { bg: '#FFFFFF', fg: 'var(--blue)', border: '#FFFFFF' }
+      : { bg: 'rgba(255,255,255,.12)', fg: '#FFFFFF', border: 'rgba(255,255,255,.28)' };
+    const needDrink = it.combo && !s.drink;
+    const upsellOn = this.props.upsellScreen !== false;
+    const startWith = l => { this.setState({ lang: l, step: 's1', idle: 0 }); };
+
+    const chipSkin = (on, out) => ({
+      bg: on ? '#FFFFFF' : 'rgba(255,255,255,.13)',
+      fg: on ? 'var(--blue)' : '#FFFFFF',
+      border: on ? '#FFFFFF' : 'rgba(255,255,255,.3)',
+      shadow: on ? '0 10px 28px rgba(0,0,0,.28)' : 'none',
+      dotBorder: on ? 'var(--blue)' : 'rgba(255,255,255,.55)',
+      dotBg: on ? 'var(--blue)' : 'transparent',
+      dotInner: on ? '#FFFFFF' : 'transparent',
+      opacity: out ? .45 : 1,
+      deco: out ? 'line-through' : 'none',
+      pillBg: on ? 'rgba(0,71,187,.12)' : 'rgba(255,255,255,.2)',
+      pillFg: on ? 'var(--blue)' : '#FFFFFF'
+    });
+    const drinkOpt = x => {
+      const on = s.drink === x.id;
+      return {
+        label: x.name,
+        note: x.out ? (lang === 'kk' ? 'жоқ' : 'нет') : (x.d ? '+' + this.NUM(x.d) + ' ₸' : false),
+        ...chipSkin(on, x.out),
+        pick: () => { if (!x.out) this.setState({ drink: x.id, drinksSheet: false, idle: 0 }); }
+      };
+    };
+
+    return {
+      t, modeLabel: s.dinein ? t.dine : t.take,
+      isAttract: s.step === 'attract', isS1: s.step === 's1',
+      isMenu: s.step === 'menu' && !s.open && !s.wiz,
+      isItem: !!s.open, isWiz: !!s.wiz, isDrinksSheet: s.drinksSheet,
+      isUpsell: s.step === 'upsell', isCart: s.step === 'cart' && !s.identify,
+      isIdentify: !!s.identify, isName: s.step === 'name', isPay: s.step === 'pay', isNumber: s.step === 'number',
+      isConfirmCancel: s.confirmCancel, toast: s.toast || false,
+      idleWarn: s.step !== 'attract' && s.step !== 'number' && s.idle >= idleStart && !s.confirmCancel,
+      warnLeft: Math.max(1, idleStart + 30 - s.idle),
+      bump: this.bump, resetAll: this.resetAll,
+      askCancel: () => { if (s.cart.length) this.setState({ confirmCancel: true, idle: 0 }); else this.resetAll(); },
+      dismissCancel: () => this.setState({ confirmCancel: false, idle: 0 }),
+
+      startDefault: () => startWith(this.lang()),
+      startKk: e => { e.stopPropagation(); this.setState({ lang: 'kk', idle: 0 }); },
+      startRu: e => { e.stopPropagation(); this.setState({ lang: 'ru', idle: 0 }); },
+      setKk: () => this.setState({ lang: 'kk', idle: 0 }),
+      setRu: () => this.setState({ lang: 'ru', idle: 0 }),
+      kkBg: lang === 'kk' ? '#FFFFFF' : 'transparent', kkFg: lang === 'kk' ? 'var(--blue)' : '#FFFFFF',
+      ruBg: lang === 'ru' ? '#FFFFFF' : 'transparent', ruFg: lang === 'ru' ? 'var(--blue)' : '#FFFFFF',
+
+      goAttract: () => this.resetAll(),
+      goS1: () => this.setState({ step: 's1', idle: 0 }),
+      pickDine: () => this.setState({ step: 'menu', dinein: true, idle: 0 }),
+      pickTake: () => this.setState({ step: 'menu', dinein: false, idle: 0 }),
+      goMenu: () => this.setState({ step: 'menu', open: null, wiz: null, idle: 0 }),
+      goCart: () => this.setState({ step: 'cart', open: null, idle: 0 }),
+      goReview: () => { if (s.cart.length) this.setState({ step: 'name', idle: 0 }); },
+
+      nameShown: s.name || t.namePh,
+      nameFg: s.name ? 'var(--n900)' : 'var(--n600)',
+      nameRows: [
+        ['Й','Ц','У','К','Е','Н','Г','Ш','Щ','З','Х'],
+        ['Ф','Ы','В','А','П','Р','О','Л','Д','Ж','Э'],
+        ['Я','Ч','С','М','И','Т','Ь','Б','Ю'],
+        ['Ә','І','Ң','Ғ','Ү','Ұ','Қ','Ө','Һ']
+      ].map(r => ({
+        keys: r.map(k => ({
+          label: k,
+          tap: () => { if (s.name.length < 14) this.setState({ name: s.name + (s.name && s.name.slice(-1) !== ' ' ? k.toLowerCase() : k), idle: 0 }); }
+        }))
+      })),
+      nameSpace: () => { if (s.name && s.name.length < 14) this.setState({ name: s.name + ' ', idle: 0 }); },
+      nameBack: () => this.setState({ name: s.name.slice(0, -1), idle: 0 }),
+      nameNextBg: s.name.trim() ? 'var(--orange)' : 'var(--n300)',
+      nameNextFg: s.name.trim() ? '#FFFFFF' : 'var(--n600)',
+      confirmName: () => { if (s.name.trim()) { this.saveGuest({ name: s.name.trim() }); this.setState({ step: 'pay', idle: 0 }); } },
+      skipName: () => this.setState({ name: '', step: 'pay', idle: 0 }),
+      guestName: s.name, hasName: !!s.name.trim(),
+
+      backFromPay: () => this.setState({ step: 'name', idle: 0 }),
+      payOpts: [
+        { id: 'kaspi', label: 'Kaspi QR', note: t.kaspiNote, badge: 'K', badgeBg: '#F14635' },
+        { id: 'halyk', label: t.halyk, note: t.halykNote, badge: 'H', badgeBg: '#00A651' },
+        { id: 'cashier', label: t.cashier, note: t.cashierNote, badge: '₸', badgeBg: 'var(--blue)' }
+      ].map(p => {
+        const on = s.pay === p.id;
+        return {
+          label: p.label, note: p.note, badge: p.badge, badgeBg: p.badgeBg,
+          bg: on ? '#EDF3FD' : '#FFFFFF', border: on ? 'var(--blue)' : 'transparent',
+          shadow: on ? '0 10px 28px rgba(0,71,187,.16)' : '0 2px 4px rgba(14,21,36,.05),0 10px 24px rgba(14,21,36,.06)',
+          dotBg: on ? 'var(--blue)' : '#FFFFFF', dotBorder: on ? 'var(--blue)' : 'var(--n300)', check: on ? '✓' : '',
+          pick: () => this.setState({ pay: p.id, idle: 0 })
+        };
+      }),
+      payBtnLabel: s.pay ? t.payNow + ' · ' + this.MONEY(this.total()) : t.payPick,
+      payBtnBg: s.pay ? 'var(--orange)' : 'var(--n300)',
+      payBtnFg: s.pay ? '#FFFFFF' : 'var(--n600)',
+      payBtnShadow: s.pay ? '0 16px 36px rgba(255,103,31,.35)' : 'none',
+      goNextFromMenu: () => {
+        if (!s.cart.length) return;
+        const skip = !upsellOn || s.upsellShown || this.total() > 10000;
+        this.setState({ step: skip ? 'cart' : 'upsell', upsellShown: true, idle: 0 });
+      },
+      menuNextBg: s.cart.length ? 'var(--orange)' : 'var(--n300)',
+      menuNextFg: s.cart.length ? '#FFFFFF' : 'var(--n600)',
+      menuNextShadow: s.cart.length ? '0 14px 32px rgba(255,103,31,.35)' : 'none',
+
+      cats: this.CATS.map(c => {
+        const on = s.cat === c[0];
+        return {
+          label: lang === 'kk' ? c[2] : c[1],
+          bg: on ? '#FFFFFF' : 'rgba(255,255,255,.16)', fg: on ? 'var(--blue)' : '#FFFFFF',
+          shadow: on ? '0 10px 24px rgba(0,10,40,.28)' : 'none',
+          go: () => this.setState({ cat: c[0], idle: 0 })
+        };
+      }),
+      showPromo: s.cat === 'combo',
+      promoName: this.COMBOS[1].name, promoComp: this.COMBOS[1].comp, promoPrice: this.MONEY(this.COMBOS[1].price),
+      openPromo: () => this.openItem(this.COMBOS[1]),
+      items: this.list(s.cat).map(x => ({
+        name: x.name, comp: x.comp || '', priceLabel: this.MONEY(x.price),
+        img: x.img || false, noImg: !x.img, vid: x.vid || false, slot: 'kiosk-' + x.id, tag: x.out ? false : (x.tag || false), out: !!x.out,
+        opacity: x.out ? .4 : 1,
+        plusBg: x.out ? 'var(--n300)' : 'var(--orange)',
+        plusShadow: x.out ? 'none' : '0 10px 24px rgba(255,103,31,.35)',
+        open: () => this.openItem(x),
+        quick: e => { e.stopPropagation(); this.quickAdd(x); }
+      })),
+      cartCountLabel: this.plural(this.count()), cartTotalLabel: this.MONEY(this.total()),
+
+      itemName: it.name, itemDesc: it.d || '', itemImg: it.img || false, itemNoImg: !it.img, itemVid: it.vid || false, itemNoVid: !it.vid, itemSlot: 'kiosk-' + it.id,
+      itemBaseLabel: this.MONEY(it.price),
+      itemNutrition: it.n ? (it.n[0] + ' г · ' + it.n[1] + ' ккал · Б ' + it.n[2] + ' · Ж ' + it.n[3] + ' · У ' + it.n[4]) : '',
+      itemIsCombo: !!it.combo, itemIsSizable: !!it.sizes, itemHasAddons: !!it.combo,
+      drinkFlash: s.flash ? 'kFlash .9s ease both' : 'none',
+      drinkStateBg: s.drink ? 'rgba(255,255,255,.9)' : 'rgba(255,103,31,.9)',
+      drinkStateFg: s.drink ? 'var(--blue)' : '#FFFFFF',
+      drinkStateLabel: s.drink ? t.chosen : t.choose,
+      drinkOpts: this.DRINKS.slice(0, 4).map(drinkOpt),
+      allDrinkOpts: this.DRINKS.map(drinkOpt),
+      showAllLabel: t.showAll + ' ' + this.DRINKS.length,
+      openDrinksSheet: () => this.setState({ drinksSheet: true, idle: 0 }),
+      closeDrinksSheet: () => this.setState({ drinksSheet: false, idle: 0 }),
+      sizeOpts: this.SIZES.map((z, i) => {
+        const on = (s.sizeIdx || 0) === i;
+        return { label: z[0], note: z[1] ? '+' + this.NUM(z[1]) + ' ₸' : lang === 'kk' ? 'бағада' : 'в цене', ...chipSkin(on, false), pick: () => this.setState({ sizeIdx: i, idle: 0 }) };
+      }),
+      sauceOpts: this.SAUCES.map(x => {
+        const on = s.sauce === x.id;
+        return {
+          label: x.name,
+          note: x.out ? (lang === 'kk' ? 'жоқ' : 'нет') : false,
+          ...chipSkin(on, x.out),
+          pick: () => { if (!x.out) this.setState({ sauce: x.id, idle: 0 }); }
+        };
+      }),
+      addonRows: this.ADDONS.map(a => {
+        const d = this.DOPS.find(x => x.id === a[0]);
+        const q = s.addons[a[0]] || 0;
+        return {
+          name: d.name, priceLabel: this.MONEY(a[1]), qty: q,
+          inc: () => this.setState({ addons: { ...s.addons, [a[0]]: Math.min(10, q + 1) }, idle: 0 }),
+          dec: () => this.setState({ addons: { ...s.addons, [a[0]]: Math.max(0, q - 1) }, idle: 0 })
+        };
+      }),
+      qty: s.qty,
+      incQty: () => this.setState({ qty: Math.min(10, s.qty + 1), idle: 0 }),
+      decQty: () => this.setState({ qty: Math.max(1, s.qty - 1), idle: 0 }),
+      addPriceLabel: this.MONEY((it.price + this.extra()) * s.qty + this.ADDONS.reduce((sum, a) => sum + a[1] * (s.addons[a[0]] || 0), 0)),
+      ctaBg: needDrink ? 'rgba(255,255,255,.16)' : 'var(--orange)',
+      ctaFg: needDrink ? 'rgba(255,255,255,.65)' : '#FFFFFF',
+      ctaShadow: needDrink ? 'none' : '0 14px 32px rgba(255,103,31,.35)',
+      closeItem: () => this.setState({ open: null, idle: 0 }),
+      addToCart: () => {
+        if (needDrink) {
+          this.setState({ flash: true, idle: 0 });
+          const sc = document.querySelector('[data-item-scroll]');
+          const g = document.querySelector('[data-drink-group]');
+          if (sc && g) sc.scrollTo({ top: Math.max(0, g.offsetTop - 140), behavior: 'smooth' });
+          this.timers.push(setTimeout(() => this.setState({ flash: false }), 950));
+          return;
+        }
+        const mods = [];
+        if (it.sizes) mods.push(this.SIZES[s.sizeIdx || 0][0]);
+        if (it.combo) {
+          mods.push((this.SAUCES.find(x => x.id === s.sauce) || {}).name);
+          mods.push((this.DRINKS.find(x => x.id === s.drink) || {}).name);
+        }
+        let cart = this.state.cart.slice();
+        this.addLine(cart, it, mods.join(' · '), this.extra(), s.qty);
+        this.ADDONS.forEach(a => {
+          const q = s.addons[a[0]] || 0;
+          if (q) this.addLine(cart, this.DOPS.find(x => x.id === a[0]), '', 0, q);
+        });
+        this.setState({ cart, open: null, qty: 1, addons: {}, idle: 0 });
+        this.say(it.name + ' ' + t.inOrder);
+      },
+
+      wizName: this.wizItem().name, wizNamePlain: this.wizItem().name,
+      wizStepLabel: t.step + ' ' + (((s.wiz || {}).step || 2) - 1) + ' / 2',
+      wizTitle: [t.wq2, t.wq3][(((s.wiz || {}).step || 2) - 2)],
+      wizIsStep2: ((s.wiz || {}).step || 2) === 2,
+      wizIsStep3: ((s.wiz || {}).step || 2) === 3,
+      wizCount: this.wizItem().fingers,
+      wizImg: this.wizItem().img || false, wizNoImg: !this.wizItem().img, wizSlot: 'kiosk-' + this.wizItem().id,
+      wizDesc: this.wizItem().d || '',
+      wizPpl: this.wizItem().ppl + ' ' + t.persons,
+      wizSauceNote: this.wizItem().sauces + ' ' + (lang === 'kk' ? 'тұздық' : 'соусов'),
+      wizSauces: this.SAUCES.map(x => {
+        const w = s.wiz || { sauces: {} }, q = w.sauces[x.id] || 0, target = this.wizItem().sauces;
+        const totalSel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return {
+          name: x.name, qty: q, opacity: x.out ? .45 : 1, deco: x.out ? 'line-through' : 'none',
+          inc: () => { if (!x.out && totalSel < target) this.setState({ wiz: { ...w, sauces: { ...w.sauces, [x.id]: q + 1 } }, idle: 0 }); },
+          dec: () => { if (q > 0) this.setState({ wiz: { ...w, sauces: { ...w.sauces, [x.id]: q - 1 } }, idle: 0 }); }
+        };
+      }),
+      wizSauceCount: (() => {
+        const w = s.wiz || { sauces: {} };
+        const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return (lang === 'kk' ? 'таңдалды ' : 'выбрано ') + sel + ' / ' + this.wizItem().sauces;
+      })(),
+      wizSauceBg: (() => {
+        const w = s.wiz || { sauces: {} };
+        const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return sel === this.wizItem().sauces ? 'var(--blue)' : 'var(--n100)';
+      })(),
+      wizSauceFg: (() => {
+        const w = s.wiz || { sauces: {} };
+        const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return sel === this.wizItem().sauces ? '#FFFFFF' : 'var(--n600)';
+      })(),
+      wizDrinks: ['n1', 'n2', 'n3', 'n4'].map(id => {
+        const d = this.DOPS.find(x => x.id === id);
+        const w = s.wiz || { drinks: {} }, q = w.drinks[id] || 0;
+        return {
+          name: d.name, priceLabel: this.MONEY(d.price), qty: q,
+          inc: () => this.setState({ wiz: { ...w, drinks: { ...w.drinks, [id]: Math.min(20, q + 1) } }, idle: 0 }),
+          dec: () => this.setState({ wiz: { ...w, drinks: { ...w.drinks, [id]: Math.max(0, q - 1) } }, idle: 0 })
+        };
+      }),
+      wizPriceLabel: this.MONEY(this.wizItem().price + this.wizDrinkTotal()),
+      wizNextLabel: ((s.wiz || {}).step || 1) === 3 ? t.toCart : t.next,
+      wizNextBg: (() => {
+        const w = s.wiz || { step: 1, sauces: {} };
+        if (w.step === 2) {
+          const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+          if (sel !== this.wizItem().sauces) return 'var(--n300)';
+        }
+        return 'var(--orange)';
+      })(),
+      wizNextFg: (() => {
+        const w = s.wiz || { step: 1, sauces: {} };
+        if (w.step === 2) {
+          const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+          if (sel !== this.wizItem().sauces) return 'var(--n600)';
+        }
+        return '#FFFFFF';
+      })(),
+      wizNextShadow: 'none',
+      wizNext: () => {
+        const w = s.wiz;
+        if (!w) return;
+        if (w.step === 2) {
+          const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+          if (sel !== this.wizItem().sauces) return;
+          return this.setState({ wiz: { ...w, step: 3 }, idle: 0 });
+        }
+        this.wizCommit(true);
+      },
+      wizSkip: () => this.wizCommit(false),
+      wizBack: () => {
+        const w = s.wiz;
+        if (!w || w.step <= 2) return this.setState({ wiz: null, idle: 0 });
+        this.setState({ wiz: { ...w, step: w.step - 1 }, idle: 0 });
+      },
+      closeWiz: () => this.setState({ wiz: null, idle: 0 }),
+
+      upsellItems: (() => {
+        const hasParty = s.cart.some(c => this.PARTY.some(p => p.id === c.id));
+        const ids = hasParty ? ['d2', 'd7', 'n1', 'n2'] : ['d2', 'd5', 'd3', 'n1'];
+        return ids.map(id => {
+          const x = this.DOPS.find(y => y.id === id);
+          const added = s.cart.some(c => c.id === id);
+          return {
+            name: x.name, priceLabel: this.MONEY(x.price), img: x.img || false, noImg: !x.img, slot: 'kiosk-' + x.id,
+            border: added ? 'var(--blue)' : 'var(--n300)',
+            btnBg: added ? 'var(--blue)' : 'var(--orange)', btnFg: '#FFFFFF', btnLabel: added ? '✓' : '+',
+            add: () => {
+              let cart = s.cart.slice();
+              this.addLine(cart, x, '', 0, 1);
+              this.setState({ cart, idle: 0 });
+              this.say(x.name + ' ' + t.inOrder);
+            }
+          };
+        });
+      })(),
+
+      cartLines: s.cart.map((c, i) => ({
+        name: c.name, mods: c.mods || '—', qty: c.qty, total: this.MONEY((c.price + c.extra) * c.qty),
+        slot: 'kiosk-' + c.id, img: (this.all().find(x => x.id === c.id) || {}).img || false, noImg: !(this.all().find(x => x.id === c.id) || {}).img,
+        inc: () => { const n = s.cart.slice(); n[i] = { ...n[i], qty: Math.min(10, n[i].qty + 1) }; this.setState({ cart: n, idle: 0 }); },
+        dec: () => { const n = s.cart.slice(); if (n[i].qty > 1) n[i] = { ...n[i], qty: n[i].qty - 1 }; else n.splice(i, 1); this.setState({ cart: n, idle: 0 }); },
+        remove: () => { const n = s.cart.slice(); n.splice(i, 1); this.setState({ cart: n, idle: 0 }); }
+      })),
+      cartEmpty: s.cart.length === 0,
+      checkoutBg: s.cart.length ? 'var(--orange)' : 'var(--n300)',
+      checkoutFg: s.cart.length ? '#FFFFFF' : 'var(--n600)',
+      checkoutShadow: s.cart.length ? '0 14px 32px rgba(255,103,31,.35)' : 'none',
+
+      noUser: !s.user, hasUser: !!s.user,
+      userTitle: s.user ? (s.user.method === 'qr' ? 'Азамат · Пик-мастер' : '+7 (' + s.phone.slice(0, 3) + ') ···-··-' + s.phone.slice(8)) : '',
+      userBalance: s.user && s.user.method === 'qr' ? '1 240 Ч' : '',
+      userAccrual: t.accrual + ': +' + this.NUM(this.chiki()) + ' ' + t.andChiki,
+      userHasGifts: false,
+      userPhoneOnly: !!s.user && s.user.method === 'phone',
+      giftRows: [
+        { id: 'g1', name: 'Фирменный соус', note: lang === 'kk' ? '5 сапар үшін' : 'за 5 визитов' },
+        { id: 'g2', name: 'Картофельные дольки', note: lang === 'kk' ? 'стрик, 4 апта' : 'стрик, 4 недели' }
+      ].map(g => {
+        const on = !!s.gifts[g.id];
+        return {
+          name: g.name, note: g.note,
+          check: on ? '✓' : '', boxBg: on ? 'var(--blue)' : '#FFFFFF', boxBorder: on ? 'var(--blue)' : 'var(--n300)',
+          bg: on ? '#EDF3FD' : '#FFFFFF', border: on ? 'var(--blue)' : 'var(--n300)',
+          toggle: () => this.setState({ gifts: { ...s.gifts, [g.id]: !on }, idle: 0 })
+        };
+      }),
+      openIdentify: () => this.setState({ identify: 'phone', idle: 0 }),
+      closeIdentify: () => this.setState({ identify: null, idle: 0 }),
+      identifyTitle: t.enterPhone,
+      identifyIsPhone: s.identify === 'phone',
+      phoneFg: s.phone ? 'var(--n900)' : 'var(--n600)',
+      phoneMask: (() => {
+        const d = s.phone.padEnd(10, '_');
+        return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6, 8) + '-' + d.slice(8, 10);
+      })(),
+      keypad: ['1', '2', '3', '4', '5', '6', '7', '8', '9', t.clear, '0', '⌫'].map(k => ({
+        label: k,
+        tap: () => {
+          this.bump();
+          if (k === '⌫') return this.setState({ phone: s.phone.slice(0, -1) });
+          if (k === t.clear) return this.setState({ phone: '' });
+          if (s.phone.length < 10) this.setState({ phone: s.phone + k });
+        }
+      })),
+      phoneBtnBg: s.phone.length === 10 ? 'var(--orange)' : 'var(--n300)',
+      phoneBtnFg: s.phone.length === 10 ? '#FFFFFF' : 'var(--n600)',
+      confirmPhone: () => {
+        if (s.phone.length !== 10) return;
+        this.saveGuest({ phone: '+7' + s.phone });
+        this.setState({ user: { method: 'phone' }, identify: null, idle: 0 });
+        this.say('+' + this.NUM(this.chiki()) + ' ' + t.andChiki);
+      },
+
+      reviewLines: (() => {
+        const rows = s.cart.map(c => ({
+          name: c.name + ' ×' + c.qty, mods: c.mods || false,
+          total: this.MONEY((c.price + c.extra) * c.qty), priceFg: 'var(--n900)'
+        }));
+        this.giftLines().forEach(g => rows.push({ name: t.gift + ': ' + g, mods: false, total: '0 ₸', priceFg: 'var(--blue)' }));
+        return rows;
+      })(),
+      placeOrder: () => {
+        if (!s.pay) return;
+        const no = String(100 + Math.floor(Math.random() * 100));
+        this.setState({ step: 'number', orderNo: no, doneLeft: 8, idle: 0 });
+      },
+      orderNo: s.orderNo || '147',
+      doneDots: Array.from({ length: 8 }, (_, i) => ({ bg: i < s.doneLeft ? 'var(--orange)' : 'var(--n300)' }))
+    };
+  }
+}

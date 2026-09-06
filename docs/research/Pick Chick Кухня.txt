@@ -1,0 +1,134 @@
+SOURCE: /Users/xaknazar/Downloads/Pick Chick Кухня (offline).html
+SHA256: f0d3624a63403ba7497c694ecea7c31ff6140c4cf953d6812e182e7637138856
+
+TEXT
+Кухня · станция сборки
+Алматы · смена {{ shift }}
+{{ k.label }}
+{{ k.value }}
+{{ clock }}
+{{ o.no }}
+{{ o.name }}
+{{ o.mode }}
+{{ o.timer }}
+{{ o.stage }}
+{{ l.qty }}
+{{ l.name }}
+{{ l.mods }}
+{{ o.btn }}
+Все заказы собраны
+Приложение
+·
+Киоск
+·
+Табло
+·
+Кухня
+·
+Бэк-офис
+
+PROTOTYPE LOGIC (REFERENCE DATA ONLY)
+
+class Component extends DCLogic {
+  NAMES = ['Азамат', 'Айгерим', 'Данияр', 'Мадина', 'Ерлан', 'Аружан', 'Тимур', 'Алина', 'Санжар', 'Диана'];
+  POOL = [
+    { name: 'Pick Combo', mods: 'Фирменный соус · Coca-Cola 0.5' },
+    { name: 'Master Combo', mods: 'Острый соус · Фирменный лимонад' },
+    { name: 'Burger Combo', mods: 'Heinz сырный · Fanta 0.5' },
+    { name: 'Solo Combo', mods: 'Фирменный соус · Холодный чай' },
+    { name: 'Фингер Дуо', mods: '2 фирменных соуса · 2 Coca-Cola' },
+    { name: 'Микс Дуо', mods: 'Острый + фирменный · 2 Bonaqua' },
+    { name: '25 фингерсов', mods: 'Фирменный ×6, Острый ×2' },
+    { name: 'Фингерс, 1 шт', mods: '' },
+    { name: 'Картофельные дольки, 90 г', mods: '' },
+    { name: 'Коулслоу, 90 г', mods: '' },
+    { name: 'Тост, 1 шт', mods: '' },
+    { name: 'Соус фирменный', mods: '300 г' }
+  ];
+
+  state = { now: Date.now(), list: [], seq: 148, doneCount: 12 };
+
+  componentDidMount() {
+    const list = [];
+    for (let i = 0; i < 6; i++) list.push(this.make(148 + i, (6 - i) * 55));
+    list[0].stage = 1; list[1].stage = 1;
+    this.setState({ list, seq: 154 });
+    this.clock = setInterval(() => this.setState({ now: Date.now() }), 1000);
+    this.feed = setInterval(this.incoming, (this.props.newOrderSeconds || 14) * 1000);
+  }
+  componentWillUnmount() { clearInterval(this.clock); clearInterval(this.feed); }
+
+  make(no, ageSec) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    const lines = [];
+    for (let i = 0; i < n; i++) {
+      const p = this.POOL[Math.floor(Math.random() * this.POOL.length)];
+      lines.push({ qty: 1 + (Math.random() < 0.22 ? 1 : 0), name: p.name, mods: p.mods });
+    }
+    return {
+      no: String(no), name: this.NAMES[no % this.NAMES.length],
+      dine: Math.random() < 0.55, start: Date.now() - (ageSec || 0) * 1000, stage: 0, lines
+    };
+  }
+  incoming = () => {
+    const s = this.state;
+    if (s.list.length >= (this.props.maxTickets || 8)) return;
+    this.setState({ list: s.list.concat(this.make(s.seq)), seq: s.seq + 1 });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const late = (this.props.lateMinutes || 8) * 60;
+    const two = n => String(n).padStart(2, '0');
+    const d = new Date(s.now);
+    const list = s.list.slice().sort((a, b) => a.start - b.start);
+    const waits = list.map(o => (s.now - o.start) / 1000);
+    const avg = waits.length ? Math.round(waits.reduce((x, y) => x + y, 0) / waits.length / 60) : 0;
+    const lateCount = waits.filter(w => w > late).length;
+
+    return {
+      clock: two(d.getHours()) + ':' + two(d.getMinutes()),
+      shift: d.getHours() < 16 ? 'дневная' : 'вечерняя',
+      cols: this.props.columns || 4,
+      empty: list.length === 0,
+      stats: [
+        { label: 'В РАБОТЕ', value: list.length, fg: '#FFFFFF' },
+        { label: 'ОПАЗДЫВАЕТ', value: lateCount, fg: lateCount ? 'var(--red)' : 'rgba(255,255,255,.5)' },
+        { label: 'СРЕДНЕЕ ВРЕМЯ', value: avg + ' мин', fg: avg > (this.props.lateMinutes || 8) ? 'var(--orange)' : '#FFFFFF' },
+        { label: 'ГОТОВО ЗА СМЕНУ', value: s.doneCount, fg: 'var(--green)' }
+      ],
+      tickets: list.map(o => {
+        const w = (s.now - o.start) / 1000;
+        const isLate = w > late, warn = !isLate && w > late * 0.6;
+        const border = isLate ? 'var(--orange)' : (warn ? 'rgba(255,103,31,.55)' : (o.stage ? 'var(--blue)' : '#E1E7F2'));
+        return {
+          no: o.no, name: o.name,
+          mode: o.dine ? 'В ЗАЛЕ' : 'С СОБОЙ',
+          modeFg: o.dine ? '#FFFFFF' : '#FFFFFF',
+          modeBg: o.dine ? 'var(--blue)' : 'var(--orange)',
+          noFg: o.stage ? 'var(--blue)' : '#0E1524',
+          stageFg: o.stage ? 'var(--blue)' : '#5A6478',
+          timer: Math.floor(w / 60) + ':' + two(Math.floor(w % 60)),
+          timeFg: isLate ? 'var(--orange)' : (warn ? 'var(--orange)' : '#0E1524'),
+          stage: o.stage ? 'готовится' : 'новый',
+          bg: '#FFFFFF',
+          headBg: o.stage ? '#DCE7FB' : '#EFF3FA',
+          border,
+          anim: isLate ? 'kLate 1.4s ease-in-out infinite' : 'kIn .3s ease both',
+          lines: o.lines.map(l => ({ qty: '×' + l.qty, name: l.name, mods: l.mods || false })),
+          btn: o.stage ? 'Готово' : 'Взять в работу',
+          btnBg: o.stage ? '#0047BB' : '#D9520F',
+          btnFg: '#FFFFFF',
+          advance: () => {
+            if (!o.stage) {
+              this.setState({ list: s.list.map(x => x === o ? { ...x, stage: 1 } : x) });
+            } else {
+              this.setState({ list: s.list.filter(x => x !== o), doneCount: s.doneCount + 1 });
+            }
+          },
+          bump: () => this.setState({ list: s.list.map(x => x === o ? { ...x, start: x.start + 60000 } : x) })
+        };
+      })
+    };
+  }
+}
