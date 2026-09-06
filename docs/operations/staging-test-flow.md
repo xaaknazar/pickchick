@@ -50,6 +50,14 @@ USAGE единственной TEST sequence. DELETE test_actors нужен ог
 gate требует provisioning до старта нового API. Это отдельный синтетический
 контур, а не production схема заказа из ТЗ.
 
+`infra/staging/smoke.mjs` сохраняет прежние проверки при выключенном gate.
+При включённом он дополнительно проходит по HTTP session → quote → order →
+simulated approval → prep → assembly → display → handoff с runtime DB role;
+проверяет idempotent replay и SQL permission denied на смену staff role/revoke,
+quote/outbox и реальный ordering flag. Четыре временные роли выдаются owner и
+отзываются в finally, токены не печатаются. CI использует gate=true в своём
+одноразовом release.env, чтобы эти grants постоянно проверялись.
+
 ## Выдача доступа к кухням, табло, управляющему
 
 Trusted CLI: `node scripts/test-flow-staff-setup.mjs prep`, аналогично
