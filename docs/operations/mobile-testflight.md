@@ -9,16 +9,19 @@ PickChick: их Bundle ID, профили, версии и метаданные 
 
 Проверка 2026-09-06: Xcode 26.6 (17F113), iOS 26.5 simulators, CocoaPods 1.17.0,
 Node 24.16.0, pnpm 11.19.0. В Xcode есть конфигурация входа и кеш выбранной paid
-Team; это не проверка актуальности сессии или прав на сервере Apple. В доступном
-поиске Keychain найдена одна Apple Development identity. Локальная Apple
-Distribution identity не найдена. App Store profiles прежних приложений
-существуют, но для PickChick неприменимы.
+Team; это не проверка актуальности сессии или прав на сервере Apple. Первоначально
+была доступна только Apple Development identity. Затем по разрешению заказчика
+из EAS получен один существующий сертификат распространения выбранной Team;
+его закрытый ключ проверен и импортирован в отдельный приватный keychain.
+Новые сертификаты не выпускались, прежние не отзывались. App Store profiles
+прежних приложений для PickChick неприменимы.
 
 Fastlane 2.238.0 установлен, кеша Apple-сессии Fastlane нет. Локальная сессия Expo
 присутствует; её наличие не доказывает Apple-доступ. Auth-секреты из других
 проектов не копировались. Ранее на этом Mac применялся Xcode automatic signing
-и экспорт с `destination=upload`, поэтому первая схема PickChick использует
-локальный Xcode и существующую учётную запись.
+и экспорт с `destination=upload`. Выпуск PickChick использует локальный Xcode;
+ручная подпись отдельным App Store profile устраняет зависимость архивирования
+от development profile и зарегистрированных устройств.
 
 ## Запись приложения в Apple
 
@@ -78,25 +81,48 @@ scheme, Bundle ID и Team. Он не регистрирует App ID, не со�
 Bundle ID или включённых клиентских операциях. Каталог, ошибки API, перезапуск
 и выключение сети проверяются в установленном приложении.
 
-```sh
-python3 scripts/mobile/ios_release.py archive --release ios-0.1.0-1
-python3 scripts/mobile/ios_release.py export --release ios-0.1.0-1
-python3 scripts/mobile/ios_release.py upload --release ios-0.1.0-1 --asc-app-id PICKCHICK_APPLE_ID
-```
+Для ручной подписи передать **одинаковые аргументы во все фазы**:
 
-В последней команде заменить `PICKCHICK_APPLE_ID` проверенным числовым ID новой
-записи. `archive`, `export` и `upload` разделены: первые две команды не загружают
-приложение. `-allowProvisioningUpdates` разрешает Xcode использовать существующий
-вход и создать/обновить необходимые подписи. Если потребуется вход/2FA или права,
-пользователь завершает его в Xcode; пароль или код не сохраняют в GitHub/документах.
-Сертификаты других приложений не отзывают при достижении лимита.
+- `--provisioning-profile`: приватный файл App Store profile именно PickChick;
+- `--signing-identity`: SHA-1 существующего Apple Distribution certificate;
+- `--keychain`: отдельный keychain с этой identity, не login/system;
+- `--keychain-password-file`: при необходимости приватный файл с созданным
+  во время подготовки случайным 256-битным hex-паролем отдельного keychain.
 
-Архивы, журналы Xcode и release metadata сохраняются только в игнорируемой
-`.local/mobile-ios/releases/<release>/`. Метаданные содержат commit SHA, признак
-незакоммиченных изменений, версию, номер сборки и API URL. Повторный archive с тем
-же label не перезаписывает файл. Export/upload проверяют Bundle ID, Team и
-встроенный `main.jsbundle`, чтобы случайно не отправить другое приложение или
-сборку, зависящую от Metro.
+Файлы принадлежат текущему пользователю и имеют режим 0600. `doctor` с этими
+аргументами дополнительно проверяет Team, Bundle ID, срок, тип профиля, совпадение
+сертификата и существование valid identity. Он не изменяет signing settings.
+Полные resolved manual settings проверяются непосредственно перед архивированием.
+
+`archive --release LABEL`, `export --release LABEL` и
+`upload --release LABEL --asc-app-id 6809208492` разделены: первые две команды
+не загружают приложение. В ручном режиме нет `-allowProvisioningUpdates`:
+новые сертификаты, профили и Apple devices не создаются. Сохранён прежний
+automatic mode без manual-аргументов; он использует `-allowProvisioningUpdates`
+и существующую учётную запись Xcode. Пароль Apple или код 2FA в скрипт не передают.
+
+Ручные настройки временно применяются только к generated PickChick app target,
+Release/iphoneos. Pods, Debug и настройки simulator не меняются. Отдельный
+keychain временно добавляется в конец текущего user search list для codesign;
+default/login keychain остаётся прежним. Профиль устанавливается на время фазы.
+После успеха или ошибки исходные настройки восстанавливаются. При обнаружении
+одновременного изменения скрипт останавливается, сохраняя чужое изменение и
+приватный снимок; перед повтором требуется сверить его. После аварийного завершения
+процесса также проверяются release.lock и приватная копия native project.
+
+Архивы, DerivedData, журналы и release metadata теперь сохраняются по умолчанию
+в `~/Library/Caches/PickChick/releases/<release>/`, вне iCloud. Можно передать
+`--artifacts-root` с другим локальным каталогом вне репозитория, Documents,
+Desktop и стандартных папок облачной синхронизации. Это необходимо из-за
+воспроизведённого восстановления FinderInfo у generated frameworks в Documents,
+которое прерывало codesign. Старый неуспешный запуск остаётся историческим
+журналом в `.local/mobile-ios/releases/connected-20260906-1/`; его не перезаписывают.
+
+Метаданные содержат commit SHA, признак незакоммиченных изменений, версию, build,
+API URL и идентификаторы ручной подписи, без путей к секретам. Повторный archive
+с тем же label запрещён. Export/upload проверяют Bundle ID, Team, встроенный
+`main.jsbundle` и совпадение исходного профиля/сертификата. Успешные ручные фазы
+также фиксируют факт восстановления временных signing settings.
 
 Скрипт не печатает auth-секреты или полный вывод Xcode. При ошибке сообщает путь
 к приватному локальному журналу. `upload` не нажимает публичный App Store release
@@ -131,6 +157,15 @@ python3 scripts/mobile/ios_release.py upload --release ios-0.1.0-1 --asc-app-id 
 не найден iOS App Development profile для нового bundle и нет зарегистрированных
 устройств для его автоматического выпуска. Это отдельная задача подписи;
 успешная сборка симулятора не создаёт App Store distribution profile.
+
+После этой попытки подготовлен `PickChick App Store 2026-09-06` для
+`DAJTP6MC3Q.kz.pickchick.app`, с `get-task-allow=false` и без списка устройств.
+Профиль и существующий сертификат действуют до 30 июля 2027. Подпись временного
+исполняемого файла этим сертификатом прошла `codesign --verify --strict`.
+17 проверок release helper прошли, включая native xcodeproj fixture и
+восстановление при ошибке. На временной копии настоящего native project Xcode
+подтвердил manual Team/Bundle/profile/identity; исходный проект не изменялся.
+Это подготовка подписи, а не заявление об успешном archive или TestFlight upload.
 
 App Store Connect требует принятия обновлённого Apple Developer Program License
 Agreement перед отправкой новых приложений. Владельцу предложено самостоятельно
