@@ -410,8 +410,12 @@ export function ConnectedOrder(props: ScreenProps) {
           <TextInput
             testID="test-cancel-reason"
             accessibilityLabel="Причина отмены тестового заказа"
-            value={reason}
+            // Native owns edits; reason keeps the latest draft for remount and submission.
+            defaultValue={reason}
             onChangeText={setReason}
+            autoCorrect={false}
+            spellCheck={false}
+            smartInsertDelete={false}
             maxLength={300}
             multiline
             style={[s.input, ui.body]}
