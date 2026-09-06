@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import {
   BranchSchema,
+  CapabilitiesSchema,
   MenuSnapshotSchema,
   HealthSchema,
   ReadinessSchema,
@@ -22,6 +23,7 @@ import {
   StopStateSchema,
   jsonSchema,
 } from '@pickchick/contracts';
+import * as testContracts from '@pickchick/test-order-flow/contracts';
 
 const response = (name, description = 'Success') => ({
   description,
@@ -94,9 +96,9 @@ const openapi = {
   openapi: '3.1.0',
   info: {
     title: 'PickChick foundation API',
-    version: '0.3.0',
+    version: '0.4.0',
     description:
-      'Local-only foundation with menu sync, trusted local staff sessions, base-SKU quotes and unpaid POS orders. No customer login, public staff enrollment, modifiers/combos, payments, fiscalization or kitchen dispatch.',
+      'Foundation with local menu sync and unpaid POS orders, plus an explicitly gated synthetic TEST journey through two kitchen stations. TEST orders do not reach a restaurant, bank or fiscal provider. Customer phone login, real payments, fiscalization, modifiers and production kitchen admission remain unavailable.',
   },
   paths: {
     '/health/live': get('liveness', 'Health'),
@@ -104,6 +106,7 @@ const openapi = {
       503: response('Readiness', 'Required dependency unavailable'),
     }),
     '/v1/branches': get('listBranches', 'BranchList'),
+    '/v1/capabilities': get('getCapabilities', 'Capabilities'),
     '/v1/branches/{branchId}/menu': {
       get: {
         ...get('getBranchMenu', 'MenuSnapshot', {
@@ -222,6 +225,7 @@ const openapi = {
     },
     schemas: {
       Branch: jsonSchema(BranchSchema),
+      Capabilities: jsonSchema(CapabilitiesSchema),
       BranchList: {
         type: 'object',
         additionalProperties: false,
@@ -249,6 +253,150 @@ const openapi = {
     },
   },
 };
+
+// Keep the public TEST contract generated from the same browser-safe schemas
+// used by the native client, kiosk, kitchen and runtime validation.
+openapi.components.securitySchemes.testBearer = {
+  type: 'http',
+  scheme: 'bearer',
+  description:
+    'Opaque expiring TEST customer or station credential; staff issuance is trusted CLI only.',
+};
+for (const [name, schema] of Object.entries(testContracts)) {
+  if (name.endsWith('Schema') && name !== 'TestActorSchema')
+    openapi.components.schemas[name.replace(/Schema$/, '')] = jsonSchema(schema);
+}
+function testOperation(method, operationId, result, input, options = {}) {
+  const parameters = (options.path ?? []).map((name) => ({
+    name,
+    in: 'path',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  }));
+  if (options.idempotent)
+    parameters.push({
+      name: 'Idempotency-Key',
+      in: 'header',
+      required: true,
+      schema: { type: 'string', format: 'uuid' },
+    });
+  return {
+    [method]: {
+      operationId,
+      tags: ['Synthetic TEST'],
+      description: `Only available when TEST_ORDER_FLOW_ENABLED=true. ${options.roles ?? 'Synthetic customer data only.'}`,
+      security: options.public ? [] : [{ testBearer: [] }],
+      parameters,
+      ...(input
+        ? {
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': { schema: { $ref: `#/components/schemas/${input}` } },
+              },
+            },
+          }
+        : {}),
+      responses: {
+        [options.status ?? 200]: response(result),
+        400: response('Error', 'Invalid input'),
+        401: response('Error', 'Missing or expired TEST credential'),
+        403: response('Error', 'Wrong station role'),
+        404: response('Error', 'TEST gate disabled or resource outside actor scope'),
+        409: response(
+          'Error',
+          'Stale version, expired quote, idempotency conflict or unresolved simulation',
+        ),
+        413: response('Error', 'Body exceeds limit'),
+        429: response('Error', 'Durable synthetic quota reached'),
+        500: response('Error', 'Internal error'),
+        503: response('Error', 'Synthetic branch unavailable'),
+      },
+    },
+  };
+}
+Object.assign(openapi.paths, {
+  '/v1/test/catalog': testOperation('get', 'getTestCatalog', 'TestCatalog', undefined, {
+    public: true,
+  }),
+  '/v1/test/sessions': testOperation(
+    'post',
+    'createTestSession',
+    'TestSession',
+    'TestSessionInput',
+    { public: true, status: 201 },
+  ),
+  '/v1/test/quotes': testOperation('post', 'quoteTestCart', 'TestQuote', 'TestCart', {
+    idempotent: true,
+    status: 201,
+  }),
+  '/v1/test/orders': {
+    ...testOperation('get', 'listOwnTestOrders', 'TestOrders'),
+    ...testOperation('post', 'createTestOrder', 'TestOrder', 'TestCreateOrder', {
+      idempotent: true,
+      status: 201,
+    }),
+  },
+  '/v1/test/orders/{orderId}': testOperation('get', 'readTestOrder', 'TestOrder', undefined, {
+    path: ['orderId'],
+  }),
+  '/v1/test/orders/{orderId}/simulated-payment': testOperation(
+    'post',
+    'simulateTestPayment',
+    'TestOrder',
+    'TestPayment',
+    { path: ['orderId'], idempotent: true },
+  ),
+  '/v1/test/orders/{orderId}/cancel': testOperation(
+    'post',
+    'cancelTestOrder',
+    'TestOrder',
+    'TestCancellation',
+    {
+      path: ['orderId'],
+      idempotent: true,
+      roles: 'Owning customer or manager; no financial refund is produced.',
+    },
+  ),
+  '/v1/test/orders/{orderId}/resolve-payment': testOperation(
+    'post',
+    'resolveTestPayment',
+    'TestOrder',
+    'TestResolvePayment',
+    { path: ['orderId'], idempotent: true, roles: 'Manager only.' },
+  ),
+  '/v1/test/kitchen': testOperation('get', 'listTestKitchen', 'TestKitchen', undefined, {
+    roles: 'Prep, assembly or manager.',
+  }),
+  '/v1/test/orders/{orderId}/tasks/{taskId}/complete': testOperation(
+    'post',
+    'completeTestKitchenTask',
+    'TestOrder',
+    'TestVersion',
+    {
+      path: ['orderId', 'taskId'],
+      idempotent: true,
+      roles: 'Assigned station or manager. Assembly requires all mandatory preparation.',
+    },
+  ),
+  '/v1/test/orders/{orderId}/handoff': testOperation(
+    'post',
+    'handoffTestOrder',
+    'TestOrder',
+    'TestVersion',
+    { path: ['orderId'], idempotent: true, roles: 'Assembly or manager. Requires ready state.' },
+  ),
+  '/v1/test/display': testOperation('get', 'readTestDisplay', 'TestDisplay', undefined, {
+    roles: 'Display or manager. Returns public order numbers only.',
+  }),
+  '/v1/test/manager/orders': testOperation(
+    'get',
+    'listManagedTestOrders',
+    'TestOrders',
+    undefined,
+    { roles: 'Manager only.' },
+  ),
+});
 
 for (const [filename, value] of [
   ['openapi.json', openapi],

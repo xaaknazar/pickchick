@@ -68,6 +68,7 @@ jobs:
         run: |
           python3 infra/staging/generate-secrets.py .local/staging-ci
           echo RELEASE_SHA=${{ github.sha }} > .local/staging-ci/release.env
+          echo TEST_ORDER_FLOW_ENABLED=true >> .local/staging-ci/release.env
           docker compose --env-file .local/staging-ci/staging.env --env-file .local/staging-ci/release.env -f infra/staging/compose.yaml up -d --wait cloud-db redis-cache
       - name: Provision twice, seed and exercise deployed API permissions
         run: |

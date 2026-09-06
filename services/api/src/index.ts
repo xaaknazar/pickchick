@@ -13,7 +13,12 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
-import { BranchSchema, MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
+import {
+  BranchSchema,
+  CapabilitiesSchema,
+  MenuSnapshotSchema,
+  UuidSchema,
+} from '@pickchick/contracts';
 import {
   createHttpApplication,
   HealthController,
@@ -30,7 +35,7 @@ class CapabilitiesController {
 
   @Get()
   get() {
-    return {
+    return CapabilitiesSchema.parse({
       schema_version: 1,
       environment: this.resources.config.environment,
       data_mode: 'synthetic',
@@ -47,7 +52,7 @@ class CapabilitiesController {
         ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',
         kk: 'PickChick сынақ ортасы. Сынақ режимі қосылғанда тек синтетикалық TEST сценарийі қолжетімді. Нақты тапсырыстар, SMS, төлемдер мен чектер қолжетімсіз.',
       },
-    };
+    });
   }
 }
 
