@@ -27,7 +27,8 @@ curl --fail http://127.0.0.1:13100/v1/branches
 
 Туннель шифрует транспорт и требует SSH-ключ. Публичного сайта/бэк-офиса пока
 нет. На host опубликован только loopback 13100; PostgreSQL/Redis — без ports.
-Это соответствует [правилам Docker о публикации портов](https://docs.docker.com/engine/network/port-publishing/).
+У API также есть отдельный ingress bridge для публикации host-порта; БД и Redis
+к нему не подключены. Это соответствует [правилам Docker о публикации портов](https://docs.docker.com/engine/network/port-publishing/).
 На проверенном сервере Docker 29.7.2, а не версии до 28 с известной оговоркой
 про loopback в общем L2. Проверять внешнее подключение после изменений сети.
 

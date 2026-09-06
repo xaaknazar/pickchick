@@ -66,6 +66,7 @@ services:
   api:
     <<: *app
     restart: unless-stopped
+    networks: [private, ingress]
     environment:
       APP_ENV: staging
       API_PORT: '3100'
@@ -102,5 +103,7 @@ services:
 networks:
   private:
     internal: true
+  ingress:
+    driver: bridge
 volumes:
   cloud-data:

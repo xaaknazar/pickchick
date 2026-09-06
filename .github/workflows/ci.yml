@@ -73,9 +73,11 @@ jobs:
           dc run --rm provision node scripts/seed.mjs --cloud-only
           dc up -d --wait api
           dc run --rm provision node infra/staging/smoke.mjs
+          curl --fail --max-time 5 http://127.0.0.1:13100/health/ready
           dc restart api
           dc up -d --wait api
           dc run --rm provision node infra/staging/smoke.mjs
+          curl --fail --max-time 5 http://127.0.0.1:13100/health/ready
       - name: Remove disposable staging containers and volumes
         if: always()
         run: |
