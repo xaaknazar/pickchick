@@ -1,0 +1,44 @@
+[
+  {
+    "file": "brand-logo.png",
+    "source": "Pick Chick App v2 (offline).html",
+    "sha256": "128559e071a3bbaf07505fc94e2308fddffd62fe23b7079d85d1265494f32ed2",
+    "use": "Unmodified asset extracted from supplied mockup; names/prices in prototype are illustrative."
+  },
+  {
+    "file": "pick-run.jpg",
+    "source": "Pick Chick App v2 (offline).html",
+    "sha256": "d8fb0d7818ab60f649b2c863efb8e57ce64f807e43c51756236c7e05c01a65ed",
+    "use": "Unmodified asset extracted from supplied mockup; names/prices in prototype are illustrative."
+  },
+  {
+    "file": "combo.jpg",
+    "source": "Pick Chick App v2 (offline).html",
+    "sha256": "47e90e35cc4c89c46c5d0a9114824b05aeb55481cb15ab0c0e95751129fecaf4",
+    "use": "Unmodified asset extracted from supplied mockup; names/prices in prototype are illustrative."
+  },
+  {
+    "file": "strips-set.jpg",
+    "source": "Pick Chick App v2 (offline).html",
+    "sha256": "c9956e6e456b4345261cb87bd60eb4d22465a0e8b1fb81f73af091ef1be97819",
+    "use": "Unmodified asset extracted from supplied mockup; names/prices in prototype are illustrative."
+  },
+  {
+    "file": "duo.jpg",
+    "source": "Pick Chick App v2 (offline).html",
+    "sha256": "1fd832da9293543d0980dd1620d6f755a16b0a3dee308d10431ce8308d0889db",
+    "use": "Unmodified asset extracted from supplied mockup; names/prices in prototype are illustrative."
+  },
+  {
+    "file": "party.jpg",
+    "source": "Pick Chick App v2 (offline).html",
+    "sha256": "4212cb6f029d7c312885e66fcbcdf67f25a2e0531968dfcaef6fec99971fa1cb",
+    "use": "Unmodified asset extracted from supplied mockup; names/prices in prototype are illustrative."
+  },
+  {
+    "file": "sauce.jpg",
+    "source": "Pick Chick App v2 (offline).html",
+    "sha256": "14b9224f0c1f12d459d5bba8ef2bc3ac8848eff1f7f1e544e4bc1855a476c92f",
+    "use": "Unmodified asset extracted from supplied mockup; names/prices in prototype are illustrative."
+  }
+]
