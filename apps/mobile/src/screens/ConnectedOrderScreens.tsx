@@ -318,6 +318,25 @@ export function ConnectedOrder(props: ScreenProps) {
     <Page
       props={props}
       title={receipt ? 'Электронный чек' : cancel ? 'Отмена заказа' : order.number}
+      footer={
+        cancel ? (
+          <Button
+            testID="test-cancel-order"
+            title="Отменить тестовый заказ"
+            disabled={
+              flow.busy ||
+              reason.trim().length < 3 ||
+              unknown ||
+              ['fulfilled', 'cancelled'].includes(order.state)
+            }
+            onPress={() => {
+              void flow.cancel(reason).then((next) => {
+                if (next) props.navigate('M20');
+              });
+            }}
+          />
+        ) : undefined
+      }
     >
       <FlowNotice props={props} />
       <View style={[s.status, ready && s.ready]}>
@@ -419,21 +438,6 @@ export function ConnectedOrder(props: ScreenProps) {
             maxLength={300}
             multiline
             style={[s.input, ui.body]}
-          />
-          <Button
-            testID="test-cancel-order"
-            title="Отменить тестовый заказ"
-            disabled={
-              flow.busy ||
-              reason.trim().length < 3 ||
-              unknown ||
-              ['fulfilled', 'cancelled'].includes(order.state)
-            }
-            onPress={() => {
-              void flow.cancel(reason).then((next) => {
-                if (next) props.navigate('M20');
-              });
-            }}
           />
         </Card>
       ) : null}

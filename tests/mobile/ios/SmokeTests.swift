@@ -57,7 +57,14 @@ final class SmokeTests: XCTestCase {
         tap("test-open-cancel", in: app)
         let cancellationReason = "Native TEST cancellation after relaunch: complete reason"
         replaceText(in: element("test-cancel-reason", in: app), with: cancellationReason, app: app)
-        tap("test-cancel-order", in: app)
+        let cancelButton = element("test-cancel-order", in: app)
+        XCTAssertTrue(cancelButton.isHittable, "Cancellation action must remain reachable while editing")
+        XCTAssertTrue(cancelButton.isEnabled)
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.exists, "Exercise the first tap while the keyboard is open")
+        XCTAssertLessThanOrEqual(cancelButton.frame.maxY, keyboard.frame.minY + 1)
+        attachScreenshot("Connected-cancel-ready-with-keyboard", of: app)
+        cancelButton.tap()
         assertLabel("Отменён", on: element("connected-order-state", in: app))
         let savedReason = app.staticTexts.matching(NSPredicate(format: "label == %@", cancellationReason)).firstMatch
         XCTAssertTrue(savedReason.waitForExistence(timeout: 10), "Server must preserve the complete typed cancellation reason")
@@ -366,9 +373,17 @@ final class SmokeTests: XCTestCase {
         reveal(field, in: app)
         field.tap()
         let previous = field.value as? String ?? ""
-        // Backspace uses the actual field value and does not depend on a
-        // platform-specific Select All menu or clipboard permissions.
-        if !previous.isEmpty {
+        if !previous.isEmpty && field.elementType == .textView {
+            // A multiline tap may put the caret at the start or in the middle.
+            // Select the complete native value before deleting, without relying
+            // on localized edit-menu labels or using the system clipboard.
+            field.typeKey("a", modifierFlags: .command)
+            field.typeText(XCUIKeyboardKey.delete.rawValue)
+            let cleared = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", ""),
+                                                     object: field)
+            XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 5), .completed,
+                           "Replacement must clear the complete native field value")
+        } else if !previous.isEmpty {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: previous.count))
         }
         field.typeText(value)
