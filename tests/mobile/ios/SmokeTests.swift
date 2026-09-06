@@ -22,6 +22,15 @@ final class SmokeTests: XCTestCase {
         tap("product-pick-combo", in: app)
         tap("product-add", in: app)
         tap("cart-checkout", in: app)
+        // Reuse the owned synthetic identity through the app's normal renewal
+        // flow; repeated UI runs may outlive its short access token.
+        let renewal = element("test-continue-session", in: app)
+        if renewal.waitForExistence(timeout: 3) {
+            reveal(renewal, in: app)
+            renewal.tap()
+            let completed = NSPredicate(format: "exists == false")
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: completed, object: renewal)], timeout: 15), .completed)
+        }
         tap("test-checkout-create", in: app)
         let number = element("connected-order-number", in: app)
         guard number.waitForExistence(timeout: 20) else {
