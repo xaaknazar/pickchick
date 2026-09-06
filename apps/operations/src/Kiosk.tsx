@@ -400,7 +400,9 @@ export function Kiosk() {
         <>
           <header
             className="kiosk-header"
-            style={{ backgroundImage: `url(${assets.bluePattern})` }}
+            style={{
+              backgroundImage: `linear-gradient(#063b99cc, #063b99cc), url(${assets.bluePattern})`,
+            }}
           >
             {routeBack[draft.screen] && !protectedOrder ? (
               <button

@@ -50,6 +50,10 @@ def watch(page):
 
 def assert_layout(page, name):
     assert not page.locator('body').evaluate('(e)=>e.scrollWidth>window.innerWidth+2'), f'{name}: horizontal overflow'
+    assert page.locator('.display-numbers>div').evaluate_all('''els=>els.every(e=>{
+        const range=document.createRange();range.selectNodeContents(e);
+        return range.getClientRects().length===1 && e.scrollWidth<=e.clientWidth;
+    })'''), f'{name}: split or overflowing order number'
     page.screenshot(path=str(OUTPUT / f'{name}.png'), full_page=True)
 
 
@@ -275,6 +279,8 @@ except Exception as failure:
     if isinstance(failure, AssertionError):
         result['assertion'] = str(failure)
     (OUTPUT / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    (OUTPUT / f'result-{MODE}.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
     print(json.dumps(result, ensure_ascii=False)); sys.exit(1)
 (OUTPUT / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+(OUTPUT / f'result-{MODE}.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(result, ensure_ascii=False))

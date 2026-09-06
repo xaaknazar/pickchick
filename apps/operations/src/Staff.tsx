@@ -190,7 +190,7 @@ function KitchenScreen({
         <div className="queue-controls">
           <div>
             <h2>{station === 'prep' ? 'Готовим горячее' : 'Собираем и выдаём'}</h2>
-            <p>Порядок по времени поступления · {orders.length} заказов</p>
+            <p>Порядок по времени поступления · В очереди: {orders.length}</p>
           </div>
           <div className="segments">
             <button
