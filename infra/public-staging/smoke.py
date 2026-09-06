@@ -28,22 +28,27 @@ def main():
     status, headers, caps = request('/v1/capabilities')
     assert status == 200
     assert headers['X-PickChick-Data'] == 'synthetic'
+    assert headers['Access-Control-Allow-Origin'] == '*'
+    assert headers.get('Access-Control-Allow-Credentials') is None
     assert caps['environment'] == 'staging' and caps['data_mode'] == 'synthetic'
     assert caps['ordering_enabled'] is False
     assert all(value is False for value in caps['features'].values())
 
-    status, _, branches = request('/v1/branches')
+    status, headers, branches = request('/v1/branches')
     assert status == 200
+    assert headers['Access-Control-Allow-Origin'] == '*'
     assert len(branches['branches']) == 1
     branch = branches['branches'][0]
     assert branch['id'] == '10000000-0000-4000-8000-000000000003'
     assert branch['ordering_enabled'] is False
-    status, _, menu = request('/v1/branches/' + branch['id'] + '/menu')
+    status, headers, menu = request('/v1/branches/' + branch['id'] + '/menu')
     assert status == 200 and menu['branch_id'] == branch['id']
+    assert headers['Access-Control-Allow-Origin'] == '*'
     assert menu['schema_version'] == 1 and len(menu['items']) >= 1
     assert all(item['currency'] == 'KZT' and item['price_minor'].isdigit() for item in menu['items'])
-    status, _, health = request('/health/live')
+    status, headers, health = request('/health/live')
     assert status == 200 and health['alive'] is True
+    assert headers['Access-Control-Allow-Origin'] == '*'
     for path, method in [
         ('/internal/v1/edge/sync/pull', 'GET'),
         ('/internal/v1/edge/sync/ack', 'POST'),
@@ -56,8 +61,9 @@ def main():
         ('/v1/branches/20000000-0000-4000-8000-000000000003/menu', 'GET'),
         ('/', 'GET'),
     ]:
-        status, _, denied = request(path, method)
+        status, headers, denied = request(path, method)
         assert status == 404 and denied['code'] == 'NOT_FOUND'
+        assert headers.get('Access-Control-Allow-Origin') is None
     print(json.dumps({'url': base, 'checks': checks, 'result': 'passed'}, ensure_ascii=False))
 
 

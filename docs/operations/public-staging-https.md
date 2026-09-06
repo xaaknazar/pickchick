@@ -25,6 +25,11 @@ NXDOMAIN; использовать его как действующий API-до
 Другие методы, внутренние device/enrollment/staff маршруты, readiness и любые
 мутации возвращают 404. Gateway удаляет Authorization, Cookie и X-Device-Id
 перед запросом upstream. Клиент не содержит общего API-секрета или SSH-ключа.
+Только разрешённые публичные GET возвращают `Access-Control-Allow-Origin: *`
+для Expo web-проверок; credentials не разрешены, отказы не получают этот заголовок.
+Это CORS для открытого синтетического каталога, а не механизм авторизации.
+OPTIONS/мутации не публикуются; клиент использует простой GET без лишних
+request headers и не отправляет cookies.
 
 Меню содержит `schema_version`, `release_id`, `branch_id`, `version`, `published_at`,
 `items`. У SKU: `product_id`, `variant_id`, `category_id`, `name:{ru,kk}`,
@@ -76,12 +81,19 @@ PostgreSQL и Redis он не подключён. API по-прежнему оп
      Не запускать второй listener 80/443.
 5. Перед записью повторно сверить текущий SHA256 оригинала. Сохранить timestamp
    backup рядом с `/opt/idrink/deploy/Caddyfile`; записать candidate **в существующий
-   inode** (файл bind-mounted readonly в живой Caddy). После записи проверить,
+   inode** host-файла. После записи проверить,
    что backup совпадает с исходником, а candidate начинается с исходных байтов.
-   Не заменять файл через rename: текущий bind mount мог бы видеть старый inode.
-6. `docker exec deploy-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`,
-   затем `caddy reload` с теми же аргументами. При ошибке восстановить backup
-   в тот же inode и reload; API/БД не трогать.
+   На проверенном VPS существующий bind mount уже видит иной inode
+   (823410), чем host-файл (823434), хотя исходные байты совпадали. Поэтому
+   чтение `/etc/caddy/Caddyfile` внутри живого контейнера не подтверждает запись.
+6. До записи и после подготовки candidate использовать
+   `docker exec -i deploy-caddy-1 caddy validate --config - --adapter caddyfile`,
+   передавая candidate через stdin. После проверки host-файла выполнить
+   `caddy reload --config - --adapter caddyfile` тем же способом. Значение DOMAIN
+   берётся из прежнего окружения Caddy. Так runtime получает точные проверенные
+   байты без remount/restart; на следующем запуске контейнер смонтирует актуальный
+   host-файл. При ошибке восстановить backup в host inode и передать исходные
+   байты через stdin в reload; API/БД не трогать.
 7. Дождаться trusted TLS для нового hostname. Выполнить
    `python3 infra/public-staging/smoke.py`: 4 разрешённых GET и 10 отказов,
    ordering=false, синтетическая точка, minor-unit меню. Проверить сертификат
@@ -100,7 +112,8 @@ PostgreSQL и Redis он не подключён. API по-прежнему оп
 
 Если нарушилась работа idrink, открылся внутренний маршрут, появились не-test
 данные либо TLS не работает: восстановить зафиксированную backup-копию Caddyfile
-в существующий inode, validate + reload. Затем остановить только
+в существующий host inode, validate + reload **её байтами через stdin**, учитывая
+разные inode bind mount, как описано выше. Затем остановить только
 `docker compose stop gateway` в релизе `pickchick-public`.
 Не удалять тома, не останавливать PostgreSQL/Redis/API/idrinк и не делать общий
 `docker compose down` в чужом проекте. После отката проверить idrink и закрытие

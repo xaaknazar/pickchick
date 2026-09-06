@@ -32,6 +32,7 @@
 		path /v1/capabilities
 	}
 	handle @capabilities {
+		header Access-Control-Allow-Origin *
 		respond `{"schema_version":1,"environment":"staging","data_mode":"synthetic","ordering_enabled":false,"features":{"phone_auth":false,"checkout":false,"payments":false,"fiscal":false,"loyalty":false},"notice":{"ru":"Тестовый стенд PickChick. Данные демонстрационные; оформление заказов, SMS, оплаты и чеки пока недоступны.","kk":"PickChick сынақ ортасы. Деректер демонстрациялық; тапсырыс беру, SMS, төлемдер мен чектер әзірге қолжетімсіз."}}` 200
 	}
 
@@ -40,6 +41,7 @@
 		path /health/live
 	}
 	handle @health {
+		header Access-Control-Allow-Origin *
 		respond `{"service":"pickchick-public-gateway","alive":true,"environment":"staging"}` 200
 	}
 
@@ -48,6 +50,7 @@
 		path /v1/branches /v1/branches/10000000-0000-4000-8000-000000000003/menu
 	}
 	handle @catalog {
+		header Access-Control-Allow-Origin *
 		reverse_proxy pickchick-staging-api-1:3100 {
 			header_up -Authorization
 			header_up -Cookie
