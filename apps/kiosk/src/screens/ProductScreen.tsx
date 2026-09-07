@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type SetStateAction } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,10 +33,26 @@ export function ProductScreen({
   const { px, landscape, compact } = useMetrics();
   const safe = useSafeAreaInsets();
   const t = copy(context.locale);
-  const [selections, setSelections] = useState(() => defaultSelections(product));
-  const [quantity, setQuantity] = useState(1);
-  const [allGroup, setAllGroup] = useState<KioskModifierGroup | null>(null);
-  const [wizardStep, setWizardStep] = useState(0);
+  const [selections, setSelectionState] = useState(() => defaultSelections(product));
+  const setSelections = (next: typeof selections) => {
+    model.touch();
+    setSelectionState(next);
+  };
+  const [quantity, setQuantityState] = useState(1);
+  const setQuantity = (next: SetStateAction<number>) => {
+    model.touch();
+    setQuantityState(next);
+  };
+  const [allGroup, setAllGroupState] = useState<KioskModifierGroup | null>(null);
+  const setAllGroup = (next: KioskModifierGroup | null) => {
+    model.touch();
+    setAllGroupState(next);
+  };
+  const [wizardStep, setWizardState] = useState(0);
+  const setWizardStep = (next: number) => {
+    model.touch();
+    setWizardState(next);
+  };
   const isSet = product.category === 'На компанию';
   const dark = !isSet;
   const ink = dark ? colors.white : colors.ink;
