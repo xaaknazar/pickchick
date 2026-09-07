@@ -77,21 +77,21 @@ function AndroidBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerP
 
 function IOSBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps) {
   const [maximum] = useState(almatyToday);
-  const [draft, setDraft] = useState(() => birthDateAtLocalNoon(initialBirthDate(value, maximum)));
-  const selected = birthDateFromNative(draft);
-  const valid = allowedBirthDate(selected, maximum);
+  const [initialDate] = useState(() => birthDateAtLocalNoon(initialBirthDate(value, maximum)));
+  const selected = useRef(birthDateFromNative(initialDate));
   return (
     <BirthDatePickerSheet
       onCancel={onCancel}
       onConfirm={() => {
-        if (valid) onConfirm(selected);
+        if (allowedBirthDate(selected.current, maximum)) onConfirm(selected.current);
       }}
-      confirmDisabled={!valid}
     >
       <DateTimePicker
         testID="birthday-native-input"
         accessibilityLabel="Дата рождения"
-        value={draft}
+        // Native owns wheel movement. Echoing intermediate dates back through
+        // Fabric can interrupt a fast scroll and reset it to an earlier day.
+        value={initialDate}
         mode="date"
         display="spinner"
         locale="ru-RU"
@@ -101,7 +101,7 @@ function IOSBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps
         maximumDate={birthDateAtLocalNoon(maximum)}
         onValueChange={(_event, date) => {
           const next = birthDateFromNative(date);
-          if (allowedBirthDate(next, maximum)) setDraft(birthDateAtLocalNoon(next));
+          if (allowedBirthDate(next, maximum)) selected.current = next;
         }}
         style={s.wheel}
       />
@@ -117,4 +117,4 @@ export default function BirthDatePicker(props: BirthDatePickerProps) {
   );
 }
 
-const s = StyleSheet.create({ wheel: { width: '100%', height: 216 } });
+const s = StyleSheet.create({ wheel: { alignSelf: 'center', width: '100%', height: 216 } });

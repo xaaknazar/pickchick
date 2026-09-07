@@ -189,7 +189,7 @@ export function Onboarding(props: ScreenProps) {
               {
                 key: 'month',
                 label: 'Месяц',
-                flex: 1.5,
+                flex: 1.8,
                 value: date.month ? months[date.month - 1] : null,
               },
               { key: 'year', label: 'Год', flex: 1.2, value: date.year },
@@ -211,7 +211,15 @@ export function Onboarding(props: ScreenProps) {
               ]}
             >
               <Caption style={s.datePartLabel}>{part.label}</Caption>
-              <Body style={[s.dateValue, !part.value && s.placeholder]}>{part.value ?? '—'}</Body>
+              <Body
+                style={[
+                  s.dateValue,
+                  part.key === 'month' && s.monthValue,
+                  !part.value && s.placeholder,
+                ]}
+              >
+                {part.value ?? '—'}
+              </Body>
             </Pressable>
           ))}
         </View>
@@ -345,6 +353,7 @@ const s = StyleSheet.create({
   },
   datePartLabel: { fontSize: 11, lineHeight: 16, color: '#93A6C9' },
   dateValue: { fontFamily: font.heading, fontSize: 19, lineHeight: 28, color: '#F2F6FF' },
+  monthValue: { fontSize: 17 },
   selectedBorder: { borderColor: '#2E6FE8' },
   placeholder: { color: '#93A6C9' },
   clear: {
