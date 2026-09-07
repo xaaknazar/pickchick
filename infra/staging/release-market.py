@@ -259,6 +259,7 @@ with open(path+'/owner.json','x') as output:
  output.write(sys.stdin.read())
 """
         self.remote('python3 -c ' + quote(acquire) + ' ' + quote(DEPLOY_LOCK), input=json.dumps(owner))
+        self.lock_owner = owner
         try:
             yield
         except BaseException:
@@ -641,6 +642,7 @@ assert os.path.realpath(path)==target
         self.remote('python3 -c ' + quote(script) + ' ' + ' '.join(map(quote, [path, expected, target])))
 
     def rollback(self, before, caps, catalogs, fingerprint, prepared):
+        require(self.profile == HISTORICAL_PROFILE, 'Follow-on rollback must remain behind maintenance')
         # The new schema is intentionally retained. Old provision rejects the new migration ledger.
         require(self.rollback_artifacts() == prepared['remote_artifacts']['rollback_files'],
                 'Rollback compose or environment changed; manual review required')
@@ -671,6 +673,7 @@ assert os.path.realpath(path)==target
                   'schema_retained': True, 'database_restored_over_live': False, 'checks': 'passed'})
 
     def apply(self):
+        require(self.profile == HISTORICAL_PROFILE, 'Follow-on apply requires the maintenance-aware release implementation')
         self.source_checks()
         self.runtime_old()
         prepared = json.loads((self.private / 'prepared.json').read_text())

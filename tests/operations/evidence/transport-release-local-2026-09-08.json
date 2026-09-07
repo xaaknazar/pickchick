@@ -1,0 +1,55 @@
+{
+  "age": "1.2.1",
+  "baseline_table_count": 69,
+  "checks": "passed",
+  "cms_draft_rows": 4,
+  "docker": "29.6.1 linux/arm64",
+  "limits": [
+    "Public normal gateway is a local proxy fixture, not deployment routing acceptance",
+    "SSH command transport, pointer CAS and owner journal covered separately by offline tests",
+    "No real payments, SMS, fiscal or restaurant load acceptance"
+  ],
+  "new_image": {
+    "id": "sha256:ec2884562010a9072fd254174c7647bd61dbe38d12d1e1b971ca3cc19b57c22e",
+    "revision": "3b3793dcd155586becc3a727daa260f254608574"
+  },
+  "offline_guard_tests": {
+    "follow_on": 14,
+    "historical": 10,
+    "passed": 24
+  },
+  "old_image": {
+    "id": "sha256:97bfd021bcca2d333ed145392c9b316c39d29b6642da870cec82666dae582cb9",
+    "revision": "7cd53b6300ad9147ddafb51cf84ed77027fb30d0"
+  },
+  "owned_local_cleanup": {
+    "errors": [],
+    "removed_owned_containers": true
+  },
+  "postgres": "18.3",
+  "production_data_used": false,
+  "scope": "local_synthetic_Docker_rehearsal",
+  "source_file_sha256": {
+    "infra/staging/release-maintenance-lock.py": "54af9827a3f9e37fc136785340e12467435cc46db1c8b389ae4eca3b574341a8",
+    "infra/staging/release-market.py": "5b30d2a240942cb9edb1ebe2c6a427b7fb0c1712d82f646e3c9d09044cc397e6",
+    "infra/staging/release-transport.py": "c617e2cd51830d30ee2c21f451e248cc52408d6f55317da0a50f36cca0158149",
+    "tests/operations/rehearse_transport_release.py": "73eabdc7981d09d2e3e8fdd9af780534a57191b5ca63d2ea6c162c1299a575f0",
+    "tests/operations/test_transport_release.py": "32edbefdd0c307aed4b50be78b1456fad07d345024b7ee6baa3d55c1d1485abd"
+  },
+  "steps": [
+    "real_scoped_CMS_write_before_maintenance",
+    "production_compose_overlay_resolves_with_private_health_and_no_published_port",
+    "all_routes_503_and_stopped_API_include_latest_CMS_edit",
+    "encrypted_backup_restored_and_all_rows_sequences_match",
+    "Linux_cleanup_flock_held_after_launcher_exit",
+    "014_twice_six_empty_tables_no_new_sequences_no_extra_grants",
+    "new_old7cd_new_API_readiness_CMS_TEST_compatibility_behind_503",
+    "exact_column_ACL_rollback_without_migrate_provision_or_live_restore",
+    "reopened_CMS_write_persists_and_cleanup_resumes",
+    "pinned_old7cd_cleanup_executes_real_retention_on_014_without_CMS_loss"
+  ],
+  "test_order_rows": 1,
+  "tool_image": "sha256:1ed8417328f8e1b47c469f10ff59d67df4e09c247a3c02062bddf10ef4dd3e97",
+  "verified_on": "2026-09-08",
+  "vps_called": false
+}
