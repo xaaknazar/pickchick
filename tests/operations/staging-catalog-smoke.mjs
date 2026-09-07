@@ -1,6 +1,8 @@
 /** Run inside the isolated staging provision container; never loads a private host .env. */
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createPool } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { provisionCatalogManager, revokeCatalogManager } from '@pickchick/catalog-admin';
@@ -20,7 +22,7 @@ function passed(name) {
 }
 async function main() {
   assert.equal(process.env.PICKCHICK_ISOLATED_REHEARSAL, 'true');
-  assert.ok(['setup', 'flow', 'verify', 'grants', 'grants-on'].includes(phase));
+  assert.ok(['setup', 'flow', 'verify', 'grants', 'grants-on', 'grants-rollback'].includes(phase));
   assert.ok(Object.values(ids).every((id) => uuid.test(id ?? '')));
   const config = loadConfig('api');
   assert.equal(config.environment, 'staging');
@@ -81,6 +83,67 @@ async function main() {
           [randomUUID(), randomUUID(), hash, hours],
         );
       passed('owned_synthetic_seed');
+    } else if (phase === 'grants-rollback') {
+      check = 'existing-test-grants';
+      const snapshot = async () => ({
+        tables: (
+          await owner.query(`SELECT relname, relacl::text FROM pg_class
+            WHERE relnamespace='public'::regnamespace AND relname LIKE 'test_%'
+            AND relkind IN ('r','S') ORDER BY relname`)
+        ).rows,
+        columns: (
+          await owner.query(`SELECT c.relname,a.attname,a.attacl::text FROM pg_attribute a
+            JOIN pg_class c ON c.oid=a.attrelid WHERE c.relnamespace='public'::regnamespace
+            AND c.relname LIKE 'test_%' AND a.attnum>0 AND NOT a.attisdropped
+            ORDER BY c.relname,a.attnum`)
+        ).rows,
+      });
+      const baseline = await snapshot();
+      assert.equal((await runtime.query('SELECT count(*) AS n FROM test_orders')).rows[0].n, '0');
+      const provision = () =>
+        promisify(execFile)(process.execPath, ['infra/staging/provision.mjs'], {
+          cwd: '/app',
+          env: process.env,
+          timeout: 60000,
+          maxBuffer: 16384,
+        });
+      let renamed = false;
+      try {
+        check = 'inject-missing-catalog-lock-column';
+        await owner.query(
+          'ALTER TABLE catalog_managers RENAME COLUMN lock_anchor TO rehearsal_missing_lock_anchor',
+        );
+        renamed = true;
+        check = 'failed-provision-keeps-old-test-grants';
+        await assert.rejects(provision(), (error) => {
+          assert.equal(error.code, 1);
+          assert.equal(error.stdout, '');
+          assert.deepEqual(JSON.parse(error.stderr), { event: 'staging_provision_failed' });
+          return true;
+        });
+        assert.deepEqual(await snapshot(), baseline);
+        assert.equal((await runtime.query('SELECT count(*) AS n FROM test_orders')).rows[0].n, '0');
+        passed('failed_optional_catalog_grant_rolls_back_all_test_acls');
+      } finally {
+        if (renamed)
+          await owner.query(
+            'ALTER TABLE catalog_managers RENAME COLUMN rehearsal_missing_lock_anchor TO lock_anchor',
+          );
+      }
+      check = 'provision-retry-after-schema-restored';
+      const retry = await provision();
+      assert.equal(retry.stderr, '');
+      assert.deepEqual(JSON.parse(retry.stdout), { event: 'staging_provisioned', applied: [] });
+      await assert.rejects(runtime.query('SELECT * FROM test_orders'), { code: '42501' });
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT has_sequence_privilege('pickchick_app','test_orders_sequence_seq','USAGE') AS allowed",
+          )
+        ).rows[0].allowed,
+        false,
+      );
+      passed('restored_schema_retry_applies_test_disable');
     } else if (phase === 'grants' || phase === 'grants-on') {
       check = 'test-column-privileges-after-disable';
       const columns = [
