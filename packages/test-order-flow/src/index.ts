@@ -12,6 +12,7 @@ import {
   type TestSelection,
   testLineId,
   TEST_NAMESPACE,
+  TEST_ACCESS_NO_EXPIRY,
   TestActorSchema,
   TestCancellationSchema,
   TestCartSchema,
@@ -157,6 +158,12 @@ interface Actor {
   branch_id: string;
   channel: 'mobile' | 'kiosk' | null;
 }
+function accessExpiry(value: Date | number | undefined): string {
+  // node-postgres represents a timestamptz infinity as Number.POSITIVE_INFINITY.
+  if (value === Number.POSITIVE_INFINITY) return TEST_ACCESS_NO_EXPIRY;
+  if (value instanceof Date) return value.toISOString();
+  throw new Error('Invalid TEST access expiry');
+}
 async function authenticate(
   client: DatabaseClient,
   token: string,
@@ -192,7 +199,7 @@ async function prune(client: DatabaseClient) {
   return (
     (
       await client.query(
-        "DELETE FROM test_actors WHERE expires_at<clock_timestamp()-interval '7 days'",
+        "DELETE FROM test_actors WHERE expires_at<clock_timestamp()-interval '7 days' OR revoked_at<clock_timestamp()-interval '7 days'",
       )
     ).rowCount ?? 0
   );
@@ -223,8 +230,8 @@ export async function provisionTestActor(
     if (Number(count?.count) >= 20) throw new TestFlowError('RATE_LIMITED');
     const token = randomBytes(32).toString('hex');
     const row = (
-      await client.query<{ id: string; expires_at: Date }>(
-        "INSERT INTO test_actors(id,branch_id,token_hash,role,expires_at) VALUES ($1,$2,$3,$4,clock_timestamp()+interval '8 hours') RETURNING id,expires_at",
+      await client.query<{ id: string; expires_at: Date | number }>(
+        "INSERT INTO test_actors(id,branch_id,token_hash,role,expires_at) VALUES ($1,$2,$3,$4,'infinity') RETURNING id,expires_at",
         [randomUUID(), TEST_BRANCH_ID, hash(token), validRole],
       )
     ).rows[0];
@@ -234,7 +241,7 @@ export async function provisionTestActor(
       token,
       role: validRole,
       branch_id: TEST_BRANCH_ID,
-      expires_at: row?.expires_at.toISOString(),
+      expires_at: accessExpiry(row?.expires_at),
     });
   });
 }
@@ -381,15 +388,15 @@ export class TestOrderFlow {
       await prune(client);
       const row = (
         await client.query<{ active: string; today: string }>(
-          "SELECT count(*) FILTER(WHERE expires_at>clock_timestamp() AND revoked_at IS NULL)::text AS active,count(*) FILTER(WHERE created_at>=date_trunc('day',clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::text AS today FROM test_actors WHERE role='customer'",
+          "SELECT count(*) FILTER(WHERE created_at>=clock_timestamp()-interval '2 hours' AND revoked_at IS NULL)::text AS active,count(*) FILTER(WHERE created_at>=date_trunc('day',clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::text AS today FROM test_actors WHERE role='customer'",
         )
       ).rows[0];
       if (Number(row?.active) >= 100 || Number(row?.today) >= 200)
         throw new TestFlowError('RATE_LIMITED');
       const token = randomBytes(32).toString('hex');
       const inserted = (
-        await client.query<{ id: string; expires_at: Date }>(
-          "INSERT INTO test_actors(id,branch_id,token_hash,role,channel,expires_at) VALUES ($1,$2,$3,'customer',$4,clock_timestamp()+interval '2 hours') RETURNING id,expires_at",
+        await client.query<{ id: string; expires_at: Date | number }>(
+          "INSERT INTO test_actors(id,branch_id,token_hash,role,channel,expires_at) VALUES ($1,$2,$3,'customer',$4,'infinity') RETURNING id,expires_at",
           [randomUUID(), TEST_BRANCH_ID, hash(token), body.channel],
         )
       ).rows[0];
@@ -397,7 +404,7 @@ export class TestOrderFlow {
         ...synthetic,
         session_id: inserted?.id,
         token,
-        expires_at: inserted?.expires_at.toISOString(),
+        expires_at: accessExpiry(inserted?.expires_at),
         channel: body.channel,
       });
     });
@@ -411,30 +418,29 @@ export class TestOrderFlow {
       await checkBranch(client);
       // Expired credentials are accepted solely here, never for order operations.
       const actor = (
-        await client.query<Actor & { expires_at: Date; active: boolean }>(
-          'SELECT id,role,branch_id,channel,expires_at,expires_at>clock_timestamp() AS active FROM test_actors WHERE token_hash=$1 AND revoked_at IS NULL',
+        await client.query<Actor & { expires_at: Date | number }>(
+          'SELECT id,role,branch_id,channel,expires_at FROM test_actors WHERE token_hash=$1 AND revoked_at IS NULL',
           [hash(token)],
         )
       ).rows[0];
       if (!actor) throw new TestFlowError('UNAUTHORIZED');
       if (actor.role !== 'customer' || actor.branch_id !== TEST_BRANCH_ID)
         throw new TestFlowError('FORBIDDEN');
-      const unfinished = await client.query(
-        "SELECT 1 FROM test_orders WHERE actor_id=$1 AND (state NOT IN ('fulfilled','cancelled') OR payment_state='simulated_unknown') LIMIT 1",
-        [actor.id],
-      );
-      if (unfinished.rowCount) throw new TestFlowError('CONFLICT');
+      // Existing mobile builds may still hold a pre-migration two-hour timestamp.
+      // Refreshing permanent access metadata must not strand an unfinished order;
+      // identity, commands, payment state and quotas are all retained unchanged.
+      if (actor.expires_at !== Number.POSITIVE_INFINITY) {
+        const unfinished = await client.query(
+          "SELECT 1 FROM test_orders WHERE actor_id=$1 AND (state NOT IN ('fulfilled','cancelled') OR payment_state='simulated_unknown') LIMIT 1",
+          [actor.id],
+        );
+        if (unfinished.rowCount) throw new TestFlowError('CONFLICT');
+      }
       let expiresAt = actor.expires_at;
-      if (!actor.active) {
-        const count = (
-          await client.query<{ count: string }>(
-            "SELECT count(*) FROM test_actors WHERE role='customer' AND expires_at>clock_timestamp() AND revoked_at IS NULL",
-          )
-        ).rows[0];
-        if (Number(count?.count) >= 100) throw new TestFlowError('RATE_LIMITED');
+      if (actor.expires_at !== Number.POSITIVE_INFINITY) {
         const extended = (
-          await client.query<{ expires_at: Date }>(
-            "UPDATE test_actors SET expires_at=clock_timestamp()+interval '2 hours' WHERE id=$1 RETURNING expires_at",
+          await client.query<{ expires_at: Date | number }>(
+            "UPDATE test_actors SET expires_at='infinity' WHERE id=$1 RETURNING expires_at",
             [actor.id],
           )
         ).rows[0];
@@ -447,7 +453,7 @@ export class TestOrderFlow {
         ...synthetic,
         session_id: actor.id,
         token,
-        expires_at: expiresAt.toISOString(),
+        expires_at: accessExpiry(expiresAt),
         channel: actor.channel,
       });
     });
@@ -457,7 +463,7 @@ export class TestOrderFlow {
     return this.command(token, ['customer'], key, 'quote.create', body, async (client, actor) => {
       const count = (
         await client.query<{ count: string }>(
-          'SELECT count(*) FROM test_quotes WHERE actor_id=$1',
+          "SELECT count(*) FROM test_quotes WHERE actor_id=$1 AND created_at>=clock_timestamp()-interval '24 hours'",
           [actor.id],
         )
       ).rows[0];
@@ -538,12 +544,16 @@ export class TestOrderFlow {
       )
         throw new TestFlowError('CONFLICT');
       const counts = (
-        await client.query<{ owned: string; active: string }>(
-          "SELECT count(*) FILTER(WHERE actor_id=$1)::text AS owned,count(*) FILTER(WHERE state NOT IN ('fulfilled','cancelled'))::text AS active FROM test_orders",
+        await client.query<{ owned: string; owned_active: string; active: string }>(
+          "SELECT count(*) FILTER(WHERE actor_id=$1 AND created_at>=clock_timestamp()-interval '24 hours')::text AS owned,count(*) FILTER(WHERE actor_id=$1 AND state NOT IN ('fulfilled','cancelled'))::text AS owned_active,count(*) FILTER(WHERE state NOT IN ('fulfilled','cancelled'))::text AS active FROM test_orders",
           [actor.id],
         )
       ).rows[0];
-      if (Number(counts?.owned) >= 20 || Number(counts?.active) >= 2000)
+      if (
+        Number(counts?.owned) >= 20 ||
+        Number(counts?.owned_active) >= 20 ||
+        Number(counts?.active) >= 2000
+      )
         throw new TestFlowError('RATE_LIMITED');
       const orderId = randomUUID();
       await client.query(
@@ -571,7 +581,10 @@ export class TestOrderFlow {
     return this.read(token, roles, async (client, actor) => {
       const rows = (
         await client.query<Record<string, unknown>>(
-          `${orderSelect} WHERE o.branch_id=$1 ${actor.role === 'customer' ? 'AND o.actor_id=$2' : ''} ORDER BY o.created_at DESC,o.id LIMIT 2000`,
+          // Published mobile clients accept a bounded full-snapshot response.
+          // All unfinished orders precede recent history; the per-actor active
+          // quota ensures none can be displaced by newer completed orders.
+          `${orderSelect} WHERE o.branch_id=$1 ${actor.role === 'customer' ? 'AND o.actor_id=$2' : ''} ORDER BY (o.state NOT IN ('fulfilled','cancelled')) DESC,o.created_at DESC,o.id LIMIT ${actor.role === 'customer' ? 20 : 2000}`,
           actor.role === 'customer' ? [actor.branch_id, actor.id] : [actor.branch_id],
         )
       ).rows;

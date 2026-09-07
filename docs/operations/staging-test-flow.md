@@ -17,16 +17,16 @@ TEST-оплаты не обращается к Kaspi и не означает п
 
 Публичный gateway пропускает только следующие сочетания метода и пути:
 
-| Метод | `/v1/test/…`                                                                                           | Доступ                                                                                             |
-| ----- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| GET   | `catalog`                                                                                              | Публичный синтетический каталог                                                                    |
-| POST  | `sessions`                                                                                             | Ограниченная по сроку гостевая TEST-сессия mobile/kiosk                                            |
-| POST  | `sessions/continue`                                                                                    | Прежний customer Bearer, пустое тело `{}`, только завершённые заказы; сохраняются identity и квоты |
-| GET   | `orders`, `orders/:orderId`                                                                            | Bearer, изоляция клиента/роли проверяется API                                                      |
-| POST  | `quotes`, `orders`                                                                                     | Customer Bearer, UUID `Idempotency-Key`                                                            |
-| POST  | `orders/:orderId/simulated-payment`, `orders/:orderId/cancel`                                          | Bearer + idempotency + version                                                                     |
-| GET   | `kitchen`, `display`, `manager/orders`                                                                 | Выделенные роли TEST-персонала                                                                     |
-| POST  | `orders/:orderId/tasks/:taskId/complete`, `orders/:orderId/handoff`, `orders/:orderId/resolve-payment` | Роль станции/управляющего, idempotency + version                                                   |
+| Метод | `/v1/test/…`                                                                                           | Доступ                                                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| GET   | `catalog`                                                                                              | Публичный синтетический каталог                                                                                    |
+| POST  | `sessions`                                                                                             | Бессрочная отзывная гостевая TEST-сессия mobile/kiosk                                                              |
+| POST  | `sessions/continue`                                                                                    | Прежний customer Bearer, пустое тело `{}`; обновление метаданных бессрочного доступа, identity и квоты сохраняются |
+| GET   | `orders`, `orders/:orderId`                                                                            | Bearer, изоляция клиента/роли проверяется API                                                                      |
+| POST  | `quotes`, `orders`                                                                                     | Customer Bearer, UUID `Idempotency-Key`                                                                            |
+| POST  | `orders/:orderId/simulated-payment`, `orders/:orderId/cancel`                                          | Bearer + idempotency + version                                                                                     |
+| GET   | `kitchen`, `display`, `manager/orders`                                                                 | Выделенные роли TEST-персонала                                                                                     |
+| POST  | `orders/:orderId/tasks/:taskId/complete`, `orders/:orderId/handoff`, `orders/:orderId/resolve-payment` | Роль станции/управляющего, idempotency + version                                                                   |
 
 UUID проверяются в gateway и API. Остальные методы/маршруты — 404. Bearer
 передаётся upstream только внутри этого allowlist; Cookie и X-Device-Id
@@ -38,11 +38,11 @@ Bearer и проверку ролей сервером. HTTP выдачи staff 
 
 ## Runtime и полномочия
 
-Readiness при включённом gate требует migration `004_cloud_test_order_flow.sql`
+Readiness при включённом gate требует migrations 004, 005, 006
 и доступ ко всем семи TEST-таблицам. Runtime получает только необходимые
 SELECT/INSERT и UPDATE изменяемых полей заказа/задачи, блокировку singleton,
 USAGE единственной TEST sequence. DELETE test_actors нужен ограниченной очистке
-давно истёкших TEST-сессий; все её каскады остаются в TEST-таблицах. Runtime
+конечных TEST-сессий с expiry старше семи дней или отзывом старше семи дней; все её каскады остаются в TEST-таблицах. Runtime
 получает UPDATE только expires_at у test_actors для явного продолжения;
 не получает UPDATE test_quotes/test_outbox, изменение staff revoked_at, DDL
 или изменение migration ledger. Обычные меню и branch ordering flag не меняются.
@@ -56,7 +56,7 @@ gate требует provisioning до старта нового API. Это от
 При включённом он дополнительно проходит по HTTP session → quote → order →
 simulated approval → prep → assembly → display → handoff с runtime DB role;
 проверяет idempotent replay и SQL permission denied на смену staff role/revoke,
-quote/outbox и реальный ordering flag. Четыре временные роли выдаются owner и
+quote/outbox и реальный ordering flag. Четыре роли проверки выдаются owner и
 отзываются в finally, токены не печатаются. CI использует gate=true в своём
 одноразовом release.env, чтобы эти grants постоянно проверялись.
 
@@ -66,8 +66,8 @@ Trusted CLI: `node scripts/test-flow-staff-setup.mjs prep`, аналогично
 `assembly`, `display`, `manager`. На staging требуется DB connection роли
 `pickchick_owner`. Скрипт создаёт `.local/test-flow-staff` с mode 700, файл
 `<role>-<actor UUID>.json` с mode 600 и печатает только путь. При ошибке записи
-выданный actor отзывается. Срок credentials — восемь часов; перевыпуск выполняет
-оператор. Секреты не включать в URL, dist, конфигурацию gateway или Git.
+выданный actor отзывается. Credentials бессрочны до явного отзыва.
+Миграция 006 сохраняет и продлевает прежние неотозванные ключи, включая истёкшие. Секреты не включать в URL, dist, конфигурацию gateway или Git.
 
 На VPS, из проверенного release с `TEST_ORDER_FLOW_ENABLED=true` в release.env:
 
@@ -83,6 +83,31 @@ dc run --rm --user "$(id -u):$(id -g)" \
 существующие файлы. Перенести JSON по SSH в защищённый локальный каталог
 `.local/test-flow-staff`, сохранить mode 600. Web вводит credential явным
 действием оператора; собранное приложение его не содержит.
+
+## Отзыв и совместимость бессрочного доступа
+
+Для отзыва отдельного служебного ключа или customer-сеанса используйте его UUID:
+
+```sh
+dc run --rm provision node scripts/test-flow-actor-revoke.mjs <ACTOR_UUID>
+```
+
+Команда доступна только через trusted owner, повтор безопасен. Следующий запрос
+этим ключом получает 401. Публичного API отзыва/выдачи служебных ролей нет.
+
+Сервер хранит `expires_at='infinity'`, а в прежнем strict JSON возвращает
+`9999-12-31T23:59:59.999Z` как маркер без нового поля. Старый mobile 4 либо киоск
+с сохранённой локальной датой нужно один раз продлить соответствующей кнопкой;
+последующие продления по времени не требуются. Для бессрочного actor это работает
+и с открытым заказом, не меняя оплату и idempotency results. Ключи служебных экранов
+локальную дату не проверяют и сразу продолжают работать.
+
+TEST-квоты: 100 новых неотозванных customer-сеансов за последние два часа,
+200 новых за UTC-сутки; 40 расчётов / 20 заказов на сеанс за 24 часа;
+20 незавершённых на customer и 2 000 на стенд. Customer видит до 20 последних
+заказов с приоритетом всех активных; полная история сохраняется в БД. Продолжение существующего доступа не выдаёт новую
+identity и не обходит эти счётчики. Контроль размера постоянной истории и
+явный отзыв оставленных тестовых сеансов входят в обслуживание стенда.
 
 ## Публикация web
 
@@ -118,7 +143,9 @@ Web пути: `/kiosk`, `/kitchen/prep`, `/kitchen/assembly`, `/display`, `/mana
    `pickchick-api:<SHA>` с revision label и pinned base digest. В release.env
    записать RELEASE_SHA и TEST_ORDER_FLOW_ENABLED=true; секреты переиспользовать
    из защищённого staging.env, не переносить в архив.
-4. `dc run --rm provision`, повторная проверка применения. Проверить grants
+4. Для миграции 006 сначала остановить только прежний API после сборки нового
+   образа: старый код не умеет сериализовать DB infinity. Затем
+   `dc run --rm provision`, повторная проверка применения. Проверить grants
    runtime, прежний closed branch, отсутствие реальных финансовых effects.
    Поднять только API: `dc up -d --no-deps --wait api`. PostgreSQL/Redis/idrink
    не пересоздавать для этого rollout.
@@ -148,11 +175,11 @@ Web пути: `/kiosk`, `/kitchen/prep`, `/kitchen/assembly`, `/display`, `/mana
 
 ## Откат
 
-При readiness 503, ошибке grants/ролей, публичном private route, включённом
-реальном ordering/payment, пропаже данных или ухудшении idrink остановить rollout.
-Вернуть предыдущий gateway release и API image/compose по прошлому release.env,
-проверить старый smoke с соответствующей версией. Новая миграция добавляет
-только TEST-таблицы и совместима со старым API; не понижать её и не удалять тома.
-У старого gateway был статичный capabilities JSON без TEST feature — его
-конфигурация восстанавливается вместе с API. Для прекращения только тестовых
-операций выключить gate и пересоздать API; capabilities сразу отразит false.
+После миграции 006 прежний API без поддержки PostgreSQL infinity несовместим
+с продлением доступа; его provision также отклоняет неизвестную миграцию 006.
+Не переключать один образ на старый и не восстанавливать
+всю рабочую БД поверх новых TEST-заказов. При проблеме отключить TEST gate в
+текущем совместимом release и пересоздать только API, проверить закрытые TEST
+маршруты и остальные capabilities; исправить и повторно проверить rollout.
+Дальнейший rollback требует образа с поддержкой infinity. Данные и существующие
+ключи сохранять, миграцию не понижать. Gateway этим изменением не затрагивается.

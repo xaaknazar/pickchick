@@ -78,13 +78,16 @@ test('expired terminal customer continues the same identity and history without 
     assert.equal(continued.session_id, ctx.customer.session_id);
     assert.equal(continued.token, ctx.customer.token);
     assert.equal(continued.channel, 'mobile');
-    const seconds = (
-      await ctx.cloud.pool.query(
-        'SELECT extract(epoch FROM expires_at-clock_timestamp()) AS seconds FROM test_actors WHERE id=$1',
-        [ctx.customer.session_id],
-      )
-    ).rows[0].seconds;
-    assert.ok(Number(seconds) > 7_190 && Number(seconds) <= 7_200);
+    assert.equal(continued.expires_at, '9999-12-31T23:59:59.999Z');
+    assert.equal(
+      (
+        await ctx.cloud.pool.query(
+          'SELECT expires_at::text AS expiry FROM test_actors WHERE id=$1',
+          [ctx.customer.session_id],
+        )
+      ).rows[0].expiry,
+      'infinity',
+    );
     assert.deepEqual(await ctx.flow.ownOrders(ctx.customer.token), before);
     assert.deepEqual(
       new Set(before.orders.map((order) => order.state)),
@@ -144,7 +147,7 @@ test('continuation is naturally idempotent for concurrent callers and lost-respo
   });
 });
 
-test('every nonterminal state and unknown result denies continuation until staff completes the order', async () => {
+test('legacy finite access with a nonterminal state or unknown result denies continuation until staff completes the order', async () => {
   for (const state of ['awaiting_test_payment', 'preparing', 'ready', 'unknown']) {
     await withCustomer(async (ctx) => {
       let order = await ctx.make();
@@ -231,7 +234,7 @@ test('staff, revoked, invalid token, nonempty body, production and wrong branch 
   });
 });
 
-test('concurrent reactivation obeys the global active cap while live retry does not consume a slot', async () => {
+test('concurrent continuation upgrades existing finite identities without consuming issuance slots', async () => {
   await withCustomer(async (ctx) => {
     const other = await ctx.flow.issueSession({ channel: 'kiosk' });
     await ctx.expire();
@@ -240,25 +243,32 @@ test('concurrent reactivation obeys the global active cap while live retry does 
       "INSERT INTO test_actors(id,branch_id,token_hash,role,channel,expires_at) SELECT gen_random_uuid(),$1,md5('quota-'||n::text)||md5('other-'||n::text),'customer','mobile',clock_timestamp()+interval '1 hour' FROM generate_series(1,99) n",
       [TEST_BRANCH_ID],
     );
-    const results = await Promise.allSettled([
+    const actorsBefore = (
+      await ctx.cloud.pool.query('SELECT id,token_hash,created_at FROM test_actors ORDER BY id')
+    ).rows;
+    const continued = await Promise.all([
       ctx.flow.continueSession(ctx.customer.token, {}),
       ctx.flow.continueSession(other.token, {}),
     ]);
-    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
-    assert.equal(
-      results.filter(
-        (result) => result.status === 'rejected' && code('RATE_LIMITED')(result.reason),
-      ).length,
-      1,
+    for (const [index, session] of continued.entries()) {
+      const original = index === 0 ? ctx.customer : other;
+      assert.equal(session.session_id, original.session_id);
+      assert.equal(session.token, original.token);
+      assert.equal(session.expires_at, '9999-12-31T23:59:59.999Z');
+      assert.deepEqual(await ctx.flow.continueSession(session.token, {}), session);
+    }
+    assert.deepEqual(
+      (await ctx.cloud.pool.query('SELECT id,token_hash,created_at FROM test_actors ORDER BY id'))
+        .rows,
+      actorsBefore,
     );
-    const continued = results.find((result) => result.status === 'fulfilled').value;
-    assert.deepEqual(await ctx.flow.continueSession(continued.token, {}), continued);
+
     const counts = (
       await ctx.cloud.pool.query(
         "SELECT count(*) FILTER (WHERE expires_at>clock_timestamp()) AS active,count(*) AS total FROM test_actors WHERE role='customer'",
       )
     ).rows[0];
-    assert.deepEqual(counts, { active: '100', total: '101' });
+    assert.deepEqual(counts, { active: '101', total: '101' });
   });
 });
 
@@ -305,6 +315,7 @@ test('HTTP continuation accepts only customer bearer with an empty JSON body and
       const continued = await response.json();
       assert.equal(continued.synthetic, true);
       assert.equal(continued.namespace, 'pickchick-test');
+      assert.equal(continued.expires_at, '9999-12-31T23:59:59.999Z');
       assert.equal(continued.session_id, ctx.customer.session_id);
       assert.equal(continued.token, ctx.customer.token);
       assert.deepEqual(
