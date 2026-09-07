@@ -1,5 +1,6 @@
 import { KitchenModel, allowedActions, displayWindow } from './model.js';
 import { request } from './api.js';
+import { startRuntime } from './runtime.js';
 import type { Action } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
 let branch = 'Локальная точка';
@@ -197,13 +198,7 @@ try {
 }
 render();
 await model.restore();
-setInterval(() => {
-  if (model.state.actor && !model.state.busy) void model.refresh();
-}, 5000);
-
-setInterval(() => {
-  if (model.state.actor && model.state.mode === 'display' && !model.state.busy) {
-    boardPage++;
-    render();
-  }
-}, 8000);
+startRuntime(model, () => {
+  boardPage++;
+  render();
+});
