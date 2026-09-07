@@ -1,0 +1,26 @@
+{
+  "name": "@pickchick/loyalty-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test tests/unit.test.mjs",
+    "test:integration": "node --test tests/postgres.test.mjs"
+  },
+  "dependencies": {
+    "@pickchick/database": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.13.3"
+  }
+}
