@@ -1,4 +1,4 @@
-import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, View } from 'react-native';
 import type { KioskCartLine, KioskModel } from '../model';
 import { defaultSelections, money, validSelections } from '../cart';
 import { ProductArtwork } from '../components/ProductArtwork';
@@ -15,7 +15,8 @@ import {
   layout,
   type ScreenContext,
 } from '../components/UI';
-import { ProductCard } from './MenuScreen';
+import { BluePattern, LightBackground } from '../components/PatternBackground';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export function selectionSummary(line: KioskCartLine): string {
   return line.selections
     .map((selection) => {
@@ -31,56 +32,108 @@ export function selectionSummary(line: KioskCartLine): string {
 }
 export function UpsellScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const { px, columns } = useMetrics();
+  const safe = useSafeAreaInsets();
   const t = copy(context.locale);
   const products =
-    model.catalog?.products.filter((p) => model.catalog?.upsell_product_ids.includes(p.id)) ?? [];
+    model.catalog?.products.filter((product) =>
+      model.catalog?.upsell_product_ids.includes(product.id),
+    ) ?? [];
   return (
     <View testID="kiosk-screen-upsell" style={layout.screen}>
-      <Header {...context} back={model.goMenu} title={t.yourOrder} />
+      <LightBackground />
       <FlatList
         key={columns}
         data={products}
         numColumns={columns}
-        keyExtractor={(p) => p.id}
+        keyExtractor={(product) => product.id}
         style={layout.grow}
         columnWrapperStyle={{ gap: px(22) }}
-        contentContainerStyle={{ padding: px(40), gap: px(22) }}
+        onScrollBeginDrag={model.touch}
+        contentContainerStyle={{
+          paddingHorizontal: px(48),
+          paddingTop: Math.max(safe.top, px(72)),
+          paddingBottom: px(36),
+          gap: px(22),
+        }}
         ListHeaderComponent={
-          <Heading
-            size={56}
-            style={{ textAlign: 'center', marginVertical: px(24), marginBottom: px(35) }}
-          >
+          <Heading size={56} style={{ marginBottom: px(14) }}>
             {t.upsellTitle}
           </Heading>
         }
-        renderItem={({ item }) => (
-          <View style={{ flex: 1, gap: px(10) }}>
-            <ProductCard
-              product={item}
-              prefix="kiosk-upsell"
-              busy={model.busy}
-              onOpen={() => model.openProduct(item.id)}
-              onAdd={() => {
+        renderItem={({ item }) => {
+          const added = model.cart.some((line) => line.productId === item.id);
+          return (
+            <Pressable
+              testID={`kiosk-upsell-${item.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`+ ${item.name}`}
+              accessibilityState={{ disabled: model.busy }}
+              disabled={model.busy}
+              onPress={() => {
                 const selections = defaultSelections(item);
                 if (validSelections(item, selections)) void model.addToCart(item.id, selections);
                 else model.openProduct(item.id);
               }}
-            />
-            {model.cart.some((line) => line.productId === item.id) ? (
-              <Body style={{ color: colors.blue, fontFamily: fonts.medium, textAlign: 'center' }}>
-                ✓ {t.selected}
-              </Body>
-            ) : null}
-          </View>
-        )}
+              style={({ pressed }) => ({
+                flex: 1,
+                borderRadius: px(24),
+                borderWidth: 2,
+                borderColor: added ? colors.blue : colors.border,
+                backgroundColor: colors.white,
+                padding: px(14),
+                opacity: pressed || model.busy ? 0.7 : 1,
+              })}
+            >
+              <ProductArtwork
+                imageId={item.image_id}
+                crop
+                style={{ height: px(240), borderRadius: px(16) }}
+              />
+              <View
+                style={[
+                  layout.row,
+                  {
+                    paddingTop: px(18),
+                    paddingHorizontal: px(8),
+                    paddingBottom: px(6),
+                    gap: px(14),
+                  },
+                ]}
+              >
+                <View style={{ flex: 1, gap: px(6) }}>
+                  <Heading size={27} style={{ fontFamily: fonts.heading }}>
+                    {item.name}
+                  </Heading>
+                  <Heading size={26} style={{ fontFamily: fonts.heading }}>
+                    {money(item.price_minor)}
+                  </Heading>
+                </View>
+                <View
+                  testID={`kiosk-upsell-plus-${item.id}`}
+                  style={{
+                    width: Math.max(48, px(76)),
+                    height: Math.max(48, px(76)),
+                    borderRadius: px(38),
+                    backgroundColor: added ? colors.blue : colors.orange,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name={added ? 'checkmark' : 'add'} size={px(34)} color={colors.white} />
+                </View>
+              </View>
+            </Pressable>
+          );
+        }}
       />
-      <Footer>
+      <Footer style={{ paddingHorizontal: px(44) }}>
         <Button
           label={t.next}
-          icon="arrow-forward"
           testID="kiosk-upsell-continue"
           onPress={model.openCart}
           busy={model.busy}
+          style={{ minHeight: px(120), borderRadius: px(24) }}
+          textStyle={{ fontSize: px(36), lineHeight: px(43) }}
         />
       </Footer>
     </View>
@@ -95,68 +148,96 @@ function CartRow({
   model: KioskModel;
   context: ScreenContext;
 }) {
-  const { px, width } = useMetrics();
+  const { px, width, fontScale } = useMetrics();
   const t = copy(context.locale);
   const summary = selectionSummary(line);
+  const wide = width >= 950 && fontScale < 1.3;
+  const picture = (
+    <ProductArtwork
+      imageId={line.product.image_id}
+      crop
+      style={{ width: px(124), height: px(124), borderRadius: px(16), flexShrink: 0 }}
+    />
+  );
+  const details = (
+    <View style={{ flex: 1, minWidth: 0, gap: px(6) }}>
+      <Heading size={28} style={{ fontFamily: fonts.heading }}>
+        {line.product.name}
+      </Heading>
+      {summary ? (
+        <Body style={{ color: colors.muted, fontSize: Math.max(16, px(18)) }}>{summary}</Body>
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${t.remove} ${line.product.name}`}
+        disabled={model.busy}
+        onPress={() => void model.updateQuantity(line.lineId, 0)}
+        style={{
+          minHeight: 48,
+          justifyContent: 'center',
+          alignSelf: 'flex-start',
+          paddingRight: px(20),
+        }}
+      >
+        <Body style={{ color: colors.error, fontSize: Math.max(16, px(18)) }}>{t.remove}</Body>
+      </Pressable>
+    </View>
+  );
+  const controls = (
+    <Stepper
+      quantity={line.quantity}
+      prefix={`kiosk-cart-line-${line.lineId}`}
+      disabled={model.busy}
+      max={20}
+      onMinus={() => void model.updateQuantity(line.lineId, line.quantity - 1)}
+      onPlus={() => void model.updateQuantity(line.lineId, line.quantity + 1)}
+    />
+  );
+  const total = (
+    <Heading
+      size={29}
+      style={{
+        fontFamily: fonts.heading,
+        minWidth: wide ? px(150) : undefined,
+        flexShrink: 0,
+        textAlign: 'right',
+      }}
+    >
+      {money(line.lineTotalMinor)}
+    </Heading>
+  );
   return (
     <View
       testID={`kiosk-cart-line-${line.lineId}`}
       style={{
         backgroundColor: colors.white,
         borderRadius: px(22),
-        padding: px(18),
-        gap: px(16),
-        boxShadow: '0 4px 16px rgba(14,21,36,.035)',
+        padding: px(16),
+        gap: px(20),
+        flexDirection: wide ? 'row' : 'column',
+        alignItems: wide ? 'center' : 'stretch',
+        boxShadow: '0 4px 16px rgba(14,21,36,.05)',
       }}
     >
-      <View style={{ flexDirection: 'row', gap: px(20), alignItems: 'flex-start' }}>
-        <View
-          style={{
-            width: px(124),
-            height: px(124),
-            borderRadius: px(18),
-            overflow: 'hidden',
-            backgroundColor: colors.light,
-          }}
-        >
-          <ProductArtwork imageId={line.product.image_id} crop style={StyleSheet.absoluteFill} />
-        </View>
-        <View style={{ flex: 1, gap: px(10) }}>
-          <Heading size={28} style={{ fontFamily: fonts.heading }}>
-            {line.product.name}
-          </Heading>
-          {summary ? (
-            <Body style={{ color: colors.muted, fontSize: Math.max(16, px(18)) }}>{summary}</Body>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${t.remove} ${line.product.name}`}
-            disabled={model.busy}
-            onPress={() => void model.updateQuantity(line.lineId, 0)}
-            style={{
-              minHeight: 48,
-              justifyContent: 'center',
-              alignSelf: 'flex-start',
-              paddingRight: px(20),
-            }}
-          >
-            <Body style={{ color: colors.error, fontSize: Math.max(16, px(18)) }}>{t.remove}</Body>
-          </Pressable>
-        </View>
-      </View>
-      <View style={[layout.spread, { gap: px(20), paddingLeft: width >= 950 ? px(144) : 0 }]}>
-        <Stepper
-          quantity={line.quantity}
-          prefix={`kiosk-cart-line-${line.lineId}`}
-          disabled={model.busy}
-          max={20}
-          onMinus={() => void model.updateQuantity(line.lineId, line.quantity - 1)}
-          onPlus={() => void model.updateQuantity(line.lineId, line.quantity + 1)}
-        />
-        <Heading size={29} color={colors.blue} style={{ flexShrink: 1 }}>
-          {money(line.lineTotalMinor)}
-        </Heading>
-      </View>
+      {wide ? (
+        <>
+          {picture}
+          {details}
+          {controls}
+          {total}
+        </>
+      ) : (
+        <>
+          <View style={[layout.row, { gap: px(20), alignItems: 'flex-start' }]}>
+            {picture}
+            {details}
+          </View>
+          <View style={[layout.spread, { gap: px(20) }]}>
+            {controls}
+            {total}
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -165,7 +246,11 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
   const t = copy(context.locale);
   return (
     <View testID="kiosk-screen-cart" style={layout.screen}>
-      <Header {...context} title={t.yourOrder} back={model.goMenu} />
+      <LightBackground />
+      <View style={{ backgroundColor: colors.blue }}>
+        <BluePattern />
+        <Header {...context} transparent title={t.yourOrder} back={model.goMenu} />
+      </View>
       <ScrollView
         style={layout.grow}
         onScrollBeginDrag={model.touch}
@@ -230,7 +315,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
       </ScrollView>
       <Footer>
         <View style={[layout.spread, { gap: px(20) }]}>
-          <Heading size={32}>{t.total}</Heading>
+          <Body style={{ fontSize: px(24), color: colors.muted }}>{t.total}</Body>
           <Heading size={model.cartValid ? 52 : 30} color={colors.blue} style={{ flexShrink: 1 }}>
             {model.cartValid
               ? money(model.cartTotalMinor)
@@ -240,7 +325,14 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
           </Heading>
         </View>
         <View style={[layout.row, { gap: px(20) }]}>
-          <Button label={t.addMore} tone="outline" onPress={model.goMenu} style={{ flex: 1 }} />
+          <Button
+            label={t.addMore}
+            icon="add"
+            tone="outline"
+            onPress={model.goMenu}
+            style={{ paddingHorizontal: px(30), maxWidth: '42%', borderColor: colors.border }}
+            textStyle={{ fontSize: px(23), lineHeight: px(30) }}
+          />
           <Button
             label={t.checkout}
             icon="arrow-forward"
@@ -248,7 +340,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
             disabled={!model.cart.length || !model.cartValid}
             busy={model.busy}
             onPress={model.goLoyalty}
-            style={{ flex: 1.2 }}
+            style={{ flex: 1 }}
           />
         </View>
       </Footer>
