@@ -11,7 +11,6 @@ import {
   Button,
   Header,
   Heading,
-  Icon,
   Language,
   Logo,
   layout,
