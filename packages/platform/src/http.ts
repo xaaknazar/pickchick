@@ -158,6 +158,13 @@ export async function createHttpApplication(module: Type<unknown>) {
         /^\/edge\/v1\/fulfillment(?:\/|$)/i.test(request.url?.split('?')[0] ?? '') &&
         /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
     });
+  if (app.get<Resources>(RESOURCE).config.service === 'api')
+    app.useBodyParser('json', {
+      limit: 64 * 1024,
+      type: (request: IncomingMessage) =>
+        /^\/internal\/v1\/edge\/fulfillment(?:\/|$)/i.test(request.url?.split('?')[0] ?? '') &&
+        /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+    });
   app.useBodyParser('json', { limit: 100 * 1024 });
   const proxyIps = app.get<Resources>(RESOURCE).config.trustedProxyIps;
   // Explicit hop addresses only. Trusting all forwarded headers defeats per-IP SMS limits.

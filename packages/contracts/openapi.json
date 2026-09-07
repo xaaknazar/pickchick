@@ -5847,6 +5847,348 @@
         },
         "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority."
       }
+    },
+    "/internal/v1/edge/fulfillment/pull": {
+      "post": {
+        "operationId": "pullCommercialFulfillment",
+        "description": "Claims one eligible admission/authorization event for the authenticated pinned edge. Lease ownership and expiry are required; no bank, fiscal or refund events can be claimed. Disabled by default, private transport only; not routed by the public gateway. Requests at most 64 KiB and responses at most 1,300,000 bytes.",
+        "security": [
+          {
+            "deviceBearer": [],
+            "deviceId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FulfillmentTransportPullRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FulfillmentTransportPullResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid, expired or revoked device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device binding mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Disabled or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lease, immutable event or version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds 64 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transport unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/edge/fulfillment/ack": {
+      "post": {
+        "operationId": "acknowledgeCommercialFulfillment",
+        "description": "Called only after durable edge inbox/domain commit. The event and original worker/lease are immutable; an expired lease requires reclaim, never deletion of the reservation. Disabled by default, private transport only; not routed by the public gateway. Requests at most 64 KiB and responses at most 1,300,000 bytes.",
+        "security": [
+          {
+            "deviceBearer": [],
+            "deviceId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FulfillmentTransportAck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FulfillmentTransportReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid, expired or revoked device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device binding mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Disabled or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lease, immutable event or version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds 64 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transport unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/edge/fulfillment/events": {
+      "post": {
+        "operationId": "recordEdgeFulfillment",
+        "description": "Authenticated immutable versioned edge fact. Admission uses actual device credentials; order/task observations never overwrite commercial money or award loyalty. Reordered facts cannot lower projection versions. Disabled by default, private transport only; not routed by the public gateway. Requests at most 64 KiB and responses at most 1,300,000 bytes.",
+        "security": [
+          {
+            "deviceBearer": [],
+            "deviceId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FulfillmentTransportEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FulfillmentTransportReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid, expired or revoked device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device binding mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Disabled or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lease, immutable event or version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds 64 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transport unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15365,6 +15707,976 @@
             "additionalProperties": false
           }
         ]
+      },
+      "FulfillmentTransportPullRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "workerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "leaseSeconds": {
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 120
+          }
+        },
+        "required": [
+          "workerId",
+          "leaseSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "FulfillmentTransportPullResponse": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "object",
+            "properties": {
+              "organizationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "branchId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "deviceId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "producerId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": [
+              "organizationId",
+              "branchId",
+              "deviceId",
+              "producerId"
+            ],
+            "additionalProperties": false
+          },
+          "event": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "eventId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "const": "edge.admission_requested"
+                          },
+                          "payload": {
+                            "type": "object",
+                            "properties": {
+                              "orderId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "branchId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "quoteId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "quoteDigest": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                              },
+                              "snapshot": {
+                                "type": "object",
+                                "properties": {
+                                  "organizationId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "branchId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "channel": {
+                                    "type": "string",
+                                    "const": "mobile"
+                                  },
+                                  "serviceMode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "takeaway",
+                                      "dine_in"
+                                    ]
+                                  },
+                                  "currency": {
+                                    "type": "string",
+                                    "const": "KZT"
+                                  },
+                                  "totalMinor": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]{0,15}$"
+                                  },
+                                  "lines": {
+                                    "minItems": 1,
+                                    "maxItems": 200,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "lineId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "productId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        },
+                                        "title": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 250
+                                        },
+                                        "description": {
+                                          "type": "string",
+                                          "maxLength": 2000
+                                        },
+                                        "quantity": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 1000
+                                        },
+                                        "selectedDetails": {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": [
+                                                "item",
+                                                "combo",
+                                                "set"
+                                              ]
+                                            },
+                                            "modifiers": {
+                                              "maxItems": 40,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "groupId": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 160
+                                                  },
+                                                  "groupTitle": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 250
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 250
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "optionId": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 160
+                                                  },
+                                                  "label": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 250
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 250
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "quantity": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 1000000
+                                                  },
+                                                  "linkedProductId": {
+                                                    "anyOf": [
+                                                      {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 160
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "groupId",
+                                                  "groupTitle",
+                                                  "optionId",
+                                                  "label",
+                                                  "quantity",
+                                                  "linkedProductId"
+                                                ],
+                                                "additionalProperties": {}
+                                              }
+                                            },
+                                            "components": {
+                                              "maxItems": 100,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "productId": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 160
+                                                  },
+                                                  "quantity": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 1000000
+                                                  },
+                                                  "name": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 250
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 250
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "description": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "maxLength": 2000
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 2000
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  }
+                                                },
+                                                "required": [
+                                                  "productId",
+                                                  "quantity",
+                                                  "name",
+                                                  "description"
+                                                ],
+                                                "additionalProperties": {}
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "modifiers",
+                                            "components"
+                                          ],
+                                          "additionalProperties": {}
+                                        }
+                                      },
+                                      "required": [
+                                        "lineId",
+                                        "productId",
+                                        "title",
+                                        "description",
+                                        "quantity"
+                                      ],
+                                      "additionalProperties": {}
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "organizationId",
+                                  "branchId",
+                                  "channel",
+                                  "serviceMode",
+                                  "currency",
+                                  "totalMinor",
+                                  "lines"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "owner": {
+                                "type": "string",
+                                "const": "cloud"
+                              }
+                            },
+                            "required": [
+                              "orderId",
+                              "branchId",
+                              "quoteId",
+                              "quoteDigest",
+                              "snapshot",
+                              "owner"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "eventId",
+                          "type",
+                          "payload"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "eventId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "const": "edge.kitchen_admission_requested"
+                          },
+                          "payload": {
+                            "type": "object",
+                            "properties": {
+                              "orderId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "branchId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "reservationId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "deviceId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "quoteDigest": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                              },
+                              "snapshot": {
+                                "type": "object",
+                                "properties": {
+                                  "organizationId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "branchId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "channel": {
+                                    "type": "string",
+                                    "const": "mobile"
+                                  },
+                                  "serviceMode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "takeaway",
+                                      "dine_in"
+                                    ]
+                                  },
+                                  "currency": {
+                                    "type": "string",
+                                    "const": "KZT"
+                                  },
+                                  "totalMinor": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]{0,15}$"
+                                  },
+                                  "lines": {
+                                    "minItems": 1,
+                                    "maxItems": 200,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "lineId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "productId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        },
+                                        "title": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 250
+                                        },
+                                        "description": {
+                                          "type": "string",
+                                          "maxLength": 2000
+                                        },
+                                        "quantity": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 1000
+                                        },
+                                        "selectedDetails": {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": [
+                                                "item",
+                                                "combo",
+                                                "set"
+                                              ]
+                                            },
+                                            "modifiers": {
+                                              "maxItems": 40,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "groupId": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 160
+                                                  },
+                                                  "groupTitle": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 250
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 250
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "optionId": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 160
+                                                  },
+                                                  "label": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 250
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 250
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "quantity": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 1000000
+                                                  },
+                                                  "linkedProductId": {
+                                                    "anyOf": [
+                                                      {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 160
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "groupId",
+                                                  "groupTitle",
+                                                  "optionId",
+                                                  "label",
+                                                  "quantity",
+                                                  "linkedProductId"
+                                                ],
+                                                "additionalProperties": {}
+                                              }
+                                            },
+                                            "components": {
+                                              "maxItems": 100,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "productId": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 160
+                                                  },
+                                                  "quantity": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 1000000
+                                                  },
+                                                  "name": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 250
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 250
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "description": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "ru": {
+                                                        "type": "string",
+                                                        "maxLength": 2000
+                                                      },
+                                                      "kk": {
+                                                        "type": "string",
+                                                        "maxLength": 2000
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "ru",
+                                                      "kk"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  }
+                                                },
+                                                "required": [
+                                                  "productId",
+                                                  "quantity",
+                                                  "name",
+                                                  "description"
+                                                ],
+                                                "additionalProperties": {}
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "modifiers",
+                                            "components"
+                                          ],
+                                          "additionalProperties": {}
+                                        }
+                                      },
+                                      "required": [
+                                        "lineId",
+                                        "productId",
+                                        "title",
+                                        "description",
+                                        "quantity"
+                                      ],
+                                      "additionalProperties": {}
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "organizationId",
+                                  "branchId",
+                                  "channel",
+                                  "serviceMode",
+                                  "currency",
+                                  "totalMinor",
+                                  "lines"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "owner": {
+                                "type": "string",
+                                "const": "cloud"
+                              }
+                            },
+                            "required": [
+                              "orderId",
+                              "branchId",
+                              "reservationId",
+                              "deviceId",
+                              "quoteDigest",
+                              "snapshot",
+                              "owner"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "eventId",
+                          "type",
+                          "payload"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "leaseToken": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "command",
+                  "leaseToken"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "scope",
+          "event"
+        ],
+        "additionalProperties": false
+      },
+      "FulfillmentTransportAck": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "workerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "leaseToken": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "eventId",
+          "workerId",
+          "leaseToken"
+        ],
+        "additionalProperties": false
+      },
+      "FulfillmentTransportEvent": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "number",
+            "const": 1
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "sequence": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "aggregateVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "edge.admission_reserved",
+              "edge.fulfillment_accepted",
+              "edge.task_changed",
+              "edge.fulfillment_ready",
+              "edge.fulfillment_handed_over",
+              "edge.cancellation_requested",
+              "edge.fulfillment_cancelled",
+              "edge.admission_released"
+            ]
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "orderId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "branchId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "reservationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "quoteId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "quoteDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "ownerHash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "commercialOwner": {
+                "type": "string",
+                "const": "cloud"
+              },
+              "fulfillmentOwner": {
+                "type": "string",
+                "const": "edge"
+              },
+              "deviceId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "held",
+                  "accepted",
+                  "in_production",
+                  "ready",
+                  "handed_over",
+                  "cancel_requested",
+                  "cancelled",
+                  "released"
+                ]
+              },
+              "displayNumber": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,18}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "routingVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "assemblyStationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "taskId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "taskVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "taskState": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "in_progress",
+                  "done",
+                  "cancel_requested",
+                  "cancelled"
+                ]
+              },
+              "stationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "staffId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "inventoryDisposition": {
+                "type": "string",
+                "enum": [
+                  "requires_inventory_review",
+                  "recorded_elsewhere"
+                ]
+              },
+              "inventoryEffect": {
+                "type": "string",
+                "const": "none"
+              }
+            },
+            "required": [
+              "orderId",
+              "branchId",
+              "reservationId",
+              "quoteId",
+              "quoteDigest",
+              "ownerHash",
+              "commercialOwner",
+              "fulfillmentOwner",
+              "deviceId",
+              "version",
+              "state",
+              "displayNumber",
+              "createdAt",
+              "updatedAt",
+              "routingVersion"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "eventId",
+          "sequence",
+          "orderId",
+          "aggregateVersion",
+          "type",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "FulfillmentTransportReceipt": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "eventId",
+          "acknowledged"
+        ],
+        "additionalProperties": false
       }
     }
   }

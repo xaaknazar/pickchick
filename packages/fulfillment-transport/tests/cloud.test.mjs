@@ -143,7 +143,7 @@ test('pull/ack are pinned to actual device and lease; legacy worker cannot steal
           leaseSeconds: 15,
         })
       ).length,
-      1,
+      0,
     );
   }));
 
@@ -574,5 +574,76 @@ test('release receive owns the same order lock as payment start: a waiting attem
     assert.equal(
       (await f.pool.query('SELECT count(*) FROM commerce_payment_attempts')).rows[0].count,
       '0',
+    );
+  }));
+
+test('historical paused binding fences generic claim and old generic ACK after local durable commit', () =>
+  fixture(
+    async (f) => {
+      const value = await f.create();
+      const workerId = randomUUID();
+      const [legacy] = await f.commerce.claimOutbox(f.manager, {
+        workerId,
+        limit: 1,
+        leaseSeconds: 30,
+      });
+      assert.ok(legacy);
+      await provisionFulfillmentTransport(f.pool, f.edge.scope);
+      await f.edge.repo.acceptCloud(f.edge.scope, {
+        eventId: legacy.id,
+        type: legacy.event_type,
+        payload: legacy.payload,
+      });
+      assert.equal(await f.edge.count('fulfillment_inbox'), 1);
+      await f.pool.query('UPDATE fulfillment_transport_bindings SET active=false');
+      await assert.rejects(
+        f.commerce.acknowledgeOutbox(f.manager, {
+          eventId: legacy.id,
+          workerId,
+          leaseToken: legacy.lease_token,
+        }),
+        code('CONFLICT'),
+      );
+      await f.pool.query(
+        "UPDATE commerce_outbox SET lease_until=clock_timestamp()-interval '1 second' WHERE id=$1",
+        [legacy.id],
+      );
+      assert.deepEqual(
+        await f.commerce.claimOutbox(f.manager, {
+          workerId: randomUUID(),
+          limit: 20,
+          leaseSeconds: 30,
+        }),
+        [],
+      );
+      await assert.rejects(f.pull(), code('FORBIDDEN'));
+      assert.equal(
+        (
+          await f.pool.query('SELECT acknowledged_at FROM commerce_outbox WHERE order_id=$1', [
+            value.orderId,
+          ])
+        ).rows[0].acknowledged_at,
+        null,
+      );
+    },
+    { bind: false },
+  ));
+
+test('paused binding blocks new payment but preserves an existing exact retry', () =>
+  fixture(async (f) => {
+    const value = await f.reserve();
+    await f.confirm(value);
+    const key = randomUUID(),
+      input = { orderId: value.orderId, providerAccountId: f.payment };
+    const old = await f.commerce.startPaymentAttempt(f.scope, key, input);
+    await f.pool.query('UPDATE fulfillment_transport_bindings SET active=false');
+    assert.deepEqual(await f.commerce.startPaymentAttempt(f.scope, key, input), old);
+    await assert.rejects(
+      f.commerce.startPaymentAttempt(f.scope, randomUUID(), input),
+      code('NOT_READY'),
+    );
+    assert.equal(
+      (await f.pool.query('SELECT count(*) FROM commerce_payment_attempts')).rows[0].count,
+      '1',
     );
   }));

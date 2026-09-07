@@ -34,7 +34,7 @@ export const eventOf = (row) => ({
   type: row.event_type,
   payload: row.payload,
 });
-export function fixture(run) {
+export function fixture(run, { bind = true } = {}) {
   return edgeFixture(async (edge) => {
     const schema = 'transport_cloud_' + randomUUID().replaceAll('-', ''),
       admin = createPool(connection, 2);
@@ -186,7 +186,7 @@ export function fixture(run) {
         await ack(delivery);
         return { ...value, accepted };
       }
-      await provisionFulfillmentTransport(pool, edge.scope);
+      if (bind) await provisionFulfillmentTransport(pool, edge.scope);
       await run({
         pool,
         admin,

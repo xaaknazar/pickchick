@@ -626,7 +626,8 @@ export class CommerceRepository {
           [actor.branchId],
         )
       ).rows[0];
-      if (transport?.active) {
+      if (transport) {
+        if (!transport.active) throw new CommerceError('NOT_READY');
         const admission = (
           await client.query<{ state: string; device_id: string; reservation_id: string }>(
             'SELECT state,device_id,reservation_id FROM cloud_fulfillment_projection WHERE order_id=$1',
@@ -1157,7 +1158,7 @@ export class CommerceRepository {
           `WITH selected AS (
         SELECT e.id FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id
         WHERE o.organization_id=$1 AND o.branch_id=$2 AND e.acknowledged_at IS NULL AND (e.lease_until IS NULL OR e.lease_until<clock_timestamp())
-        AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id AND b.active))
+        AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id))
         AND (e.event_type NOT IN ('payment.submit_requested','refund.submit_requested','fiscal.submit_requested','edge.kitchen_admission_requested') OR NOT o.attention_required)
         AND (e.event_type NOT IN ('payment.submit_requested','refund.submit_requested','fiscal.submit_requested') OR EXISTS(SELECT 1 FROM commerce_provider_accounts a WHERE a.id=(e.payload->>'accountId')::uuid AND a.enabled))
         AND (e.event_type<>'payment.submit_requested' OR EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.id=(e.payload->>'attemptId')::uuid AND a.state='pending'))
@@ -1185,7 +1186,7 @@ export class CommerceRepository {
       request = parse(AckSchema, input);
     if (scope.role !== 'manager') throw new CommerceError('FORBIDDEN');
     const result = await this.pool.query(
-      `UPDATE commerce_outbox e SET acknowledged_at=COALESCE(e.acknowledged_at,clock_timestamp()) FROM commerce_orders o WHERE e.order_id=o.id AND o.organization_id=$1 AND o.branch_id=$2 AND e.id=$3 AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id AND b.active)) AND e.lease_worker=$4 AND e.lease_token=$5 AND (e.lease_until>clock_timestamp() OR e.acknowledged_at IS NOT NULL) RETURNING e.id`,
+      `UPDATE commerce_outbox e SET acknowledged_at=COALESCE(e.acknowledged_at,clock_timestamp()) FROM commerce_orders o WHERE e.order_id=o.id AND o.organization_id=$1 AND o.branch_id=$2 AND e.id=$3 AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id)) AND e.lease_worker=$4 AND e.lease_token=$5 AND (e.lease_until>clock_timestamp() OR e.acknowledged_at IS NOT NULL) RETURNING e.id`,
       [scope.organizationId, scope.branchId, request.eventId, request.workerId, request.leaseToken],
     );
     if (!result.rowCount) throw new CommerceError('CONFLICT');
