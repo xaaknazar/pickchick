@@ -104,7 +104,7 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
          AND COALESCE((SELECT SUM(amount_minor) FROM commerce_captures c WHERE c.order_id=o.id),0)=o.total_minor
          AND EXISTS(SELECT 1 FROM commerce_fiscal_documents f WHERE f.order_id=o.id AND f.kind='sale' AND f.state='issued')
        ))
-       ORDER BY e.sequence LIMIT 1 FOR UPDATE OF e,o SKIP LOCKED)
+       ORDER BY e.attempts,e.sequence LIMIT 1 FOR UPDATE OF e,o SKIP LOCKED)
        UPDATE commerce_outbox e SET lease_worker=$4,lease_token=$5,lease_until=clock_timestamp()+$6*interval '1 second',attempts=attempts+1
        FROM selected s WHERE e.id=s.id RETURNING e.id,e.event_type,e.payload`,
       [b.organization_id, b.branch_id, b.device_id, request.workerId, token, request.leaseSeconds],
