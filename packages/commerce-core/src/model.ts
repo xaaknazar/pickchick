@@ -200,3 +200,25 @@ export const LeaseSchema = z.strictObject({
   leaseSeconds: z.number().int().min(5).max(300),
 });
 export const AckSchema = z.strictObject({ eventId: uuid, workerId: uuid, leaseToken: uuid });
+
+export const UnpaidCancellationRequestSchema = z.strictObject({
+  orderId: uuid,
+  reason: z.string().trim().min(1).max(500),
+});
+export const UnpaidCancellationViewSchema = z.strictObject({
+  cancellationId: uuid,
+  orderId: uuid,
+  state: z.enum(['waiting_admission', 'release_pending', 'cancelled', 'needs_review']),
+  releaseEventId: uuid.nullable(),
+  expectedEdgeVersion: z.int().positive().nullable(),
+  resultEventId: uuid.nullable(),
+  resolutionCode: z
+    .enum([
+      'ADMISSION_UNCONFIRMED',
+      'EDGE_NOT_HELD',
+      'PAYMENT_HISTORY',
+      'VERSION_CONFLICT',
+      'NOT_HELD',
+    ])
+    .nullable(),
+});

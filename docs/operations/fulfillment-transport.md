@@ -16,10 +16,12 @@ Cloud хранит отдельную проекцию исполнения и �
 
 - `edge.admission_requested` — неизменяемый заказ/quote/snapshot для резерва;
 - `edge.kitchen_admission_requested` — разрешение после существующих денежных и
-  фискальных проверок коммерческого ядра.
+  фискальных проверок коммерческого ядра;
+- с `protocolVersion: 2` — `edge.admission_release_requested` только от durable
+  [неоплаченного cancellation intent](unpaid-cancellation.md).
 
 Обычный commerce worker сохраняет прежнее поведение для точек, которым никогда не назначалась
-transport binding. Для назначенной точки два типа принадлежат этому транспорту;
+transport binding. Для назначенной точки эти типы принадлежат этому транспорту;
 он не забирает и не подтверждает банковские, фискальные или refund эффекты.
 `active=false` ставит назначенный транспорт на паузу и не возвращает владение
 общему worker; старый generic lease также не даёт права ACK после назначения.
@@ -30,11 +32,16 @@ transport binding. Для назначенной точки два типа пр
 `edge.cancellation_requested`, `edge.fulfillment_cancelled`, `edge.admission_released`.
 Последние три могут поступить из доверенного внутреннего edge domain port;
 новый HTTP transport не выдаёт публичного права инициировать release/cancel.
+`protocolVersion: 2` добавляет `edge.admission_release_result` с отдельным ledger
+решений; он не является вторым state event той же aggregate version.
 
 ## Настройка и авторизация
 
 Добавлены аддитивные миграции `014_cloud_fulfillment_transport.sql` и
-`006_edge_fulfillment_transport.sql`. Старые 001–013 не меняются. До запуска
+`006_edge_fulfillment_transport.sql`. Следующий подэтап добавляет cloud015 и
+edge007: сначала обновляется cloud, затем edge/worker;
+[точный порядок и ограничения отката](unpaid-cancellation.md). Старые миграции
+не меняются. До запуска
 нужны обе схемы, существующие cloud organizations/branch/device и локальная
 `fulfillment_config` с маршрутизацией. Cloud binding и local config должны иметь
 одинаковые organization, branch, device и постоянный cloud producer UUID.
@@ -88,7 +95,7 @@ no-store`. Заголовки: `Authorization: Bearer <device token>` и `X-Devi
 
 | Маршрут  | Тело                                                                       | Ответ                                                                   |
 | -------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `pull`   | `{workerId, leaseSeconds}`; lease 15–120 секунд                            | `{scope, event: null \| {command: {eventId,type,payload}, leaseToken}}` |
+| `pull`   | `{workerId, leaseSeconds, protocolVersion?:2}`; lease 15–120 секунд        | `{scope, event: null \| {command: {eventId,type,payload}, leaseToken}}` |
 | `ack`    | `{eventId, workerId, leaseToken}`                                          | `{eventId, acknowledged:true}`                                          |
 | `events` | `{schemaVersion:1,eventId,sequence,orderId,aggregateVersion,type,payload}` | `{eventId, acknowledged:true}`                                          |
 

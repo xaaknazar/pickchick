@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { CloudCommandSchema, CloudScopeSchema } from '@pickchick/edge-fulfillment';
+import {
+  CloudCommandSchema,
+  CloudScopeSchema,
+  ReleaseCommandSchema,
+  ReleaseResultSchema,
+} from '@pickchick/edge-fulfillment';
 
 export class TransportError extends Error {
   constructor(
@@ -29,10 +34,12 @@ export const TransportScopeSchema = CloudScopeSchema;
 export const PullRequestSchema = z.strictObject({
   workerId: uuid,
   leaseSeconds: z.int().min(15).max(120),
+  protocolVersion: z.literal(2).optional(),
 });
 export const TransportCommandSchema = z.discriminatedUnion('type', [
   CloudCommandSchema.options[0],
   CloudCommandSchema.options[1],
+  ReleaseCommandSchema,
 ]);
 export const DeliverySchema = z.strictObject({ command: TransportCommandSchema, leaseToken: uuid });
 export const PullResponseSchema = z.strictObject({
@@ -142,3 +149,19 @@ export const EdgeEventSchema = z
 export type TransportScope = z.infer<typeof TransportScopeSchema>;
 export type EdgeEvent = z.infer<typeof EdgeEventSchema>;
 export type Delivery = z.infer<typeof DeliverySchema>;
+
+export const ReleaseResultEventSchema = z
+  .strictObject({
+    schemaVersion: z.literal(1),
+    eventId: uuid,
+    sequence,
+    orderId: uuid,
+    aggregateVersion: z.int().positive(),
+    type: z.literal('edge.admission_release_result'),
+    payload: ReleaseResultSchema,
+  })
+  .superRefine((event, ctx) => {
+    if (event.orderId !== event.payload.orderId || event.aggregateVersion !== event.payload.version)
+      ctx.addIssue({ code: 'custom', message: 'Result identity/version mismatch' });
+  });
+export const TransportEdgeEventSchema = z.union([EdgeEventSchema, ReleaseResultEventSchema]);
