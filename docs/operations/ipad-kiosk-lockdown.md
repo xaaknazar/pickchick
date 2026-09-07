@@ -3,7 +3,7 @@
 Решение заказчика от 7 сентября 2026: отдельное приложение `kz.pickchick.kiosk`,
 ограниченная выдача сборок и запрет выхода гостя в другие приложения.
 Настройки ниже подготовлены для внедрения. На физических iPad они ещё не применены;
-модели, ориентацию и наличие MDM/Apple Business Manager уточняет заказчик.
+модели, ориентацию и наличие MDM/Apple Business уточняет заказчик.
 
 ## Выдача приложения
 
@@ -20,12 +20,57 @@ Xcode 26.6 описывает этот режим как недоступный 
 [Участники внутреннего тестирования](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers).
 
 У сборки TestFlight срок до 90 дней; для постоянной эксплуатации требуется
-отдельный процесс обновлений и выпуска. Целевой вариант — Custom App для
-организации PickChick через Apple Business Manager с установкой MDM на
-принадлежащие ресторану iPad. Это требует организационного кабинета и отдельной
-проверки Apple; текущая личная Developer Team не означает, что ABM уже создан.
-[Срок TestFlight](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview),
-[Custom Apps](https://developer.apple.com/support/volume-purchase-and-custom-apps/).
+отдельный процесс обновлений и выпуска. Проверка корпоративного распространения
+ниже не является условием текущего внутреннего тестирования.
+[Срок и порядок TestFlight](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview).
+
+## Apple Business и доступность в Казахстане
+
+Проверено 7 сентября 2026 по официальному руководству Apple. Актуальное название —
+**Apple Business**: платформа объединила Apple Business Manager, Apple Business
+Essentials и Apple Business Connect. Она включает собственное управление
+устройствами; внешний MDM остаётся вариантом, а не обязательной покупкой.
+[Обзор Apple Business](https://support.apple.com/en-ae/guide/business/axm7909096bf/web).
+
+В [Feature availability](https://support.apple.com/en-ae/guide/business/axmef1c47twq/web)
+(публикация 14 апреля 2026, раздел Asia-Pacific) Казахстан указан со следующими
+важными для киоска возможностями:
+
+| Возможность                        | Что подтверждено для Казахстана             |
+| ---------------------------------- | ------------------------------------------- |
+| Встроенное управление устройствами | Указано как доступное                       |
+| Managed Apple Accounts             | Указано как доступное                       |
+| Zero-touch deployment              | Указано как доступное                       |
+| Get Apps / Get Books               | В списке возможностей Казахстана не указано |
+
+Кабинет организации PickChick можно рассматривать для управления iPad.
+Владельцу потребуется регистрация с фактическими данными организации и проверка
+Apple; существующая личная Developer Team не создаёт такой кабинет автоматически.
+Apple указывает окно верификации 60 дней после регистрации. На этом этапе
+кабинет не создавали, верификацию и enrollment устройств не выполняли.
+[Регистрация и проверка организации](https://support.apple.com/en-ae/guide/business/axm402206497/web).
+
+**Custom App остаётся условным вариантом постоянного закрытого выпуска.** По
+документации Apple разработчик назначает приложение организации через App Store
+Connect; после App Review организация получает его в Apps and Books.
+[Custom Apps в Apple Business](https://support.apple.com/en-ae/guide/business/axm58ba3112a/web).
+При этом Apple отдельно связывает доступность лицензий Apps and Books со страной
+организации. Наличие MDM в Казахстане само по себе не подтверждает получение
+Custom App лицензий: Get Apps отсутствует в региональной матрице. Поэтому до
+выбора такого выпуска владелец должен подтвердить с Apple доступность Apps and
+Books / Custom Apps именно для своего казахстанского кабинета. Это наш вывод
+из двух документов, а не обещание доступной функции или установленного запрета
+на все способы распространения.
+[Лицензии и страна организации](https://support.apple.com/en-ae/guide/business/axme19b23f7f/web).
+
+Пока этот канал не подтверждён, продолжаем закрытый TestFlight и проверку
+Single App Mode через локальный Configurator на supervised iPad. Для этой
+проверки не требуется ждать кабинета Apple Business. Постоянный канал выдачи
+приложения и управление устройствами принимаются отдельно: встроенный сервис
+Apple или выбранный внешний MDM должен поддержать нужные enrollment и AppLock
+на конкретной модели/iPadOS.
+[Управление устройствами](https://support.apple.com/en-ae/guide/business/axm659f6bd48/web),
+[Single App Mode через Configurator](https://support.apple.com/guide/apple-configurator-mac/set-single-app-mode-cadbf9c172/mac).
 
 ## Запрет выхода из киоска
 
