@@ -22,6 +22,7 @@ const images: Record<string, number> = {
   'i20.jpg': require('../../../design/prototype/assets/mockup/i20.jpg'),
   'i22.jpg': require('../../../design/prototype/assets/mockup/i22.jpg'),
   'i23.jpg': require('../../../design/prototype/assets/mockup/i23.jpg'),
+  'shot.jpg': require('../../../design/prototype/assets/mockup/shot.jpg'),
   'i4.jpg': require('../../../design/prototype/assets/mockup/i4.jpg'),
   'i5.jpg': require('../../../design/prototype/assets/mockup/i5.jpg'),
   'i6.jpg': require('../../../design/prototype/assets/mockup/i6.jpg'),
