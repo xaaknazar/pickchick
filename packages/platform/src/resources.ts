@@ -122,12 +122,17 @@ export class Resources implements OnApplicationShutdown {
             );
           }
           if (this.config.fulfillmentTransportEnabled) {
-            const transport = await this.pool.query(
-              'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
-              ['cloud', '014_cloud_fulfillment_transport.sql'],
-            );
-            if (transport.rowCount !== 1)
-              throw new Error('Cloud fulfillment transport schema is unavailable');
+            for (const version of [
+              '014_cloud_fulfillment_transport.sql',
+              '015_cloud_unpaid_cancellation.sql',
+            ]) {
+              const transport = await this.pool.query(
+                'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+                ['cloud', version],
+              );
+              if (transport.rowCount !== 1)
+                throw new Error('Cloud fulfillment transport schema is unavailable');
+            }
             for (const table of [
               'fulfillment_transport_bindings',
               'cloud_fulfillment_inbox',
@@ -135,6 +140,8 @@ export class Resources implements OnApplicationShutdown {
               'cloud_fulfillment_projection',
               'cloud_fulfillment_observed_tasks',
               'cloud_fulfillment_task_versions',
+              'commerce_cancellation_intents',
+              'commerce_cancellation_results',
             ])
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
           }
@@ -185,12 +192,18 @@ export class Resources implements OnApplicationShutdown {
             if (binding.rowCount !== 1) throw new Error('Local fulfillment binding is unavailable');
           }
           if (this.config.fulfillmentTransportEnabled) {
-            const transport = await this.pool.query(
-              'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
-              ['edge', '006_edge_fulfillment_transport.sql'],
-            );
-            if (transport.rowCount !== 1)
-              throw new Error('Edge fulfillment transport schema is unavailable');
+            for (const version of [
+              '006_edge_fulfillment_transport.sql',
+              '007_edge_release_results.sql',
+            ]) {
+              const transport = await this.pool.query(
+                'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+                ['edge', version],
+              );
+              if (transport.rowCount !== 1)
+                throw new Error('Edge fulfillment transport schema is unavailable');
+            }
+            await this.pool.query('SELECT branch_id FROM fulfillment_release_results LIMIT 0');
             await this.pool.query('SELECT branch_id FROM fulfillment_transport_state LIMIT 0');
             await this.pool.query('SELECT branch_id FROM fulfillment_transport_failures LIMIT 0');
             await this.pool.query(

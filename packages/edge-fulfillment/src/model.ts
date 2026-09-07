@@ -274,3 +274,62 @@ export function taskPlan(snapshot: Snapshot, routing: Routing): TaskPlan[] {
   digest(result); // Bound the fully expanded plan, including repeated modifier instructions.
   return result;
 }
+
+export const ReleaseCommandSchema = z.strictObject({
+  eventId: uuid,
+  type: z.literal('edge.admission_release_requested'),
+  payload: z.strictObject({
+    orderId: uuid,
+    branchId: uuid,
+    reservationId: uuid,
+    quoteDigest: hash,
+    owner: z.literal('cloud'),
+    expectedVersion: z.int().positive(),
+    reason: z.string().min(1).max(500),
+  }),
+});
+export const ReleaseResultSchema = z
+  .strictObject({
+    orderId: uuid,
+    branchId: uuid,
+    reservationId: uuid,
+    quoteId: uuid,
+    quoteDigest: hash,
+    ownerHash: hash,
+    commercialOwner: z.literal('cloud'),
+    fulfillmentOwner: z.literal('edge'),
+    deviceId: uuid,
+    version: z.int().positive(),
+    state: z.enum([
+      'held',
+      'accepted',
+      'in_production',
+      'ready',
+      'handed_over',
+      'cancel_requested',
+      'cancelled',
+      'released',
+    ]),
+    displayNumber: z
+      .string()
+      .regex(/^[1-9][0-9]{0,18}$/)
+      .nullable(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+    routingVersion: z.int().positive(),
+    assemblyStationId: uuid,
+    requestEventId: uuid,
+    requestDigest: hash,
+    outcome: z.enum(['applied', 'rejected']),
+    rejectionCode: z.enum(['VERSION_CONFLICT', 'NOT_HELD']).nullable(),
+    reason: z.string().min(1).max(500),
+  })
+  .superRefine((r, ctx) => {
+    if (
+      (r.outcome === 'applied' &&
+        (r.state !== 'released' || r.rejectionCode !== null || r.displayNumber !== null)) ||
+      (r.outcome === 'rejected' && r.rejectionCode === null)
+    )
+      ctx.addIssue({ code: 'custom', message: 'Invalid release result' });
+  });
+export type ReleaseResult = z.infer<typeof ReleaseResultSchema>;
