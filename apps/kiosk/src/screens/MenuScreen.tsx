@@ -126,6 +126,19 @@ export function MenuScreen({
     () => ({ x: 0, y: memory.offsets[category] ?? 0 }),
     [category, columns, memory],
   );
+  const restoration = useMemo(
+    () => ({ done: initialOffset.y === 0, viewport: 0, content: 0 }),
+    [initialOffset],
+  );
+  const restoreOffset = () => {
+    if (restoration.done || !restoration.viewport || !restoration.content) return;
+    const offset = Math.min(
+      initialOffset.y,
+      Math.max(0, restoration.content - restoration.viewport),
+    );
+    restoration.done = true;
+    list.current?.scrollToOffset({ offset, animated: false });
+  };
   const products = model.catalog?.products.filter((product) => inCategory(product, category)) ?? [];
   const promo = model.catalog?.products.find((p) => p.id === 'master-combo');
   const quickAdd = (product: KioskProduct) => {
@@ -195,13 +208,23 @@ export function MenuScreen({
         style={layout.grow}
         data={products}
         numColumns={columns}
+        initialNumToRender={products.length}
         keyExtractor={(p) => p.id}
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={model.touch}
         contentOffset={initialOffset}
+        onLayout={(event) => {
+          restoration.viewport = event.nativeEvent.layout.height;
+          restoreOffset();
+        }}
+        onContentSizeChange={(_width, height) => {
+          restoration.content = height;
+          restoreOffset();
+        }}
         scrollEventThrottle={64}
         onScroll={(event) => {
-          memory.offsets[category] = Math.max(0, event.nativeEvent.contentOffset.y);
+          if (restoration.done)
+            memory.offsets[category] = Math.max(0, event.nativeEvent.contentOffset.y);
         }}
         columnWrapperStyle={{ gap: px(22) }}
         contentContainerStyle={{ padding: px(24), gap: px(22), paddingBottom: px(30) }}
@@ -219,7 +242,24 @@ export function MenuScreen({
                 gap: px(18),
               }}
             >
-              <Image source={assets.promo} contentFit="cover" style={StyleSheet.absoluteFill} />
+              <View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: '#0B4FC4',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  },
+                ]}
+              >
+                <Image
+                  source={assets.promo}
+                  contentFit="cover"
+                  style={{ width: px(640), height: (px(640) * 848) / 1100 }}
+                />
+              </View>
               <LinearGradient
                 colors={['rgba(11,79,196,.5)', 'rgba(11,79,196,.82)']}
                 style={StyleSheet.absoluteFill}
