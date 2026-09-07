@@ -181,12 +181,14 @@ synthetic capture без fiscal issued ещё не создаёт разреше
 проверяя отсутствие глобальной блокировки. Это не 1 000 HTTP-запросов в секунду,
 не десять физических кухонь и не испытание оборудования.
 
-Финальный локальный прогон: **14/14 PASS** (3 unit + 11 PostgreSQL scenarios),
-TypeScript и ESLint без ошибок. Источник доменов — `b13546a` плюс исправление
-PostgreSQL disconnect `376a3ea38346808cf79b3c374b42f63644e81e28`; этот helper
-обязателен для строгого clean-rejection fault-теста. Ранее fault обнаружил
-необработанное событие pg Client; сценарий не ослаблен до допуска аварийного
-падения процесса.
+Авторский локальный прогон: **14/14 PASS** (3 unit + 11 PostgreSQL scenarios),
+TypeScript и ESLint без ошибок. Домен из `7835baba` интегрирован в общую ветку
+коммитом `7d9944a`; общий [PostgreSQL helper](../../tests/operations/verification-database-disconnect-2026-09-07.md)
+исправлен в `648bbc7`. Этот helper обязателен для строгого clean-rejection
+fault-теста. Ранее fault обнаружил необработанное событие pg Client; сценарий
+не ослаблен до допуска аварийного падения процесса. Общий прогон edge после
+интеграции и дополнительного исправления чтения KDS ещё не завершён;
+авторские 14/14 не обозначают новый интеграционный результат.
 
 На Apple M5, 10 logical CPU, 16 GiB RAM, Node 24.16.0 и локальном Docker
 PostgreSQL 18.3 arm64 (`shared_buffers=128MB`, `max_connections=100`, `fsync=on`,
