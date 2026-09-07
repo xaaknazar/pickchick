@@ -60,6 +60,8 @@ CREATE TABLE identity_otp_challenges (
 CREATE INDEX identity_otp_phone_time_idx ON identity_otp_challenges(phone_lookup, created_at DESC);
 CREATE INDEX identity_otp_device_time_idx ON identity_otp_challenges(device_hash, created_at DESC);
 CREATE INDEX identity_otp_ip_time_idx ON identity_otp_challenges(ip_hash, created_at DESC);
+CREATE INDEX identity_otp_payload_expiry_idx ON identity_otp_challenges(expires_at) WHERE phone_cipher IS NOT NULL OR code_hash IS NOT NULL;
+CREATE INDEX identity_otp_cleanup_created_idx ON identity_otp_challenges(created_at) WHERE response_cipher IS NULL;
 CREATE INDEX identity_otp_receipt_expiry_idx ON identity_otp_challenges(receipt_expires_at) WHERE response_cipher IS NOT NULL;
 CREATE INDEX identity_otp_session_idx ON identity_otp_challenges(session_id) WHERE session_id IS NOT NULL;
 -- Once the private challenge is purged, its random request key still cannot dispatch again.
