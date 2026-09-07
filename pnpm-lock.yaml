@@ -26,6 +26,9 @@ importers:
       '@pickchick/menu-sync':
         specifier: workspace:*
         version: link:packages/menu-sync
+      '@pickchick/phone-verification':
+        specifier: workspace:*
+        version: link:packages/phone-verification
       '@pickchick/platform':
         specifier: workspace:*
         version: link:packages/platform
@@ -235,6 +238,15 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../database
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/phone-verification:
     devDependencies:
       '@types/node':
         specifier: 24.13.3
