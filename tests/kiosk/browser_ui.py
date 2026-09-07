@@ -124,6 +124,7 @@ class Fixture:
         self.commands = {}
         self.requests = []
         self.unexpected = []
+        self.entrypoints = set()
         self.lose_create = False
         self.drop_create_request = False
         self.block_order_reads = False
@@ -175,6 +176,8 @@ class Fixture:
         request = route.request
         parsed = urlparse(request.url)
         if not parsed.path.startswith('/v1/'):
+            if re.fullmatch(r'/_expo/static/js/web/index-[a-f0-9]+\.js', parsed.path):
+                self.entrypoints.add(parsed.path)
             if parsed.netloc == urlparse(URL).netloc or parsed.scheme in ('data', 'blob'):
                 route.continue_()
             else:
@@ -293,21 +296,38 @@ class KioskUI(unittest.TestCase):
         assert cls.catalog['catalog_version'] == 'mockup-v0.3'
         assert len(cls.catalog['products']) == 24
         OUTPUT.mkdir(parents=True, exist_ok=True)
+        cls.entrypoints = set()
         cls.playwright = sync_playwright().start()
         cls.browser = cls.playwright.chromium.launch(headless=True)
 
     @classmethod
     def tearDownClass(cls):
+        version = cls.browser.version
         cls.browser.close()
         cls.playwright.stop()
+        (OUTPUT / 'runtime-entrypoints.json').write_text(json.dumps({
+            'browser': version, 'entrypoints': sorted(cls.entrypoints),
+            'capture_mode': 'exported web UI with local API fixtures',
+        }, indent=2) + '\n')
+        assert len(cls.entrypoints) == 1, 'Export changed during the run; repeat against one stable bundle'
 
     def setUp(self):
         self.contexts = []
 
     def tearDown(self):
-        for context, page, fixture, errors in self.contexts:
-            if errors or fixture.unexpected:
-                page.screenshot(path=str(OUTPUT / 'failure.png'))
+        result = self._outcome.result
+        failed = any(test is self for test, _ in result.failures + result.errors)
+        for index, (context, page, fixture, errors) in enumerate(self.contexts):
+            self.entrypoints.update(fixture.entrypoints)
+            if failed or errors or fixture.unexpected:
+                name = f'failure-{self._testMethodName}-{index}'
+                page.screenshot(path=str(OUTPUT / (name + '.png')))
+                (OUTPUT / (name + '.json')).write_text(json.dumps({
+                    'visible_text': page.locator('body').inner_text(),
+                    'entrypoints': sorted(fixture.entrypoints),
+                    'page_errors': errors,
+                    'unexpected_requests': fixture.unexpected,
+                }, ensure_ascii=False, indent=2) + '\n')
             context.close()
             self.assertEqual(errors, [])
             self.assertEqual(fixture.unexpected, [], 'Unexpected requests were blocked')
@@ -366,6 +386,13 @@ class KioskUI(unittest.TestCase):
                 take = assert_bounded(page, 'kiosk-mode-takeaway', width, height)
                 self.assertGreaterEqual(take['y'], here['y'] + here['height'] - 1,
                                         'Original portrait layout has vertically stacked choices')
+                # Expo Image mounts its actual img nodes after the screen View.
+                # Do not accept a visually empty card before those nodes exist.
+                for choice in ['dine-in', 'takeaway']:
+                    images = element(page, 'kiosk-mode-' + choice).locator('img')
+                    expect(images).to_have_count(2)
+                    for image in images.all():
+                        expect(image).to_be_visible()
                 capture(page, f'mode-{width}.png')
                 element(page, 'kiosk-mode-takeaway').click()
                 screen(page, 'menu')
@@ -436,6 +463,27 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(fixture.orders[order['order_id']]['state'], 'preparing')
                 self.assertEqual(len(fixture.orders), 1)
                 assert_no_overflow(page, width)
+
+    def test_compact_upsell_cards_add_to_cart_without_creating_order(self):
+        page, fixture = self.open(1024, 1366)
+        self.start(page)
+        self.add(page)
+        element(page, 'kiosk-menu-checkout').click()
+        screen(page, 'upsell')
+        for product_id in self.catalog['upsell_product_ids']:
+            assert_bounded(page, 'kiosk-upsell-' + product_id, 1024, 1366)
+        assert_bounded(page, 'kiosk-upsell-continue', 1024, 1366)
+        element(page, 'kiosk-upsell-toast').click()
+        screen(page, 'upsell')
+        element(page, 'kiosk-upsell-continue').click()
+        screen(page, 'cart')
+        expect(element(page, 'kiosk-cart-line-toast-quantity')).to_have_text('1')
+        cart = stored(page, FLOW_KEY)['cart']
+        self.assertEqual(len(cart), 2)
+        self.assertEqual({line['productId'] for line in cart}, {'pick-combo', 'toast'})
+        self.assertEqual(len(fixture.orders), 0)
+        self.assertEqual(len(fixture.sessions), 0, 'Browse/upsell must not allocate an ordering identity')
+        capture(page, 'cart-with-upsell.png')
 
     def test_menu_restores_category_and_offset_after_product_close(self):
         page, fixture = self.open()
