@@ -1,0 +1,42 @@
+{
+  "caddy_image": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+  "cap_drop": ["ALL"],
+  "cases": [
+    {
+      "case": "before",
+      "file_mode": "600",
+      "gateway_running": false,
+      "hardened_validate_success": false,
+      "owner_uid": 1000,
+      "permission_denied": true
+    },
+    {
+      "case": "after",
+      "file_mode": "644",
+      "gateway_running": true,
+      "hardened_validate_success": true,
+      "owner_uid": 1000,
+      "permission_denied": false
+    }
+  ],
+  "checks": "passed",
+  "docker": "29.6.1 linux/arm64",
+  "offline_checks_passed": 26,
+  "owned_local_cleanup": {
+    "container_removed": true,
+    "network_removed": true,
+    "volume_removed": true
+  },
+  "ports_published": false,
+  "production_caps": ["NET_BIND_SERVICE"],
+  "read_only": true,
+  "scope": "local_Linux_DAC_regression",
+  "secrets_permissions_unchanged": true,
+  "source_before": "dccc516f0d75f5bdbfb183b097ded4c11a228a09",
+  "source_file_sha256": {
+    "infra/staging/release-transport.py": "5df79ff0593c890b9f8ffdbd348632b9d7689252e000d14807cf41db03d89377",
+    "tests/operations/rehearse_maintenance_permissions.py": "af15362ffac5a819cfc61a919686f12ab5849e376d00b2fa10f96b33a3cd2bc7"
+  },
+  "verified_on": "2026-09-08",
+  "vps_called": false
+}
