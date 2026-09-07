@@ -1,0 +1,530 @@
+{
+  "schema_version": 1,
+  "scenario": "transport_multibranch_baseline",
+  "status": "passed",
+  "started_at": "2026-09-07T20:05:26.656Z",
+  "production_capacity_proven": false,
+  "parameters": {
+    "branches": 10,
+    "orders_per_branch": 100,
+    "total_active_orders": 1000,
+    "cloud_schemas": 1,
+    "cloud_api_processes": 1,
+    "edge_schemas": 10,
+    "lan_services": 10,
+    "simultaneous_branch_workers": 10,
+    "page_limit": 37,
+    "max_runtime_seconds": 600,
+    "max_cloud_connections": 13,
+    "max_edge_connections": 41
+  },
+  "machine": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu_model": "Apple M5",
+    "logical_cpus": 10,
+    "memory_total_bytes": 17179869184,
+    "node": "v24.16.0"
+  },
+  "cleanup": {
+    "created": [
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_cloud",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_0",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_1",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_2",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_3",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_4",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_5",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_6",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_7",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_8",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_9"
+    ],
+    "dropped": [
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_9",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_8",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_cloud",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_7",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_6",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_5",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_4",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_3",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_2",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_1",
+      "ftcap_ce13ff49be104aefb54231c0f176ca46_edge_0"
+    ],
+    "verified_absent": true
+  },
+  "limitations": [
+    "Local shared Mac/Docker, one process for API/LAN/workers; no production or physical SLO claim.",
+    "1000 simultaneously active orders, not 1000 HTTP requests or new orders per second; no new identity population.",
+    "Synthetic trusted foundation quotes/payment/fiscal observations; no public checkout, bank, SMS, KKM, refunds or stock.",
+    "No WAN outage, disk recovery, Redis, browser rendering, soak, 20-branch skew or credential-rotation load in this run.",
+    "Observed cloud task deltas are compared only for started tasks; never claimed as a full kitchen projection.",
+    "HTTP latency samples end at response headers; phase duration includes full body consumption and database work."
+  ],
+  "source": {
+    "runtime_source_commit": "33f13ca3f5f605942011c7b544b0657510599801",
+    "runtime_source_sha256": "fdc8ce2d7544ac09569c3d33b4d43fcbd48322fff11d70a8cc18e38a6c57c56d",
+    "compiled_javascript": {
+      "packages/database/dist/index.js": "f3257f509e42cd8ff49b8b89b28f0a87f917b9aa2eb0430b34620d4ea29af86a",
+      "packages/commerce-core/dist/index.js": "c90e44fd4c3ed6bcc7759d86f7a39aeb6262c865cf5aba183edf6fe54b10f748",
+      "packages/commerce-core/dist/model.js": "efb46a0b408bbf5a5e982a31090fd02586e65cef236a440543398958ef256427",
+      "packages/commerce-core/dist/repository.js": "42e512409c9601257e78f085609a9cddab4dfa4c815c3c2001630ec41b809ccb",
+      "packages/contracts/dist/fulfillment.js": "2d71bafb322b9d5469d8732bef110b01dc040626c1c6fd7b688b0860e28c10f0",
+      "packages/contracts/dist/index.js": "f5e600e942cf5a71533b1cb4d793ac3764cbc5c2e17552c69f525007d2a99e6b",
+      "packages/edge-fulfillment/dist/index.js": "dca77ae0e86e64c0e7ad3880691129892d0952b71fffbce034d326b81dceca7f",
+      "packages/edge-fulfillment/dist/model.js": "60cb661b91fe437fd7bdbd8dd7cc8aefc4b9386142e3e74178f0d89ae3200b0c",
+      "packages/edge-fulfillment/dist/repository.js": "e347d18a739d5ed39377647ba9512f82767620cf91ec62ad734dd861e5d059ae",
+      "packages/edge-fulfillment/dist/setup.js": "e8b8a8c0620c69732cf5d173aacda60c5f138bdb9bdefcf6672408c809353abe",
+      "packages/fulfillment-transport/dist/cloud.js": "76e5df0fa62e0c79fb2a05f79f1f5870f1a99cfd61ce5cec6d45a4acb9ed0a33",
+      "packages/fulfillment-transport/dist/http.js": "8dfa002c1590959cd996f67eda3defce28d8e983c31cba674fb60424ef17cfd6",
+      "packages/fulfillment-transport/dist/index.js": "383f675c9725b93ffbcfd2eb154f8e71b6b24e0e19376cbee0ce0967fc8c662f",
+      "packages/fulfillment-transport/dist/model.js": "956c5da7d62e26a602caba0c3b4ce33931ed2ef8c0ff73b7d8d30ee9df6b3e7d",
+      "packages/fulfillment-transport/dist/worker.js": "bfc43df678d7a04b1e8a239e0450d7bddc09a41eb7e8057e277945e528121ea6",
+      "packages/local-orders/dist/errors.js": "171870b68b3be65267aee763869c1ebfab6bb11f4cde07c0b40dccd29714b4a7",
+      "packages/local-orders/dist/index.js": "786d753913815ed9652392b9479c8614ed29d885cf30f1aa7538ae7af9eab869",
+      "packages/local-orders/dist/orders.js": "5f8f6ce9f86ec0d5ba76d3121cfdd515f76034c9f52f546b7b7d637cefd73fbe",
+      "packages/local-orders/dist/pricing.js": "7d6feba114c4ddba40cc781cdac49f45bb6f8a5d4e2da24d6e139f73d3fdc82b",
+      "packages/local-orders/dist/staff.js": "cf0fb1e4faead5e4b04af6e1ccde0cb26b8e8d318ef683cfac335717a569c631",
+      "packages/menu-sync/dist/cloud.js": "b7310dc94659672a53323ac6e8fda3b32a33f6440cdc78c0a511a7e3be84bfbd",
+      "packages/menu-sync/dist/common.js": "84af636eaa82da53fb4dadb338ff2cc825d7423e9768482ba21a22f4ac362bc4",
+      "packages/menu-sync/dist/edge.js": "27a05515394e617f409ced962dbd26767fe0ccfaa5a460eb11e00bce59603f61",
+      "packages/menu-sync/dist/identity.js": "6b6afed439854f2576d40e538e42fcc0f4d10951cc4550b3e4365d602567d59c",
+      "packages/menu-sync/dist/index.js": "43dbe37e9ff85ac5b1615c03a655da66c1cbac8cbbdd981069a5ac1f4b95601e",
+      "packages/menu-sync/dist/worker.js": "80469ef4e280d456168fb78380bb61be366784af30f16273b47f948e88b39576",
+      "packages/platform/dist/admission.js": "d92ce3c8e8927d5d6559fdbec9e2f8e6c304759f046c6d03047090cc1df5e852",
+      "packages/platform/dist/config.js": "6cb2162c5a248f28f038012176363d8d5c501bf9a57e2b5fed6fece15262f4e7",
+      "packages/platform/dist/http.js": "3e5343c8dfa010c8dceddc5d60e82c53634fa2719232f6c43c042cdde7f327d9",
+      "packages/platform/dist/index.js": "6144265501f4ec42639f63df3e00f1d129031f06f8eb6d96a87f81219416bf5d",
+      "packages/platform/dist/resources.js": "c7507721bcbcbc5c41a8e726fe29fd7f09d1dd9159a74e87f220b909cbb9f8da",
+      "packages/test-fixtures/dist/index.js": "fc8edffd264d273c831d5b11feb2b1333b5663ef2bb5318b21633c6c51924dea",
+      "packages/catalog-admin/dist/cli.js": "ab9c992287fe06db3f9002f844998d1b198cb19985757434abbfa7d278426b65",
+      "packages/catalog-admin/dist/contracts.js": "731d41a2ba8aea498ae73bc40245b7598fe51a5808fd4460cebc4b903ebca668",
+      "packages/catalog-admin/dist/index.js": "1d67a771022cb727475041cc8dbf6b26f64ba7db62e6de16b7b7af8fec7b8a6b",
+      "packages/catalog-admin/dist/seed.js": "e781082bb2a5f9bd539cc83365bf59eea7716d6df9eb8db118f1770bab34ee45",
+      "packages/catalog-pricing/dist/index.js": "9e431bf45cdb3cf5efe40a794269688a4b32a07abc61c0e1950f21f9970f78f7",
+      "packages/catalog-pricing/dist/model.js": "50260c1074bb4f9cd528d04f1ac3d1fac7e8cc1998ca8fd6f4aca1e7b4d1fbae",
+      "packages/catalog-pricing/dist/pricing.js": "bbc1cb0c50843b6498291d34f0514dba0df14eafb727600a39fb8db19b58ee32",
+      "packages/customer-identity/dist/config.js": "db7c143a1b8440f38f03ef36e5fb660f9a285a2a6bcb42663791d4a8bffab7ce",
+      "packages/customer-identity/dist/contracts.js": "8a5a9546e74beebbf4d04b3acd58e1bf951145f413f47492ed1cfef54f96f266",
+      "packages/customer-identity/dist/crypto.js": "b78053c7c09a28d322222ca2fc313dd0cc01525d795d8569a657de4032e10b9d",
+      "packages/customer-identity/dist/index.js": "ad46a010616d8e69d229d08cb72cd2f0d952ccac16b82e4f50d434042d3aadd3",
+      "packages/phone-verification/dist/index.js": "f41016e4c50a6e0ad0ca456c0711ba8921f9ebb66d6f730cbb6b5020dee4c825",
+      "packages/phone-verification/dist/mobizon.js": "9497703cfddafdc5d88597aaedbfdcd80862cf1ed73e9fa0e42203b13300ff52",
+      "packages/test-order-flow/dist/catalog.js": "1b6633a9e93ec18d8bd4c37b613fc8a82345f0d798c25788fb308e9e8c5d4df6",
+      "packages/test-order-flow/dist/complete-catalog.js": "4d7945637f4d2ac783cb29bc1de925966da8b8d71afae7472c84e69166d2c0fe",
+      "packages/test-order-flow/dist/contracts.js": "7b87e8e03a3404a1dfca69780585ae83878f40f42ecf9ee536b4b7e9c692376b",
+      "packages/test-order-flow/dist/index.js": "13d6367f1a69a280936362f01a6804c65070d96190e8251c1bf4036b73573f6d",
+      "packages/test-order-flow/dist/representation.js": "362ccd3520924f0f98eaf78bec8b46da6f512a670b94c08fa9e7dfa1210b7e1b",
+      "services/api/dist/catalog-admin-controller.js": "d65bda24e24408b7ed9b6723b9de4259dbc572d3b3f29d5472c4f63c647f0b15",
+      "services/api/dist/customer-auth-controller.js": "70ff86426ef667b34c317a68f9e056ef5d71c0a8a2127398c4f5d94393865f6e",
+      "services/api/dist/fulfillment-transport-controller.js": "8da870f39c7fd98634af4c9a2408a994f58ed6da0e91187aa5b90d1ea69cb52f",
+      "services/api/dist/index.js": "19f2c296817421a1015a0fa09ab701417805e51adef212df1df62f055b392040",
+      "services/api/dist/main.js": "8eddf06497952351fb56629fdaf784ff50c17ef802e543d1bfca55d76547555d",
+      "services/api/dist/test-order-controller.js": "ed1830fd48e12ff96c4123f29653d426ba59e13d1d8f8967cecbe27a58ccfa54",
+      "services/edge/dist/fulfillment-controller.js": "a8e1acefd42c958f5640a472f9300707305199bb7f59a2e0ee871664edc37535",
+      "services/edge/dist/index.js": "1774ee8656af9835dae90c6e96e459f60c388461d04296524b0765530d530ef5",
+      "services/edge/dist/main.js": "173dd980659dc74b7b5bbb2afb608b8ce6be018731b1b5c8796b1a309dfc051c",
+      "services/edge/dist/orders-controller.js": "a69c6c14270ab13dc41cfe9c1f4f4915aac132cb3af7d46f1822870603a35240"
+    },
+    "harness_sha256": "443b2dfbe7f919fa47b95b2b879a9cc0a11e4851e153162fa3ed36d8daeca23f",
+    "helper_sha256": "7afa76f00ffc7e8812fd6af337e31712949d60fa9b7434217256d2e098d191d8"
+  },
+  "database": {
+    "cloud": {
+      "image": "sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "local_docker_identity_match": true,
+      "max_connections": 100,
+      "other_connections_at_preflight": 0,
+      "planned_child_max_connections": 12,
+      "version": "PostgreSQL 18.3 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit"
+    },
+    "edge": {
+      "image": "sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "local_docker_identity_match": true,
+      "max_connections": 100,
+      "other_connections_at_preflight": 0,
+      "planned_child_max_connections": 40,
+      "version": "PostgreSQL 18.3 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit"
+    }
+  },
+  "child_stderr_bytes": 0,
+  "child_exit": {
+    "code": 0,
+    "signal": null
+  },
+  "result": {
+    "phases": {
+      "setup": {
+        "seconds": 1.15
+      },
+      "create_orders": {
+        "seconds": 1.947
+      },
+      "http_reservations": {
+        "seconds": 4.909
+      },
+      "synthetic_finance": {
+        "seconds": 5.879
+      },
+      "http_kitchen_admission": {
+        "seconds": 6.136
+      },
+      "lan_start_half": {
+        "seconds": 0.94
+      },
+      "http_task_facts": {
+        "seconds": 2.708
+      },
+      "verify_active_snapshot": {
+        "seconds": 0.434
+      }
+    },
+    "branches": [
+      {
+        "branch_index": 0,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 1,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 2,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 3,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 4,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 5,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 6,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 7,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 8,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      },
+      {
+        "branch_index": 9,
+        "active_orders": 100,
+        "accepted": 50,
+        "in_production": 50,
+        "prep_orders": 100,
+        "assembly_orders": 100,
+        "display_orders": 100,
+        "cloud_projection_orders": 100,
+        "matching_order_versions": 100,
+        "matching_observed_task_versions": 50,
+        "edge_inbox_commands": 200,
+        "pages": {
+          "prep": 3,
+          "assembly": 3,
+          "display": 3
+        },
+        "cloud_forward_unacknowledged": 0,
+        "edge_reverse_unacknowledged": 0,
+        "pending_cloud": false
+      }
+    ],
+    "http": {
+      "readiness": {
+        "attempts": 11,
+        "statuses": {
+          "200": 11
+        },
+        "network_errors": 0,
+        "header_latency": {
+          "count": 11,
+          "p50_ms": 13.431,
+          "p95_ms": 24.131,
+          "p99_ms": 24.131,
+          "max_ms": 24.131
+        }
+      },
+      "transport_pull": {
+        "attempts": 2550,
+        "statuses": {
+          "200": 2550
+        },
+        "network_errors": 0,
+        "header_latency": {
+          "count": 2550,
+          "p50_ms": 20.85,
+          "p95_ms": 33.153,
+          "p99_ms": 42.851,
+          "max_ms": 75.51
+        }
+      },
+      "transport_ack": {
+        "attempts": 2000,
+        "statuses": {
+          "200": 2000
+        },
+        "network_errors": 0,
+        "header_latency": {
+          "count": 2000,
+          "p50_ms": 3.757,
+          "p95_ms": 5.631,
+          "p99_ms": 7.762,
+          "max_ms": 14.462
+        }
+      },
+      "transport_events": {
+        "attempts": 2500,
+        "statuses": {
+          "200": 2500
+        },
+        "network_errors": 0,
+        "header_latency": {
+          "count": 2500,
+          "p50_ms": 12.312,
+          "p95_ms": 18.01,
+          "p99_ms": 22.728,
+          "max_ms": 36.647
+        }
+      },
+      "lan_kitchen": {
+        "attempts": 90,
+        "statuses": {
+          "200": 90
+        },
+        "network_errors": 0,
+        "header_latency": {
+          "count": 90,
+          "p50_ms": 64.213,
+          "p95_ms": 83.745,
+          "p99_ms": 85.065,
+          "max_ms": 85.065
+        }
+      },
+      "lan_actions": {
+        "attempts": 500,
+        "statuses": {
+          "200": 500
+        },
+        "network_errors": 0,
+        "header_latency": {
+          "count": 500,
+          "p50_ms": 14.013,
+          "p95_ms": 19.43,
+          "p99_ms": 21.483,
+          "max_ms": 22.718
+        }
+      },
+      "lan_display": {
+        "attempts": 30,
+        "statuses": {
+          "200": 30
+        },
+        "network_errors": 0,
+        "header_latency": {
+          "count": 30,
+          "p50_ms": 10.223,
+          "p95_ms": 14.994,
+          "p99_ms": 15.648,
+          "max_ms": 15.648
+        }
+      }
+    },
+    "worker_states": {
+      "applied": 2000,
+      "acknowledged": 520,
+      "idle": 30
+    },
+    "errors": {},
+    "assertions": {
+      "orders": "1000",
+      "active_projection": "1000",
+      "captures": "1000",
+      "sales": "1000",
+      "received_facts": "2500",
+      "all_active_at_same_barrier": true,
+      "branch_and_station_membership": true,
+      "all_pages_read": true,
+      "aggregate_and_observed_task_versions_match": true,
+      "durable_forward_and_reverse_queues_drained": true,
+      "provider_calls": 0
+    },
+    "memory": {
+      "scope": "One child Node process: harness, all API/LAN services and workers; excludes PostgreSQL/Docker.",
+      "rss_before_bytes": 131956736,
+      "sampled_peak_rss_bytes": 418873344,
+      "rss_end_bytes": 399769600,
+      "heap_used_end_bytes": 211769608
+    },
+    "status": "passed",
+    "total_http_attempts": 7681,
+    "total_http_non_2xx": 0,
+    "total_http_network_errors": 0,
+    "duration_seconds": 24.406
+  },
+  "duration_seconds": 25.574,
+  "finished_at": "2026-09-07T20:05:52.230Z"
+}
