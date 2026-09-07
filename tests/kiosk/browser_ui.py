@@ -87,6 +87,10 @@ def capture(page, filename):
     page.evaluate('''async () => {
         await Promise.all([...document.images].filter(image => image.complete && image.naturalWidth)
             .map(image => image.decode()));
+        await Promise.all(document.getAnimations().filter(animation => {
+            const timing = animation.effect?.getComputedTiming();
+            return animation.playState === 'running' && timing && Number.isFinite(timing.iterations);
+        }).map(animation => animation.finished.catch(() => {})));
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     }''')
     page.screenshot(path=str(OUTPUT / filename))
@@ -333,9 +337,11 @@ class KioskUI(unittest.TestCase):
         element(page, 'kiosk-product-add').click()
         screen(page, 'menu')
 
-    def cart(self, page):
+    def cart(self, page, capture_name=None):
         element(page, 'kiosk-menu-checkout').click()
         screen(page, 'upsell')
+        if capture_name:
+            capture(page, capture_name)
         element(page, 'kiosk-upsell-continue').click()
         screen(page, 'cart')
 
@@ -373,7 +379,22 @@ class KioskUI(unittest.TestCase):
                 capture(page, f'menu-{width}.png')
                 element(page, 'kiosk-product-pick-combo').click()
                 screen(page, 'product')
+                capture(page, f'product-top-{width}.png')
                 expect(element(page, 'kiosk-product-nutrition')).to_contain_text('1240')
+                element(page, 'kiosk-modifier-expand-drink').click()
+                sheet = element(page, 'kiosk-drinks-sheet')
+                expect(sheet).to_be_visible()
+                # The last native choice remains reachable above the fixed Done action.
+                product = next(p for p in self.catalog['products'] if p['id'] == 'pick-combo')
+                group = next(g for g in product['modifier_groups'] if g['id'] == 'drink')
+                last_option = sheet.get_by_test_id('kiosk-modifier-drink-' + group['options'][-1]['id'])
+                last_option.scroll_into_view_if_needed()
+                expect(last_option).to_be_in_viewport()
+                assert_bounded(page, 'kiosk-drinks-done', width, height)
+                capture(page, f'drinks-sheet-{width}.png')
+                element(page, 'kiosk-drinks-done').click()
+                expect(sheet).not_to_be_visible()
+                expect(element(page, 'kiosk-product-add')).to_contain_text('4 190')
                 element(page, 'kiosk-modifier-drink-lemonade').click()
                 element(page, 'kiosk-modifier-plus-extras-toast').click()
                 expect(element(page, 'kiosk-product-add')).to_contain_text('4 780')
@@ -382,7 +403,7 @@ class KioskUI(unittest.TestCase):
                 element(page, 'kiosk-product-add').click()
                 screen(page, 'menu')
                 self.add(page)
-                self.cart(page)
+                self.cart(page, f'upsell-{width}.png')
                 capture(page, f'cart-{width}.png')
                 self.assertFalse(element(page, 'kiosk-cart-checkout').is_disabled())
                 assert_bounded(page, 'kiosk-cart-checkout', width, height)
@@ -415,6 +436,31 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(fixture.orders[order['order_id']]['state'], 'preparing')
                 self.assertEqual(len(fixture.orders), 1)
                 assert_no_overflow(page, width)
+
+    def test_menu_restores_category_and_offset_after_product_close(self):
+        page, fixture = self.open()
+        self.start(page)
+        selected = element(page, 'kiosk-category-extras')
+        selected.click()
+        expect(selected).to_have_attribute('aria-selected', 'true')
+        scroller = element(page, 'kiosk-menu-scroll')
+        product = element(page, 'kiosk-product-piko')
+        product.scroll_into_view_if_needed()
+        # Use actual UI scrolling; do not seed navigation memory or storage.
+        capture(page, 'extras-before-product.png')
+        offset = scroller.evaluate('(e) => e.scrollTop')
+        self.assertGreater(offset, 500, 'This must exercise a scrolled category')
+        product.click()
+        screen(page, 'product')
+        element(page, 'kiosk-product-close').click()
+        screen(page, 'menu')
+        expect(element(page, 'kiosk-category-extras')).to_have_attribute('aria-selected', 'true')
+        page.wait_for_function("""(offset) => Math.abs(
+            document.querySelector('[data-testid="kiosk-menu-scroll"]').scrollTop - offset) <= 2""", arg=offset)
+        self.assertTrue(product.is_visible())
+        assert_bounded(page, 'kiosk-menu-checkout', 820, 1180)
+        self.assertEqual(len(fixture.orders), 0)
+        capture(page, 'extras-restored-after-product.png')
 
     def test_lost_create_response_reconciles_committed_order_after_reload(self):
         page, fixture = self.open()
