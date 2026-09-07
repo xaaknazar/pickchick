@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&amp;family=Golos+Text:wght@400;500;600;700&amp;display=swap">
+<style>
+:root{--blue:#0047BB;--orange:#FF671F}
+body{margin:0;background:#05101F;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#8CB8FF;text-decoration:none}
+a:hover{color:#FF671F}
+@keyframes bPop{0%{transform:scale(.86);opacity:0}60%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+@keyframes bGlow{0%,100%{box-shadow:0 0 0 0 rgba(255,103,31,.55)}50%{box-shadow:0 0 0 18px rgba(255,103,31,0)}}
+@keyframes bTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes bBlink{0%,100%{opacity:1}50%{opacity:.25}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#05101F;display:flex;align-items:flex-start;justify-content:center;padding:40px 0">
+  <div data-screen-label="Табло выдачи" style="width:1920px;height:1080px;flex:none;position:relative;overflow:hidden;color:#0E1524;background:radial-gradient(1200px 720px at 10% -12%,rgba(0,71,187,.12),transparent 62%),radial-gradient(900px 620px at 106% 112%,rgba(255,103,31,.14),transparent 62%),linear-gradient(rgba(241,244,250,.92),rgba(241,244,250,.94)),url('assets/bg-blue.png') center/cover no-repeat,#F1F4FA">
+
+    <div style="position:absolute;top:0;left:0;right:0;height:148px;display:flex;align-items:center;gap:28px;padding:0 56px;color:#fff;background:radial-gradient(900px 300px at 8% 120%,rgba(255,103,31,.28),transparent 60%),linear-gradient(90deg,rgba(0,50,140,.97),rgba(0,30,92,.99)),url('assets/bg-blue.png') center/1400px auto no-repeat,#0047BB">
+      <div style="width:92px;height:92px;border-radius:26px;overflow:hidden;background:#0047BB;flex:none">
+        <img src="uploads/%D0%B1%D0%B5%D0%BB%D1%8B%D0%B8%CC%86%20%D0%BB%D0%BE%D0%B3%D0%BE%20%D1%81%20%D1%81%D0%B8%D0%BD%D0%B8%D0%BC%20%D1%84%D0%BE%D0%BD%D0%BE%D0%BC-760a0d13.png" alt="Pick Chick" style="width:170%;height:170%;object-fit:contain;margin:-35% 0 0 -35%">
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:40px;letter-spacing:.02em">{{ t.board }}</div>
+        <div style="margin-top:4px;font-size:22px;color:rgba(255,255,255,.62)">{{ t.point }}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:56px;line-height:1;letter-spacing:-.01em">{{ clock }}</div>
+        <div style="margin-top:6px;font-size:20px;color:rgba(255,255,255,.6)">{{ dateLabel }}</div>
+      </div>
+    </div>
+
+    <div style="position:absolute;top:148px;left:0;right:0;bottom:104px;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)">
+
+      <div style="padding:36px 40px 36px 56px;display:flex;flex-direction:column;min-width:0">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:16px;height:16px;border-radius:8px;background:var(--orange);animation:bBlink 1.6s ease-in-out infinite"></div>
+          <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:32px;letter-spacing:.16em;color:#5A6478">{{ t.cooking }}</div>
+        </div>
+        <div style="margin-top:26px;flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:min-content;gap:18px;align-content:start;overflow:hidden">
+          <sc-for list="{{ cooking }}" as="o" hint-placeholder-count="6">
+            <div style="border-radius:26px;background:#FFFFFF;border:2px solid #E3E9F5;box-shadow:0 6px 18px rgba(14,21,36,.06);padding:22px 26px;min-width:0">
+              <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:64px;line-height:1;letter-spacing:-.02em;color:#0047BB">{{ o.no }}</div>
+              <div style="margin-top:8px;font-size:24px;font-weight:600;color:#5A6478;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
+              <div style="margin-top:16px;height:12px;border-radius:6px;background:#E7ECF6;overflow:hidden">
+                <div style="width:{{ o.pct }};height:100%;border-radius:6px;background:{{ o.barBg }};box-shadow:{{ o.barGlow }};transition:width .9s linear"></div>
+              </div>
+              <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;font-size:19px;font-weight:600">
+                <div style="color:#8A93A5">{{ o.stage }}</div>
+                <div style="color:{{ o.leftFg }}">{{ o.left }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="padding:36px 56px 36px 40px;display:flex;flex-direction:column;min-width:0;color:#fff;background:linear-gradient(rgba(0,40,110,.78),rgba(0,26,80,.93)),url('assets/bg-blue.png') center/cover no-repeat,#0047BB">
+        <div style="display:flex;align-items:center;gap:16px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#FF671F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"></path></svg>
+          <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:32px;letter-spacing:.16em;color:#FF671F">{{ t.ready }}</div>
+        </div>
+        <div style="margin-top:26px;flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:min-content;gap:20px;align-content:start;overflow:hidden">
+          <sc-for list="{{ ready }}" as="o" hint-placeholder-count="4">
+            <div style="border-radius:30px;background:#FFFFFF;padding:26px 30px;min-width:0;animation:{{ o.anim }};box-shadow:0 18px 40px rgba(0,20,70,.28)">
+              <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:88px;line-height:1;letter-spacing:-.03em;color:var(--orange)">{{ o.no }}</div>
+              <div style="margin-top:10px;font-size:26px;font-weight:700;color:#0E1524;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:22px;font-size:22px;color:rgba(255,255,255,.62)">{{ t.takeHint }}</div>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:0;right:0;bottom:0;height:104px;display:flex;align-items:center;overflow:hidden;color:#fff;background:#0047BB">
+      <div style="display:flex;gap:80px;white-space:nowrap;padding-left:56px;animation:bTicker 34s linear infinite">
+        <sc-for list="{{ ticker }}" as="k" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:22px">
+            <div style="width:12px;height:12px;border-radius:6px;background:var(--orange)"></div>
+            <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:30px;letter-spacing:.04em;color:#FFFFFF">{{ k.text }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div style="background:#05101F;padding:8px 0 44px;display:flex;justify-content:center">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:14px 26px;border-radius:16px;background:#0C1B31;border:1px solid #16294A;font-family:'Golos Text',system-ui,sans-serif;font-size:15px;font-weight:600">
+    <a href="Pick Chick App v2.dc.html" style="color:#8CB8FF">Приложение</a><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Kiosk v2.dc.html" style="color:#8CB8FF">Киоск</a><span style="color:#3A4252">·</span>
+    <span style="color:#FF671F">Табло</span><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Кухня.dc.html" style="color:#8CB8FF">Кухня</a><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Бэк-офис.dc.html" style="color:#8CB8FF">Бэк-офис</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:2000,&quot;height&quot;:1160},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ru&quot;,&quot;kk&quot;],&quot;default&quot;:&quot;ru&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Табло&quot;,&quot;label&quot;:&quot;Язык&quot;},&quot;showNames&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Табло&quot;,&quot;label&quot;:&quot;Показывать имена гостей&quot;},&quot;etaMinutes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:12,&quot;min&quot;:5,&quot;max&quot;:30,&quot;step&quot;:1,&quot;unit&quot;:&quot;мин&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Табло&quot;,&quot;label&quot;:&quot;Время приготовления на табло&quot;},&quot;tickSeconds&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6,&quot;min&quot;:2,&quot;max&quot;:30,&quot;step&quot;:1,&quot;unit&quot;:&quot;с&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Табло&quot;,&quot;label&quot;:&quot;Как часто заказ уходит в «Готово»&quot;},&quot;readySlots&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:4,&quot;min&quot;:2,&quot;max&quot;:8,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Табло&quot;,&quot;label&quot;:&quot;Мест в колонке «Готово»&quot;},&quot;cookingSlots&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6,&quot;min&quot;:2,&quot;max&quot;:12,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Табло&quot;,&quot;label&quot;:&quot;Мест в колонке «Готовится»&quot;}}">
+class Component extends DCLogic {
+  NAMES = ['Азамат', 'Айгерим', 'Данияр', 'Мадина', 'Ерлан', 'Аружан', 'Тимур', 'Алина', 'Санжар', 'Диана', 'Нурлан', 'Камила'];
+
+  state = { now: new Date(), cooking: [], ready: [], seq: 148, justReady: null };
+
+  T = {
+    ru: { board: 'Табло выдачи', point: 'Pick Chick · Алматы', cooking: 'ГОТОВИТСЯ', ready: 'ГОТОВО',
+      takeHint: 'Подойдите к стойке выдачи и назовите номер заказа', min: 'мин', soon: 'почти готово',
+      st1: 'в очереди', st2: 'готовим', st3: 'собираем',
+      ticker: [
+        'PICK YOUR PEAK',
+        'Скачайте приложение Pick Chick — 7% чиками с каждого заказа',
+        'Копите Чики и меняйте их на фингерсы, соусы и напитки',
+        'Новинка: Solo Combo — 3 фингерса, фри, соус и тост за 3 490 ₸',
+        'Новинка: острый фирменный соус — попробуйте с фингерсами',
+        'Приведите друга: вам 1 000 Чиков, другу — 500 на первый заказ',
+        'Сеты на компанию: 25 · 50 · 75 · 100 фингерсов',
+        'Фирменный соус 300 и 500 г — забирайте домой',
+        'Первый заказ в приложении — скидка 15% по промокоду PICK15'
+      ] },
+    kk: { board: 'Беру тақтасы', point: 'Pick Chick · Алматы', cooking: 'ДАЙЫНДАЛУДА', ready: 'ДАЙЫН',
+      takeHint: 'Беру сөресіне келіп, тапсырыс нөмірін айтыңыз', min: 'мин', soon: 'дерлік дайын',
+      st1: 'кезекте', st2: 'дайындалуда', st3: 'жиналуда',
+      ticker: [
+        'PICK YOUR PEAK',
+        'Pick Chick қосымшасын жүктеңіз — әр тапсырыстан 7% чик',
+        'Чик жинап, оларды фингерс, тұздық және сусынға айырбастаңыз',
+        'Жаңалық: Solo Combo — 3 фингерс, фри, тұздық және тост 3 490 ₸',
+        'Жаңалық: ащы фирмалық тұздық — фингерспен көріңіз',
+        'Досыңызды шақырыңыз: сізге 1 000 Чик, оған — алғашқы тапсырысқа 500',
+        'Компанияға сеттер: 25 · 50 · 75 · 100 фингерс',
+        'Фирмалық тұздық 300 және 500 г — үйге алыңыз',
+        'Қосымшадағы алғашқы тапсырысқа PICK15 промокодымен 15% жеңілдік'
+      ] }
+  };
+
+  componentDidMount() {
+    const seed = [];
+    for (let i = 0; i < 7; i++) seed.push(this.make(148 + i, 6 - i));
+    const ready = [this.make(144), this.make(145), this.make(146)];
+    this.setState({ cooking: seed, ready, seq: 155 });
+    this.clock = setInterval(() => this.setState({ now: new Date() }), 1000);
+    this.loop = setInterval(this.step, (this.props.tickSeconds || 6) * 1000);
+  }
+  componentWillUnmount() { clearInterval(this.clock); clearInterval(this.loop); }
+
+  make(no, offset) {
+    const tick = (this.props.tickSeconds || 6) * 1000;
+    const span = tick * (this.props.cookingSlots || 8);
+    return { no: String(no), name: this.NAMES[no % this.NAMES.length], start: Date.now() - (offset || 0) * tick, span };
+  }
+
+  step = () => {
+    const s = this.state;
+    if (!s.cooking.length) return;
+    const done = s.cooking[0];
+    const cooking = s.cooking.slice(1).concat(this.make(s.seq));
+    const ready = [done].concat(s.ready).slice(0, this.props.readySlots || 6);
+    this.setState({ cooking, ready, seq: s.seq + 1, justReady: done.no });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const t = this.T[this.props.lang || 'ru'] || this.T.ru;
+    const two = n => String(n).padStart(2, '0');
+    const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    const showNames = this.props.showNames !== false;
+    return {
+      t,
+      clock: two(s.now.getHours()) + ':' + two(s.now.getMinutes()),
+      dateLabel: s.now.getDate() + ' ' + months[s.now.getMonth()],
+      cooking: s.cooking.slice(0, this.props.cookingSlots || 8).map(o => {
+        const span = o.span || 48000;
+        const p = Math.max(0.04, Math.min(1, (Date.now() - o.start) / span));
+        const totalMin = this.props.etaMinutes || 12;
+        const leftMin = Math.max(1, Math.ceil(totalMin * (1 - p)));
+        const soon = p > 0.86;
+        return {
+          no: o.no, name: showNames ? o.name : '',
+          pct: Math.round(p * 100) + '%',
+          barBg: 'var(--orange)',
+          barGlow: soon ? '0 0 18px rgba(255,103,31,.45)' : 'none',
+          stage: p < 0.34 ? t.st1 : (p < 0.72 ? t.st2 : t.st3),
+          left: soon ? t.soon : '≈ ' + leftMin + ' ' + t.min,
+          leftFg: soon ? 'var(--orange)' : '#0047BB'
+        };
+      }),
+      ready: s.ready.map((o, i) => ({
+        no: o.no, name: showNames ? o.name : '',
+        size: i === 0 ? '104px' : '80px',
+        anim: o.no === s.justReady ? 'bPop .45s cubic-bezier(.2,.9,.3,1) both, bGlow 1.8s ease-out 2' : 'none'
+      })),
+      cookingCount: Math.min(s.cooking.length, this.props.cookingSlots || 6),
+      readyCount: s.ready.length,
+      ticker: t.ticker.concat(t.ticker).map(x => ({ text: x }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

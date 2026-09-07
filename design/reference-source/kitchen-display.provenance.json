@@ -1,0 +1,23 @@
+{
+  "sources": [
+    {
+      "kind": "kitchen",
+      "sourceFile": "Pick Chick Кухня.dc.html",
+      "sourceSha256": "05729027155a16fe829b6ff9a0cb581d25039bc2475a9b0e1b2f52219e73a625",
+      "versionedFile": "design/reference-source/kitchen.html.txt",
+      "format": "Original customer .dc.html, byte-for-byte; saved as inert .txt. Dynamic example logic is design data, not production requirements."
+    },
+    {
+      "kind": "display",
+      "sourceFile": "Pick Chick Табло.dc.html",
+      "sourceSha256": "f447a523f1830344ee5b7d06606b905391d0776f03508d99cb8ab1a0991e22fc",
+      "versionedFile": "design/reference-source/display.html.txt",
+      "format": "Original customer .dc.html, byte-for-byte; saved as inert .txt. Dynamic example logic is design data, not production requirements."
+    }
+  ],
+  "canvas": {
+    "width": 1920,
+    "height": 1080
+  },
+  "assets": "Existing versioned mockup/logo.png, bg-blue.png and Golos/Montserrat fonts. Source handlers are never loaded by the LAN client."
+}
