@@ -1,0 +1,79 @@
+{
+  "capture_date": "2026-09-07",
+  "kind": "Additional Expo kiosk exported web UI in Chromium; not native Simulator captures",
+  "app_source_git_sha": "3d29b1eb7b113420923aa1bc56e7fdcdeba4b4d6",
+  "browser": "145.0.7632.6",
+  "entrypoint": "/_expo/static/js/web/index-21669fc681db026f709694d3a93c24d7.js",
+  "entrypoint_sha256": "ebb180c2ad785d0d93e400bbbc8d470e4a02d0f17843a647d35e3bf99098ac1f",
+  "index_html_sha256": "afacc2c39948d6bfa443121bec7e156a7bdb400d3983a4706c24b6f9cceadecb",
+  "test_file": "tests/kiosk/browser_payment_success.py",
+  "test_file_sha256": "d8fac3c3512efea946e53f6f3b2da9b212cf96ac53dc14676f267382ee8d08c9",
+  "fixture_file": "tests/kiosk/browser_ui.py",
+  "fixture_file_sha256": "f309cd3e5213a6a18dba0035605e56255f2ef02ebcbface8f8c8414fa17ab909",
+  "source_reference": "design/reference-source/kiosk.html.txt:1297 (S8), :1356 (S9)",
+  "source_reference_sha256": "a9ab538528956808650da310a9252d84570a9ac830d1a21a0250dd272450c79c",
+  "runtime_result": {
+    "tests": 1,
+    "passed": 1,
+    "duration_seconds": 7.614,
+    "viewport": [
+      1024,
+      1366
+    ]
+  },
+  "device_scale_factor": 1,
+  "reduced_motion": "reduce",
+  "capture_stability": "fonts.ready; visible image decode; finite animations completed; two animation frames. Review waits for three image nodes; number waits for the full-screen pattern image to mount and load.",
+  "scope": "Additional review/payment/number journey only. Previous six source comparison pairs and their provenance are unchanged.",
+  "limitations": "PaymentScreen is a TEST-only state absent from original S8/S9. No live bank, fiscal, SMS, VPS, Apple or physical iPad validation.",
+  "fixture_result": {
+    "viewport": {
+      "width": 1024,
+      "height": 1366
+    },
+    "order_number": "T-900001",
+    "order_state": "preparing",
+    "payment_state": "simulated_approved",
+    "total_minor": "419000",
+    "order_creates": 1,
+    "simulated_payment_commands": 1,
+    "order_number_rect": {
+      "x": 127.84375,
+      "y": 479.46875,
+      "width": 768.296875,
+      "height": 180.3125
+    },
+    "full_screen_gradients": [
+      {
+        "background": "linear-gradient(rgba(0, 40, 110, 0.74), rgba(0, 26, 80, 0.92))",
+        "width": 1024,
+        "height": 1366
+      }
+    ],
+    "entrypoints": [
+      "/_expo/static/js/web/index-21669fc681db026f709694d3a93c24d7.js"
+    ],
+    "unexpected_requests": [],
+    "network": "Every API request fulfilled/aborted by local fixture; no VPS requests."
+  },
+  "files": [
+    {
+      "file": "web-review-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "edfe5b31e8aaf36559407eacbcb65177c7812ad0214c77bc3498f11c99fc312e"
+    },
+    {
+      "file": "web-payment-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "3f737138705a7c20c03f32690a8ed30bae6b01cbbecb33e65d64ebf52da3f262"
+    },
+    {
+      "file": "web-order-darkened-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "738250f44d5aad73eb98fbf54b1596cf7c0e323d1609229b3e5aa6b236fc2ea3"
+    }
+  ]
+}
