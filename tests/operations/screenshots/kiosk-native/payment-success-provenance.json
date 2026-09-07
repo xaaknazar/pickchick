@@ -16,10 +16,7 @@
     "tests": 1,
     "passed": 1,
     "duration_seconds": 7.614,
-    "viewport": [
-      1024,
-      1366
-    ]
+    "viewport": [1024, 1366]
   },
   "device_scale_factor": 1,
   "reduced_motion": "reduce",
@@ -50,9 +47,7 @@
         "height": 1366
       }
     ],
-    "entrypoints": [
-      "/_expo/static/js/web/index-21669fc681db026f709694d3a93c24d7.js"
-    ],
+    "entrypoints": ["/_expo/static/js/web/index-21669fc681db026f709694d3a93c24d7.js"],
     "unexpected_requests": [],
     "network": "Every API request fulfilled/aborted by local fixture; no VPS requests."
   },
