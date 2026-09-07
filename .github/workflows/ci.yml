@@ -17,7 +17,8 @@ jobs:
   verify:
     name: Build, contracts and PostgreSQL integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Serial backend, native exports and browser suites need headroom beyond 15 minutes.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

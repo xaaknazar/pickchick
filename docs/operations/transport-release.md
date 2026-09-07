@@ -86,7 +86,13 @@ python3 infra/staging/release-transport.py apply FULL_COMMIT_SHA \
 автоматического resume/steal/очистки по возрасту нет.
 
 1. Создаются отдельные owner/config/compose artifacts в private maintenance
-   directory. Хеши проверяются до запуска. **Только наш** gateway временно
+   directory (`0700`). Только статический `maintenance.json` без секретов
+   получает `0644`: root внутри Caddy не имеет `DAC_OVERRIDE` и не может читать
+   файл `0600` владельца SSH UID 1000. `owner.json` и `compose.json` остаются
+   `0600`; permissions секретов не меняются. Предварительный `caddy validate`
+   использует те же `cap_drop ALL`, `NET_BIND_SERVICE`, `read_only` и
+   `no-new-privileges`, поэтому ошибка чтения выявляется до изменения gateway.
+   Хеши проверяются до запуска. **Только наш** gateway временно
    запускается с Caddy JSON: все публичные пути и методы получают `503`,
    `Retry-After: 60`, `Cache-Control: no-store`. Нет header bypass, прокси к API
    или публичного исключения для health. Container health доступен только на
@@ -218,3 +224,34 @@ macOS bind mount в предварительном прогоне не обес�
 координатор правильно остановился, не объявив блокировку успешной. Такой
 filesystem для production-координации не принимается; проверка фактического
 конфликта lock остаётся обязательной частью `status`.
+
+## Регрессия Linux UID и прав Caddy
+
+Предварительный apply `dccc516` выявил отдельный дефект: несекретный Caddy JSON
+был создан с `0600` владельца SSH, а container root без `DAC_OVERRIDE` не мог его
+прочитать. До снимка/backup/migration сценарий остановился; владелец восстановил
+прежний gateway и освободил проверенные owned locks. Ранний Docker data-flow
+rehearsal не проверял это сочетание UID и capabilities и не является таким
+доказательством.
+
+[Отдельный Linux DAC протокол](../../tests/operations/evidence/maintenance-permissions-2026-09-08.json)
+воспроизводит прежний writer непосредственно из `git dccc516`, затем проверяет
+исправленный writer. Оба запускают запись из UID/GID 1000 в native Docker volume;
+parent directory `0700`, owner/compose `0600`. Применяется actual gateway compose
+с `cap_drop ALL`, единственным `NET_BIND_SERVICE`, `read_only` и
+`no-new-privileges`; подменяются только изолированные имена/network/mount и
+отключается restart loop для наблюдения прежнего отказа. Публичных портов нет.
+Прежний `0600` получает `permission denied`, новый `0644` проходит hardened
+validate и запускает Caddy с эффективным root UID, но только capability `0x400`:
+public route `503`, private `8099` health успешен. Секретные права не ослаблены.
+
+```sh
+python3 tests/operations/rehearse_maintenance_permissions.py   --tool-image LOCAL_TOOL_IMAGE   --output .local/maintenance-permissions/UNIQUE_RUN
+```
+
+Tool image содержит Python и coreutils; применяется локальный образ из предыдущей
+репетиции, без установки пакетов или внешних вызовов. Тест не вызывает VPS,
+не перезаписывает старые artifacts и удаляет только собственные контейнеры,
+network и volume. После этого изменения проходят **26** offline checks:
+10 исторических и 16 follow-on. Предыдущий протокол 24 checks сохраняется как
+историческое доказательство своего исходного SHA.
