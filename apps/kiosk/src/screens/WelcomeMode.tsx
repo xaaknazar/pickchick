@@ -18,6 +18,7 @@ import {
   type ScreenContext,
 } from '../components/UI';
 import { Hero } from '../components/Hero';
+import { LightBackground } from '../components/PatternBackground';
 export function WelcomeScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const { px, landscape } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -99,6 +100,7 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
   const t = copy(context.locale);
   return (
     <View testID="kiosk-screen-mode" style={layout.screen}>
+      <LightBackground />
       <Header
         {...context}
         back={() =>
@@ -106,7 +108,7 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
             ? context.onCancel()
             : void model.newGuest()
         }
-        title="Pick Chick"
+        minimal
       />
       <ScrollView
         contentContainerStyle={{
@@ -117,9 +119,7 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
           gap: px(38),
         }}
       >
-        <Heading size={56} style={{ textAlign: 'center' }}>
-          {t.modeTitle}
-        </Heading>
+        <Heading size={56}>{t.modeTitle}</Heading>
         <View style={{ flex: 1, flexDirection: landscape ? 'row' : 'column', gap: px(24) }}>
           {(['dine_in', 'takeaway'] as const).map((mode) => (
             <Pressable
@@ -150,15 +150,19 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
               <LinearGradient
                 colors={
                   mode === 'dine_in'
-                    ? ['rgba(0,71,187,.15)', 'rgba(0,45,136,.75)']
-                    : ['rgba(255,103,31,.1)', 'rgba(219,64,4,.45)']
+                    ? ['rgba(0,40,110,.66)', 'rgba(0,26,80,.88)']
+                    : ['rgba(214,74,10,.5)', 'rgba(190,60,0,.8)']
                 }
                 style={StyleSheet.absoluteFill}
               />
-              <Icon
-                name={mode === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline'}
-                size={px(110)}
-                color={colors.white}
+              <Image
+                source={
+                  mode === 'dine_in'
+                    ? require('../components/dine.svg')
+                    : require('../components/takeaway.svg')
+                }
+                contentFit="contain"
+                style={{ width: px(120), height: px(120) }}
               />
               <Heading size={52} color={colors.white} style={{ textAlign: 'center' }}>
                 {mode === 'dine_in' ? t.here : t.togo}
