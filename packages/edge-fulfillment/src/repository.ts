@@ -75,6 +75,15 @@ async function order(client: DatabaseClient, branchId: string, id: string) {
   ).rows[0];
   return row ?? fail('NOT_FOUND');
 }
+async function readReservation(client: DatabaseClient, branchId: string, id: string) {
+  const row = (
+    await client.query<Reservation>(
+      'SELECT * FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2',
+      [id, branchId],
+    )
+  ).rows[0];
+  return row ?? fail('NOT_FOUND');
+}
 function view(row: Reservation) {
   return {
     orderId: row.order_id,
@@ -446,8 +455,12 @@ export class EdgeFulfillment {
     parse(z.uuid(), branchId);
     parse(z.uuid(), orderId);
     return transaction(this.pool, async (client) => {
+      // Start the MVCC snapshot before authentication. Existing staff/grant
+      // share locks keep revocation semantics; orders/tasks are never locked.
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
       await authenticateStaff(client, branchId, auth);
-      const row = await order(client, branchId, orderId);
+      await client.query('SET TRANSACTION READ ONLY');
+      const row = await readReservation(client, branchId, orderId);
       return {
         ...view(row),
         channel: row.snapshot.channel,
@@ -470,9 +483,13 @@ export class EdgeFulfillment {
       input,
     );
     return transaction(this.pool, async (client) => {
+      // Start the MVCC snapshot before authentication. Existing staff/grant
+      // share locks keep revocation semantics; orders/tasks are never locked.
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
       const staff = await authenticateStaff(client, branchId, auth);
       if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
       if (q.stationId) await stationPermission(client, branchId, staff, q.stationId);
+      await client.query('SET TRANSACTION READ ONLY');
       // Fetch identities first, then one bounded order projection at a time.
       // A large combo order must not multiply the response by a 100-row page.
       const candidates = (
@@ -484,8 +501,9 @@ export class EdgeFulfillment {
       const items = [];
       let bytes = 0;
       for (const candidate of candidates.slice(0, q.limit)) {
-        // Same per-order locking order as actions; state/version/tasks agree.
-        const row = await order(client, branchId, candidate.order_id);
+        // IDs, state/version and tasks belong to the same read-only snapshot.
+        // Concurrent ready/handoff/cancel becomes visible on the next poll.
+        const row = await readReservation(client, branchId, candidate.order_id);
         const item = {
           ...view(row),
           channel: row.snapshot.channel,
