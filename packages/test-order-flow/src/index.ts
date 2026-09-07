@@ -544,12 +544,16 @@ export class TestOrderFlow {
       )
         throw new TestFlowError('CONFLICT');
       const counts = (
-        await client.query<{ owned: string; active: string }>(
-          "SELECT count(*) FILTER(WHERE actor_id=$1 AND created_at>=clock_timestamp()-interval '24 hours')::text AS owned,count(*) FILTER(WHERE state NOT IN ('fulfilled','cancelled'))::text AS active FROM test_orders",
+        await client.query<{ owned: string; owned_active: string; active: string }>(
+          "SELECT count(*) FILTER(WHERE actor_id=$1 AND created_at>=clock_timestamp()-interval '24 hours')::text AS owned,count(*) FILTER(WHERE actor_id=$1 AND state NOT IN ('fulfilled','cancelled'))::text AS owned_active,count(*) FILTER(WHERE state NOT IN ('fulfilled','cancelled'))::text AS active FROM test_orders",
           [actor.id],
         )
       ).rows[0];
-      if (Number(counts?.owned) >= 20 || Number(counts?.active) >= 2000)
+      if (
+        Number(counts?.owned) >= 20 ||
+        Number(counts?.owned_active) >= 20 ||
+        Number(counts?.active) >= 2000
+      )
         throw new TestFlowError('RATE_LIMITED');
       const orderId = randomUUID();
       await client.query(
@@ -577,7 +581,10 @@ export class TestOrderFlow {
     return this.read(token, roles, async (client, actor) => {
       const rows = (
         await client.query<Record<string, unknown>>(
-          `${orderSelect} WHERE o.branch_id=$1 ${actor.role === 'customer' ? 'AND o.actor_id=$2' : ''} ORDER BY o.created_at DESC,o.id LIMIT 2000`,
+          // Published mobile clients accept a bounded full-snapshot response.
+          // All unfinished orders precede recent history; the per-actor active
+          // quota ensures none can be displaced by newer completed orders.
+          `${orderSelect} WHERE o.branch_id=$1 ${actor.role === 'customer' ? 'AND o.actor_id=$2' : ''} ORDER BY (o.state NOT IN ('fulfilled','cancelled')) DESC,o.created_at DESC,o.id LIMIT ${actor.role === 'customer' ? 20 : 2000}`,
           actor.role === 'customer' ? [actor.branch_id, actor.id] : [actor.branch_id],
         )
       ).rows;
