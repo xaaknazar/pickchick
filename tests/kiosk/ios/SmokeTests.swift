@@ -140,9 +140,14 @@ final class SmokeTests: XCTestCase {
         app.launch()
         assertScreen("menu", in: app)
         tap("kiosk-menu-checkout", in: app)
-        assertScreen("upsell", in: app)
-        tap("kiosk-upsell-continue", in: app)
+        // Source rule: 2 × 4 780 + 4 190 = 13 750 exceeds the 10 000 upsell threshold.
+        // The first 8 970 cart above must show upsell; this restored cart must skip it.
         assertScreen("cart", in: app)
+        XCTAssertFalse(element("kiosk-screen-upsell", in: app).exists)
+        let total = app.staticTexts.matching(NSPredicate(
+            format: "label MATCHES %@", "13[\\s\u{00a0}\u{202f}]750[\\s\u{00a0}\u{202f}]*₸"
+        )).firstMatch
+        XCTAssertTrue(total.waitForExistence(timeout: 10), "Restored total must remain 13 750 ₸")
         assertLabel("2", on: element("kiosk-cart-line-\(custom)-quantity", in: app))
         assertLabel("1", on: element("kiosk-cart-line-\(standard)-quantity", in: app))
         assertBounded("kiosk-cart-checkout", in: app)
