@@ -141,6 +141,10 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+      - name: Check deployment guards and operator maintenance installer
+        run: |
+          python3 -m unittest discover -s tests/operations -p 'test_*.py'
+          bash -n infra/staging/identity-cleanup-cron.sh
       - name: Build immutable image
         run: docker build -f infra/staging/Dockerfile --build-arg RELEASE_SHA=${{ github.sha }} -t pickchick-api:${{ github.sha }} .
       - name: Check pinned public gateway routing and request limits
