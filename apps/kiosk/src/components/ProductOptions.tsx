@@ -100,7 +100,8 @@ export function ModifierOptions({
               testID={`kiosk-modifier-${group.id}-${option.id}`}
               accessibilityRole="radio"
               accessibilityLabel={`${option.label}${delta ? `, ${delta}` : ''}`}
-              accessibilityState={{ selected, disabled: !option.available }}
+              accessibilityState={{ checked: selected, disabled: !option.available }}
+              aria-checked={selected}
               disabled={!option.available}
               onPress={() => update(option.id, selected && group.min === 0 ? 0 : 1)}
               style={[

@@ -157,6 +157,7 @@ export function MenuScreen({
                 testID={`kiosk-category-${key}`}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: category === key }}
+                aria-selected={category === key}
                 onPress={() => {
                   model.touch();
                   memory.category = key;
