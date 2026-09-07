@@ -30,7 +30,7 @@
 | `devices`, `device_credentials`, `device_assignments` | Тип, точка, станция/терминал, сертификат, expiry, версия, last_seen |
 | `customers`, `customer_phones` | Customer ID; телефон зашифрован; lookup HMAC нормализованного номера, verified_at |
 | `consents`, `customer_preferences` | Версия текста, purpose, канал, дата согласия/отзыва, язык |
-| `auth_sessions`, `otp_challenges` | Сессии/хеш refresh token; metadata challenge и anti-abuse. Секрет OTP допустим в Redis с TTL |
+| `auth_sessions`, `otp_challenges` | Отзывные сессии устройств/хеши вращаемых refresh tokens; OTP challenge и бюджет отправок в PostgreSQL; Redis — дополнительный кеш/лимитер |
 | `categories`, `products`, `product_variants`, `product_translations` | Меню, варианты порции, описание RU/KZ, вес, аллергены, media ID |
 | `modifier_groups`, `modifier_options`, `product_modifier_groups` | min/max, обязательность, кратность, надбавка, несовместимые варианты |
 | `combo_versions`, `combo_slots`, `combo_slot_options` | Состав комбо: количество фингерсов, соусы, напитки, допустимые замены |
@@ -66,6 +66,17 @@
 | `idempotency_keys`, `audit_log`, `reconciliation_runs`, `reconciliation_issues` | Повторы запросов, журнал изменений, сверка и разбор расхождений |
 
 Это доменная декомпозиция. Перед реализацией уточнить физические таблицы и индексы; не создавать весь P2 заранее. Зарезервировать расширяемость через идентификаторы и версии, а не сотни неиспользуемых полей.
+
+Для личного мобильного приложения `auth_sessions` должны сохраняться в
+PostgreSQL без планового календарного или idle-expiry по решению владельца от
+7 сентября 2026. Хранить customer/device binding, хеш refresh token, версию
+ротации, created/last-used/revoked timestamps и причину отзыва. Access token
+имеет короткий срок; его обновление не обращается к SMS-провайдеру. Секрет
+устройства хранится в Keychain/Keystore. Ротация должна учитывать параллельные
+запросы, потерю ответа и перезапуск клиента; один сетевой сбой не должен
+приводить к потере доступа. Отзыв и удаление аккаунта проверяются сервером;
+бесконечный неотзывный bearer token не является реализацией этого требования.
+Потеря Redis не аннулирует сессии и не обнуляет долговечный бюджет SMS.
 
 ## 3. Основные связи
 
