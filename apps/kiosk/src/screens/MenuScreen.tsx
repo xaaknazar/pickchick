@@ -116,7 +116,8 @@ export function MenuScreen({
   context: ScreenContext;
   memory: MenuMemory;
 }) {
-  const { px, columns } = useMetrics();
+  const { px, columns, width } = useMetrics();
+  const cardWidth = (width - px(24) * 2 - px(22) * (columns - 1)) / columns;
   const t = copy(context.locale);
   const [category, setCategory] = useState<Category>(memory.category);
   const list = useRef<FlatList<KioskProduct>>(null);
@@ -293,12 +294,14 @@ export function MenuScreen({
           ) : null
         }
         renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            busy={model.busy}
-            onOpen={() => model.openProduct(item.id)}
-            onAdd={() => quickAdd(item)}
-          />
+          <View style={{ width: cardWidth }}>
+            <ProductCard
+              product={item}
+              busy={model.busy}
+              onOpen={() => model.openProduct(item.id)}
+              onAdd={() => quickAdd(item)}
+            />
+          </View>
         )}
       />
       {
