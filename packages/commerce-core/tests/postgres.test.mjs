@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { setImmediate } from 'node:timers';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { CommerceRepository, digest } from '../dist/index.js';
+import { publishCatalog } from './catalog-fixture.mjs';
 
 // Only disposable schemas in explicitly local development PostgreSQL. Never
 // load a private .env or infer the live VPS connection from application config.
@@ -681,7 +683,8 @@ test('restricted runtime DML role completes commerce without DDL, deletes or acc
     let runtime;
     try {
       await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role};
-      GRANT SELECT ON branches,devices,menu_releases,commerce_provider_accounts TO ${role};
+      GRANT SELECT ON branches,devices,menu_releases,commerce_provider_accounts,catalog_publications,catalog_branch_heads TO ${role};
+      GRANT UPDATE(lock_anchor) ON catalog_branch_heads TO ${role};
       GRANT SELECT,INSERT ON commerce_quotes,commerce_orders,commerce_payment_intents,commerce_payment_attempts,
         commerce_captures,commerce_refunds,commerce_refund_effects,commerce_fiscal_documents,commerce_fiscal_effects,
         commerce_commands,commerce_provider_inbox,commerce_edge_inbox,commerce_reconciliation_issues,commerce_outbox TO ${role};
@@ -691,7 +694,10 @@ test('restricted runtime DML role completes commerce without DDL, deletes or acc
       url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
       runtime = createPool(url.toString(), 5);
       const repo = new CommerceRepository(runtime);
-      const quote = await repo.issueQuote(f.scope, randomUUID(), f.priced());
+      const legacy = await repo.issueQuote(f.scope, randomUUID(), f.priced());
+      assert.ok(legacy.snapshot.releaseId);
+      const pub = await publishCatalog(f);
+      const quote = await repo.issueQuote(f.scope, randomUUID(), pub.priced);
       const order = await repo.createOrder(f.scope, randomUUID(), {
         quoteId: quote.quoteId,
         fiscalAccountId: f.fiscal,
@@ -720,6 +726,17 @@ test('restricted runtime DML role completes commerce without DDL, deletes or acc
         occurredAt: now(),
       });
       assert.ok((await repo.readOrder(f.scope, order.orderId)).kitchenEffectId);
+      await assert.rejects(
+        runtime.query('UPDATE catalog_branch_heads SET published_version=NULL'),
+        { code: '42501' },
+      );
+      await assert.rejects(
+        runtime.query('UPDATE catalog_publications SET payload_hash=payload_hash'),
+        { code: '42501' },
+      );
+      await assert.rejects(runtime.query('UPDATE catalog_branch_heads SET lock_anchor=false'), {
+        code: '23514',
+      });
       await assert.rejects(runtime.query('DELETE FROM commerce_captures'), { code: '42501' });
       await assert.rejects(runtime.query('UPDATE commerce_provider_accounts SET enabled=false'), {
         code: '42501',
@@ -757,4 +774,264 @@ test('database guard independently blocks excess refund inserts and mutable acco
       { code: '23514' },
     );
     assert.equal((await f.repo.readOrder(f.scope, value.order.orderId)).money.reserved, '60000');
+  }));
+
+test('published quote verifies PG reference and full price/selection snapshot, no arbitrary tax defaults', () =>
+  fixture(async (f) => {
+    const pub = await publishCatalog(f);
+    const commandKey = randomUUID();
+    const duplicates = await Promise.all(
+      Array.from({ length: 4 }, () => f.repo.issueQuote(f.scope, commandKey, pub.priced)),
+    );
+    const issued = duplicates[0];
+    for (const duplicate of duplicates) assert.deepEqual(duplicate, issued);
+    assert.deepEqual(issued.snapshot.catalogReference, pub.reference);
+    assert.equal(issued.snapshot.totalMinor, '32000');
+    assert.equal(issued.snapshot.releaseId, undefined);
+    const row = (
+      await f.pool.query(
+        'SELECT release_id,catalog_version,catalog_payload_hash,catalog_published_at FROM commerce_quotes WHERE id=$1',
+        [issued.quoteId],
+      )
+    ).rows[0];
+    assert.equal(row.release_id, null);
+    assert.equal(row.catalog_version, 1);
+    assert.equal(row.catalog_payload_hash, pub.reference.payloadHash);
+    assert.equal(row.catalog_published_at.toISOString(), pub.reference.publishedAt);
+    const missing = globalThis.structuredClone(pub.priced);
+    delete missing.taxBinding;
+    await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), missing), { code: 'INVALID' });
+    const wrongTax = {
+      ...pub.priced,
+      taxBinding: { ...pub.priced.taxBinding, legalEntityId: randomUUID() },
+    };
+    await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), wrongTax), { code: 'FORBIDDEN' });
+    for (const [field, value] of [
+      ['payloadHash', '0'.repeat(64)],
+      ['publishedAt', '2000-01-01T00:00:00.000Z'],
+      ['version', 2],
+    ])
+      await assert.rejects(
+        f.repo.issueQuote(f.scope, randomUUID(), {
+          ...pub.priced,
+          catalogReference: { ...pub.reference, [field]: value },
+        }),
+        { code: 'CONFLICT' },
+      );
+    await assert.rejects(
+      f.repo.issueQuote(f.scope, randomUUID(), {
+        ...pub.priced,
+        catalogReference: { ...pub.reference, organizationId: randomUUID() },
+      }),
+      { code: 'FORBIDDEN' },
+    );
+    for (const mutate of [
+      (q) => {
+        q.lines[0].selectedDetails.ingredients.ru = 'Forged';
+      },
+      (q) => {
+        q.lines[0].selectedDetails.nutrition.declaration.energy_kcal = 99;
+      },
+      (q) => {
+        q.lines.find(
+          (l) => l.selectedDetails.modifiers.length,
+        ).selectedDetails.modifiers[0].label.ru = 'Forged';
+      },
+      (q) => {
+        q.lines.find(
+          (l) => l.selectedDetails.components.length,
+        ).selectedDetails.components[0].ingredients.ru = 'Forged';
+      },
+      (q) => {
+        q.lines[0].productId = 'other';
+      },
+      (q) => {
+        q.lines[0].lineId = randomUUID();
+      },
+    ]) {
+      const bad = globalThis.structuredClone(pub.priced);
+      mutate(bad);
+      await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), bad), { code: 'INVALID' });
+    }
+    const underpriced = globalThis.structuredClone(pub.priced),
+      changed = underpriced.lines.find((l) => l.selectedDetails.modifiers.length);
+    changed.baseUnitPriceMinor = '9000';
+    changed.unitPriceMinor = '10000';
+    changed.grossMinor = (10000n * BigInt(changed.quantity)).toString();
+    changed.totalMinor = changed.grossMinor;
+    underpriced.totalMinor = underpriced.lines
+      .reduce((sum, l) => sum + BigInt(l.totalMinor), 0n)
+      .toString();
+    underpriced.subtotalMinor = underpriced.totalMinor;
+    await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), underpriced), {
+      code: 'INVALID',
+    });
+    assert.equal(await f.count('commerce_quotes'), 1);
+  }));
+
+test('new publication rejects stale issuance but valid pinned quote and idempotent replay survive', () =>
+  fixture(async (f) => {
+    const pub = await publishCatalog(f),
+      key = randomUUID();
+    const quote = await f.repo.issueQuote(f.scope, key, pub.priced);
+    const newer = await publishCatalog(f, { version: 2, price: '20000' });
+    await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), pub.priced), {
+      code: 'CONFLICT',
+    });
+    assert.deepEqual(await f.repo.issueQuote(f.scope, key, pub.priced), quote);
+    await assert.rejects(f.repo.issueQuote(f.scope, key, newer.priced), { code: 'CONFLICT' });
+    const order = await f.repo.createOrder(f.scope, randomUUID(), {
+      quoteId: quote.quoteId,
+      fiscalAccountId: f.fiscal,
+    });
+    const view = await f.repo.readOrder(f.scope, order.orderId);
+    assert.equal(view.snapshot.catalogReference.version, 1);
+    assert.equal(view.snapshot.totalMinor, '32000');
+    const next = await f.repo.issueQuote(f.scope, randomUUID(), newer.priced);
+    assert.equal(next.snapshot.totalMinor, '62000');
+    await f.pool.query('UPDATE branches SET ordering_enabled=false WHERE id=$1', [
+      f.scope.branchId,
+    ]);
+    await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), newer.priced), {
+      code: 'NOT_READY',
+    });
+  }));
+
+test('publication lock is observed by concurrent issuance, with no stale quote committed', () =>
+  fixture(async (f) => {
+    const pub = await publishCatalog(f),
+      publisher = await f.pool.connect();
+    let started;
+    try {
+      await publisher.query('BEGIN');
+      const pid = (await publisher.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      await publisher.query('SELECT 1 FROM catalog_branch_heads WHERE branch_id=$1 FOR UPDATE', [
+        f.scope.branchId,
+      ]);
+      started = f.repo.issueQuote(f.scope, randomUUID(), pub.priced).then(
+        (value) => ({ value }),
+        (error) => ({ error }),
+      );
+      let waiting = false;
+      const deadline = Date.now() + 2500;
+      while (Date.now() < deadline) {
+        waiting = !!(
+          await f.pool.query(
+            'SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) LIMIT 1',
+            [pid],
+          )
+        ).rowCount;
+        if (waiting) break;
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      assert.equal(waiting, true, 'issueQuote must wait on the actual publication head lock');
+      await publishCatalog(f, { version: 2, db: publisher });
+      await publisher.query('COMMIT');
+      const result = await started;
+      assert.equal(result.error?.code, 'CONFLICT');
+      assert.equal(await f.count('commerce_quotes'), 0);
+    } finally {
+      await publisher.query('ROLLBACK');
+      publisher.release();
+      await started;
+    }
+  }));
+
+test('original selected options/nutrition/tax binding survive order, sale and refund after publication changes', () =>
+  fixture(async (f) => {
+    const pub = await publishCatalog(f),
+      quote = await f.repo.issueQuote(f.scope, randomUUID(), pub.priced),
+      order = await f.repo.createOrder(f.scope, randomUUID(), {
+        quoteId: quote.quoteId,
+        fiscalAccountId: f.fiscal,
+      });
+    await publishCatalog(f, { version: 2, price: '20000' });
+    await f.repo.confirmAdmission(f.edge, {
+      eventId: randomUUID(),
+      orderId: order.orderId,
+      reservationId: randomUUID(),
+      quoteDigest: quote.digest,
+    });
+    const attempt = await f.repo.startPaymentAttempt(f.scope, randomUUID(), {
+      orderId: order.orderId,
+      providerAccountId: f.payment,
+    });
+    await f.repo.observePayment(f.provider, observation(attempt));
+    let view = await f.repo.readOrder(f.scope, order.orderId);
+    assert.deepEqual(view.snapshot, quote.snapshot);
+    assert.deepEqual(view.fiscalDocuments[0].request.snapshot, quote.snapshot);
+    const refund = await f.repo.requestRefund(f.manager, randomUUID(), {
+      orderId: order.orderId,
+      captureId: view.captures[0].id,
+      amountMinor: '32000',
+      reason: 'Synthetic full refund',
+    });
+    await f.repo.observeRefund(f.provider, {
+      eventId: randomUUID(),
+      refundId: refund.refundId,
+      outcome: 'succeeded',
+      operationId: randomUUID(),
+      amountMinor: '32000',
+      occurredAt: now(),
+    });
+    view = await f.repo.readOrder(f.scope, order.orderId);
+    assert.equal(view.fiscalDocuments.length, 2);
+    for (const document of view.fiscalDocuments)
+      assert.deepEqual(document.request.snapshot, quote.snapshot);
+    assert.deepEqual(view.snapshot.taxBinding, pub.priced.taxBinding);
+    assert.ok(view.snapshot.lines.some((l) => l.selectedDetails.modifiers.length));
+    assert.ok(view.snapshot.lines.some((l) => l.selectedDetails.components.length));
+    await assert.rejects(
+      f.pool.query("UPDATE catalog_publications SET payload_hash=repeat('0',64)"),
+    );
+    await assert.rejects(
+      f.pool.query(
+        "UPDATE commerce_orders SET snapshot=jsonb_set(snapshot,'{lines,0,selectedDetails,name,ru}','\"Changed\"')",
+      ),
+    );
+  }));
+
+test('catalog quote command rollback is atomic and database reference guards reject forged dates', () =>
+  fixture(async (f) => {
+    const pub = await publishCatalog(f);
+    await f.pool.query(
+      "CREATE FUNCTION reject_catalog_quote_command() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='quote' THEN RAISE EXCEPTION 'synthetic rollback'; END IF; RETURN NEW; END $$",
+    );
+    await f.pool.query(
+      'CREATE TRIGGER reject_catalog_quote_command BEFORE INSERT ON commerce_commands FOR EACH ROW EXECUTE FUNCTION reject_catalog_quote_command()',
+    );
+    await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), pub.priced));
+    assert.equal(await f.count('commerce_quotes'), 0);
+    assert.equal(await f.count('commerce_commands'), 0);
+    await f.pool.query('DROP TRIGGER reject_catalog_quote_command ON commerce_commands');
+    const issued = await f.repo.issueQuote(f.scope, randomUUID(), pub.priced);
+    await assert.rejects(
+      f.pool.query(
+        "INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at) SELECT $1,organization_id,branch_id,principal_id,customer_id,NULL,total_minor,currency,jsonb_set(snapshot,'{catalogReference,publishedAt}','\"2000-01-01T00:00:00.000Z\"'),digest,created_at,expires_at,catalog_version,catalog_payload_hash,'2000-01-01' FROM commerce_quotes WHERE id=$2",
+        [randomUUID(), issued.quoteId],
+      ),
+      { code: '23514' },
+    );
+    for (const mutate of [
+      (snapshot) => {
+        delete snapshot.taxBinding;
+      },
+      (snapshot) => {
+        snapshot.lines[0].taxCode = ' ';
+      },
+      (snapshot) => {
+        snapshot.taxBinding.legalEntityId = randomUUID();
+      },
+    ]) {
+      const snapshot = globalThis.structuredClone(issued.snapshot);
+      mutate(snapshot);
+      await assert.rejects(
+        f.pool.query(
+          'INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at) SELECT $1,organization_id,branch_id,principal_id,customer_id,NULL,total_minor,currency,$3,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at FROM commerce_quotes WHERE id=$2',
+          [randomUUID(), issued.quoteId, snapshot],
+        ),
+        { code: '23514' },
+      );
+    }
+    assert.equal(await f.count('commerce_quotes'), 1);
   }));

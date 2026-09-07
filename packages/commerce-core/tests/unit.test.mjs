@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { digest, priceSnapshot, MinorSchema } from '../dist/index.js';
+import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
+import { catalogPayloadHash } from '@pickchick/catalog-pricing';
 
 const input = () => ({
   releaseId: randomUUID(),
@@ -54,4 +56,51 @@ test('duplicate lines, excess discounts, zero settlement and edge-owned channels
   assert.throws(() => priceSnapshot(discount), { code: 'INVALID' });
   for (const channel of ['kiosk', 'pos'])
     assert.throws(() => priceSnapshot({ ...input(), channel }), { code: 'INVALID' });
+});
+
+function published() {
+  const payload = catalogPayload();
+  return pricePublication(
+    {
+      organizationId: randomUUID(),
+      branchId: randomUUID(),
+      version: 1,
+      payloadHash: catalogPayloadHash(payload),
+      publishedAt: new Date().toISOString(),
+    },
+    payload,
+    randomUUID(),
+  );
+}
+test('catalog quote requires explicit tax approval and every line code, mutually exclusive source', () => {
+  const quote = published();
+  assert.equal(priceSnapshot(quote).totalMinor, '32000');
+  const missing = globalThis.structuredClone(quote);
+  delete missing.taxBinding;
+  assert.throws(() => priceSnapshot(missing), { code: 'INVALID' });
+  const code = globalThis.structuredClone(quote);
+  delete code.lines[0].taxCode;
+  assert.throws(() => priceSnapshot(code), { code: 'INVALID' });
+  assert.throws(() => priceSnapshot({ ...quote, releaseId: randomUUID() }), { code: 'INVALID' });
+  assert.throws(() => priceSnapshot({ ...quote, ttlSeconds: 301 }), { code: 'INVALID' });
+  assert.throws(() => priceSnapshot({ ...quote, channel: 'kiosk' }), { code: 'INVALID' });
+});
+test('published arithmetic validates input totals and copies selected details without aliasing', () => {
+  const original = published(),
+    snapshot = priceSnapshot(original);
+  const name = snapshot.lines[0].selectedDetails.name.ru;
+  original.lines[0].selectedDetails.name.ru = 'Changed externally';
+  assert.equal(snapshot.lines[0].selectedDetails.name.ru, name);
+  for (const field of [
+    'grossMinor',
+    'totalMinor',
+    'baseUnitPriceMinor',
+    'modifiersUnitPriceMinor',
+  ]) {
+    const bad = published();
+    bad.lines[0][field] = '1';
+    assert.throws(() => priceSnapshot(bad), { code: 'INVALID' });
+  }
+  for (const field of ['subtotalMinor', 'totalMinor'])
+    assert.throws(() => priceSnapshot({ ...published(), [field]: '1' }), { code: 'INVALID' });
 });

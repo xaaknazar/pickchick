@@ -1,6 +1,7 @@
 # Коммерческое ядро PostgreSQL
 
-`@pickchick/commerce-core`, migration `008_cloud_commerce_core.sql` — внутренний
+`@pickchick/commerce-core`, migrations `008_cloud_commerce_core.sql` и
+`012_cloud_commerce_catalog.sql` — внутренний
 репозиторий коммерческих состояний для **cloud-owned mobile** заказов. Это
 следующий проверяемый этап после TEST-контура; публичный checkout, настоящие
 списания и чеки не включены. Ни одна возможность Kaspi/ККМ не предполагается
@@ -110,10 +111,13 @@ POS/kiosk остаются edge-owned по исходному ТЗ и не пр�
 не готовый безопасный payload для табло или публичного endpoint.
 
 `issueQuote` не принимает недоверенную клиентскую цену. Пакет проверяет
-арифметику и принадлежность immutable menu release точке, **но не заменяет**
-будущий pricing service: активное меню/часы/стоп-листы, модификаторы, промо,
-Чики, налоги и маршруты готовит доверенный server pricing layer. Customer route
-сначала вызывает его и только затем этот порт. Бесплатные/смешанные расчёты,
+арифметику legacy foundation release либо полностью сверяет результат
+`@pickchick/catalog-pricing` с опубликованным меню PostgreSQL. Новый порт
+сохраняет выбранные модификаторы и снимок состава. Часы, оперативные складские
+стоп-листы, промо, Чики, утверждение налогов и маршруты требуют последующих
+интеграций. Будущий customer route принимает только SKU/количество/выбор опций,
+вызывает серверный pricing и получает налоговые настройки из доверенного
+хранилища перед вызовом этого внутреннего порта. Бесплатные/смешанные расчёты,
 Яндекс external settlement и наличные не реализованы текущей версией.
 
 Фискальный `request` — внутренний snapshot и intent, не формат Webkassa/Kaspi.
@@ -122,6 +126,58 @@ POS/kiosk остаются edge-owned по исходному ТЗ и не пр�
 скидкам и Чикам. Текущий финансовый refund по capture не принимает решение о
 возвращаемом товаре/количестве и не создаёт его автоматически. Нельзя просто
 отправить весь sale snapshot как строки частичного возврата.
+
+## Связь с опубликованным каталогом
+
+Есть два взаимоисключающих входа `issueQuote`:
+
+- Legacy `releaseId` + прежние priced lines: совместим с foundation fixtures и
+  прежним внутренним контрактом. Это доверенный технический порт, не fallback
+  публичного customer API и не обход проверок опубликованного каталога.
+- `catalogReference { organizationId, branchId, version, payloadHash, publishedAt }`
+  - полный результат `@pickchick/catalog-pricing`, обязательный `taxBinding`
+    и `taxCode` каждой строки. Нельзя одновременно передать `releaseId`.
+
+`taxBinding = { legalEntityId, approvalReference, version }` приходит из явно
+утверждённой административной конфигурации. Привязка к юридическому лицу точки
+проверяется в PostgreSQL. Пакет не назначает налоговые коды, не утверждает их
+законность и не принимает их от покупателя. Отсутствие binding/кода даёт `INVALID`,
+чужое юридическое лицо — `FORBIDDEN`. До настройки и утверждения налогов real
+checkout остаётся закрытым. Значения `SYNTHETIC-TAX` и approval в тестах — только
+локальные фикстуры, не настоящие настройки ресторана.
+
+При первом выпуске quote проверяются ordering_enabled точки, область reference,
+текущая опубликованная версия, hash и дата публикации. Head блокируется `FOR SHARE`;
+публикация использует `FOR UPDATE` той же строки. Поэтому запрос, ожидавший
+завершения новой публикации, не выдаст quote по старой версии. PostgreSQL FK
+связывает reference со snapshot публикации; trigger проверяет дату и текущий head.
+Даты JSON имеют миллисекунды, PostgreSQL сохраняет микросекунды: сравнивается
+именно `date_trunc('milliseconds', published_at)`, без ложных конфликтов.
+
+Затем из SKU/количества и выбранных опций восстанавливается cart и повторно
+вызывается тот же чистый pricing kernel по **payload из PostgreSQL**. Сравнивается
+весь результат: line ID, названия, база, option delta, gross/discount/total,
+компоненты, ingredients, declarations аллергенов/КБЖУ, статус достоверности и
+итоговые значения. Арифметически согласованная подмена цены или состава также
+отклоняется. Tax binding не является частью меню и проверяется отдельно.
+
+Политика фиксации цены: published quote действует ровно 300 секунд с момента
+выдачи. Смена публикации не изменяет уже выданный quote; его можно потребить до
+expiry с исходной ценой и составом. После смены версии **новый** quote по старому
+reference даёт `CONFLICT`. Повтор выполненной команды возвращает тот же результат,
+в том числе после смены публикации/истечения времени; это не продлевает срок
+первого создания заказа. Заказ всё равно проходит durable admission и финансовые
+проверки. Аварийное прекращение приёма уже выданных quote требует отдельной
+политики admission/operational stop; изменение меню само по себе таким отзывом
+не является.
+
+В quote, order и исходном snapshot sale/refund сохраняются `selectedDetails`,
+`taxBinding` и коды строк. Новая публикация не переписывает эти сведения.
+`selectedDetails` содержит названия RU/KK, serving/ingredients/вес/объём, image key,
+kind, источник, декларации аллергенов и КБЖУ с признаком проверки, выбранные
+модификаторы и агрегированные компоненты. Сохранение непроверенной декларации
+не делает её проверенной. Refund request содержит **исходный** снимок заказа;
+распределение частичного товарного возврата по строкам остаётся отдельной задачей.
 
 ## Worker и неопределённость
 
@@ -141,12 +197,12 @@ external reference из intent до обращения к банку. Lease/ACK 
 
 ## Проверки и запуск
 
-Локальная проверка 7 сентября 2026: **21/21 PASS** (4 unit + 17 PostgreSQL),
-TypeScript build/typecheck и ESLint прошли. Финальный прогон отказных сценариев
-занял 4.514 с. Formatter и staged diff проверяются перед коммитом; общие
-HTTP/CI проверки после объединения с auth 007 выполняются отдельно.
+Проверка после catalog bridge: **28/28 PASS** (6 unit + 22 PostgreSQL),
+TypeScript build/typecheck, ESLint, formatter и staged diff прошли. Общие HTTP/CI
+проверки объединённой ветки выполняются отдельно.
 
 ```sh
+pnpm --filter @pickchick/catalog-pricing... build
 pnpm --filter @pickchick/commerce-core build
 pnpm --filter @pickchick/commerce-core test
 pnpm --filter @pickchick/commerce-core test:integration
@@ -164,26 +220,39 @@ VPS, SMS, банк, ККМ, Apple и реальные клиенты этими 
 чужой principal/branch/account, unknown/stale statuses, двойной реальный capture,
 partial capture, полный/частичный денежный refund, поздний refund success,
 повторный фактический чек, immutable guards, полный rollback позднего сбоя,
-параллельные outbox leases/stale ACK и ограниченная runtime роль.
+параллельные outbox leases/stale ACK и ограниченная runtime роль. Для catalog
+bridge дополнительно проверены concurrent issuance/publication lock, старый
+reference и pinned TTL, подмена цены/описания/КБЖУ, nullable foundation reference,
+точный перенос состава в sale/refund, налоговый binding, timestamp guard и
+откат quote вместе с command receipt.
 
 ## Миграция, права и откат
 
 008 добавляет отдельные `commerce_*` таблицы/триггеры/индексы и не меняет данные
-TEST-клиентов. До развёртывания объединить migration 007 и 008 в правильном
-порядке: checksum runner запрещает добавлять 007 после уже применённой 008.
+TEST-клиентов. 012 расширяет quote reference, добавляет FK/guards и безопасный
+lock_anchor на catalog head, сохраняя старые foundation quotes. Применять полный
+последовательный набор миграций, включая 009, 010, 011 перед 012; checksum runner
+запрещает позднее добавление более старых версий.
 На existing deploy сначала fresh backup+restore drill, затем миграции отдельной
 ролью. Публичные capability flags и banking workers остаются выключенными до
-приёмки интеграционного слоя. Этот этап не развёртывал 008 на VPS.
+приёмки интеграционного слоя. Этот этап не развёртывал новые миграции на VPS.
 
 Runtime не получает DDL, DELETE, UPDATE ledger/snapshot, изменение provider
 identity или управление account enabled. Ему нужны SELECT справочников
 branches/devices/menu/accounts; SELECT/INSERT коммерческих таблиц кроме
 `commerce_provider_accounts`; UPDATE только
 orders/intents/attempts/refunds/fiscal_documents/outbox; USAGE sequence outbox.
+Для published reference дополнительно нужны SELECT catalog_publications и
+catalog_branch_heads, UPDATE(lock_anchor) **только этого столбца** на head.
+UPDATE публикации, published_version и draft_revision commerce runtime не нужны.
 Точный воспроизводимый grant-набор проверяется в PG suite. Grants выдаёт
 deployment layer явным списком после миграции; migration не меняет общие роли.
 
-Rollback приложения сохраняет migration 008 и всю финансовую историю. Не
+Rollback приложения сохраняет migrations 008/012 и всю финансовую историю.
+Legacy issueQuote продолжает работать с nullable release_id схемой. Уже созданные
+published quotes нельзя преобразовывать в выдуманные foundation release UUID;
+старый runtime не должен впервые оформлять новые published quotes без этой
+проверки каталога. Закрыть новый checkout до проверки совместимости при откате. Не
 удалять capture/refund/issued/inbox/outbox и не откатывать деньги восстановлением
 старой БД. При восстановлении после настоящих операций сначала сверить журнал
 провайдера и pending work, затем возобновлять dispatch. Старое приложение
