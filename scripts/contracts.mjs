@@ -21,6 +21,14 @@ import {
   OrderingStateSchema,
   StopCommandSchema,
   StopStateSchema,
+  FulfillmentConfigSchema,
+  FulfillmentSummarySchema,
+  FulfillmentKitchenOrderSchema,
+  FulfillmentOrderSchema,
+  FulfillmentKitchenSchema,
+  FulfillmentStationsSchema,
+  FulfillmentDisplaySchema,
+  FulfillmentActionSchema,
   jsonSchema,
 } from '@pickchick/contracts';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
@@ -592,6 +600,106 @@ Object.assign(openapi.paths, {
   '/v1/catalog/branches/{branchId}': {
     get: catalogOperation('readPublishedCatalog', 'CatalogPublic', undefined, true, true),
   },
+});
+
+// Staff-only LAN kitchen. No cloud ingress, setup or payment contract is exposed.
+Object.assign(openapi.components.schemas, {
+  FulfillmentConfig: jsonSchema(FulfillmentConfigSchema),
+  FulfillmentSummary: jsonSchema(FulfillmentSummarySchema),
+  FulfillmentKitchenOrder: jsonSchema(FulfillmentKitchenOrderSchema),
+  FulfillmentOrder: jsonSchema(FulfillmentOrderSchema),
+  FulfillmentKitchen: jsonSchema(FulfillmentKitchenSchema),
+  FulfillmentStations: jsonSchema(FulfillmentStationsSchema),
+  FulfillmentDisplay: jsonSchema(FulfillmentDisplaySchema),
+  FulfillmentAction: jsonSchema(FulfillmentActionSchema),
+});
+openapi.components.securitySchemes.staffTerminal = {
+  type: 'apiKey',
+  in: 'header',
+  name: 'X-Terminal-Id',
+  description: 'Must match the active staff session terminal; does not replace the bearer secret.',
+};
+function fulfillmentOperation(method, operationId, result, input, options = {}, parameters = []) {
+  const operation = staffOperation(method, operationId, result, input, options)[method];
+  operation.security = [{ staffBearer: [], staffSession: [], staffTerminal: [] }];
+  operation.parameters.push(...parameters);
+  operation.description =
+    'Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority.';
+  operation.responses[503] = response('Error', 'Device binding or service unavailable');
+  return { [method]: operation };
+}
+const stationParameter = {
+  name: 'stationId',
+  in: 'query',
+  required: false,
+  description:
+    'Required for kitchen staff; must be assigned to that staff. Shift manager may omit to read its whole branch.',
+  schema: { type: 'string', format: 'uuid' },
+};
+const limitParameter = {
+  name: 'limit',
+  in: 'query',
+  required: false,
+  schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+};
+Object.assign(openapi.paths, {
+  '/edge/v1/fulfillment/config': get('getLocalFulfillmentConfig', 'FulfillmentConfig'),
+  '/edge/v1/fulfillment/stations': fulfillmentOperation(
+    'get',
+    'getLocalFulfillmentStations',
+    'FulfillmentStations',
+  ),
+  '/edge/v1/fulfillment/kitchen': fulfillmentOperation(
+    'get',
+    'getLocalKitchenQueue',
+    'FulfillmentKitchen',
+    undefined,
+    {},
+    [
+      stationParameter,
+      limitParameter,
+      {
+        name: 'afterOrderId',
+        in: 'query',
+        required: false,
+        schema: { type: 'string', format: 'uuid' },
+        description: 'Continue the returned cursor until null; begin again for the next poll.',
+      },
+    ],
+  ),
+  '/edge/v1/fulfillment/orders/{orderId}': fulfillmentOperation(
+    'get',
+    'getLocalFulfillmentOrder',
+    'FulfillmentOrder',
+    undefined,
+    { orderId: true },
+    [stationParameter],
+  ),
+  '/edge/v1/fulfillment/orders/{orderId}/actions': fulfillmentOperation(
+    'post',
+    'actOnLocalFulfillment',
+    'FulfillmentSummary',
+    'FulfillmentAction',
+    { orderId: true, idempotent: true },
+  ),
+  '/edge/v1/fulfillment/display': fulfillmentOperation(
+    'get',
+    'getLocalFulfillmentDisplay',
+    'FulfillmentDisplay',
+    undefined,
+    {},
+    [
+      limitParameter,
+      {
+        name: 'afterNumber',
+        in: 'query',
+        required: false,
+        schema: { type: 'string', pattern: '^(0|[1-9][0-9]{0,18})$', default: '0' },
+        description:
+          'PostgreSQL bigint decimal, at most 9223372036854775807. Response has only number/state and cursor.',
+      },
+    ],
+  ),
 });
 
 for (const [filename, value] of [

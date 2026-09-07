@@ -238,3 +238,5 @@ export type LocalOrder = z.infer<typeof LocalOrderSchema>;
 
 // OpenAPI and event JSON Schema are generated from these runtime schemas.
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);
+
+export * from './fulfillment.js';

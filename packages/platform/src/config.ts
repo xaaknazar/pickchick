@@ -14,6 +14,8 @@ export interface ServiceConfig {
   customerAuthEnabled?: boolean;
   catalogAdminEnabled?: boolean;
   trustedProxyIps?: string[];
+  edgeFulfillmentEnabled?: boolean;
+  edgeDeviceId?: string;
 }
 
 function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
@@ -71,6 +73,13 @@ export function loadConfig(
     throw new Error('CATALOG_ADMIN_ENABLED must be true or false');
   if (catalogAdmin === 'true' && service !== 'api')
     throw new Error('Catalog editor belongs to cloud API');
+  const fulfillment = env.EDGE_FULFILLMENT_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(fulfillment))
+    throw new Error('EDGE_FULFILLMENT_ENABLED must be true or false');
+  if (fulfillment === 'true' && service !== 'edge')
+    throw new Error('Local fulfillment belongs to the edge service');
+  if (fulfillment === 'true' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
+    throw new Error('Enabled local fulfillment requires EDGE_DEVICE_ID');
   const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
   if (
     proxyIps &&
@@ -101,6 +110,9 @@ export function loadConfig(
     httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
     ...(customerAuth === 'true' ? { customerAuthEnabled: true } : {}),
     ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
+    ...(fulfillment === 'true'
+      ? { edgeFulfillmentEnabled: true, edgeDeviceId: env.EDGE_DEVICE_ID! }
+      : {}),
     ...(proxyIps ? { trustedProxyIps: proxyIps } : {}),
   };
   if (service === 'edge') {

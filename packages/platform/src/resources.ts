@@ -128,6 +128,31 @@ export class Resources implements OnApplicationShutdown {
           ]);
           await this.pool.query('SELECT branch_id FROM active_menu LIMIT 1');
           await this.pool.query('SELECT id FROM local_orders LIMIT 1');
+          if (this.config.edgeFulfillmentEnabled) {
+            const fulfillment = await this.pool.query(
+              'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+              ['edge', '005_edge_fulfillment.sql'],
+            );
+            if (fulfillment.rowCount !== 1)
+              throw new Error('Local fulfillment schema is unavailable');
+            for (const table of [
+              'fulfillment_config',
+              'fulfillment_stations',
+              'fulfillment_station_grants',
+              'fulfillment_routing',
+              'fulfillment_reservations',
+              'fulfillment_tasks',
+              'fulfillment_inbox',
+              'fulfillment_commands',
+              'fulfillment_outbox',
+            ])
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+            const binding = await this.pool.query(
+              'SELECT 1 FROM fulfillment_config c JOIN fulfillment_routing r ON r.branch_id=c.branch_id AND r.version=c.active_routing_version WHERE c.branch_id=$1 AND c.device_id=$2',
+              [this.config.branchId, this.config.edgeDeviceId],
+            );
+            if (binding.rowCount !== 1) throw new Error('Local fulfillment binding is unavailable');
+          }
           if (assigned.rowCount === 1) schema = 'up';
         }
       }
