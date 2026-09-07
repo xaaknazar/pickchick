@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "date": "2026-09-07",
+  "review_source_sha": "e45a92a03a3cf338b8c678d26f27f54a18150c58",
+  "api_source_sha": "5d3eead08c392bdbb60eae64a0bee4e883bb0af3",
+  "api_image_id": "sha256:c6ae814696ed7737b41fa1b476f73cca249d41c0d3bc6b753816a309f94e3ad6",
+  "migrator_source_sha": "ee26a3c7fd307a69fe55d811121798d483ad5b11",
+  "migration_range": "001-013",
+  "migration_files_unchanged_at_review_source": true,
+  "old_provision_executed_only_on_empty_database": true,
+  "runtime_acl_entries_before_and_after_restore": 48,
+  "runtime_acl_sha256": "91fd1721fdc105690bc75218090a2d70cb92765f1231fd9bd72e8fb6056f9f46",
+  "runtime_acl_restore_generator": "infra/staging/release-market.py:acl_restore_sql",
+  "api_restarted_after_acl_restore": true,
+  "readiness": {
+    "service": "api",
+    "ready": true,
+    "degraded": false,
+    "dependencies": {
+      "database": "up",
+      "schema": "up",
+      "redis": "up"
+    }
+  },
+  "legacy_capabilities_identical": true,
+  "legacy_catalogs_identical": true,
+  "catalogs": {
+    "mockup-v0.2": {
+      "sha256": "4eccaf8d5da1e4a4eb479d119eca7cf0f1c75648e7d8d1def19b3076c3e5e3b4",
+      "bytes": 3147
+    },
+    "mockup-v0.3": {
+      "sha256": "6a19a70ae782948d69a74c6a082f8eca279f59ce5e3fe761a49c6578505a49d8",
+      "bytes": 52955
+    }
+  },
+  "actors_created": false,
+  "orders_created": false,
+  "vps_accessed": false,
+  "real_providers_used": false
+}
