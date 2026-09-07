@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import {
+  PricedCatalogQuoteSchema,
+  PricedCatalogLineSchema,
+} from '@pickchick/catalog-pricing/model';
 
 export class CommerceError extends Error {
   constructor(
@@ -43,7 +47,7 @@ export const LineSchema = z.strictObject({
   taxCode: z.string().min(1).max(32),
   description: z.string().max(2000).default(''),
 });
-export const PricedQuoteSchema = z.strictObject({
+export const FoundationPricedQuoteSchema = z.strictObject({
   releaseId: uuid,
   customerId: uuid.nullable().default(null),
   channel: z.literal('mobile'),
@@ -52,6 +56,23 @@ export const PricedQuoteSchema = z.strictObject({
   ttlSeconds: z.number().int().min(1).max(900),
   lines: z.array(LineSchema).min(1).max(200),
 });
+export const TaxBindingSchema = z.strictObject({
+  legalEntityId: uuid,
+  approvalReference: z.string().trim().min(3).max(250),
+  version: z.number().int().positive().max(2147483647),
+});
+export const PublishedCatalogQuoteSchema = PricedCatalogQuoteSchema.extend({
+  channel: z.literal('mobile'),
+  taxBinding: TaxBindingSchema,
+  lines: z
+    .array(PricedCatalogLineSchema.extend({ taxCode: z.string().trim().min(1).max(32) }))
+    .min(1)
+    .max(200),
+});
+export const PricedQuoteSchema = z.union([
+  FoundationPricedQuoteSchema,
+  PublishedCatalogQuoteSchema,
+]);
 export type ServerPricedQuote = z.input<typeof PricedQuoteSchema>;
 export function parse<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
@@ -87,10 +108,24 @@ export function priceSnapshot(input: unknown) {
     const gross = BigInt(line.unitPriceMinor) * BigInt(line.quantity);
     const net = gross - BigInt(line.discountMinor);
     if (net < 0n || gross > MAX_MINOR) throw new CommerceError('INVALID');
+    if (
+      'baseUnitPriceMinor' in line &&
+      (BigInt(line.baseUnitPriceMinor) + BigInt(line.modifiersUnitPriceMinor) !==
+        BigInt(line.unitPriceMinor) ||
+        line.grossMinor !== gross.toString() ||
+        line.totalMinor !== net.toString())
+    )
+      throw new CommerceError('INVALID');
     total += net;
     return { ...line, grossMinor: gross.toString(), totalMinor: net.toString() };
   });
   if (total <= 0n || total > MAX_MINOR) throw new CommerceError('INVALID');
+  if ('catalogReference' in quote) {
+    if (quote.totalMinor !== total.toString() || quote.subtotalMinor !== total.toString())
+      throw new CommerceError('INVALID');
+    // Preserve the discriminated catalog shape for the database verification port.
+    return { ...quote, totalMinor: total.toString() };
+  }
   return { ...quote, lines, totalMinor: total.toString() };
 }
 export const CreateOrderSchema = z.strictObject({ quoteId: uuid, fiscalAccountId: uuid });

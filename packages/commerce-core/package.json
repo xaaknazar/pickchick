@@ -17,11 +17,13 @@
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",
-    "zod": "4.5.4"
+    "zod": "4.5.4",
+    "@pickchick/catalog-pricing": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",
     "@types/node": "24.13.3",
-    "@pickchick/test-fixtures": "workspace:*"
+    "@pickchick/test-fixtures": "workspace:*",
+    "@pickchick/catalog-admin": "workspace:*"
   }
 }

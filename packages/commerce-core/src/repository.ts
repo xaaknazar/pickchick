@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { transaction } from '@pickchick/database';
+import { priceCatalogSnapshot, CatalogPricingError } from '@pickchick/catalog-pricing';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import {
   CommerceError,
@@ -341,16 +342,94 @@ export class CommerceRepository {
     const quote = priceSnapshot(input);
     return this.command(scope, key, 'quote', quote, async (client, actor) => {
       const branch = (
-        await client.query<{ legal_entity_id: string }>(
-          'SELECT legal_entity_id FROM branches WHERE id=$1',
+        await client.query<{ legal_entity_id: string; ordering_enabled: boolean }>(
+          'SELECT legal_entity_id,ordering_enabled FROM branches WHERE id=$1',
           [actor.branchId],
         )
       ).rows[0]!;
-      const release = await client.query(
-        'SELECT 1 FROM menu_releases WHERE id=$1 AND branch_id=$2',
-        [quote.releaseId, actor.branchId],
-      );
-      if (!release.rowCount) throw new CommerceError('NOT_FOUND');
+      if ('catalogReference' in quote) {
+        const ref = quote.catalogReference;
+        if (!branch.ordering_enabled) throw new CommerceError('NOT_READY');
+        if (
+          ref.organizationId !== actor.organizationId ||
+          ref.branchId !== actor.branchId ||
+          quote.taxBinding.legalEntityId !== branch.legal_entity_id
+        )
+          throw new CommerceError('FORBIDDEN');
+        // Publication takes FOR UPDATE on the same mutable head. Minimal runtime
+        // UPDATE(lock_anchor) permits this lock, without permission to publish.
+        const head = (
+          await client.query<{ published_version: number | null }>(
+            'SELECT published_version FROM catalog_branch_heads WHERE branch_id=$1 AND organization_id=$2 FOR SHARE',
+            [actor.branchId, actor.organizationId],
+          )
+        ).rows[0];
+        if (!head) throw new CommerceError('NOT_FOUND');
+        if (head.published_version !== ref.version) throw new CommerceError('CONFLICT');
+        const publication = (
+          await client.query<{ payload: unknown; payload_hash: string; published_at: Date }>(
+            'SELECT payload,payload_hash,published_at FROM catalog_publications WHERE branch_id=$1 AND organization_id=$2 AND version=$3',
+            [actor.branchId, actor.organizationId, ref.version],
+          )
+        ).rows[0];
+        if (!publication) throw new CommerceError('NOT_FOUND');
+        if (
+          publication.payload_hash !== ref.payloadHash ||
+          publication.published_at.toISOString() !== ref.publishedAt
+        )
+          throw new CommerceError('CONFLICT');
+        const cart = {
+          catalog_version: ref.version,
+          service_mode: quote.serviceMode,
+          items: quote.lines.map((line) => ({
+            sku: line.sku,
+            quantity: line.quantity,
+            selections: line.selectedDetails.modifiers.map((option) => ({
+              group_id: option.groupId,
+              option_id: option.optionId,
+              quantity: option.quantity,
+            })),
+          })),
+        };
+        let repriced;
+        try {
+          repriced = priceCatalogSnapshot(
+            {
+              reference: ref,
+              orderingEnabled: branch.ordering_enabled,
+              payload: publication.payload,
+            },
+            {
+              organizationId: actor.organizationId,
+              branchId: actor.branchId,
+              customerId: quote.customerId,
+              channel: 'mobile',
+            },
+            cart,
+          );
+        } catch (error) {
+          if (error instanceof CatalogPricingError) throw new CommerceError('INVALID');
+          throw error;
+        }
+        // Prices, SKU/selection identity, components, allergens and nutrition
+        // must match the immutable PG publication, not just internally add up.
+        const comparable = {
+          ...quote,
+          lines: quote.lines.map(({ taxCode, ...line }) => {
+            void taxCode;
+            return line;
+          }),
+        };
+        const { taxBinding, ...withoutTax } = comparable;
+        void taxBinding;
+        if (digest(withoutTax) !== digest(repriced)) throw new CommerceError('INVALID');
+      } else {
+        const release = await client.query(
+          'SELECT 1 FROM menu_releases WHERE id=$1 AND branch_id=$2',
+          [quote.releaseId, actor.branchId],
+        );
+        if (!release.rowCount) throw new CommerceError('NOT_FOUND');
+      }
       const snapshot = {
         ...quote,
         organizationId: actor.organizationId,
@@ -359,19 +438,22 @@ export class CommerceRepository {
       };
       const id = randomUUID();
       const result = await client.query<{ created_at: Date; expires_at: Date }>(
-        `INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,statement_timestamp(),statement_timestamp()+$11*interval '1 second') RETURNING created_at,expires_at`,
+        `INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,statement_timestamp(),statement_timestamp()+$11*interval '1 second',$12,$13,$14) RETURNING created_at,expires_at`,
         [
           id,
           actor.organizationId,
           actor.branchId,
           actor.principalId,
           quote.customerId,
-          quote.releaseId,
+          'releaseId' in quote ? quote.releaseId : null,
           quote.totalMinor,
           quote.currency,
           snapshot,
           digest(snapshot),
           quote.ttlSeconds,
+          'catalogReference' in quote ? quote.catalogReference.version : null,
+          'catalogReference' in quote ? quote.catalogReference.payloadHash : null,
+          'catalogReference' in quote ? quote.catalogReference.publishedAt : null,
         ],
       );
       return {
