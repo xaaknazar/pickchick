@@ -74,6 +74,24 @@ def assert_bounded(page, identifier, width, height, minimum=44):
     return rect
 
 
+def capture(page, filename):
+    # Screen visibility precedes Expo Image decoding after a navigation. Capture
+    # only after visible images are decoded, so blank loading frames cannot pass
+    # as visual evidence. Broken visible assets fail instead of being hidden.
+    page.evaluate('() => document.fonts.ready')
+    page.wait_for_function("""() => [...document.images].filter(image => {
+        const r = image.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 &&
+            r.top < innerHeight && r.left < innerWidth;
+    }).every(image => image.complete && image.naturalWidth > 0)""")
+    page.evaluate('''async () => {
+        await Promise.all([...document.images].filter(image => image.complete && image.naturalWidth)
+            .map(image => image.decode()));
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }''')
+    page.screenshot(path=str(OUTPUT / filename))
+
+
 def assert_no_overflow(page, width):
     geometry = page.evaluate('''() => ({viewport: innerWidth,
         document: document.documentElement.scrollWidth, body: document.body.scrollWidth})''')
@@ -103,6 +121,7 @@ class Fixture:
         self.requests = []
         self.unexpected = []
         self.lose_create = False
+        self.drop_create_request = False
         self.block_order_reads = False
 
     def quote(self, body):
@@ -215,6 +234,10 @@ class Fixture:
                 value = self.quote(body)
                 self.quotes[value['quote_id']] = value
             elif path == '/v1/test/orders':
+                if self.drop_create_request:
+                    self.drop_create_request = False
+                    route.abort('failed')
+                    return
                 node_module('contracts.js', 'module.TestCreateOrderSchema.parse(input)', body)
                 value = {**META, 'order_id': str(uuid4()), 'number': f'T-{900001 + len(self.orders):06}',
                          'branch_id': self.catalog['branch_id'], 'version': 1,
@@ -330,14 +353,14 @@ class KioskUI(unittest.TestCase):
                 assert_bounded(page, 'kiosk-start', width, height)
                 self.assertEqual(page.locator('video[controls]').count(), 0)
                 self.assertEqual(page.get_by_test_id('hero-video-toggle').count(), 0)
-                page.screenshot(path=str(OUTPUT / f'welcome-{width}.png'))
+                capture(page, f'welcome-{width}.png')
                 element(page, 'kiosk-start').click()
                 screen(page, 'mode')
                 here = assert_bounded(page, 'kiosk-mode-dine-in', width, height)
                 take = assert_bounded(page, 'kiosk-mode-takeaway', width, height)
                 self.assertGreaterEqual(take['y'], here['y'] + here['height'] - 1,
                                         'Original portrait layout has vertically stacked choices')
-                page.screenshot(path=str(OUTPUT / f'mode-{width}.png'))
+                capture(page, f'mode-{width}.png')
                 element(page, 'kiosk-mode-takeaway').click()
                 screen(page, 'menu')
                 for category in ['combo', 'duo', 'sets', 'extras', 'combo']:
@@ -347,7 +370,7 @@ class KioskUI(unittest.TestCase):
                 self.assertTrue(element(page, 'kiosk-menu-checkout').is_disabled())
                 fixed_action(page, 'kiosk-menu-checkout', 'kiosk-menu-scroll', width, height)
                 element(page, 'kiosk-menu-scroll').evaluate('(e) => {e.scrollTop = 0;}')
-                page.screenshot(path=str(OUTPUT / f'menu-{width}.png'))
+                capture(page, f'menu-{width}.png')
                 element(page, 'kiosk-product-pick-combo').click()
                 screen(page, 'product')
                 expect(element(page, 'kiosk-product-nutrition')).to_contain_text('1240')
@@ -355,12 +378,12 @@ class KioskUI(unittest.TestCase):
                 element(page, 'kiosk-modifier-plus-extras-toast').click()
                 expect(element(page, 'kiosk-product-add')).to_contain_text('4 780')
                 fixed_action(page, 'kiosk-product-add', 'kiosk-product-scroll', width, height)
-                page.screenshot(path=str(OUTPUT / f'product-{width}.png'))
+                capture(page, f'product-{width}.png')
                 element(page, 'kiosk-product-add').click()
                 screen(page, 'menu')
                 self.add(page)
                 self.cart(page)
-                page.screenshot(path=str(OUTPUT / f'cart-{width}.png'))
+                capture(page, f'cart-{width}.png')
                 self.assertFalse(element(page, 'kiosk-cart-checkout').is_disabled())
                 assert_bounded(page, 'kiosk-cart-checkout', width, height)
                 page.reload()
@@ -379,12 +402,12 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual({frozenset(selection_set(line)) for line in order['snapshot']['lines']},
                                  {frozenset(base), frozenset(custom)})
                 self.assertEqual(order['snapshot']['total_minor'], '897000')
-                page.screenshot(path=str(OUTPUT / f'payment-{width}.png'))
+                capture(page, f'payment-{width}.png')
                 element(page, 'kiosk-payment-approve').click()
                 screen(page, 'order')
                 expect(element(page, 'kiosk-order-number')).to_have_text(order['number'])
                 assert_bounded(page, 'kiosk-next-guest', width, height)
-                page.screenshot(path=str(OUTPUT / f'number-{width}.png'))
+                capture(page, f'number-{width}.png')
                 element(page, 'kiosk-next-guest').click()
                 screen(page, 'welcome')
                 self.start(page)
@@ -393,7 +416,7 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(len(fixture.orders), 1)
                 assert_no_overflow(page, width)
 
-    def test_lost_create_response_reuses_original_command_after_reload(self):
+    def test_lost_create_response_reconciles_committed_order_after_reload(self):
         page, fixture = self.open()
         self.start(page)
         self.add(page)
@@ -410,12 +433,38 @@ class KioskUI(unittest.TestCase):
         element(page, 'kiosk-payment-retry').click()
         screen(page, 'payment')
         creates = [r for r in fixture.requests if r['method'] == 'POST' and r['path'] == '/v1/test/orders']
-        self.assertGreaterEqual(len(creates), 2, 'Retry must exercise persisted create command')
-        self.assertEqual(len({r['key'] for r in creates}), 1)
-        self.assertTrue(all(r['body'] == creates[0]['body'] for r in creates))
+        self.assertEqual(len(creates), 1, 'A committed order must be observed without another creation')
+        self.assertEqual(stored(page, FLOW_KEY)['order']['order_id'], order_id)
+        self.assertIsNone(stored(page, FLOW_KEY)['pending'])
         self.assertEqual(list(fixture.orders), [order_id])
         self.assertEqual(len(fixture.sessions), 1)
-        page.screenshot(path=str(OUTPUT / 'restored-create.png'))
+        capture(page, 'restored-create.png')
+
+    def test_lost_create_request_replays_original_command_after_reload(self):
+        page, fixture = self.open()
+        self.start(page)
+        self.add(page)
+        self.review(page)
+        fixture.drop_create_request = True
+        element(page, 'kiosk-review-create').click()
+        screen(page, 'recovery')
+        self.assertEqual(len(fixture.orders), 0)
+        pending = stored(page, FLOW_KEY)['pending']
+        self.assertEqual(pending['kind'], 'create')
+        page.reload()
+        screen(page, 'recovery')
+        self.assertEqual(stored(page, FLOW_KEY)['pending'], pending)
+        element(page, 'kiosk-payment-retry').click()
+        screen(page, 'payment')
+        creates = [r for r in fixture.requests if r['method'] == 'POST' and r['path'] == '/v1/test/orders']
+        self.assertEqual(len(creates), 2, 'Lost request must replay exactly once from durable intent')
+        self.assertEqual({r['key'] for r in creates}, {pending['orderKey']})
+        self.assertTrue(all(r['body'] == {'quote_id': pending['quoteId']} for r in creates))
+        self.assertEqual(len(fixture.quotes), 1)
+        self.assertEqual(len(fixture.orders), 1)
+        self.assertEqual(len(fixture.sessions), 1)
+        self.assertIsNone(stored(page, FLOW_KEY)['pending'])
+        capture(page, 'replayed-create.png')
 
     def test_unknown_payment_preserves_guest_until_authoritative_recovery(self):
         page, fixture = self.open()
@@ -437,7 +486,7 @@ class KioskUI(unittest.TestCase):
         self.assertEqual(stored(page, SESSION_KEY), guest)
         self.assertEqual(len(fixture.sessions), 1)
         self.assertEqual(len(fixture.orders), 1)
-        page.screenshot(path=str(OUTPUT / 'unknown-after-reload.png'))
+        capture(page, 'unknown-after-reload.png')
         # Represents a later trusted backend observation; no manager API is called.
         fixture.resolve(order_id, 'approved')
         element(page, 'kiosk-payment-retry').click()
