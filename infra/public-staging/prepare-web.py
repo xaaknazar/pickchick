@@ -25,8 +25,8 @@ def main():
     assert not dirty, 'Commit the operations build inputs before packaging'
     output = args.output.resolve()
     assert not output.exists(), 'Output must be a new directory'
-    subprocess.run(['pnpm', '--filter', '@pickchick/operations', 'build'], cwd=repo, check=True)
-    subprocess.run(['pnpm', '--filter', '@pickchick/backoffice', 'build'], cwd=repo, check=True)
+    subprocess.run(['pnpm', '--filter', '@pickchick/operations...', 'build'], cwd=repo, check=True)
+    subprocess.run(['pnpm', '--filter', '@pickchick/backoffice...', 'build'], cwd=repo, check=True)
     output.mkdir(parents=True, mode=0o755)
     hashes = {}
 

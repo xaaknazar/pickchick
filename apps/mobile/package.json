@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "export": "expo export --platform all",
+    "export": "expo export --platform all --clear",
     "prebuild:ios": "expo prebuild --platform ios --no-install"
   },
   "dependencies": {

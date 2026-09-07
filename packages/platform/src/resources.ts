@@ -94,12 +94,17 @@ export class Resources implements OnApplicationShutdown {
             }
           }
           if (this.config.customerAuthEnabled) {
-            const identityVersion = await this.pool.query(
-              'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
-              ['cloud', '007_cloud_customer_identity.sql'],
-            );
-            if (identityVersion.rowCount !== 1)
-              throw new Error('Customer identity schema is unavailable');
+            for (const migration of [
+              '007_cloud_customer_identity.sql',
+              '013_cloud_identity_receipt_limits.sql',
+            ]) {
+              const identityVersion = await this.pool.query(
+                'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+                ['cloud', migration],
+              );
+              if (identityVersion.rowCount !== 1)
+                throw new Error('Customer identity schema is unavailable');
+            }
             for (const table of [
               'identity_customers',
               'identity_sessions',
@@ -112,6 +117,9 @@ export class Resources implements OnApplicationShutdown {
             ]) {
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
             }
+            await this.pool.query(
+              'SELECT receipt_failed_attempts FROM identity_otp_challenges LIMIT 0',
+            );
           }
           schema = 'up';
         } else {

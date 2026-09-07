@@ -80,7 +80,7 @@ jobs:
         run: pnpm test:backoffice
       - name: Verify opt-in server account screens and recovery
         run: |
-          EXPO_PUBLIC_CUSTOMER_AUTH=server pnpm --filter @pickchick/mobile exec expo export --platform web --output-dir ../../.local/customer-auth-web
+          EXPO_PUBLIC_CUSTOMER_AUTH=server pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           PICKCHICK_PREVIEW_OUTPUT=customer-auth MOBILE_PREVIEW_PORT=4196 node scripts/mobile/preview-server.mjs > .local/customer-auth-server.log 2>&1 &
           customer_pid=$!
           trap 'kill "$customer_pid"' EXIT
