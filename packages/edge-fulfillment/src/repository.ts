@@ -101,6 +101,7 @@ function view(row: Reservation) {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     routingVersion: row.routing_version,
+    assemblyStationId: row.assembly_station_id,
   };
 }
 async function emit(
@@ -451,21 +452,32 @@ export class EdgeFulfillment {
     });
   }
 
-  async readOrder(branchId: string, auth: StaffAuth, orderId: string) {
+  async readOrder(branchId: string, auth: StaffAuth, orderId: string, input: unknown = {}) {
     parse(z.uuid(), branchId);
     parse(z.uuid(), orderId);
+    const q = parse(z.strictObject({ stationId: z.uuid().optional() }), input);
     return transaction(this.pool, async (client) => {
       // Start the MVCC snapshot before authentication. Existing staff/grant
       // share locks keep revocation semantics; orders/tasks are never locked.
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-      await authenticateStaff(client, branchId, auth);
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (q.stationId) await stationPermission(client, branchId, staff, q.stationId);
       await client.query('SET TRANSACTION READ ONLY');
       const row = await readReservation(client, branchId, orderId);
+      const allTasks = await tasks(client, row);
+      // Station membership is pinned to this order, including its assembly-only
+      // responsibility and terminal tasks. Never infer it from active routing.
+      if (
+        q.stationId &&
+        row.assembly_station_id !== q.stationId &&
+        !allTasks.some((task) => task.station_id === q.stationId)
+      )
+        fail('FORBIDDEN');
       return {
         ...view(row),
         channel: row.snapshot.channel,
         serviceMode: row.snapshot.serviceMode,
-        tasks: await tasks(client, row),
+        tasks: allTasks,
         cancellationReason: row.cancellation_reason,
         inventoryDisposition: row.inventory_disposition,
       };
@@ -494,7 +506,7 @@ export class EdgeFulfillment {
       // A large combo order must not multiply the response by a 100-row page.
       const candidates = (
         await client.query<{ order_id: string }>(
-          `SELECT r.order_id FROM fulfillment_reservations r WHERE branch_id=$1 AND state IN ('accepted','in_production','ready','cancel_requested') AND ($2::uuid IS NULL OR order_id>$2) AND ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM fulfillment_tasks t WHERE t.order_id=r.order_id AND t.station_id=$4)) ORDER BY order_id LIMIT $3`,
+          `SELECT r.order_id FROM fulfillment_reservations r WHERE branch_id=$1 AND state IN ('accepted','in_production','ready','cancel_requested') AND ($2::uuid IS NULL OR order_id>$2) AND ($4::uuid IS NULL OR r.assembly_station_id=$4 OR EXISTS(SELECT 1 FROM fulfillment_tasks t WHERE t.order_id=r.order_id AND t.station_id=$4)) ORDER BY order_id LIMIT $3`,
           [branchId, q.afterOrderId ?? null, q.limit + 1, q.stationId ?? null],
         )
       ).rows;
