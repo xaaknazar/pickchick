@@ -1,0 +1,83 @@
+{
+  "source": "PickChick - mockup/Pick Chick Kiosk (offline).html",
+  "sha256": "239ca6ffee862a4670eb999eab9da438a38f16c43392a596360780abfaa2e406",
+  "capture": "Chromium, direct original file bundle; screen element screenshot without device frame; animations temporarily disabled for screenshot only",
+  "viewport": {
+    "width": 1200,
+    "height": 1540
+  },
+  "device_scale_factor": 1,
+  "screens": [
+    {
+      "screen": "S0 Attract",
+      "file": "original-welcome-1024.png",
+      "rect": {
+        "x": 88,
+        "y": 72,
+        "width": 1024,
+        "height": 1366
+      }
+    },
+    {
+      "screen": "S1 Тип заказа",
+      "file": "original-mode-1024.png",
+      "rect": {
+        "x": 88,
+        "y": 72,
+        "width": 1024,
+        "height": 1366
+      }
+    },
+    {
+      "screen": "S2 Меню",
+      "file": "original-menu-1024.png",
+      "rect": {
+        "x": 88,
+        "y": 72,
+        "width": 1024,
+        "height": 1366
+      }
+    },
+    {
+      "screen": "S3 Карточка",
+      "file": "original-product-1024.png",
+      "rect": {
+        "x": 88,
+        "y": 72,
+        "width": 1024,
+        "height": 1366
+      }
+    },
+    {
+      "screen": "S5 Допродажа",
+      "file": "original-upsell-1024.png",
+      "rect": {
+        "x": 88,
+        "y": 72,
+        "width": 1024,
+        "height": 1366
+      }
+    },
+    {
+      "screen": "S6 Корзина",
+      "file": "original-cart-1024.png",
+      "rect": {
+        "x": 88,
+        "y": 72,
+        "width": 1024,
+        "height": 1366
+      }
+    }
+  ],
+  "blocked_external": [],
+  "blocked_mutations": [],
+  "api_requests_sent": 0,
+  "screen_sha256": {
+    "original-cart-1024.png": "1c5d61f8f392266da0b989b0a8ae9f0f2ff2f030d64a1d243ca2e4ab5cba8441",
+    "original-menu-1024.png": "0f84ebac2f4144e514c4588bb9e26a916dfd12300ec65d0d8eb12af37701fc9f",
+    "original-mode-1024.png": "9a0e35bb10e09371223e47695c46f02044bd24414a42bf0b85c2f7318caa5485",
+    "original-product-1024.png": "6fe881ad64bdd03f4826aaa426b1c7bb6695a4c922551696da6d40e210859a82",
+    "original-upsell-1024.png": "650def5eea4590e7a542925667054292bf500c6d4dc043c749165985e32e11d5",
+    "original-welcome-1024.png": "1316d3073642220536fd3044431ce2a8f49bd4e49fe4b4b3f1bd21c6e1e383ca"
+  }
+}

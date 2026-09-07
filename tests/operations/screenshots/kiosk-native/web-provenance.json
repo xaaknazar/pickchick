@@ -1,0 +1,88 @@
+{
+  "capture_date": "2026-09-07",
+  "kind": "Expo kiosk exported web UI in Chromium; not native Simulator captures",
+  "app_source_git_sha": "d82641047df00246ff87d58132db1c538c931348",
+  "browser": "145.0.7632.6",
+  "entrypoint": "/_expo/static/js/web/index-9a75a205b65ffccc684dbd0692b6dc84.js",
+  "entrypoint_sha256": "f455f02c20359204691e4446fb58d3ff63600f8930fbbcf7f2d84c0c1a8f6170",
+  "index_html_sha256": "3288af80b6f0a5be92ab5fd62eca2da33db1991def881d4f733fb73ee0416cde",
+  "test_file": "tests/kiosk/browser_ui.py",
+  "test_file_sha256": "f309cd3e5213a6a18dba0035605e56255f2ef02ebcbface8f8c8414fa17ab909",
+  "runtime_result": {
+    "tests": 6,
+    "passed": 6,
+    "duration_seconds": 26.873,
+    "viewports": [
+      [768, 1024],
+      [820, 1180],
+      [1024, 1366]
+    ]
+  },
+  "device_scale_factor": 1,
+  "reduced_motion": "reduce",
+  "capture_stability": "document.fonts.ready, image decode, finite animations finished, two animation frames; mode-card images must exist and be visible before image decoding checks",
+  "network": "Every /v1 request fulfilled/aborted by local fixture. Non-local assets aborted. No API request forwarded to VPS, bank, fiscal, SMS or Apple.",
+  "storage": "Fresh browser contexts; state created through UI, not preseeded. Synthetic tokens stay private and are not in screenshots.",
+  "files": [
+    {
+      "file": "web-welcome-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "e99dd0b93e36e9503248a6aedd7a9a64517e59498550e1ae5a59ecdf43482a8a"
+    },
+    {
+      "file": "web-mode-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "8c7f921732db0cecaf729c8137ff7ac812c03f506afe7717b9c42954c00f338b"
+    },
+    {
+      "file": "web-menu-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "bf69460b3a7e3b76c8e7a30227315536c68cff1bd4ca924a6ff4217ada478c4d"
+    },
+    {
+      "file": "web-upsell-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "15a0573489bdc76940ba2afa8e9f0d71b8faf6f89eeea57f2836d75d18e01fa8"
+    },
+    {
+      "file": "web-cart-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "d1a1e6fce5bcfd1e45a8601428e659d40c2db10076dce8e4d56189cc111fb4f8"
+    },
+    {
+      "file": "web-product-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "e31977f694d9f477ba20fa523ef5186b636d3fbf3a6f17412f44b22bd24da16a"
+    },
+    {
+      "file": "web-product-configured-1024.png",
+      "width": 1024,
+      "height": 1366,
+      "sha256": "c5aa9f9f8ccfeffa40c63cddc13f8ec17f2a4dc5bdab84c33d403af6e3e3624b"
+    },
+    {
+      "file": "web-cart-768.png",
+      "width": 768,
+      "height": 1024,
+      "sha256": "9f2bc688de0ea7ba6bf54f264ec81ecdaa734e9a3afae47060f44d28a109bc90"
+    },
+    {
+      "file": "web-menu-820.png",
+      "width": 820,
+      "height": 1180,
+      "sha256": "1263dcc8beacd64c54b91d9e979ad786b698a22d249c8ca9cae2cc3fca065929"
+    },
+    {
+      "file": "web-drinks-sheet-768.png",
+      "width": 768,
+      "height": 1024,
+      "sha256": "095b488f4a85ec7bc9e2d371c406125e32d0216bad58d250faa553b253a89f32"
+    }
+  ]
+}
