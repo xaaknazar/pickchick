@@ -22,6 +22,12 @@ SESSION = json.dumps({
 PHONE = '7' + '0' * 8 + '1'
 
 
+def visible_element(page, identifier):
+    # React Navigation retains earlier routes with display:none/aria-hidden.
+    # Keep strict uniqueness among visible UI, rather than choosing first().
+    return page.get_by_test_id(identifier).filter(visible=True)
+
+
 def stored_account(page):
     raw = page.evaluate('(key) => localStorage.getItem(key)', PROFILE_KEY)
     return json.loads(raw) if raw else None
@@ -40,7 +46,7 @@ def assert_no_horizontal_overflow(page, width):
 def footer_geometry(page, width, height, previous=None):
     result = {}
     for identifier in ['nickname-save', 'profile-fill-later']:
-        control = page.get_by_test_id(identifier)
+        control = visible_element(page, identifier)
         expect(control).to_be_visible()
         rect = control.bounding_box()
         assert rect and rect['x'] >= 0 and rect['y'] >= 0, (identifier, rect)
@@ -54,14 +60,17 @@ def footer_geometry(page, width, height, previous=None):
 
 
 def open_birthday_picker(page, width, height, part='day'):
-    page.get_by_test_id(f'birthday-{part}').click()
-    expect(page.get_by_test_id('birthday-picker')).to_be_visible()
-    field = page.get_by_test_id('birthday-native-input')
+    visible_element(page, f'birthday-{part}').click()
+    expect(visible_element(page, 'birthday-picker')).to_be_visible()
+    # React Native Modal is visible while sliding into the viewport. Wait for
+    # a stable, unobscured action without clicking it or using a fixed delay.
+    visible_element(page, 'birthday-picker-cancel').click(trial=True)
+    field = visible_element(page, 'birthday-native-input')
     expect(field).to_have_attribute('type', 'date')
     expect(field).to_have_attribute('min', '1900-01-01')
     expect(field).to_have_attribute('max', datetime.now(ZoneInfo('Asia/Almaty')).date().isoformat())
     for identifier in ['birthday-picker-confirm', 'birthday-picker-cancel']:
-        button = page.get_by_test_id(identifier)
+        button = visible_element(page, identifier)
         expect(button).to_be_visible()
         rect = button.bounding_box()
         assert rect and rect['x'] >= 0 and rect['y'] >= 0, (identifier, rect)
@@ -75,8 +84,8 @@ def choose_birthday(page, width, height, footer, value, part='day'):
     field = open_birthday_picker(page, width, height, part)
     field.fill(value)
     expect(field).to_have_value(value)
-    page.get_by_test_id('birthday-picker-confirm').click()
-    expect(page.get_by_test_id('birthday-picker')).to_have_count(0)
+    visible_element(page, 'birthday-picker-confirm').click()
+    expect(visible_element(page, 'birthday-picker')).to_have_count(0)
     footer_geometry(page, width, height, footer)
 
 
@@ -108,41 +117,41 @@ with sync_playwright() as p:
         page = context.new_page()
         page.on('pageerror', lambda error: failures.append(str(error)))
         page.goto(URL + '/screen/M02')
-        request = page.get_by_test_id('request-otp')
+        request = visible_element(page, 'request-otp')
         expect(request).to_be_disabled()
-        page.get_by_test_id('phone-input').fill(PHONE)
-        expect(page.get_by_test_id('phone-input')).to_have_value(PHONE)
+        visible_element(page, 'phone-input').fill(PHONE)
+        expect(visible_element(page, 'phone-input')).to_have_value(PHONE)
         expect(request).to_be_enabled()
         rect = request.bounding_box()
         assert rect['y'] + rect['height'] <= height, 'Phone action must remain in viewport'
         assert_no_horizontal_overflow(page, width)
         page.screenshot(path=str(OUTPUT / f'phone-{width}.png'))
         request.click()
-        expect(page.get_by_test_id('screen-M03')).to_be_visible()
-        expect(page.get_by_test_id('resend-otp')).to_be_disabled()
-        page.get_by_test_id('otp-input').fill('000000')
-        page.get_by_test_id('confirm-otp').click()
-        expect(page.get_by_test_id('screen-M03').get_by_test_id('demo-auth-error')).to_contain_text('Код не подошёл')
+        expect(visible_element(page, 'screen-M03')).to_be_visible()
+        expect(visible_element(page, 'resend-otp')).to_be_disabled()
+        visible_element(page, 'otp-input').fill('000000')
+        visible_element(page, 'confirm-otp').click()
+        expect(visible_element(page, 'screen-M03').get_by_test_id('demo-auth-error')).to_contain_text('Код не подошёл')
         assert stored_account(page) is None
-        page.get_by_test_id('otp-input').fill('123456')
-        expect(page.get_by_test_id('otp-input')).to_have_value('123456')
+        visible_element(page, 'otp-input').fill('123456')
+        expect(visible_element(page, 'otp-input')).to_have_value('123456')
         page.screenshot(path=str(OUTPUT / f'code-{width}.png'))
-        page.get_by_test_id('confirm-otp').click()
-        expect(page.get_by_test_id('screen-M04')).to_be_visible()
-        expect(page.get_by_test_id('screen-M04').get_by_text('@', exact=True)).to_have_count(0)
-        page.get_by_test_id('nickname-input').fill('Тестовый гость')
-        expect(page.get_by_test_id('nickname-input')).to_have_value('Тестовый гость')
+        visible_element(page, 'confirm-otp').click()
+        expect(visible_element(page, 'screen-M04')).to_be_visible()
+        expect(visible_element(page, 'screen-M04').get_by_text('@', exact=True)).to_have_count(0)
+        visible_element(page, 'nickname-input').fill('Тестовый гость')
+        expect(visible_element(page, 'nickname-input')).to_have_value('Тестовый гость')
         footer = footer_geometry(page, width, height)
         page.screenshot(path=str(OUTPUT / f'registration-empty-{width}.png'))
         choose_birthday(page, width, height, footer, '2000-02-29')
-        page.get_by_test_id('profile-gender-female').click()
+        visible_element(page, 'profile-gender-female').click()
         footer_geometry(page, width, height, footer)
-        expect(page.get_by_test_id('nickname-save')).to_be_enabled()
+        expect(visible_element(page, 'nickname-save')).to_be_enabled()
         page.screenshot(path=str(OUTPUT / f'registration-complete-{width}.png'))
-        page.get_by_test_id('nickname-save').click()
-        expect(page.get_by_test_id('screen-M06')).to_be_visible()
+        visible_element(page, 'nickname-save').click()
+        expect(visible_element(page, 'screen-M06')).to_be_visible()
         page.goto(URL + '/profile')
-        profile = page.get_by_test_id('screen-M30')
+        profile = visible_element(page, 'screen-M30')
         expect(profile.get_by_text('Тестовый профиль', exact=True)).to_be_visible()
         expect(profile.get_by_text('+7 700 000-00-01', exact=True)).to_be_visible()
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('29.02.2000')
@@ -161,19 +170,19 @@ with sync_playwright() as p:
         # account or the independent ordering identity, even with valid fields.
         saved_raw = page.evaluate('(key) => localStorage.getItem(key)', PROFILE_KEY)
         page.goto(URL + '/screen/M04?preview=1')
-        expect(page.get_by_test_id('screen-M04')).to_be_visible()
-        page.get_by_test_id('nickname-input').fill('Только макет')
+        expect(visible_element(page, 'screen-M04')).to_be_visible()
+        visible_element(page, 'nickname-input').fill('Только макет')
         preview_footer = footer_geometry(page, width, height)
         choose_birthday(page, width, height, preview_footer, '1995-10-21')
-        expect(page.get_by_test_id('nickname-save')).to_be_disabled()
+        expect(visible_element(page, 'nickname-save')).to_be_disabled()
         assert page.evaluate('(key) => localStorage.getItem(key)', PROFILE_KEY) == saved_raw
         assert page.evaluate('(key) => localStorage.getItem(key)', SESSION_KEY) == SESSION
         page.goto(URL + '/screen/M02?preview=1')
-        page.get_by_test_id('phone-input').fill(PHONE)
-        expect(page.get_by_test_id('request-otp')).to_be_disabled()
+        visible_element(page, 'phone-input').fill(PHONE)
+        expect(visible_element(page, 'request-otp')).to_be_disabled()
         page.goto(URL + '/screen/M32?preview=1')
-        expect(page.get_by_test_id('delete-demo-profile')).to_be_disabled()
-        expect(page.get_by_test_id('clear-local-data')).to_be_disabled()
+        expect(visible_element(page, 'delete-demo-profile')).to_be_disabled()
+        expect(visible_element(page, 'clear-local-data')).to_be_disabled()
         assert page.evaluate('(key) => localStorage.getItem(key)', PROFILE_KEY) == saved_raw
         assert page.evaluate('(key) => localStorage.getItem(key)', SESSION_KEY) == SESSION
         page.goto(URL + '/profile')
@@ -183,20 +192,20 @@ with sync_playwright() as p:
         expect(profile.get_by_test_id('demo-sign-out')).to_be_visible()
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('29.02.2000')
         profile.get_by_test_id('profile-birthday').click()
-        expect(page.get_by_test_id('screen-M04')).to_be_visible()
-        expect(page.get_by_test_id('nickname-input')).to_have_value('Тестовый гость')
-        expect(page.get_by_test_id('birthday-day')).to_have_attribute('aria-label', 'День рождения: 29')
-        expect(page.get_by_test_id('birthday-month')).to_have_attribute('aria-label', 'Месяц рождения: Февраль')
-        expect(page.get_by_test_id('birthday-year')).to_have_attribute('aria-label', 'Год рождения: 2000')
+        expect(visible_element(page, 'screen-M04')).to_be_visible()
+        expect(visible_element(page, 'nickname-input')).to_have_value('Тестовый гость')
+        expect(visible_element(page, 'birthday-day')).to_have_attribute('aria-label', 'День рождения: 29')
+        expect(visible_element(page, 'birthday-month')).to_have_attribute('aria-label', 'Месяц рождения: Февраль')
+        expect(visible_element(page, 'birthday-year')).to_have_attribute('aria-label', 'Год рождения: 2000')
         footer = footer_geometry(page, width, height)
         draft = open_birthday_picker(page, width, height, 'month')
         expect(draft).to_have_value('2000-02-29')
         draft.fill('2001-03-17')
-        page.get_by_test_id('birthday-picker-cancel').click()
-        expect(page.get_by_test_id('birthday-picker')).to_have_count(0)
-        expect(page.get_by_test_id('birthday-day')).to_have_attribute('aria-label', 'День рождения: 29')
-        expect(page.get_by_test_id('birthday-month')).to_have_attribute('aria-label', 'Месяц рождения: Февраль')
-        expect(page.get_by_test_id('birthday-year')).to_have_attribute('aria-label', 'Год рождения: 2000')
+        visible_element(page, 'birthday-picker-cancel').click()
+        expect(visible_element(page, 'birthday-picker')).to_have_count(0)
+        expect(visible_element(page, 'birthday-day')).to_have_attribute('aria-label', 'День рождения: 29')
+        expect(visible_element(page, 'birthday-month')).to_have_attribute('aria-label', 'Месяц рождения: Февраль')
+        expect(visible_element(page, 'birthday-year')).to_have_attribute('aria-label', 'Год рождения: 2000')
         assert stored_account(page) == saved, 'Cancel must discard only the date picker draft'
         footer_geometry(page, width, height, footer)
 
@@ -207,18 +216,18 @@ with sync_playwright() as p:
         draft.fill(future)
         expect(draft).to_have_value(future)
         assert draft.evaluate('(input) => input.validity.rangeOverflow')
-        expect(page.get_by_test_id('birthday-picker-confirm')).to_be_disabled()
+        expect(visible_element(page, 'birthday-picker-confirm')).to_be_disabled()
         assert stored_account(page) == saved, 'A future date must not replace the saved profile'
         page.screenshot(path=str(OUTPUT / f'registration-future-date-{width}.png'))
-        page.get_by_test_id('birthday-picker-cancel').click()
-        page.get_by_test_id('birthday-clear').click()
-        expect(page.get_by_test_id('birthday-error')).to_have_count(0)
-        expect(page.get_by_test_id('birthday-day')).to_have_attribute('aria-label', 'День рождения: не выбрано')
+        visible_element(page, 'birthday-picker-cancel').click()
+        visible_element(page, 'birthday-clear').click()
+        expect(visible_element(page, 'birthday-error')).to_have_count(0)
+        expect(visible_element(page, 'birthday-day')).to_have_attribute('aria-label', 'День рождения: не выбрано')
         # Deselect gender too: both fields are optional, including when editing.
-        page.get_by_test_id('profile-gender-female').click()
-        expect(page.get_by_test_id('nickname-save')).to_be_enabled()
+        visible_element(page, 'profile-gender-female').click()
+        expect(visible_element(page, 'nickname-save')).to_be_enabled()
         footer_geometry(page, width, height, footer)
-        page.get_by_test_id('nickname-save').click()
+        visible_element(page, 'nickname-save').click()
         expect(profile).to_be_visible()
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('Добавить')
         cleared = stored_account(page)
@@ -230,10 +239,10 @@ with sync_playwright() as p:
 
         # Cancel unsaved form edits after confirming a picker draft.
         profile.get_by_test_id('profile-birthday').click()
-        page.get_by_test_id('nickname-input').fill('Не сохранять')
+        visible_element(page, 'nickname-input').fill('Не сохранять')
         footer = footer_geometry(page, width, height)
         choose_birthday(page, width, height, footer, '2004-05-20')
-        page.get_by_test_id('profile-fill-later').click()
+        visible_element(page, 'profile-fill-later').click()
         expect(profile).to_be_visible()
         assert stored_account(page) == cleared
         profile.get_by_test_id('demo-sign-out').click()
@@ -242,23 +251,23 @@ with sync_playwright() as p:
 
         # Postponing a new profile keeps login without silently saving fields.
         profile.get_by_test_id('profile-sign-in').click()
-        page.get_by_test_id('phone-input').fill(PHONE)
-        page.get_by_test_id('request-otp').click()
-        page.get_by_test_id('otp-input').fill('123456')
-        page.get_by_test_id('confirm-otp').click()
-        expect(page.get_by_test_id('screen-M04')).to_be_visible()
+        visible_element(page, 'phone-input').fill(PHONE)
+        visible_element(page, 'request-otp').click()
+        visible_element(page, 'otp-input').fill('123456')
+        visible_element(page, 'confirm-otp').click()
+        expect(visible_element(page, 'screen-M04')).to_be_visible()
         untouched = stored_account(page)
         assert untouched['profile'] == {
             'nickname': '', 'birthDate': None, 'gender': None, 'completedAt': None,
         }
-        page.get_by_test_id('nickname-input').fill('Отложенный профиль')
+        visible_element(page, 'nickname-input').fill('Отложенный профиль')
         footer = footer_geometry(page, width, height)
         choose_birthday(page, width, height, footer, '2003-01-01')
-        page.get_by_test_id('profile-fill-later').click()
-        expect(page.get_by_test_id('screen-M06')).to_be_visible()
+        visible_element(page, 'profile-fill-later').click()
+        expect(visible_element(page, 'screen-M06')).to_be_visible()
         assert stored_account(page) == untouched, 'Skipping must not silently save the draft profile'
         page.reload()
-        expect(page.get_by_test_id('screen-M06')).to_be_visible()
+        expect(visible_element(page, 'screen-M06')).to_be_visible()
         page.goto(URL + '/profile')
         expect(profile.get_by_test_id('demo-sign-out')).to_be_visible()
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('Добавить')
