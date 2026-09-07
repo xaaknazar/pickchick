@@ -1,0 +1,19 @@
+{
+  "captured_at": "2026-09-07T15:16:13+05:00",
+  "source_commit": "90e15dab8b9142fc7d11d31748236afc225a2569",
+  "renderer": "React Native Release",
+  "simulator": "iPad (A16), iOS 26.5",
+  "viewport_points": [820, 1180],
+  "file": "native-order-final-a16.png",
+  "sha256": "5c445a65a6b192b6881d98398afc3129e27b2d8907ad8265411aee96164c7390",
+  "width_px": 1640,
+  "height_px": 2360,
+  "test": "SmokeTests/testConnectedSyntheticOrderForKitchenInspection",
+  "xcresult": "kiosk-ui-run09-connected-final.xcresult",
+  "result": "1 passed, 0 failures, 30.290 seconds",
+  "synthetic_order": "T-000035",
+  "payment_state": "simulated_approved",
+  "fiscal_state": "not_applicable",
+  "kitchen_followup": "prep, assembly, display ready, handoff to fulfilled; exact order only",
+  "physical_iPad_lock_verified": false
+}

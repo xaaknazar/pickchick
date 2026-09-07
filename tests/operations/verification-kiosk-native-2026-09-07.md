@@ -77,7 +77,7 @@ node_modules; его исходники не патчены. Оригиналь�
 simulator/device slices и основной build подтвердил cache-hit. Приватные логи
 и provenance находятся в `.local/auth-design` и `~/Library/Caches/PickChick`.
 
-## Один заказ от нативного iPad до выдачи
+## Заказ от нативного iPad до выдачи
 
 Run06 создал один синтетический заказ **T-000034** в TEST API на VPS.
 Нативный UI подтвердил имитацию оплаты, после terminate/relaunch восстановил
@@ -101,13 +101,27 @@ Private proof: `.local/kiosk-native/T-000034-verification.json`,
 На VPS опубликован проверенный API `5d3eead08c392bdbb60eae64a0bee4e883bb0af3`:
 [копия, восстановление, точные изменения и проверка сохранности данных](../../docs/operations/deployments/2026-09-07-kiosk-catalog.md).
 До публикации прошли все четыре jobs [CI этого SHA](https://github.com/xaaknazar/pickchick/actions/runs/34106813343).
-Локально прошли `pnpm check` (31 unit-тест, контракты, 130 экранов/21 требование),
-24 теста kiosk core и 30 Python-проверок мобильных/release-инструментов.
+Финальный исходник `90e15dab8b9142fc7d11d31748236afc225a2569` дополнительно
+прошёл все четыре jobs [CI выпуска](https://github.com/xaaknazar/pickchick/actions/runs/34110038944).
+После правок S8/S9 Build08 + Run09 повторили связный native-сценарий:
+**1/1 PASS, 30,290 с**, iPad (A16), заказ **T-000035**. Подтверждены тестовая
+оплата, тот же номер после relaunch и новый гость. Затем тот же заказ прошёл
+через prep/assembly, «Готово» на табло и handoff до `fulfilled` через ролевые API.
+Итого за нативную приёмку созданы два синтетических заказа, оба выданы;
+реальных оплат/чеков/SMS — ноль. [Финальный native-снимок](screenshots/kiosk-native/native-order-final-a16.png)
+и [provenance](screenshots/kiosk-native/native-order-final-provenance.json).
+
+Локально прошли сборка, типы, lint, формат, 31 unit-тест, контракты,
+проверка 130 экранов/21 требования, 24 теста kiosk core и 30 Python-проверок
+мобильных/release-инструментов. Финальная локальная цепочка была прервана
+форматом provenance JSON; после исправления формат и оставшиеся этапы
+повторно прошли. Полный `pnpm check` финального source также прошёл в CI.
 
 ## Доставка и устройство
 
-Текущий статус: приложение подготовлено отдельно, но upload киоска в TestFlight
-не выполнен. Фактическая попытка archive `kiosk-private-20260907-1` завершилась
+Текущий статус: **0.1.0 (1) загружена, обработана и назначена закрытой группе
+TestFlight**. Ниже сохранены фактические этапы и исправленные ограничения.
+Первая попытка archive `kiosk-private-20260907-1` завершилась
 кодом 65: Xcode не нашёл профиль для нового `kz.pickchick.kiosk`; automatic
 signing также сообщил об отсутствии устройств для development profile.
 Для TestFlight требуется отдельный App Store distribution profile и запись
@@ -128,7 +142,29 @@ Cleanup helper заметил параллельное удаление чужо
 свою временно добавленную keychain; изменение другой сборки сохранено,
 default keychain не менялась. Native project restored побайтово. Private
 протокол: `~/Library/Caches/PickChick/kiosk-profile-download-01/`.
-Финальный archive/export/upload продолжается.
+Финальный archive и export **0.1.0 (1)** завершились успешно из чистого
+`90e15dab8b9142fc7d11d31748236afc225a2569`. Проверены фактические
+Bundle ID, `[2]` device family и подпись; IPA — 30,0 MiB. Export options
+содержит `testFlightInternalTestingOnly=true`. Временные настройки подписи
+и keychain search list восстановлены штатно в обоих финальных этапах.
+Release label: `kiosk-private-20260907-2`. Apple подтвердила **Upload succeeded**
+7 сентября в **15:21:30 Алматы**. Метаданные release содержат
+`deliveryStatus=submitted`, `ascAppId=6809407135`; flags внутреннего
+TestFlight проверены и для upload. В 15:27 Алматы в ASC проверены **«Тестируется»**, **«Внутреннее»**,
+срок 90 дней и выбранная **PickChick Kiosk Internal**. ASC build ID
+`1d0c5836-faef-4ffd-9526-d6ccface8d1e`. Таким образом, подтверждены и
+загрузка, и обработка, и назначение доступной сборки.
+
+Apple приняла IPA с предупреждениями об отсутствии dSYM восьми поставляемых
+frameworks Expo/React/SDWebImage/Hermes. Собственный `PickChickKiosk.app.dSYM`
+присутствует. Это ограничение символикации сбоев этих зависимостей, не отказ
+загрузки; перед production требуется отдельная проверка crash reports и
+совместимых symbols поставщика. Предупреждения сохранены в private upload.log.
+
+В ASC создана внутренняя группа **PickChick Kiosk Internal**,
+`f99af5fd-130d-4287-b0a8-fd8ab7a5c8aa`; автоматическое распределение отключено.
+В ней один тестировщик — владелец аккаунта. Другие участники команды,
+внешние группы и публичная ссылка не добавлялись.
 [Процесс выпуска](../../docs/operations/kiosk-testflight.md).
 
 AppLock профиль проходит plist-проверку; он ещё не применён к ресторанным iPad.

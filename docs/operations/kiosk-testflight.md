@@ -1,10 +1,30 @@
 # PickChick Kiosk — отдельный выпуск iPad
 
 Приложение: `apps/kiosk`, Expo / React Native, только iPad, портретная ориентация,
-полный экран. Название — **PickChick Kiosk**, Bundle ID — `kz.pickchick.kiosk`,
+полный экран. Минимальная версия iPadOS — **16.4**. Название — **PickChick Kiosk**, Bundle ID — `kz.pickchick.kiosk`,
 версия первого выпуска — **0.1.0 (1)**. Используется согласованная существующая
 Apple Team `DAJTP6MC3Q`. Это отдельное приложение; его сборка не заменяет
 пользовательский PickChick `kz.pickchick.app`.
+
+## Подтверждённый выпуск
+
+**0.1.0 (1) доступна для внутреннего тестирования.** 7 сентября 2026 Apple
+приняла upload в 15:21:30 Алматы; в 15:27 проверены «Тестируется»,
+«Внутреннее» и группа **PickChick Kiosk Internal**. В группе только владелец
+аккаунта; автоматическое распределение выключено, внешних групп/публичной
+ссылки нет. [Открыть сборки группы](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809407135/testflight/groups/f99af5fd-130d-4287-b0a8-fd8ab7a5c8aa/builds).
+
+На iPad с iPadOS 16.4+ открыть TestFlight под приглашённым Apple Account,
+выбрать **PickChick Kiosk**, установить **0.1.0 (1)**. Установка на физический
+ресторанный iPad пока не подтверждена. Сначала проверить тестовый заказ,
+затем настроить [Single App Mode](ipad-kiosk-lockdown.md). Сборка TestFlight
+имеет срок 90 дней; для постоянной работы нужен отдельный процесс выпуска.
+
+Чистый source: `90e15dab8b9142fc7d11d31748236afc225a2569`,
+[четыре успешные CI jobs](https://github.com/xaaknazar/pickchick/actions/runs/34110038944).
+Архив, IPA и upload проверены release helper с обязательным
+`testFlightInternalTestingOnly=true`. ASC build ID:
+`1d0c5836-faef-4ffd-9526-d6ccface8d1e`.
 
 ## Что входит в проверяемую версию
 
@@ -96,8 +116,10 @@ manual signing и `-allowProvisioningUpdates` получил именно соз
 без регистрации устройств. UUID `d3788a75-8842-442d-a2fe-f0aff9570ca5`;
 Bundle ID, Team, App Store type, certificate и expiry проверены release helper.
 Файл хранится только в `.local/kiosk-ios/signing` с правами 0600.
-Подписанный device build завершился успешно. Финальный archive/export/upload
-продолжается; установка из TestFlight пока не заявляется.
+Подписанный device build, затем финальные archive/export/upload завершились
+успешно. Release label — `kiosk-private-20260907-2`; собственный app dSYM
+присутствует. Предупреждения Apple о dSYM сторонних frameworks зафиксированы
+в протоколе; проверка символикации сбоев этих зависимостей ещё не завершена.
 [Фактический протокол](../../tests/operations/verification-kiosk-native-2026-09-07.md).
 
 TestFlight ограничен сроком сборки; постоянный ресторанный выпуск и MDM —
