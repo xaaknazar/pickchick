@@ -53,9 +53,12 @@ ruby scripts/mobile/ios_ui_smoke.rb --app kiosk --install
 
 Создаётся отдельная Release-схема `PickChickKioskUITests`. Обычные XCTest проверяют
 просмотр, модификаторы, закреплённые действия и сохранение корзины без создания
-заказов. Только явно включённый `PICKCHICK_KIOSK_CONNECTED_TEST=1` запускает
+заказов. Только явно включённый `PICKCHICK_KIOSK_CONNECTED_TEST=1` в процессе
+test runner запускает
 сценарий одного синтетического заказа; его номер сохраняется в XCTest attachment
 для дальнейшей проверки приготовления, сборки и табло. Номер не генерируется UI.
+При запуске через `xcodebuild test-without-building` переменная передаётся
+как `TEST_RUNNER_PICKCHICK_KIOSK_CONNECTED_TEST=1`.
 
 ## Доставка в Apple
 
@@ -78,10 +81,24 @@ ruby scripts/mobile/ios_ui_smoke.rb --app kiosk --install
 4. Проверить установку на ресторанный iPad, затем применить и принять
    [закрытый режим устройства](ipad-kiosk-lockdown.md).
 
-На начало этапа браузерные сессии App Store Connect и Apple Developer истекли.
-Новый App ID / профиль и запись киоска ещё не подтверждены, установка из
-TestFlight не заявляется. Состояние доставки обновляется по фактическому ответу
-Apple в [протоколе проверок](../../tests/operations/verification-kiosk-native-2026-09-07.md).
+7 сентября Release успешно собран и проверен на двух iPad Simulator, включая
+синтетический заказ с VPS. Попытка distribution archive
+`kiosk-private-20260907-1` завершилась кодом 65: Xcode не нашёл профиль нового
+Bundle ID; экспорт/загрузка не выполнялись. Впоследствии доступ Apple восстановился: зарегистрированы App ID
+`kz.pickchick.kiosk` и App Store profile **PickChick Kiosk App Store 2026-09-07**
+(`63RKQSS245`, до 30 июля 2027, существующий сертификат `X67C6RMPF9`).
+Создана отдельная запись **PickChick Kiosk**, ASC ID `6809407135`, основной язык
+русский, SKU `pickchick-kiosk-ios`, ограниченный доступ. Ни одно другое
+приложение или сертификат не заменялось.
+
+Инструмент браузера не вернул скачанный профиль. Штатный Xcode build с
+manual signing и `-allowProvisioningUpdates` получил именно созданный профиль
+без регистрации устройств. UUID `d3788a75-8842-442d-a2fe-f0aff9570ca5`;
+Bundle ID, Team, App Store type, certificate и expiry проверены release helper.
+Файл хранится только в `.local/kiosk-ios/signing` с правами 0600.
+Подписанный device build завершился успешно. Финальный archive/export/upload
+продолжается; установка из TestFlight пока не заявляется.
+[Фактический протокол](../../tests/operations/verification-kiosk-native-2026-09-07.md).
 
 TestFlight ограничен сроком сборки; постоянный ресторанный выпуск и MDM —
 отдельная приёмка. Внутренняя группа ограничивает аккаунты, а разрешение только

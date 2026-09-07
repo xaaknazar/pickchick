@@ -108,6 +108,7 @@ jobs:
             sleep 1
           done
           .local/design-venv/bin/python tests/kiosk/browser_ui.py
+          .local/design-venv/bin/python tests/kiosk/browser_payment_success.py
 
   staging:
     name: Private staging image and restricted database role
