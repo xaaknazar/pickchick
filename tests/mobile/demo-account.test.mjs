@@ -67,11 +67,19 @@ test('successful local login persists only an explicit demo profile and consumes
   await f.core.verifyCode(DEMO_LOGIN_CODE);
   assert.equal(f.core.account.kind, 'local_demo');
   assert.equal(f.core.account.phone, phone);
+  assert.equal(f.core.account.version, 2);
+  assert.deepEqual(f.core.account.profile, {
+    nickname: '',
+    birthDate: null,
+    gender: null,
+    completedAt: null,
+  });
   assert.equal(f.core.challenge, null);
   assert.deepEqual(Object.keys(JSON.parse(f.raw())).sort(), [
     'createdAt',
     'kind',
     'phone',
+    'profile',
     'version',
   ]);
   await assert.rejects(f.core.verifyCode(DEMO_LOGIN_CODE), { code: 'no_challenge' });
@@ -79,7 +87,7 @@ test('successful local login persists only an explicit demo profile and consumes
   await restored.restore();
   assert.deepEqual(restored.account, f.core.account);
   assert.equal(restored.challenge, null);
-  assert.equal(DEMO_ACCOUNT_KEY.startsWith('pickchick.demo.'), true);
+  assert.equal(DEMO_ACCOUNT_KEY, 'pickchick.demo.profile.v1');
 });
 
 test('wrong codes exhaust bounded attempts; resending is delayed and creates a fresh challenge', async () => {
@@ -154,6 +162,11 @@ test('the phone is a local label: separate device storage never discovers anothe
   const firstDevice = fixture();
   firstDevice.core.requestCode(phone);
   await firstDevice.core.verifyCode(DEMO_LOGIN_CODE);
+  await firstDevice.core.saveProfile({
+    nickname: 'Первое устройство',
+    birthDate: '2000-02-29',
+    gender: null,
+  });
   const secondDevice = fixture();
   await secondDevice.core.restore();
   assert.equal(secondDevice.core.account, null);
@@ -161,7 +174,240 @@ test('the phone is a local label: separate device storage never discovers anothe
   secondDevice.core.requestCode(phone);
   await secondDevice.core.verifyCode(DEMO_LOGIN_CODE);
   assert.notEqual(firstDevice.core.account.createdAt, secondDevice.core.account.createdAt);
+  assert.equal(secondDevice.core.account.profile.nickname, '');
   await secondDevice.core.signOut();
   assert.equal(firstDevice.core.account.phone, phone);
   assert.notEqual(firstDevice.raw(), null);
+});
+
+test('v1 restores and migrates under the same key without losing phone or original creation time', async () => {
+  const f = fixture();
+  const legacy = { version: 1, kind: 'local_demo', phone, createdAt: 1_700_000_000_000 };
+  f.setRaw(JSON.stringify(legacy));
+  await f.core.restore();
+  assert.deepEqual(f.core.account, {
+    ...legacy,
+    version: 2,
+    profile: { nickname: '', birthDate: null, gender: null, completedAt: null },
+  });
+  assert.deepEqual(JSON.parse(f.raw()), f.core.account);
+  assert.deepEqual(f.calls, ['read', 'write']);
+  const reopened = new DemoAccountCore(f.io);
+  await reopened.restore();
+  assert.deepEqual(reopened.account, f.core.account);
+  assert.deepEqual(f.calls, ['read', 'write', 'read']);
+});
+
+test('failed v1 migration preserves local sign-in and retries safely on a later restore', async () => {
+  const f = fixture();
+  const legacy = JSON.stringify({
+    version: 1,
+    kind: 'local_demo',
+    phone,
+    createdAt: 1_700_000_000_000,
+  });
+  f.setRaw(legacy);
+  f.failWrite(true);
+  await f.core.restore();
+  assert.equal(f.core.account.phone, phone);
+  assert.equal(f.core.account.version, 2);
+  assert.equal(f.raw(), legacy);
+  assert.deepEqual(f.calls, ['read', 'write']);
+  f.failWrite(false);
+  const reopened = new DemoAccountCore(f.io);
+  await reopened.restore();
+  assert.deepEqual(reopened.account, f.core.account);
+  assert.equal(JSON.parse(f.raw()).version, 2);
+  assert(!f.calls.includes('remove'));
+});
+
+test('profile saves one complete trimmed snapshot and survives restart without another login', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  const createdAt = f.core.account.createdAt;
+  f.tick(1000);
+  const beforeCalls = f.calls.length;
+  await f.core.saveProfile({ nickname: '  Чики 🐥  ', birthDate: '2000-02-29', gender: 'female' });
+  assert.deepEqual(f.calls.slice(beforeCalls), ['write']);
+  assert.deepEqual(f.core.account.profile, {
+    nickname: 'Чики 🐥',
+    birthDate: '2000-02-29',
+    gender: 'female',
+    completedAt: f.io.now(),
+  });
+  assert.equal(f.core.account.createdAt, createdAt);
+  assert.equal(f.core.account.phone, phone);
+  const restarted = new DemoAccountCore(f.io);
+  await restarted.restore();
+  assert.deepEqual(restarted.account, f.core.account);
+  assert.equal(restarted.challenge, null);
+  assert.deepEqual(JSON.parse(f.raw()), restarted.account);
+});
+
+test('empty optional details can be explicitly completed and later edited without retaining removed DOB', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  await f.core.saveProfile({ nickname: 'Имя', birthDate: '1996-11-09', gender: 'male' });
+  const firstCompletedAt = f.core.account.profile.completedAt;
+  f.tick(5000);
+  await f.core.saveProfile({ nickname: '  ', birthDate: null, gender: null });
+  assert.deepEqual(f.core.account.profile, {
+    nickname: '',
+    birthDate: null,
+    gender: null,
+    completedAt: f.io.now(),
+  });
+  assert(f.core.account.profile.completedAt > firstCompletedAt);
+  assert(!f.raw().includes('1996-11-09'));
+});
+
+test('save without an account or with invalid/unknown profile fields cannot touch storage', async () => {
+  const f = fixture();
+  const details = { nickname: 'Тест', birthDate: null, gender: null };
+  await assert.rejects(f.core.saveProfile(details), { code: 'no_account' });
+  assert.deepEqual(f.calls, []);
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  const previous = f.core.account;
+  const previousRaw = f.raw();
+  const beforeCalls = f.calls.length;
+  for (const input of [
+    null,
+    {},
+    { ...details, nickname: 'я'.repeat(33) },
+    { ...details, birthDate: '2001-02-29' },
+    { ...details, birthDate: '2999-01-01' },
+    { ...details, gender: 'unknown' },
+    { ...details, completedAt: f.io.now() },
+    { ...details, role: 'manager' },
+  ])
+    await assert.rejects(f.core.saveProfile(input), { code: 'invalid_profile' });
+  assert.equal(f.calls.length, beforeCalls);
+  assert.equal(f.core.account, previous);
+  assert.equal(f.raw(), previousRaw);
+});
+
+test('profile storage failure preserves previous fields and completedAt, allowing a later retry', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  await f.core.saveProfile({ nickname: 'Сохранённое имя', birthDate: '2000-02-29', gender: null });
+  const previous = f.core.account;
+  const raw = f.raw();
+  const changes = { nickname: 'Новое имя', birthDate: '1999-01-01', gender: 'male' };
+  f.tick(1000);
+  f.failWrite(true);
+  await assert.rejects(f.core.saveProfile(changes), /storage unavailable/);
+  assert.equal(f.core.account, previous);
+  assert.equal(f.raw(), raw);
+  f.failWrite(false);
+  await f.core.saveProfile(changes);
+  assert.deepEqual(f.core.account.profile, { ...changes, completedAt: f.io.now() });
+});
+
+test('profile success is not published until its one storage write has completed', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  const previous = f.core.account;
+  let release;
+  const persisted = [];
+  const core = new DemoAccountCore({
+    ...f.io,
+    write: (value) =>
+      new Promise((resolve) => {
+        release = () => {
+          persisted.push(value);
+          resolve();
+        };
+      }),
+  });
+  await core.restore();
+  const pending = core.saveProfile({ nickname: 'Новый профиль', birthDate: null, gender: null });
+  assert.deepEqual(core.account, previous);
+  assert.equal(persisted.length, 0);
+  release();
+  await pending;
+  assert.equal(persisted.length, 1);
+  assert.deepEqual(JSON.parse(persisted[0]), core.account);
+  assert.equal(core.account.profile.nickname, 'Новый профиль');
+});
+
+test('verifying the same local phone preserves profile, but a different phone starts empty', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  await f.core.saveProfile({ nickname: 'Чики', birthDate: '1999-03-20', gender: null });
+  const previous = f.core.account;
+  f.tick(1000);
+  f.core.requestCode(local);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  assert.deepEqual(f.core.account, previous);
+  const otherPhone = `+77${'0'.repeat(8)}2`;
+  f.core.requestCode(otherPhone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  assert.equal(f.core.account.phone, otherPhone);
+  assert.deepEqual(f.core.account.profile, {
+    nickname: '',
+    birthDate: null,
+    gender: null,
+    completedAt: null,
+  });
+  assert(!f.raw().includes('1999-03-20'));
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  assert.equal(f.core.account.profile.nickname, '');
+});
+
+test('sign-out/deletion erases the whole local record including DOB and does not recover it by phone', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  await f.core.saveProfile({ nickname: 'Тест', birthDate: '2000-02-29', gender: 'female' });
+  await f.core.signOut();
+  assert.equal(f.raw(), null);
+  assert.equal(f.core.account, null);
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  assert.equal(f.core.account.profile.birthDate, null);
+  assert.equal(f.core.account.profile.completedAt, null);
+});
+
+test('v2 restoration strictly validates profile shape, date, gender and completion timestamp', async () => {
+  const valid = {
+    version: 2,
+    kind: 'local_demo',
+    phone,
+    createdAt: 1_700_000_000_000,
+    profile: {
+      nickname: 'Тест',
+      birthDate: '2000-02-29',
+      gender: 'male',
+      completedAt: 1_700_000_001_000,
+    },
+  };
+  assert.deepEqual(parseDemoAccount(JSON.stringify(valid)), valid);
+  for (const profile of [
+    null,
+    [],
+    {},
+    { ...valid.profile, nickname: '🐥'.repeat(33) },
+    { ...valid.profile, birthDate: '2000-02-30' },
+    { ...valid.profile, birthDate: '2999-01-01' },
+    { ...valid.profile, gender: true },
+    { ...valid.profile, completedAt: -1 },
+    { ...valid.profile, completedAt: Number.MAX_SAFE_INTEGER + 1 },
+    { ...valid.profile, role: 'manager' },
+    { ...valid.profile, token: 'not-a-credential' },
+  ]) {
+    const raw = JSON.stringify({ ...valid, profile });
+    assert.equal(parseDemoAccount(raw), null);
+    const f = fixture();
+    f.setRaw(raw);
+    await f.core.restore();
+    assert.equal(f.core.account, null);
+    assert.equal(f.raw(), null);
+  }
 });
