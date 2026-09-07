@@ -419,12 +419,16 @@ export function Dialog({
   onClose,
   testID,
   dark = false,
+  footer,
+  placement = 'center',
 }: {
   visible: boolean;
   children: ReactNode;
   onClose: () => void;
   testID?: string;
   dark?: boolean;
+  footer?: ReactNode;
+  placement?: 'center' | 'bottom';
 }) {
   const { px, height } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -440,7 +444,7 @@ export function Dialog({
         style={{
           flex: 1,
           backgroundColor: 'rgba(2,12,35,.72)',
-          justifyContent: 'center',
+          justifyContent: placement === 'bottom' ? 'flex-end' : 'center',
           padding: px(30),
           paddingTop: Math.max(safe.top, px(30)),
           paddingBottom: Math.max(safe.bottom, px(30)),
@@ -451,8 +455,9 @@ export function Dialog({
           testID={testID}
           style={{
             width: '100%',
-            maxWidth: 760,
-            maxHeight: height - Math.max(60, safe.top + safe.bottom),
+            maxWidth: placement === 'bottom' ? 960 : 760,
+            maxHeight:
+              placement === 'bottom' ? height * 0.8 : height - Math.max(60, safe.top + safe.bottom),
             alignSelf: 'center',
             borderRadius: px(32),
             backgroundColor: dark ? colors.dark : colors.white,
@@ -461,10 +466,16 @@ export function Dialog({
         >
           <ScrollView
             keyboardShouldPersistTaps="handled"
+            style={{ flexShrink: 1 }}
             contentContainerStyle={{ padding: px(36), gap: px(26) }}
           >
             {children}
           </ScrollView>
+          {footer ? (
+            <View style={{ paddingHorizontal: px(30), paddingBottom: px(30), paddingTop: px(10) }}>
+              {footer}
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>

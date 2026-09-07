@@ -20,6 +20,7 @@ import {
 } from '../components/UI';
 import { ModifierOptions } from '../components/ProductOptions';
 import { Hero } from '../components/Hero';
+import { ProductArtwork } from '../components/ProductArtwork';
 export function ProductScreen({
   model,
   context,
@@ -65,11 +66,7 @@ export function ProductScreen({
           <Hero product />
         ) : (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Image
-              source={productImage(product.image_id)}
-              style={{ width: '128%', height: '128%', marginLeft: '-14%', marginTop: '-14%' }}
-              contentFit="cover"
-            />
+            <ProductArtwork imageId={product.image_id} crop style={StyleSheet.absoluteFill} />
             <LinearGradient
               colors={[
                 'rgba(5,10,22,.68)',
@@ -282,6 +279,10 @@ export function ProductScreen({
         onClose={() => setAllGroup(null)}
         dark={dark}
         testID="kiosk-drinks-sheet"
+        placement="bottom"
+        footer={
+          <Button label={t.done} testID="kiosk-drinks-done" onPress={() => setAllGroup(null)} />
+        }
       >
         <View style={layout.spread}>
           <Heading size={36} color={ink}>
@@ -298,7 +299,6 @@ export function ProductScreen({
             dark={dark}
           />
         ) : null}
-        <Button label={t.done} onPress={() => setAllGroup(null)} />
       </Dialog>
     </View>
   );
