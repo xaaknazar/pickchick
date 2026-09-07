@@ -8,6 +8,7 @@ export const assets = {
   promo: require('../../../design/prototype/assets/mockup/i28.jpg'),
 };
 const products: Record<string, number> = {
+  'shot.jpg': require('../../../design/prototype/assets/mockup/shot.jpg'),
   'i0.jpg': require('../../../design/prototype/assets/mockup/i0.jpg'),
   'i1.jpg': require('../../../design/prototype/assets/mockup/i1.jpg'),
   'i2.jpg': require('../../../design/prototype/assets/mockup/i2.jpg'),
