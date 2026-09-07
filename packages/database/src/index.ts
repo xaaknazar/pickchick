@@ -27,20 +27,39 @@ export async function transaction<T>(
   operation: (client: DatabaseClient) => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
+  let connectionError: Error | undefined;
+  let discard = false;
+  // pg-pool removes its idle error listener while a client is leased. Socket
+  // failures can emit separately from query rejection, including during rollback.
+  const onConnectionError = (error: Error) => {
+    connectionError ??= error;
+    discard = true;
+  };
+  client.on('error', onConnectionError);
   try {
     await client.query('BEGIN');
     const result = await operation(client);
+    if (connectionError) throw connectionError;
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // The original operation error remains the useful failure.
+    if (!connectionError) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // A failed rollback leaves the connection unusable or its transaction
+        // state unknown. Preserve the original error and remove it from the pool.
+        discard = true;
+      }
     }
     throw error;
   } finally {
-    client.release();
+    try {
+      client.release(discard ? true : undefined);
+    } finally {
+      // release installs the pool's idle listener first: no unhandled-error gap.
+      client.removeListener('error', onConnectionError);
+    }
   }
 }
 
