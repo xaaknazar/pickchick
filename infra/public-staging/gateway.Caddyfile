@@ -110,7 +110,12 @@
 		path /backoffice/ /backoffice/*
 	}
 	handle @backoffice {
-		header X-PickChick-Data catalog
+		header {
+			X-PickChick-Data catalog
+			Referrer-Policy no-referrer
+			X-Frame-Options DENY
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+		}
 		uri strip_prefix /backoffice
 		root * /srv/public/backoffice
 		file_server

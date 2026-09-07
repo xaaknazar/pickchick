@@ -87,7 +87,13 @@ with tempfile.TemporaryDirectory(prefix='pickchick-gateway-') as directory:
         for invalid, method in [(path, 'DELETE'), (path + '/credential', 'POST'),
                                 ('/v1/auth/otp/request', 'POST'), ('/internal/v1/edge/sync/pull', 'POST')]:
             assert request(invalid, method, {}, headers)[0] == 404
-        assert request('/backoffice/')[2].decode() == '<p>Isolated catalog editor fixture</p>'
+        editor_status, editor_headers, editor_body = request('/backoffice/')
+        assert editor_status == 200
+        assert editor_body.decode() == '<p>Isolated catalog editor fixture</p>'
+        assert editor_headers.get('x-frame-options') == 'DENY'
+        assert editor_headers.get('referrer-policy') == 'no-referrer'
+        assert "script-src 'self'" in editor_headers.get('content-security-policy', '')
+        assert "frame-ancestors 'none'" in editor_headers.get('content-security-policy', '')
         redirected = request('/backoffice')
         assert redirected[0] in (200, 308), redirected[:2]
         if redirected[0] == 308:
