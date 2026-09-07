@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -119,6 +119,13 @@ export function MenuScreen({
   const { px, columns } = useMetrics();
   const t = copy(context.locale);
   const [category, setCategory] = useState<Category>(memory.category);
+  const list = useRef<FlatList<KioskProduct>>(null);
+  // Seed the native scroll view once per category. Server polling must not feed
+  // a JS offset back into an in-progress native gesture.
+  const initialOffset = useMemo(
+    () => ({ x: 0, y: memory.offsets[category] ?? 0 }),
+    [category, columns, memory],
+  );
   const products = model.catalog?.products.filter((product) => inCategory(product, category)) ?? [];
   const promo = model.catalog?.products.find((p) => p.id === 'master-combo');
   const quickAdd = (product: KioskProduct) => {
@@ -154,7 +161,9 @@ export function MenuScreen({
                   model.touch();
                   memory.category = key;
                   memory.offsets[key] = 0;
-                  setCategory(key);
+                  if (category === key)
+                    list.current?.scrollToOffset({ offset: 0, animated: false });
+                  else setCategory(key);
                 }}
                 style={({ pressed }) => ({
                   minHeight: Math.max(56, px(76)),
@@ -179,6 +188,7 @@ export function MenuScreen({
         </View>
       </View>
       <FlatList
+        ref={list}
         key={`${columns}-${category}`}
         testID="kiosk-menu-scroll"
         style={layout.grow}
@@ -187,7 +197,7 @@ export function MenuScreen({
         keyExtractor={(p) => p.id}
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={model.touch}
-        contentOffset={{ x: 0, y: memory.offsets[category] ?? 0 }}
+        contentOffset={initialOffset}
         scrollEventThrottle={64}
         onScroll={(event) => {
           memory.offsets[category] = Math.max(0, event.nativeEvent.contentOffset.y);
