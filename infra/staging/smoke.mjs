@@ -4,11 +4,16 @@ import { createPool } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { provisionDevice } from '@pickchick/menu-sync';
 import { fixtureIds } from '@pickchick/test-fixtures';
-import { provisionTestActor, revokeTestActor } from '@pickchick/test-order-flow';
+import {
+  provisionTestActor,
+  revokeTestActor,
+  TEST_ACCESS_NO_EXPIRY,
+} from '@pickchick/test-order-flow';
 
 async function testOrderFlowSmoke(config, owner, runtime, request) {
   const flowConfig = { enabled: true, environment: config.environment };
   const actors = [];
+  let customerId;
   const tokenFor = (role) => actors.find((actor) => actor.role === role).token;
   const send = async (path, token, body, key) => {
     const response = await request(path, {
@@ -33,6 +38,7 @@ async function testOrderFlowSmoke(config, owner, runtime, request) {
   try {
     for (const role of ['prep', 'assembly', 'display', 'manager']) {
       actors.push(await provisionTestActor(owner, flowConfig, role));
+      assert.equal(actors.at(-1).expires_at, TEST_ACCESS_NO_EXPIRY);
     }
     const capabilities = await send('/v1/capabilities');
     assert.equal(capabilities.features.test_order_flow, true);
@@ -44,6 +50,13 @@ async function testOrderFlowSmoke(config, owner, runtime, request) {
     const product = catalog.products.find((item) => item.prep_required);
     assert.ok(product);
     const session = await command('sessions', undefined, { channel: 'mobile' });
+    customerId = session.session_id;
+    assert.equal(session.expires_at, TEST_ACCESS_NO_EXPIRY);
+    assert.equal(
+      (await owner.query('SELECT expires_at FROM test_actors WHERE id=$1', [customerId])).rows[0]
+        .expires_at,
+      Infinity,
+    );
     const quote = await command('quotes', session.token, {
       catalog_version: catalog.catalog_version,
       service_mode: 'takeaway',
@@ -62,6 +75,9 @@ async function testOrderFlowSmoke(config, owner, runtime, request) {
       outcome: 'approved',
     });
     assert.equal(order.state, 'preparing');
+    // Refresh legacy cached metadata while an order is cooking; nothing is reset.
+    assert.deepEqual(await command('sessions/continue', session.token, {}), session);
+    assert.equal((await send(`/v1/test/${path}`, session.token)).state, 'preparing');
     const kitchen = await send('/v1/test/kitchen', tokenFor('prep'));
     assert.ok(kitchen.orders.some((row) => row.order_id === order.order_id));
     for (const task of order.tasks.filter((task) => task.station === 'prep')) {
@@ -95,7 +111,7 @@ async function testOrderFlowSmoke(config, owner, runtime, request) {
     const continued = await command('sessions/continue', session.token, {});
     assert.equal(continued.session_id, session.session_id);
     assert.equal(continued.token, session.token);
-    assert.ok(Date.parse(continued.expires_at) > Date.now());
+    assert.equal(continued.expires_at, TEST_ACCESS_NO_EXPIRY);
     const repeatedContinuation = await command('sessions/continue', session.token, {});
     assert.equal(repeatedContinuation.expires_at, continued.expires_at);
     assert.equal((await send(`/v1/test/${path}`, session.token)).state, 'fulfilled');
@@ -108,7 +124,13 @@ async function testOrderFlowSmoke(config, owner, runtime, request) {
     ]) {
       await assert.rejects(runtime.query(sql), { code: '42501' });
     }
+    await revokeTestActor(owner, flowConfig, session.session_id);
+    const revokedResponse = await request(`/v1/test/${path}`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    assert.equal(revokedResponse.status, 401);
   } finally {
+    if (customerId) await revokeTestActor(owner, flowConfig, customerId);
     for (const actor of actors) await revokeTestActor(owner, flowConfig, actor.actor_id);
   }
 }
