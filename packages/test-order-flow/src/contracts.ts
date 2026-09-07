@@ -8,6 +8,9 @@ export const TestCatalogVersionSchema = z.enum([
   TEST_COMPLETE_CATALOG_VERSION,
 ]);
 export const TEST_NAMESPACE = 'pickchick-test';
+// Wire sentinel for existing clients requiring an ISO timestamp. The database
+// stores PostgreSQL infinity, not this finite date, for revocable permanent access.
+export const TEST_ACCESS_NO_EXPIRY = '9999-12-31T23:59:59.999Z';
 const Synthetic = { synthetic: z.literal(true), namespace: z.literal(TEST_NAMESPACE) };
 const Uuid = z.uuid();
 const Minor = z.string().regex(/^(0|[1-9]\d{0,15})$/);
