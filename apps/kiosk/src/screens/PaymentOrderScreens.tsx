@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { KioskModel } from '../model';
 import { money } from '../cart';
@@ -155,7 +156,18 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
   );
   return (
     <View testID="kiosk-screen-order" style={[layout.screen, { backgroundColor: colors.blue }]}>
-      <Image source={assets.blue} contentFit="cover" style={StyleSheet.absoluteFill} />
+      <View
+        pointerEvents="none"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={StyleSheet.absoluteFill}
+      >
+        <Image source={assets.blue} contentFit="cover" style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          colors={['rgba(0,40,110,.74)', 'rgba(0,26,80,.92)']}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       <ScrollView
         style={layout.grow}
         contentContainerStyle={{
