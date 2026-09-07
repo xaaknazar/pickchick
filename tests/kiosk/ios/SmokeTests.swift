@@ -99,7 +99,13 @@ final class SmokeTests: XCTestCase {
         assertScreen("product", in: app)
         let nutrition = element("kiosk-product-nutrition", in: app)
         XCTAssertTrue(nutrition.waitForExistence(timeout: 10))
-        XCTAssertTrue(nutrition.label.contains("1240"), "Source mockup nutrition should be readable")
+        // The View with a testID is a container, not an aggregate text label.
+        // Query the actual visible caption so native AX must expose its content.
+        let calories = app.staticTexts.matching(NSPredicate(
+            format: "label CONTAINS %@ AND label CONTAINS %@", "1240", "ккал"
+        )).firstMatch
+        XCTAssertTrue(calories.waitForExistence(timeout: 10), "Source calorie caption must be present")
+        XCTAssertTrue(calories.isHittable, "The 1240 ккал caption must be readable without scrolling")
         tap("kiosk-modifier-drink-lemonade", in: app)
         tap("kiosk-modifier-plus-extras-toast", in: app)
         let add = element("kiosk-product-add", in: app)
