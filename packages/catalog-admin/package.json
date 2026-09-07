@@ -1,0 +1,33 @@
+{
+  "name": "@pickchick/catalog-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "default": "./dist/contracts.js"
+    },
+    "./seed": {
+      "types": "./dist/seed.d.ts",
+      "default": "./dist/seed.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pickchick/database": "workspace:*",
+    "@pickchick/test-order-flow": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.13.3"
+  }
+}
