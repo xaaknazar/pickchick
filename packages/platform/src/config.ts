@@ -16,6 +16,7 @@ export interface ServiceConfig {
   trustedProxyIps?: string[];
   edgeFulfillmentEnabled?: boolean;
   edgeDeviceId?: string;
+  fulfillmentTransportEnabled?: boolean;
 }
 
 function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
@@ -80,6 +81,24 @@ export function loadConfig(
     throw new Error('Local fulfillment belongs to the edge service');
   if (fulfillment === 'true' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
     throw new Error('Enabled local fulfillment requires EDGE_DEVICE_ID');
+  for (const [key, owner] of [
+    ['CLOUD_FULFILLMENT_TRANSPORT_ENABLED', 'api'],
+    ['EDGE_FULFILLMENT_TRANSPORT_ENABLED', 'edge'],
+  ]) {
+    const value = env[key!] ?? 'false';
+    if (!['true', 'false'].includes(value))
+      throw new Error('Fulfillment transport flag must be true or false');
+    if (value === 'true' && service !== owner)
+      throw new Error('Fulfillment transport flag service mismatch');
+  }
+  const transport =
+    env[
+      service === 'api'
+        ? 'CLOUD_FULFILLMENT_TRANSPORT_ENABLED'
+        : 'EDGE_FULFILLMENT_TRANSPORT_ENABLED'
+    ] === 'true';
+  if (transport && service === 'edge' && fulfillment !== 'true')
+    throw new Error('Edge transport requires enabled local fulfillment');
   const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
   if (
     proxyIps &&
@@ -114,6 +133,7 @@ export function loadConfig(
       ? { edgeFulfillmentEnabled: true, edgeDeviceId: env.EDGE_DEVICE_ID! }
       : {}),
     ...(proxyIps ? { trustedProxyIps: proxyIps } : {}),
+    ...(transport ? { fulfillmentTransportEnabled: true } : {}),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

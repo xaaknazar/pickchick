@@ -31,6 +31,13 @@ import {
   FulfillmentActionSchema,
   jsonSchema,
 } from '@pickchick/contracts';
+import {
+  PullRequestSchema,
+  PullResponseSchema,
+  TransportAckSchema,
+  EdgeEventSchema,
+  TransportReceiptSchema,
+} from '@pickchick/fulfillment-transport';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
 import {
   CatalogStateSchema,
@@ -701,6 +708,61 @@ Object.assign(openapi.paths, {
     ],
   ),
 });
+
+Object.assign(openapi.components.schemas, {
+  FulfillmentTransportPullRequest: jsonSchema(PullRequestSchema),
+  FulfillmentTransportPullResponse: jsonSchema(PullResponseSchema),
+  FulfillmentTransportAck: jsonSchema(TransportAckSchema),
+  FulfillmentTransportEvent: jsonSchema(EdgeEventSchema),
+  FulfillmentTransportReceipt: jsonSchema(TransportReceiptSchema),
+});
+for (const [path, operationId, input, result, description] of [
+  [
+    'pull',
+    'pullCommercialFulfillment',
+    'FulfillmentTransportPullRequest',
+    'FulfillmentTransportPullResponse',
+    'Claims one eligible admission/authorization event for the authenticated pinned edge. Lease ownership and expiry are required; no bank, fiscal or refund events can be claimed.',
+  ],
+  [
+    'ack',
+    'acknowledgeCommercialFulfillment',
+    'FulfillmentTransportAck',
+    'FulfillmentTransportReceipt',
+    'Called only after durable edge inbox/domain commit. The event and original worker/lease are immutable; an expired lease requires reclaim, never deletion of the reservation.',
+  ],
+  [
+    'events',
+    'recordEdgeFulfillment',
+    'FulfillmentTransportEvent',
+    'FulfillmentTransportReceipt',
+    'Authenticated immutable versioned edge fact. Admission uses actual device credentials; order/task observations never overwrite commercial money or award loyalty. Reordered facts cannot lower projection versions.',
+  ],
+])
+  openapi.paths['/internal/v1/edge/fulfillment/' + path] = {
+    post: {
+      operationId,
+      description:
+        description +
+        ' Disabled by default, private transport only; not routed by the public gateway. Requests at most 64 KiB and responses at most 1,300,000 bytes.',
+      security: [{ deviceBearer: [], deviceId: [] }],
+      requestBody: {
+        required: true,
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/' + input } } },
+      },
+      responses: {
+        200: response(result),
+        400: response('Error', 'Invalid request'),
+        401: response('Error', 'Invalid, expired or revoked device'),
+        403: response('Error', 'Device binding mismatch'),
+        404: response('Error', 'Disabled or missing'),
+        409: response('Error', 'Lease, immutable event or version conflict'),
+        413: response('Error', 'Request exceeds 64 KiB'),
+        503: response('Error', 'Transport unavailable'),
+        500: response('Error', 'Internal error'),
+      },
+    },
+  };
 
 for (const [filename, value] of [
   ['openapi.json', openapi],

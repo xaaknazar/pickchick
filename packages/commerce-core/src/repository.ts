@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { authenticateDevice } from '@pickchick/menu-sync';
+import type { DeviceAuth } from '@pickchick/menu-sync';
 import { transaction } from '@pickchick/database';
 import { priceCatalogSnapshot, CatalogPricingError } from '@pickchick/catalog-pricing';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
@@ -534,7 +536,7 @@ export class CommerceRepository {
       return { orderId: id, quoteId: quote.id };
     });
   }
-  /** Caller verifies device authentication before this internal port. */
+  /** Legacy trusted internal port; network adapters must use actual DeviceAuth below. */
   async confirmAdmission(edgeInput: TrustedEdge, input: unknown) {
     const edge = parse(EdgeSchema, edgeInput),
       event = parse(AdmissionSchema, input);
@@ -544,38 +546,68 @@ export class CommerceRepository {
         [edge.deviceId, edge.branchId, edge.organizationId],
       );
       if (!device.rowCount) throw new CommerceError('FORBIDDEN');
-      await lock(client, ['edge', edge.deviceId, event.eventId]);
-      const old = (
-        await client.query<{ request_digest: string; result: unknown }>(
-          'SELECT request_digest,result FROM commerce_edge_inbox WHERE device_id=$1 AND event_id=$2',
-          [edge.deviceId, event.eventId],
+      return this.applyAdmission(client, edge, event);
+    });
+  }
+  /** Authenticate inside the effect transaction. The optional client is only for an
+   * internal transaction owner which atomically persists its transport inbox. */
+  async confirmAdmissionAuthenticated(auth: DeviceAuth, input: unknown, client?: DatabaseClient) {
+    const event = parse(AdmissionSchema, input),
+      identity = { ...auth };
+    const apply = async (connection: DatabaseClient) => {
+      const branchId = await authenticateDevice(connection, identity);
+      const row = (
+        await connection.query<{ organization_id: string }>(
+          'SELECT organization_id FROM branches WHERE id=$1',
+          [branchId],
         )
       ).rows[0];
-      if (old) {
-        if (old.request_digest !== digest(event)) throw new CommerceError('CONFLICT');
-        return old.result;
-      }
-      const row = await order(client, edge, event.orderId);
-      if (row.quote_digest !== event.quoteDigest) throw new CommerceError('CONFLICT');
-      if (
-        row.admission_reservation_id &&
-        (row.admission_reservation_id !== event.reservationId ||
-          row.admission_device_id !== edge.deviceId)
+      if (!row) throw new CommerceError('FORBIDDEN');
+      return this.applyAdmission(
+        connection,
+        { organizationId: row.organization_id, branchId, deviceId: identity.deviceId },
+        event,
+      );
+    };
+    return client ? apply(client) : transaction(this.pool, apply);
+  }
+  private async applyAdmission(
+    client: DatabaseClient,
+    edge: TrustedEdge,
+    event: ReturnType<typeof AdmissionSchema.parse>,
+  ) {
+    // Order first also matches the outer authenticated transport transaction.
+    const row = await order(client, edge, event.orderId);
+    await lock(client, ['edge', edge.deviceId, event.eventId]);
+    const old = (
+      await client.query<{ request_digest: string; result: unknown }>(
+        'SELECT request_digest,result FROM commerce_edge_inbox WHERE device_id=$1 AND event_id=$2',
+        [edge.deviceId, event.eventId],
       )
-        throw new CommerceError('CONFLICT');
-      await client.query(
-        'UPDATE commerce_orders SET admission_device_id=$2,admission_reservation_id=$3 WHERE id=$1',
-        [row.id, edge.deviceId, event.reservationId],
-      );
-      row.admission_device_id = edge.deviceId;
-      row.admission_reservation_id = event.reservationId;
-      const result = await reconcile(client, row);
-      await client.query(
-        'INSERT INTO commerce_edge_inbox(device_id,event_id,request_digest,result) VALUES($1,$2,$3,$4)',
-        [edge.deviceId, event.eventId, digest(event), result],
-      );
-      return result;
-    });
+    ).rows[0];
+    if (old) {
+      if (old.request_digest !== digest(event)) throw new CommerceError('CONFLICT');
+      return old.result;
+    }
+    if (row.quote_digest !== event.quoteDigest) throw new CommerceError('CONFLICT');
+    if (
+      row.admission_reservation_id &&
+      (row.admission_reservation_id !== event.reservationId ||
+        row.admission_device_id !== edge.deviceId)
+    )
+      throw new CommerceError('CONFLICT');
+    await client.query(
+      'UPDATE commerce_orders SET admission_device_id=$2,admission_reservation_id=$3 WHERE id=$1',
+      [row.id, edge.deviceId, event.reservationId],
+    );
+    row.admission_device_id = edge.deviceId;
+    row.admission_reservation_id = event.reservationId;
+    const result = await reconcile(client, row);
+    await client.query(
+      'INSERT INTO commerce_edge_inbox(device_id,event_id,request_digest,result) VALUES($1,$2,$3,$4)',
+      [edge.deviceId, event.eventId, digest(event), result],
+    );
+    return result;
   }
   async startPaymentAttempt(scope: CommerceScope, key: string, input: unknown) {
     const request = parse(AttemptSchema, input);
@@ -586,6 +618,31 @@ export class CommerceRepository {
         request.orderId,
         actor.role === 'manager' ? undefined : actor.principalId,
       );
+      // A transport-owned admission may have been released/cancelled by its edge.
+      // The order lock serializes this decision with incoming fulfillment facts.
+      const transport = (
+        await client.query<{ device_id: string; active: boolean }>(
+          'SELECT device_id,active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
+          [actor.branchId],
+        )
+      ).rows[0];
+      if (transport) {
+        if (!transport.active) throw new CommerceError('NOT_READY');
+        const admission = (
+          await client.query<{ state: string; device_id: string; reservation_id: string }>(
+            'SELECT state,device_id,reservation_id FROM cloud_fulfillment_projection WHERE order_id=$1',
+            [row.id],
+          )
+        ).rows[0];
+        if (
+          !admission ||
+          admission.state !== 'held' ||
+          admission.device_id !== transport.device_id ||
+          admission.device_id !== row.admission_device_id ||
+          admission.reservation_id !== row.admission_reservation_id
+        )
+          throw new CommerceError('NOT_READY');
+      }
       await account(
         client,
         actor,
@@ -1101,6 +1158,7 @@ export class CommerceRepository {
           `WITH selected AS (
         SELECT e.id FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id
         WHERE o.organization_id=$1 AND o.branch_id=$2 AND e.acknowledged_at IS NULL AND (e.lease_until IS NULL OR e.lease_until<clock_timestamp())
+        AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id))
         AND (e.event_type NOT IN ('payment.submit_requested','refund.submit_requested','fiscal.submit_requested','edge.kitchen_admission_requested') OR NOT o.attention_required)
         AND (e.event_type NOT IN ('payment.submit_requested','refund.submit_requested','fiscal.submit_requested') OR EXISTS(SELECT 1 FROM commerce_provider_accounts a WHERE a.id=(e.payload->>'accountId')::uuid AND a.enabled))
         AND (e.event_type<>'payment.submit_requested' OR EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.id=(e.payload->>'attemptId')::uuid AND a.state='pending'))
@@ -1128,7 +1186,7 @@ export class CommerceRepository {
       request = parse(AckSchema, input);
     if (scope.role !== 'manager') throw new CommerceError('FORBIDDEN');
     const result = await this.pool.query(
-      `UPDATE commerce_outbox e SET acknowledged_at=COALESCE(e.acknowledged_at,clock_timestamp()) FROM commerce_orders o WHERE e.order_id=o.id AND o.organization_id=$1 AND o.branch_id=$2 AND e.id=$3 AND e.lease_worker=$4 AND e.lease_token=$5 AND (e.lease_until>clock_timestamp() OR e.acknowledged_at IS NOT NULL) RETURNING e.id`,
+      `UPDATE commerce_outbox e SET acknowledged_at=COALESCE(e.acknowledged_at,clock_timestamp()) FROM commerce_orders o WHERE e.order_id=o.id AND o.organization_id=$1 AND o.branch_id=$2 AND e.id=$3 AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id)) AND e.lease_worker=$4 AND e.lease_token=$5 AND (e.lease_until>clock_timestamp() OR e.acknowledged_at IS NOT NULL) RETURNING e.id`,
       [scope.organizationId, scope.branchId, request.eventId, request.workerId, request.leaseToken],
     );
     if (!result.rowCount) throw new CommerceError('CONFLICT');

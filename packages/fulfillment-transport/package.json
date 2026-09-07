@@ -1,5 +1,5 @@
 {
-  "name": "@pickchick/commerce-core",
+  "name": "@pickchick/fulfillment-transport",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,18 +13,19 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --test tests/postgres.test.mjs"
+    "test:integration": "node --test tests/cloud.test.mjs tests/worker.test.mjs"
   },
   "dependencies": {
+    "@pickchick/contracts": "workspace:*",
     "@pickchick/database": "workspace:*",
     "@pickchick/menu-sync": "workspace:*",
-    "zod": "4.5.4",
-    "@pickchick/catalog-pricing": "workspace:*"
+    "@pickchick/commerce-core": "workspace:*",
+    "@pickchick/edge-fulfillment": "workspace:*",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "typescript": "5.9.3",
     "@types/node": "24.13.3",
-    "@pickchick/test-fixtures": "workspace:*",
-    "@pickchick/catalog-admin": "workspace:*"
+    "@pickchick/test-fixtures": "workspace:*"
   }
 }

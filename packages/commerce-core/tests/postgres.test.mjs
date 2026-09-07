@@ -685,6 +685,9 @@ test('restricted runtime DML role completes commerce without DDL, deletes or acc
       await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role};
       GRANT SELECT ON branches,devices,menu_releases,commerce_provider_accounts,catalog_publications,catalog_branch_heads TO ${role};
       GRANT UPDATE(lock_anchor) ON catalog_branch_heads TO ${role};
+      -- Commerce reads the transport-owned admission guard; it cannot configure it.
+      GRANT SELECT ON fulfillment_transport_bindings,cloud_fulfillment_projection TO ${role};
+      GRANT UPDATE(lock_anchor) ON fulfillment_transport_bindings TO ${role};
       GRANT SELECT,INSERT ON commerce_quotes,commerce_orders,commerce_payment_intents,commerce_payment_attempts,
         commerce_captures,commerce_refunds,commerce_refund_effects,commerce_fiscal_documents,commerce_fiscal_effects,
         commerce_commands,commerce_provider_inbox,commerce_edge_inbox,commerce_reconciliation_issues,commerce_outbox TO ${role};
