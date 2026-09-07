@@ -416,7 +416,7 @@ test('cancellation removes queued/ready test order without fabricating refund, a
     );
   });
 });
-test('durable active-session, daily-session and per-session order quotas cannot be bypassed by restarting service', async () => {
+test('durable recent-session, daily-session and rolling order quotas cannot be bypassed by restarting service', async () => {
   await withDesk(async (ctx) => {
     await ctx.cloud.pool.query(
       "INSERT INTO test_actors(id,branch_id,token_hash,role,channel,expires_at) SELECT gen_random_uuid(),$1,encode(sha256(n::text::bytea),'hex'),'customer','mobile',clock_timestamp()+interval '1 hour' FROM generate_series(1,99)n",
@@ -787,7 +787,7 @@ test('complete catalog enforces required selection quantities, availability, opt
   });
 });
 
-test('maximum owned TEST history retains selected compositions without copying the entire option directory', async (t) => {
+test('bounded visible TEST order history retains selected compositions without copying the entire option directory', async (t) => {
   await withDesk(async (ctx) => {
     const product = ctx.flow
       .catalog('mockup-v0.3')
@@ -802,7 +802,7 @@ test('maximum owned TEST history retains selected compositions without copying t
         })),
     );
     // Eleven distinct variants with every paid extra selected: the largest
-    // currently allowed per-customer history is 20 orders × 11 such lines.
+    // visible per-customer response contains 20 orders × 11 such lines.
     const body = {
       catalog_version: 'mockup-v0.3',
       service_mode: 'takeaway',
