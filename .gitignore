@@ -44,6 +44,8 @@ __pycache__/
 # Expo native directories are generated from the versioned app config
 /apps/mobile/ios/
 /apps/mobile/android/
+/apps/kiosk/ios/
+/apps/kiosk/android/
 *.xcarchive/
 *.ipa
 *.dSYM/

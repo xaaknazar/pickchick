@@ -11,3 +11,5 @@ packages/contracts/event.schema.json
 **/.expo
 apps/mobile/ios
 apps/mobile/android
+apps/kiosk/ios
+apps/kiosk/android

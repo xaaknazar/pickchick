@@ -16,6 +16,7 @@
     "format:check": "prettier --check .",
     "test": "node --test tests/unit/*.test.mjs",
     "test:mobile": "node --test tests/mobile/*.test.mjs && python3 -m unittest discover -s tests/mobile -p 'test_*.py'",
+    "test:kiosk": "node --test tests/kiosk/*.test.mjs",
     "test:integration": "node --env-file=.env --test --test-concurrency=1 tests/integration/*.test.mjs",
     "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm contracts:check && pnpm design:check",
     "contracts:generate": "node scripts/contracts.mjs",

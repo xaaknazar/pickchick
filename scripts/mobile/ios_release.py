@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and deliver only kz.pickchick.app with the selected local Xcode account."""
+"""Build an explicitly allowlisted PickChick app with the selected Xcode account."""
 
 import argparse
 from contextlib import contextmanager, ExitStack
@@ -19,7 +19,22 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[2]
 TEAM = "DAJTP6MC3Q"
 BUNDLE = "kz.pickchick.app"
+APP_DIRECTORY = "mobile"
+APP_TARGET = "PickChick"
+INTERNAL_ONLY = False
 DEFAULT_ARTIFACTS_ROOT = Path.home() / "Library/Caches/PickChick/releases"
+
+
+def select_app(name):
+    """Separate bundle/profile/workspace boundaries; never accept arbitrary apps."""
+    global BUNDLE, APP_DIRECTORY, APP_TARGET, INTERNAL_ONLY
+    targets = {
+        "mobile": ("kz.pickchick.app", "mobile", "PickChick", False),
+        "kiosk": ("kz.pickchick.kiosk", "kiosk", "PickChickKiosk", True),
+    }
+    if name not in targets:
+        fail("Only the mobile and kiosk PickChick apps are allowed.")
+    BUNDLE, APP_DIRECTORY, APP_TARGET, INTERNAL_ONLY = targets[name]
 
 # Only generated app-target Release/iphoneos settings change. In particular a
 # global PROVISIONING_PROFILE_SPECIFIER would also apply to CocoaPods targets.
@@ -39,9 +54,10 @@ rescue LoadError
   require 'xcodeproj'
 end
 path, team, bundle, identity, profile, keychain = ARGV
+target_name = ARGV[6] || 'PickChick'
 project = Xcodeproj::Project.open(path)
 apps = project.targets.select { |t| t.product_type == 'com.apple.product-type.application' }
-abort 'Expected only the PickChick application target.' unless apps.length == 1 && apps[0].name == 'PickChick'
+abort 'Expected only the selected PickChick application target.' unless apps.length == 1 && apps[0].name == target_name
 release = apps[0].build_configurations.find { |config| config.name == 'Release' }
 abort 'PickChick Release configuration is missing.' unless release
 abort 'Application Bundle ID differs.' unless release.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] == bundle
@@ -223,7 +239,7 @@ def app_signing_override(args, signing, output):
         return
     # workspace_args enforces the generated PickChick native directory.
     workspace_args(args, signing)
-    project = Path(args.workspace).expanduser().resolve().parent / "PickChick.xcodeproj"
+    project = Path(args.workspace).expanduser().resolve().parent / f"{APP_TARGET}.xcodeproj"
     file = project / "project.pbxproj"
     before = file.read_bytes()
     backup = output / "native-project.before.pbxproj"
@@ -233,7 +249,7 @@ def app_signing_override(args, signing, output):
     changed = None
     try:
         local_command(["ruby", "-e", MANUAL_PROJECT_RUBY, str(project), TEAM, BUNDLE,
-                       signing["identity"], signing["profileUuid"], str(signing["keychain"])])
+                       signing["identity"], signing["profileUuid"], str(signing["keychain"]), APP_TARGET])
         changed = file.read_bytes()
         yield
     finally:
@@ -291,6 +307,8 @@ def archive_app(archive):
         fail("Refusing to export or upload an archive for a different Bundle ID.")
     if properties.get("Team") != TEAM:
         fail("Refusing to export or upload an archive for a different Apple Team.")
+    if APP_DIRECTORY == "kiosk" and app_info.get("UIDeviceFamily") != [2]:
+        fail("The kiosk archive must support only iPad.")
     if not (app / "main.jsbundle").is_file():
         fail("The Release archive has no embedded main.jsbundle; Metro is not a release dependency.")
     return app, app_info
@@ -299,9 +317,11 @@ def archive_app(archive):
 def workspace_args(args, signing=None):
     workspace = Path(args.workspace).expanduser().resolve()
     if not workspace.is_dir() or workspace.suffix != ".xcworkspace":
-        fail("Generate apps/mobile/ios and install CocoaPods before running this phase.")
-    if not workspace.is_relative_to((ROOT / "apps/mobile/ios").resolve()):
-        fail("Only the PickChick native workspace under apps/mobile/ios is allowed.")
+        fail(f"Generate apps/{APP_DIRECTORY}/ios and install CocoaPods before running this phase.")
+    if not workspace.is_relative_to((ROOT / f"apps/{APP_DIRECTORY}/ios").resolve()):
+        fail(f"Only the selected native workspace under apps/{APP_DIRECTORY}/ios is allowed.")
+    if args.scheme != APP_TARGET:
+        fail("The scheme must match the selected PickChick application.")
     result = ["-workspace", str(workspace), "-scheme", args.scheme,
               "-configuration", "Release", "-destination", "generic/platform=iOS",
               f"DEVELOPMENT_TEAM={TEAM}"]
@@ -319,6 +339,8 @@ def validate_build_settings(args, signing=None):
         fail("The selected scheme must resolve to exactly the PickChick iOS application.")
     if apps[0].get("DEVELOPMENT_TEAM") != TEAM:
         fail("Resolved DEVELOPMENT_TEAM differs from the explicitly selected Apple Team.")
+    if APP_DIRECTORY == "kiosk" and str(apps[0].get("TARGETED_DEVICE_FAMILY")) != "2":
+        fail("The kiosk scheme must target iPad only.")
     if signing and (apps[0].get("CODE_SIGN_STYLE") != "Manual"
                     or apps[0].get("CODE_SIGN_IDENTITY") != signing["identity"]
                     or apps[0].get("PROVISIONING_PROFILE_SPECIFIER") != signing["profileUuid"]):
@@ -357,6 +379,8 @@ def export_options(destination, signing=None):
     if signing:
         options.update(signingStyle="manual", signingCertificate=signing["identity"],
                        provisioningProfiles={BUNDLE: signing["profileUuid"]})
+    if INTERNAL_ONLY:
+        options["testFlightInternalTestingOnly"] = True
     return options
 
 
@@ -387,8 +411,9 @@ def verify_archived_profile(app, signing):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["doctor", "archive", "export", "upload"])
-    parser.add_argument("--workspace", default=str(ROOT / "apps/mobile/ios/PickChick.xcworkspace"))
-    parser.add_argument("--scheme", default="PickChick")
+    parser.add_argument("--app", choices=["mobile", "kiosk"], default="mobile")
+    parser.add_argument("--workspace")
+    parser.add_argument("--scheme")
     parser.add_argument("--release", default="first-testflight")
     parser.add_argument("--asc-app-id", help="Verified numeric PickChick App Store Connect ID")
     parser.add_argument("--artifacts-root", default=str(DEFAULT_ARTIFACTS_ROOT),
@@ -398,6 +423,9 @@ def main():
     parser.add_argument("--keychain", help="Dedicated private signing keychain, never the login keychain")
     parser.add_argument("--keychain-password-file", help="Optional private hex password file to unlock only the dedicated keychain")
     args = parser.parse_args()
+    select_app(args.app)
+    args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
+    args.scheme = args.scheme or APP_TARGET
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.release):
         fail("Use a short release label containing only letters, numbers, dot, dash or underscore.")
     signing = manual_signing(args)
@@ -426,15 +454,19 @@ def main():
 def perform_phase(args, signing, artifacts):
     output = artifacts / args.release
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
-    archive = output / "PickChick.xcarchive"
+    archive = output / f"{APP_TARGET}.xcarchive"
     metadata_path = output / "release.json"
 
     if args.phase == "archive":
-        config = json.loads((ROOT / "apps/mobile/app.json").read_text())["expo"]
+        config = json.loads((ROOT / f"apps/{APP_DIRECTORY}/app.json").read_text())["expo"]
         if (config.get("ios", {}).get("bundleIdentifier") != BUNDLE
                 or config.get("ios", {}).get("appleTeamId") != TEAM):
             fail("Expo app config must explicitly select the PickChick Bundle ID and Apple Team.")
         extra = config.get("extra", {})
+        if APP_DIRECTORY == "kiosk" and (
+                config.get("ios", {}).get("isTabletOnly") is not True
+                or extra.get("distribution") != "internal-testflight"):
+            fail("Kiosk releases require iPad-only and internal TestFlight configuration.")
         if extra.get("environment") != "staging" or extra.get("customerOperationsEnabled") is not False:
             fail("This first TestFlight release requires staging and disabled customer operations.")
         api_url = checked_api_url(extra.get("apiUrl", ""))
@@ -451,6 +483,7 @@ def perform_phase(args, signing, artifacts):
                 fail("CURRENT_PROJECT_VERSION is missing. Assign the PickChick build number first.")
             metadata = {"createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                         "team": TEAM, "bundleIdentifier": BUNDLE, "apiUrl": api_url,
+                        "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY,
                         "version": version, "build": build,
                         "gitSha": local_command(["git", "rev-parse", "HEAD"]).strip(),
                         "dirty": bool(local_command(["git", "status", "--porcelain"]).strip()),

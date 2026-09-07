@@ -3,8 +3,14 @@ import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../apps/mobile/dist');
-const port = Number(process.env.MOBILE_PREVIEW_PORT ?? 8081);
+const app = process.env.PICKCHICK_PREVIEW_APP ?? 'mobile';
+if (!['mobile', 'kiosk'].includes(app)) throw new Error('Unsupported preview app');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), `../../apps/${app}/dist`);
+const port = Number(
+  app === 'kiosk'
+    ? (process.env.KIOSK_PREVIEW_PORT ?? 4184)
+    : (process.env.MOBILE_PREVIEW_PORT ?? 8081),
+);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid preview port');
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -45,4 +51,4 @@ createServer(async (request, response) => {
   } catch {
     response.writeHead(404).end();
   }
-}).listen(port, '127.0.0.1', () => console.log(`Mobile preview: http://127.0.0.1:${port}`));
+}).listen(port, '127.0.0.1', () => console.log(`${app} preview: http://127.0.0.1:${port}`));

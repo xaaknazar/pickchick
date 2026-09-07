@@ -9,6 +9,8 @@ export default [
       '**/.expo/**',
       'apps/mobile/ios/**',
       'apps/mobile/android/**',
+      'apps/kiosk/ios/**',
+      'apps/kiosk/android/**',
       '.local/**',
       'PickChick-technical-plan-v1/**',
       'docs/research/**',
@@ -17,7 +19,12 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['apps/mobile/**/*.ts', 'apps/mobile/**/*.tsx'],
+    files: [
+      'apps/mobile/**/*.ts',
+      'apps/mobile/**/*.tsx',
+      'apps/kiosk/**/*.ts',
+      'apps/kiosk/**/*.tsx',
+    ],
     languageOptions: { globals: { require: 'readonly' } },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
