@@ -17,6 +17,7 @@ import {
   type DemoAccount,
   type DemoChallenge,
 } from './demo-account';
+import type { DemoProfileInput } from './profile-details';
 
 function createCore() {
   return new DemoAccountCore({
@@ -48,6 +49,8 @@ function errorMessage(error: unknown): string {
     expired: 'Время действия кода истекло. Запросите новый тестовый код.',
     attempts_exhausted: 'Попытки закончились. Запросите новый тестовый код.',
     invalid_code: 'Код не подошёл. Для этого тестового входа используйте 123456.',
+    invalid_profile: 'Проверьте данные профиля и дату рождения.',
+    no_account: 'Сначала войдите в тестовый аккаунт.',
   };
   return messages[error.code];
 }
@@ -60,6 +63,7 @@ interface DemoAccountContextValue {
   error: string | null;
   requestCode(phone: string): Promise<boolean>;
   verifyCode(code: string): Promise<boolean>;
+  saveProfile(input: DemoProfileInput): Promise<boolean>;
   cancelChallenge(): void;
   signOut(): Promise<boolean>;
 }
@@ -129,6 +133,7 @@ export function DemoAccountProvider({ children }: { children: ReactNode }) {
         error,
         requestCode: (phone) => run(() => core.requestCode(phone)),
         verifyCode: (code) => run(() => core.verifyCode(code)),
+        saveProfile: (input) => run(() => core.saveProfile(input)),
         cancelChallenge: () => {
           if (locked.current) return;
           core.cancelChallenge();
