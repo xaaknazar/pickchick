@@ -193,7 +193,9 @@ class Release:
             path = self.private / ('exception-' + uuid.uuid4().hex + '.log')
             with open(path, 'x', encoding='utf8') as output:
                 os.fchmod(output.fileno(), 0o600)
-                output.write(''.join(traceback.format_exception(error, chain=False))[:65_536])
+                output.write(''.join(traceback.format_exception(
+                    type(error), error, error.__traceback__, chain=False,
+                ))[:65_536])
 
     @contextmanager
     def deployment_lock(self):

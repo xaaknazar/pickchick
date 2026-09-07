@@ -41,7 +41,8 @@
     "test:pos": "node --env-file=.env --test --test-concurrency=1 tests/pos/*.test.mjs",
     "test:commerce": "pnpm --filter @pickchick/commerce-core test && pnpm --filter @pickchick/commerce-core test:integration",
     "test:loyalty": "pnpm --filter @pickchick/loyalty-core test && pnpm --filter @pickchick/loyalty-core test:integration",
-    "test:backoffice": "node --env-file=.env --test --test-concurrency=1 tests/backoffice/*.test.mjs"
+    "test:backoffice": "node --env-file=.env --test --test-concurrency=1 tests/backoffice/*.test.mjs",
+    "test:fulfillment": "pnpm --filter @pickchick/edge-fulfillment test && pnpm --filter @pickchick/edge-fulfillment test:integration"
   },
   "dependencies": {
     "@pickchick/catalog-admin": "workspace:*",

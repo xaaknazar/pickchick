@@ -48,6 +48,8 @@ jobs:
         run: pnpm test:commerce
       - name: Verify Chiki ledger, reservations and refund debt
         run: pnpm test:loyalty
+      - name: Verify local kitchen admission, station roles and recovery
+        run: pnpm test:fulfillment
       - name: Mobile state, API and release invariants
         run: pnpm test:mobile
       - name: Export native and web JavaScript bundles

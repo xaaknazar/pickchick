@@ -33,6 +33,19 @@ def database():
 
 
 class ReleaseGuards(unittest.TestCase):
+    def test_unknown_exception_keeps_diagnostics_private_on_supported_python_versions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            instance = release.Release.__new__(release.Release)
+            instance.private, instance.sha = Path(directory), SHA
+            instance.args = SimpleNamespace(action='prepare')
+            instance.record_error(ValueError('synthetic private detail'))
+            logs = list(instance.private.glob('exception-*.log'))
+            self.assertEqual(len(logs), 1)
+            self.assertIn('synthetic private detail', logs[0].read_text())
+            failure = json.loads(next(instance.private.glob('failure-*.json')).read_text())
+            self.assertNotIn('synthetic private detail', failure['reason'])
+            self.assertTrue(all(path.stat().st_mode & 0o077 == 0 for path in instance.private.iterdir()))
+
     def test_ci_requires_exact_source_canonical_workflow_and_all_successful_jobs(self):
         release.verify_ci(proof(), SHA)
         mutations = [lambda p: p['run'].update(head_sha='b' * 40),

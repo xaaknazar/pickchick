@@ -393,6 +393,31 @@ importers:
 
   packages/design-tokens: {}
 
+  packages/edge-fulfillment:
+    dependencies:
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/local-orders':
+        specifier: workspace:*
+        version: link:../local-orders
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@pickchick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
+      '@pickchick/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/local-orders:
     dependencies:
       '@pickchick/contracts':

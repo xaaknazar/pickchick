@@ -7,22 +7,26 @@ release_sha=${1:-}
 base=/opt/pickchick-staging
 release="$base/releases/$release_sha"
 state="$base/maintenance"
-test -f "$release/scripts/customer-identity-maintenance.mjs"
-test -f "$release/release.env"
-test "$(sed -n 's/^RELEASE_SHA=//p' "$release/release.env")" = "$release_sha"
-test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "pickchick-api:$release_sha")" = "$release_sha"
 mkdir -p "$state"
 chmod 700 "$state"
 exec 9>"$state/identity-cleanup.lock"
 flock -n 9 || exit 0
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 exit_status=0
-timeout --signal=TERM 120 docker compose \
-  --env-file "$base/secrets/staging.env" \
-  --env-file "$release/release.env" \
-  -f "$release/infra/staging/compose.yaml" \
-  run --rm --no-deps -T provision node scripts/customer-identity-maintenance.mjs cleanup \
-  >"$state/identity-cleanup.last.log" 2>&1 || exit_status=$?
+run_cleanup() {
+  test -f "$release/scripts/customer-identity-maintenance.mjs" || return 65
+  test -f "$release/release.env" || return 65
+  test "$(sed -n 's/^RELEASE_SHA=//p' "$release/release.env")" = "$release_sha" || return 65
+  local actual_revision
+  actual_revision=$(timeout --kill-after=5 15 docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "pickchick-api:$release_sha") || return 69
+  test "$actual_revision" = "$release_sha" || return 65
+  timeout --signal=TERM --kill-after=10 120 docker compose \
+    --env-file "$base/secrets/staging.env" \
+    --env-file "$release/release.env" \
+    -f "$release/infra/staging/compose.yaml" \
+    run --rm --no-deps -T provision node scripts/customer-identity-maintenance.mjs cleanup
+}
+run_cleanup >"$state/identity-cleanup.last.log" 2>&1 || exit_status=$?
 python3 - "$state" "$release_sha" "$started_at" "$exit_status" <<'PY'
 import json, os, pathlib, sys
 from datetime import datetime, timezone
