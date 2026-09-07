@@ -2,6 +2,10 @@
 
 Read-only аудит 7 сентября 2026. Визуальный первоисточник — предоставленный
 `PickChick - mockup/Pick Chick Kiosk (offline).html`, а не наша галерея.
+Его неизменённый JSON-декодированный шаблон хранится в
+[design/reference-source/kiosk.html.txt](../../design/reference-source/kiosk.html.txt);
+хеши и соответствие 51 ресурса — в
+[kiosk.provenance.json](../../design/reference-source/kiosk.provenance.json).
 SHA-256 исходного HTML:
 `239ca6ffee862a4670eb999eab9da438a38f16c43392a596360780abfaa2e406`.
 HTML содержит JSON-шаблон `script[type="__bundler/template"]` и встроенные

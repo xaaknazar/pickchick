@@ -1,0 +1,451 @@
+{
+  "file": "kiosk.html.txt",
+  "source": "PickChick - mockup/Pick Chick Kiosk (offline).html",
+  "source_bytes": 16890130,
+  "source_sha256": "239ca6ffee862a4670eb999eab9da438a38f16c43392a596360780abfaa2e406",
+  "decoded_template_bytes": 140916,
+  "decoded_template_sha256": "a9ab538528956808650da310a9252d84570a9ac830d1a21a0250dd272450c79c",
+  "transform": "JSON-decode script[type=\"__bundler/template\"] only; no content edits, URL replacement or execution. Bundler manifest payload excluded.",
+  "asset_references": "Original UUID references are preserved verbatim. assets maps them to original paths when supplied by __bundler/ext_resources and records decoded asset SHA-256. No resource is executed or downloaded.",
+  "purpose": "Client-supplied visual reference, not executable application code, payment integration or operational requirements.",
+  "assets": [
+    {
+      "reference": "86686902-4750-4559-a500-e5149f72b7eb",
+      "original_reference": null,
+      "mime_type": "image/png",
+      "decoded_bytes": 85808,
+      "sha256": "128559e071a3bbaf07505fc94e2308fddffd62fe23b7079d85d1265494f32ed2",
+      "exact_repository_matches": ["design/prototype/assets/mockup/logo.png"]
+    },
+    {
+      "reference": "c84453ad-9bcb-4063-99bf-011e657fb979",
+      "original_reference": "offline/i11.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 103772,
+      "sha256": "c9956e6e456b4345261cb87bd60eb4d22465a0e8b1fb81f73af091ef1be97819",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i11.jpg"]
+    },
+    {
+      "reference": "2ebc2c74-da51-4825-8fab-d3f134ac03f1",
+      "original_reference": "offline/i1.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 36012,
+      "sha256": "d6377af51b23212d62858e13505f750fe955b4fc180621e0a8bc8ea42f032cf5",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i1.jpg"]
+    },
+    {
+      "reference": "d610fe4a-394c-4bf4-9c15-c4ecf88dbf02",
+      "original_reference": "offline/i9.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 76212,
+      "sha256": "47e90e35cc4c89c46c5d0a9114824b05aeb55481cb15ab0c0e95751129fecaf4",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i9.jpg"]
+    },
+    {
+      "reference": "0accac60-b1dd-4931-a4bf-d7273b937e42",
+      "original_reference": "offline/i14.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 77305,
+      "sha256": "f8ac3b0388758bfec159c25b00fba34e1b1d5c17a37fbcbffef40465713294ca",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i14.jpg"]
+    },
+    {
+      "reference": "399142c0-72c9-4cee-a313-89637af9a5bb",
+      "original_reference": "offline/i22.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 21277,
+      "sha256": "b03a13c13a7cb8b05364348d030c9bbcb730fa4f90f0baebd886c71c0ba782ab",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i22.jpg"]
+    },
+    {
+      "reference": "f66b729f-d7ba-49b5-8462-4d0439125b64",
+      "original_reference": "offline/i23.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 30238,
+      "sha256": "61dfb151dde96415755c26ac1c9b9c6bece86da2989534dcf7064ae37f6257b7",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i23.jpg"]
+    },
+    {
+      "reference": "dc1a80d6-4f78-47a9-ab5d-69c503888843",
+      "original_reference": "offline/i16.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 148140,
+      "sha256": "4212cb6f029d7c312885e66fcbcdf67f25a2e0531968dfcaef6fec99971fa1cb",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i16.jpg"]
+    },
+    {
+      "reference": "76c7a55f-87a4-4e27-8689-c9838d71e864",
+      "original_reference": "offline/i13.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 102334,
+      "sha256": "496e9030e34ef9b63dac721bf99ed8a6b493e72533aaed00e8c370245b4dde4a",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i13.jpg"]
+    },
+    {
+      "reference": "ff701ef4-f85e-49b2-8c62-7b63c428fac7",
+      "original_reference": "offline/i12.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 85386,
+      "sha256": "1fd832da9293543d0980dd1620d6f755a16b0a3dee308d10431ce8308d0889db",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i12.jpg"]
+    },
+    {
+      "reference": "94d35230-eb32-4902-ab0a-461350c0c8f6",
+      "original_reference": "offline/k900.png",
+      "mime_type": "image/png",
+      "decoded_bytes": 319512,
+      "sha256": "14112599436798654fdc3e6038e66db01f6887e190bfb82bec7dcd5a03307816",
+      "exact_repository_matches": []
+    },
+    {
+      "reference": "34385520-4942-4752-8a29-8bc3a5af09e8",
+      "original_reference": "offline/i0.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 55105,
+      "sha256": "885edc401a2f5c98c0794bef8589543ad5a6d784a9e77d618abfcc5232b6eab7",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i0.jpg"]
+    },
+    {
+      "reference": "e40d7026-92eb-4914-80bf-6750825af68c",
+      "original_reference": "offline/i19.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 25834,
+      "sha256": "14b9224f0c1f12d459d5bba8ef2bc3ac8848eff1f7f1e544e4bc1855a476c92f",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i19.jpg"]
+    },
+    {
+      "reference": "893d6134-b648-4764-8643-0f968c6ce753",
+      "original_reference": "offline/i28.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 112186,
+      "sha256": "53a1aef5289209c035b19437eac8796563997770a521f9da5b13c86387aba665",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i28.jpg"]
+    },
+    {
+      "reference": "fb4297c4-c276-4496-a59c-d47d33bf80f4",
+      "original_reference": "offline/i2.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 41276,
+      "sha256": "398d749bbaeba3281682074d9327de56372d6821c5cc0f6858e0cd4880557f0d",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i2.jpg"]
+    },
+    {
+      "reference": "d608efde-175b-4c35-bf57-195e0bea26dd",
+      "original_reference": "offline/i18.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 30026,
+      "sha256": "5651511d4f0e17e42a238341d3a65185bb1c4fc73ac3ee522f215ab98f2d6312",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i18.jpg"]
+    },
+    {
+      "reference": "b817ad5e-ec0b-4d43-8b17-13d6f7e4f05a",
+      "original_reference": "offline/i4.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 37068,
+      "sha256": "902ed9a4267e563006a7036d6db4bc5157ceaa7a4268a91b501a77229ccc065b",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i4.jpg"]
+    },
+    {
+      "reference": "1aaa3bde-19df-4af3-8832-e4467d302029",
+      "original_reference": "offline/i10.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 82676,
+      "sha256": "6e007218b802bdb5d5988c57505abd9a4d882bc577ab3de06833e3a28701f883",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i10.jpg"]
+    },
+    {
+      "reference": "32c5852f-7a95-4ed1-b426-075a030f9b5b",
+      "original_reference": "offline/i6.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 36693,
+      "sha256": "079c98037e3bc71b78a99e45491ce81812644310f262eecd6e80383c5a7474bc",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i6.jpg"]
+    },
+    {
+      "reference": "29ada148-9a59-4bb0-b148-fcece37b329a",
+      "original_reference": "offline/i17.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 150338,
+      "sha256": "e26fae60e81df0d0db8414a88bce622ceffc5a438ee456c928aeb512ce720261",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i17.jpg"]
+    },
+    {
+      "reference": "13f8f44d-3caa-44c3-b86a-0023665c3ef1",
+      "original_reference": "offline/i7.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 94652,
+      "sha256": "700d7ca43551019996d63d73549ba41fd5aa84f7b5e5665566e0d9f5493035e2",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i7.jpg"]
+    },
+    {
+      "reference": "dcc65546-6e35-465b-a6f5-105bc6353c82",
+      "original_reference": "offline/i15.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 118391,
+      "sha256": "94261e951f1880cc470e3d19b542586cf269becf6b9d18c58a253b675aba604a",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i15.jpg"]
+    },
+    {
+      "reference": "15ea793c-f35e-46e1-b2c4-c9b827edb828",
+      "original_reference": "offline/i3.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 57359,
+      "sha256": "4eb7327900bb30ba1298dfea06cfc69de106bc8be4d478627be92438693decfc",
+      "exact_repository_matches": []
+    },
+    {
+      "reference": "2934ad5b-628e-4be3-a7fe-39a132f1a534",
+      "original_reference": "offline/i27.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 100331,
+      "sha256": "f773c45c333eb04c260853ee6c142f736758ea886f73106964c92d748e75291f",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i27.jpg"]
+    },
+    {
+      "reference": "c4277317-b94c-4592-86ad-c461fbef4ba0",
+      "original_reference": "offline/i20.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 74135,
+      "sha256": "495b2e49f3286f643abc1d12a4caa99bb00c7b1c9c76347014c2c4013e728033",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i20.jpg"]
+    },
+    {
+      "reference": "04859f55-3d9e-4965-ab64-bb6709b41b84",
+      "original_reference": "offline/shot.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 72743,
+      "sha256": "2ac52455bd4890f2613900878e2d41c218d7c88f40c33e5a4f15b1ac888acc93",
+      "exact_repository_matches": []
+    },
+    {
+      "reference": "7e3da56f-ea27-4d1c-831c-5e369aba0033",
+      "original_reference": "offline/i5.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 57865,
+      "sha256": "28cda0a55c7f0c8254e906f977b6cdde123881159d56e0b5088419ee0d17d5f8",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i5.jpg"]
+    },
+    {
+      "reference": "441f3c6e-5fdf-4b2d-aa12-36ca90b8384a",
+      "original_reference": "offline/i8.jpg",
+      "mime_type": "image/jpeg",
+      "decoded_bytes": 110318,
+      "sha256": "a0bcccb3f15569bfae7fe453b6251d46ac6c6956e5987c2e7a0eef0701dfb2a1",
+      "exact_repository_matches": ["design/prototype/assets/mockup/i8.jpg"]
+    },
+    {
+      "reference": "4229b4da-8bf5-45bc-ac9b-cc9e99a28649",
+      "original_reference": "uploads/IMG_7060.mp4",
+      "mime_type": "video/mp4",
+      "decoded_bytes": 9721568,
+      "sha256": "7593b191a624401bcaf129097f5b2604c1d34587337584db3935effad302099b",
+      "exact_repository_matches": ["design/prototype/assets/mockup/hero.mp4"]
+    },
+    {
+      "reference": "9db4291b-20fd-4758-b6ba-9430760763be",
+      "original_reference": null,
+      "mime_type": "text/javascript",
+      "decoded_bytes": 69150,
+      "sha256": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe",
+      "exact_repository_matches": []
+    },
+    {
+      "reference": "d0b4200a-4134-4c5b-98f9-4d73a8d60853",
+      "original_reference": null,
+      "mime_type": "text/javascript",
+      "decoded_bytes": 65350,
+      "sha256": "fff26d081c8d9d60870f86c7539a5d179b9cdab15e67f2b205508a068e7c7ff6",
+      "exact_repository_matches": []
+    },
+    {
+      "reference": "b3c9d3b8-e6e0-4829-9933-6cd361b378fd",
+      "original_reference": "https://unpkg.com/react@18.3.1/umd/react.production.min.js",
+      "mime_type": "text/javascript",
+      "decoded_bytes": 10751,
+      "sha256": "d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd",
+      "exact_repository_matches": []
+    },
+    {
+      "reference": "db6ce827-9644-404c-a491-b390be344772",
+      "original_reference": "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js",
+      "mime_type": "text/javascript",
+      "decoded_bytes": 131835,
+      "sha256": "35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d",
+      "exact_repository_matches": []
+    },
+    {
+      "reference": "07087623-b97d-438f-b224-7322fa7e62d0",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 17532,
+      "sha256": "10aa879203c4b62f61841bdeee64a2ca5d97f1cf21e717f45c96914ce7629710",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/golos-text-10aa879203c4.woff2"
+      ]
+    },
+    {
+      "reference": "afa47c8b-c6b0-4c6f-b12d-6424979ac7cf",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 22028,
+      "sha256": "2f175b8fc40ed4e826742879f92ec903256fc2612d8d95c7c287232fd7138e4b",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/golos-text-2f175b8fc40e.woff2"
+      ]
+    },
+    {
+      "reference": "46e93949-512c-419f-bb5c-6349dda394fb",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 19204,
+      "sha256": "90256a7b8eb3b6b7b1c8f8aeb0e80eed7980a411d8c49faf7958fef6951ba863",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/golos-text-90256a7b8eb3.woff2"
+      ]
+    },
+    {
+      "reference": "f5dc4878-3fa2-4140-a250-4d918e33edf5",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 38084,
+      "sha256": "f8d71091110f0113ba8bd16bee2ac68b51dd6491c5b9404e9fbb82b20ae632f1",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/golos-text-f8d71091110f.woff2"
+      ]
+    },
+    {
+      "reference": "cc5e42b7-922e-4400-9633-8e7faa6dac80",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 10140,
+      "sha256": "184c3af415cddd52af31cf70166bf351adb70b09e64fdb1948109192a26c2c0d",
+      "exact_repository_matches": ["design/prototype/assets/mockup/fonts/jost-184c3af415cd.woff2"]
+    },
+    {
+      "reference": "4844f467-763a-4d32-a109-541a542848b8",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 17204,
+      "sha256": "b2a539cd1f2bbf123e66bafa988bbd32249a7ba3335aec377a9fc1b37734b1ed",
+      "exact_repository_matches": ["design/prototype/assets/mockup/fonts/jost-b2a539cd1f2b.woff2"]
+    },
+    {
+      "reference": "d35b4310-c408-4182-b74c-d19df9f515e4",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 26588,
+      "sha256": "235d8f8964bfdf105fc0c3e4c77b5e70f31bee1dad611d59318b5f2a5cb64d90",
+      "exact_repository_matches": ["design/prototype/assets/mockup/fonts/jost-235d8f8964bf.woff2"]
+    },
+    {
+      "reference": "014e9370-91db-4c8f-a145-a007b8c58bfe",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 2592,
+      "sha256": "e8c0b39992f06b3dc9a9834494088014859f363bf6ca8792b6bb07e17c7965f3",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/manrope-e8c0b39992f0.woff2"
+      ]
+    },
+    {
+      "reference": "174cfbb6-5ade-4457-a919-3963f2aec8f2",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 14544,
+      "sha256": "95a493061fe0a8d0d027c2892747134ba747141112d3be4d5022e70ab7d3a1a6",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/manrope-95a493061fe0.woff2"
+      ]
+    },
+    {
+      "reference": "9a9647aa-bf92-49e9-a5cb-e8bd2bc81df7",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 9360,
+      "sha256": "40af11327fe5308166c6cb5787808b042db6da889abf602f0a4876c49675d87e",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/manrope-40af11327fe5.woff2"
+      ]
+    },
+    {
+      "reference": "f203126b-ff57-45f6-8a2c-d778d71dd3c6",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 8492,
+      "sha256": "bab757f8a0a1bc04055ee98cb5777f3254aab11f6d222366e1f40a36f390506a",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/manrope-bab757f8a0a1.woff2"
+      ]
+    },
+    {
+      "reference": "fd02bbf6-63b4-430c-90e5-5db37fe9ddb1",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 15240,
+      "sha256": "ce093b341d9c10658ee1eaa85c5f8042ff3307bc6ccfc5f405616eb437f0009e",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/manrope-ce093b341d9c.woff2"
+      ]
+    },
+    {
+      "reference": "cbcd99a4-0d4f-40fb-9d83-d8f2cf765932",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 24576,
+      "sha256": "e310b55a7fd9677f5e3555e6c6c4d064fa1f1d24393f0ddbe217cea12a8c432f",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/manrope-e310b55a7fd9.woff2"
+      ]
+    },
+    {
+      "reference": "4f4c07f7-4792-4eaa-99bd-f30d90e0a03f",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 24072,
+      "sha256": "744830a0e77dd14dd543a4230d6e3ce67ca961634074b5d536ebafc66c732301",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/montserrat-744830a0e77d.woff2"
+      ]
+    },
+    {
+      "reference": "766fb5ac-9cbe-4d31-abdc-fd5bd660cd59",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 21492,
+      "sha256": "0b00fbd6edcc84cd5f77364bbeb06b75ed263c740061eba34511f1e2ac1a82d3",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/montserrat-0b00fbd6edcc.woff2"
+      ]
+    },
+    {
+      "reference": "12b8d811-3737-4385-b685-4d396d7a5c54",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 10620,
+      "sha256": "9e2672d100bc36a37073fb250abfaa7394f5151bf5dda3f4d5fc281345eb391b",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/montserrat-9e2672d100bc.woff2"
+      ]
+    },
+    {
+      "reference": "c731eef1-19b2-4297-9433-ec14d539b090",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 68224,
+      "sha256": "920711de9ae96c18970fa4faca73cd302b93ac5ed57ebeb6bfec2ddeff930082",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/montserrat-920711de9ae9.woff2"
+      ]
+    },
+    {
+      "reference": "ed49a32e-a0d9-42cd-a43e-7a9f1d2d283e",
+      "original_reference": null,
+      "mime_type": "font/woff2",
+      "decoded_bytes": 35508,
+      "sha256": "6438d7b8ea9c7c3992d5e2fd2afdb1ff948570a3ef0bedae76247b51632960ba",
+      "exact_repository_matches": [
+        "design/prototype/assets/mockup/fonts/montserrat-6438d7b8ea9c.woff2"
+      ]
+    }
+  ]
+}
