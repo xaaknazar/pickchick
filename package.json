@@ -37,9 +37,15 @@
     "local:request": "node --env-file=.env scripts/local-request.mjs",
     "design:serve": "node scripts/design-server.mjs",
     "design:catalog": "node scripts/design-catalog.mjs",
-    "design:check": "node scripts/design-catalog.mjs --check"
+    "design:check": "node scripts/design-catalog.mjs --check",
+    "test:pos": "node --env-file=.env --test --test-concurrency=1 tests/pos/*.test.mjs",
+    "test:commerce": "pnpm --filter @pickchick/commerce-core test && pnpm --filter @pickchick/commerce-core test:integration",
+    "test:loyalty": "pnpm --filter @pickchick/loyalty-core test && pnpm --filter @pickchick/loyalty-core test:integration",
+    "test:backoffice": "node --env-file=.env --test --test-concurrency=1 tests/backoffice/*.test.mjs",
+    "test:fulfillment": "pnpm --filter @pickchick/edge-fulfillment test && pnpm --filter @pickchick/edge-fulfillment test:integration"
   },
   "dependencies": {
+    "@pickchick/catalog-admin": "workspace:*",
     "@pickchick/contracts": "workspace:*",
     "@pickchick/database": "workspace:*",
     "@pickchick/platform": "workspace:*",
@@ -49,7 +55,8 @@
     "@pickchick/edge": "workspace:*",
     "@pickchick/menu-sync": "workspace:*",
     "@pickchick/local-orders": "workspace:*",
-    "@pickchick/phone-verification": "workspace:*"
+    "@pickchick/phone-verification": "workspace:*",
+    "@pickchick/customer-identity": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

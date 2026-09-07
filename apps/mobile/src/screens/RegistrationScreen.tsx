@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import type { ScreenProps } from '../model';
-import { useDemoAccount } from '../useDemoAccount';
+import { useAccount } from '../useAccount';
 import { formatDemoPhone } from '../demo-account';
 import { isValidBirthDate, type DemoProfileInput } from '../profile-details';
 import { font } from '../theme';
@@ -30,7 +30,7 @@ function partsOf(value: string | null | undefined) {
 
 /** Registration and subsequent editing share the original mockup's form. */
 export function Onboarding(props: ScreenProps) {
-  const demo = useDemoAccount();
+  const demo = useAccount();
   const profile = demo.account?.profile;
   const savedNickname =
     profile && profile.completedAt !== null
@@ -277,7 +277,9 @@ export function Onboarding(props: ScreenProps) {
         </Body>
       </View>
       <Caption style={s.localNote}>
-        Данные этого тестового профиля сохраняются только на вашем устройстве.
+        {demo.mode === 'server'
+          ? 'Данные профиля сохраняются в вашем аккаунте Pick Chick.'
+          : 'Данные этого тестового профиля сохраняются только на вашем устройстве.'}
       </Caption>
       {!demo.account && demo.ready ? (
         <Pressable accessibilityRole="button" onPress={() => props.navigate('M02')} style={s.later}>

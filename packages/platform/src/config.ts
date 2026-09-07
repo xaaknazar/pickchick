@@ -1,4 +1,5 @@
 import { UuidSchema } from '@pickchick/contracts';
+import { isIP } from 'node:net';
 
 export interface ServiceConfig {
   service: 'api' | 'edge';
@@ -10,6 +11,9 @@ export interface ServiceConfig {
   port: number;
   databasePoolMax?: number;
   httpMaxInFlight?: number;
+  customerAuthEnabled?: boolean;
+  catalogAdminEnabled?: boolean;
+  trustedProxyIps?: string[];
 }
 
 function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
@@ -57,6 +61,22 @@ export function loadConfig(
     throw new Error('TEST_ORDER_FLOW_ENABLED must be true or false');
   if (testOrderFlow === 'true' && service !== 'api')
     throw new Error('TEST order flow is only enabled for the cloud API');
+  const customerAuth = env.CUSTOMER_AUTH_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(customerAuth))
+    throw new Error('CUSTOMER_AUTH_ENABLED must be true or false');
+  if (customerAuth === 'true' && service !== 'api')
+    throw new Error('Customer identity belongs to cloud API');
+  const catalogAdmin = env.CATALOG_ADMIN_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(catalogAdmin))
+    throw new Error('CATALOG_ADMIN_ENABLED must be true or false');
+  if (catalogAdmin === 'true' && service !== 'api')
+    throw new Error('Catalog editor belongs to cloud API');
+  const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
+  if (
+    proxyIps &&
+    (proxyIps.length > 8 || proxyIps.some((ip) => !isIP(ip) || ['0.0.0.0', '::'].includes(ip)))
+  )
+    throw new Error('TRUSTED_PROXY_IPS requires explicit proxy IP addresses');
   const key = service === 'api' ? 'CLOUD_DATABASE_URL' : 'EDGE_DATABASE_URL';
   const databaseUrl =
     environment === 'staging'
@@ -79,6 +99,9 @@ export function loadConfig(
     testOrderFlowEnabled: testOrderFlow === 'true',
     databasePoolMax: boundedInteger(env, 'DB_POOL_MAX', 5, 64),
     httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
+    ...(customerAuth === 'true' ? { customerAuthEnabled: true } : {}),
+    ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
+    ...(proxyIps ? { trustedProxyIps: proxyIps } : {}),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

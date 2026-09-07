@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { CapacityExceeded } from './admission.js';
 import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
 import {
   Catch,
   Controller,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ErrorSchema, HealthSchema, ReadinessSchema, UuidSchema } from '@pickchick/contracts';
 import { RESOURCE, Resources } from './resources.js';
 
@@ -124,7 +126,10 @@ export class HealthController {
 }
 
 export async function createHttpApplication(module: Type<unknown>) {
-  const app = await NestFactory.create(module, { logger: false, abortOnError: false });
+  const app = await NestFactory.create<NestExpressApplication>(module, {
+    logger: false,
+    abortOnError: false,
+  });
   app.use((request: RequestContext, response: ResponseContext, next: () => void) => {
     const incoming = UuidSchema.safeParse(request.headers['x-request-id']);
     request.traceId = incoming.success ? incoming.data : randomUUID();
@@ -133,7 +138,23 @@ export async function createHttpApplication(module: Type<unknown>) {
     response.setHeader('Cache-Control', 'no-store');
     next();
   });
-  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  const instance = app.getHttpAdapter().getInstance();
+  instance.disable('x-powered-by');
+  // Full catalog drafts are larger than ordinary commands. Scope the extra bytes
+  // to this one route, while retaining Nest/Express' 100 KiB limit elsewhere.
+  app.useBodyParser('json', {
+    limit: 320 * 1024,
+    type: (request: IncomingMessage) =>
+      request.method === 'PUT' &&
+      /^\/v1\/admin\/catalog\/branches\/[a-f0-9-]{36}\/draft\/?$/.test(
+        request.url?.split('?')[0] ?? '',
+      ) &&
+      /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+  });
+  app.useBodyParser('json', { limit: 100 * 1024 });
+  const proxyIps = app.get<Resources>(RESOURCE).config.trustedProxyIps;
+  // Explicit hop addresses only. Trusting all forwarded headers defeats per-IP SMS limits.
+  if (proxyIps?.length) instance.set('trust proxy', proxyIps);
   app.useGlobalFilters(new SafeExceptionFilter());
   app.useGlobalInterceptors(app.get<Resources>(RESOURCE).admission);
   return app;

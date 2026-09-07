@@ -56,7 +56,7 @@ function errorMessage(error: unknown): string {
   return messages[error.code];
 }
 
-interface DemoAccountContextValue {
+export interface DemoAccountContextValue {
   account: DemoAccount | null;
   challenge: DemoChallenge | null;
   ready: boolean;
@@ -183,4 +183,8 @@ export function useDemoAccount(): DemoAccountContextValue {
   const context = useContext(DemoAccountContext);
   if (!context) throw new Error('DemoAccountProvider is missing');
   return context;
+}
+
+export function useOptionalDemoAccount(): DemoAccountContextValue | null {
+  return useContext(DemoAccountContext);
 }

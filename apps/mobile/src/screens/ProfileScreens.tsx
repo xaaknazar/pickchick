@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
-import { useDemoAccount } from '../useDemoAccount';
+import { useAccount } from '../useAccount';
 import { ProfileRestoreNotice } from '../components/ProfileRestoreNotice';
 import { formatDemoPhone } from '../demo-account';
 import { formatBirthDate } from '../profile-details';
@@ -114,7 +115,7 @@ function ProfileGroup({ title, children }: { title: string; children: ReactNode 
   );
 }
 export function Profile(props: ScreenProps) {
-  const demo = useDemoAccount();
+  const demo = useAccount();
   const insets = useSafeAreaInsets();
   const savedNickname =
     demo.account?.profile.completedAt != null
@@ -396,9 +397,14 @@ export function Support(props: ScreenProps) {
   );
 }
 export function DeleteAccount(props: ScreenProps) {
-  const demo = useDemoAccount();
+  const demo = useAccount();
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const clearDescription =
+    demo.mode === 'server'
+      ? 'Будет выполнен выход на этом устройстве, локальные настройки и корзина будут очищены. Аккаунт на сервере и незавершённые запросы заказа сохранятся.'
+      : 'Будут удалены тестовый профиль, номер, ник, дата рождения, пол и корзина на устройстве. Тестовые заказы и незавершённые запросы сохранятся.';
   const clearPreferences = () => {
     if (props.preview) return;
     void demo.signOut().then((success) => {
@@ -414,21 +420,53 @@ export function DeleteAccount(props: ScreenProps) {
       setConfirmVisible(true);
       return;
     }
-    Alert.alert(
-      'Очистить данные устройства?',
-      'Будут удалены тестовый профиль, номер, ник, дата рождения, пол и корзина на устройстве. Тестовые заказы и незавершённые запросы сохранятся.',
-      [
-        { text: 'Оставить', style: 'cancel' },
-        {
-          text: 'Очистить',
-          style: 'destructive',
-          onPress: clearPreferences,
-        },
-      ],
-    );
+    Alert.alert('Очистить данные устройства?', clearDescription, [
+      { text: 'Оставить', style: 'cancel' },
+      {
+        text: 'Очистить',
+        style: 'destructive',
+        onPress: clearPreferences,
+      },
+    ]);
   };
   return (
     <Page props={props} title="Управление данными">
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="none"
+        onRequestClose={() => setDeleteConfirmVisible(false)}
+      >
+        <View style={s.confirmBackdrop}>
+          <View testID="server-delete-confirmation" accessibilityViewIsModal style={s.confirmCard}>
+            <Heading small>Удалить аккаунт Pick Chick?</Heading>
+            <Body>
+              Профиль и доступ на всех ваших устройствах будут удалены. Необходимые документы по
+              заказам обрабатываются по политике хранения данных.
+            </Body>
+            <Button
+              title="Оставить аккаунт"
+              secondary
+              disabled={demo.busy}
+              onPress={() => setDeleteConfirmVisible(false)}
+            />
+            <Button
+              title={demo.busy ? 'Удаляем…' : 'Удалить аккаунт'}
+              testID="confirm-server-delete"
+              disabled={props.preview || demo.busy}
+              onPress={() => {
+                void demo.deleteAccount().then((success) => {
+                  if (success) {
+                    props.model.setNickname('');
+                    setDeleteConfirmVisible(false);
+                  }
+                });
+              }}
+            />
+            {demo.error ? <Body style={s.authError}>{demo.error}</Body> : null}
+          </View>
+        </View>
+      </Modal>
       {Platform.OS === 'web' ? (
         <Modal
           visible={confirmVisible}
@@ -439,11 +477,7 @@ export function DeleteAccount(props: ScreenProps) {
           <View style={s.confirmBackdrop}>
             <View testID="local-clear-confirmation" accessibilityViewIsModal style={s.confirmCard}>
               <Heading small>Очистить данные устройства?</Heading>
-              <Body>
-                Тестовый профиль, номер, ник, дата рождения, пол, корзина и локальные настройки
-                будут очищены. Тестовый сеанс, незавершённые запросы и серверная история заказов
-                останутся.
-              </Body>
+              <Body>{clearDescription}</Body>
               <Button title="Оставить данные" secondary onPress={() => setConfirmVisible(false)} />
               <Button
                 title="Очистить"
@@ -458,27 +492,36 @@ export function DeleteAccount(props: ScreenProps) {
       <Card>
         <Heading small>Аккаунт</Heading>
         <Body muted>
-          {demo.account
-            ? 'Ваш тестовый профиль хранится на этом устройстве. Можно удалить номер, дату рождения и другие данные профиля; заказы этого устройства сохранятся.'
-            : 'Тестового профиля на устройстве нет. Регистрация с настоящей SMS готовится.'}
+          {demo.mode === 'server'
+            ? demo.account
+              ? 'Данные хранятся в вашем аккаунте. Удаление уберёт профиль и отзовёт доступ на всех устройствах.'
+              : 'Войдите по своему номеру, чтобы управлять аккаунтом.'
+            : demo.account
+              ? 'Ваш тестовый профиль хранится на этом устройстве. Можно удалить номер, дату рождения и другие данные профиля; заказы этого устройства сохранятся.'
+              : 'Тестового профиля на устройстве нет. Регистрация с настоящей SMS готовится.'}
         </Body>
         <Button
-          title="Удалить тестовый профиль"
+          title={demo.mode === 'server' ? 'Удалить аккаунт' : 'Удалить тестовый профиль'}
           testID="delete-demo-profile"
           disabled={props.preview || !demo.ready || !demo.account || demo.busy}
-          onPress={() =>
-            !props.preview &&
-            void demo.signOut().then((success) => {
+          onPress={() => {
+            if (props.preview) return;
+            if (demo.mode === 'server') {
+              setDeleteConfirmVisible(true);
+              return;
+            }
+            void demo.deleteAccount().then((success) => {
               if (success) props.model.setNickname('');
-            })
-          }
+            });
+          }}
         />
       </Card>
       <Card>
         <Heading small>На этом устройстве</Heading>
         <Body muted>
-          Можно очистить тестовый профиль, номер, ник, дату рождения, пол и корзину. История
-          тестовых заказов и незавершённые запросы сохранятся.
+          {demo.mode === 'server'
+            ? 'Очистка локальных настроек выполнит выход на этом устройстве. Сам аккаунт сохранится. Незавершённые запросы заказа сохраняются отдельно.'
+            : 'Можно очистить тестовый профиль, номер, ник, дату рождения, пол и корзину. История тестовых заказов и незавершённые запросы сохранятся.'}
         </Body>
         <Button
           title="Очистить локальные данные"
@@ -490,16 +533,61 @@ export function DeleteAccount(props: ScreenProps) {
       </Card>
       {demo.error ? <Body style={s.authError}>{demo.error}</Body> : null}
       {cleared ? <Notice title="Готово">Локальные данные очищены.</Notice> : null}
-      <Caption>
-        Когда появится аккаунт, удалить его можно будет здесь после подтверждения личности.
-        Обязательные сроки хранения документов будут описаны в политике.
-      </Caption>
+      {demo.mode === 'demo' ? (
+        <Caption>
+          Когда появится аккаунт, удалить его можно будет здесь после подтверждения личности.
+          Обязательные сроки хранения документов будут описаны в политике.
+        </Caption>
+      ) : null}
     </Page>
   );
 }
 export function Legal(props: ScreenProps) {
+  const account = useAccount();
+  const [linkError, setLinkError] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
   const documents = ['Условия заказа', 'Политика конфиденциальности', 'Правила программы Чиков'];
+  if (account.mode === 'server')
+    return (
+      <Page props={props} title="Документы">
+        <Heading>Открыто{`\n`}и понятно</Heading>
+        {account.legal ? (
+          <>
+            <Body muted>Документы Pick Chick · версия {account.legal.version}</Body>
+            {[
+              { title: 'Условия заказа', url: account.legal.termsUrl },
+              { title: 'Политика конфиденциальности', url: account.legal.privacyUrl },
+            ].map((document) => (
+              <NavRow
+                key={document.title}
+                title={document.title}
+                subtitle="Открыть документ"
+                icon="open-outline"
+                onPress={() => {
+                  if (!props.preview) {
+                    setLinkError(false);
+                    void Linking.openURL(document.url).catch(() => setLinkError(true));
+                  }
+                }}
+              />
+            ))}
+          </>
+        ) : (
+          <Notice>
+            Документы ещё не опубликованы. Вход по SMS станет доступен после их утверждения.
+          </Notice>
+        )}
+        {linkError ? (
+          <Notice warning>
+            Не удалось открыть документ. Проверьте подключение и попробуйте ещё раз.
+          </Notice>
+        ) : null}
+        <Body muted>
+          Согласие на сообщения об акциях запрашивается отдельно. Для регистрации оно не требуется.
+        </Body>
+        <NavRow title="Управлять аккаунтом и данными" onPress={() => props.navigate('M32')} />
+      </Page>
+    );
   return (
     <Page props={props} title="Документы">
       <Heading>Открыто{`\n`}и понятно</Heading>

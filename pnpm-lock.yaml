@@ -11,9 +11,15 @@ importers:
       '@pickchick/api':
         specifier: workspace:*
         version: link:services/api
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:packages/catalog-admin
       '@pickchick/contracts':
         specifier: workspace:*
         version: link:packages/contracts
+      '@pickchick/customer-identity':
+        specifier: workspace:*
+        version: link:packages/customer-identity
       '@pickchick/database':
         specifier: workspace:*
         version: link:packages/database
@@ -57,6 +63,12 @@ importers:
       typescript-eslint:
         specifier: 8.69.0
         version: 8.69.0(eslint@10.10.0(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+
+  apps/backoffice:
+    dependencies:
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../../packages/catalog-admin
 
   apps/kiosk:
     dependencies:
@@ -259,8 +271,99 @@ importers:
         specifier: 8.2.2
         version: 8.2.2(@types/node@24.13.3)(terser@5.51.2)(yaml@2.9.0)
 
+  apps/pos:
+    dependencies:
+      '@pickchick/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+
+  packages/catalog-admin:
+    dependencies:
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/test-order-flow':
+        specifier: workspace:*
+        version: link:../test-order-flow
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/catalog-pricing:
+    dependencies:
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../catalog-admin
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/commerce-core:
+    dependencies:
+      '@pickchick/catalog-pricing':
+        specifier: workspace:*
+        version: link:../catalog-pricing
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../catalog-admin
+      '@pickchick/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/contracts:
     dependencies:
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/customer-identity:
+    dependencies:
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/phone-verification':
+        specifier: workspace:*
+        version: link:../phone-verification
+      libphonenumber-js:
+        specifier: 1.13.12
+        version: 1.13.12
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -290,6 +393,31 @@ importers:
 
   packages/design-tokens: {}
 
+  packages/edge-fulfillment:
+    dependencies:
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/local-orders':
+        specifier: workspace:*
+        version: link:../local-orders
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@pickchick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
+      '@pickchick/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/local-orders:
     dependencies:
       '@pickchick/contracts':
@@ -301,6 +429,22 @@ importers:
       '@pickchick/menu-sync':
         specifier: workspace:*
         version: link:../menu-sync
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/loyalty-core:
+    dependencies:
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
     devDependencies:
       '@types/node':
         specifier: 24.13.3
@@ -402,15 +546,24 @@ importers:
       '@nestjs/common':
         specifier: 12.0.1
         version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../../packages/catalog-admin
       '@pickchick/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pickchick/customer-identity':
+        specifier: workspace:*
+        version: link:../../packages/customer-identity
       '@pickchick/database':
         specifier: workspace:*
         version: link:../../packages/database
       '@pickchick/menu-sync':
         specifier: workspace:*
         version: link:../../packages/menu-sync
+      '@pickchick/phone-verification':
+        specifier: workspace:*
+        version: link:../../packages/phone-verification
       '@pickchick/platform':
         specifier: workspace:*
         version: link:../../packages/platform
@@ -2807,6 +2960,9 @@ packages:
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
+
+  libphonenumber-js@1.13.12:
+    resolution: {integrity: sha512-uLVeV1c9OTk6qkdqnj+mpMD+ZdnZ0szVyWu58HwMmpwkHA1gCEkyjd3veZQXDnuw9KEwSRjcc9B1pS9XKIN1fA==}
 
   lighthouse-logger@1.4.2:
     resolution: {integrity: sha512-gPWxznF6TKmUHrOQjlVo2UbaL2EJ71mb2CCeRs/2qBpi4L/g4LUVc9+3lKQ6DTUZwJswfM7ainGrLO1+fOqa2g==}
@@ -6867,6 +7023,8 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  libphonenumber-js@1.13.12: {}
 
   lighthouse-logger@1.4.2(supports-color@8.1.1):
     dependencies:

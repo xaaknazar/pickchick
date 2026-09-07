@@ -18,14 +18,13 @@ def main():
     sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
     assert sha == args.source_sha, 'Build must use the named source commit'
     dirty = subprocess.check_output([
-        'git', 'status', '--porcelain', '--untracked-files=all', '--',
-        'apps/operations', 'design/prototype', 'packages/design-tokens',
-        'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+        'git', 'status', '--porcelain', '--untracked-files=all',
     ], cwd=repo, text=True)
-    assert not dirty, 'Commit the operations build inputs before packaging'
+    assert not dirty, 'Commit all source and packaging inputs before packaging'
     output = args.output.resolve()
     assert not output.exists(), 'Output must be a new directory'
-    subprocess.run(['pnpm', '--filter', '@pickchick/operations', 'build'], cwd=repo, check=True)
+    subprocess.run(['pnpm', '--filter', '@pickchick/operations...', 'build'], cwd=repo, check=True)
+    subprocess.run(['pnpm', '--filter', '@pickchick/backoffice...', 'build'], cwd=repo, check=True)
     output.mkdir(parents=True, mode=0o755)
     hashes = {}
 
@@ -34,6 +33,9 @@ def main():
         target = output / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
+        # The operator runs under umask 077; the capability-restricted gateway
+        # must still read the explicitly public bundle through its read-only bind.
+        target.chmod(0o644)
         hashes[str(relative)] = hashlib.sha256(target.read_bytes()).hexdigest()
 
     extensions = {'.html', '.js', '.css', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.ico', '.woff', '.woff2', '.ttf', '.mp4'}
@@ -42,6 +44,11 @@ def main():
     for source in dist.rglob('*'):
         if source.is_file() and source.suffix in extensions:
             copy(source, pathlib.Path('operations') / source.relative_to(dist))
+    backoffice = repo / 'apps/backoffice/dist'
+    assert (backoffice / 'index.html').is_file()
+    for source in backoffice.rglob('*'):
+        if source.is_file() and source.suffix in extensions:
+            copy(source, pathlib.Path('backoffice') / source.relative_to(backoffice))
     prototype = pathlib.Path('design/prototype')
     names = [
         'index.html', 'app.js', 'ui.js', 'views.js', 'screens.json', 'styles.css',
@@ -59,6 +66,12 @@ def main():
         relative = pathlib.Path('packages/design-tokens') / name
         copy(repo / relative, relative)
     (output / '.release.json').write_text(json.dumps({'source_sha': sha, 'files': hashes}, indent=2) + '\n')
+    (output / '.release.json').chmod(0o644)
+    output.chmod(0o755)
+    for directory in output.rglob('*'):
+        if directory.is_dir():
+            assert not directory.is_symlink()
+            directory.chmod(0o755)
     print(json.dumps({'event': 'public_web_prepared', 'source_sha': sha, 'files': len(hashes), 'output': str(output)}))
 
 

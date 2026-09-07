@@ -45,6 +45,28 @@ export class Resources implements OnApplicationShutdown {
         // Also verify the serving tables and branch binding, not only SELECT 1.
         if (scope === 'cloud') {
           await this.pool.query('SELECT branch_id FROM branch_menu_activations LIMIT 1');
+          // Published catalog remains readable when its editor is disabled.
+          const catalogVersion = await this.pool.query(
+            'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+            ['cloud', '009_cloud_catalog_admin.sql'],
+          );
+          if (catalogVersion.rowCount !== 1) throw new Error('Catalog schema is unavailable');
+          for (const table of ['catalog_publications', 'catalog_branch_heads'])
+            await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+          if (this.config.catalogAdminEnabled)
+            for (const table of [
+              'catalog_managers',
+              'catalog_manager_branches',
+              'catalog_draft_versions',
+              'catalog_audit',
+              'catalog_command_receipts',
+              'catalog_manager_audit',
+            ])
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+          if (this.config.catalogAdminEnabled) {
+            for (const table of ['catalog_managers', 'catalog_manager_branches'])
+              await this.pool.query(`SELECT lock_anchor FROM ${table} LIMIT 0`);
+          }
           if (this.config.testOrderFlowEnabled) {
             for (const migration of [
               '004_cloud_test_order_flow.sql',
@@ -70,6 +92,34 @@ export class Resources implements OnApplicationShutdown {
             ]) {
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
             }
+          }
+          if (this.config.customerAuthEnabled) {
+            for (const migration of [
+              '007_cloud_customer_identity.sql',
+              '013_cloud_identity_receipt_limits.sql',
+            ]) {
+              const identityVersion = await this.pool.query(
+                'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+                ['cloud', migration],
+              );
+              if (identityVersion.rowCount !== 1)
+                throw new Error('Customer identity schema is unavailable');
+            }
+            for (const table of [
+              'identity_customers',
+              'identity_sessions',
+              'identity_refresh_receipts',
+              'identity_otp_request_tombstones',
+              'identity_otp_challenges',
+              'identity_sms_daily_budget',
+              'identity_consents',
+              'identity_deletions',
+            ]) {
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+            }
+            await this.pool.query(
+              'SELECT receipt_failed_attempts FROM identity_otp_challenges LIMIT 0',
+            );
           }
           schema = 'up';
         } else {

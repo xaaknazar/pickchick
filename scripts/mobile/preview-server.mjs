@@ -5,7 +5,16 @@ import { fileURLToPath } from 'node:url';
 
 const app = process.env.PICKCHICK_PREVIEW_APP ?? 'mobile';
 if (!['mobile', 'kiosk'].includes(app)) throw new Error('Unsupported preview app');
-const root = resolve(dirname(fileURLToPath(import.meta.url)), `../../apps/${app}/dist`);
+const output = process.env.PICKCHICK_PREVIEW_OUTPUT ?? 'default';
+if (
+  !['default', 'customer-auth'].includes(output) ||
+  (output === 'customer-auth' && app !== 'mobile')
+)
+  throw new Error('Unsupported preview output');
+const root = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  output === 'customer-auth' ? '../../.local/customer-auth-web' : `../../apps/${app}/dist`,
+);
 const port = Number(
   app === 'kiosk'
     ? (process.env.KIOSK_PREVIEW_PORT ?? 4184)

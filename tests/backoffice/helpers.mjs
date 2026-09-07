@@ -1,0 +1,73 @@
+import { createRequire } from 'node:module';
+import {
+  CatalogAdmin,
+  CATALOG_ADMIN,
+  provisionCatalogManager,
+} from '../../packages/catalog-admin/dist/index.js';
+import { createHttpApplication, RESOURCE } from '@pickchick/platform';
+import { CatalogAdminController } from '../../services/api/dist/catalog-admin-controller.js';
+import { withSyncDatabases } from '../helpers/sync.mjs';
+import { createBackofficeServer } from '../../apps/backoffice/server.mjs';
+import { ApiError } from '../../apps/backoffice/dist/api.js';
+const require = createRequire(new URL('../../services/api/package.json', import.meta.url));
+const { Module } = require('@nestjs/common');
+export const storage = () => {
+  const map = new Map();
+  return {
+    map,
+    getItem: (k) => map.get(k) ?? null,
+    setItem: (k, v) => map.set(k, v),
+    removeItem: (k) => map.delete(k),
+  };
+};
+export async function withCatalog(run, options = {}) {
+  await withSyncDatabases(async (context) => {
+    const { cloud, org, branch } = context,
+      service = new CatalogAdmin(cloud.pool, { enabled: true }),
+      manager = await provisionCatalogManager(cloud.pool, {
+        organization_id: org,
+        name: 'Синтетический управляющий',
+        branch_ids: [branch],
+      });
+    class CatalogModule {}
+    Module({
+      controllers: [CatalogAdminController],
+      providers: [
+        { provide: CATALOG_ADMIN, useValue: service },
+        {
+          provide: RESOURCE,
+          useValue: {
+            config: cloud.config,
+            admission: {
+              intercept(_ctx, next) {
+                return next.handle();
+              },
+            },
+          },
+        },
+      ],
+    })(CatalogModule);
+    const app = await createHttpApplication(CatalogModule);
+    await app.listen(0, '127.0.0.1');
+    const upstream = await app.getUrl(),
+      proxy = createBackofficeServer({ apiPort: Number(new URL(upstream).port), ...options });
+    await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+    const url = `http://127.0.0.1:${proxy.address().port}`;
+    const transport = async (path, token, options = {}) => {
+      const response = await fetch(`${url}/v1/admin/catalog/${path}`, {
+        method: options.method ?? 'GET',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      });
+      const value = await response.json();
+      if (!response.ok) throw new ApiError(value.code, response.status);
+      return value;
+    };
+    try {
+      await run({ ...context, service, manager, url, transport, upstream });
+    } finally {
+      await new Promise((resolve) => proxy.close(resolve));
+      await app.close();
+    }
+  });
+}
