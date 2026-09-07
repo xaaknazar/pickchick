@@ -263,11 +263,6 @@ export class CustomerIdentity {
   async verifyOtp(input: unknown): Promise<CustomerSession> {
     const config = this.enabled(),
       body = parseInput(OtpVerifySchema, input);
-    if (
-      body.consents.terms_version !== config.consentVersion ||
-      body.consents.privacy_version !== config.consentVersion
-    )
-      throw fail('INVALID_REQUEST');
     const deviceHash = hmac(config.lookupKey, 'device', body.device_id);
     const inputHash = hmac(config.otpKey, 'verify-receipt', JSON.stringify(body));
     return unwrap(
@@ -312,6 +307,13 @@ export class CustomerIdentity {
             decrypt(config.receiptKey, `verify:${challenge.id}`, challenge.response_cipher),
           );
         }
+        // Recovery replays the original acceptance; it never manufactures consent to a new policy.
+        // Only a new verification must accept today's configured documents.
+        if (
+          body.consents.terms_version !== config.consentVersion ||
+          body.consents.privacy_version !== config.consentVersion
+        )
+          return fail('INVALID_REQUEST');
         if (
           !['reserved', 'submitted', 'unknown'].includes(challenge.state) ||
           challenge.expires_at <= now ||
@@ -637,7 +639,7 @@ export class CustomerIdentity {
     await transaction(this.pool, async (db) => {
       await db.query('SELECT pg_advisory_xact_lock(90827001)');
       await db.query(
-        'UPDATE identity_otp_challenges SET phone_cipher=NULL,code_hash=NULL WHERE expires_at<=clock_timestamp()',
+        'UPDATE identity_otp_challenges SET phone_cipher=NULL,code_hash=NULL WHERE expires_at<=clock_timestamp() AND (phone_cipher IS NOT NULL OR code_hash IS NOT NULL)',
       );
       await db.query(
         'UPDATE identity_otp_challenges SET response_cipher=NULL,verify_input_hash=NULL,initial_refresh_hash=NULL,receipt_expires_at=NULL WHERE receipt_expires_at<=clock_timestamp()',

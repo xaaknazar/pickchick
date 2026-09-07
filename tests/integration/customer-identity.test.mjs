@@ -46,7 +46,8 @@ async function fixture(run, budget = 100) {
         return outcome;
       },
     };
-    const make = () => new CustomerIdentity(cloud.pool, settings, delivery),
+    const make = (overrides = {}) =>
+        new CustomerIdentity(cloud.pool, { ...settings, ...overrides }, delivery),
       identity = make();
     async function challenge(device = randomUUID(), number = phone) {
       const requested = OtpResponseSchema.parse(
@@ -735,4 +736,73 @@ test('tampered encrypted recovery receipt fails safely without rotating or revok
       request_id: randomUUID(),
     });
     assert.equal(next.session_id, session.session_id);
+  }));
+
+test('successful verify receipt survives a later policy update, while a new verification requires the new explicit versions', async () =>
+  fixture(async (ctx) => {
+    const initial = await ctx.login();
+    const upgraded = ctx.make({ consentVersion: 'synthetic-legal-v2' });
+    assert.deepEqual(await upgraded.verifyOtp(initial.request), initial.session);
+    assert.equal(
+      (await ctx.pool.query('SELECT count(*) FROM identity_consents')).rows[0].count,
+      '3',
+    );
+    await ctx.ageRequests();
+    const pending = await ctx.challenge();
+    await assert.rejects(upgraded.verifyOtp(pending.request), error('INVALID_REQUEST'));
+    assert.equal(
+      (
+        await ctx.pool.query('SELECT attempts FROM identity_otp_challenges WHERE id=$1', [
+          pending.request.challenge_id,
+        ])
+      ).rows[0].attempts,
+      0,
+    );
+    const accepted = await upgraded.verifyOtp({
+      ...pending.request,
+      consents: {
+        terms_version: 'synthetic-legal-v2',
+        privacy_version: 'synthetic-legal-v2',
+        marketing_opt_in: false,
+      },
+    });
+    assert.equal(accepted.customer.id, initial.session.customer.id);
+    assert.equal(
+      (
+        await ctx.pool.query(
+          "SELECT count(*) FROM identity_consents WHERE version='synthetic-legal-v2'",
+        )
+      ).rows[0].count,
+      '3',
+    );
+  }));
+test('repeated cleanup does not rewrite already scrubbed OTP rows and expiry candidates have partial indexes', async () =>
+  fixture(async (ctx) => {
+    await ctx.challenge();
+    await ctx.pool.query(
+      "UPDATE identity_otp_challenges SET created_at=created_at-interval '4 minutes', expires_at=expires_at-interval '4 minutes'",
+    );
+    await ctx.identity.cleanup();
+    const before = (
+      await ctx.pool.query(
+        'SELECT xmin::text AS revision, phone_cipher,code_hash FROM identity_otp_challenges',
+      )
+    ).rows[0];
+    assert.equal(before.phone_cipher, null);
+    assert.equal(before.code_hash, null);
+    await ctx.identity.cleanup();
+    assert.deepEqual(
+      (
+        await ctx.pool.query(
+          'SELECT xmin::text AS revision, phone_cipher,code_hash FROM identity_otp_challenges',
+        )
+      ).rows[0],
+      before,
+    );
+    const indexes = (
+      await ctx.pool.query(
+        "SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND indexname IN ('identity_otp_payload_expiry_idx','identity_otp_cleanup_created_idx')",
+      )
+    ).rows;
+    assert.equal(indexes.length, 2);
   }));
