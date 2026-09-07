@@ -1,5 +1,5 @@
 import { Controller, Get, Inject, Module, NotFoundException } from '@nestjs/common';
-import { MenuSnapshotSchema } from '@pickchick/contracts';
+import { MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
 import {
   createHttpApplication,
   HealthController,
@@ -9,6 +9,7 @@ import {
 } from '@pickchick/platform';
 import type { ServiceConfig } from '@pickchick/platform';
 import { LocalOrdersController } from './orders-controller.js';
+import { FulfillmentController } from './fulfillment-controller.js';
 
 @Controller('edge/v1')
 class LocalMenuController {
@@ -30,8 +31,15 @@ class LocalMenuController {
 export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
   if (config.service !== 'edge' || !config.branchId)
     throw new Error('Edge requires branch binding');
+  if (config.edgeFulfillmentEnabled && !UuidSchema.safeParse(config.edgeDeviceId).success)
+    throw new Error('Enabled edge fulfillment requires device binding');
   @Module({
-    controllers: [HealthController, LocalMenuController, LocalOrdersController],
+    controllers: [
+      HealthController,
+      LocalMenuController,
+      LocalOrdersController,
+      FulfillmentController,
+    ],
     providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],
   })
   class EdgeModule {}
