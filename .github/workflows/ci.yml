@@ -215,6 +215,34 @@ jobs:
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
 
+  fulfillment_transport:
+    name: Cloud-edge fulfillment transport and recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install locked dependencies and isolated databases
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile
+          cp .env.example .env
+          pnpm infra:up
+      - name: Build both HTTP services and transport dependencies
+        run: |
+          pnpm --filter @pickchick/api... build
+          pnpm --filter @pickchick/edge... build
+      - name: Verify durable delivery, permissions and interrupted requests
+        run: pnpm test:fulfillment-transport
+      - name: Stop isolated local infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
   design:
     name: Design screens and interaction smoke
     runs-on: ubuntu-24.04
