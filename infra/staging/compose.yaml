@@ -73,6 +73,7 @@ services:
       DB_POOL_MAX: ${DB_POOL_MAX:-5}
       HTTP_MAX_IN_FLIGHT: ${HTTP_MAX_IN_FLIGHT:-32}
       TEST_ORDER_FLOW_ENABLED: ${TEST_ORDER_FLOW_ENABLED:-false}
+      CATALOG_ADMIN_ENABLED: ${CATALOG_ADMIN_ENABLED:-false}
       CLOUD_DATABASE_URL: postgresql://pickchick_app:${DB_APP_PASSWORD:?Generate a separate secret}@cloud-db:5432/pickchick_cloud
       REDIS_URL: redis://default:${REDIS_PASSWORD:?Generate a separate secret}@redis-cache:6379/0
     ports: ['127.0.0.1:13100:3100']
@@ -97,6 +98,7 @@ services:
     environment:
       APP_ENV: staging
       TEST_ORDER_FLOW_ENABLED: ${TEST_ORDER_FLOW_ENABLED:-false}
+      CATALOG_ADMIN_ENABLED: ${CATALOG_ADMIN_ENABLED:-false}
       CLOUD_DATABASE_URL: postgresql://pickchick_owner:${DB_OWNER_PASSWORD:?Generate a separate secret}@cloud-db:5432/pickchick_cloud
       REDIS_URL: redis://default:${REDIS_PASSWORD:?Generate a separate secret}@redis-cache:6379/0
       DB_ADMIN_PASSWORD: ${DB_ADMIN_PASSWORD}

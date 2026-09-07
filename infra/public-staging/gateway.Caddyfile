@@ -18,12 +18,102 @@
 		Cache-Control no-store
 		X-Content-Type-Options nosniff
 		X-PickChick-Environment staging
-		X-PickChick-Data synthetic
 		X-PickChick-Ordering disabled
 		-Server
 	}
-	request_body {
+	@synthetic_surfaces {
+		not path /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*
+	}
+	header @synthetic_surfaces X-PickChick-Data synthetic
+	@catalog_draft_body {
+		method PUT
+		path_regexp catalog_draft_body ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/draft$
+	}
+	request_body @catalog_draft_body {
+		max_size 320KB
+	}
+	@small_body {
+		not {
+			method PUT
+			path_regexp small_body_exception ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/draft$
+		}
+	}
+	request_body @small_body {
 		max_size 16KB
+	}
+
+	@catalog_admin_get {
+		method GET
+		path_regexp catalog_admin_get ^/v1/admin/catalog/branches(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$
+	}
+	handle @catalog_admin_get {
+		header X-PickChick-Data catalog
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@catalog_admin_post {
+		method POST
+		path_regexp catalog_admin_post ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(draft/seed|publish)$
+	}
+	handle @catalog_admin_post {
+		header X-PickChick-Data catalog
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	handle @catalog_draft_body {
+		header X-PickChick-Data catalog
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@published_catalog {
+		method GET
+		path_regexp published_catalog ^/v1/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+	}
+	handle @published_catalog {
+		header X-PickChick-Data catalog
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Authorization
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@backoffice_root {
+		method GET HEAD
+		path /backoffice
+	}
+	redir @backoffice_root /backoffice/ 308
+	@backoffice {
+		method GET HEAD
+		path /backoffice/ /backoffice/*
+	}
+	handle @backoffice {
+		header X-PickChick-Data catalog
+		uri strip_prefix /backoffice
+		root * /srv/public/backoffice
+		file_server
 	}
 
 	@health {

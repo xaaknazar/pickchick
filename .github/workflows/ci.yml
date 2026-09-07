@@ -44,6 +44,10 @@ jobs:
           pnpm db:seed
       - name: Test PostgreSQL constraints and HTTP failure scenarios
         run: pnpm test:integration
+      - name: Verify commerce transactions and delivery invariants
+        run: pnpm test:commerce
+      - name: Verify Chiki ledger, reservations and refund debt
+        run: pnpm test:loyalty
       - name: Mobile state, API and release invariants
         run: pnpm test:mobile
       - name: Export native and web JavaScript bundles
@@ -66,6 +70,25 @@ jobs:
           .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
           .local/design-venv/bin/python tests/operations/layout_regression.py
           .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
+      - name: Verify POS against the local edge and PostgreSQL
+        env:
+          POS_TEST_PYTHON: .local/design-venv/bin/python
+        run: pnpm test:pos
+      - name: Verify backoffice catalog editing against PostgreSQL
+        env:
+          BACKOFFICE_TEST_PYTHON: .local/design-venv/bin/python
+        run: pnpm test:backoffice
+      - name: Verify opt-in server account screens and recovery
+        run: |
+          EXPO_PUBLIC_CUSTOMER_AUTH=server pnpm --filter @pickchick/mobile exec expo export --platform web --output-dir ../../.local/customer-auth-web
+          PICKCHICK_PREVIEW_OUTPUT=customer-auth MOBILE_PREVIEW_PORT=4196 node scripts/mobile/preview-server.mjs > .local/customer-auth-server.log 2>&1 &
+          customer_pid=$!
+          trap 'kill "$customer_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4196/ > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/design-venv/bin/python tests/mobile/browser_customer_account.py
       - name: Check dependency advisories
         run: pnpm audit --audit-level=high
       - name: Stop test infrastructure
@@ -120,6 +143,10 @@ jobs:
           persist-credentials: false
       - name: Build immutable image
         run: docker build -f infra/staging/Dockerfile --build-arg RELEASE_SHA=${{ github.sha }} -t pickchick-api:${{ github.sha }} .
+      - name: Check pinned public gateway routing and request limits
+        env:
+          GATEWAY_FIXTURE_IMAGE: pickchick-api:${{ github.sha }}
+        run: python3 tests/operations/gateway_catalog.py
       - name: Create disposable secrets and start dependencies
         run: |
           python3 infra/staging/generate-secrets.py .local/staging-ci

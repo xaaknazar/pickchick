@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "PickChick foundation API",
-    "version": "0.4.0",
-    "description": "Foundation with local menu sync and unpaid POS orders, plus an explicitly gated synthetic TEST journey through two kitchen stations. TEST orders do not reach a restaurant, bank or fiscal provider. Customer phone login, real payments, fiscalization, modifiers and production kitchen admission remain unavailable."
+    "version": "0.5.0",
+    "description": "Local menu sync and unpaid POS orders, a gated synthetic TEST journey through two kitchen stations, and separate opt-in customer identity. Real identity requires approved policy URLs/version, protected keys, SMS budget and enabled Mobizon delivery. It never authenticates a local demo profile or adopts anonymous TEST history. Real checkout, payments and fiscal provider delivery remain disabled."
   },
   "paths": {
     "/health/live": {
@@ -3621,6 +3621,1571 @@
           }
         }
       }
+    },
+    "/v1/auth/config": {
+      "get": {
+        "operationId": "getCustomerAuthConfig",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerAuthConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/otp/request": {
+      "post": {
+        "operationId": "requestCustomerOtp",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/otp/verify": {
+      "post": {
+        "operationId": "verifyCustomerOtp",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpVerify"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "operationId": "refreshCustomerSession",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logoutCustomer",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerOk"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/customers/me": {
+      "get": {
+        "operationId": "getCustomerProfile",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerMe"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchCustomerProfile",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerMe"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCustomerAccount",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerOk"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalog/branches": {
+      "get": {
+        "operationId": "listCatalogManagerBranches",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBranches"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalog/branches/{branchId}": {
+      "get": {
+        "operationId": "readCatalogDraft",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalog/branches/{branchId}/draft/seed": {
+      "post": {
+        "operationId": "seedMockupCatalogDraft",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogSeed"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalog/branches/{branchId}/draft": {
+      "put": {
+        "operationId": "saveCatalogDraft",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/catalog/branches/{branchId}/publish": {
+      "post": {
+        "operationId": "publishCatalogDraft",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogPublish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/catalog/branches/{branchId}": {
+      "get": {
+        "operationId": "readPublishedCatalog",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "description": "Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogPublic"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3649,6 +5214,16 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Opaque expiring TEST customer or station credential; staff issuance is trusted CLI only."
+      },
+      "customerBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque short-lived customer access token. Refresh rotation is persisted and revocable; no calendar or inactivity logout."
+      },
+      "catalogManagerBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque manager credential issued only through the trusted operator CLI; restricted to explicitly assigned branches."
       }
     },
     "schemas": {
@@ -9400,6 +10975,2595 @@
         },
         "required": [
           "expected_version"
+        ],
+        "additionalProperties": false
+      },
+      "Customer": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+77[0-9]{9}$"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "birth_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "female",
+                  "male"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profile_completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "phone",
+          "nickname",
+          "birth_date",
+          "gender",
+          "profile_completed_at",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerSession": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "refresh_token": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "access_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "phone": {
+                "type": "string",
+                "pattern": "^\\+77[0-9]{9}$"
+              },
+              "nickname": {
+                "type": "string"
+              },
+              "birth_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "gender": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "female",
+                      "male"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "profile_completed_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "id",
+              "phone",
+              "nickname",
+              "birth_date",
+              "gender",
+              "profile_completed_at",
+              "created_at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "access_expires_at",
+          "session_id",
+          "customer"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerPatch": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string"
+          },
+          "birth_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "female",
+                  "male"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "marketing_opt_in": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OtpRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "phone",
+          "device_id",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "OtpVerify": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "consents": {
+            "type": "object",
+            "properties": {
+              "terms_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "privacy_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "marketing_opt_in": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "terms_version",
+              "privacy_version",
+              "marketing_opt_in"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "challenge_id",
+          "code",
+          "device_id",
+          "request_id",
+          "consents"
+        ],
+        "additionalProperties": false
+      },
+      "OtpResponse": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "resend_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "delivery_status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "challenge_id",
+          "expires_at",
+          "resend_at",
+          "delivery_status"
+        ],
+        "additionalProperties": false
+      },
+      "RefreshRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "refresh_token",
+          "device_id",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerMe": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "customer"
+        ],
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
+          }
+        }
+      },
+      "CustomerOk": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        }
+      },
+      "CustomerAuthConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "consent_version",
+          "terms_url",
+          "privacy_url"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "consent_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terms_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "privacy_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        }
+      },
+      "CatalogState": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "updated_by": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "properties": {
+                      "schema_version": {
+                        "type": "number",
+                        "const": 1
+                      },
+                      "currency": {
+                        "type": "string",
+                        "const": "KZT"
+                      },
+                      "content_source": {
+                        "type": "string",
+                        "enum": [
+                          "mockup",
+                          "operator"
+                        ]
+                      },
+                      "content_reviewed": {
+                        "type": "boolean"
+                      },
+                      "categories": {
+                        "minItems": 1,
+                        "maxItems": 30,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                            },
+                            "name": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 150
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 150
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "products": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                            },
+                            "sku": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                            },
+                            "name": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 150
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 150
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "category_id": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                            },
+                            "price_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,15})$"
+                            },
+                            "image_asset_key": {
+                              "type": "string"
+                            },
+                            "available": {
+                              "type": "boolean"
+                            },
+                            "prep_required": {
+                              "type": "boolean"
+                            },
+                            "prep_minutes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            },
+                            "serving_label": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 150
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 150
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "weight_g": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "volume_ml": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ingredients": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "allergens": {
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            },
+                            "allergens_status": {
+                              "type": "string",
+                              "enum": [
+                                "unknown",
+                                "declared"
+                              ]
+                            },
+                            "nutrition": {
+                              "type": "object",
+                              "properties": {
+                                "basis": {
+                                  "type": "string",
+                                  "enum": [
+                                    "per_serving",
+                                    "per_100_g"
+                                  ]
+                                },
+                                "energy_kcal": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100000
+                                },
+                                "protein_g": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                },
+                                "fat_g": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                },
+                                "carbs_g": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                }
+                              },
+                              "required": [
+                                "basis",
+                                "energy_kcal",
+                                "protein_g",
+                                "fat_g",
+                                "carbs_g"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "nutrition_status": {
+                              "type": "string",
+                              "enum": [
+                                "unverified",
+                                "operator_entered"
+                              ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "item",
+                                "combo",
+                                "set"
+                              ]
+                            },
+                            "combo_components": {
+                              "maxItems": 40,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "product_id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                  },
+                                  "quantity": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "product_id",
+                                  "quantity"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "modifier_groups": {
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                  },
+                                  "title": {
+                                    "type": "object",
+                                    "properties": {
+                                      "ru": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 150
+                                      },
+                                      "kk": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                      }
+                                    },
+                                    "required": [
+                                      "ru",
+                                      "kk"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "min": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "max": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 100
+                                  },
+                                  "options": {
+                                    "minItems": 1,
+                                    "maxItems": 20,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                        },
+                                        "label": {
+                                          "type": "object",
+                                          "properties": {
+                                            "ru": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 150
+                                            },
+                                            "kk": {
+                                              "type": "string",
+                                              "maxLength": 150
+                                            }
+                                          },
+                                          "required": [
+                                            "ru",
+                                            "kk"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "price_delta_minor": {
+                                          "type": "string",
+                                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                        },
+                                        "default_quantity": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 40
+                                        },
+                                        "max_quantity": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 40
+                                        },
+                                        "available": {
+                                          "type": "boolean"
+                                        },
+                                        "nutrition_multiplier": {
+                                          "type": "number",
+                                          "exclusiveMinimum": 0,
+                                          "maximum": 100
+                                        },
+                                        "linked_product_id": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "label",
+                                        "price_delta_minor",
+                                        "default_quantity",
+                                        "max_quantity",
+                                        "available",
+                                        "linked_product_id"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "min",
+                                  "max",
+                                  "options"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "sku",
+                            "name",
+                            "description",
+                            "category_id",
+                            "price_minor",
+                            "image_asset_key",
+                            "available",
+                            "prep_required",
+                            "prep_minutes",
+                            "serving_label",
+                            "weight_g",
+                            "volume_ml",
+                            "ingredients",
+                            "allergens",
+                            "allergens_status",
+                            "nutrition",
+                            "nutrition_status",
+                            "kind",
+                            "combo_components",
+                            "modifier_groups"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "estimated_minutes": {
+                        "type": "object",
+                        "properties": {
+                          "min": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 120
+                          },
+                          "max": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 120
+                          }
+                        },
+                        "required": [
+                          "min",
+                          "max"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "upsell_product_ids": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                        }
+                      }
+                    },
+                    "required": [
+                      "schema_version",
+                      "currency",
+                      "content_source",
+                      "content_reviewed",
+                      "categories",
+                      "products",
+                      "estimated_minutes",
+                      "upsell_product_ids"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "revision",
+                  "base_version",
+                  "updated_at",
+                  "updated_by",
+                  "payload"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "published_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "published_by": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "properties": {
+                      "schema_version": {
+                        "type": "number",
+                        "const": 1
+                      },
+                      "currency": {
+                        "type": "string",
+                        "const": "KZT"
+                      },
+                      "content_source": {
+                        "type": "string",
+                        "enum": [
+                          "mockup",
+                          "operator"
+                        ]
+                      },
+                      "content_reviewed": {
+                        "type": "boolean"
+                      },
+                      "categories": {
+                        "minItems": 1,
+                        "maxItems": 30,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                            },
+                            "name": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 150
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 150
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "products": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                            },
+                            "sku": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                            },
+                            "name": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 150
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 150
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "category_id": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                            },
+                            "price_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,15})$"
+                            },
+                            "image_asset_key": {
+                              "type": "string"
+                            },
+                            "available": {
+                              "type": "boolean"
+                            },
+                            "prep_required": {
+                              "type": "boolean"
+                            },
+                            "prep_minutes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            },
+                            "serving_label": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 150
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 150
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "weight_g": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "volume_ml": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ingredients": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "allergens": {
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            },
+                            "allergens_status": {
+                              "type": "string",
+                              "enum": [
+                                "unknown",
+                                "declared"
+                              ]
+                            },
+                            "nutrition": {
+                              "type": "object",
+                              "properties": {
+                                "basis": {
+                                  "type": "string",
+                                  "enum": [
+                                    "per_serving",
+                                    "per_100_g"
+                                  ]
+                                },
+                                "energy_kcal": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100000
+                                },
+                                "protein_g": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                },
+                                "fat_g": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                },
+                                "carbs_g": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                }
+                              },
+                              "required": [
+                                "basis",
+                                "energy_kcal",
+                                "protein_g",
+                                "fat_g",
+                                "carbs_g"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "nutrition_status": {
+                              "type": "string",
+                              "enum": [
+                                "unverified",
+                                "operator_entered"
+                              ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "item",
+                                "combo",
+                                "set"
+                              ]
+                            },
+                            "combo_components": {
+                              "maxItems": 40,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "product_id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                  },
+                                  "quantity": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 1000
+                                  }
+                                },
+                                "required": [
+                                  "product_id",
+                                  "quantity"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "modifier_groups": {
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                  },
+                                  "title": {
+                                    "type": "object",
+                                    "properties": {
+                                      "ru": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 150
+                                      },
+                                      "kk": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                      }
+                                    },
+                                    "required": [
+                                      "ru",
+                                      "kk"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "min": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "max": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 100
+                                  },
+                                  "options": {
+                                    "minItems": 1,
+                                    "maxItems": 20,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                        },
+                                        "label": {
+                                          "type": "object",
+                                          "properties": {
+                                            "ru": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 150
+                                            },
+                                            "kk": {
+                                              "type": "string",
+                                              "maxLength": 150
+                                            }
+                                          },
+                                          "required": [
+                                            "ru",
+                                            "kk"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "price_delta_minor": {
+                                          "type": "string",
+                                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                        },
+                                        "default_quantity": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 40
+                                        },
+                                        "max_quantity": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 40
+                                        },
+                                        "available": {
+                                          "type": "boolean"
+                                        },
+                                        "nutrition_multiplier": {
+                                          "type": "number",
+                                          "exclusiveMinimum": 0,
+                                          "maximum": 100
+                                        },
+                                        "linked_product_id": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "label",
+                                        "price_delta_minor",
+                                        "default_quantity",
+                                        "max_quantity",
+                                        "available",
+                                        "linked_product_id"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "min",
+                                  "max",
+                                  "options"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "sku",
+                            "name",
+                            "description",
+                            "category_id",
+                            "price_minor",
+                            "image_asset_key",
+                            "available",
+                            "prep_required",
+                            "prep_minutes",
+                            "serving_label",
+                            "weight_g",
+                            "volume_ml",
+                            "ingredients",
+                            "allergens",
+                            "allergens_status",
+                            "nutrition",
+                            "nutrition_status",
+                            "kind",
+                            "combo_components",
+                            "modifier_groups"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "estimated_minutes": {
+                        "type": "object",
+                        "properties": {
+                          "min": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 120
+                          },
+                          "max": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 120
+                          }
+                        },
+                        "required": [
+                          "min",
+                          "max"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "upsell_product_ids": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                        }
+                      }
+                    },
+                    "required": [
+                      "schema_version",
+                      "currency",
+                      "content_source",
+                      "content_reviewed",
+                      "categories",
+                      "products",
+                      "estimated_minutes",
+                      "upsell_product_ids"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "version",
+                  "published_at",
+                  "published_by",
+                  "payload"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "branch",
+          "draft",
+          "published"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogBranches": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "actor": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "code",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "actor",
+          "branches"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogPublic": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "branch_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "type": "number",
+                "const": 1
+              },
+              "currency": {
+                "type": "string",
+                "const": "KZT"
+              },
+              "content_source": {
+                "type": "string",
+                "enum": [
+                  "mockup",
+                  "operator"
+                ]
+              },
+              "content_reviewed": {
+                "type": "boolean"
+              },
+              "categories": {
+                "minItems": 1,
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "products": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "sku": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "category_id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]{0,15})$"
+                    },
+                    "image_asset_key": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "prep_required": {
+                      "type": "boolean"
+                    },
+                    "prep_minutes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 120
+                    },
+                    "serving_label": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "weight_g": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "volume_ml": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ingredients": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "allergens": {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "allergens_status": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "declared"
+                      ]
+                    },
+                    "nutrition": {
+                      "type": "object",
+                      "properties": {
+                        "basis": {
+                          "type": "string",
+                          "enum": [
+                            "per_serving",
+                            "per_100_g"
+                          ]
+                        },
+                        "energy_kcal": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100000
+                        },
+                        "protein_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "fat_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "carbs_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "basis",
+                        "energy_kcal",
+                        "protein_g",
+                        "fat_g",
+                        "carbs_g"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "nutrition_status": {
+                      "type": "string",
+                      "enum": [
+                        "unverified",
+                        "operator_entered"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "item",
+                        "combo",
+                        "set"
+                      ]
+                    },
+                    "combo_components": {
+                      "maxItems": 40,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "quantity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "modifier_groups": {
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "title": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 150
+                              },
+                              "kk": {
+                                "type": "string",
+                                "maxLength": 150
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "min": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "max": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          },
+                          "options": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                },
+                                "label": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 150
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "maxLength": 150
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "price_delta_minor": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                },
+                                "default_quantity": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 40
+                                },
+                                "max_quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 40
+                                },
+                                "available": {
+                                  "type": "boolean"
+                                },
+                                "nutrition_multiplier": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 100
+                                },
+                                "linked_product_id": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "label",
+                                "price_delta_minor",
+                                "default_quantity",
+                                "max_quantity",
+                                "available",
+                                "linked_product_id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "min",
+                          "max",
+                          "options"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sku",
+                    "name",
+                    "description",
+                    "category_id",
+                    "price_minor",
+                    "image_asset_key",
+                    "available",
+                    "prep_required",
+                    "prep_minutes",
+                    "serving_label",
+                    "weight_g",
+                    "volume_ml",
+                    "ingredients",
+                    "allergens",
+                    "allergens_status",
+                    "nutrition",
+                    "nutrition_status",
+                    "kind",
+                    "combo_components",
+                    "modifier_groups"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "estimated_minutes": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ],
+                "additionalProperties": false
+              },
+              "upsell_product_ids": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                }
+              }
+            },
+            "required": [
+              "schema_version",
+              "currency",
+              "content_source",
+              "content_reviewed",
+              "categories",
+              "products",
+              "estimated_minutes",
+              "upsell_product_ids"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "branch_id",
+          "version",
+          "published_at",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogSave": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "type": "number",
+                "const": 1
+              },
+              "currency": {
+                "type": "string",
+                "const": "KZT"
+              },
+              "content_source": {
+                "type": "string",
+                "enum": [
+                  "mockup",
+                  "operator"
+                ]
+              },
+              "content_reviewed": {
+                "type": "boolean"
+              },
+              "categories": {
+                "minItems": 1,
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "products": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "sku": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "category_id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]{0,15})$"
+                    },
+                    "image_asset_key": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "prep_required": {
+                      "type": "boolean"
+                    },
+                    "prep_minutes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 120
+                    },
+                    "serving_label": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "weight_g": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "volume_ml": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ingredients": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "allergens": {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "allergens_status": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "declared"
+                      ]
+                    },
+                    "nutrition": {
+                      "type": "object",
+                      "properties": {
+                        "basis": {
+                          "type": "string",
+                          "enum": [
+                            "per_serving",
+                            "per_100_g"
+                          ]
+                        },
+                        "energy_kcal": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100000
+                        },
+                        "protein_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "fat_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "carbs_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "basis",
+                        "energy_kcal",
+                        "protein_g",
+                        "fat_g",
+                        "carbs_g"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "nutrition_status": {
+                      "type": "string",
+                      "enum": [
+                        "unverified",
+                        "operator_entered"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "item",
+                        "combo",
+                        "set"
+                      ]
+                    },
+                    "combo_components": {
+                      "maxItems": 40,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "quantity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "modifier_groups": {
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "title": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 150
+                              },
+                              "kk": {
+                                "type": "string",
+                                "maxLength": 150
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "min": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "max": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          },
+                          "options": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                },
+                                "label": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 150
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "maxLength": 150
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "price_delta_minor": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                },
+                                "default_quantity": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 40
+                                },
+                                "max_quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 40
+                                },
+                                "available": {
+                                  "type": "boolean"
+                                },
+                                "nutrition_multiplier": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 100
+                                },
+                                "linked_product_id": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "label",
+                                "price_delta_minor",
+                                "default_quantity",
+                                "max_quantity",
+                                "available",
+                                "linked_product_id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "min",
+                          "max",
+                          "options"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sku",
+                    "name",
+                    "description",
+                    "category_id",
+                    "price_minor",
+                    "image_asset_key",
+                    "available",
+                    "prep_required",
+                    "prep_minutes",
+                    "serving_label",
+                    "weight_g",
+                    "volume_ml",
+                    "ingredients",
+                    "allergens",
+                    "allergens_status",
+                    "nutrition",
+                    "nutrition_status",
+                    "kind",
+                    "combo_components",
+                    "modifier_groups"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "estimated_minutes": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ],
+                "additionalProperties": false
+              },
+              "upsell_product_ids": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                }
+              }
+            },
+            "required": [
+              "schema_version",
+              "currency",
+              "content_source",
+              "content_reviewed",
+              "categories",
+              "products",
+              "estimated_minutes",
+              "upsell_product_ids"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "expected_revision",
+          "request_id",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogSeed": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "number",
+            "const": 0
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogPublish": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "expected_published_version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "confirmation": {
+            "type": "string",
+            "const": "publish_catalog"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "expected_published_version",
+          "request_id",
+          "confirmation"
         ],
         "additionalProperties": false
       }

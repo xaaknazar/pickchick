@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { migrate } from '@pickchick/database';
+import { createPool, migrate } from '@pickchick/database';
+import { catalogAdminGrants } from '../../infra/staging/catalog-admin-grants.mjs';
 import {
   CatalogAdmin,
   CatalogAdminError,
@@ -52,6 +53,66 @@ async function fixture(run) {
     });
   });
 }
+test('production-shaped grants allow row locks without permitting credential or branch-scope mutation', async () =>
+  fixture(async (ctx) => {
+    const role = 'catalog_runtime_' + randomUUID().replaceAll('-', '');
+    await ctx.cloud.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      await ctx.pool.query(
+        `GRANT USAGE ON SCHEMA ${ctx.cloud.schema} TO ${role}; GRANT SELECT ON branches TO ${role}`,
+      );
+      await ctx.pool.query(catalogAdminGrants(role, true));
+      const url = new URL(ctx.cloud.config.databaseUrl);
+      url.searchParams.set('options', `-c search_path=${ctx.cloud.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 2);
+      const service = new CatalogAdmin(runtime, { enabled: true });
+      assert.equal((await service.branches(ctx.manager.token)).branches.length, 1);
+      let state = await service.seed(ctx.manager.token, ctx.branch, {
+        expected_revision: 0,
+        request_id: randomUUID(),
+      });
+      const payload = structuredClone(state.draft.payload);
+      payload.content_reviewed = true;
+      state = await service.save(ctx.manager.token, ctx.branch, {
+        expected_revision: state.draft.revision,
+        request_id: randomUUID(),
+        payload,
+      });
+      const result = await service.publish(ctx.manager.token, ctx.branch, {
+        expected_revision: state.draft.revision,
+        expected_published_version: 0,
+        request_id: randomUUID(),
+        confirmation: 'publish_catalog',
+      });
+      assert.equal(result.published.version, 1);
+      for (const sql of [
+        "UPDATE catalog_managers SET token_hash=repeat('a',64)",
+        'UPDATE catalog_manager_branches SET actor_id=actor_id',
+        'DELETE FROM catalog_managers',
+        'CREATE TABLE forbidden(id integer)',
+      ])
+        await assert.rejects(runtime.query(sql), (e) => e.code === '42501');
+      await assert.rejects(
+        runtime.query('UPDATE catalog_managers SET lock_anchor=false'),
+        immutable,
+      );
+      await ctx.pool.query(catalogAdminGrants(role, false));
+      await assert.rejects(
+        runtime.query('UPDATE catalog_managers SET lock_anchor=true'),
+        (e) => e.code === '42501',
+      );
+      assert.equal((await new CatalogAdmin(runtime).publicCatalog(ctx.branch)).version, 1);
+      await assert.rejects(
+        runtime.query('SELECT token_hash FROM catalog_managers'),
+        (e) => e.code === '42501',
+      );
+    } finally {
+      if (runtime) await runtime.end();
+      await ctx.pool.query(`DROP OWNED BY ${role}`);
+      await ctx.cloud.admin.query(`DROP ROLE ${role}`);
+    }
+  }));
 test('migration and scoped CLI credential never create a public issue route or TEST identity', async () =>
   fixture(async (ctx) => {
     assert.deepEqual(
@@ -436,10 +497,41 @@ test('HTTP catalog routes require scoped Bearer for editing and expose only the 
       CatalogStateSchema.parse(seed.body);
       const publicPath = '/v1/catalog/branches/' + ctx.branch;
       assert.equal((await request(publicPath)).status, 404);
-      const saved = await ctx.save(seed.body, {
-        ...seed.body.draft.payload,
-        content_reviewed: true,
-      });
+      const payload = structuredClone(seed.body.draft.payload);
+      payload.content_reviewed = true;
+      for (const product of payload.products) product.description.ru = 'Я'.repeat(1800);
+      const saveBody = {
+        payload,
+        expected_revision: seed.body.draft.revision,
+        request_id: randomUUID(),
+      };
+      assert.ok(Buffer.byteLength(JSON.stringify(saveBody)) > 100 * 1024);
+      const largeSave = await request(path + '/draft', 'PUT', saveBody, ctx.manager.token);
+      assert.equal(largeSave.status, 200, 'large valid draft needs its scoped parser');
+      const saved = CatalogStateSchema.parse(largeSave.body);
+      assert.equal(
+        (
+          await request(
+            path + '/draft',
+            'PUT',
+            { padding: 'x'.repeat(321 * 1024) },
+            ctx.manager.token,
+          )
+        ).status,
+        413,
+      );
+      assert.equal(
+        (
+          await request(
+            path + '/draft/seed',
+            'POST',
+            { padding: 'x'.repeat(101 * 1024) },
+            ctx.manager.token,
+          )
+        ).status,
+        413,
+        'ordinary commands retain 100 KiB cap',
+      );
       const published = await request(
         path + '/publish',
         'POST',

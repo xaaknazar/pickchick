@@ -135,7 +135,7 @@ export function AuthLayout({
             )}
           </View>
         ) : null}
-        <ProfileRestoreNotice />
+        <ProfileRestoreNotice restorationOnly />
         {children}
         {bottomContent ? <View style={s.bottomContent}>{bottomContent}</View> : null}
       </ScrollView>

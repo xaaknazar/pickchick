@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { mkdir, mkdtemp, readdir, copyFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import test from 'node:test';
 import { createPool, migrate } from '@pickchick/database';
 import { createApi } from '@pickchick/api';
@@ -26,7 +28,7 @@ const cart = {
   service_mode: 'takeaway',
   items: [{ product_id: 'pick-combo', quantity: 1 }],
 };
-async function withDesk(run) {
+async function withDesk(run, options) {
   await withSyncDatabases(async (ctx) => {
     await ctx.cloud.pool.query(
       "INSERT INTO branches(id,organization_id,legal_entity_id,code,name) VALUES ($1,$2,$3,'TEST-ALMATY-01','Synthetic permanent access')",
@@ -39,7 +41,7 @@ async function withDesk(run) {
       return flow.createOrder(session.token, randomUUID(), { quote_id: quote.quote_id });
     };
     await run({ ...ctx, flow, customer, make });
-  });
+  }, options);
 }
 async function persistedData(pool) {
   const result = {};
@@ -227,71 +229,88 @@ test('permanent metadata refresh preserves every open state and unresolved payme
 });
 
 test('migration upgrades all unrevoked legacy credentials and preserves tokens, identities, orders and revoked access', async () => {
-  await withDesk(async (ctx) => {
-    const expiredCustomer = await ctx.flow.issueSession({ channel: 'kiosk' });
-    const revokedCustomer = await ctx.flow.issueSession({ channel: 'mobile' });
-    const manager = await provisionTestActor(ctx.cloud.pool, config, 'manager');
-    const revokedStaff = await provisionTestActor(ctx.cloud.pool, config, 'prep');
-    const open = await ctx.make();
-    await ctx.flow.simulatePayment(ctx.customer.token, randomUUID(), open.order_id, {
-      expected_version: open.version,
-      outcome: 'unknown',
-    });
-    await ctx.make(expiredCustomer);
-    await ctx.make(revokedCustomer);
-    await revokeTestActor(ctx.cloud.pool, config, revokedCustomer.session_id);
-    await revokeTestActor(ctx.cloud.pool, config, revokedStaff.actor_id);
-    await ctx.cloud.pool.query(
-      "UPDATE test_actors SET expires_at=clock_timestamp()+interval '1 hour'",
+  await mkdir(new URL('../../.local/', import.meta.url), { recursive: true });
+  const historical = await mkdtemp(
+    fileURLToPath(new URL('../../.local/pre-006-', import.meta.url)),
+  );
+  const versions = (await readdir(migrationDir))
+    .filter((file) => /^\d{3}_[a-z_]+\.sql$/.test(file))
+    .sort();
+  try {
+    for (const file of versions.filter((file) => file < migration))
+      await copyFile(join(migrationDir, file), join(historical, file));
+    await withDesk(
+      async (ctx) => {
+        const expiredCustomer = await ctx.flow.issueSession({ channel: 'kiosk' });
+        const revokedCustomer = await ctx.flow.issueSession({ channel: 'mobile' });
+        const manager = await provisionTestActor(ctx.cloud.pool, config, 'manager');
+        const revokedStaff = await provisionTestActor(ctx.cloud.pool, config, 'prep');
+        const open = await ctx.make();
+        await ctx.flow.simulatePayment(ctx.customer.token, randomUUID(), open.order_id, {
+          expected_version: open.version,
+          outcome: 'unknown',
+        });
+        await ctx.make(expiredCustomer);
+        await ctx.make(revokedCustomer);
+        await revokeTestActor(ctx.cloud.pool, config, revokedCustomer.session_id);
+        await revokeTestActor(ctx.cloud.pool, config, revokedStaff.actor_id);
+        await ctx.cloud.pool.query(
+          "UPDATE test_actors SET expires_at=clock_timestamp()+interval '1 hour'",
+        );
+        await ctx.cloud.pool.query(
+          "UPDATE test_actors SET created_at=clock_timestamp()-interval '2 days',expires_at=clock_timestamp()-interval '1 day' WHERE id=$1",
+          [expiredCustomer.session_id],
+        );
+        const actorsBefore = (
+          await ctx.cloud.pool.query(
+            'SELECT *,expires_at::text AS expiry FROM test_actors ORDER BY id',
+          )
+        ).rows;
+        const dataBefore = await persistedData(ctx.cloud.pool);
+        // Start from the genuine pre-006 schema; never create a gap in a newer
+        // migration ledger. Later additive migrations must preserve these records too.
+        assert.deepEqual(
+          await migrate(ctx.cloud.pool, migrationDir, 'cloud'),
+          versions.filter((file) => file >= migration),
+        );
+        assert.deepEqual(await migrate(ctx.cloud.pool, migrationDir, 'cloud'), []);
+        const actorsAfter = (
+          await ctx.cloud.pool.query(
+            'SELECT *,expires_at::text AS expiry FROM test_actors ORDER BY id',
+          )
+        ).rows;
+        for (const before of actorsBefore) {
+          const after = actorsAfter.find((row) => row.id === before.id);
+          if (before.revoked_at) assert.deepEqual(after, before);
+          else {
+            assert.equal(after.expiry, 'infinity');
+            for (const field of [
+              'id',
+              'token_hash',
+              'role',
+              'branch_id',
+              'channel',
+              'created_at',
+              'revoked_at',
+            ])
+              assert.deepEqual(after[field], before[field], field);
+          }
+        }
+        assert.deepEqual(await persistedData(ctx.cloud.pool), dataBefore);
+        assert.equal((await ctx.flow.continueSession(ctx.customer.token, {})).expires_at, marker);
+        assert.equal((await ctx.flow.ownOrders(expiredCustomer.token)).orders.length, 1);
+        assert.equal((await ctx.flow.managerOrders(manager.token)).orders.length, 3);
+        await assert.rejects(ctx.flow.ownOrders(revokedCustomer.token), code('UNAUTHORIZED'));
+        await assert.rejects(ctx.flow.kitchen(revokedStaff.token), code('UNAUTHORIZED'));
+        const storedHash = actorsAfter.find((row) => row.id === ctx.customer.session_id).token_hash;
+        assert.equal(storedHash, createHash('sha256').update(ctx.customer.token).digest('hex'));
+        assert.notEqual(storedHash, ctx.customer.token);
+      },
+      { cloudMigrationDirectory: historical },
     );
-    await ctx.cloud.pool.query(
-      "UPDATE test_actors SET created_at=clock_timestamp()-interval '2 days',expires_at=clock_timestamp()-interval '1 day' WHERE id=$1",
-      [expiredCustomer.session_id],
-    );
-    const actorsBefore = (
-      await ctx.cloud.pool.query('SELECT *,expires_at::text AS expiry FROM test_actors ORDER BY id')
-    ).rows;
-    const dataBefore = await persistedData(ctx.cloud.pool);
-    // The isolated test database starts fully migrated. Recreate the pre-006
-    // data, index and default state before exercising the real migration runner.
-    await ctx.cloud.pool.query('DROP INDEX test_quotes_actor_created_idx');
-    await ctx.cloud.pool.query('ALTER TABLE test_actors ALTER COLUMN expires_at DROP DEFAULT');
-    await ctx.cloud.pool.query('DELETE FROM schema_migrations WHERE scope=$1 AND version=$2', [
-      'cloud',
-      migration,
-    ]);
-    assert.deepEqual(await migrate(ctx.cloud.pool, migrationDir, 'cloud'), [migration]);
-    assert.deepEqual(await migrate(ctx.cloud.pool, migrationDir, 'cloud'), []);
-    const actorsAfter = (
-      await ctx.cloud.pool.query('SELECT *,expires_at::text AS expiry FROM test_actors ORDER BY id')
-    ).rows;
-    for (const before of actorsBefore) {
-      const after = actorsAfter.find((row) => row.id === before.id);
-      if (before.revoked_at) assert.deepEqual(after, before);
-      else {
-        assert.equal(after.expiry, 'infinity');
-        for (const field of [
-          'id',
-          'token_hash',
-          'role',
-          'branch_id',
-          'channel',
-          'created_at',
-          'revoked_at',
-        ])
-          assert.deepEqual(after[field], before[field], field);
-      }
-    }
-    assert.deepEqual(await persistedData(ctx.cloud.pool), dataBefore);
-    assert.equal((await ctx.flow.continueSession(ctx.customer.token, {})).expires_at, marker);
-    assert.equal((await ctx.flow.ownOrders(expiredCustomer.token)).orders.length, 1);
-    assert.equal((await ctx.flow.managerOrders(manager.token)).orders.length, 3);
-    await assert.rejects(ctx.flow.ownOrders(revokedCustomer.token), code('UNAUTHORIZED'));
-    await assert.rejects(ctx.flow.kitchen(revokedStaff.token), code('UNAUTHORIZED'));
-    const storedHash = actorsAfter.find((row) => row.id === ctx.customer.session_id).token_hash;
-    assert.equal(storedHash, createHash('sha256').update(ctx.customer.token).digest('hex'));
-    assert.notEqual(storedHash, ctx.customer.token);
-  });
+  } finally {
+    await rm(historical, { recursive: true, force: true });
+  }
 });
 
 test('permanent retention keeps active history and prunes only old revoked or finite-expired credentials', async () => {

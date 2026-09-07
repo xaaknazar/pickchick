@@ -14,12 +14,15 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@pickchick/catalog-admin": "workspace:*",
     "@nestjs/common": "12.0.1",
     "@pickchick/platform": "workspace:*",
     "@pickchick/contracts": "workspace:*",
     "@pickchick/database": "workspace:*",
     "@pickchick/menu-sync": "workspace:*",
-    "@pickchick/test-order-flow": "workspace:*"
+    "@pickchick/test-order-flow": "workspace:*",
+    "@pickchick/customer-identity": "workspace:*",
+    "@pickchick/phone-verification": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",

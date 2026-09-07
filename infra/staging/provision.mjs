@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
+import { customerAuthGrants } from './customer-auth-grants.mjs';
+import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 
 async function provision() {
   const config = loadConfig('api');
@@ -72,6 +74,8 @@ async function provision() {
         GRANT UPDATE (state) ON test_kitchen_tasks TO pickchick_app;
         GRANT USAGE ON SEQUENCE test_orders_sequence_seq TO pickchick_app;`);
     }
+    await pool.query(customerAuthGrants('pickchick_app', config.customerAuthEnabled === true));
+    await pool.query(catalogAdminGrants('pickchick_app', config.catalogAdminEnabled === true));
     console.log(JSON.stringify({ event: 'staging_provisioned', applied }));
   } finally {
     await pool.end();

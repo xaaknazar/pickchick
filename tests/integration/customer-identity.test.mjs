@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { migrate } from '@pickchick/database';
+import { createPool, migrate } from '@pickchick/database';
+import { customerAuthGrants } from '../../infra/staging/customer-auth-grants.mjs';
 import {
   CustomerIdentity,
   CustomerIdentityError,
@@ -79,6 +80,9 @@ async function fixture(run, budget = 100) {
     }
     await run({
       pool: cloud.pool,
+      cloud,
+      settings,
+      delivery,
       identity,
       make,
       deliveries,
@@ -91,6 +95,184 @@ async function fixture(run, budget = 100) {
     });
   });
 }
+
+test('deployed identity grants permit the complete session lifecycle and revoke all access when disabled', async () =>
+  fixture(async (ctx) => {
+    const role = 'identity_runtime_' + randomUUID().replaceAll('-', '');
+    await ctx.cloud.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      await ctx.pool.query(`GRANT USAGE ON SCHEMA ${ctx.cloud.schema} TO ${role}`);
+      await ctx.pool.query(customerAuthGrants(role, true));
+      const url = new URL(ctx.cloud.config.databaseUrl);
+      url.searchParams.set('options', `-c search_path=${ctx.cloud.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 2);
+      const identity = new CustomerIdentity(runtime, ctx.settings, ctx.delivery);
+      const device = randomUUID();
+      const requested = await identity.requestOtp(
+        { phone, device_id: device, request_id: randomUUID() },
+        ip,
+      );
+      const verified = await identity.verifyOtp({
+        challenge_id: requested.challenge_id,
+        code: ctx.deliveries[0].code,
+        device_id: device,
+        request_id: randomUUID(),
+        consents: consent,
+      });
+      const rotated = await identity.refresh({
+        refresh_token: verified.refresh_token,
+        device_id: device,
+        request_id: randomUUID(),
+      });
+      await identity.patchMe(rotated.access_token, {
+        nickname: 'Проверка роли',
+        birth_date: '2000-02-29',
+      });
+      assert.equal((await identity.me(rotated.access_token)).customer.nickname, 'Проверка роли');
+      await assert.rejects(
+        runtime.query('DELETE FROM identity_customers'),
+        (e) => e.code === '42501',
+      );
+      await assert.rejects(
+        runtime.query('UPDATE identity_consents SET version=version'),
+        (e) => e.code === '42501',
+      );
+      await assert.rejects(
+        runtime.query('CREATE TABLE forbidden(id integer)'),
+        (e) => e.code === '42501',
+      );
+      await identity.deleteMe(rotated.access_token);
+      await identity.cleanup();
+      await ctx.pool.query(customerAuthGrants(role, false));
+      await assert.rejects(
+        runtime.query('SELECT * FROM identity_sessions'),
+        (e) => e.code === '42501',
+      );
+    } finally {
+      if (runtime) await runtime.end();
+      await ctx.pool.query(`DROP OWNED BY ${role}`);
+      await ctx.cloud.admin.query(`DROP ROLE ${role}`);
+    }
+  }));
+
+test('mobile session client survives committed verify and rotation response loss through real HTTP and PostgreSQL', async () =>
+  fixture(async (ctx) => {
+    const { createRequire } = await import('node:module');
+    const require = createRequire(new URL('../../services/api/package.json', import.meta.url));
+    const { Module } = require('@nestjs/common');
+    const { createHttpApplication, RESOURCE } = await import('@pickchick/platform');
+    const { CustomerAuthController } =
+      await import('../../services/api/dist/customer-auth-controller.js');
+    const { CUSTOMER_IDENTITY } = await import('@pickchick/customer-identity');
+    const { CustomerSessionCore } = await import('../../apps/mobile/src/customer-session.ts');
+    const { createCustomerRequest } = await import('../../apps/mobile/src/customer-http.ts');
+    class ClientTestModule {}
+    Module({
+      controllers: [CustomerAuthController],
+      providers: [
+        { provide: CUSTOMER_IDENTITY, useValue: ctx.identity },
+        {
+          provide: RESOURCE,
+          useValue: {
+            config: {},
+            admission: {
+              intercept(_c, next) {
+                return next.handle();
+              },
+            },
+          },
+        },
+      ],
+    })(ClientTestModule);
+    const app = await createHttpApplication(ClientTestModule);
+    try {
+      await app.listen(0, '127.0.0.1');
+      const origin = await app.getUrl();
+      let raw = null;
+      let lose = '/v1/auth/otp/verify';
+      const transportCalls = [];
+      const io = {
+        read: async () => raw,
+        write: async (value) => {
+          raw = value;
+        },
+        now: Date.now,
+        randomId: randomUUID,
+        request: createCustomerRequest('https://isolated.example.test', async (input, options) => {
+          const path = new URL(input).pathname;
+          transportCalls.push({ path, body: options.body });
+          const response = await fetch(origin + path, options);
+          assert.match(response.headers.get('cache-control'), /no-store/);
+          if (lose === path) {
+            lose = null;
+            await response.arrayBuffer();
+            throw new Error('fixture lost committed reply');
+          }
+          return response;
+        }),
+      };
+      let client = new CustomerSessionCore(io);
+      await client.restore();
+      await client.requestCode(phone);
+      const otp = ctx.deliveries[0].code;
+      await assert.rejects(client.verifyCode(otp, version));
+      assert.equal(client.customer, null);
+      client = new CustomerSessionCore(io);
+      await client.restore();
+      await client.sync();
+      const intentBeforeTypo = JSON.parse(raw).verify_intent;
+      await assert.rejects(
+        client.verifyCode(otp === '000000' ? '000001' : '000000', null),
+        (e) => e.code === 'CONFLICT',
+      );
+      assert.deepEqual(JSON.parse(raw).verify_intent, intentBeforeTypo);
+      await client.verifyCode(otp, null);
+      const id = client.customer.id;
+      await client.saveProfile({
+        nickname: 'Проверка клиента',
+        birthDate: '2000-02-29',
+        gender: null,
+      });
+      const saved = JSON.parse(raw);
+      saved.tokens.access_expires_at = new Date(Date.now() - 1000).toISOString();
+      raw = JSON.stringify(saved);
+      await ctx.pool.query(
+        "UPDATE identity_sessions SET access_expires_at=clock_timestamp()-interval '1 second'",
+      );
+      client = new CustomerSessionCore(io);
+      await client.restore();
+      lose = '/v1/auth/refresh';
+      await assert.rejects(client.accessToken());
+      const key = JSON.parse(raw).refresh_request_id;
+      client = new CustomerSessionCore(io);
+      await client.restore();
+      const tokens = await Promise.all(Array.from({ length: 30 }, () => client.accessToken()));
+      assert.equal(new Set(tokens).size, 1);
+      const refreshes = transportCalls.filter((c) => c.path === '/v1/auth/refresh');
+      assert.equal(refreshes.length, 2);
+      assert.equal(refreshes[0].body, refreshes[1].body);
+      assert.equal(JSON.parse(refreshes[1].body).request_id, key);
+      await client.sync();
+      assert.equal(client.customer.id, id);
+      assert.equal(client.customer.birth_date, '2000-02-29');
+      assert.equal(ctx.deliveries.length, 1);
+      assert.equal(
+        (await ctx.pool.query('SELECT count(*) FROM identity_customers')).rows[0].count,
+        '1',
+      );
+      assert.equal(
+        (await ctx.pool.query('SELECT count(*) FROM identity_sessions WHERE revoked_at IS NULL'))
+          .rows[0].count,
+        '1',
+      );
+      await client.signOut();
+      assert.equal(client.customer, null);
+      assert.equal(JSON.parse(raw).tokens, null);
+    } finally {
+      await app.close();
+    }
+  }));
 test('migration is reentrant through ledger and identity credentials are separate from TEST schema', async () =>
   fixture(async (ctx) => {
     assert.deepEqual(
@@ -636,6 +818,7 @@ test('HTTP controller exposes strict responses and sanitized errors with no-stor
         {
           provide: RESOURCE,
           useValue: {
+            config: {},
             admission: {
               intercept(_context, next) {
                 return next.handle();

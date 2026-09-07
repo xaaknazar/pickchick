@@ -10,9 +10,17 @@ import { Icon } from '../components/UI';
 import { DEMO_LOGIN_CODE, formatDemoPhone, normalizeDemoPhone } from '../demo-account';
 import type { ScreenProps } from '../model';
 import { font } from '../theme';
-import { useDemoAccount } from '../useDemoAccount';
+import { useAccount } from '../useAccount';
 
 function DemoNote() {
+  const account = useAccount();
+  if (account.mode === 'server')
+    return account.deliveryUnknown ? (
+      <Text style={s.demoText}>
+        Ожидаем подтверждение отправки. Если код уже пришёл, введите его. Повторная отправка будет
+        доступна по таймеру.
+      </Text>
+    ) : null;
   return (
     <View style={s.demoNote}>
       <Text style={s.demoText}>Тестовый код {DEMO_LOGIN_CODE}. SMS не отправляется.</Text>
@@ -39,7 +47,7 @@ function displayPhone(digits: string) {
 }
 
 export function Phone(props: ScreenProps) {
-  const demo = useDemoAccount();
+  const demo = useAccount();
   const initial = useRef(demo.challenge?.phone.slice(2) ?? '');
   const input = useRef<TextInput>(null);
   const phoneRef = useRef(initial.current);
@@ -88,7 +96,11 @@ export function Phone(props: ScreenProps) {
       props={props}
       topAction={{ label: 'Меню без входа', onPress: () => props.navigate('M06') }}
       title="Ваш номер"
-      subtitle="Номер нужен, чтобы познакомиться с тестовым профилем Pick Chick."
+      subtitle={
+        demo.mode === 'server'
+          ? 'Войдите, чтобы сохранять свой профиль Pick Chick.'
+          : 'Номер нужен, чтобы познакомиться с тестовым профилем Pick Chick.'
+      }
       footer={
         <AuthButton
           title={demo.busy ? 'Подготавливаем код…' : 'Получить код'}
@@ -166,6 +178,23 @@ export function Phone(props: ScreenProps) {
           {demo.error}
         </Text>
       ) : null}
+      {demo.mode === 'server' && demo.pendingOtp && demo.error ? (
+        <View style={{ gap: 8 }}>
+          <Text style={s.demoText}>
+            Предыдущий код ещё может прийти. Повторное нажатие «Получить код» проверит тот же
+            запрос.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={demo.busy}
+            onPress={() => demo.cancelChallenge()}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+            testID="restart-phone-request"
+          >
+            <Text style={s.legalText}>Начать заново или изменить номер</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         onPress={() => props.navigate('M33')}
@@ -179,12 +208,17 @@ export function Phone(props: ScreenProps) {
 }
 
 export function Otp(props: ScreenProps) {
-  const demo = useDemoAccount();
+  const demo = useAccount();
+  const [consentVersion, setConsentVersion] = useState<string | null>(null);
+  const consentAccepted = Boolean(consentVersion && consentVersion === demo.legal?.version);
   const input = useRef<TextInput>(null);
   const [code, setCode] = useState('');
   const [now, setNow] = useState(Date.now);
   const [submitted, setSubmitted] = useState(false);
   const challenge = demo.challenge;
+  useEffect(() => {
+    setConsentVersion(null);
+  }, [demo.legal?.version, challenge?.phone, challenge?.resendAt]);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -195,16 +229,20 @@ export function Otp(props: ScreenProps) {
     setSubmitted(false);
   }, [challenge?.phone, challenge?.resendAt]);
   const remaining = Math.max(0, Math.ceil(((challenge?.resendAt ?? 0) - now) / 1000));
-  const expired = challenge ? now >= challenge.expiresAt : false;
+  const expired = challenge ? now >= challenge.expiresAt && !demo.pendingVerify : false;
   const canVerify = Boolean(
-    challenge && !expired && challenge.attemptsLeft > 0 && /^\d{6}$/.test(code),
+    challenge &&
+    !expired &&
+    challenge.attemptsLeft > 0 &&
+    /^\d{6}$/.test(code) &&
+    (demo.mode === 'demo' || consentAccepted || demo.pendingVerify),
   );
   const verify = async () => {
     if (props.preview) return;
     setSubmitted(true);
     const phone = challenge?.phone;
     const previousPhone = demo.account?.phone;
-    if (await demo.verifyCode(code)) {
+    if (await demo.verifyCode(code, consentVersion)) {
       if (phone && phone !== previousPhone) props.model.setNickname('');
       Keyboard.dismiss();
       props.navigate('M04');
@@ -226,7 +264,9 @@ export function Otp(props: ScreenProps) {
       subtitle={
         challenge
           ? `Для ${formatDemoPhone(challenge.phone)}`
-          : 'Укажите номер, чтобы начать тестовый вход.'
+          : demo.mode === 'server'
+            ? 'Укажите номер, чтобы войти.'
+            : 'Укажите номер, чтобы начать тестовый вход.'
       }
       footer={
         <AuthButton
@@ -273,6 +313,44 @@ export function Otp(props: ScreenProps) {
           style={s.otpInput}
         />
       </View>
+      {demo.mode === 'server' && !demo.pendingVerify ? (
+        <View style={{ gap: 8, marginTop: 20 }}>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: consentAccepted }}
+            testID="auth-consent"
+            disabled={demo.busy || props.preview}
+            onPress={() =>
+              setConsentVersion((value) => (value ? null : (demo.legal?.version ?? null)))
+            }
+            style={({ pressed }) => [
+              { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
+              pressed && s.pressed,
+            ]}
+          >
+            <Icon
+              name={consentAccepted ? 'checkbox' : 'square-outline'}
+              size={28}
+              color={authColors.text}
+            />
+            <Text style={[s.legalText, { flex: 1 }]}>
+              Принимаю условия и соглашаюсь на обработку данных для работы аккаунта
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => props.navigate('M33')}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <Text style={s.legalText}>Прочитать условия и политику конфиденциальности</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {demo.mode === 'server' && demo.pendingVerify ? (
+        <Text style={s.demoText}>
+          Повторите код, который уже пришёл на ваш номер. Новую SMS запрашивать не нужно.
+        </Text>
+      ) : null}
       <Pressable
         testID="resend-otp"
         accessibilityRole="button"

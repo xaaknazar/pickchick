@@ -28,6 +28,15 @@ import {
 } from '@pickchick/platform';
 import type { ServiceConfig } from '@pickchick/platform';
 import { TestOrderController } from './test-order-controller.js';
+import { CustomerAuthController } from './customer-auth-controller.js';
+import {
+  CUSTOMER_IDENTITY,
+  CustomerIdentity,
+  createCustomerIdentityOptions,
+} from '@pickchick/customer-identity';
+import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
+import { CATALOG_ADMIN, CatalogAdmin } from '@pickchick/catalog-admin';
+import { CatalogAdminController } from './catalog-admin-controller.js';
 
 @Controller('v1/capabilities')
 class CapabilitiesController {
@@ -136,9 +145,35 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CapabilitiesController,
       BranchesController,
       MenuSyncController,
+      CustomerAuthController,
+      CatalogAdminController,
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
-    providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],
+    providers: [
+      { provide: RESOURCE, useFactory: () => new Resources(config) },
+      {
+        provide: CATALOG_ADMIN,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new CatalogAdmin(resources.pool, { enabled: config.catalogAdminEnabled === true }),
+      },
+      {
+        provide: CUSTOMER_IDENTITY,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) => {
+          const env = {
+            ...process.env,
+            CUSTOMER_AUTH_ENABLED: String(config.customerAuthEnabled === true),
+          };
+          const options = createCustomerIdentityOptions(env);
+          return new CustomerIdentity(
+            resources.pool,
+            options,
+            createPhoneCodeDelivery(options.enabled ? env : {}),
+          );
+        },
+      },
+    ],
   })
   class ApiModule {}
   return createHttpApplication(ApiModule);

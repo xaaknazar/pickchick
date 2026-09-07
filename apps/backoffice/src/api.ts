@@ -9,6 +9,11 @@ export class ApiError extends Error {
 export type Request = { method?: 'GET' | 'PUT' | 'POST'; body?: unknown };
 export type Transport = (path: string, token: string, options?: Request) => Promise<unknown>;
 export const transport: Transport = async (path, token, options = {}) => {
+  if (
+    !/^branches(?:\/[a-f0-9-]{36}(?:\/(?:draft|draft\/seed|publish))?)?$/.test(path) ||
+    !/^[a-f0-9]{64}$/.test(token)
+  )
+    throw new ApiError('INVALID_REQUEST');
   let response: Response;
   try {
     response = await fetch(`/v1/admin/catalog/${path}`, {
@@ -28,17 +33,65 @@ export const transport: Transport = async (path, token, options = {}) => {
   }
   let value: unknown;
   try {
-    value = await response.json();
+    if (
+      !response.headers.get('content-type')?.includes('application/json') ||
+      Number(response.headers.get('content-length') ?? 0) > 1048576 ||
+      !response.body
+    )
+      throw new Error('Invalid response');
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    try {
+      while (true) {
+        const next = await reader.read();
+        if (next.done) break;
+        length += next.value.byteLength;
+        if (length > 1048576) {
+          void reader.cancel().catch(() => undefined);
+          throw new Error('Response too large');
+        }
+        chunks.push(next.value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   } catch {
     throw new ApiError('INVALID_RESPONSE', response.status);
   }
-  if (!response.ok)
-    throw new ApiError(
-      value && typeof value === 'object' && 'code' in value
-        ? String(value.code)
-        : 'SERVICE_UNAVAILABLE',
-      response.status,
-    );
+  if (!response.ok) {
+    const error = value as Record<string, unknown> | null;
+    const codes = [
+      'INVALID_REQUEST',
+      'UNAUTHORIZED',
+      'FORBIDDEN',
+      'NOT_FOUND',
+      'CONFLICT',
+      'PAYLOAD_TOO_LARGE',
+      'RATE_LIMITED',
+      'SERVICE_UNAVAILABLE',
+      'INTERNAL_ERROR',
+    ];
+    if (
+      !error ||
+      typeof error.code !== 'string' ||
+      !codes.includes(error.code) ||
+      error.message_key !== `errors.${error.code.toLowerCase()}` ||
+      typeof error.trace_id !== 'string' ||
+      !/^[a-f0-9-]{36}$/.test(error.trace_id) ||
+      typeof error.retryable !== 'boolean' ||
+      (response.status === 401 && (error.code !== 'UNAUTHORIZED' || error.retryable))
+    )
+      throw new ApiError('INVALID_RESPONSE', response.status);
+    throw new ApiError(error.code, response.status);
+  }
   return value;
 };
 export const message = (error: unknown): string => {

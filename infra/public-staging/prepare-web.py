@@ -19,13 +19,14 @@ def main():
     assert sha == args.source_sha, 'Build must use the named source commit'
     dirty = subprocess.check_output([
         'git', 'status', '--porcelain', '--untracked-files=all', '--',
-        'apps/operations', 'design/prototype', 'packages/design-tokens',
+        'apps/operations', 'apps/backoffice', 'design/prototype', 'packages/design-tokens',
         'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
     ], cwd=repo, text=True)
     assert not dirty, 'Commit the operations build inputs before packaging'
     output = args.output.resolve()
     assert not output.exists(), 'Output must be a new directory'
     subprocess.run(['pnpm', '--filter', '@pickchick/operations', 'build'], cwd=repo, check=True)
+    subprocess.run(['pnpm', '--filter', '@pickchick/backoffice', 'build'], cwd=repo, check=True)
     output.mkdir(parents=True, mode=0o755)
     hashes = {}
 
@@ -42,6 +43,11 @@ def main():
     for source in dist.rglob('*'):
         if source.is_file() and source.suffix in extensions:
             copy(source, pathlib.Path('operations') / source.relative_to(dist))
+    backoffice = repo / 'apps/backoffice/dist'
+    assert (backoffice / 'index.html').is_file()
+    for source in backoffice.rglob('*'):
+        if source.is_file() and source.suffix in extensions:
+            copy(source, pathlib.Path('backoffice') / source.relative_to(backoffice))
     prototype = pathlib.Path('design/prototype')
     names = [
         'index.html', 'app.js', 'ui.js', 'views.js', 'screens.json', 'styles.css',

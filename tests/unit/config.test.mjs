@@ -110,3 +110,28 @@ test('database and HTTP limits are bounded and default to conservative per-proce
       );
   }
 });
+
+test('customer SMS auth needs exact cloud opt-in and trusts only explicitly configured proxy addresses', () => {
+  assert.equal(loadConfig('api', env).customerAuthEnabled, undefined);
+  assert.equal(
+    loadConfig('api', { ...env, CUSTOMER_AUTH_ENABLED: 'true' }).customerAuthEnabled,
+    true,
+  );
+  assert.throws(() => loadConfig('edge', { ...env, CUSTOMER_AUTH_ENABLED: 'true' }));
+  for (const value of ['', '1', 'TRUE', ' true '])
+    assert.throws(() => loadConfig('api', { ...env, CUSTOMER_AUTH_ENABLED: value }));
+  assert.deepEqual(
+    loadConfig('api', { ...env, TRUSTED_PROXY_IPS: '127.0.0.1,::1' }).trustedProxyIps,
+    ['127.0.0.1', '::1'],
+  );
+  for (const value of [
+    'true',
+    '*',
+    '0.0.0.0',
+    '::',
+    '10.0.0.0/8',
+    'gateway.example',
+    Array(9).fill('127.0.0.1').join(','),
+  ])
+    assert.throws(() => loadConfig('api', { ...env, TRUSTED_PROXY_IPS: value }));
+});

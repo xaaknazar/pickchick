@@ -24,6 +24,23 @@ import {
   jsonSchema,
 } from '@pickchick/contracts';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
+import {
+  CatalogStateSchema,
+  CatalogBranchesSchema,
+  CatalogPublicSchema,
+  CatalogSaveSchema,
+  CatalogSeedSchema,
+  CatalogPublishSchema,
+} from '@pickchick/catalog-admin/contracts';
+import {
+  CustomerSchema,
+  CustomerSessionSchema,
+  CustomerPatchSchema,
+  OtpRequestSchema,
+  OtpVerifySchema,
+  OtpResponseSchema,
+  RefreshRequestSchema,
+} from '@pickchick/customer-identity';
 
 const response = (name, description = 'Success') => ({
   description,
@@ -96,9 +113,9 @@ const openapi = {
   openapi: '3.1.0',
   info: {
     title: 'PickChick foundation API',
-    version: '0.4.0',
+    version: '0.5.0',
     description:
-      'Foundation with local menu sync and unpaid POS orders, plus an explicitly gated synthetic TEST journey through two kitchen stations. TEST orders do not reach a restaurant, bank or fiscal provider. Customer phone login, real payments, fiscalization, modifiers and production kitchen admission remain unavailable.',
+      'Local menu sync and unpaid POS orders, a gated synthetic TEST journey through two kitchen stations, and separate opt-in customer identity. Real identity requires approved policy URLs/version, protected keys, SMS budget and enabled Mobizon delivery. It never authenticates a local demo profile or adopts anonymous TEST history. Real checkout, payments and fiscal provider delivery remain disabled.',
   },
   paths: {
     '/health/live': get('liveness', 'Health'),
@@ -414,6 +431,167 @@ Object.assign(openapi.paths, {
     undefined,
     { roles: 'Manager only.' },
   ),
+});
+
+Object.assign(openapi.components.schemas, {
+  Customer: jsonSchema(CustomerSchema),
+  CustomerSession: jsonSchema(CustomerSessionSchema),
+  CustomerPatch: jsonSchema(CustomerPatchSchema),
+  OtpRequest: jsonSchema(OtpRequestSchema),
+  OtpVerify: jsonSchema(OtpVerifySchema),
+  OtpResponse: jsonSchema(OtpResponseSchema),
+  RefreshRequest: jsonSchema(RefreshRequestSchema),
+  CustomerMe: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['customer'],
+    properties: { customer: { $ref: '#/components/schemas/Customer' } },
+  },
+  CustomerOk: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['ok'],
+    properties: { ok: { const: true } },
+  },
+  CustomerAuthConfig: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['enabled', 'consent_version', 'terms_url', 'privacy_url'],
+    properties: {
+      enabled: { type: 'boolean' },
+      consent_version: { type: ['string', 'null'] },
+      terms_url: { type: ['string', 'null'], format: 'uri' },
+      privacy_url: { type: ['string', 'null'], format: 'uri' },
+    },
+  },
+});
+openapi.components.securitySchemes.customerBearer = {
+  type: 'http',
+  scheme: 'bearer',
+  description:
+    'Opaque short-lived customer access token. Refresh rotation is persisted and revocable; no calendar or inactivity logout.',
+};
+function customerOperation(operationId, result, input, authenticated = false, status = 200) {
+  return {
+    operationId,
+    tags: ['Customer identity'],
+    security: authenticated ? [{ customerBearer: [] }] : [],
+    description:
+      'Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.',
+    ...(input
+      ? {
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { $ref: `#/components/schemas/${input}` } } },
+          },
+        }
+      : {}),
+    responses: {
+      [status]: response(result),
+      400: response('Error', 'Invalid input or changed consent version'),
+      401: response('Error', 'Unverified code or revoked/expired access'),
+      409: response('Error', 'Conflicting or consumed command'),
+      413: response('Error', 'Request too large'),
+      429: response('Error', 'Durable OTP or SMS budget limit'),
+      503: response('Error', 'Identity disabled or provider unavailable'),
+      500: response('Error', 'Internal error'),
+    },
+  };
+}
+Object.assign(openapi.paths, {
+  '/v1/auth/config': { get: customerOperation('getCustomerAuthConfig', 'CustomerAuthConfig') },
+  '/v1/auth/otp/request': {
+    post: customerOperation('requestCustomerOtp', 'OtpResponse', 'OtpRequest', false, 202),
+  },
+  '/v1/auth/otp/verify': {
+    post: customerOperation('verifyCustomerOtp', 'CustomerSession', 'OtpVerify'),
+  },
+  '/v1/auth/refresh': {
+    post: customerOperation('refreshCustomerSession', 'CustomerSession', 'RefreshRequest'),
+  },
+  '/v1/auth/logout': { post: customerOperation('logoutCustomer', 'CustomerOk', undefined, true) },
+  '/v1/customers/me': {
+    get: customerOperation('getCustomerProfile', 'CustomerMe', undefined, true),
+    patch: customerOperation('patchCustomerProfile', 'CustomerMe', 'CustomerPatch', true),
+    delete: customerOperation('deleteCustomerAccount', 'CustomerOk', undefined, true),
+  },
+});
+
+for (const [name, schema] of Object.entries({
+  CatalogStateSchema,
+  CatalogBranchesSchema,
+  CatalogPublicSchema,
+  CatalogSaveSchema,
+  CatalogSeedSchema,
+  CatalogPublishSchema,
+}))
+  openapi.components.schemas[name.replace(/Schema$/, '')] = jsonSchema(schema);
+openapi.components.securitySchemes.catalogManagerBearer = {
+  type: 'http',
+  scheme: 'bearer',
+  description:
+    'Opaque manager credential issued only through the trusted operator CLI; restricted to explicitly assigned branches.',
+};
+function catalogOperation(operationId, result, input, branch = true, publicRead = false) {
+  return {
+    operationId,
+    tags: ['Catalog'],
+    security: publicRead ? [] : [{ catalogManagerBearer: [] }],
+    description:
+      'Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.',
+    ...(branch
+      ? {
+          parameters: [
+            {
+              name: 'branchId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+        }
+      : {}),
+    ...(input
+      ? {
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { $ref: `#/components/schemas/${input}` } } },
+          },
+        }
+      : {}),
+    responses: {
+      200: response(result),
+      400: response('Error', 'Invalid catalog or input'),
+      401: response('Error', 'Invalid manager credential'),
+      403: response('Error', 'Branch is outside assigned scope'),
+      404: response('Error', 'Unknown branch or no publication'),
+      409: response('Error', 'Revision or idempotency conflict'),
+      413: response('Error', 'Request too large'),
+      429: response('Error', 'HTTP capacity exceeded'),
+      503: response('Error', 'Editor disabled'),
+      500: response('Error', 'Internal error'),
+    },
+  };
+}
+Object.assign(openapi.paths, {
+  '/v1/admin/catalog/branches': {
+    get: catalogOperation('listCatalogManagerBranches', 'CatalogBranches', undefined, false),
+  },
+  '/v1/admin/catalog/branches/{branchId}': {
+    get: catalogOperation('readCatalogDraft', 'CatalogState'),
+  },
+  '/v1/admin/catalog/branches/{branchId}/draft/seed': {
+    post: catalogOperation('seedMockupCatalogDraft', 'CatalogState', 'CatalogSeed'),
+  },
+  '/v1/admin/catalog/branches/{branchId}/draft': {
+    put: catalogOperation('saveCatalogDraft', 'CatalogState', 'CatalogSave'),
+  },
+  '/v1/admin/catalog/branches/{branchId}/publish': {
+    post: catalogOperation('publishCatalogDraft', 'CatalogState', 'CatalogPublish'),
+  },
+  '/v1/catalog/branches/{branchId}': {
+    get: catalogOperation('readPublishedCatalog', 'CatalogPublic', undefined, true, true),
+  },
 });
 
 for (const [filename, value] of [
