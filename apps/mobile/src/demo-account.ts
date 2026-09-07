@@ -39,7 +39,8 @@ export type DemoLoginErrorCode =
   | 'attempts_exhausted'
   | 'invalid_code'
   | 'invalid_profile'
-  | 'no_account';
+  | 'no_account'
+  | 'restore_required';
 export class DemoLoginError extends Error {
   readonly code: DemoLoginErrorCode;
   constructor(code: DemoLoginErrorCode) {
@@ -119,24 +120,42 @@ export class DemoAccountCore {
   account: DemoAccount | null = null;
   challenge: DemoChallenge | null = null;
   private readonly io: DemoAccountStorage;
+  private restoreBlocked = false;
+  private restoring: Promise<void> | null = null;
   constructor(io: DemoAccountStorage) {
     this.io = io;
   }
-  async restore(): Promise<void> {
+  restore(): Promise<void> {
+    if (this.restoring) return this.restoring;
+    // A pending/failed read is not evidence that this device has no account.
+    // Keep writes blocked until a retry has established its persisted identity.
+    this.restoreBlocked = true;
+    this.restoring = this.readAccount().finally(() => {
+      this.restoring = null;
+    });
+    return this.restoring;
+  }
+  private async readAccount(): Promise<void> {
     const raw = await this.io.read();
-    this.account = parseDemoAccount(raw, this.io.now());
-    if (raw && !this.account) await this.io.remove();
-    if (this.account && raw !== JSON.stringify(this.account)) {
+    const next = parseDemoAccount(raw, this.io.now());
+    if (raw && !next) await this.io.remove();
+    if (next && raw !== JSON.stringify(next)) {
       // Best-effort v1 migration: a write failure must not log out an existing
       // local account. A later restore/profile save can persist the new shape.
       try {
-        await this.io.write(JSON.stringify(this.account));
+        await this.io.write(JSON.stringify(next));
       } catch {
         // The valid old record is still readable under the same storage key.
       }
     }
+    this.account = next;
+    this.restoreBlocked = false;
+  }
+  private requireRestored(): void {
+    if (this.restoreBlocked) throw new DemoLoginError('restore_required');
   }
   requestCode(input: string): void {
+    this.requireRestored();
     const phone = normalizeDemoPhone(input);
     if (!phone) throw new DemoLoginError('invalid_phone');
     const now = this.io.now();
@@ -150,6 +169,7 @@ export class DemoAccountCore {
     };
   }
   async verifyCode(code: string): Promise<void> {
+    this.requireRestored();
     const challenge = this.challenge;
     if (!challenge) throw new DemoLoginError('no_challenge');
     if (this.io.now() >= challenge.expiresAt) throw new DemoLoginError('expired');
@@ -176,6 +196,7 @@ export class DemoAccountCore {
     this.challenge = null;
   }
   async saveProfile(input: DemoProfileInput): Promise<void> {
+    this.requireRestored();
     if (!this.account) throw new DemoLoginError('no_account');
     const now = this.io.now();
     const details = normalizeProfileDetails(input, now);
@@ -188,9 +209,11 @@ export class DemoAccountCore {
     this.account = next;
   }
   cancelChallenge(): void {
+    if (this.restoreBlocked) return;
     this.challenge = null;
   }
   async signOut(): Promise<void> {
+    this.requireRestored();
     // Do not touch the independent order session or pending financial-command rehearsal.
     await this.io.remove();
     this.account = null;
