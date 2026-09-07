@@ -51,6 +51,7 @@ function errorMessage(error: unknown): string {
     invalid_code: 'Код не подошёл. Для этого тестового входа используйте 123456.',
     invalid_profile: 'Проверьте данные профиля и дату рождения.',
     no_account: 'Сначала войдите в тестовый аккаунт.',
+    restore_required: 'Не удалось прочитать сохранённый профиль. Повторите чтение данных.',
   };
   return messages[error.code];
 }
@@ -61,6 +62,7 @@ interface DemoAccountContextValue {
   ready: boolean;
   busy: boolean;
   error: string | null;
+  retryRestore(): Promise<boolean>;
   requestCode(phone: string): Promise<boolean>;
   verifyCode(code: string): Promise<boolean>;
   saveProfile(input: DemoProfileInput): Promise<boolean>;
@@ -74,9 +76,9 @@ export function DemoAccountProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<DemoAccount | null>(null);
   const [challenge, setChallenge] = useState<DemoChallenge | null>(null);
   const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const locked = useRef(false);
+  const locked = useRef(true);
   const snapshot = useCallback(() => {
     setAccount(core.account);
     setChallenge(core.challenge);
@@ -84,21 +86,49 @@ export function DemoAccountProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     locked.current = true;
+    setBusy(true);
     core
       .restore()
       .then(() => {
-        if (active) snapshot();
+        if (active) {
+          snapshot();
+          setReady(true);
+        }
       })
       .catch(() => {
-        if (active) setError('Не удалось прочитать тестовый профиль. Попробуйте войти снова.');
+        if (active) {
+          setReady(false);
+          setError('Не удалось прочитать сохранённый профиль. Повторите чтение данных.');
+        }
       })
       .finally(() => {
         locked.current = false;
-        if (active) setReady(true);
+        if (active) setBusy(false);
       });
     return () => {
       active = false;
     };
+  }, [core, snapshot]);
+
+  const retryRestore = useCallback(async (): Promise<boolean> => {
+    if (locked.current) return false;
+    locked.current = true;
+    setBusy(true);
+    setReady(false);
+    setError(null);
+    try {
+      await core.restore();
+      snapshot();
+      setReady(true);
+      return true;
+    } catch {
+      // Do not offer a fresh login over a record that storage could not read.
+      setError('Не удалось прочитать сохранённый профиль. Повторите чтение данных.');
+      return false;
+    } finally {
+      locked.current = false;
+      setBusy(false);
+    }
   }, [core, snapshot]);
 
   const run = useCallback(
@@ -131,6 +161,7 @@ export function DemoAccountProvider({ children }: { children: ReactNode }) {
         ready,
         busy,
         error,
+        retryRestore,
         requestCode: (phone) => run(() => core.requestCode(phone)),
         verifyCode: (code) => run(() => core.verifyCode(code)),
         saveProfile: (input) => run(() => core.saveProfile(input)),

@@ -20,10 +20,12 @@ function fixture() {
   let now = 1_800_000_000_000;
   let writeFailure = false;
   let removeFailure = false;
+  let readFailure = false;
   const calls = [];
   const io = {
     async read() {
       calls.push('read');
+      if (readFailure) throw new Error('storage temporarily unreadable');
       return raw;
     },
     async write(value) {
@@ -46,6 +48,7 @@ function fixture() {
     tick: (ms) => (now += ms),
     failWrite: (value) => (writeFailure = value),
     failRemove: (value) => (removeFailure = value),
+    failRead: (value) => (readFailure = value),
     setRaw: (value) => (raw = value),
   };
 }
@@ -410,4 +413,102 @@ test('v2 restoration strictly validates profile shape, date, gender and completi
     assert.equal(f.core.account, null);
     assert.equal(f.raw(), null);
   }
+});
+
+test('temporary cold-start read failure cannot replace the saved phone/DOB with a fresh login', async () => {
+  const f = fixture();
+  const saved = {
+    version: 2,
+    kind: 'local_demo',
+    phone,
+    createdAt: 1_700_000_000_000,
+    profile: {
+      nickname: 'Сохранено',
+      birthDate: '2000-02-29',
+      gender: 'female',
+      completedAt: 1_700_000_001_000,
+    },
+  };
+  const raw = JSON.stringify(saved);
+  f.setRaw(raw);
+  f.failRead(true);
+  await assert.rejects(f.core.restore(), /temporarily unreadable/);
+  assert.equal(f.core.account, null);
+  assert.throws(() => f.core.requestCode(phone), { code: 'restore_required' });
+  await assert.rejects(f.core.verifyCode(DEMO_LOGIN_CODE), { code: 'restore_required' });
+  await assert.rejects(f.core.saveProfile({ nickname: '', birthDate: null, gender: null }), {
+    code: 'restore_required',
+  });
+  await assert.rejects(f.core.signOut(), { code: 'restore_required' });
+  f.core.cancelChallenge();
+  assert.deepEqual(f.calls, ['read']);
+  assert.equal(f.raw(), raw);
+  f.failRead(false);
+  await f.core.restore();
+  assert.deepEqual(f.core.account, saved);
+  assert.deepEqual(f.calls, ['read', 'read']);
+  assert.equal(f.core.challenge, null);
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  assert.deepEqual(f.core.account, saved);
+  assert.deepEqual(JSON.parse(f.raw()), saved);
+});
+
+test('failed reread keeps the cached account/challenge and blocks all mutations until retry', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  await f.core.saveProfile({ nickname: 'Чики', birthDate: '1999-03-20', gender: null });
+  f.core.requestCode(phone);
+  const account = f.core.account;
+  const challenge = f.core.challenge;
+  const raw = f.raw();
+  f.failRead(true);
+  await assert.rejects(f.core.restore(), /temporarily unreadable/);
+  assert.equal(f.core.account, account);
+  const callCount = f.calls.length;
+  assert.throws(() => f.core.requestCode(phone), { code: 'restore_required' });
+  await assert.rejects(f.core.verifyCode(DEMO_LOGIN_CODE), { code: 'restore_required' });
+  await assert.rejects(f.core.saveProfile({ nickname: 'Новый', birthDate: null, gender: null }), {
+    code: 'restore_required',
+  });
+  await assert.rejects(f.core.signOut(), { code: 'restore_required' });
+  f.core.cancelChallenge();
+  assert.equal(f.core.account, account);
+  assert.equal(f.core.challenge, challenge);
+  assert.equal(f.raw(), raw);
+  assert.equal(f.calls.length, callCount);
+  f.failRead(false);
+  await f.core.restore();
+  await f.core.saveProfile({
+    nickname: 'После восстановления',
+    birthDate: account.profile.birthDate,
+    gender: null,
+  });
+  assert.equal(f.core.account.profile.birthDate, '1999-03-20');
+});
+
+test('a pending restoration blocks writes before it has determined whether an account exists', async () => {
+  const f = fixture();
+  let finishRead;
+  let reads = 0;
+  const core = new DemoAccountCore({
+    ...f.io,
+    read: () =>
+      new Promise((resolve) => {
+        reads++;
+        finishRead = resolve;
+      }),
+  });
+  const pending = core.restore();
+  assert.equal(core.restore(), pending);
+  assert.equal(reads, 1);
+  assert.throws(() => core.requestCode(phone), { code: 'restore_required' });
+  await assert.rejects(core.signOut(), { code: 'restore_required' });
+  assert.deepEqual(f.calls, []);
+  finishRead(null);
+  await pending;
+  core.requestCode(phone);
+  await core.verifyCode(DEMO_LOGIN_CODE);
+  assert.equal(core.account.phone, phone);
 });
