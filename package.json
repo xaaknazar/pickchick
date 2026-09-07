@@ -47,7 +47,8 @@
     "@pickchick/api": "workspace:*",
     "@pickchick/edge": "workspace:*",
     "@pickchick/menu-sync": "workspace:*",
-    "@pickchick/local-orders": "workspace:*"
+    "@pickchick/local-orders": "workspace:*",
+    "@pickchick/phone-verification": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
