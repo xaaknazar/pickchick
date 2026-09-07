@@ -5,6 +5,7 @@ No manager issuance, seed, payment, SMS, timer installation or automatic databas
 All command failures stay in a 0600 private log. Read docs/operations/market-release.md first.
 """
 import argparse
+from dataclasses import dataclass
 from contextlib import contextmanager
 import hashlib
 import json
@@ -44,6 +45,48 @@ NEW_SEQUENCES = {'commerce_outbox_sequence_seq', 'loyalty_lots_sequence_seq'}
 DEPLOY_LOCK = REMOTE + '/.market-release.lock'
 
 
+@dataclass(frozen=True)
+class ReleaseProfile:
+    name: str
+    old_api: str
+    old_web: str
+    baseline_count: int
+    migrations: tuple
+    ci_jobs: frozenset
+    new_sequences: frozenset
+    private_directory: str
+    settings: tuple
+    exact_ci_jobs: bool = False
+
+
+HISTORICAL_PROFILE = ReleaseProfile(
+    'market-foundations-001-013', OLD_API, OLD_WEB, 6, tuple(MIGRATIONS),
+    frozenset(CI_JOBS), frozenset(NEW_SEQUENCES), 'market-release',
+    (('TEST_ORDER_FLOW_ENABLED', 'true'), ('CATALOG_ADMIN_ENABLED', 'true'),
+     ('CUSTOMER_AUTH_ENABLED', 'false')),
+)
+
+
+TRANSPORT_BASELINE = '7cd53b6300ad9147ddafb51cf84ed77027fb30d0'
+TRANSPORT_TABLES = frozenset({
+    'fulfillment_transport_bindings', 'cloud_fulfillment_inbox',
+    'cloud_fulfillment_versions', 'cloud_fulfillment_projection',
+    'cloud_fulfillment_observed_tasks', 'cloud_fulfillment_task_versions',
+})
+TRANSPORT_PROFILE = ReleaseProfile(
+    'transport-001-014-disabled', TRANSPORT_BASELINE, TRANSPORT_BASELINE, 13,
+    ('014_cloud_fulfillment_transport.sql',),
+    frozenset(CI_JOBS | {'Local kitchen UI and recovery',
+                        'Cloud-edge fulfillment transport and recovery'}),
+    frozenset(), 'transport-release',
+    (('TEST_ORDER_FLOW_ENABLED', 'true'), ('CATALOG_ADMIN_ENABLED', 'true'),
+     ('CUSTOMER_AUTH_ENABLED', 'false'), ('EDGE_FULFILLMENT_ENABLED', 'false'),
+     ('CLOUD_FULFILLMENT_TRANSPORT_ENABLED', 'false'),
+     ('EDGE_FULFILLMENT_TRANSPORT_ENABLED', 'false')),
+    exact_ci_jobs=True,
+)
+
+
 class GuardFailure(RuntimeError):
     """Only curated, non-secret messages may use this exception class."""
 
@@ -80,14 +123,14 @@ def web_compose(sha):
     return f'docker compose -f {REMOTE}/public-https/releases/{sha}/infra/public-staging/compose.yaml'
 
 
-def release_env_script():
+def release_env_script(profile=HISTORICAL_PROFILE):
     """The same generated program is exercised locally with synthetic environment files."""
-    return """from pathlib import Path
+    return "settings=" + repr(dict(profile.settings)) + "\n" + """from pathlib import Path
 import sys
 old,new,sha,old_sha=sys.argv[1:]
 lines=Path(old).read_text().splitlines()
 assert lines.count('RELEASE_SHA='+old_sha)==1
-settings={'RELEASE_SHA':sha,'TEST_ORDER_FLOW_ENABLED':'true','CATALOG_ADMIN_ENABLED':'true','CUSTOMER_AUTH_ENABLED':'false'}
+settings={'RELEASE_SHA':sha,**settings}
 lines=[line for line in lines if line.split('=',1)[0] not in settings]
 with open(new,'x') as output:
  Path(new).chmod(0o600)
@@ -95,7 +138,7 @@ with open(new,'x') as output:
 """
 
 
-def verify_ci(proof, sha):
+def verify_ci(proof, sha, required_jobs=CI_JOBS, *, exact_jobs=False):
     run, jobs = proof['run'], proof['jobs']
     require(run.get('head_sha') == sha and run.get('status') == 'completed'
             and run.get('conclusion') == 'success', 'CI run did not pass for the exact source SHA')
@@ -103,7 +146,10 @@ def verify_ci(proof, sha):
             and run.get('head_repository', {}).get('full_name') == 'xaaknazar/pickchick',
             'CI proof does not identify the canonical workflow/repository')
     rows = jobs.get('jobs', [])
-    require(jobs.get('total_count') == len(rows) and CI_JOBS <= {job.get('name') for job in rows}
+    if exact_jobs:
+        require(len(rows) == len(required_jobs) and {row.get('name') for row in rows} == required_jobs,
+                'CI jobs differ from the exact reviewed release profile')
+    require(jobs.get('total_count') == len(rows) and required_jobs <= {job.get('name') for job in rows}
             and all(job.get('status') == 'completed' and job.get('conclusion') == 'success'
                     and job.get('head_sha') == sha for job in rows),
             'CI proof is partial or contains a missing/failed job')
@@ -160,10 +206,13 @@ def acl_restore_sql(previous, current):
 
 
 class Release:
-    def __init__(self, args):
+    profile = HISTORICAL_PROFILE
+
+    def __init__(self, args, profile=HISTORICAL_PROFILE):
+        self.profile = profile
         self.args = args
         self.sha = args.sha
-        self.private = REPO / '.local' / 'market-release' / self.sha
+        self.private = REPO / '.local' / self.profile.private_directory / self.sha
         require(all(not path.is_symlink() for path in [self.private, *self.private.parents]
                     if path != REPO and REPO in path.parents),
                 'Private evidence directory must not have symlink components')
@@ -262,7 +311,7 @@ os.rmdir(path)
         return self.execute(['git', *args]).decode().strip()
 
     def source_checks(self):
-        require(re.fullmatch('[a-f0-9]{40}', self.sha) and self.sha not in [OLD_API, OLD_WEB],
+        require(re.fullmatch('[a-f0-9]{40}', self.sha) and self.sha not in [self.profile.old_api, self.profile.old_web],
                 'A new full commit SHA is required')
         require(self.git('rev-parse', 'HEAD') == self.sha, 'Release must use checked HEAD')
         require(not self.git('status', '--porcelain', '--untracked-files=all'), 'Source checkout is dirty')
@@ -271,17 +320,17 @@ os.rmdir(path)
         pushed = self.git('ls-remote', '--exit-code', '--heads', 'origin', 'refs/heads/' + self.args.branch)
         require(pushed.split()[0] == self.sha, 'Pushed branch differs from checked SHA')
         actual = sorted(path.name for path in (REPO / 'db/cloud/migrations').glob('*.sql'))
-        require(actual == sorted(self.baseline_migrations() + MIGRATIONS),
-                'Release scope requires exactly the reviewed migrations 001 through 013')
+        require(actual == sorted(self.baseline_migrations() + list(self.profile.migrations)),
+                'Release migration set differs from the selected reviewed profile')
         for filename in self.baseline_migrations():
             current = (REPO / 'db/cloud/migrations' / filename).read_bytes()
-            prior = self.execute(['git', 'show', OLD_API + ':db/cloud/migrations/' + filename])
+            prior = self.execute(['git', 'show', self.profile.old_api + ':db/cloud/migrations/' + filename])
             require(current == prior, 'An existing migration was edited: ' + filename)
 
     def baseline_migrations(self):
-        paths = self.git('ls-tree', '-r', '--name-only', OLD_API, '--', 'db/cloud/migrations/').splitlines()
+        paths = self.git('ls-tree', '-r', '--name-only', self.profile.old_api, '--', 'db/cloud/migrations/').splitlines()
         names = sorted(Path(path).name for path in paths if path.endswith('.sql'))
-        require(len(names) == 6 and all(name.startswith(f'{index:03d}_')
+        require(len(names) == self.profile.baseline_count and all(name.startswith(f'{index:03d}_')
                                       for index, name in enumerate(names, 1)), 'Unexpected baseline migrations')
         return names
 
@@ -295,7 +344,7 @@ os.rmdir(path)
             proof = {name: json.loads(self.execute(['gh', 'api', endpoint])) for name, endpoint in
                      [('run', prefix), ('jobs', prefix + '/jobs?per_page=100')]}
             source = 'github_api_via_gh'
-        verify_ci(proof, self.sha)
+        verify_ci(proof, self.sha, self.profile.ci_jobs, exact_jobs=self.profile.exact_ci_jobs)
         self.save('ci-proof.json', {'source': source, **proof})
         return digest(proof)
 
@@ -361,11 +410,11 @@ print(json.dumps(result,sort_keys=True))
     def rollback_artifacts(self):
         return self.file_hashes([
             f'{REMOTE}/secrets/staging.env',
-            f'{REMOTE}/releases/{OLD_API}/release.env',
-            f'{REMOTE}/releases/{OLD_API}/infra/staging/compose.yaml',
-            f'{REMOTE}/public-https/releases/{OLD_WEB}/infra/public-staging/compose.yaml',
-            f'{REMOTE}/public-https/releases/{OLD_WEB}/infra/public-staging/gateway.Caddyfile',
-            f'{REMOTE}/public-https/releases/{OLD_WEB}/infra/public-staging/public-web/.release.json',
+            f'{REMOTE}/releases/{self.profile.old_api}/release.env',
+            f'{REMOTE}/releases/{self.profile.old_api}/infra/staging/compose.yaml',
+            f'{REMOTE}/public-https/releases/{self.profile.old_web}/infra/public-staging/compose.yaml',
+            f'{REMOTE}/public-https/releases/{self.profile.old_web}/infra/public-staging/gateway.Caddyfile',
+            f'{REMOTE}/public-https/releases/{self.profile.old_web}/infra/public-staging/public-web/.release.json',
         ])
 
     def prepared_artifacts(self, manifest):
@@ -452,16 +501,16 @@ print(json.dumps(result,sort_keys=True))
                          'replication': False, 'bypassrls': False, 'memberships': 0},
                 'Runtime role is more privileged than the reviewed baseline')
         require(self.remote('docker inspect --format ' + quote('{{index .Config.Labels "org.opencontainers.image.revision"}}')
-                            + ' ' + API_CONTAINER) == OLD_API, 'Running API is not the reviewed baseline')
-        require(self.remote('readlink -f ' + REMOTE + '/current') == f'{REMOTE}/releases/{OLD_API}', 'API pointer changed')
+                            + ' ' + API_CONTAINER) == self.profile.old_api, 'Running API is not the reviewed baseline')
+        require(self.remote('readlink -f ' + REMOTE + '/current') == f'{REMOTE}/releases/{self.profile.old_api}', 'API pointer changed')
         require(self.remote('readlink -f ' + REMOTE + '/public-https/current') ==
-                f'{REMOTE}/public-https/releases/{OLD_WEB}', 'Web pointer changed')
-        require(json.loads(self.remote(f'docker exec {GATEWAY} cat /srv/public/.release.json'))['source_sha'] == OLD_WEB,
+                f'{REMOTE}/public-https/releases/{self.profile.old_web}', 'Web pointer changed')
+        require(json.loads(self.remote(f'docker exec {GATEWAY} cat /srv/public/.release.json'))['source_sha'] == self.profile.old_web,
                 'Actual gateway bundle differs from its pointer')
         require(self.remote('docker image inspect --format ' + quote('{{index .Config.Labels "org.opencontainers.image.revision"}}')
-                            + ' pickchick-api:' + OLD_API) == OLD_API, 'Rollback API image missing')
-        self.remote(api_compose(OLD_API) + ' config --quiet')
-        self.remote(web_compose(OLD_WEB) + ' config --quiet')
+                            + ' pickchick-api:' + self.profile.old_api) == self.profile.old_api, 'Rollback API image missing')
+        self.remote(api_compose(self.profile.old_api) + ' config --quiet')
+        self.remote(web_compose(self.profile.old_web) + ' config --quiet')
 
     def prepare(self):
         self.source_checks()
@@ -473,8 +522,8 @@ print(json.dumps(result,sort_keys=True))
         api_path = f'{REMOTE}/releases/{self.sha}'
         web_path = f'{REMOTE}/public-https/releases/{self.sha}/infra/public-staging'
         self.remote(f'test ! -e {api_path} && mkdir {api_path} && tar -xf - -C {api_path}', input=api_tar, timeout=180)
-        self.remote('python3 -c ' + quote(release_env_script()) + ' ' + ' '.join(map(quote, [
-            f'{REMOTE}/releases/{OLD_API}/release.env', api_path + '/release.env', self.sha, OLD_API])))
+        self.remote('python3 -c ' + quote(release_env_script(self.profile)) + ' ' + ' '.join(map(quote, [
+            f'{REMOTE}/releases/{self.profile.old_api}/release.env', api_path + '/release.env', self.sha, self.profile.old_api])))
         self.remote('! docker image inspect pickchick-api:' + self.sha + ' >/dev/null 2>&1')
         image_id = self.remote(f'cd {api_path} && docker build -q -f infra/staging/Dockerfile '
                                f'--build-arg RELEASE_SHA={self.sha} -t pickchick-api:{self.sha} .', timeout=1200)
@@ -503,7 +552,7 @@ print(json.dumps(result,sort_keys=True))
                     'validate --config /tmp/Caddyfile --adapter caddyfile', timeout=45)
         artifacts = self.prepared_artifacts(manifest)
         require(artifacts['image_id'] == image_id, 'Prepared image tag changed after the build')
-        self.save('prepared.json', {'sha': self.sha, 'old_api': OLD_API, 'old_web': OLD_WEB,
+        self.save('prepared.json', {'profile': self.profile.name, 'sha': self.sha, 'old_api': self.profile.old_api, 'old_web': self.profile.old_web,
                   'ci_proof_sha256': ci_hash, 'api_archive_sha256': digest(api_tar), 'image_id': image_id,
                   'public_archive_sha256': digest(tar_path.read_bytes()), 'public_manifest': manifest,
                   'gateway_sha256': digest((REPO / 'infra/public-staging/gateway.Caddyfile').read_bytes()),
@@ -549,14 +598,14 @@ sha256sum {backup} > {backup}.sha256
         require(after[:len(before_ledger)] == before_ledger, 'Existing migration checksums changed')
         additions = after[len(before_ledger):]
         expected = [{'version': name, 'checksum': digest((REPO / 'db/cloud/migrations' / name).read_bytes()),
-                     'scope': 'cloud'} for name in MIGRATIONS]
+                     'scope': 'cloud'} for name in self.profile.migrations]
         require(additions == expected, 'Migration delta does not match reviewed source files')
         new_tables = set()
-        for name in MIGRATIONS:
+        for name in self.profile.migrations:
             new_tables.update(re.findall(r'CREATE\s+TABLE\s+([a-z][a-z0-9_]*)',
                                         (REPO / 'db/cloud/migrations' / name).read_text(), re.I))
         compare_existing(before, self.snapshot(), additions=True, new_tables=new_tables,
-                         new_sequences=NEW_SEQUENCES)
+                         new_sequences=self.profile.new_sequences)
 
     def probes(self, prepared, caps, catalogs):
         require(self.health() == caps and self.catalogs() == catalogs, 'Legacy capabilities/catalog changed')
@@ -597,10 +646,10 @@ assert os.path.realpath(path)==target
                 'Rollback compose or environment changed; manual review required')
         self.psql(DB, acl_restore_sql(before['acl'], self.acl()))
         require(self.acl() == before['acl'], 'Previous runtime ACL was not restored exactly')
-        self.remote(api_compose(OLD_API) + ' up -d --no-deps --wait --wait-timeout 120 api', timeout=180)
-        self.remote(web_compose(OLD_WEB) + ' up -d --no-deps --wait --wait-timeout 90 gateway', timeout=150)
-        for path, old, new in [(REMOTE + '/current', f'{REMOTE}/releases/{OLD_API}', f'{REMOTE}/releases/{self.sha}'),
-                              (REMOTE + '/public-https/current', f'{REMOTE}/public-https/releases/{OLD_WEB}',
+        self.remote(api_compose(self.profile.old_api) + ' up -d --no-deps --wait --wait-timeout 120 api', timeout=180)
+        self.remote(web_compose(self.profile.old_web) + ' up -d --no-deps --wait --wait-timeout 90 gateway', timeout=150)
+        for path, old, new in [(REMOTE + '/current', f'{REMOTE}/releases/{self.profile.old_api}', f'{REMOTE}/releases/{self.sha}'),
+                              (REMOTE + '/public-https/current', f'{REMOTE}/public-https/releases/{self.profile.old_web}',
                                f'{REMOTE}/public-https/releases/{self.sha}')]:
             actual = self.remote('readlink -f ' + path)
             require(actual in [old, new], 'Concurrent pointer change; rollback requires manual review')
@@ -618,17 +667,17 @@ assert os.path.realpath(path)==target
                 'Existing sequence changed during rollback')
         require(self.ledger()[:len(before['ledger'])] == before['ledger'],
                 'Previous migration ledger changed during rollback')
-        self.save('rollback.json', {'api_sha': OLD_API, 'web_sha': OLD_WEB, 'acl_restored': True,
+        self.save('rollback.json', {'api_sha': self.profile.old_api, 'web_sha': self.profile.old_web, 'acl_restored': True,
                   'schema_retained': True, 'database_restored_over_live': False, 'checks': 'passed'})
 
     def apply(self):
         self.source_checks()
         self.runtime_old()
         prepared = json.loads((self.private / 'prepared.json').read_text())
-        require(prepared['sha'] == self.sha and prepared['old_api'] == OLD_API and prepared['old_web'] == OLD_WEB,
+        require(prepared.get('profile', HISTORICAL_PROFILE.name) == self.profile.name and prepared['sha'] == self.sha and prepared['old_api'] == self.profile.old_api and prepared['old_web'] == self.profile.old_web,
                 'Prepared release evidence is for another source or baseline')
         proof = json.loads((self.private / 'ci-proof.json').read_text())
-        verify_ci(proof, self.sha)
+        verify_ci(proof, self.sha, self.profile.ci_jobs, exact_jobs=self.profile.exact_ci_jobs)
         require(digest({'run': proof['run'], 'jobs': proof['jobs']}) == prepared['ci_proof_sha256'], 'CI proof changed')
         require(self.prepared_artifacts(prepared['public_manifest']) == prepared['remote_artifacts'],
                 'Prepared image, compose, environment or bundle changed before apply')
@@ -660,10 +709,10 @@ assert os.path.realpath(path)==target
             self.probes(prepared, caps, catalogs)
             self.migration_delta(before['ledger'], before['database'])
             require(self.fingerprint() == fingerprint, 'Unrelated service or iDrink config changed')
-            self.switch(REMOTE + '/current', f'{REMOTE}/releases/{OLD_API}', f'{REMOTE}/releases/{self.sha}')
-            self.switch(REMOTE + '/public-https/current', f'{REMOTE}/public-https/releases/{OLD_WEB}',
+            self.switch(REMOTE + '/current', f'{REMOTE}/releases/{self.profile.old_api}', f'{REMOTE}/releases/{self.sha}')
+            self.switch(REMOTE + '/public-https/current', f'{REMOTE}/public-https/releases/{self.profile.old_web}',
                         f'{REMOTE}/public-https/releases/{self.sha}')
-            self.save('result.json', {'sha': self.sha, 'backup': backup, 'migration_delta': MIGRATIONS,
+            self.save('result.json', {'sha': self.sha, 'backup': backup, 'migration_delta': self.profile.migrations,
                       'catalog_editor_enabled': True, 'customer_auth_enabled': False,
                       'manager_issued': False, 'catalog_seeded': False, 'orders_created': False,
                       'cleanup_installed': False, 'preserved_services': fingerprint, 'checks': 'passed'})
