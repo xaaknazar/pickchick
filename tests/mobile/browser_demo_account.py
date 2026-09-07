@@ -1,8 +1,10 @@
 """Local registration UX; all API traffic is intercepted, no SMS or VPS mutation."""
 import json
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
+from zoneinfo import ZoneInfo
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -51,14 +53,31 @@ def footer_geometry(page, width, height, previous=None):
     return result
 
 
-def choose_birthday(page, width, height, footer, year):
-    page.get_by_test_id('birthday-day').click()
-    for part, value in [('day', 29), ('month', 2), ('year', year)]:
-        expect(page.get_by_test_id(f'birthday-options-{part}')).to_be_visible()
-        # A real click must reach the option through both nested scroll views.
-        page.get_by_test_id(f'birthday-option-{part}-{value}').click()
-        footer_geometry(page, width, height, footer)
+def open_birthday_picker(page, width, height, part='day'):
+    page.get_by_test_id(f'birthday-{part}').click()
+    expect(page.get_by_test_id('birthday-picker')).to_be_visible()
+    field = page.get_by_test_id('birthday-native-input')
+    expect(field).to_have_attribute('type', 'date')
+    expect(field).to_have_attribute('min', '1900-01-01')
+    expect(field).to_have_attribute('max', datetime.now(ZoneInfo('Asia/Almaty')).date().isoformat())
+    for identifier in ['birthday-picker-confirm', 'birthday-picker-cancel']:
+        button = page.get_by_test_id(identifier)
+        expect(button).to_be_visible()
+        rect = button.bounding_box()
+        assert rect and rect['x'] >= 0 and rect['y'] >= 0, (identifier, rect)
+        assert rect['x'] + rect['width'] <= width + 1, (identifier, rect)
+        assert rect['y'] + rect['height'] <= height + 1, (identifier, rect)
+    assert_no_horizontal_overflow(page, width)
+    return field
+
+
+def choose_birthday(page, width, height, footer, value, part='day'):
+    field = open_birthday_picker(page, width, height, part)
+    field.fill(value)
+    expect(field).to_have_value(value)
+    page.get_by_test_id('birthday-picker-confirm').click()
     expect(page.get_by_test_id('birthday-picker')).to_have_count(0)
+    footer_geometry(page, width, height, footer)
 
 
 with sync_playwright() as p:
@@ -110,11 +129,12 @@ with sync_playwright() as p:
         page.screenshot(path=str(OUTPUT / f'code-{width}.png'))
         page.get_by_test_id('confirm-otp').click()
         expect(page.get_by_test_id('screen-M04')).to_be_visible()
+        expect(page.get_by_test_id('screen-M04').get_by_text('@', exact=True)).to_have_count(0)
         page.get_by_test_id('nickname-input').fill('Тестовый гость')
         expect(page.get_by_test_id('nickname-input')).to_have_value('Тестовый гость')
         footer = footer_geometry(page, width, height)
         page.screenshot(path=str(OUTPUT / f'registration-empty-{width}.png'))
-        choose_birthday(page, width, height, footer, 2000)
+        choose_birthday(page, width, height, footer, '2000-02-29')
         page.get_by_test_id('profile-gender-female').click()
         footer_geometry(page, width, height, footer)
         expect(page.get_by_test_id('nickname-save')).to_be_enabled()
@@ -137,6 +157,27 @@ with sync_playwright() as p:
         }
         assert isinstance(saved['profile']['completedAt'], int) and saved['profile']['completedAt'] > 0
 
+        # Design preview accepts visual edits but cannot mutate the live local
+        # account or the independent ordering identity, even with valid fields.
+        saved_raw = page.evaluate('(key) => localStorage.getItem(key)', PROFILE_KEY)
+        page.goto(URL + '/screen/M04?preview=1')
+        expect(page.get_by_test_id('screen-M04')).to_be_visible()
+        page.get_by_test_id('nickname-input').fill('Только макет')
+        preview_footer = footer_geometry(page, width, height)
+        choose_birthday(page, width, height, preview_footer, '1995-10-21')
+        expect(page.get_by_test_id('nickname-save')).to_be_disabled()
+        assert page.evaluate('(key) => localStorage.getItem(key)', PROFILE_KEY) == saved_raw
+        assert page.evaluate('(key) => localStorage.getItem(key)', SESSION_KEY) == SESSION
+        page.goto(URL + '/screen/M02?preview=1')
+        page.get_by_test_id('phone-input').fill(PHONE)
+        expect(page.get_by_test_id('request-otp')).to_be_disabled()
+        page.goto(URL + '/screen/M32?preview=1')
+        expect(page.get_by_test_id('delete-demo-profile')).to_be_disabled()
+        expect(page.get_by_test_id('clear-local-data')).to_be_disabled()
+        assert page.evaluate('(key) => localStorage.getItem(key)', PROFILE_KEY) == saved_raw
+        assert page.evaluate('(key) => localStorage.getItem(key)', SESSION_KEY) == SESSION
+        page.goto(URL + '/profile')
+
         # Re-open the saved form through the profile, not a replacement fixture.
         page.reload()
         expect(profile.get_by_test_id('demo-sign-out')).to_be_visible()
@@ -148,12 +189,28 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('birthday-month')).to_have_attribute('aria-label', 'Месяц рождения: Февраль')
         expect(page.get_by_test_id('birthday-year')).to_have_attribute('aria-label', 'Год рождения: 2000')
         footer = footer_geometry(page, width, height)
-        page.get_by_test_id('birthday-clear').click()
-        choose_birthday(page, width, height, footer, 2025)
-        expect(page.get_by_test_id('birthday-error')).to_contain_text('должна существовать')
-        expect(page.get_by_test_id('nickname-save')).to_be_disabled()
-        assert stored_account(page) == saved, 'Invalid birthday must not replace the saved profile'
-        page.screenshot(path=str(OUTPUT / f'registration-invalid-date-{width}.png'))
+        draft = open_birthday_picker(page, width, height, 'month')
+        expect(draft).to_have_value('2000-02-29')
+        draft.fill('2001-03-17')
+        page.get_by_test_id('birthday-picker-cancel').click()
+        expect(page.get_by_test_id('birthday-picker')).to_have_count(0)
+        expect(page.get_by_test_id('birthday-day')).to_have_attribute('aria-label', 'День рождения: 29')
+        expect(page.get_by_test_id('birthday-month')).to_have_attribute('aria-label', 'Месяц рождения: Февраль')
+        expect(page.get_by_test_id('birthday-year')).to_have_attribute('aria-label', 'Год рождения: 2000')
+        assert stored_account(page) == saved, 'Cancel must discard only the date picker draft'
+        footer_geometry(page, width, height, footer)
+
+        # The native date control cannot construct 31 February. Verify its
+        # calendar bounds and reject a programmatically filled future date.
+        draft = open_birthday_picker(page, width, height, 'year')
+        future = (datetime.now(ZoneInfo('Asia/Almaty')).date() + timedelta(days=1)).isoformat()
+        draft.fill(future)
+        expect(draft).to_have_value(future)
+        assert draft.evaluate('(input) => input.validity.rangeOverflow')
+        expect(page.get_by_test_id('birthday-picker-confirm')).to_be_disabled()
+        assert stored_account(page) == saved, 'A future date must not replace the saved profile'
+        page.screenshot(path=str(OUTPUT / f'registration-future-date-{width}.png'))
+        page.get_by_test_id('birthday-picker-cancel').click()
         page.get_by_test_id('birthday-clear').click()
         expect(page.get_by_test_id('birthday-error')).to_have_count(0)
         expect(page.get_by_test_id('birthday-day')).to_have_attribute('aria-label', 'День рождения: не выбрано')
@@ -171,12 +228,11 @@ with sync_playwright() as p:
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('Добавить')
         assert stored_account(page) == cleared
 
-        # Cancel partial unsaved edits without altering the persisted record.
+        # Cancel unsaved form edits after confirming a picker draft.
         profile.get_by_test_id('profile-birthday').click()
         page.get_by_test_id('nickname-input').fill('Не сохранять')
-        page.get_by_test_id('birthday-day').click()
-        page.get_by_test_id('birthday-option-day-29').click()
-        expect(page.get_by_test_id('nickname-save')).to_be_disabled()
+        footer = footer_geometry(page, width, height)
+        choose_birthday(page, width, height, footer, '2004-05-20')
         page.get_by_test_id('profile-fill-later').click()
         expect(profile).to_be_visible()
         assert stored_account(page) == cleared
@@ -184,7 +240,7 @@ with sync_playwright() as p:
         expect(profile.get_by_text('Без входа в аккаунт', exact=True)).to_be_visible()
         assert stored_account(page) is None
 
-        # Postponing a new profile keeps login, but must not save partial fields.
+        # Postponing a new profile keeps login without silently saving fields.
         profile.get_by_test_id('profile-sign-in').click()
         page.get_by_test_id('phone-input').fill(PHONE)
         page.get_by_test_id('request-otp').click()
@@ -196,11 +252,11 @@ with sync_playwright() as p:
             'nickname': '', 'birthDate': None, 'gender': None, 'completedAt': None,
         }
         page.get_by_test_id('nickname-input').fill('Отложенный профиль')
-        page.get_by_test_id('birthday-day').click()
-        page.get_by_test_id('birthday-option-day-29').click()
+        footer = footer_geometry(page, width, height)
+        choose_birthday(page, width, height, footer, '2003-01-01')
         page.get_by_test_id('profile-fill-later').click()
         expect(page.get_by_test_id('screen-M06')).to_be_visible()
-        assert stored_account(page) == untouched, 'Skipping must not silently save a partial profile'
+        assert stored_account(page) == untouched, 'Skipping must not silently save the draft profile'
         page.reload()
         expect(page.get_by_test_id('screen-M06')).to_be_visible()
         page.goto(URL + '/profile')
@@ -217,9 +273,11 @@ with sync_playwright() as p:
         assert not failures, failures
         checks.append({'viewport': f'{width}x{height}', 'login_restore_logout': True,
                        'wrong_code_rejected': True, 'birthday_saved_and_cleared': True,
-                       'invalid_leap_day_rejected': True, 'optional_gender': True,
+                       'native_date_bounds_and_future_guard': True, 'date_picker_cancel': True,
+                       'optional_gender': True,
                        'skip_and_cancel_preserve_profile': True, 'fixed_registration_actions': True,
-                       'no_horizontal_overflow': True, 'server_identity_preserved': True})
+                       'no_horizontal_overflow': True, 'preview_mutations_disabled': True,
+                       'server_identity_preserved': True})
         context.close()
     browser.close()
 
