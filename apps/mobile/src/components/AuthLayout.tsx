@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ScreenProps } from '../model';
 import { font } from '../theme';
+import { ProfileRestoreNotice } from './ProfileRestoreNotice';
 
 // Brand theme from the supplied mobile-v2 source, scoped to its auth screens.
 export const authColors = {
@@ -115,7 +116,14 @@ export function AuthLayout({
             <Text style={s.topActionText}>{topAction.label}</Text>
           </Pressable>
         ) : null}
-        <Text accessibilityRole="header" style={[s.title, !topAction && s.titleWithoutAction]}>
+        <Text
+          accessibilityRole="header"
+          style={[
+            s.title,
+            !topAction && s.titleWithoutAction,
+            props.screenId === 'M04' && s.registrationTitle,
+          ]}
+        >
           {title}
         </Text>
         {subtitle ? (
@@ -127,12 +135,17 @@ export function AuthLayout({
             )}
           </View>
         ) : null}
+        <ProfileRestoreNotice />
         {children}
         {bottomContent ? <View style={s.bottomContent}>{bottomContent}</View> : null}
       </ScrollView>
       <View
         testID="bottom-actions"
-        style={[s.footer, { paddingBottom: keyboardVisible ? 16 : Math.max(insets.bottom, 16) }]}
+        style={[
+          s.footer,
+          props.screenId === 'M04' && s.registrationFooter,
+          { paddingBottom: keyboardVisible ? 16 : Math.max(insets.bottom, 16) },
+        ]}
       >
         {footer}
       </View>
@@ -160,10 +173,16 @@ const s = StyleSheet.create({
     marginTop: 14,
   },
   titleWithoutAction: { marginTop: 18 },
+  registrationTitle: { fontSize: 32, lineHeight: 35 },
   subtitleContainer: { marginTop: 10 },
   subtitle: { fontFamily: font.body, fontSize: 15, lineHeight: 23, color: authColors.muted },
   bottomContent: { flexGrow: 1, justifyContent: 'flex-end', paddingTop: 22 },
   footer: { paddingHorizontal: 22, paddingTop: 14, flexShrink: 0, gap: 12 },
+  registrationFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    marginTop: 12,
+  },
   button: {
     minHeight: 54,
     paddingHorizontal: 16,

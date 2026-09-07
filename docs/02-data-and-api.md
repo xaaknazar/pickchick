@@ -28,7 +28,7 @@
 | `branch_service_windows`, `business_days` | Рабочие интервалы, исключения/праздники, открытие операционного дня |
 | `staff_users`, `roles`, `permissions`, `staff_branch_roles` | Персональный доступ сотрудников и срок назначения |
 | `devices`, `device_credentials`, `device_assignments` | Тип, точка, станция/терминал, сертификат, expiry, версия, last_seen |
-| `customers`, `customer_phones` | Customer ID; телефон зашифрован; lookup HMAC нормализованного номера, verified_at |
+| `customers`, `customer_phones` | Customer ID; телефон зашифрован; lookup HMAC нормализованного номера, verified_at; опциональная `birth_date date` без времени (проектное поле customer domain, серверная реализация ещё не выполнена) |
 | `consents`, `customer_preferences` | Версия текста, purpose, канал, дата согласия/отзыва, язык |
 | `auth_sessions`, `otp_challenges` | Отзывные сессии устройств/хеши вращаемых refresh tokens; OTP challenge и бюджет отправок в PostgreSQL; Redis — дополнительный кеш/лимитер |
 | `categories`, `products`, `product_variants`, `product_translations` | Меню, варианты порции, описание RU/KZ, вес, аллергены, media ID |

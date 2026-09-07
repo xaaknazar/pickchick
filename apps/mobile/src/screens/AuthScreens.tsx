@@ -30,9 +30,12 @@ function phoneDigits(value: string) {
 }
 
 function displayPhone(digits: string) {
-  return [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 8), digits.slice(8, 10)]
-    .filter(Boolean)
-    .join(' ');
+  return (
+    digits.slice(0, 3) +
+    (digits.length > 3 ? ` ${digits.slice(3, 6)}` : '') +
+    (digits.length > 6 ? `-${digits.slice(6, 8)}` : '') +
+    (digits.length > 8 ? `-${digits.slice(8, 10)}` : '')
+  );
 }
 
 export function Phone(props: ScreenProps) {
@@ -60,9 +63,11 @@ export function Phone(props: ScreenProps) {
 
   const valid = normalizeDemoPhone(phone) !== null;
   const request = async () => {
+    if (props.preview) return;
     setSubmitted(true);
     if (await demo.requestCode(phoneRef.current)) {
       setSubmitted(false);
+      Keyboard.dismiss();
       props.navigate('M03');
     }
   };
@@ -88,7 +93,7 @@ export function Phone(props: ScreenProps) {
         <AuthButton
           title={demo.busy ? 'Подготавливаем код…' : 'Получить код'}
           testID="request-otp"
-          disabled={!demo.ready || demo.busy || !valid}
+          disabled={props.preview || !demo.ready || demo.busy || !valid}
           onPress={() => void request()}
         />
       }
@@ -114,7 +119,7 @@ export function Phone(props: ScreenProps) {
                   )}
                 </Pressable>
               ) : (
-                <View key={`blank-${index}`} accessible={false} style={[s.key, s.blankKey]} />
+                <View key={`blank-${index}`} accessible={false} style={s.key} />
               ),
             )}
           </View>
@@ -195,16 +200,18 @@ export function Otp(props: ScreenProps) {
     challenge && !expired && challenge.attemptsLeft > 0 && /^\d{6}$/.test(code),
   );
   const verify = async () => {
+    if (props.preview) return;
     setSubmitted(true);
     const phone = challenge?.phone;
     const previousPhone = demo.account?.phone;
     if (await demo.verifyCode(code)) {
       if (phone && phone !== previousPhone) props.model.setNickname('');
+      Keyboard.dismiss();
       props.navigate('M04');
     }
   };
   const resend = async () => {
-    if (!challenge) return;
+    if (!challenge || props.preview) return;
     setSubmitted(true);
     if (await demo.requestCode(challenge.phone)) {
       setNow(Date.now());
@@ -225,7 +232,7 @@ export function Otp(props: ScreenProps) {
         <AuthButton
           title={demo.busy ? 'Входим…' : 'Подтвердить'}
           testID="confirm-otp"
-          disabled={!canVerify || demo.busy || !demo.ready}
+          disabled={props.preview || !canVerify || demo.busy || !demo.ready}
           onPress={() => void verify()}
         />
       }
@@ -270,7 +277,7 @@ export function Otp(props: ScreenProps) {
         testID="resend-otp"
         accessibilityRole="button"
         accessibilityState={{ disabled: !challenge || remaining > 0 || demo.busy }}
-        disabled={!challenge || remaining > 0 || demo.busy}
+        disabled={props.preview || !challenge || remaining > 0 || demo.busy}
         onPress={() => void resend()}
         style={({ pressed }) => [s.resend, pressed && s.pressed]}
       >
@@ -342,7 +349,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   keyText: { fontFamily: font.heading, fontSize: 26, lineHeight: 36, color: authColors.text },
-  blankKey: { opacity: 0 },
   pressed: { opacity: 0.65 },
   otpRow: { marginTop: 26, position: 'relative' },
   otpCells: { flexDirection: 'row', gap: 9 },
