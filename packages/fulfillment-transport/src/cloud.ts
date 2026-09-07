@@ -13,6 +13,7 @@ import {
   PullResponseSchema,
   TransportAckSchema,
   EdgeEventSchema,
+  ReleaseResultEventSchema,
 } from './model.js';
 import type { TransportScope } from './model.js';
 
@@ -91,12 +92,17 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
        SELECT e.id FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id
        WHERE o.organization_id=$1 AND o.branch_id=$2 AND e.acknowledged_at IS NULL
        AND (e.lease_until IS NULL OR e.lease_until<clock_timestamp())
-       AND e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested')
-       AND NOT o.attention_required
-       AND NOT EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id AND p.state IN ('released','cancel_requested','cancelled'))
+       AND (e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested') OR ($7=2 AND e.event_type='edge.admission_release_requested'))
+       AND (e.event_type='edge.admission_release_requested' OR (NOT o.attention_required
+       AND NOT EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id AND p.state IN ('released','cancel_requested','cancelled'))))
        AND (o.admission_device_id IS NULL OR o.admission_device_id=$3)
-       AND (e.event_type='edge.admission_requested' OR (
-         o.admission_device_id=$3 AND o.admission_reservation_id IS NOT NULL
+       AND (e.event_type='edge.admission_requested' OR (e.event_type='edge.admission_release_requested'
+         AND EXISTS(SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=o.id AND i.release_event_id=e.id AND i.state IN ('release_pending','cancelled','needs_review'))
+         AND NOT EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id)
+         AND o.kitchen_effect_id IS NULL
+       ) OR (e.event_type='edge.kitchen_admission_requested'
+         AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=o.id)
+         AND o.admission_device_id=$3 AND o.admission_reservation_id IS NOT NULL
          AND EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id AND p.device_id=$3 AND p.reservation_id=o.admission_reservation_id AND p.state IN ('held','accepted','in_production','ready','handed_over'))
          AND e.payload->>'deviceId'=$3::text
          AND e.payload->>'reservationId'=o.admission_reservation_id::text
@@ -107,7 +113,15 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
        ORDER BY e.attempts,e.sequence LIMIT 1 FOR UPDATE OF e,o SKIP LOCKED)
        UPDATE commerce_outbox e SET lease_worker=$4,lease_token=$5,lease_until=clock_timestamp()+$6*interval '1 second',attempts=attempts+1
        FROM selected s WHERE e.id=s.id RETURNING e.id,e.event_type,e.payload`,
-      [b.organization_id, b.branch_id, b.device_id, request.workerId, token, request.leaseSeconds],
+      [
+        b.organization_id,
+        b.branch_id,
+        b.device_id,
+        request.workerId,
+        token,
+        request.leaseSeconds,
+        request.protocolVersion ?? 1,
+      ],
     );
     const row = result.rows[0];
     return parse(PullResponseSchema, {
@@ -131,7 +145,7 @@ export async function acknowledgeFulfillment(pool: DatabasePool, auth: DeviceAut
       `UPDATE commerce_outbox e SET acknowledged_at=COALESCE(e.acknowledged_at,clock_timestamp())
        FROM commerce_orders o WHERE e.order_id=o.id AND o.organization_id=$1 AND o.branch_id=$2
        AND (o.admission_device_id IS NULL OR o.admission_device_id=$3)
-       AND e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested')
+       AND e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested','edge.admission_release_requested')
        AND e.id=$4 AND e.lease_worker=$5 AND e.lease_token=$6
        AND (e.lease_until>clock_timestamp() OR e.acknowledged_at IS NOT NULL) RETURNING e.id`,
       [
@@ -151,6 +165,13 @@ export async function acknowledgeFulfillment(pool: DatabasePool, auth: DeviceAut
 /** Store the authenticated edge fact; never change commercial money or infer
  * task completeness. Admission and the transport receipt commit atomically. */
 export async function receiveFulfillment(pool: DatabasePool, auth: DeviceAuth, input: unknown) {
+  if (
+    input &&
+    typeof input === 'object' &&
+    'type' in input &&
+    input.type === 'edge.admission_release_result'
+  )
+    return receiveReleaseResult(pool, auth, input);
   // Clone/hash before awaiting: callers cannot mutate the event while authentication waits.
   const raw = JSON.parse(JSON.stringify(input)) as unknown;
   const event = parse(EdgeEventSchema, raw),
@@ -339,6 +360,11 @@ export async function receiveFulfillment(pool: DatabasePool, auth: DeviceAuth, i
         p,
       ],
     );
+    await new CommerceRepository(pool).scheduleUnpaidCancellation(
+      client,
+      { organizationId: b.organization_id, branchId: b.branch_id },
+      event.orderId,
+    );
     const receipt = { eventId: event.eventId, acknowledged: true as const };
     await client.query(
       `INSERT INTO cloud_fulfillment_inbox(device_id,branch_id,organization_id,event_id,source_sequence,order_id,aggregate_version,event_type,request_hash,payload,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
@@ -352,6 +378,153 @@ export async function receiveFulfillment(pool: DatabasePool, auth: DeviceAuth, i
         event.aggregateVersion,
         event.type,
         requestHash,
+        p,
+        receipt,
+      ],
+    );
+    return receipt;
+  });
+}
+
+/** A command decision has its own ledger: it is not a second order state version. */
+export async function receiveReleaseResult(pool: DatabasePool, auth: DeviceAuth, input: unknown) {
+  const raw = JSON.parse(JSON.stringify(input)) as unknown,
+    event = parse(ReleaseResultEventSchema, raw),
+    hash = digest(raw),
+    identity = { ...auth },
+    p = event.payload;
+  return transaction(pool, async (client) => {
+    const b = await binding(client, identity);
+    if (p.branchId !== b.branch_id || p.deviceId !== b.device_id) fail('FORBIDDEN');
+    for (const key of [
+      'transport-event:' + b.device_id + ':' + event.eventId,
+      'transport-sequence:' + b.device_id + ':' + event.sequence,
+    ].sort())
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [key]);
+    const old = (
+      await client.query(
+        'SELECT request_hash,receipt FROM cloud_fulfillment_inbox WHERE device_id=$1 AND event_id=$2',
+        [b.device_id, event.eventId],
+      )
+    ).rows[0];
+    if (old) {
+      if (old.request_hash !== hash) fail('CONFLICT');
+      return old.receipt;
+    }
+    if (
+      (
+        await client.query(
+          'SELECT 1 FROM cloud_fulfillment_inbox WHERE device_id=$1 AND source_sequence=$2',
+          [b.device_id, event.sequence],
+        )
+      ).rowCount
+    )
+      fail('CONFLICT');
+    const order = (
+      await client.query(
+        'SELECT * FROM commerce_orders WHERE id=$1 AND organization_id=$2 AND branch_id=$3 FOR UPDATE',
+        [event.orderId, b.organization_id, b.branch_id],
+      )
+    ).rows[0];
+    if (!order) fail('NOT_FOUND');
+    const intent = (
+      await client.query(
+        'SELECT * FROM commerce_cancellation_intents WHERE order_id=$1 FOR UPDATE',
+        [event.orderId],
+      )
+    ).rows[0];
+    if (
+      !intent ||
+      intent.state !== 'release_pending' ||
+      intent.release_event_id !== p.requestEventId
+    )
+      fail('CONFLICT');
+    const command = (
+      await client.query(
+        "SELECT id,event_type,payload FROM commerce_outbox WHERE id=$1 AND order_id=$2 AND event_type='edge.admission_release_requested'",
+        [p.requestEventId, event.orderId],
+      )
+    ).rows[0];
+    if (!command) fail('CONFLICT');
+    const expectedDigest = digest({
+      eventId: command.id,
+      type: command.event_type,
+      payload: command.payload,
+    });
+    const ownerHash = digest({
+      organizationId: b.organization_id,
+      branchId: b.branch_id,
+      deviceId: b.device_id,
+      owner: 'cloud',
+      orderId: event.orderId,
+      quoteId: order.quote_id,
+      quoteDigest: order.quote_digest,
+    });
+    if (
+      p.requestDigest !== expectedDigest ||
+      p.quoteId !== order.quote_id ||
+      p.quoteDigest !== order.quote_digest ||
+      p.ownerHash !== ownerHash ||
+      p.reservationId !== order.admission_reservation_id ||
+      order.admission_device_id !== b.device_id ||
+      p.reservationId !== intent.reservation_id ||
+      p.reason !== command.payload.reason
+    )
+      fail('CONFLICT');
+    // Routing/assembly are pinned by the original authenticated admission, even
+    // though this decision is deliberately separate from state-version storage.
+    const pinned = (
+      await client.query(
+        'SELECT routing_version,assembly_station_id,display_number FROM cloud_fulfillment_projection WHERE order_id=$1',
+        [event.orderId],
+      )
+    ).rows[0];
+    if (
+      !pinned ||
+      pinned.routing_version !== p.routingVersion ||
+      (pinned.assembly_station_id !== null && pinned.assembly_station_id !== p.assemblyStationId) ||
+      (pinned.display_number !== null &&
+        p.displayNumber !== null &&
+        pinned.display_number !== p.displayNumber)
+    )
+      fail('CONFLICT');
+    if (p.outcome === 'applied' && p.version !== intent.expected_edge_version + 1) fail('CONFLICT');
+    if (
+      p.outcome === 'rejected' &&
+      ((p.rejectionCode === 'VERSION_CONFLICT' && p.version === intent.expected_edge_version) ||
+        (p.rejectionCode === 'NOT_HELD' &&
+          (p.version !== intent.expected_edge_version || p.state === 'held')))
+    )
+      fail('CONFLICT');
+    const unsafe = (
+      await client.query(
+        'SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 LIMIT 1',
+        [event.orderId],
+      )
+    ).rowCount;
+    const state = p.outcome === 'applied' && !unsafe ? 'cancelled' : 'needs_review',
+      code = unsafe ? 'PAYMENT_HISTORY' : p.rejectionCode;
+    await client.query(
+      'INSERT INTO commerce_cancellation_results(event_id,device_id,request_event_id,cancellation_id,request_digest,result_digest,payload) VALUES($1,$2,$3,$4,$5,$6,$7)',
+      [event.eventId, b.device_id, p.requestEventId, intent.id, expectedDigest, hash, p],
+    );
+    await client.query(
+      'UPDATE commerce_cancellation_intents SET state=$2,result_event_id=$3,resolution_code=$4,updated_at=clock_timestamp() WHERE id=$1',
+      [intent.id, state, event.eventId, code],
+    );
+    const receipt = { eventId: event.eventId, acknowledged: true as const };
+    await client.query(
+      'INSERT INTO cloud_fulfillment_inbox(device_id,branch_id,organization_id,event_id,source_sequence,order_id,aggregate_version,event_type,request_hash,payload,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [
+        b.device_id,
+        b.branch_id,
+        b.organization_id,
+        event.eventId,
+        event.sequence,
+        event.orderId,
+        event.aggregateVersion,
+        event.type,
+        hash,
         p,
         receipt,
       ],

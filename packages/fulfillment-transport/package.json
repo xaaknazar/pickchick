@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --test tests/cloud.test.mjs tests/worker.test.mjs"
+    "test:integration": "node --test tests/cloud.test.mjs tests/worker.test.mjs tests/cancellation.test.mjs tests/cancellation-worker.test.mjs"
   },
   "dependencies": {
     "@pickchick/contracts": "workspace:*",

@@ -1,3 +1,5 @@
+import { ReleaseCommandSchema, ReleaseResultSchema } from './model.js';
+import type { ReleaseResult } from './model.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { transaction } from '@pickchick/database';
@@ -335,6 +337,84 @@ export class EdgeFulfillment {
     });
   }
 
+  /** Protocol v2 internal release: deterministic domain decisions get immutable
+   * results. Database errors and unknown COMMIT outcomes never become rejections. */
+  async acceptRelease(scopeInput: TrustedCloud, input: unknown): Promise<ReleaseResult> {
+    const scope = parse(CloudScopeSchema, scopeInput),
+      command = parse(ReleaseCommandSchema, JSON.parse(JSON.stringify(input))),
+      requestHash = digest(command);
+    if (command.payload.branchId !== scope.branchId) fail('FORBIDDEN');
+    return transaction(this.pool, async (client) => {
+      await boundary(client, scope);
+      await lock(client, 'fulfillment:inbox:' + scope.producerId + ':' + command.eventId);
+      const saved = (
+        await client.query<{ request_hash: string; result: ReleaseResult }>(
+          'SELECT request_hash,result FROM fulfillment_release_results WHERE producer_id=$1 AND event_id=$2',
+          [scope.producerId, command.eventId],
+        )
+      ).rows[0];
+      if (saved) {
+        if (saved.request_hash !== requestHash) fail('CONFLICT');
+        return ReleaseResultSchema.parse(saved.result);
+      }
+      // A pre-v2 inbox says it was applied, but has no original durable decision.
+      // Do not invent a result using a later order version.
+      if (
+        (
+          await client.query(
+            'SELECT 1 FROM fulfillment_inbox WHERE producer_id=$1 AND event_id=$2',
+            [scope.producerId, command.eventId],
+          )
+        ).rowCount
+      )
+        fail('CONFLICT');
+      await lock(client, 'fulfillment:order:' + command.payload.orderId);
+      let row = await order(client, scope.branchId, command.payload.orderId);
+      const p = command.payload;
+      if (
+        row.reservation_id !== p.reservationId ||
+        row.quote_hash !== p.quoteDigest ||
+        row.device_id !== scope.deviceId
+      )
+        fail('CONFLICT');
+      const rejectionCode =
+        row.version !== p.expectedVersion
+          ? 'VERSION_CONFLICT'
+          : row.state !== 'held'
+            ? 'NOT_HELD'
+            : null;
+      if (!rejectionCode)
+        row = await advance(client, row, 'released', 'edge.admission_released', {
+          reason: p.reason,
+        });
+      const result = ReleaseResultSchema.parse({
+        ...view(row),
+        requestEventId: command.eventId,
+        requestDigest: requestHash,
+        outcome: rejectionCode ? 'rejected' : 'applied',
+        rejectionCode,
+        reason: p.reason,
+      });
+      const resultEventId = await emit(client, row, 'edge.admission_release_result', result);
+      await client.query(
+        'INSERT INTO fulfillment_release_results(producer_id,event_id,branch_id,order_id,request_hash,result,result_event_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
+        [
+          scope.producerId,
+          command.eventId,
+          scope.branchId,
+          row.order_id,
+          requestHash,
+          result,
+          resultEventId,
+        ],
+      );
+      await client.query(
+        'INSERT INTO fulfillment_inbox(branch_id,producer_id,event_id,event_type,request_hash,result) VALUES($1,$2,$3,$4,$5,$6)',
+        [scope.branchId, scope.producerId, command.eventId, command.type, requestHash, result],
+      );
+      return result;
+    });
+  }
   async act(branchId: string, auth: StaffAuth, input: unknown) {
     parse(z.uuid(), branchId);
     const command = parse(StaffCommandSchema, input),
