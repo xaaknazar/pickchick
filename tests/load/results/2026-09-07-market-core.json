@@ -1,0 +1,917 @@
+{
+  "schema_version": 1,
+  "scenario": "local_market_core_baseline",
+  "started_at": "2026-09-07T12:49:17.128Z",
+  "status": "passed",
+  "production_capacity_proven": false,
+  "physical_kitchen_capacity_proven": false,
+  "external_provider_calls": 0,
+  "identity_auth_calls": 0,
+  "source": {
+    "runtime_source_commit": "34c233090194f91ed5fb9393126ad215f0cf8dfd",
+    "runtime_source_tree_sha256": "6697effdd864b20f1b761b87fa16bf56e57a8c4278164a8336daa3d618e77758",
+    "runtime_source_files": {
+      "db/cloud/migrations/001_cloud_foundation.sql": "7c133c6b92635f9b1984bf5687a4686cb6ea4d741db6740cfe3997be5f09829e",
+      "db/cloud/migrations/002_cloud_snapshot_guards.sql": "7db80ef7ab0075e469dac86406d43a2f8e8eea80a24ca31f18ead5920ca57b73",
+      "db/cloud/migrations/003_cloud_menu_sync.sql": "e474f157c038b269b3e600d89adba22041e324ec581dc60b6ca43d12258bbc38",
+      "db/cloud/migrations/004_cloud_test_order_flow.sql": "03227808191ca583165d0eef455da1ab612ce8a366b80b599cd6fc9d951a5654",
+      "db/cloud/migrations/005_cloud_test_modifier_task_titles.sql": "1bdee0d6aa46ff3d560be671dd612b0a2397a2ed73cbde5633810334d5448958",
+      "db/cloud/migrations/006_cloud_test_permanent_access.sql": "df19a22606b843c16b5368fe20b0ccd496ee86212ecf8a828408f86c02c16877",
+      "db/cloud/migrations/007_cloud_customer_identity.sql": "19f95c9a7edb2868a05e0d8bf3f51d0e1b5affd83ba59ee3d35b90e6c741232e",
+      "db/cloud/migrations/008_cloud_commerce_core.sql": "cd511319956936d05f209be2735c7045c0d938864bf15cd61a3a8281cd7a642a",
+      "db/cloud/migrations/009_cloud_catalog_admin.sql": "fea789769355daba7bd24f5e962ac64fa9e62733bf5ee76a089063f63a96cff8",
+      "db/cloud/migrations/010_cloud_loyalty.sql": "438645a64cd092e3d4eb7165e692c4aefc68bf04fa4a6b72027406d65394661b",
+      "packages/commerce-core/src/index.ts": "7f8f898a05d6853d02f4f59ae3f6e424635d4660a55956a12d36961a107f599d",
+      "packages/commerce-core/src/model.ts": "f2650cca1408403e167a4ce46fbe71623769202c42c662e1afafb9c350da3dd0",
+      "packages/commerce-core/src/repository.ts": "052801da78ad9d2ab66cf18ea68dde34fd161fcccd0ce2f74f365b19e03e9888",
+      "packages/contracts/src/index.ts": "2abf6a34505532744cbfffe988671ad37cbe9782a0c52d67c9764823332dc573",
+      "packages/database/src/index.ts": "c6f03ac08967fc76fa38b45fa92a7281a5c86ba0baea7dceaa4f38d69650c51e",
+      "packages/test-fixtures/src/index.ts": "83247ecc3de1109ae07924df481432dfb02eb17137f971034ee11d94d7d4e64c"
+    },
+    "compiled_javascript": {
+      "packages/database/dist/index.js": "2c93a5da0a9ecac4d8fb6c92241afa6e2560d9784d3ef4e153c1dfae555d776f",
+      "packages/commerce-core/dist/index.js": "c90e44fd4c3ed6bcc7759d86f7a39aeb6262c865cf5aba183edf6fe54b10f748",
+      "packages/commerce-core/dist/model.js": "574d1811354048e4b53e696f4f829606e4387fc9a85027fa73766af00e69082a",
+      "packages/commerce-core/dist/repository.js": "3760043bef518cbfc7da7e09d2d18add94ba4506fad6b312c03fce636984cf85",
+      "packages/test-fixtures/dist/index.js": "fc8edffd264d273c831d5b11feb2b1333b5663ef2bb5318b21633c6c51924dea",
+      "packages/contracts/dist/index.js": "e855defca1548c5827217685a3b69a7fb2fab9e0ab4ee3537879a019e4c1152a"
+    },
+    "harness_sha256": "96ca91be95539b999315fedd586f345a95408d05d8d12fcaf61ccb3aa3e1229b"
+  },
+  "parameters": {
+    "identity_rows": 1000000,
+    "orders": 1000,
+    "branches": 10,
+    "concurrency": 16,
+    "pool_max": 16,
+    "identity_lookup_samples": 10000,
+    "identity_batch_size": 10000,
+    "duplicate_replays_per_command": 2
+  },
+  "machine": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "os_release": "25.5.0",
+    "cpu_model": "Apple M5",
+    "logical_cpus": 10,
+    "memory_total_bytes": 17179869184,
+    "memory_free_bytes_before": 350355456,
+    "load_average_before": [3.8466796875, 3.96630859375, 3.748046875],
+    "node": "v24.16.0",
+    "memory_free_bytes_after": 210288640,
+    "load_average_after": [12.9384765625, 5.8828125, 4.4326171875]
+  },
+  "docker": {
+    "context_transport": "local socket",
+    "compose_project": "pickchick-local",
+    "compose_service": "cloud-db",
+    "host_binding": "127.0.0.1:55432",
+    "vm": {
+      "cpus": 10,
+      "memory_bytes": 8321515520,
+      "server_version": "29.6.1",
+      "storage_driver": "overlayfs",
+      "operating_system": "Docker Desktop"
+    },
+    "container": {
+      "image_reference": "postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "image_id": "sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "memory_limit_bytes": 0,
+      "nano_cpus": 0,
+      "cpu_quota": 0,
+      "cpu_period": 0
+    },
+    "disk_available_bytes_before": 446113169408
+  },
+  "postgres": {
+    "version": "PostgreSQL 18.3 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "started_at": "2026-09-06T10:15:28.702Z",
+    "settings": [
+      {
+        "name": "checkpoint_timeout",
+        "setting": "300",
+        "unit": "s",
+        "source": "default"
+      },
+      {
+        "name": "effective_cache_size",
+        "setting": "524288",
+        "unit": "8kB",
+        "source": "default"
+      },
+      {
+        "name": "effective_io_concurrency",
+        "setting": "16",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "fsync",
+        "setting": "on",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "full_page_writes",
+        "setting": "on",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "jit",
+        "setting": "on",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "maintenance_work_mem",
+        "setting": "65536",
+        "unit": "kB",
+        "source": "default"
+      },
+      {
+        "name": "max_connections",
+        "setting": "100",
+        "unit": null,
+        "source": "configuration file"
+      },
+      {
+        "name": "max_parallel_workers_per_gather",
+        "setting": "2",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "max_wal_size",
+        "setting": "1024",
+        "unit": "MB",
+        "source": "configuration file"
+      },
+      {
+        "name": "random_page_cost",
+        "setting": "4",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "server_version_num",
+        "setting": "180003",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "shared_buffers",
+        "setting": "16384",
+        "unit": "8kB",
+        "source": "configuration file"
+      },
+      {
+        "name": "synchronous_commit",
+        "setting": "on",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "track_io_timing",
+        "setting": "off",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "wal_level",
+        "setting": "replica",
+        "unit": null,
+        "source": "default"
+      },
+      {
+        "name": "work_mem",
+        "setting": "4096",
+        "unit": "kB",
+        "source": "default"
+      }
+    ],
+    "other_client_backends_before": 0,
+    "session": {
+      "statement_timeout": "5s",
+      "application_name": "pickchick-foundation",
+      "search_path": "capacity_64f433f2334749f7a29b524ae4930b9c"
+    },
+    "pool_after": {
+      "total": 16,
+      "idle": 16,
+      "waiting": 0
+    }
+  },
+  "metrics": {
+    "identity_lookup": {
+      "operations": 10000,
+      "errors": 0,
+      "seconds": 0.586,
+      "operations_per_second": 17070.177,
+      "p50_ms": 0.744,
+      "p95_ms": 1.868,
+      "p99_ms": 4.368,
+      "max_ms": 20.093,
+      "scheduled": 10000,
+      "requested": 10000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "identity_lookup_for_update": {
+      "operations": 10000,
+      "errors": 0,
+      "seconds": 0.886,
+      "operations_per_second": 11286.651,
+      "p50_ms": 1.07,
+      "p95_ms": 2.495,
+      "p99_ms": 4.915,
+      "max_ms": 117.279,
+      "scheduled": 10000,
+      "requested": 10000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "issue_quote_with_replays": {
+      "operations": 2000,
+      "errors": 0,
+      "seconds": 0.817,
+      "operations_per_second": 2447.811,
+      "p50_ms": 5.812,
+      "p95_ms": 11.693,
+      "p99_ms": 16.521,
+      "max_ms": 20.207,
+      "scheduled": 2000,
+      "requested": 2000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "create_order_with_replays": {
+      "operations": 2000,
+      "errors": 0,
+      "seconds": 1.119,
+      "operations_per_second": 1787.503,
+      "p50_ms": 8.25,
+      "p95_ms": 13.861,
+      "p99_ms": 16.74,
+      "max_ms": 27.651,
+      "scheduled": 2000,
+      "requested": 2000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "confirm_admission_with_replays": {
+      "operations": 2000,
+      "errors": 0,
+      "seconds": 1.14,
+      "operations_per_second": 1754.745,
+      "p50_ms": 8.702,
+      "p95_ms": 12.6,
+      "p99_ms": 16.73,
+      "max_ms": 28.879,
+      "scheduled": 2000,
+      "requested": 2000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "start_payment_with_replays": {
+      "operations": 2000,
+      "errors": 0,
+      "seconds": 4.013,
+      "operations_per_second": 498.369,
+      "p50_ms": 24.511,
+      "p95_ms": 83.097,
+      "p99_ms": 130.504,
+      "max_ms": 151.78,
+      "scheduled": 2000,
+      "requested": 2000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "observe_payment_with_replays": {
+      "operations": 2000,
+      "errors": 0,
+      "seconds": 3.227,
+      "operations_per_second": 619.772,
+      "p50_ms": 20.16,
+      "p95_ms": 57.58,
+      "p99_ms": 97.281,
+      "max_ms": 154.739,
+      "scheduled": 2000,
+      "requested": 2000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "same_capture_new_event_id": {
+      "operations": 800,
+      "errors": 0,
+      "seconds": 0.845,
+      "operations_per_second": 946.631,
+      "p50_ms": 15.684,
+      "p95_ms": 24.083,
+      "p99_ms": 29.876,
+      "max_ms": 32.152,
+      "scheduled": 800,
+      "requested": 800,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "read_order_after_payment": {
+      "operations": 1000,
+      "errors": 0,
+      "seconds": 0.475,
+      "operations_per_second": 2106.472,
+      "p50_ms": 6.979,
+      "p95_ms": 10.694,
+      "p99_ms": 15.884,
+      "max_ms": 39.711,
+      "scheduled": 1000,
+      "requested": 1000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "observe_fiscal_with_replays": {
+      "operations": 1200,
+      "errors": 0,
+      "seconds": 1.086,
+      "operations_per_second": 1105.18,
+      "p50_ms": 13.365,
+      "p95_ms": 21.113,
+      "p99_ms": 27.608,
+      "max_ms": 32.642,
+      "scheduled": 1200,
+      "requested": 1200,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "read_final_order": {
+      "operations": 1000,
+      "errors": 0,
+      "seconds": 0.436,
+      "operations_per_second": 2291.165,
+      "p50_ms": 6.337,
+      "p95_ms": 10.454,
+      "p99_ms": 16.162,
+      "max_ms": 21.89,
+      "scheduled": 1000,
+      "requested": 1000,
+      "peak_active": 16,
+      "error_codes": {}
+    },
+    "cross_branch_reads_rejected": {
+      "operations": 10,
+      "errors": 0,
+      "seconds": 0.003,
+      "operations_per_second": 3451.151,
+      "p50_ms": 2.582,
+      "p95_ms": 2.698,
+      "p99_ms": 2.698,
+      "max_ms": 2.698,
+      "scheduled": 10,
+      "requested": 10,
+      "peak_active": 10,
+      "error_codes": {}
+    }
+  },
+  "assertions": {
+    "local_docker_identity_match": true,
+    "only_temporary_search_path": true,
+    "identity_unique_rows": 1000000,
+    "lookup_uses_unique_index": true,
+    "unique_orders": 1000,
+    "one_intent_attempt_per_order": true,
+    "duplicate_commands_no_extra_rows": true,
+    "same_operation_new_event_no_extra_capture": true,
+    "unique_expected_outbox_effects": true,
+    "all_outbox_undelivered": true,
+    "zero_auth_sessions_and_challenges": true,
+    "zero_external_calls": true,
+    "exact_minor_totals": true,
+    "cross_branch_order_reads_rejected": true,
+    "balanced_branch_residency_verified": true
+  },
+  "cleanup": {
+    "schema_created": true,
+    "drop_attempted": true,
+    "dropped": true,
+    "verified_absent": true,
+    "schema": "capacity_64f433f2334749f7a29b524ae4930b9c"
+  },
+  "limits": [
+    "Local single run; not a production acceptance or RPS guarantee.",
+    "Identity bulk rows are not registrations: no valid phone, encryption, OTP, consent or session lifecycle is exercised.",
+    "Internal trusted commerce fixtures bypass HTTP/auth/pricing bridge and external providers.",
+    "Outbox rows remain undelivered; no cloud-edge bridge, physical KDS, queue capacity, stock, bonus ledger, Redis, WAN, failover or soak is exercised.",
+    "Seeded data and measurements share warm PostgreSQL/OS caches; no cold-cache claim.",
+    "Other workloads on this developer host/Docker VM may influence timings."
+  ],
+  "migrations": [
+    "001_cloud_foundation.sql",
+    "002_cloud_snapshot_guards.sql",
+    "003_cloud_menu_sync.sql",
+    "004_cloud_test_order_flow.sql",
+    "005_cloud_test_modifier_task_titles.sql",
+    "006_cloud_test_permanent_access.sql",
+    "007_cloud_customer_identity.sql",
+    "008_cloud_commerce_core.sql",
+    "009_cloud_catalog_admin.sql",
+    "010_cloud_loyalty.sql"
+  ],
+  "identity": {
+    "insert_seconds": 10.613,
+    "rows": 1000000,
+    "opaque_phone_bytes": 64,
+    "opaque_profile_bytes": 256,
+    "lookup_generation": "two MD5 digests over synthetic ordinal labels; unique constraint and distinct count verified; not a phone HMAC",
+    "opaque_payload": "SYNTHETIC_INVALID_CIPHER prefix, intentionally not decryptable and never passed to auth",
+    "sizes": {
+      "heap_bytes": "455114752",
+      "table_bytes": "455254016",
+      "indexes_bytes": "164446208",
+      "total_bytes": "619700224"
+    },
+    "indexes": [
+      {
+        "indexrelname": "identity_customers_phone_lookup_key",
+        "bytes": "124592128"
+      },
+      {
+        "indexrelname": "identity_customers_pkey",
+        "bytes": "39854080"
+      }
+    ],
+    "opaque_payload_sizes_verified": true,
+    "lookup_plan": [
+      {
+        "Plan": {
+          "Node Type": "Index Scan",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Scan Direction": "Forward",
+          "Index Name": "identity_customers_phone_lookup_key",
+          "Relation Name": "identity_customers",
+          "Alias": "identity_customers",
+          "Startup Cost": 0.55,
+          "Total Cost": 8.57,
+          "Plan Rows": 1,
+          "Plan Width": 430,
+          "Actual Startup Time": 0.025,
+          "Actual Total Time": 0.025,
+          "Actual Rows": 1,
+          "Actual Loops": 1,
+          "Disabled": false,
+          "Index Cond": "(phone_lookup = 'SYNTHETIC_LOOKUP_REDACTED'::text)",
+          "Rows Removed by Index Recheck": 0,
+          "Index Searches": 1,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 5,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0
+        },
+        "Planning": {
+          "Shared Hit Blocks": 18,
+          "Shared Read Blocks": 0,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0
+        },
+        "Planning Time": 0.073,
+        "Triggers": [],
+        "Execution Time": 0.031
+      }
+    ],
+    "lookup_for_update_plan": [
+      {
+        "Plan": {
+          "Node Type": "LockRows",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 0.55,
+          "Total Cost": 8.58,
+          "Plan Rows": 1,
+          "Plan Width": 436,
+          "Actual Startup Time": 0.02,
+          "Actual Total Time": 0.021,
+          "Actual Rows": 1,
+          "Actual Loops": 1,
+          "Disabled": false,
+          "Shared Hit Blocks": 6,
+          "Shared Read Blocks": 0,
+          "Shared Dirtied Blocks": 1,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0,
+          "Plans": [
+            {
+              "Node Type": "Index Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "identity_customers_phone_lookup_key",
+              "Relation Name": "identity_customers",
+              "Alias": "identity_customers",
+              "Startup Cost": 0.55,
+              "Total Cost": 8.57,
+              "Plan Rows": 1,
+              "Plan Width": 436,
+              "Actual Startup Time": 0.006,
+              "Actual Total Time": 0.006,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "(phone_lookup = 'SYNTHETIC_LOOKUP_REDACTED'::text)",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 5,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            }
+          ]
+        },
+        "Planning": {
+          "Shared Hit Blocks": 3,
+          "Shared Read Blocks": 0,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0
+        },
+        "Planning Time": 0.026,
+        "Triggers": [],
+        "Execution Time": 0.028
+      }
+    ],
+    "lookup_mix": {
+      "expected_hits": 9000,
+      "expected_misses": 1000,
+      "warmup_queries_excluded": 100,
+      "for_update_uses_autocommit": true
+    }
+  },
+  "commerce": {
+    "simultaneously_resident_before_observations": [
+      {
+        "state": "awaiting_payment",
+        "payment_state": "pending",
+        "count": 1000
+      }
+    ],
+    "row_counts": {
+      "commerce_quotes": 1000,
+      "commerce_orders": 1000,
+      "commerce_payment_intents": 1000,
+      "commerce_payment_attempts": 1000,
+      "commerce_captures": 800,
+      "commerce_fiscal_documents": 800,
+      "commerce_edge_inbox": 1000,
+      "commerce_provider_inbox": 2400,
+      "commerce_commands": 3000,
+      "commerce_outbox": 4900,
+      "commerce_reconciliation_issues": 0,
+      "identity_sessions": 0,
+      "identity_otp_challenges": 0
+    },
+    "outbox": [
+      {
+        "event_type": "edge.admission_requested",
+        "count": 1000
+      },
+      {
+        "event_type": "edge.kitchen_admission_requested",
+        "count": 600
+      },
+      {
+        "event_type": "fiscal.issued",
+        "count": 600
+      },
+      {
+        "event_type": "fiscal.submit_requested",
+        "count": 800
+      },
+      {
+        "event_type": "payment.capture_recorded",
+        "count": 800
+      },
+      {
+        "event_type": "payment.reconcile_requested",
+        "count": 100
+      },
+      {
+        "event_type": "payment.submit_requested",
+        "count": 1000
+      }
+    ],
+    "per_branch": [
+      {
+        "code": "CAPACITY-1",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-1",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-1",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-10",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-10",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-10",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-2",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-2",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-2",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-3",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-3",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-3",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-4",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-4",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-4",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-5",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-5",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-5",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-6",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-6",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-6",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-7",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-7",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-7",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-8",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-8",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-8",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      },
+      {
+        "code": "CAPACITY-9",
+        "state": "awaiting_payment",
+        "payment_state": "failed",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-9",
+        "state": "awaiting_payment",
+        "payment_state": "unknown",
+        "count": 10
+      },
+      {
+        "code": "CAPACITY-9",
+        "state": "paid_pending_acceptance",
+        "payment_state": "succeeded",
+        "count": 80
+      }
+    ],
+    "totals": {
+      "intended_minor": "349000000",
+      "captured_minor": "279200000"
+    },
+    "sizes": [
+      {
+        "relname": "commerce_captures",
+        "table_bytes": "196608",
+        "indexes_bytes": "294912",
+        "total_bytes": "491520"
+      },
+      {
+        "relname": "commerce_commands",
+        "table_bytes": "1867776",
+        "indexes_bytes": "335872",
+        "total_bytes": "2203648"
+      },
+      {
+        "relname": "commerce_edge_inbox",
+        "table_bytes": "499712",
+        "indexes_bytes": "106496",
+        "total_bytes": "606208"
+      },
+      {
+        "relname": "commerce_fiscal_documents",
+        "table_bytes": "1466368",
+        "indexes_bytes": "286720",
+        "total_bytes": "1753088"
+      },
+      {
+        "relname": "commerce_fiscal_effects",
+        "table_bytes": "294912",
+        "indexes_bytes": "172032",
+        "total_bytes": "466944"
+      },
+      {
+        "relname": "commerce_orders",
+        "table_bytes": "2187264",
+        "indexes_bytes": "638976",
+        "total_bytes": "2826240"
+      },
+      {
+        "relname": "commerce_outbox",
+        "table_bytes": "4079616",
+        "indexes_bytes": "1015808",
+        "total_bytes": "5095424"
+      },
+      {
+        "relname": "commerce_payment_attempts",
+        "table_bytes": "262144",
+        "indexes_bytes": "286720",
+        "total_bytes": "548864"
+      },
+      {
+        "relname": "commerce_payment_intents",
+        "table_bytes": "172032",
+        "indexes_bytes": "204800",
+        "total_bytes": "376832"
+      },
+      {
+        "relname": "commerce_provider_accounts",
+        "table_bytes": "16384",
+        "indexes_bytes": "49152",
+        "total_bytes": "65536"
+      },
+      {
+        "relname": "commerce_provider_inbox",
+        "table_bytes": "1900544",
+        "indexes_bytes": "294912",
+        "total_bytes": "2195456"
+      },
+      {
+        "relname": "commerce_quotes",
+        "table_bytes": "1114112",
+        "indexes_bytes": "245760",
+        "total_bytes": "1359872"
+      },
+      {
+        "relname": "commerce_reconciliation_issues",
+        "table_bytes": "8192",
+        "indexes_bytes": "16384",
+        "total_bytes": "24576"
+      },
+      {
+        "relname": "commerce_refund_effects",
+        "table_bytes": "8192",
+        "indexes_bytes": "32768",
+        "total_bytes": "40960"
+      },
+      {
+        "relname": "commerce_refunds",
+        "table_bytes": "8192",
+        "indexes_bytes": "24576",
+        "total_bytes": "32768"
+      }
+    ]
+  },
+  "finished_at": "2026-09-07T12:49:46.691Z",
+  "total_seconds": 29.563,
+  "process": {
+    "rss_bytes": 176062464,
+    "max_rss_kib": 209072,
+    "event_loop_p95_ms": 21.185,
+    "event_loop_max_ms": 42.697
+  }
+}
