@@ -11,6 +11,9 @@ import {
   Header,
   Heading,
   Icon,
+  IconButton,
+  Language,
+  Logo,
   Stepper,
   layout,
   type ScreenContext,
@@ -348,87 +351,171 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
   );
 }
 export function ReviewScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
-  const { px } = useMetrics();
+  const { px, fontScale } = useMetrics();
+  const safe = useSafeAreaInsets();
   const t = copy(context.locale);
   const estimated = model.catalog?.estimated_minutes;
+  const total = model.cartValid ? money(model.cartTotalMinor) : '—';
   return (
     <View testID="kiosk-screen-loyalty" style={layout.screen}>
-      <Header {...context} title={t.review} back={model.openCart} />
-      <ScrollView style={layout.grow} contentContainerStyle={{ padding: px(44), gap: px(30) }}>
-        <Heading size={52}>{t.payTitle}</Heading>
+      <LightBackground />
+      <View
+        style={{
+          paddingTop: safe.top + px(22),
+          paddingLeft: Math.max(safe.left, px(24)),
+          paddingRight: Math.max(safe.right, px(24)),
+          paddingBottom: px(16),
+          gap: px(14),
+        }}
+      >
+        <BluePattern />
+        <View style={[layout.row, { gap: px(16) }]}>
+          <IconButton name="arrow-back" label={t.back} dark onPress={model.openCart} />
+          <Logo />
+          <View
+            style={{
+              flex: 1,
+              minWidth: 0,
+              flexDirection: fontScale >= 1.3 ? 'column' : 'row',
+              alignItems: fontScale >= 1.3 ? 'stretch' : 'center',
+              gap: px(16),
+            }}
+          >
+            <View style={{ flex: 1, minWidth: 0, gap: px(3) }}>
+              <Body
+                style={{
+                  fontSize: Math.max(16, px(18)),
+                  fontFamily: fonts.bold,
+                  letterSpacing: px(1.8),
+                  color: 'rgba(255,255,255,.66)',
+                }}
+              >
+                {model.mode === 'dine_in' ? t.here : t.togo}
+              </Body>
+              <Heading size={40} color={colors.white}>
+                {t.payTitle}
+              </Heading>
+            </View>
+            <View style={{ gap: px(3), alignItems: 'flex-end', flexShrink: 0 }}>
+              <Body style={{ fontSize: Math.max(16, px(18)), color: 'rgba(255,255,255,.66)' }}>
+                {t.toPay}
+              </Body>
+              <Heading size={42} color={colors.orange}>
+                {total}
+              </Heading>
+            </View>
+          </View>
+        </View>
+        <View style={[layout.row, { justifyContent: 'flex-end', gap: px(16) }]}>
+          <IconButton name="help-circle-outline" label={t.help} dark onPress={context.onHelp} />
+          <IconButton
+            name="close"
+            label={t.cancel}
+            testID="kiosk-cancel-open"
+            dark
+            onPress={context.onCancel}
+          />
+          <Language locale={context.locale} onChange={context.setLocale} />
+        </View>
+      </View>
+      <ScrollView
+        style={layout.grow}
+        onScrollBeginDrag={model.touch}
+        contentContainerStyle={{ padding: px(24), paddingTop: px(26), gap: px(26) }}
+      >
         <View
           style={{
             backgroundColor: colors.white,
-            borderRadius: px(24),
-            padding: px(28),
-            gap: px(20),
+            borderRadius: px(26),
+            paddingHorizontal: px(26),
+            paddingVertical: px(8),
+            boxShadow: '0 2px 4px rgba(14,21,36,.05), 0 14px 30px rgba(14,21,36,.07)',
           }}
         >
-          <View style={[layout.row, { gap: px(16) }]}>
-            <Icon
-              name={model.mode === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline'}
-              color={colors.blue}
-              size={px(34)}
-            />
-            <Heading size={28} color={colors.blue}>
-              {model.mode === 'dine_in' ? t.here : t.togo}
-            </Heading>
-          </View>
-          {estimated ? (
-            <Body style={{ color: colors.muted }}>
-              {t.preparation} {estimated.min}–{estimated.max} {t.minutes}
-            </Body>
-          ) : null}
           {model.cart.map((line) => (
             <View
               key={line.lineId}
               style={[
                 layout.spread,
-                { gap: px(20), borderTopWidth: 1, borderColor: colors.border, paddingTop: px(20) },
+                {
+                  alignItems: 'flex-start',
+                  gap: px(20),
+                  borderBottomWidth: 1.5,
+                  borderColor: colors.light,
+                  paddingVertical: px(18),
+                },
               ]}
             >
-              <View style={{ flex: 1, gap: px(7) }}>
-                <Body style={{ fontFamily: fonts.medium }}>
+              <View style={{ flex: 1, minWidth: 0, gap: px(5) }}>
+                <Body style={{ fontSize: px(24), lineHeight: px(32), fontFamily: fonts.bold }}>
                   {line.product.name} × {line.quantity}
                 </Body>
-                <Body style={{ color: colors.muted, fontSize: Math.max(16, px(18)) }}>
-                  {selectionSummary(line)}
-                </Body>
+                {selectionSummary(line) ? (
+                  <Body style={{ color: colors.muted, fontSize: Math.max(16, px(18)) }}>
+                    {selectionSummary(line)}
+                  </Body>
+                ) : null}
               </View>
-              <Heading size={26}>{money(line.lineTotalMinor)}</Heading>
+              <Heading size={25} style={{ fontFamily: fonts.heading }}>
+                {money(line.lineTotalMinor)}
+              </Heading>
             </View>
           ))}
+          <View style={[layout.spread, { gap: px(20), paddingVertical: px(20) }]}>
+            <Body style={{ fontFamily: fonts.bold, fontSize: px(22), color: colors.muted }}>
+              {t.total}
+            </Body>
+            <Heading size={38} color={colors.blue}>
+              {total}
+            </Heading>
+          </View>
+          {estimated ? (
+            <Body style={{ color: colors.muted, paddingBottom: px(16) }}>
+              {t.preparation} {estimated.min}–{estimated.max} {t.minutes}
+            </Body>
+          ) : null}
         </View>
-        <Body style={{ fontFamily: fonts.bold, color: colors.muted, letterSpacing: 0.7 }}>
-          {t.payChoose}
-        </Body>
-        <View style={{ gap: px(18) }}>
+        <View style={{ gap: px(14) }}>
+          <Body
+            style={{
+              fontSize: Math.max(16, px(19)),
+              fontFamily: fonts.bold,
+              color: colors.muted,
+              letterSpacing: px(1.9),
+              paddingLeft: px(6),
+            }}
+          >
+            {t.payChoose}
+          </Body>
           {(['kaspi', 'card'] as const).map((method) => (
             <Pressable
               key={method}
               testID={`kiosk-payment-method-${method}`}
               accessibilityRole="radio"
-              accessibilityState={{ checked: model.paymentMethod === method }}
+              accessibilityState={{ checked: model.paymentMethod === method, disabled: model.busy }}
               aria-checked={model.paymentMethod === method}
+              disabled={model.busy}
               onPress={() => model.setPaymentMethod(method)}
               style={{
-                backgroundColor: colors.white,
-                borderWidth: 3,
+                backgroundColor: model.paymentMethod === method ? '#F0F5FF' : colors.white,
+                borderWidth: 2.5,
                 borderColor: model.paymentMethod === method ? colors.blue : colors.border,
-                borderRadius: px(26),
-                padding: px(28),
+                borderRadius: px(24),
+                paddingVertical: px(22),
+                paddingHorizontal: px(26),
                 minHeight: px(120),
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: px(24),
+                gap: px(22),
               }}
             >
               <View
                 style={{
                   backgroundColor: method === 'kaspi' ? '#E52A2E' : colors.blue,
-                  minWidth: px(66),
-                  height: px(66),
-                  borderRadius: px(17),
+                  width: px(84),
+                  height: px(84),
+                  borderRadius: px(22),
+                  flexShrink: 0,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -439,15 +526,27 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
                   size={px(34)}
                 />
               </View>
-              <Heading size={30} style={{ flex: 1 }}>
-                {method === 'kaspi' ? 'Kaspi' : t.card}
-              </Heading>
+              <View style={{ flex: 1, minWidth: 0, gap: px(5) }}>
+                <Heading size={30} style={{ fontFamily: fonts.heading }}>
+                  {method === 'kaspi' ? 'Kaspi' : t.card}
+                </Heading>
+                <Body style={{ fontSize: Math.max(16, px(19)), color: colors.muted }}>
+                  {context.locale === 'ru'
+                    ? method === 'kaspi'
+                      ? 'Тестовый сценарий Kaspi — без QR и списания денег.'
+                      : 'Тестовый сценарий карты — без терминала и списания денег.'
+                    : method === 'kaspi'
+                      ? 'Kaspi сынағы — QR-кодсыз, ақша алынбайды.'
+                      : 'Карта сынағы — терминалсыз, ақша алынбайды.'}
+                </Body>
+              </View>
               <View
                 style={{
-                  width: px(34),
-                  height: px(34),
-                  borderRadius: px(17),
-                  borderWidth: 3,
+                  width: px(44),
+                  height: px(44),
+                  borderRadius: px(22),
+                  borderWidth: 2.5,
+                  flexShrink: 0,
                   borderColor: model.paymentMethod === method ? colors.blue : colors.border,
                   alignItems: 'center',
                   justifyContent: 'center',
