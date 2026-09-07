@@ -295,3 +295,45 @@ ExpoImage, React, ReactNativeDependencies, SDWebImage, его AVIF/SVG/WebP code
 и hermesvm. dSYM приложения присутствует. Предупреждения ограничивают расшифровку
 стеков этих зависимостей; настройка/получение их символов остаётся работой по
 диагностике и не выдаётся за завершённую. Apple не отклонила загрузку из-за них.
+
+## Выпуск 0.1.0 (5) — вход по макету и дата рождения
+
+7 сентября 2026 по времени Алматы. Чистый исходник приложения:
+`074c608da1ad213596323bdc0b5cdb0a754b6a2e`. Выпуск
+`auth-birthday-20260907-5` прошёл archive/export. Проверены Bundle ID
+`kz.pickchick.app`, Team `DAJTP6MC3Q`, фактическая версия `0.1.0`, build `5`,
+встроенный `main.jsbundle`, App Store profile/get-task-allow=false и
+`codesign --verify --deep --strict`. Временные настройки подписи восстановлены.
+Приватный локальный IPA:
+`~/Library/Caches/PickChick/releases/auth-birthday-20260907-5/export/PickChick.ipa`.
+Размер 37 122 260 байт; SHA-256 локального export:
+`1e377286e69fd531460d5ecc466ccb97fddbd0f3fbfa08f539af2e10ff1ab155`.
+Upload выполняет отдельный export; hash относится к локальному IPA.
+
+Apple подтвердила **`Upload succeeded` 7 сентября в 08:14:44 UTC / 13:14:44 Алматы**.
+`release.json` содержит `archiveStatus=complete`, `exportStatus=complete`,
+`deliveryStatus=submitted`, `dirty=false` и правильный исходный SHA.
+Завершение Apple processing и назначение в `PickChick Internal` пока
+**не подтверждены**: существующая вкладка App Store Connect после обновления
+перенаправлена на форму входа. Требуется повторный вход владельца, затем проверка
+и при необходимости назначение сборки существующей группе. Последняя
+подтверждённая доступная сборка — 4. Установка версии 5 на физический iPhone
+не проверена; новые тестировщики и внешняя beta не создавались.
+
+[CI исходника выпуска](https://github.com/xaaknazar/pickchick/actions/runs/34098655733)
+успешен во всех трёх jobs. [UI-протокол](../../tests/operations/verification-auth-birthday-2026-09-07.md)
+включает браузерные размеры, клавиатуру и нативный выбор/сохранение даты.
+[Инструкция проверки](mobile-beta-0.1.0.md).
+
+На Xcode 26.6 применён [локальный обход Clang probe deadlock](ios-clang-probe-workaround.md).
+Только archive получил `XCODE_XCCONFIG_FILE` с двумя настройками CC/CXX;
+compiler flags, архитектура, оптимизация и подпись не изменялись. Реальные
+Clang/Clang++, compiler metadata и исходные результаты probe сохранены;
+`compiler-provenance.json` рядом с архивом содержит пути и хэши. Export/upload
+выполнены без этого override. Глобальные настройки Xcode не менялись.
+
+Загрузка принята с предупреждениями об отсутствующих dSYM тех же восьми
+framework, что в сборке 4: ExpoImage, React, ReactNativeDependencies, SDWebImage,
+его AVIF/SVG/WebP coders и hermesvm. Ограничение расшифровки их стеков остаётся.
+Профиль клиента и дата рождения локальные; реальная SMS-авторизация и серверное
+хранение DOB этим выпуском не включаются. VPS не обновлялся.

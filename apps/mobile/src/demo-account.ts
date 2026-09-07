@@ -1,3 +1,10 @@
+import {
+  emptyDemoProfile,
+  normalizeProfileDetails,
+  type DemoProfile,
+  type DemoProfileInput,
+} from './profile-details.ts';
+
 /** Local rehearsal only. This code never authenticates a phone with the API. */
 export const DEMO_ACCOUNT_KEY = 'pickchick.demo.profile.v1';
 export const DEMO_LOGIN_CODE = '123456';
@@ -6,10 +13,11 @@ export const DEMO_RESEND_MS = 60_000;
 export const DEMO_CODE_ATTEMPTS = 5;
 
 export interface DemoAccount {
-  version: 1;
+  version: 2;
   kind: 'local_demo';
   phone: string;
   createdAt: number;
+  profile: DemoProfile;
 }
 export interface DemoChallenge {
   phone: string;
@@ -29,7 +37,10 @@ export type DemoLoginErrorCode =
   | 'no_challenge'
   | 'expired'
   | 'attempts_exhausted'
-  | 'invalid_code';
+  | 'invalid_code'
+  | 'invalid_profile'
+  | 'no_account'
+  | 'restore_required';
 export class DemoLoginError extends Error {
   readonly code: DemoLoginErrorCode;
   constructor(code: DemoLoginErrorCode) {
@@ -54,15 +65,18 @@ export function formatDemoPhone(value: string): string {
   return `+7 ${local.slice(0, 3)} ${local.slice(3, 6)}-${local.slice(6, 8)}-${local.slice(8)}`;
 }
 
-export function parseDemoAccount(raw: string | null): DemoAccount | null {
+export function parseDemoAccount(raw: string | null, now: number = Date.now()): DemoAccount | null {
   if (!raw || raw.length > 1000) return null;
   try {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const record = value as Record<string, unknown>;
     if (
-      Object.keys(record).sort().join(',') !== 'createdAt,kind,phone,version' ||
-      record.version !== 1 ||
+      (record.version !== 1 && record.version !== 2) ||
+      Object.keys(record).sort().join(',') !==
+        (record.version === 1
+          ? 'createdAt,kind,phone,version'
+          : 'createdAt,kind,phone,profile,version') ||
       record.kind !== 'local_demo' ||
       typeof record.phone !== 'string' ||
       normalizeDemoPhone(record.phone) !== record.phone ||
@@ -70,7 +84,32 @@ export function parseDemoAccount(raw: string | null): DemoAccount | null {
       Number(record.createdAt) <= 0
     )
       return null;
-    return record as unknown as DemoAccount;
+    let profile = emptyDemoProfile();
+    if (record.version === 2) {
+      if (!record.profile || typeof record.profile !== 'object' || Array.isArray(record.profile))
+        return null;
+      const stored = record.profile as Record<string, unknown>;
+      if (Object.keys(stored).sort().join(',') !== 'birthDate,completedAt,gender,nickname')
+        return null;
+      const details = normalizeProfileDetails(
+        { nickname: stored.nickname, birthDate: stored.birthDate, gender: stored.gender },
+        now,
+      );
+      if (
+        !details ||
+        (stored.completedAt !== null &&
+          (!Number.isSafeInteger(stored.completedAt) || Number(stored.completedAt) <= 0))
+      )
+        return null;
+      profile = { ...details, completedAt: stored.completedAt as number | null };
+    }
+    return {
+      version: 2,
+      kind: 'local_demo',
+      phone: record.phone,
+      createdAt: Number(record.createdAt),
+      profile,
+    };
   } catch {
     return null;
   }
@@ -81,15 +120,42 @@ export class DemoAccountCore {
   account: DemoAccount | null = null;
   challenge: DemoChallenge | null = null;
   private readonly io: DemoAccountStorage;
+  private restoreBlocked = false;
+  private restoring: Promise<void> | null = null;
   constructor(io: DemoAccountStorage) {
     this.io = io;
   }
-  async restore(): Promise<void> {
+  restore(): Promise<void> {
+    if (this.restoring) return this.restoring;
+    // A pending/failed read is not evidence that this device has no account.
+    // Keep writes blocked until a retry has established its persisted identity.
+    this.restoreBlocked = true;
+    this.restoring = this.readAccount().finally(() => {
+      this.restoring = null;
+    });
+    return this.restoring;
+  }
+  private async readAccount(): Promise<void> {
     const raw = await this.io.read();
-    this.account = parseDemoAccount(raw);
-    if (raw && !this.account) await this.io.remove();
+    const next = parseDemoAccount(raw, this.io.now());
+    if (raw && !next) await this.io.remove();
+    if (next && raw !== JSON.stringify(next)) {
+      // Best-effort v1 migration: a write failure must not log out an existing
+      // local account. A later restore/profile save can persist the new shape.
+      try {
+        await this.io.write(JSON.stringify(next));
+      } catch {
+        // The valid old record is still readable under the same storage key.
+      }
+    }
+    this.account = next;
+    this.restoreBlocked = false;
+  }
+  private requireRestored(): void {
+    if (this.restoreBlocked) throw new DemoLoginError('restore_required');
   }
   requestCode(input: string): void {
+    this.requireRestored();
     const phone = normalizeDemoPhone(input);
     if (!phone) throw new DemoLoginError('invalid_phone');
     const now = this.io.now();
@@ -103,6 +169,7 @@ export class DemoAccountCore {
     };
   }
   async verifyCode(code: string): Promise<void> {
+    this.requireRestored();
     const challenge = this.challenge;
     if (!challenge) throw new DemoLoginError('no_challenge');
     if (this.io.now() >= challenge.expiresAt) throw new DemoLoginError('expired');
@@ -113,21 +180,40 @@ export class DemoAccountCore {
         this.challenge.attemptsLeft === 0 ? 'attempts_exhausted' : 'invalid_code',
       );
     }
-    const next: DemoAccount = {
-      version: 1,
-      kind: 'local_demo',
-      phone: challenge.phone,
-      createdAt: this.io.now(),
-    };
+    const next: DemoAccount =
+      this.account?.phone === challenge.phone
+        ? this.account
+        : {
+            version: 2,
+            kind: 'local_demo',
+            phone: challenge.phone,
+            createdAt: this.io.now(),
+            profile: emptyDemoProfile(),
+          };
     // Persist before displaying success; a failed write leaves the challenge recoverable.
     await this.io.write(JSON.stringify(next));
     this.account = next;
     this.challenge = null;
   }
+  async saveProfile(input: DemoProfileInput): Promise<void> {
+    this.requireRestored();
+    if (!this.account) throw new DemoLoginError('no_account');
+    const now = this.io.now();
+    const details = normalizeProfileDetails(input, now);
+    if (!details || !Number.isSafeInteger(now) || now <= 0)
+      throw new DemoLoginError('invalid_profile');
+    const next: DemoAccount = { ...this.account, profile: { ...details, completedAt: now } };
+    // The complete account is one storage write. Failure leaves the prior in-memory
+    // profile unchanged; UI must not announce success before storage acknowledges it.
+    await this.io.write(JSON.stringify(next));
+    this.account = next;
+  }
   cancelChallenge(): void {
+    if (this.restoreBlocked) return;
     this.challenge = null;
   }
   async signOut(): Promise<void> {
+    this.requireRestored();
     // Do not touch the independent order session or pending financial-command rehearsal.
     await this.io.remove();
     this.account = null;

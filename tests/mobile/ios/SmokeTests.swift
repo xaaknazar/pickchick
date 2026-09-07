@@ -180,28 +180,33 @@ final class SmokeTests: XCTestCase {
     @MainActor
     func testKeyboardLeavesLocalProfileActionReachable() throws {
         let app = launchApp()
-        openDesignScreen("M04", in: app)
-        tap("nickname-input", in: app)
+        beginDemoRegistration(in: app)
+        XCTAssertFalse(app.staticTexts["@"].exists, "Nickname must not have a decorative @ prefix")
+        replaceText(in: element("nickname-input", in: app), with: "Keyboard Profile", app: app)
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        element("nickname-input", in: app).typeText("Layout")
         let save = element("nickname-save", in: app)
-        reveal(save, in: app)
-        XCTAssertTrue(save.isHittable)
-        if app.keyboards.firstMatch.exists {
-            XCTAssertLessThanOrEqual(save.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
-        }
+        let later = element("profile-fill-later", in: app)
+        XCTAssertTrue(save.isEnabled, "Optional birthday and gender must not prevent saving")
+        XCTAssertTrue(save.isHittable, "Save must be reachable without dismissing the keyboard")
+        XCTAssertTrue(later.isHittable, "Postpone must remain reachable with the keyboard open")
+        XCTAssertLessThanOrEqual(save.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
+        XCTAssertLessThanOrEqual(later.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
+        attachScreenshot("Registration-actions-above-keyboard", of: app)
         save.tap()
+        assertScreen("M06", in: app)
+        tap("tab-profile", in: app)
         assertScreen("M30", in: app)
+        XCTAssertTrue(app.staticTexts["Keyboard Profile"].exists)
         attachScreenshot("Keyboard-local-profile", of: app)
     }
 
     @MainActor
     func testLocalDemoPhoneInputAndAccountLifecycle() throws {
-        XCTContext.runActivity(named: "native-input-v2") { activity in
+        XCTContext.runActivity(named: "native-registration-v4-uidate") { activity in
             let bundleURL = Bundle(for: SmokeTests.self).bundleURL
-            print("native-input-v2 test bundle: \(bundleURL.absoluteString)")
+            print("native-registration-v4-uidate test bundle: \(bundleURL.absoluteString)")
             let attachment = XCTAttachment(string: bundleURL.absoluteString)
-            attachment.name = "native-input-v2-test-bundle"
+            attachment.name = "native-registration-v4-uidate-test-bundle"
             attachment.lifetime = .keepAlways
             activity.add(attachment)
         }
@@ -233,11 +238,18 @@ final class SmokeTests: XCTestCase {
         replaceText(in: code, with: "123456", app: app)
         tap("confirm-otp", in: app)
         assertScreen("M04", in: app)
+        XCTAssertFalse(app.staticTexts["@"].exists)
         replaceText(in: element("nickname-input", in: app), with: "Native Demo", app: app)
+        chooseBirthday(day: 29, month: 2, year: 2000, in: app)
+        tap("profile-gender-female", in: app)
+        attachScreenshot("Registration-birthday-complete", of: app)
         tap("nickname-save", in: app)
+        assertScreen("M06", in: app)
+        tap("tab-profile", in: app)
         assertScreen("M30", in: app)
         XCTAssertTrue(app.staticTexts["Native Demo"].exists)
         XCTAssertTrue(app.staticTexts["+7 700 000-00-00"].exists)
+        XCTAssertTrue(element("profile-birthday", in: app).label.contains("29.02.2000"))
         attachScreenshot("Demo-profile-saved", of: app)
 
         app.terminate()
@@ -247,7 +259,29 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(element("demo-sign-out", in: app).waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Native Demo"].exists)
         XCTAssertTrue(app.staticTexts["+7 700 000-00-00"].exists)
+        XCTAssertTrue(element("profile-birthday", in: app).label.contains("29.02.2000"))
         attachScreenshot("Demo-profile-restored", of: app)
+        tap("profile-birthday", in: app)
+        assertScreen("M04", in: app)
+        assertLabel("День рождения: 29", on: element("birthday-day", in: app))
+        assertLabel("Месяц рождения: Февраль", on: element("birthday-month", in: app))
+        assertLabel("Год рождения: 2000", on: element("birthday-year", in: app))
+        XCTAssertEqual(element("nickname-input", in: app).value as? String, "Native Demo")
+        openBirthdayPicker(part: "month", in: app)
+        adjustNativeBirthday(day: 17, month: 3, year: 2001, in: app)
+        attachScreenshot("Registration-native-date-draft", of: app)
+        tap("birthday-picker-cancel", in: app)
+        waitForBirthdayPickerToClose(in: app)
+        assertLabel("День рождения: 29", on: element("birthday-day", in: app))
+        assertLabel("Месяц рождения: Февраль", on: element("birthday-month", in: app))
+        assertLabel("Год рождения: 2000", on: element("birthday-year", in: app))
+        tap("birthday-clear", in: app)
+        XCTAssertFalse(element("birthday-error", in: app).exists)
+        XCTAssertTrue(element("nickname-save", in: app).isEnabled)
+        // Cancel rather than persist the edited form; the birthday must survive.
+        tap("profile-fill-later", in: app)
+        assertScreen("M30", in: app)
+        XCTAssertTrue(element("profile-birthday", in: app).label.contains("29.02.2000"))
         tap("demo-sign-out", in: app)
         XCTAssertTrue(element("profile-sign-in", in: app).waitForExistence(timeout: 10))
         XCTAssertFalse(element("demo-sign-out", in: app).exists)
@@ -366,6 +400,106 @@ final class SmokeTests: XCTestCase {
             XCTAssertTrue(basket.isHittable)
             attachScreenshot("Category-\(category)-fixed-controls", of: app)
         }
+    }
+
+    @MainActor
+    private func beginDemoRegistration(in app: XCUIApplication) {
+        tap("tab-profile", in: app)
+        if element("demo-sign-out", in: app).exists {
+            tap("demo-sign-out", in: app)
+        }
+        tap("profile-sign-in", in: app)
+        assertScreen("M02", in: app)
+        replaceText(in: element("phone-input", in: app), with: "7000000000", app: app)
+        tap("request-otp", in: app)
+        assertScreen("M03", in: app)
+        replaceText(in: element("otp-input", in: app), with: "123456", app: app)
+        tap("confirm-otp", in: app)
+        assertScreen("M04", in: app)
+    }
+
+    @MainActor
+    private func chooseBirthday(day: Int, month: Int, year: Int, in app: XCUIApplication) {
+        openBirthdayPicker(part: "day", in: app)
+        adjustNativeBirthday(day: day, month: month, year: year, in: app)
+        attachScreenshot("Registration-native-date-selected", of: app)
+        tap("birthday-picker-confirm", in: app)
+        waitForBirthdayPickerToClose(in: app)
+        XCTAssertTrue(element("nickname-save", in: app).isHittable,
+                      "Closing the system date picker must restore the fixed form action")
+    }
+
+    @MainActor
+    private func openBirthdayPicker(part: String, in app: XCUIApplication) {
+        tap("birthday-\(part)", in: app)
+        let keyboardHidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                                       object: app.keyboards.firstMatch)
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardHidden], timeout: 5), .completed)
+        XCTAssertTrue(element("birthday-picker", in: app).waitForExistence(timeout: 5))
+        for identifier in ["birthday-picker-confirm", "birthday-picker-cancel"] {
+            let action = element(identifier, in: app)
+            XCTAssertTrue(action.isHittable, "Date sheet action must be reachable: \(identifier)")
+            XCTAssertGreaterThanOrEqual(action.frame.minY, app.frame.minY)
+            XCTAssertLessThanOrEqual(action.frame.maxY, app.frame.maxY)
+        }
+    }
+
+    @MainActor
+    private func adjustNativeBirthday(day: Int, month: Int, year: Int, in app: XCUIApplication) {
+        XCTAssertTrue(app.pickerWheels.firstMatch.waitForExistence(timeout: 5),
+                      "Expected the real UIDatePicker wheels")
+        let wheels = app.pickerWheels.allElementsBoundByIndex
+        XCTAssertEqual(wheels.count, 3, "Date mode must expose day, month and year wheels")
+        let values = wheels.map { $0.value as? String ?? "" }
+        let attachment = XCTAttachment(string: values.enumerated().map { "\($0.offset): \($0.element)" }.joined(separator: "\n"))
+        attachment.name = "Native-birthday-wheel-values"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let nominative = ["январь", "февраль", "март", "апрель", "май", "июнь",
+                          "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
+        let genitive = ["января", "февраля", "марта", "апреля", "мая", "июня",
+                        "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+        guard wheels.count == 3, (1...12).contains(month),
+              let yearIndex = values.firstIndex(where: { (Int($0.filter(\.isNumber)) ?? 0) >= 1900 }),
+              let monthIndex = values.firstIndex(where: { nominative.contains($0.lowercased()) || genitive.contains($0.lowercased()) }),
+              let dayIndex = values.indices.first(where: { $0 != yearIndex && $0 != monthIndex }) else {
+            XCTFail("Expected Russian date wheel values; observed \(values)")
+            return
+        }
+        // Infer wheel order and Russian case from the actual native values.
+        // Day 1 avoids transient invalid dates while changing month/year.
+        adjustNumberWheel(wheels[dayIndex], to: 1)
+        adjustNumberWheel(wheels[yearIndex], to: year)
+        var monthValue = nominative.contains(values[monthIndex].lowercased())
+            ? nominative[month - 1] : genitive[month - 1]
+        if values[monthIndex].first?.isUppercase == true {
+            monthValue = monthValue.prefix(1).uppercased() + String(monthValue.dropFirst())
+        }
+        adjustWheel(wheels[monthIndex], to: monthValue)
+        adjustNumberWheel(wheels[dayIndex], to: day)
+    }
+
+    @MainActor
+    private func adjustNumberWheel(_ wheel: XCUIElement, to value: Int) {
+        let previous = wheel.value as? String ?? ""
+        let next = previous.replacingOccurrences(of: "[0-9]+", with: String(value), options: .regularExpression)
+        XCTAssertNotEqual(previous, "", "Native numeric wheel must expose its current value")
+        adjustWheel(wheel, to: next)
+    }
+
+    @MainActor
+    private func adjustWheel(_ wheel: XCUIElement, to value: String) {
+        wheel.adjust(toPickerWheelValue: value)
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: wheel)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed,
+                       "Native picker must select \(value); observed \(String(describing: wheel.value))")
+    }
+
+    @MainActor
+    private func waitForBirthdayPickerToClose(in app: XCUIApplication) {
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                              object: element("birthday-picker", in: app))
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
     }
 
     @MainActor
