@@ -48,6 +48,9 @@ importers:
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.10.0(supports-color@8.1.1))
+      '@pickchick/edge-fulfillment':
+        specifier: workspace:*
+        version: link:packages/edge-fulfillment
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
@@ -145,6 +148,8 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+
+  apps/kitchen: {}
 
   apps/mobile:
     dependencies:
@@ -589,12 +594,18 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@pickchick/edge-fulfillment':
+        specifier: workspace:*
+        version: link:../../packages/edge-fulfillment
       '@pickchick/local-orders':
         specifier: workspace:*
         version: link:../../packages/local-orders
       '@pickchick/platform':
         specifier: workspace:*
         version: link:../../packages/platform
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
     devDependencies:
       '@types/node':
         specifier: 24.13.3

@@ -10,6 +10,14 @@ API: `c21404d100b7cbd5b38c22ca5b78099788ce06e9`, station membership:
 Для совместной проверки до переноса API использован только локальный
 `PICKCHICK_LAN_API_ROOT` из соседней worktree; default runner — текущий monorepo.
 
+После объединения в `codex/local-kitchen-lan` (API `d165ace`, membership
+`f0d558a`, UI `525b371`) корневая рабочая копия повторно выполнила `pnpm check`
+и все 29 проверок `pnpm test:kitchen` без `PICKCHICK_LAN_API_ROOT`.
+Полный `pnpm test:integration` в той же рабочей копии: **140/140 PASS**, включая
+12 новых LAN HTTP-сценариев и прежние 128 проверок.
+Все четыре снимка также просмотрены при интеграции. Lockfile содержит новый
+workspace, а отдельный CI job воспроизводит клиентские проверки на Linux.
+
 | Проверка                                                 | Результат      |
 | -------------------------------------------------------- | -------------- |
 | Build / TypeScript / ESLint / Prettier                   | PASS           |
