@@ -1,8 +1,7 @@
-import { FlatList, Pressable, ScrollView, View } from 'react-native';
-import { Image } from 'expo-image';
+import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { KioskCartLine, KioskModel } from '../model';
 import { defaultSelections, money, validSelections } from '../cart';
-import { productImage } from '../assets';
+import { ProductArtwork } from '../components/ProductArtwork';
 import { copy } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import {
@@ -120,11 +119,7 @@ function CartRow({
             backgroundColor: colors.light,
           }}
         >
-          <Image
-            source={productImage(line.product.image_id)}
-            contentFit="cover"
-            style={{ width: '128%', height: '128%', marginLeft: '-14%', marginTop: '-14%' }}
-          />
+          <ProductArtwork imageId={line.product.image_id} crop style={StyleSheet.absoluteFill} />
         </View>
         <View style={{ flex: 1, gap: px(10) }}>
           <Heading size={28} style={{ fontFamily: fonts.heading }}>

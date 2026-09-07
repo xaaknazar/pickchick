@@ -99,7 +99,15 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
   const t = copy(context.locale);
   return (
     <View testID="kiosk-screen-mode" style={layout.screen}>
-      <Header {...context} back={() => void model.newGuest()} title="Pick Chick" />
+      <Header
+        {...context}
+        back={() =>
+          model.cart.length || model.unavailableCartLines.length
+            ? context.onCancel()
+            : void model.newGuest()
+        }
+        title="Pick Chick"
+      />
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,

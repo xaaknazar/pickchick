@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
-import { assets, productImage } from '../assets';
+import { assets } from '../assets';
+import { ProductArtwork } from '../components/ProductArtwork';
 import { defaultSelections, money, validSelections } from '../cart';
 import type { KioskModel, KioskProduct } from '../model';
 import { copy } from '../i18n';
@@ -66,11 +67,7 @@ export function ProductCard({
             backgroundColor: colors.light,
           }}
         >
-          <Image
-            source={productImage(product.image_id)}
-            contentFit="cover"
-            style={{ width: '128%', height: '128%', marginLeft: '-14%', marginTop: '-14%' }}
-          />
+          <ProductArtwork imageId={product.image_id} crop style={StyleSheet.absoluteFill} />
         </View>
         <View style={{ paddingHorizontal: px(6), gap: px(10) }}>
           <Heading size={29} style={{ fontFamily: fonts.heading }}>
