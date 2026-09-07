@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",
+    "@pickchick/menu-sync": "workspace:*",
     "zod": "4.5.4",
     "@pickchick/catalog-pricing": "workspace:*"
   },
