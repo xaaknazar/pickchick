@@ -352,5 +352,11 @@
     "source": "offline/i26.jpg",
     "sha256": "d8fb0d7818ab60f649b2c863efb8e57ce64f807e43c51756236c7e05c01a65ed",
     "transform": "none"
+  },
+  {
+    "file": "shot.jpg",
+    "source": "Pick Chick Kiosk (offline).html#04859f55-3d9e-4965-ab64-bb6709b41b84 (offline/shot.jpg)",
+    "sha256": "2ac52455bd4890f2613900878e2d41c218d7c88f40c33e5a4f15b1ac888acc93",
+    "transform": "none"
   }
 ]

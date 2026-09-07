@@ -215,7 +215,7 @@
       "mime_type": "image/jpeg",
       "decoded_bytes": 72743,
       "sha256": "2ac52455bd4890f2613900878e2d41c218d7c88f40c33e5a4f15b1ac888acc93",
-      "exact_repository_matches": []
+      "exact_repository_matches": ["design/prototype/assets/mockup/shot.jpg"]
     },
     {
       "reference": "7e3da56f-ea27-4d1c-831c-5e369aba0033",
