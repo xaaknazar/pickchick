@@ -50,6 +50,7 @@ interface ChallengeRow {
   device_hash: string;
   code_hash: string | null;
   attempts: number;
+  receipt_failed_attempts: number;
   state: string;
   created_at: Date;
   expires_at: Date;
@@ -286,23 +287,29 @@ export class CustomerIdentity {
         if (challenge.state === 'consumed') {
           if (
             challenge.verify_request_id !== body.request_id ||
+            challenge.receipt_failed_attempts >= 5 ||
             !challenge.verify_input_hash ||
-            !equalHash(challenge.verify_input_hash, inputHash)
+            !challenge.response_cipher ||
+            !challenge.receipt_expires_at ||
+            challenge.receipt_expires_at <= now
           )
             return fail('CONFLICT');
+          if (!equalHash(challenge.verify_input_hash, inputHash)) {
+            // Only the bound device + original request key may spend this budget.
+            // Return the error after commit so restart/concurrent guesses cannot reset it.
+            await db.query(
+              'UPDATE identity_otp_challenges SET receipt_failed_attempts=receipt_failed_attempts+1 WHERE id=$1',
+              [challenge.id],
+            );
+            return fail('CONFLICT');
+          }
           const current = (
             await db.query<SessionRow>('SELECT * FROM identity_sessions WHERE id=$1 FOR UPDATE', [
               challenge.session_id,
             ])
           ).rows[0];
           if (!current || current.revoked_at) return fail('UNAUTHORIZED');
-          if (
-            !challenge.response_cipher ||
-            !challenge.receipt_expires_at ||
-            challenge.receipt_expires_at <= now ||
-            current.refresh_hash !== challenge.initial_refresh_hash
-          )
-            return fail('CONFLICT');
+          if (current.refresh_hash !== challenge.initial_refresh_hash) return fail('CONFLICT');
           return CustomerSessionSchema.parse(
             decrypt(config.receiptKey, `verify:${challenge.id}`, challenge.response_cipher),
           );
