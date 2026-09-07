@@ -84,6 +84,18 @@ with sync_playwright() as p:
                 raise AssertionError('Unexpected auth request: ' + path)
             route.fulfill(status=status, json=response, headers={'Access-Control-Allow-Origin': '*'})
 
+        if width == 390:
+            # A click does not wait for asynchronous OTP dispatch. Keep this
+            # boundary deterministic while all requests still use local fixtures.
+            context.add_init_script("""
+                const originalFetch = window.fetch.bind(window);
+                window.fetch = async (input, init) => {
+                    const url = typeof input === 'string' ? input : input.url;
+                    if (new URL(url, location.href).pathname === '/v1/auth/otp/verify')
+                        await new Promise(resolve => setTimeout(resolve, 250));
+                    return originalFetch(input, init);
+                };
+            """)
         context.route('**/v1/**', intercept)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
@@ -119,8 +131,10 @@ with sync_playwright() as p:
             visible(page, 'otp-input').fill('938174')
             expect(visible(page, 'confirm-otp')).to_be_enabled()
             visible(page, 'confirm-otp').click()
-            assert verify_attempts[0] == verify_attempts[1]
         expect(visible(page, 'screen-M04')).to_be_visible()
+        if width == 390:
+            assert len(verify_attempts) == 2
+            assert verify_attempts[0] == verify_attempts[1]
         visible(page, 'nickname-input').fill('Проверка аккаунта')
         visible(page, 'birthday-day').click()
         visible(page, 'birthday-picker-cancel').click(trial=True)
