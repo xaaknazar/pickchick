@@ -405,3 +405,71 @@ test('LED rotation covers 1000 numbers with 6/4 bounds; shorter column remains v
   }
   assert.equal(seen.size, 1000);
 });
+
+test('failed station switch cannot publish previous station snapshot through pagination', async () => {
+  const f = fixture(),
+    rows = Array.from({ length: 101 }, (_, i) => ({
+      ...f.o,
+      orderId: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+      displayNumber: String(i + 1),
+    }));
+  const m = new KitchenModel(
+    async (...args) => {
+      if (args[0].includes('/kitchen?')) {
+        const q = new URL(args[0], 'http://local').searchParams;
+        if (q.get('stationId') === f.other) throw new ApiError('SERVICE_UNAVAILABLE', 503, true);
+        return q.has('afterOrderId')
+          ? { items: rows.slice(100), nextAfterOrderId: null }
+          : { items: rows.slice(0, 100), nextAfterOrderId: rows[99].orderId };
+      }
+      return f.transport(...args);
+    },
+    f.session,
+    f.durable,
+    async () => () => {},
+  );
+  await login(f, m);
+  assert.equal(m.state.orders.length, 50);
+  assert.ok(m.state.next);
+  await m.selectStation(f.other);
+  assert.equal(m.state.error, 'SERVICE_UNAVAILABLE');
+  assert.equal(m.state.orders.length, 0);
+  assert.equal(m.state.next, null);
+  assert.equal(m.state.lastSync, null);
+  await m.page();
+  assert.equal(m.state.orders.length, 0);
+  assert.equal(m.state.next, null);
+  await m.selectStation(f.station);
+  assert.equal(m.state.orders.length, 50);
+  assert.equal(m.state.error, null);
+});
+test('failed mode switch and logout clear snapshot cursor without clearing pending journal', async () => {
+  const f = fixture(),
+    m = new KitchenModel(
+      async (...args) => {
+        if (args[0].includes('/display?')) throw new ApiError('SERVICE_UNAVAILABLE', 503, true);
+        return f.transport(...args);
+      },
+      f.session,
+      f.durable,
+      async () => () => {},
+    );
+  await login(f, m);
+  await m.selectMode('display');
+  await m.page();
+  assert.deepEqual(m.state.orders, []);
+  assert.deepEqual(m.state.display, []);
+  assert.equal(m.state.lastSync, null);
+  await m.selectMode('kitchen');
+  f.setFault(() => {
+    throw new ApiError('CONNECTION_UNKNOWN');
+  });
+  await m.command(m.state.orders[0], allowedActions(m.state.orders[0], f.station)[0]);
+  const saved = f.durable.getItem(journalKey(f.c));
+  m.logout();
+  await m.page();
+  assert.equal(m.state.actor, null);
+  assert.equal(m.state.next, null);
+  assert.deepEqual(m.state.orders, []);
+  assert.equal(f.durable.getItem(journalKey(f.c)), saved);
+});

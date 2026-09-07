@@ -83,6 +83,7 @@ export class KitchenModel {
   private release: (() => void) | null = null;
   private allOrders: Order[] = [];
   private epoch = 0;
+  private snapshotScope: string | null = null;
   constructor(
     private transport: Transport,
     private session: StoragePort,
@@ -91,6 +92,23 @@ export class KitchenModel {
     private changed: () => void = () => {},
     private newId: () => string = () => crypto.randomUUID(),
   ) {}
+  private scopeKey() {
+    const c = this.state.actor;
+    return c
+      ? `${this.epoch}:${scope(c)}:${c.session_id}:${this.state.mode}:${this.state.stationId ?? ''}`
+      : null;
+  }
+  private resetSnapshot() {
+    this.snapshotScope = null;
+    this.allOrders = [];
+    Object.assign(this.state, {
+      orders: [],
+      display: [],
+      cursor: null,
+      next: null,
+      lastSync: null,
+    });
+  }
   private async call(...args: Parameters<Transport>) {
     const epoch = this.epoch;
     try {
@@ -131,7 +149,7 @@ export class KitchenModel {
     }
     this.release?.();
     this.release = null;
-    this.allOrders = [];
+    this.resetSnapshot();
     Object.assign(this.state, {
       actor: null,
       orders: [],
@@ -213,6 +231,7 @@ export class KitchenModel {
       storageBlocked: false,
       lease: true,
     });
+    this.resetSnapshot();
     try {
       const raw = this.durable.getItem(journalKey(c));
       if (raw) {
@@ -278,6 +297,7 @@ export class KitchenModel {
       (a, b) => a.createdAt.localeCompare(b.createdAt) || a.orderId.localeCompare(b.orderId),
     );
     this.state.display = display;
+    this.snapshotScope = this.scopeKey();
     this.projectPage();
     this.state.lastSync = Date.now();
   }
@@ -286,8 +306,7 @@ export class KitchenModel {
     await this.run(async () => {
       if (!this.state.stations.some((s) => s.id === id)) throw new Error('INVALID_STATION');
       this.state.stationId = id;
-      this.state.cursor = null;
-      this.state.orders = [];
+      this.resetSnapshot();
       await this.read();
     });
   }
@@ -295,13 +314,15 @@ export class KitchenModel {
     if (this.state.pending) return;
     await this.run(async () => {
       this.state.mode = mode;
-      this.state.cursor = null;
-      this.state.orders = [];
-      this.state.display = [];
+      this.resetSnapshot();
       await this.read();
     });
   }
   private projectPage() {
+    if (!this.snapshotScope || this.snapshotScope !== this.scopeKey()) {
+      this.resetSnapshot();
+      return;
+    }
     const start = this.state.cursor
       ? this.allOrders.findIndex((o) => o.orderId === this.state.cursor!) + 1
       : 0;
@@ -311,7 +332,7 @@ export class KitchenModel {
       offset + 50 < this.allOrders.length ? this.state.orders.at(-1)!.orderId : null;
   }
   async page(first = false) {
-    if (this.state.busy) return;
+    if (this.state.busy || !this.snapshotScope || this.snapshotScope !== this.scopeKey()) return;
     this.state.cursor = first ? null : this.state.next;
     this.projectPage();
     this.emit();
