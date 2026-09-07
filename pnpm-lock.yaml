@@ -26,6 +26,9 @@ importers:
       '@pickchick/edge':
         specifier: workspace:*
         version: link:services/edge
+      '@pickchick/fulfillment-transport':
+        specifier: workspace:*
+        version: link:packages/fulfillment-transport
       '@pickchick/local-orders':
         specifier: workspace:*
         version: link:packages/local-orders
@@ -328,6 +331,9 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../database
+      '@pickchick/menu-sync':
+        specifier: workspace:*
+        version: link:../menu-sync
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -413,6 +419,37 @@ importers:
       '@pickchick/commerce-core':
         specifier: workspace:*
         version: link:../commerce-core
+      '@pickchick/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/fulfillment-transport:
+    dependencies:
+      '@pickchick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
+      '@pickchick/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/edge-fulfillment':
+        specifier: workspace:*
+        version: link:../edge-fulfillment
+      '@pickchick/menu-sync':
+        specifier: workspace:*
+        version: link:../menu-sync
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
       '@pickchick/test-fixtures':
         specifier: workspace:*
         version: link:../test-fixtures
@@ -554,6 +591,9 @@ importers:
       '@pickchick/catalog-admin':
         specifier: workspace:*
         version: link:../../packages/catalog-admin
+      '@pickchick/commerce-core':
+        specifier: workspace:*
+        version: link:../../packages/commerce-core
       '@pickchick/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -563,6 +603,9 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@pickchick/fulfillment-transport':
+        specifier: workspace:*
+        version: link:../../packages/fulfillment-transport
       '@pickchick/menu-sync':
         specifier: workspace:*
         version: link:../../packages/menu-sync
