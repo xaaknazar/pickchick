@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="9db4291b-20fd-4758-b6ba-9430760763be"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+<body>
+
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<style>/* cyrillic-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("07087623-b97d-438f-b224-7322fa7e62d0") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("afa47c8b-c6b0-4c6f-b12d-6424979ac7cf") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("46e93949-512c-419f-bb5c-6349dda394fb") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("f5dc4878-3fa2-4140-a250-4d918e33edf5") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("07087623-b97d-438f-b224-7322fa7e62d0") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("afa47c8b-c6b0-4c6f-b12d-6424979ac7cf") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("46e93949-512c-419f-bb5c-6349dda394fb") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("f5dc4878-3fa2-4140-a250-4d918e33edf5") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("07087623-b97d-438f-b224-7322fa7e62d0") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("afa47c8b-c6b0-4c6f-b12d-6424979ac7cf") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("46e93949-512c-419f-bb5c-6349dda394fb") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("f5dc4878-3fa2-4140-a250-4d918e33edf5") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("07087623-b97d-438f-b224-7322fa7e62d0") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("afa47c8b-c6b0-4c6f-b12d-6424979ac7cf") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("46e93949-512c-419f-bb5c-6349dda394fb") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Golos Text';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("f5dc4878-3fa2-4140-a250-4d918e33edf5") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("cc5e42b7-922e-4400-9633-8e7faa6dac80") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("4844f467-763a-4d32-a109-541a542848b8") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("d35b4310-c408-4182-b74c-d19df9f515e4") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("cc5e42b7-922e-4400-9633-8e7faa6dac80") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("4844f467-763a-4d32-a109-541a542848b8") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("d35b4310-c408-4182-b74c-d19df9f515e4") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("cc5e42b7-922e-4400-9633-8e7faa6dac80") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("4844f467-763a-4d32-a109-541a542848b8") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("d35b4310-c408-4182-b74c-d19df9f515e4") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("cc5e42b7-922e-4400-9633-8e7faa6dac80") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("4844f467-763a-4d32-a109-541a542848b8") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("d35b4310-c408-4182-b74c-d19df9f515e4") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("cc5e42b7-922e-4400-9633-8e7faa6dac80") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("4844f467-763a-4d32-a109-541a542848b8") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("d35b4310-c408-4182-b74c-d19df9f515e4") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("014e9370-91db-4c8f-a145-a007b8c58bfe") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("174cfbb6-5ade-4457-a919-3963f2aec8f2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("9a9647aa-bf92-49e9-a5cb-e8bd2bc81df7") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("f203126b-ff57-45f6-8a2c-d778d71dd3c6") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fd02bbf6-63b4-430c-90e5-5db37fe9ddb1") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("cbcd99a4-0d4f-40fb-9d83-d8f2cf765932") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("014e9370-91db-4c8f-a145-a007b8c58bfe") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("174cfbb6-5ade-4457-a919-3963f2aec8f2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("9a9647aa-bf92-49e9-a5cb-e8bd2bc81df7") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("f203126b-ff57-45f6-8a2c-d778d71dd3c6") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fd02bbf6-63b4-430c-90e5-5db37fe9ddb1") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("cbcd99a4-0d4f-40fb-9d83-d8f2cf765932") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("014e9370-91db-4c8f-a145-a007b8c58bfe") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("174cfbb6-5ade-4457-a919-3963f2aec8f2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("9a9647aa-bf92-49e9-a5cb-e8bd2bc81df7") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("f203126b-ff57-45f6-8a2c-d778d71dd3c6") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fd02bbf6-63b4-430c-90e5-5db37fe9ddb1") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("cbcd99a4-0d4f-40fb-9d83-d8f2cf765932") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("014e9370-91db-4c8f-a145-a007b8c58bfe") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("174cfbb6-5ade-4457-a919-3963f2aec8f2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("9a9647aa-bf92-49e9-a5cb-e8bd2bc81df7") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("f203126b-ff57-45f6-8a2c-d778d71dd3c6") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fd02bbf6-63b4-430c-90e5-5db37fe9ddb1") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("cbcd99a4-0d4f-40fb-9d83-d8f2cf765932") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("014e9370-91db-4c8f-a145-a007b8c58bfe") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("174cfbb6-5ade-4457-a919-3963f2aec8f2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("9a9647aa-bf92-49e9-a5cb-e8bd2bc81df7") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("f203126b-ff57-45f6-8a2c-d778d71dd3c6") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fd02bbf6-63b4-430c-90e5-5db37fe9ddb1") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("cbcd99a4-0d4f-40fb-9d83-d8f2cf765932") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("4f4c07f7-4792-4eaa-99bd-f30d90e0a03f") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("766fb5ac-9cbe-4d31-abdc-fd5bd660cd59") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("12b8d811-3737-4385-b685-4d396d7a5c54") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("c731eef1-19b2-4297-9433-ec14d539b090") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("ed49a32e-a0d9-42cd-a43e-7a9f1d2d283e") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("4f4c07f7-4792-4eaa-99bd-f30d90e0a03f") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("766fb5ac-9cbe-4d31-abdc-fd5bd660cd59") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("12b8d811-3737-4385-b685-4d396d7a5c54") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("c731eef1-19b2-4297-9433-ec14d539b090") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("ed49a32e-a0d9-42cd-a43e-7a9f1d2d283e") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("4f4c07f7-4792-4eaa-99bd-f30d90e0a03f") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("766fb5ac-9cbe-4d31-abdc-fd5bd660cd59") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("12b8d811-3737-4385-b685-4d396d7a5c54") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("c731eef1-19b2-4297-9433-ec14d539b090") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("ed49a32e-a0d9-42cd-a43e-7a9f1d2d283e") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("4f4c07f7-4792-4eaa-99bd-f30d90e0a03f") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("766fb5ac-9cbe-4d31-abdc-fd5bd660cd59") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("12b8d811-3737-4385-b685-4d396d7a5c54") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("c731eef1-19b2-4297-9433-ec14d539b090") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("ed49a32e-a0d9-42cd-a43e-7a9f1d2d283e") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+<script src="d0b4200a-4134-4c5b-98f9-4d73a8d60853"></script>
+<style>
+:root{--blue:#0047BB;--orange:#FF671F;--n100:#F2F4F8;--n300:#DFE4EC;--n600:#5A6478;--n900:#0E1524;--err:#C4302B}
+body{margin:0;background:#0B0D11;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#0047BB;text-decoration:none}
+a:hover{color:#FF671F}
+@keyframes kFade{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes kUp{from{opacity:0;transform:translateY(60px)}to{opacity:1;transform:none}}
+@keyframes kScan{0%{top:8%}50%{top:88%}100%{top:8%}}
+@keyframes kBreathe{0%,100%{transform:scale(1);box-shadow:0 22px 60px rgba(255,103,31,.5)}50%{transform:scale(1.018);box-shadow:0 26px 72px rgba(255,103,31,.62)}}
+@keyframes kFlash{0%,100%{box-shadow:0 0 0 0 rgba(255,103,31,0)}30%{box-shadow:0 0 0 5px rgba(255,103,31,.85)}70%{box-shadow:0 0 0 5px rgba(255,103,31,.85)}}
+</style>
+</helmet>
+
+<div sc-camel-on-pointer-down="{{ bump }}" style="min-height:100vh;background:#0B0D11;display:flex;justify-content:center;align-items:flex-start;padding:40px 0">
+  <div style="box-sizing:border-box;width:1088px;height:1430px;flex:none;border-radius:66px;background:#1A1D23;border:3px solid #34383F;padding:29px;box-shadow:0 40px 90px rgba(0,0,0,.6)">
+    <div style="position:relative;width:1024px;height:1366px;border-radius:34px;overflow:hidden;background:#FFFFFF;color:var(--n900)">
+
+      <!-- S0 ATTRACT -->
+      <sc-if value="{{ isAttract }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="S0 Attract" sc-camel-on-click="{{ startDefault }}" style="position:absolute;inset:0;background:#062A6B;cursor:pointer;overflow:hidden">
+          <video data-hero="1" src="4229b4da-8bf5-45bc-ac9b-cc9e99a28649" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(2,20,64,.72) 0%,rgba(2,20,64,.06) 26%,rgba(2,18,58,.32) 54%,rgba(2,14,48,.92) 80%,rgba(2,12,42,.99) 100%)"></div>
+          <div style="position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 108%,rgba(255,103,31,.32),rgba(255,103,31,0) 62%)"></div>
+
+          <div style="position:absolute;top:44px;left:44px;right:44px;display:flex;align-items:center;justify-content:space-between;z-index:2">
+            <div style="width:96px;height:96px;border-radius:28px;overflow:hidden;background:#0047BB;box-shadow:0 16px 40px rgba(0,10,40,.5)">
+              <img src="86686902-4750-4559-a500-e5149f72b7eb" alt="Pick Chick" style="width:170%;height:170%;object-fit:contain;margin:-35% 0 0 -35%">
+            </div>
+            <div style="display:flex;gap:8px;background:rgba(255,255,255,.14);backdrop-filter:blur(16px);border:1.5px solid rgba(255,255,255,.2);border-radius:22px;padding:6px">
+              <div sc-camel-on-click="{{ startKk }}" style="height:60px;padding:0 26px;border-radius:16px;background:{{ kkBg }};color:{{ kkFg }};display:flex;align-items:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:22px;cursor:pointer">KZ</div>
+              <div sc-camel-on-click="{{ startRu }}" style="height:60px;padding:0 26px;border-radius:16px;background:{{ ruBg }};color:{{ ruFg }};display:flex;align-items:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:22px;cursor:pointer">RU</div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:56px;right:56px;bottom:72px;z-index:2;display:flex;flex-direction:column;align-items:center;gap:34px">
+            <div style="text-align:center">
+              <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:88px;line-height:.94;letter-spacing:.01em;color:#fff;text-shadow:0 8px 40px rgba(0,10,40,.7)">PICK YOUR<br>PEAK</div>
+              <div style="margin-top:20px;font-size:26px;font-weight:600;color:rgba(255,255,255,.82)">{{ t.attractSub }}</div>
+            </div>
+            <div sc-camel-on-click="{{ startDefault }}" style="width:100%;height:142px;border-radius:36px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;gap:22px;font-family:Montserrat,sans-serif;font-weight:800;font-size:50px;letter-spacing:.06em;box-shadow:0 22px 60px rgba(255,103,31,.5);cursor:pointer;animation:kBreathe 2.6s ease-in-out infinite">
+              {{ t.start }}
+              <svg width="46" height="46" sc-camel-view-box="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"></path></svg>
+            </div>
+            <div style="font-size:21px;font-weight:600;letter-spacing:.06em;color:rgba(255,255,255,.62)">{{ t.tapAnywhere }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S1 ТИП ЗАКАЗА -->
+      <sc-if value="{{ isS1 }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S1 Тип заказа" style="position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(900px 620px at 6% -8%,rgba(0,71,187,.1),transparent 62%),radial-gradient(760px 560px at 104% 108%,rgba(255,103,31,.12),transparent 62%),linear-gradient(rgba(244,246,250,.93),rgba(244,246,250,.95)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#F4F6FA;animation:kFade .25s ease both">
+          <div style="flex:none;height:104px;background:var(--blue);display:flex;align-items:center;padding:0 24px;gap:16px">
+            <div sc-camel-on-click="{{ goAttract }}" style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">‹</div>
+            <div style="flex:1"></div>
+              <div style="display:flex;background:rgba(255,255,255,.16);border-radius:16px;padding:4px;gap:4px">
+                <div sc-camel-on-click="{{ setKk }}" style="width:80px;height:56px;border-radius:12px;background:{{ kkBg }};color:{{ kkFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">KZ</div>
+                <div sc-camel-on-click="{{ setRu }}" style="width:80px;height:56px;border-radius:12px;background:{{ ruBg }};color:{{ ruFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">RU</div>
+              </div>
+          </div>
+          <div style="flex:1;padding:56px 48px;display:flex;flex-direction:column">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:56px;letter-spacing:-.02em">{{ t.s1Title }}</div>
+            <div style="margin-top:40px;flex:1;display:flex;flex-direction:column;gap:24px">
+              <div sc-camel-on-click="{{ pickDine }}" style="flex:1;min-height:380px;border-radius:32px;overflow:hidden;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer;box-shadow:0 18px 40px rgba(0,71,187,.28);background:linear-gradient(rgba(0,40,110,.66),rgba(0,26,80,.88)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#0B4FC4">
+                <svg width="120" height="120" sc-camel-view-box="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"><path d="M3 3v7a4 4 0 0 0 8 0V3"></path><path d="M7 10v11"></path><path d="M17 3c-1.5 3-1.5 6 0 9v9"></path></svg>
+                <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:52px">{{ t.here }}</div>
+                <div style="font-size:24px;color:rgba(255,255,255,.78)">{{ t.hereSub }}</div>
+              </div>
+              <div sc-camel-on-click="{{ pickTake }}" style="flex:1;min-height:380px;border-radius:32px;overflow:hidden;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer;box-shadow:0 18px 40px rgba(255,103,31,.3);background:linear-gradient(rgba(214,74,10,.5),rgba(190,60,0,.8)),url(&quot;94d35230-eb32-4902-ab0a-461350c0c8f6&quot;) center/cover no-repeat,#F2662A">
+                <svg width="120" height="120" sc-camel-view-box="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"><path d="M6 2h12l2 6H4z"></path><path d="M5 8h14v13H5z"></path><path d="M9 12h6"></path></svg>
+                <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:52px">{{ t.togo }}</div>
+                <div style="font-size:24px;color:rgba(255,255,255,.82)">{{ t.togoSub }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S2 МЕНЮ -->
+      <sc-if value="{{ isMenu }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S2 Меню" style="position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(900px 620px at 6% -8%,rgba(0,71,187,.1),transparent 62%),radial-gradient(760px 560px at 104% 108%,rgba(255,103,31,.12),transparent 62%),linear-gradient(rgba(244,246,250,.93),rgba(244,246,250,.95)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#F4F6FA">
+          <div style="flex:none;position:relative;overflow:hidden;background:#0B4FC4">
+            <div style="position:absolute;inset:0;background:linear-gradient(rgba(0,40,110,.72),rgba(0,26,80,.9)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/680px auto no-repeat"></div>
+            <div style="position:relative;height:104px;display:flex;align-items:center;padding:0 24px;gap:16px">
+              <div sc-camel-on-click="{{ goS1 }}" style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">‹</div>
+              <div style="width:60px;height:60px;border-radius:16px;overflow:hidden;background:#0047BB;flex:none">
+                <img src="86686902-4750-4559-a500-e5149f72b7eb" alt="Pick Chick" style="width:170%;height:170%;object-fit:contain;margin:-35% 0 0 -35%">
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;height:52px;padding:0 18px;border-radius:26px;background:rgba(255,255,255,.16)">
+                <div style="width:9px;height:9px;border-radius:5px;background:var(--orange)"></div>
+                <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:22px;letter-spacing:.04em;color:#fff">{{ modeLabel }}</div>
+              </div>
+              <div style="flex:1"></div>
+              <div sc-camel-on-click="{{ askCancel }}" style="height:64px;padding:0 24px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;font-size:20px;font-weight:600;cursor:pointer">{{ t.cancel }}</div>
+              <div style="display:flex;background:rgba(255,255,255,.16);border-radius:16px;padding:4px;gap:4px">
+                <div sc-camel-on-click="{{ setKk }}" style="width:80px;height:56px;border-radius:12px;background:{{ kkBg }};color:{{ kkFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">KZ</div>
+                <div sc-camel-on-click="{{ setRu }}" style="width:80px;height:56px;border-radius:12px;background:{{ ruBg }};color:{{ ruFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">RU</div>
+              </div>
+            </div>
+            <div style="position:relative;padding:6px 24px 24px;display:flex;gap:12px">
+              <sc-for list="{{ cats }}" as="c" hint-placeholder-count="4">
+                <div sc-camel-on-click="{{ c.go }}" style="height:76px;padding:0 30px;border-radius:38px;background:{{ c.bg }};color:{{ c.fg }};display:flex;align-items:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:24px;letter-spacing:.03em;cursor:pointer;white-space:nowrap;box-shadow:{{ c.shadow }}">{{ c.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+          <div data-scroller="kiosk" style="flex:1;overflow-y:auto;padding:26px 24px 180px">
+            <sc-if value="{{ showPromo }}" hint-placeholder-val="{{ true }}">
+              <div sc-camel-on-click="{{ openPromo }}" style="position:relative;overflow:hidden;border-radius:26px;margin-bottom:22px;padding:28px 30px;display:flex;align-items:center;gap:24px;cursor:pointer;color:#fff;background:linear-gradient(rgba(11,79,196,.5),rgba(11,79,196,.82)),url(&quot;893d6134-b648-4764-8643-0f968c6ce753&quot;) center/640px auto no-repeat,#0B4FC4">
+                <div style="flex:1;min-width:0">
+                  <div style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:20px;background:var(--orange);font-size:17px;font-weight:800;letter-spacing:.1em">{{ t.promoKicker }}</div>
+                  <div style="margin-top:14px;font-family:Montserrat,sans-serif;font-weight:800;font-size:42px;letter-spacing:-.01em;line-height:1.05">{{ promoName }}</div>
+                  <div style="margin-top:8px;font-size:20px;line-height:1.4;color:rgba(255,255,255,.86)">{{ promoComp }}</div>
+                </div>
+                <div style="flex:none;text-align:right">
+                  <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:44px;color:#FF671F;white-space:nowrap">{{ promoPrice }}</div>
+                  <div style="margin-top:12px;height:64px;padding:0 28px;border-radius:32px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;white-space:nowrap">{{ t.pickIt }}</div>
+                </div>
+              </div>
+            </sc-if>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px">
+              <sc-for list="{{ items }}" as="it" hint-placeholder-count="4">
+                <div sc-camel-on-click="{{ it.open }}" style="position:relative;min-height:430px;background:#fff;border-radius:26px;padding:14px;cursor:pointer;display:flex;flex-direction:column;opacity:{{ it.opacity }};box-shadow:0 2px 4px rgba(14,21,36,.05),0 14px 30px rgba(14,21,36,.08)">
+                  <div style="position:relative;width:100%;height:280px;border-radius:20px;overflow:hidden;background:#FFFFFF">
+                    <sc-if value="{{ it.noImg }}" hint-placeholder-val="{{ true }}"><image-slot id="{{ it.slot }}" src="{{ it.img }}" shape="rect" placeholder="{{ it.name }}"></image-slot></sc-if><sc-if value="{{ it.img }}" hint-placeholder-val="{{ false }}"><img src="{{ it.img }}" alt="{{ it.name }}" style="position:absolute;inset:0;width:128%;height:128%;object-fit:cover;margin:-14% 0 0 -14%"></sc-if>
+
+                    <sc-if value="{{ it.out }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.5)">
+                        <div style="padding:12px 24px;border-radius:14px;background:var(--n900);color:#fff;font-size:20px;font-weight:700;letter-spacing:.08em">{{ t.soldOut }}</div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ it.tag }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;top:14px;left:14px;padding:9px 18px;border-radius:20px;background:var(--orange);color:#fff;font-size:16px;font-weight:800;letter-spacing:.08em;box-shadow:0 8px 18px rgba(255,103,31,.4)">{{ it.tag }}</div>
+                    </sc-if>
+                  </div>
+                  <div style="padding:18px 8px 6px;display:flex;flex-direction:column;flex:1">
+                    <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:29px;line-height:1.08;letter-spacing:-.015em">{{ it.name }}</div>
+                    <div style="margin-top:8px;font-size:18px;line-height:1.4;color:var(--n600)">{{ it.comp }}</div>
+                    <div style="flex:1;min-height:16px"></div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+                      <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:34px;color:var(--blue);white-space:nowrap">{{ it.priceLabel }}</div>
+                      <div sc-camel-on-click="{{ it.quick }}" style="width:80px;height:80px;border-radius:40px;background:{{ it.plusBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:500;line-height:1;box-shadow:{{ it.plusShadow }}">+</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;overflow:hidden;padding:22px 24px 26px;display:flex;align-items:center;gap:20px;background:linear-gradient(rgba(0,40,110,.78),rgba(0,26,80,.92)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/620px auto no-repeat,#0B4FC4">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:19px;font-weight:600;letter-spacing:.06em;color:rgba(255,255,255,.72)">{{ t.cartWord }}: {{ cartCountLabel }}</div>
+              <div style="margin-top:4px;font-family:Montserrat,sans-serif;font-weight:800;font-size:44px;letter-spacing:-.02em;white-space:nowrap;color:#fff">{{ cartTotalLabel }}</div>
+            </div>
+            <div sc-camel-on-click="{{ goNextFromMenu }}" style="height:110px;padding:0 52px;border-radius:28px;background:{{ menuNextBg }};color:{{ menuNextFg }};display:flex;align-items:center;gap:14px;font-family:Montserrat,sans-serif;font-weight:700;font-size:32px;cursor:pointer;box-shadow:{{ menuNextShadow }};white-space:nowrap">{{ t.checkout }} →</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S3 КАРТОЧКА -->
+      <sc-if value="{{ isItem }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S3 Карточка" style="position:absolute;inset:0;overflow:hidden;background:#070C16;color:#fff;animation:kUp .32s cubic-bezier(.22,.9,.3,1) both;z-index:20">
+          <div style="position:absolute;inset:0;background:#070C16">
+            <sc-if value="{{ itemNoVid }}" hint-placeholder-val="{{ true }}">
+              <sc-if value="{{ itemNoImg }}" hint-placeholder-val="{{ true }}"><image-slot id="{{ itemSlot }}" src="{{ itemImg }}" shape="rect" placeholder="{{ itemName }}"></image-slot></sc-if>
+              <sc-if value="{{ itemImg }}" hint-placeholder-val="{{ false }}"><img src="{{ itemImg }}" alt="{{ itemName }}" style="position:absolute;inset:0;width:128%;height:128%;object-fit:cover;margin:-14% 0 0 -14%"></sc-if>
+            </sc-if>
+            <sc-if value="{{ itemVid }}" hint-placeholder-val="{{ false }}">
+              <video src="{{ itemVid }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+            </sc-if>
+          </div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,10,22,.68) 0%,rgba(5,10,22,.12) 24%,rgba(5,10,22,.52) 52%,rgba(5,10,22,.92) 78%,rgba(5,10,22,.98) 100%)"></div>
+
+          <div sc-camel-on-click="{{ closeItem }}" style="position:absolute;top:30px;left:30px;width:76px;height:76px;border-radius:38px;background:rgba(255,255,255,.16);backdrop-filter:blur(14px);border:1.5px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff;cursor:pointer;z-index:3">✕</div>
+
+          <div style="position:absolute;top:126px;left:56px;right:56px;text-align:center;z-index:2;text-shadow:0 4px 26px rgba(0,6,20,.75)">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:50px;line-height:1.02;letter-spacing:-.02em">{{ itemName }}</div>
+            <div style="margin-top:12px;font-size:21px;line-height:1.4;color:rgba(255,255,255,.88)">{{ itemDesc }}</div>
+            <div style="margin-top:10px;font-size:18px;color:rgba(255,255,255,.62)">{{ itemNutrition }}</div>
+          </div>
+
+          <div data-item-scroll="1" style="position:absolute;left:0;right:0;top:640px;bottom:180px;overflow-y:auto;padding:4px 32px 40px;z-index:2">
+            <sc-if value="{{ itemIsSizable }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:24px">
+                <div style="font-size:19px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.62)">{{ t.volume }}</div>
+                <div style="margin-top:14px;display:flex;gap:14px">
+                  <sc-for list="{{ sizeOpts }}" as="o" hint-placeholder-count="3">
+                    <div sc-camel-on-click="{{ o.pick }}" style="min-width:150px;height:74px;border-radius:20px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};backdrop-filter:blur(16px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer">
+                      <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:26px">{{ o.label }}</div>
+                      <div style="font-size:17px;opacity:.75">{{ o.note }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ itemIsCombo }}" hint-placeholder-val="{{ false }}">
+              <div data-drink-group="1" style="margin-top:4px;border-radius:24px;animation:{{ drinkFlash }}">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div style="font-size:19px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.62)">{{ t.drink }}</div>
+                  <div style="padding:8px 18px;border-radius:14px;background:{{ drinkStateBg }};color:{{ drinkStateFg }};font-size:18px;font-weight:700">{{ drinkStateLabel }}</div>
+                </div>
+                <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+                  <sc-for list="{{ drinkOpts }}" as="o" hint-placeholder-count="4">
+                    <div sc-camel-on-click="{{ o.pick }}" style="height:82px;border-radius:22px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};backdrop-filter:blur(16px);display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;opacity:{{ o.opacity }};box-shadow:{{ o.shadow }}">
+                      <div style="width:28px;height:28px;border-radius:14px;border:2.5px solid {{ o.dotBorder }};background:{{ o.dotBg }};flex:none;display:flex;align-items:center;justify-content:center">
+                        <div style="width:12px;height:12px;border-radius:6px;background:{{ o.dotInner }}"></div>
+                      </div>
+                      <div style="flex:1;min-width:0;font-size:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:{{ o.deco }}">{{ o.label }}</div>
+                      <sc-if value="{{ o.note }}" hint-placeholder-val="{{ false }}">
+                        <div style="flex:none;height:36px;padding:0 12px;border-radius:18px;background:{{ o.pillBg }};color:{{ o.pillFg }};display:flex;align-items:center;font-size:17px;font-weight:700">{{ o.note }}</div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <div sc-camel-on-click="{{ openDrinksSheet }}" style="margin-top:12px;height:70px;border-radius:20px;border:2px solid rgba(255,255,255,.32);color:#fff;background:rgba(255,255,255,.08);backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:700;cursor:pointer">{{ showAllLabel }}</div>
+              </div>
+              <div style="margin-top:28px">
+                <div style="font-size:19px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.62)">{{ t.sauce }}</div>
+                <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+                  <sc-for list="{{ sauceOpts }}" as="o" hint-placeholder-count="4">
+                    <div sc-camel-on-click="{{ o.pick }}" style="height:82px;border-radius:22px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};backdrop-filter:blur(16px);display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;opacity:{{ o.opacity }};box-shadow:{{ o.shadow }}">
+                      <div style="width:28px;height:28px;border-radius:14px;border:2.5px solid {{ o.dotBorder }};background:{{ o.dotBg }};flex:none;display:flex;align-items:center;justify-content:center">
+                        <div style="width:12px;height:12px;border-radius:6px;background:{{ o.dotInner }}"></div>
+                      </div>
+                      <div style="flex:1;min-width:0;font-size:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:{{ o.deco }}">{{ o.label }}</div>
+                      <sc-if value="{{ o.note }}" hint-placeholder-val="{{ false }}">
+                        <div style="flex:none;height:36px;padding:0 12px;border-radius:18px;background:{{ o.pillBg }};color:{{ o.pillFg }};display:flex;align-items:center;font-size:17px;font-weight:700">{{ o.note }}</div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ itemHasAddons }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:28px">
+                <div style="font-size:19px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.62)">{{ t.addLbl }}</div>
+                <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
+                  <sc-for list="{{ addonRows }}" as="a" hint-placeholder-count="3">
+                    <div style="border:2px solid rgba(255,255,255,.24);background:rgba(255,255,255,.12);backdrop-filter:blur(16px);border-radius:20px;padding:10px 16px;display:flex;align-items:center;gap:14px">
+                      <div style="flex:1;font-size:21px;font-weight:600">{{ a.name }} <span style="opacity:.72;font-weight:500">{{ a.priceLabel }}</span></div>
+                      <div sc-camel-on-click="{{ a.dec }}" style="width:62px;height:62px;border-radius:18px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer">−</div>
+                      <div style="min-width:44px;text-align:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:26px">{{ a.qty }}</div>
+                      <div sc-camel-on-click="{{ a.inc }}" style="width:62px;height:62px;border-radius:18px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer">+</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:26px 32px 30px;display:flex;align-items:center;gap:20px;z-index:3;background:linear-gradient(rgba(5,10,22,0),rgba(5,10,22,.85) 40%)">
+            <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.22);backdrop-filter:blur(16px);border-radius:32px;padding:8px">
+              <div sc-camel-on-click="{{ decQty }}" style="width:76px;height:76px;border-radius:26px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer">−</div>
+              <div style="min-width:56px;text-align:center;font-family:Montserrat,sans-serif;font-weight:800;font-size:32px">{{ qty }}</div>
+              <div sc-camel-on-click="{{ incQty }}" style="width:76px;height:76px;border-radius:26px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer">+</div>
+            </div>
+            <div sc-camel-on-click="{{ addToCart }}" style="flex:1;height:120px;border-radius:32px;background:{{ ctaBg }};color:{{ ctaFg }};display:flex;align-items:center;justify-content:center;gap:16px;font-family:Montserrat,sans-serif;font-weight:700;font-size:32px;cursor:pointer;box-shadow:{{ ctaShadow }}">{{ t.toCart }} · {{ addPriceLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ШТОРКА: ВСЕ НАПИТКИ -->
+      <sc-if value="{{ isDrinksSheet }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;background:rgba(4,9,20,.6);backdrop-filter:blur(6px);z-index:30" sc-camel-on-click="{{ closeDrinksSheet }}"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;max-height:74%;background:rgba(10,16,30,.92);backdrop-filter:blur(24px);border-top:1.5px solid rgba(255,255,255,.16);border-radius:34px 34px 0 0;padding:36px 40px 44px;z-index:31;overflow-y:auto;color:#fff;animation:kUp .25s ease both">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:40px">{{ t.drink }}</div>
+            <div sc-camel-on-click="{{ closeDrinksSheet }}" style="width:72px;height:72px;border-radius:36px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">✕</div>
+          </div>
+          <div style="margin-top:24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
+            <sc-for list="{{ allDrinkOpts }}" as="o" hint-placeholder-count="9">
+              <div sc-camel-on-click="{{ o.pick }}" style="height:96px;border-radius:24px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};display:flex;align-items:center;justify-content:center;gap:12px;font-size:23px;font-weight:600;cursor:pointer;opacity:{{ o.opacity }};text-decoration:{{ o.deco }}">{{ o.label }}<span style="font-size:18px;opacity:.75">{{ o.note }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S4 МАСТЕР СЕТА -->
+      <sc-if value="{{ isWiz }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S4 Мастер сета" style="position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(900px 620px at 6% -8%,rgba(0,71,187,.1),transparent 62%),radial-gradient(760px 560px at 104% 108%,rgba(255,103,31,.12),transparent 62%),linear-gradient(rgba(244,246,250,.93),rgba(244,246,250,.95)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#F4F6FA;animation:kUp .3s ease both;z-index:20">
+          <div style="flex:none;padding:28px 44px;display:flex;align-items:center;gap:18px;border-bottom:1.5px solid var(--n300)">
+            <div sc-camel-on-click="{{ wizBack }}" style="width:64px;height:64px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer">‹</div>
+            <div style="flex:1">
+              <div style="font-size:18px;font-weight:700;letter-spacing:.1em;color:var(--orange)">{{ wizStepLabel }}</div>
+              <div style="margin-top:4px;font-family:Montserrat,sans-serif;font-weight:800;font-size:40px;letter-spacing:-.02em">{{ wizTitle }}</div>
+            </div>
+            <div sc-camel-on-click="{{ closeWiz }}" style="width:64px;height:64px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer">✕</div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:32px 44px 220px">
+            <div style="display:flex;gap:24px;align-items:flex-start;margin-bottom:32px">
+              <div style="position:relative;width:280px;height:210px;flex:none;border-radius:20px;overflow:hidden;background:#FFFFFF">
+                <sc-if value="{{ wizNoImg }}" hint-placeholder-val="{{ true }}"><image-slot id="{{ wizSlot }}" src="{{ wizImg }}" shape="rect" placeholder="{{ wizName }}"></image-slot></sc-if><sc-if value="{{ wizImg }}" hint-placeholder-val="{{ false }}"><img src="{{ wizImg }}" alt="{{ wizName }}" style="position:absolute;inset:0;width:128%;height:128%;object-fit:cover;margin:-14% 0 0 -14%"></sc-if>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:baseline;gap:14px">
+                  <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:52px;line-height:1;color:var(--blue)">{{ wizCount }}</div>
+                  <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:26px;letter-spacing:-.01em">{{ wizName }}</div>
+                </div>
+                <div style="margin-top:10px;font-size:20px;line-height:1.45;color:var(--n900)">{{ wizDesc }}</div>
+                <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px">
+                  <div style="height:44px;padding:0 16px;border-radius:22px;background:var(--n100);display:flex;align-items:center;font-size:18px;font-weight:600;color:var(--n600)">{{ wizPpl }}</div>
+                  <div style="height:44px;padding:0 16px;border-radius:22px;background:var(--n100);display:flex;align-items:center;font-size:18px;font-weight:600;color:var(--n600)">{{ wizSauceNote }}</div>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ wizIsStep2 }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <sc-for list="{{ wizSauces }}" as="w" hint-placeholder-count="4">
+                  <div style="border:1.5px solid var(--n300);border-radius:18px;padding:16px 24px;display:flex;align-items:center;gap:18px;opacity:{{ w.opacity }}">
+                    <div style="flex:1;font-size:24px;font-weight:600;text-decoration:{{ w.deco }}">{{ w.name }}</div>
+                    <div sc-camel-on-click="{{ w.dec }}" style="width:80px;height:80px;border-radius:18px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer">−</div>
+                    <div style="min-width:64px;text-align:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:32px">{{ w.qty }}</div>
+                    <div sc-camel-on-click="{{ w.inc }}" style="width:80px;height:80px;border-radius:18px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer">+</div>
+                  </div>
+                </sc-for>
+                <div style="margin-top:8px;padding:20px 24px;border-radius:16px;background:{{ wizSauceBg }};color:{{ wizSauceFg }};font-size:22px;font-weight:700;text-align:center">{{ wizSauceCount }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ wizIsStep3 }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <sc-for list="{{ wizDrinks }}" as="w" hint-placeholder-count="4">
+                  <div style="border:1.5px solid var(--n300);border-radius:18px;padding:16px 24px;display:flex;align-items:center;gap:18px">
+                    <div style="flex:1;font-size:24px;font-weight:600">{{ w.name }} <span style="color:var(--n600);font-weight:500">{{ w.priceLabel }}</span></div>
+                    <div sc-camel-on-click="{{ w.dec }}" style="width:80px;height:80px;border-radius:18px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer">−</div>
+                    <div style="min-width:64px;text-align:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:32px">{{ w.qty }}</div>
+                    <div sc-camel-on-click="{{ w.inc }}" style="width:80px;height:80px;border-radius:18px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer">+</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1.5px solid var(--n300);padding:24px 44px;display:flex;align-items:center;gap:20px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:19px;color:var(--n600)">{{ wizName }}</div>
+              <div style="margin-top:2px;font-family:Montserrat,sans-serif;font-weight:800;font-size:40px;white-space:nowrap">{{ wizPriceLabel }}</div>
+            </div>
+            <sc-if value="{{ wizIsStep3 }}" hint-placeholder-val="{{ false }}">
+              <div sc-camel-on-click="{{ wizSkip }}" style="height:110px;padding:0 36px;border-radius:22px;border:2px solid var(--n300);color:var(--n600);display:flex;align-items:center;font-size:23px;font-weight:600;cursor:pointer;white-space:nowrap">{{ t.skip }}</div>
+            </sc-if>
+            <div sc-camel-on-click="{{ wizNext }}" style="height:110px;padding:0 52px;border-radius:22px;background:{{ wizNextBg }};color:{{ wizNextFg }};display:flex;align-items:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:30px;cursor:pointer;white-space:nowrap;box-shadow:{{ wizNextShadow }}">{{ wizNextLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S5 ДОПРОДАЖА -->
+      <sc-if value="{{ isUpsell }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S5 Допродажа" style="position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(900px 620px at 6% -8%,rgba(0,71,187,.1),transparent 62%),radial-gradient(760px 560px at 104% 108%,rgba(255,103,31,.12),transparent 62%),linear-gradient(rgba(244,246,250,.93),rgba(244,246,250,.95)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#F4F6FA;animation:kFade .25s ease both">
+          <div style="flex:1;overflow-y:auto;padding:72px 48px 200px">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:56px;letter-spacing:-.02em">{{ t.upsellTitle }}</div>
+            <div style="margin-top:36px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px">
+              <sc-for list="{{ upsellItems }}" as="u" hint-placeholder-count="4">
+                <div sc-camel-on-click="{{ u.add }}" style="background:#fff;border:2px solid {{ u.border }};border-radius:24px;padding:14px;cursor:pointer;display:flex;flex-direction:column">
+                  <div style="position:relative;width:100%;height:240px;border-radius:16px;overflow:hidden;background:#FFFFFF">
+                    <sc-if value="{{ u.noImg }}" hint-placeholder-val="{{ true }}"><image-slot id="{{ u.slot }}" src="{{ u.img }}" shape="rect" placeholder="{{ u.name }}"></image-slot></sc-if><sc-if value="{{ u.img }}" hint-placeholder-val="{{ false }}"><img src="{{ u.img }}" alt="{{ u.name }}" style="position:absolute;inset:0;width:128%;height:128%;object-fit:cover;margin:-14% 0 0 -14%"></sc-if>
+                  </div>
+                  <div style="padding:18px 8px 6px;display:flex;align-items:center;gap:14px">
+                    <div style="flex:1">
+                      <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:27px;line-height:1.1">{{ u.name }}</div>
+                      <div style="margin-top:6px;font-family:Montserrat,sans-serif;font-weight:700;font-size:26px;color:var(--n900)">{{ u.priceLabel }}</div>
+                    </div>
+                    <div style="width:76px;height:76px;border-radius:38px;background:{{ u.btnBg }};color:{{ u.btnFg }};display:flex;align-items:center;justify-content:center;font-size:36px">{{ u.btnLabel }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1.5px solid var(--n300);padding:24px 44px">
+            <div sc-camel-on-click="{{ goCart }}" style="height:120px;border-radius:24px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:36px;cursor:pointer;box-shadow:0 16px 36px rgba(255,103,31,.35)">{{ t.next }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S6 КОРЗИНА -->
+      <sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S6 Корзина" style="position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(900px 620px at 6% -8%,rgba(0,71,187,.1),transparent 62%),radial-gradient(760px 560px at 104% 108%,rgba(255,103,31,.12),transparent 62%),linear-gradient(rgba(244,246,250,.93),rgba(244,246,250,.95)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#F4F6FA">
+          <div style="flex:none;height:104px;display:flex;align-items:center;padding:0 24px;gap:16px;background:linear-gradient(rgba(0,40,110,.72),rgba(0,26,80,.9)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/680px auto no-repeat,#0B4FC4">
+            <div sc-camel-on-click="{{ goMenu }}" style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">‹</div>
+            <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:28px;color:#fff">{{ t.yourOrder }}</div>
+            <div style="flex:1"></div>
+            <div sc-camel-on-click="{{ askCancel }}" style="height:64px;padding:0 24px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;font-size:20px;font-weight:600;cursor:pointer">{{ t.cancel }}</div>
+              <div style="display:flex;background:rgba(255,255,255,.16);border-radius:16px;padding:4px;gap:4px">
+                <div sc-camel-on-click="{{ setKk }}" style="width:80px;height:56px;border-radius:12px;background:{{ kkBg }};color:{{ kkFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">KZ</div>
+                <div sc-camel-on-click="{{ setRu }}" style="width:80px;height:56px;border-radius:12px;background:{{ ruBg }};color:{{ ruFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">RU</div>
+              </div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:28px 24px 260px">
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="3">
+                <div style="background:#fff;border-radius:22px;padding:16px;display:flex;align-items:center;gap:20px;box-shadow:0 2px 4px rgba(14,21,36,.05),0 10px 24px rgba(14,21,36,.06)">
+                  <div style="position:relative;width:124px;height:124px;flex:none;border-radius:16px;overflow:hidden;background:#FFFFFF">
+                    <sc-if value="{{ l.noImg }}" hint-placeholder-val="{{ true }}"><image-slot id="{{ l.slot }}" src="{{ l.img }}" shape="rounded" radius="16" placeholder="{{ l.name }}"></image-slot></sc-if><sc-if value="{{ l.img }}" hint-placeholder-val="{{ false }}"><img src="{{ l.img }}" alt="{{ l.name }}" style="position:absolute;inset:0;width:128%;height:128%;object-fit:cover;margin:-14% 0 0 -14%"></sc-if>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:28px;line-height:1.08">{{ l.name }}</div>
+                    <div style="margin-top:6px;font-size:18px;line-height:1.4;color:var(--n600)">{{ l.mods }}</div>
+                    <div sc-camel-on-click="{{ l.remove }}" style="margin-top:8px;display:inline-block;font-size:18px;font-weight:600;color:var(--err);cursor:pointer">{{ t.remove }}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <div sc-camel-on-click="{{ l.dec }}" style="width:72px;height:72px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">−</div>
+                    <div style="min-width:52px;text-align:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:28px">{{ l.qty }}</div>
+                    <div sc-camel-on-click="{{ l.inc }}" style="width:72px;height:72px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">+</div>
+                  </div>
+                  <div style="min-width:150px;text-align:right;font-family:Montserrat,sans-serif;font-weight:700;font-size:29px;white-space:nowrap">{{ l.total }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1.5px dashed var(--n300);border-radius:22px;padding:56px;text-align:center;font-size:24px;color:var(--n600)">{{ t.emptyCart }}</div>
+            </sc-if>
+
+            <sc-if value="{{ noUser }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:22px;border-radius:22px;background:var(--n100);padding:26px 28px;display:flex;align-items:center;gap:22px">
+                <div style="width:88px;height:88px;flex:none;border-radius:18px;background:#fff;border:1.5px solid var(--n300);display:flex;align-items:center;justify-content:center">
+                  <svg width="46" height="46" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2.5"></rect><path d="M11 18h2"></path></svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:26px">{{ t.loyaltyTitle }}</div>
+                  <div style="margin-top:6px;font-size:20px;line-height:1.4;color:var(--n600)">{{ t.loyaltyBody }}</div>
+                </div>
+                <div sc-camel-on-click="{{ openIdentify }}" style="height:88px;padding:0 34px;border-radius:20px;background:var(--blue);color:#fff;display:flex;align-items:center;font-size:23px;font-weight:700;cursor:pointer;white-space:nowrap">{{ t.enterPhone }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasUser }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:22px;border-radius:22px;border:2px solid var(--blue);padding:26px 28px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+                  <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:26px;color:var(--blue)">{{ userTitle }}</div>
+                  <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:26px;color:var(--n900)">{{ userBalance }}</div>
+                </div>
+                <div style="margin-top:8px;font-size:20px;color:var(--n600)">{{ userAccrual }}</div>
+                <sc-if value="{{ userHasGifts }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:20px;font-size:18px;font-weight:700;letter-spacing:.08em;color:var(--n600)">{{ t.gifts }}</div>
+                  <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+                    <sc-for list="{{ giftRows }}" as="g" hint-placeholder-count="2">
+                      <div sc-camel-on-click="{{ g.toggle }}" style="border:1.5px solid {{ g.border }};background:{{ g.bg }};border-radius:16px;padding:16px 20px;display:flex;align-items:center;gap:16px;cursor:pointer">
+                        <div style="width:44px;height:44px;border-radius:12px;border:2px solid {{ g.boxBorder }};background:{{ g.boxBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px">{{ g.check }}</div>
+                        <div style="flex:1;font-size:22px;font-weight:600">{{ g.name }}</div>
+                        <div style="font-size:18px;color:var(--n600)">{{ g.note }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ userPhoneOnly }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:14px;font-size:18px;color:var(--n600)">{{ t.phoneOnlyNote }}</div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1.5px solid var(--n300);padding:22px 24px 26px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;align-items:flex-end;justify-content:space-between">
+              <div style="font-size:24px;color:var(--n600)">{{ t.total }}</div>
+              <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:52px;letter-spacing:-.02em;white-space:nowrap">{{ cartTotalLabel }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:16px">
+              <div sc-camel-on-click="{{ goMenu }}" style="height:110px;padding:0 34px;border-radius:22px;border:2px solid var(--n300);color:var(--blue);display:flex;align-items:center;font-size:23px;font-weight:700;cursor:pointer;white-space:nowrap">+ {{ t.addMore }}</div>
+              <div sc-camel-on-click="{{ goReview }}" style="flex:1;height:110px;border-radius:22px;background:{{ checkoutBg }};color:{{ checkoutFg }};display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:32px;cursor:pointer;box-shadow:{{ checkoutShadow }}">{{ t.checkout }}</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S7 ИДЕНТИФИКАЦИЯ -->
+      <sc-if value="{{ isIdentify }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;background:rgba(14,21,36,.55);z-index:40" sc-camel-on-click="{{ closeIdentify }}"></div>
+        <div style="position:absolute;left:60px;right:60px;top:120px;bottom:120px;background:#fff;border-radius:32px;z-index:41;padding:40px 48px;display:flex;flex-direction:column;animation:kUp .25s ease both;overflow-y:auto">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:38px;letter-spacing:-.01em">{{ identifyTitle }}</div>
+            <div sc-camel-on-click="{{ closeIdentify }}" style="width:72px;height:72px;border-radius:20px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">✕</div>
+          </div>
+          <sc-if value="{{ identifyIsPhone }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:24px;display:flex;flex-direction:column;flex:1">
+              <div style="border:2.5px solid var(--blue);border-radius:20px;padding:22px 28px;display:flex;align-items:center;gap:14px;background:#F7F9FD">
+                <div style="font-family:Montserrat,sans-serif;font-weight:600;font-size:38px;color:var(--n600)">+7</div>
+                <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:38px;letter-spacing:.04em;color:{{ phoneFg }}">{{ phoneMask }}</div>
+              </div>
+              <div style="margin-top:12px;font-size:18px;color:var(--n600)">{{ t.phoneWhy }}</div>
+              <div style="margin-top:16px;flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px">
+                <sc-for list="{{ keypad }}" as="k" hint-placeholder-count="12">
+                  <div sc-camel-on-click="{{ k.tap }}" style="min-height:92px;border-radius:18px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:600;font-size:34px;cursor:pointer">{{ k.label }}</div>
+                </sc-for>
+              </div>
+              <div sc-camel-on-click="{{ confirmPhone }}" style="margin-top:16px;height:110px;border-radius:22px;background:{{ phoneBtnBg }};color:{{ phoneBtnFg }};display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:30px;cursor:pointer">{{ t.done }}</div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- S6.5 ИМЯ ДЛЯ ТАБЛО -->
+      <sc-if value="{{ isName }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Имя для табло" style="position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(900px 620px at 6% -8%,rgba(0,71,187,.1),transparent 62%),radial-gradient(760px 560px at 104% 108%,rgba(255,103,31,.12),transparent 62%),linear-gradient(rgba(244,246,250,.93),rgba(244,246,250,.95)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#F4F6FA;animation:kFade .25s ease both">
+          <div style="flex:none;height:104px;display:flex;align-items:center;padding:0 24px;gap:16px;background:linear-gradient(rgba(0,40,110,.72),rgba(0,26,80,.9)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/680px auto no-repeat,#0B4FC4">
+            <div sc-camel-on-click="{{ goCart }}" style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">‹</div>
+            <div style="width:60px;height:60px;border-radius:16px;overflow:hidden;background:#0047BB;flex:none">
+              <img src="86686902-4750-4559-a500-e5149f72b7eb" alt="Pick Chick" style="width:170%;height:170%;object-fit:contain;margin:-35% 0 0 -35%">
+            </div>
+            <div style="flex:1"></div>
+              <div style="display:flex;background:rgba(255,255,255,.16);border-radius:16px;padding:4px;gap:4px">
+                <div sc-camel-on-click="{{ setKk }}" style="width:80px;height:56px;border-radius:12px;background:{{ kkBg }};color:{{ kkFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">KZ</div>
+                <div sc-camel-on-click="{{ setRu }}" style="width:80px;height:56px;border-radius:12px;background:{{ ruBg }};color:{{ ruFg }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">RU</div>
+              </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;padding:56px 48px 40px">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:56px;letter-spacing:-.02em">{{ t.nameQ }}</div>
+            <div style="margin-top:12px;font-size:22px;color:var(--n600)">{{ t.nameHint }}</div>
+            <div style="margin-top:32px;height:110px;border:2px solid var(--n300);border-radius:20px;padding:0 28px;display:flex;align-items:center">
+              <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:40px;color:{{ nameFg }}">{{ nameShown }}</div>
+            </div>
+            <div style="margin-top:32px;flex:1;display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ nameRows }}" as="row" hint-placeholder-count="4">
+                <div style="display:flex;justify-content:center;gap:10px">
+                  <sc-for list="{{ row.keys }}" as="k" hint-placeholder-count="11">
+                    <div sc-camel-on-click="{{ k.tap }}" style="width:74px;height:88px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:600;font-size:30px;cursor:pointer">{{ k.label }}</div>
+                  </sc-for>
+                </div>
+              </sc-for>
+              <div style="display:flex;justify-content:center;gap:10px">
+                <div sc-camel-on-click="{{ nameSpace }}" style="width:410px;height:88px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;color:var(--n600);cursor:pointer">{{ t.space }}</div>
+                <div sc-camel-on-click="{{ nameBack }}" style="width:120px;height:88px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">⌫</div>
+              </div>
+            </div>
+            <div style="margin-top:24px;display:flex;align-items:center;gap:16px">
+              <div sc-camel-on-click="{{ skipName }}" style="height:110px;padding:0 40px;border-radius:22px;border:2px solid var(--n300);color:var(--n600);display:flex;align-items:center;font-size:23px;font-weight:600;cursor:pointer;white-space:nowrap">{{ t.skip }}</div>
+              <div sc-camel-on-click="{{ confirmName }}" style="flex:1;height:110px;border-radius:22px;background:{{ nameNextBg }};color:{{ nameNextFg }};display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:30px;cursor:pointer">{{ t.next }}</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S8 ОПЛАТА -->
+      <sc-if value="{{ isPay }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S8 Оплата" style="position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(900px 620px at 6% -8%,rgba(0,71,187,.1),transparent 62%),radial-gradient(760px 560px at 104% 108%,rgba(255,103,31,.12),transparent 62%),linear-gradient(rgba(244,246,250,.93),rgba(244,246,250,.95)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#F4F6FA;animation:kFade .25s ease both">
+          <div style="flex:none;position:relative;overflow:hidden;background:#0B4FC4">
+            <div style="position:absolute;inset:0;background:linear-gradient(rgba(0,40,110,.72),rgba(0,26,80,.9)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/680px auto no-repeat"></div>
+            <div style="position:relative;padding:22px 24px 28px;display:flex;align-items:center;gap:16px">
+              <div sc-camel-on-click="{{ backFromPay }}" style="width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer">‹</div>
+              <div style="width:60px;height:60px;border-radius:16px;overflow:hidden;background:#0047BB;flex:none">
+                <img src="86686902-4750-4559-a500-e5149f72b7eb" alt="Pick Chick" style="width:170%;height:170%;object-fit:contain;margin:-35% 0 0 -35%">
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:18px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.66)">{{ modeLabel }}</div>
+                <div style="margin-top:3px;font-family:Montserrat,sans-serif;font-weight:800;font-size:40px;letter-spacing:-.01em;color:#fff">{{ t.payTitle }}</div>
+              </div>
+              <div style="text-align:right;flex:none">
+                <div style="font-size:18px;color:rgba(255,255,255,.66)">{{ t.toPay }}</div>
+                <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:42px;color:#FF671F;white-space:nowrap">{{ cartTotalLabel }}</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:26px 24px 200px">
+            <div style="background:#fff;border-radius:26px;padding:8px 26px;box-shadow:0 2px 4px rgba(14,21,36,.05),0 14px 30px rgba(14,21,36,.07)">
+              <sc-for list="{{ reviewLines }}" as="r" hint-placeholder-count="3">
+                <div style="padding:18px 0;border-bottom:1.5px solid var(--n100);display:flex;align-items:flex-start;gap:20px">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:24px;font-weight:700">{{ r.name }}</div>
+                    <sc-if value="{{ r.mods }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:5px;font-size:18px;color:var(--n600)">{{ r.mods }}</div>
+                    </sc-if>
+                  </div>
+                  <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:25px;color:{{ r.priceFg }};white-space:nowrap">{{ r.total }}</div>
+                </div>
+              </sc-for>
+              <div style="padding:20px 0;display:flex;align-items:baseline;justify-content:space-between">
+                <div style="font-size:22px;font-weight:700;color:var(--n600)">{{ t.total }}</div>
+                <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:38px;color:var(--blue);white-space:nowrap">{{ cartTotalLabel }}</div>
+              </div>
+            </div>
+
+            <div style="margin-top:26px;font-size:19px;font-weight:800;letter-spacing:.1em;color:var(--n600);padding-left:6px">{{ t.payChoose }}</div>
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:14px">
+              <sc-for list="{{ payOpts }}" as="p" hint-placeholder-count="3">
+                <div sc-camel-on-click="{{ p.pick }}" style="background:{{ p.bg }};border:2.5px solid {{ p.border }};border-radius:24px;padding:22px 26px;display:flex;align-items:center;gap:22px;cursor:pointer;box-shadow:{{ p.shadow }}">
+                  <div style="width:84px;height:84px;border-radius:22px;background:{{ p.badgeBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:800;font-size:34px;flex:none">{{ p.badge }}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:30px;letter-spacing:-.01em">{{ p.label }}</div>
+                    <div style="margin-top:5px;font-size:19px;color:var(--n600)">{{ p.note }}</div>
+                  </div>
+                  <div style="width:44px;height:44px;border-radius:22px;border:2.5px solid {{ p.dotBorder }};background:{{ p.dotBg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;flex:none">{{ p.check }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1.5px solid var(--n300);padding:24px 24px 28px">
+            <div sc-camel-on-click="{{ placeOrder }}" style="height:126px;border-radius:26px;background:{{ payBtnBg }};color:{{ payBtnFg }};display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:34px;cursor:pointer;box-shadow:{{ payBtnShadow }}">{{ payBtnLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- S9 НОМЕР -->
+      <sc-if value="{{ isNumber }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="S9 Номер заказа" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px;animation:kFade .3s ease both;color:#fff;background:linear-gradient(rgba(0,40,110,.74),rgba(0,26,80,.92)),url(&quot;2934ad5b-628e-4be3-a7fe-39a132f1a534&quot;) center/cover no-repeat,#0B4FC4">
+          <div style="width:96px;height:96px;border-radius:28px;overflow:hidden;background:#0047BB">
+            <img src="86686902-4750-4559-a500-e5149f72b7eb" alt="Pick Chick" style="width:170%;height:170%;object-fit:contain;margin:-35% 0 0 -35%">
+          </div>
+          <div style="margin-top:26px;font-family:Montserrat,sans-serif;font-weight:800;font-size:56px;letter-spacing:-.02em">{{ t.ready }}</div>
+          <sc-if value="{{ hasName }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:20px;padding:14px 36px;border-radius:24px;background:rgba(255,255,255,.16);font-family:Montserrat,sans-serif;font-weight:700;font-size:38px">{{ guestName }}</div>
+          </sc-if>
+          <div style="margin-top:30px;font-size:23px;font-weight:700;letter-spacing:.14em;color:rgba(255,255,255,.7)">{{ t.yourNumber }}</div>
+          <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:340px;line-height:1;letter-spacing:-.04em;color:var(--orange);text-shadow:0 18px 50px rgba(0,10,40,.45)">{{ orderNo }}</div>
+          <div style="margin-top:20px;font-size:25px;line-height:1.5;text-align:center;max-width:660px;color:rgba(255,255,255,.88)">{{ t.numberNote }}</div>
+          <div style="margin-top:36px;display:flex;align-items:center;gap:14px;padding:20px 32px;border-radius:22px;background:rgba(255,255,255,.14)">
+            <svg width="34" height="34" sc-camel-view-box="0 0 24 24" fill="none" stroke="#FF671F" stroke-width="1.6"><path d="M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"></path><path d="M9 7h6M9 11h6"></path></svg>
+            <div style="font-size:22px;font-weight:600">{{ t.takeReceipt }}</div>
+          </div>
+          <div style="margin-top:40px;display:flex;gap:12px">
+            <sc-for list="{{ doneDots }}" as="d" hint-placeholder-count="8">
+              <div style="width:14px;height:14px;border-radius:7px;background:{{ d.bg }}"></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- M1 ТАЙМАУТ -->
+      <sc-if value="{{ idleWarn }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;background:rgba(14,21,36,.6);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:60">
+          <div style="width:720px;background:#fff;border-radius:32px;padding:56px;text-align:center">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:48px;letter-spacing:-.02em">{{ t.stillHere }}</div>
+            <div style="margin-top:14px;font-size:24px;color:var(--n600)">{{ t.willCancel }}</div>
+            <div style="margin-top:20px;font-family:Montserrat,sans-serif;font-weight:800;font-size:110px;line-height:1;color:var(--orange)">{{ warnLeft }}</div>
+            <div style="margin-top:40px;display:flex;flex-direction:column;gap:14px">
+              <div sc-camel-on-click="{{ bump }}" style="height:120px;border-radius:24px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:32px;cursor:pointer">{{ t.continueOrder }}</div>
+              <div sc-camel-on-click="{{ resetAll }}" style="height:80px;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;color:var(--n600);cursor:pointer">{{ t.restart }}</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- M3 ОТМЕНА -->
+      <sc-if value="{{ isConfirmCancel }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;background:rgba(14,21,36,.6);display:flex;align-items:center;justify-content:center;z-index:62">
+          <div style="width:680px;background:#fff;border-radius:32px;padding:52px;text-align:center;animation:kFade .2s ease both">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:42px">{{ t.cancelQ }}</div>
+            <div style="margin-top:36px;display:flex;gap:14px">
+              <div sc-camel-on-click="{{ dismissCancel }}" style="flex:1;height:110px;border-radius:22px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:27px;cursor:pointer">{{ t.continueOrder }}</div>
+              <div sc-camel-on-click="{{ resetAll }}" style="flex:1;height:110px;border-radius:22px;border:2px solid var(--n300);color:var(--err);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;cursor:pointer">{{ t.yesCancel }}</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:0;right:0;bottom:190px;display:flex;justify-content:center;z-index:70;pointer-events:none">
+          <div style="background:var(--n900);color:#fff;padding:22px 38px;border-radius:20px;font-size:24px;font-weight:600;box-shadow:0 18px 40px rgba(14,21,36,.35);animation:kFade .2s ease both">{{ toast }}</div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+
+
+<div style="background:#0B0D11;padding:8px 0 44px;display:flex;justify-content:center">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:14px 26px;border-radius:16px;background:#141821;border:1px solid #232936;font-family:'Golos Text',system-ui,sans-serif;font-size:15px;font-weight:600">
+    <a href="Pick Chick App v2.dc.html" style="color:#8CB8FF">Приложение</a><span style="color:#3A4252">·</span>
+    <span style="color:#FF671F">Киоск</span><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Табло.dc.html" style="color:#8CB8FF">Табло</a><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Кухня.dc.html" style="color:#8CB8FF">Кухня</a><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Бэк-офис.dc.html" style="color:#8CB8FF">Бэк-офис</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1120,&quot;height&quot;:1512},&quot;defaultLang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ru&quot;,&quot;kk&quot;],&quot;default&quot;:&quot;ru&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Сценарий&quot;,&quot;label&quot;:&quot;Язык по умолчанию&quot;},&quot;idleSeconds&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:60,&quot;min&quot;:30,&quot;max&quot;:180,&quot;step&quot;:15,&quot;unit&quot;:&quot;с&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Сценарий&quot;,&quot;label&quot;:&quot;Неактивность до предупреждения&quot;},&quot;upsellScreen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Сценарий&quot;,&quot;label&quot;:&quot;Экран допродажи перед корзиной&quot;}}">
+class Component extends DCLogic {
+  state = {
+    lang: null, step: 'attract', dinein: true, cat: 'combo',
+    open: null, qty: 1, sauce: 'pick', drink: null, addons: {}, drinksSheet: false, flash: false,
+    wiz: null, cart: [], upsellShown: false,
+    identify: null, phone: '', user: null, gifts: {}, name: '', pay: null,
+    orderNo: '', idle: 0, doneLeft: 8, toast: '', confirmCancel: false
+  };
+
+  MONEY = n => n.toLocaleString('ru-RU').replace(/,/g, ' ') + ' ₸';
+  NUM = n => n.toLocaleString('ru-RU').replace(/,/g, ' ');
+
+  T = {
+    ru: {
+      s1Title: 'Как будете есть?', here: 'ЗДЕСЬ', hereSub: 'в ресторане', togo: 'С СОБОЙ', togoSub: 'заберу и уйду',
+      start: 'НАЧАТЬ', attractSub: 'Соберите свой заказ на экране', tapAnywhere: 'Коснитесь экрана, чтобы начать',
+      cancel: 'Отменить', cartWord: 'Корзина', soldOut: 'ЗАКОНЧИЛОСЬ', checkout: 'Оформить заказ',
+      volume: 'ОБЪЁМ', drink: 'НАПИТОК', sauce: 'СОУС', addLbl: 'ДОБАВИТЬ', choose: 'выберите', chosen: 'выбрано',
+      showAll: 'Показать все', toCart: 'В корзину', skip: 'Пропустить', next: 'Дальше',
+      upsellTitle: 'Добавить к заказу?', yourOrder: 'Ваш заказ', remove: 'Убрать', addMore: 'Добавить ещё',
+      total: 'Итого', emptyCart: 'Заказ пуст. Вернитесь в меню и выберите блюдо.',
+      loyaltyTitle: 'Копите Чики?', loyaltyBody: 'Введите номер телефона — начислим 7% чиками за этот заказ', scan: 'Ввести номер',
+      showQr: 'Покажите QR из приложения', qrHint: 'Откройте Pick Chick → Профиль → Карта лояльности', qrSim: '(прототип: коснитесь видоискателя)',
+      or: 'или', enterPhone: 'Ввести номер телефона', phoneWhy: 'Начислим чики на этот номер. Подарки и уровни — в приложении Pick Chick.',
+      done: 'Готово', clear: 'Очистить', gifts: 'ДОСТУПНЫЕ ПОДАРКИ', phoneOnlyNote: 'Подарки и уровни — в приложении Pick Chick',
+      review: 'Проверьте заказ', toPay: 'К оплате', placeOrder: 'Оформить и оплатить на кассе', backToOrder: 'Вернуться к заказу',
+      ready: 'Готово!', yourNumber: 'ВАШ НОМЕР', numberNote: 'Имя и номер появятся на табло выдачи, когда заказ будет готов', takeReceipt: 'Заберите чек',
+      stillHere: 'Вы ещё здесь?', willCancel: 'Заказ будет отменён через', continueOrder: 'Продолжить заказ', restart: 'Начать заново',
+      cancelQ: 'Отменить заказ?', yesCancel: 'Да, отменить',
+      wq1: 'Сколько фингерсов?', wq2: 'Какие соусы?', wq3: 'Добавить напитки?', step: 'ШАГ', persons: 'человек',
+      inOrder: '— в заказе', dine: 'ЗДЕСЬ', take: 'С СОБОЙ', accrual: 'За этот заказ', andChiki: 'чиков', gift: 'Подарок',
+      nameQ: 'Как вас зовут?', nameHint: 'Имя появится на табло выдачи рядом с номером заказа', namePh: 'Ваше имя', space: 'Пробел',
+      promoKicker: 'ХИТ НЕДЕЛИ', pickIt: 'Выбрать',
+      payTitle: 'Как оплатите?', payChoose: 'СПОСОБ ОПЛАТЫ', payNow: 'Оплатить', payPick: 'Выберите способ оплаты',
+      kaspiNote: 'Оплата по QR в приложении Kaspi', halyk: 'Halyk / Homebank', halykNote: 'Оплата по QR в Homebank',
+      cashier: 'На кассе', cashierNote: 'Картой или наличными у кассира'
+    },
+    kk: {
+      s1Title: 'Қалай тамақтанасыз?', here: 'ОСЫНДА', hereSub: 'мейрамханада', togo: 'ӨЗІММЕН', togoSub: 'алып кетемін',
+      start: 'БАСТАУ', attractSub: 'Тапсырысыңызды экраннан жинаңыз', tapAnywhere: 'Бастау үшін экранды түртіңіз',
+      cancel: 'Бас тарту', cartWord: 'Себет', soldOut: 'ТАУСЫЛДЫ', checkout: 'Тапсырыс беру',
+      volume: 'КӨЛЕМ', drink: 'СУСЫН', sauce: 'ТҰЗДЫҚ', addLbl: 'ҚОСУ', choose: 'таңдаңыз', chosen: 'таңдалды',
+      showAll: 'Барлығын көрсету', toCart: 'Себетке', skip: 'Өткізу', next: 'Әрі қарай',
+      upsellTitle: 'Тапсырысқа қосасыз ба?', yourOrder: 'Сіздің тапсырысыңыз', remove: 'Алып тастау', addMore: 'Тағы қосу',
+      total: 'Барлығы', emptyCart: 'Себет бос. Мәзірге оралып, тағам таңдаңыз.',
+      loyaltyTitle: 'Чик жинайсыз ба?', loyaltyBody: 'Телефон нөмірін енгізіңіз — осы тапсырыс үшін 7% чик қосамыз', scan: 'Нөмір енгізу',
+      showQr: 'Қосымшадағы QR көрсетіңіз', qrHint: 'Pick Chick ашыңыз → Профиль → Адалдық картасы', qrSim: '(прототип: көрініс тапқышты басыңыз)',
+      or: 'немесе', enterPhone: 'Телефон нөмірін енгізу', phoneWhy: 'Чиктерді осы нөмірге қосамыз. Сыйлықтар мен деңгейлер — Pick Chick қосымшасында.',
+      done: 'Дайын', clear: 'Тазалау', gifts: 'ҚОЛЖЕТІМДІ СЫЙЛЫҚТАР', phoneOnlyNote: 'Сыйлықтар мен деңгейлер — Pick Chick қосымшасында',
+      review: 'Тапсырысты тексеріңіз', toPay: 'Төлеуге', placeOrder: 'Рәсімдеп, кассада төлеу', backToOrder: 'Тапсырысқа оралу',
+      ready: 'Дайын!', yourNumber: 'СІЗДІҢ НӨМІРІҢІЗ', numberNote: 'Тапсырыс дайын болғанда атыңыз бен нөміріңіз беру тақтасында көрсетіледі', takeReceipt: 'Чекті алыңыз',
+      stillHere: 'Сіз осындасыз ба?', willCancel: 'Тапсырыс мына уақыттан кейін жойылады', continueOrder: 'Тапсырысты жалғастыру', restart: 'Қайта бастау',
+      cancelQ: 'Тапсырысты жою керек пе?', yesCancel: 'Иә, жою',
+      wq1: 'Қанша фингерс?', wq2: 'Қандай тұздықтар?', wq3: 'Сусын қосасыз ба?', step: 'ҚАДАМ', persons: 'адам',
+      inOrder: '— себетте', dine: 'ОСЫНДА', take: 'ӨЗІММЕН', accrual: 'Осы тапсырыс үшін', andChiki: 'чик', gift: 'Сыйлық',
+      nameQ: 'Атыңыз кім?', nameHint: 'Атыңыз беру тақтасында тапсырыс нөмірімен бірге көрсетіледі', namePh: 'Атыңыз', space: 'Бос орын',
+      promoKicker: 'АПТА ХИТІ', pickIt: 'Таңдау',
+      payTitle: 'Қалай төлейсіз?', payChoose: 'ТӨЛЕМ ӘДІСІ', payNow: 'Төлеу', payPick: 'Төлем әдісін таңдаңыз',
+      kaspiNote: 'Kaspi қосымшасындағы QR арқылы', halyk: 'Halyk / Homebank', halykNote: 'Homebank QR арқылы төлем',
+      cashier: 'Кассада', cashierNote: 'Кассирге картамен немесе қолма-қол'
+    }
+  };
+  lang() { return this.state.lang || this.props.defaultLang || 'ru'; }
+  t() { return this.T[this.lang()] || this.T.ru; }
+
+  SAUCES = [
+    { id: 'pick', name: 'Фирменный' }, { id: 'hot', name: 'Острый' },
+    { id: 'cheese', name: 'Heinz сырный' }, { id: 'bbq', name: 'Heinz барбекю', out: true }
+  ];
+  DRINKS = [
+    { id: 'cola', name: 'Coca-Cola 0.5', d: 0 },
+    { id: 'fanta', name: 'Fanta 0.5', d: 0 },
+    { id: 'lemonade', name: 'Фирменный лимонад', d: 200 },
+    { id: 'tea', name: 'Холодный чай', d: 0 },
+    { id: 'zero', name: 'Coca-Cola Zero', d: 0 },
+    { id: 'sprite', name: 'Sprite 0.5', d: 0 },
+    { id: 'peach', name: 'Fuse Tea Персик', d: 0 },
+    { id: 'bonaqua', name: 'Bonaqua 0.5', d: 0 },
+    { id: 'melon', name: 'Fuse Tea Арбуз', d: 0, out: true }
+  ];
+  SIZES = [['60 г', 0], ['180 г', 600], ['300 г', 1000]];
+  ADDONS = [['d1', 690], ['d2', 390], ['d5', 890]];
+
+  COMBOS = [
+    { id: 'pick', name: 'Pick Combo', vid: 'uploads/IMG_7060.mp4', comp: '4 фингерса · фри · соус · тост · коулслоу · напиток', price: 4190, tag: 'ХИТ', combo: true, img: 'offline/i7.jpg',
+      d: '4 фингерса, 1 порция фри, 1 соус, 1 тост, 1 коулслоу и напиток на выбор.', n: [520, 1240, 55, 72, 98] },
+    { id: 'master', name: 'Master Combo', vid: '', comp: '6 фингерсов · фри · 2 соуса · 2 тоста · коулслоу · напиток', price: 5490, img: 'offline/i8.jpg', combo: true,
+      d: '6 фингерсов, 1 порция фри, 2 соуса, 2 тоста, 1 коулслоу и напиток на выбор.', n: [720, 1780, 78, 104, 132] },
+    { id: 'burger', name: 'Burger Combo', comp: 'бургер · фри · соус · напиток', price: 3790, combo: true, img: 'offline/i9.jpg',
+      d: '1 бургер, 1 порция фри, 1 соус и напиток на выбор.', n: [480, 1140, 34, 70, 92] },
+    { id: 'solo', name: 'Solo Combo', vid: '', comp: '3 фингерса · фри · соус · тост · напиток', price: 3490, tag: 'НОВИНКА', combo: true, img: 'offline/i10.jpg',
+      d: '3 фингерса, 1 порция фри, 1 соус, 1 тост и напиток на выбор.', n: [420, 1000, 44, 58, 82] }
+  ];
+  DUO = [
+    { id: 'fduo', name: 'Фингер Дуо', comp: '8 фингерсов · 1,5 порции долек · 2 соуса · 2 коулслоу · 2 тоста · 2 напитка', price: 7990, combo: true, img: 'offline/i11.jpg',
+      d: 'Сытное комбо для двоих: 8 хрустящих куриных фингерсов, 1,5 порции картофельных долек, 2 фирменных соуса, 2 порции свежего коулслоу, 2 фирменных тоста, 2 напитка на выбор', n: [1100, 2600, 104, 152, 190] },
+    { id: 'bduo', name: 'Бургер Дуо', comp: '2 бургера · 1,5 порции долек · 2 соуса · 2 напитка', price: 6990, combo: true, img: 'offline/i12.jpg',
+      d: 'Сытный бургер комбо с хрустящими куриными фингерсами, фирменным соусом, свежим коулслоу и мягким поджаренным тостом. 1,5 порции картофельных долек, 2 фирменных соуса, 2 напитка на выбор', n: [900, 2100, 68, 128, 168] },
+    { id: 'mduo', name: 'Микс Дуо', comp: '4 фингерса · 1,5 порции долек · 2 соуса · коулслоу · тост · 2 напитка', price: 7490, combo: true, img: 'offline/i13.jpg',
+      d: 'Сытное микс-комбо для двоих: 4 хрустящих куриных фингерса, 1,5 порции картофельных долек, 2 фирменных соуса, 1 порция свежего коулслоу, 1 фирменный тост и 2 напитка на выбор.', n: [980, 2200, 82, 130, 172] }
+  ];
+  PARTY = [
+    { id: 'p25', name: '25 фингерсов', comp: 'Сет на 6–8 человек · 8 соусов', price: 13990, party: true, fingers: 25, sauces: 8, ppl: '6–8', img: 'offline/i14.jpg',
+      d: 'Большой сет для компании из 6–8 человек. 25 хрустящих куриных фингерсов и 8 фирменных соусов' },
+    { id: 'p50', name: '50 фингерсов', comp: 'Сет на 13–15 человек · 16 соусов', price: 26990, party: true, fingers: 50, sauces: 16, ppl: '13–15', img: 'offline/i15.jpg',
+      d: 'Сет для компании из 13-15 человек. 50 хрустящих куриных фингерсов и 16 фирменных соусов' },
+    { id: 'p75', name: '75 фингерсов', comp: 'Сет на 20–22 человека · 24 соуса', price: 39990, party: true, fingers: 75, sauces: 24, ppl: '20–22', img: 'offline/i16.jpg',
+      d: 'Сет на 20–22 человека. 75 куриных фингерсов и 24 фирменных соуса' },
+    { id: 'p100', name: '100 фингерсов', comp: 'Сет на большую компанию · 32 соуса', price: 52990, party: true, fingers: 100, sauces: 32, ppl: '25+', img: 'offline/i17.jpg',
+      d: 'Большой сет для компании. 100 хрустящих куриных фингерсов и 32 фирменных соуса' }
+  ];
+  DOPS = [
+    { id: 'd1', name: 'Фингерс, 1 шт', vid: '', img: 'offline/i4.jpg', comp: 'Куриное филе в панировке', price: 690, d: 'Нежное куриное филе в хрустящей панировке, обжаренное до золотистой корочки. Сочное внутри, хрустящее снаружи', n: [55, 165, 12, 9, 9] },
+    { id: 'd2', name: 'Соус фирменный', img: 'offline/i18.jpg', comp: '60 · 180 · 300 г', price: 390, sizes: true, d: 'Легендарный фирменный соус Pick Chick', n: [60, 230, 1, 23, 4] },
+    { id: 'd7', name: 'Соус острый', comp: '60 · 180 · 300 г', price: 390, img: 'offline/i19.jpg', tag: 'НОВИНКА', sizes: true, d: 'Фирменный соус с перцем чили.', n: [60, 220, 1, 21, 5] },
+    { id: 'd3', name: 'Тост, 1 шт', img: 'offline/i5.jpg', comp: 'Чесночное масло', price: 390, d: 'Фирменный тост с хрустящей золотистой корочкой, пропитанный чесночным маслом.', n: [40, 150, 4, 7, 18] },
+    { id: 'd4', name: 'Коулслоу, 90 г', img: 'offline/i6.jpg', comp: 'Капуста, морковь, соус', price: 690, d: 'Свежий салат из белокочанной и краснокочанной капусты с морковью, заправленный фирменным соусом.', n: [90, 120, 1, 9, 7] },
+    { id: 'd5', name: 'Картофельные дольки, 90 г', comp: 'Хрустящие, с корочкой', price: 890, img: 'offline/i20.jpg', d: 'Хрустящие картофельные дольки с золотистой корочкой', n: [90, 210, 3, 11, 25] },
+    { id: 'd6', name: 'Бургер, 1 шт', comp: 'Фингерсы, коулслоу, бриошь', price: 2390, img: 'offline/shot.jpg', d: 'Сочный бургер с хрустящими куриными фингерсами, свежим коулслоу, фирменным соусом и мягкой булочкой бриошь.', n: [240, 620, 28, 33, 52] },
+    { id: 'n1', name: 'Фирменный лимонад 0.5 л', img: 'offline/i0.jpg', comp: 'Апельсин, лимон', price: 1190, d: 'Натуральный лимонад собственного приготовления из свежих апельсинов, лимонов, сахара и воды. Освежающий вкус без лишних добавок.', n: [500, 210, 0, 0, 52] },
+    { id: 'n2', name: 'Coca-Cola 0.5 л, банка', img: 'offline/i2.jpg', comp: 'Классическая', price: 990, d: 'Coca-Cola Classic, 0,5 л.', n: [500, 210, 0, 0, 53] },
+    { id: 'n3', name: 'Fuse Tea Персик 0.5 л', img: 'offline/i1.jpg', comp: 'Холодный чай', price: 790, d: 'Fuse Tea со вкусом персика.', n: [500, 90, 0, 0, 22] },
+    { id: 'n7', name: 'Fuse Tea Арбуз 0.5 л', img: 'offline/i3.jpg', comp: 'Холодный чай', price: 790, out: true, d: 'Fuse Tea со вкусом арбуза.', n: [500, 90, 0, 0, 22] },
+    { id: 'n4', name: 'Холодный чай 0.5 л', comp: 'Сладкий или несладкий', price: 490, img: 'offline/i22.jpg', d: 'Освежающий холодный чай собственного приготовления. Есть сладкий и не сладкий, можно миксовать', n: [500, 110, 0, 0, 27] },
+    { id: 'n5', name: 'Bonaqua негаз. 0.5 л', img: 'offline/i23.jpg', comp: 'Вода без газа', price: 590, d: 'Питьевая вода без газа.', n: [500, 0, 0, 0, 0] }
+  ];
+  CATS = [['combo', 'КОМБО', 'КОМБО'], ['duo', 'НА ДВОИХ', 'ЕКЕУГЕ'], ['party', 'СЕТЫ', 'СЕТТЕР'], ['dops', 'ДОПЫ И НАПИТКИ', 'ҚОСЫМША ЖӘНЕ СУСЫН']];
+
+  list(k) { return k === 'combo' ? this.COMBOS : k === 'duo' ? this.DUO : k === 'party' ? this.PARTY : this.DOPS; }
+  all() { return this.COMBOS.concat(this.DUO, this.PARTY, this.DOPS); }
+  cur() { return this.all().find(x => x.id === this.state.open) || this.COMBOS[0]; }
+
+  extra() {
+    const it = this.cur(), s = this.state;
+    let e = 0;
+    if (it.sizes) e += this.SIZES[s.sizeIdx || 0][1];
+    if (it.combo && s.drink) { const d = this.DRINKS.find(x => x.id === s.drink); if (d) e += d.d; }
+    return e;
+  }
+  giftLines() {
+    const g = [];
+    if (this.state.gifts.g1) g.push('Фирменный соус');
+    if (this.state.gifts.g2) g.push('Картофельные дольки');
+    return g;
+  }
+  total() { return this.state.cart.reduce((s, c) => s + (c.price + c.extra) * c.qty, 0); }
+  chiki() { return Math.round(this.total() * 0.07); }
+  count() { return this.state.cart.reduce((s, c) => s + c.qty, 0); }
+  plural(n) {
+    if (this.state.lang === 'kk') return n + ' тағам';
+    return n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'позиция' : (n % 10 > 1 && n % 10 < 5 && (n % 100 < 10 || n % 100 > 20) ? 'позиции' : 'позиций'));
+  }
+  say(m) { this.setState({ toast: m }); this.timers.push(setTimeout(() => this.setState({ toast: '' }), 1500)); }
+  // Прототип «базы»: гости копятся в localStorage. На проде — POST /api/guests
+  saveGuest(patch) {
+    try {
+      const key = 'pickchick.kiosk.guests';
+      const db = JSON.parse(localStorage.getItem(key) || '[]');
+      const phone = patch.phone || (this.state.phone ? '+7' + this.state.phone : '');
+      if (!phone) return;
+      const i = db.findIndex(g => g.phone === phone);
+      const rec = { phone, name: patch.name || (i >= 0 ? db[i].name : '') || '', updated: new Date().toISOString() };
+      if (i >= 0) db[i] = { ...db[i], ...rec }; else db.push(rec);
+      localStorage.setItem(key, JSON.stringify(db));
+    } catch (e) {}
+  }
+  timers = [];
+
+  bump = () => { if (this.state.idle) this.setState({ idle: 0 }); };
+  resetAll = () => {
+    this.setState({ lang: null, step: 'attract', cart: [], open: null, wiz: null, qty: 1, sauce: 'pick', drink: null, addons: {}, drinksSheet: false, upsellShown: false, identify: null, phone: '', user: null, gifts: {}, name: '', pay: null, idle: 0, dinein: true, cat: 'combo', toast: '', confirmCancel: false, doneLeft: 8 });
+    this.timers.push(setTimeout(this.kickHero, 100));
+  };
+  kickHero = () => {
+    const v = document.querySelector('video[data-hero]');
+    if (!v) return;
+    v.muted = true; v.playsInline = true; v.loop = true;
+    if (!v.__k) { v.__k = true; ['canplay', 'loadeddata', 'stalled'].forEach(e => v.addEventListener(e, () => this.kickHero())); }
+    if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+  };
+  componentDidMount() {
+    [80, 400, 1200].forEach(ms => this.timers.push(setTimeout(this.kickHero, ms)));
+    this.tick = setInterval(() => {
+      const s = this.state;
+      if (s.step === 'attract') { this.kickHero(); return; }
+      if (s.step === 'number') {
+        if (s.doneLeft <= 1) this.resetAll(); else this.setState({ doneLeft: s.doneLeft - 1 });
+        return;
+      }
+      const idleMax = (this.props.idleSeconds || 60) + 30;
+      if (s.idle + 1 >= idleMax) this.resetAll(); else this.setState({ idle: s.idle + 1 });
+    }, 1000);
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); clearInterval(this.tick); }
+
+  addLine(cart, it, mods, extra, qty) {
+    const key = it.id + '|' + (mods || '');
+    const i = cart.findIndex(c => c.key === key);
+    if (i >= 0) cart[i] = { ...cart[i], qty: cart[i].qty + qty };
+    else cart.push({ key, id: it.id, name: it.name, price: it.price, extra: extra || 0, qty, mods: mods || '' });
+    return cart;
+  }
+  openItem(x) {
+    if (x.out) return;
+    if (x.party) {
+      const sauces = {}; sauces.pick = x.sauces;
+      this.setState({ wiz: { id: x.id, step: 2, sauces, drinks: {} }, idle: 0 });
+      return;
+    }
+    this.setState({ open: x.id, qty: 1, sizeIdx: 0, sauce: 'pick', drink: null, addons: {}, flash: false, idle: 0 });
+  }
+  quickAdd(x) {
+    if (x.out) return;
+    const cart = this.state.cart.slice();
+    let mods = '', extra = 0;
+    if (x.combo) mods = 'Фирменный соус · Coca-Cola 0.5';
+    if (x.sizes) mods = '60 г';
+    if (x.party) mods = 'Фирменный соус ×' + x.sauces;
+    this.addLine(cart, x, mods, extra, 1);
+    this.setState({ cart, idle: 0 });
+    this.say(x.name + ' ' + this.t().inOrder);
+  }
+  wizItem() { return this.PARTY.find(p => p.id === (this.state.wiz || {}).id) || this.PARTY[0]; }
+  wizDrinkTotal() {
+    const w = this.state.wiz || { drinks: {} };
+    return Object.keys(w.drinks).reduce((s, id) => { const d = this.DOPS.find(x => x.id === id); return s + (d ? d.price * w.drinks[id] : 0); }, 0);
+  }
+  wizCommit(withDrinks) {
+    const w = this.state.wiz, it = this.wizItem();
+    const sauceStr = this.SAUCES.filter(x => w.sauces[x.id]).map(x => x.name + ' ×' + w.sauces[x.id]).join(', ');
+    let cart = this.state.cart.slice();
+    this.addLine(cart, it, sauceStr, 0, 1);
+    if (withDrinks) Object.keys(w.drinks).forEach(id => {
+      if (!w.drinks[id]) return;
+      const d = this.DOPS.find(x => x.id === id);
+      this.addLine(cart, d, '', 0, w.drinks[id]);
+    });
+    this.setState({ cart, wiz: null, idle: 0 });
+    this.say(it.name + ' ' + this.t().inOrder);
+  }
+
+  renderVals() {
+    const s = this.state, t = this.t(), it = this.cur();
+    const lang = this.lang();
+    const active = { bg: 'var(--blue)', fg: '#FFFFFF', border: 'var(--blue)' };
+    const idleStart = this.props.idleSeconds || 60;
+    const pick = on => on
+      ? { bg: '#FFFFFF', fg: 'var(--blue)', border: '#FFFFFF' }
+      : { bg: 'rgba(255,255,255,.12)', fg: '#FFFFFF', border: 'rgba(255,255,255,.28)' };
+    const needDrink = it.combo && !s.drink;
+    const upsellOn = this.props.upsellScreen !== false;
+    const startWith = l => { this.setState({ lang: l, step: 's1', idle: 0 }); };
+
+    const chipSkin = (on, out) => ({
+      bg: on ? '#FFFFFF' : 'rgba(255,255,255,.13)',
+      fg: on ? 'var(--blue)' : '#FFFFFF',
+      border: on ? '#FFFFFF' : 'rgba(255,255,255,.3)',
+      shadow: on ? '0 10px 28px rgba(0,0,0,.28)' : 'none',
+      dotBorder: on ? 'var(--blue)' : 'rgba(255,255,255,.55)',
+      dotBg: on ? 'var(--blue)' : 'transparent',
+      dotInner: on ? '#FFFFFF' : 'transparent',
+      opacity: out ? .45 : 1,
+      deco: out ? 'line-through' : 'none',
+      pillBg: on ? 'rgba(0,71,187,.12)' : 'rgba(255,255,255,.2)',
+      pillFg: on ? 'var(--blue)' : '#FFFFFF'
+    });
+    const drinkOpt = x => {
+      const on = s.drink === x.id;
+      return {
+        label: x.name,
+        note: x.out ? (lang === 'kk' ? 'жоқ' : 'нет') : (x.d ? '+' + this.NUM(x.d) + ' ₸' : false),
+        ...chipSkin(on, x.out),
+        pick: () => { if (!x.out) this.setState({ drink: x.id, drinksSheet: false, idle: 0 }); }
+      };
+    };
+
+    return {
+      t, modeLabel: s.dinein ? t.dine : t.take,
+      isAttract: s.step === 'attract', isS1: s.step === 's1',
+      isMenu: s.step === 'menu' && !s.open && !s.wiz,
+      isItem: !!s.open, isWiz: !!s.wiz, isDrinksSheet: s.drinksSheet,
+      isUpsell: s.step === 'upsell', isCart: s.step === 'cart' && !s.identify,
+      isIdentify: !!s.identify, isName: s.step === 'name', isPay: s.step === 'pay', isNumber: s.step === 'number',
+      isConfirmCancel: s.confirmCancel, toast: s.toast || false,
+      idleWarn: s.step !== 'attract' && s.step !== 'number' && s.idle >= idleStart && !s.confirmCancel,
+      warnLeft: Math.max(1, idleStart + 30 - s.idle),
+      bump: this.bump, resetAll: this.resetAll,
+      askCancel: () => { if (s.cart.length) this.setState({ confirmCancel: true, idle: 0 }); else this.resetAll(); },
+      dismissCancel: () => this.setState({ confirmCancel: false, idle: 0 }),
+
+      startDefault: () => startWith(this.lang()),
+      startKk: e => { e.stopPropagation(); this.setState({ lang: 'kk', idle: 0 }); },
+      startRu: e => { e.stopPropagation(); this.setState({ lang: 'ru', idle: 0 }); },
+      setKk: () => this.setState({ lang: 'kk', idle: 0 }),
+      setRu: () => this.setState({ lang: 'ru', idle: 0 }),
+      kkBg: lang === 'kk' ? '#FFFFFF' : 'transparent', kkFg: lang === 'kk' ? 'var(--blue)' : '#FFFFFF',
+      ruBg: lang === 'ru' ? '#FFFFFF' : 'transparent', ruFg: lang === 'ru' ? 'var(--blue)' : '#FFFFFF',
+
+      goAttract: () => this.resetAll(),
+      goS1: () => this.setState({ step: 's1', idle: 0 }),
+      pickDine: () => this.setState({ step: 'menu', dinein: true, idle: 0 }),
+      pickTake: () => this.setState({ step: 'menu', dinein: false, idle: 0 }),
+      goMenu: () => this.setState({ step: 'menu', open: null, wiz: null, idle: 0 }),
+      goCart: () => this.setState({ step: 'cart', open: null, idle: 0 }),
+      goReview: () => { if (s.cart.length) this.setState({ step: 'name', idle: 0 }); },
+
+      nameShown: s.name || t.namePh,
+      nameFg: s.name ? 'var(--n900)' : 'var(--n600)',
+      nameRows: [
+        ['Й','Ц','У','К','Е','Н','Г','Ш','Щ','З','Х'],
+        ['Ф','Ы','В','А','П','Р','О','Л','Д','Ж','Э'],
+        ['Я','Ч','С','М','И','Т','Ь','Б','Ю'],
+        ['Ә','І','Ң','Ғ','Ү','Ұ','Қ','Ө','Һ']
+      ].map(r => ({
+        keys: r.map(k => ({
+          label: k,
+          tap: () => { if (s.name.length < 14) this.setState({ name: s.name + (s.name && s.name.slice(-1) !== ' ' ? k.toLowerCase() : k), idle: 0 }); }
+        }))
+      })),
+      nameSpace: () => { if (s.name && s.name.length < 14) this.setState({ name: s.name + ' ', idle: 0 }); },
+      nameBack: () => this.setState({ name: s.name.slice(0, -1), idle: 0 }),
+      nameNextBg: s.name.trim() ? 'var(--orange)' : 'var(--n300)',
+      nameNextFg: s.name.trim() ? '#FFFFFF' : 'var(--n600)',
+      confirmName: () => { if (s.name.trim()) { this.saveGuest({ name: s.name.trim() }); this.setState({ step: 'pay', idle: 0 }); } },
+      skipName: () => this.setState({ name: '', step: 'pay', idle: 0 }),
+      guestName: s.name, hasName: !!s.name.trim(),
+
+      backFromPay: () => this.setState({ step: 'name', idle: 0 }),
+      payOpts: [
+        { id: 'kaspi', label: 'Kaspi QR', note: t.kaspiNote, badge: 'K', badgeBg: '#F14635' },
+        { id: 'halyk', label: t.halyk, note: t.halykNote, badge: 'H', badgeBg: '#00A651' },
+        { id: 'cashier', label: t.cashier, note: t.cashierNote, badge: '₸', badgeBg: 'var(--blue)' }
+      ].map(p => {
+        const on = s.pay === p.id;
+        return {
+          label: p.label, note: p.note, badge: p.badge, badgeBg: p.badgeBg,
+          bg: on ? '#EDF3FD' : '#FFFFFF', border: on ? 'var(--blue)' : 'transparent',
+          shadow: on ? '0 10px 28px rgba(0,71,187,.16)' : '0 2px 4px rgba(14,21,36,.05),0 10px 24px rgba(14,21,36,.06)',
+          dotBg: on ? 'var(--blue)' : '#FFFFFF', dotBorder: on ? 'var(--blue)' : 'var(--n300)', check: on ? '✓' : '',
+          pick: () => this.setState({ pay: p.id, idle: 0 })
+        };
+      }),
+      payBtnLabel: s.pay ? t.payNow + ' · ' + this.MONEY(this.total()) : t.payPick,
+      payBtnBg: s.pay ? 'var(--orange)' : 'var(--n300)',
+      payBtnFg: s.pay ? '#FFFFFF' : 'var(--n600)',
+      payBtnShadow: s.pay ? '0 16px 36px rgba(255,103,31,.35)' : 'none',
+      goNextFromMenu: () => {
+        if (!s.cart.length) return;
+        const skip = !upsellOn || s.upsellShown || this.total() > 10000;
+        this.setState({ step: skip ? 'cart' : 'upsell', upsellShown: true, idle: 0 });
+      },
+      menuNextBg: s.cart.length ? 'var(--orange)' : 'var(--n300)',
+      menuNextFg: s.cart.length ? '#FFFFFF' : 'var(--n600)',
+      menuNextShadow: s.cart.length ? '0 14px 32px rgba(255,103,31,.35)' : 'none',
+
+      cats: this.CATS.map(c => {
+        const on = s.cat === c[0];
+        return {
+          label: lang === 'kk' ? c[2] : c[1],
+          bg: on ? '#FFFFFF' : 'rgba(255,255,255,.16)', fg: on ? 'var(--blue)' : '#FFFFFF',
+          shadow: on ? '0 10px 24px rgba(0,10,40,.28)' : 'none',
+          go: () => this.setState({ cat: c[0], idle: 0 })
+        };
+      }),
+      showPromo: s.cat === 'combo',
+      promoName: this.COMBOS[1].name, promoComp: this.COMBOS[1].comp, promoPrice: this.MONEY(this.COMBOS[1].price),
+      openPromo: () => this.openItem(this.COMBOS[1]),
+      items: this.list(s.cat).map(x => ({
+        name: x.name, comp: x.comp || '', priceLabel: this.MONEY(x.price),
+        img: x.img || false, noImg: !x.img, vid: x.vid || false, slot: 'kiosk-' + x.id, tag: x.out ? false : (x.tag || false), out: !!x.out,
+        opacity: x.out ? .4 : 1,
+        plusBg: x.out ? 'var(--n300)' : 'var(--orange)',
+        plusShadow: x.out ? 'none' : '0 10px 24px rgba(255,103,31,.35)',
+        open: () => this.openItem(x),
+        quick: e => { e.stopPropagation(); this.quickAdd(x); }
+      })),
+      cartCountLabel: this.plural(this.count()), cartTotalLabel: this.MONEY(this.total()),
+
+      itemName: it.name, itemDesc: it.d || '', itemImg: it.img || false, itemNoImg: !it.img, itemVid: it.vid || false, itemNoVid: !it.vid, itemSlot: 'kiosk-' + it.id,
+      itemBaseLabel: this.MONEY(it.price),
+      itemNutrition: it.n ? (it.n[0] + ' г · ' + it.n[1] + ' ккал · Б ' + it.n[2] + ' · Ж ' + it.n[3] + ' · У ' + it.n[4]) : '',
+      itemIsCombo: !!it.combo, itemIsSizable: !!it.sizes, itemHasAddons: !!it.combo,
+      drinkFlash: s.flash ? 'kFlash .9s ease both' : 'none',
+      drinkStateBg: s.drink ? 'rgba(255,255,255,.9)' : 'rgba(255,103,31,.9)',
+      drinkStateFg: s.drink ? 'var(--blue)' : '#FFFFFF',
+      drinkStateLabel: s.drink ? t.chosen : t.choose,
+      drinkOpts: this.DRINKS.slice(0, 4).map(drinkOpt),
+      allDrinkOpts: this.DRINKS.map(drinkOpt),
+      showAllLabel: t.showAll + ' ' + this.DRINKS.length,
+      openDrinksSheet: () => this.setState({ drinksSheet: true, idle: 0 }),
+      closeDrinksSheet: () => this.setState({ drinksSheet: false, idle: 0 }),
+      sizeOpts: this.SIZES.map((z, i) => {
+        const on = (s.sizeIdx || 0) === i;
+        return { label: z[0], note: z[1] ? '+' + this.NUM(z[1]) + ' ₸' : lang === 'kk' ? 'бағада' : 'в цене', ...chipSkin(on, false), pick: () => this.setState({ sizeIdx: i, idle: 0 }) };
+      }),
+      sauceOpts: this.SAUCES.map(x => {
+        const on = s.sauce === x.id;
+        return {
+          label: x.name,
+          note: x.out ? (lang === 'kk' ? 'жоқ' : 'нет') : false,
+          ...chipSkin(on, x.out),
+          pick: () => { if (!x.out) this.setState({ sauce: x.id, idle: 0 }); }
+        };
+      }),
+      addonRows: this.ADDONS.map(a => {
+        const d = this.DOPS.find(x => x.id === a[0]);
+        const q = s.addons[a[0]] || 0;
+        return {
+          name: d.name, priceLabel: this.MONEY(a[1]), qty: q,
+          inc: () => this.setState({ addons: { ...s.addons, [a[0]]: Math.min(10, q + 1) }, idle: 0 }),
+          dec: () => this.setState({ addons: { ...s.addons, [a[0]]: Math.max(0, q - 1) }, idle: 0 })
+        };
+      }),
+      qty: s.qty,
+      incQty: () => this.setState({ qty: Math.min(10, s.qty + 1), idle: 0 }),
+      decQty: () => this.setState({ qty: Math.max(1, s.qty - 1), idle: 0 }),
+      addPriceLabel: this.MONEY((it.price + this.extra()) * s.qty + this.ADDONS.reduce((sum, a) => sum + a[1] * (s.addons[a[0]] || 0), 0)),
+      ctaBg: needDrink ? 'rgba(255,255,255,.16)' : 'var(--orange)',
+      ctaFg: needDrink ? 'rgba(255,255,255,.65)' : '#FFFFFF',
+      ctaShadow: needDrink ? 'none' : '0 14px 32px rgba(255,103,31,.35)',
+      closeItem: () => this.setState({ open: null, idle: 0 }),
+      addToCart: () => {
+        if (needDrink) {
+          this.setState({ flash: true, idle: 0 });
+          const sc = document.querySelector('[data-item-scroll]');
+          const g = document.querySelector('[data-drink-group]');
+          if (sc && g) sc.scrollTo({ top: Math.max(0, g.offsetTop - 140), behavior: 'smooth' });
+          this.timers.push(setTimeout(() => this.setState({ flash: false }), 950));
+          return;
+        }
+        const mods = [];
+        if (it.sizes) mods.push(this.SIZES[s.sizeIdx || 0][0]);
+        if (it.combo) {
+          mods.push((this.SAUCES.find(x => x.id === s.sauce) || {}).name);
+          mods.push((this.DRINKS.find(x => x.id === s.drink) || {}).name);
+        }
+        let cart = this.state.cart.slice();
+        this.addLine(cart, it, mods.join(' · '), this.extra(), s.qty);
+        this.ADDONS.forEach(a => {
+          const q = s.addons[a[0]] || 0;
+          if (q) this.addLine(cart, this.DOPS.find(x => x.id === a[0]), '', 0, q);
+        });
+        this.setState({ cart, open: null, qty: 1, addons: {}, idle: 0 });
+        this.say(it.name + ' ' + t.inOrder);
+      },
+
+      wizName: this.wizItem().name, wizNamePlain: this.wizItem().name,
+      wizStepLabel: t.step + ' ' + (((s.wiz || {}).step || 2) - 1) + ' / 2',
+      wizTitle: [t.wq2, t.wq3][(((s.wiz || {}).step || 2) - 2)],
+      wizIsStep2: ((s.wiz || {}).step || 2) === 2,
+      wizIsStep3: ((s.wiz || {}).step || 2) === 3,
+      wizCount: this.wizItem().fingers,
+      wizImg: this.wizItem().img || false, wizNoImg: !this.wizItem().img, wizSlot: 'kiosk-' + this.wizItem().id,
+      wizDesc: this.wizItem().d || '',
+      wizPpl: this.wizItem().ppl + ' ' + t.persons,
+      wizSauceNote: this.wizItem().sauces + ' ' + (lang === 'kk' ? 'тұздық' : 'соусов'),
+      wizSauces: this.SAUCES.map(x => {
+        const w = s.wiz || { sauces: {} }, q = w.sauces[x.id] || 0, target = this.wizItem().sauces;
+        const totalSel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return {
+          name: x.name, qty: q, opacity: x.out ? .45 : 1, deco: x.out ? 'line-through' : 'none',
+          inc: () => { if (!x.out && totalSel < target) this.setState({ wiz: { ...w, sauces: { ...w.sauces, [x.id]: q + 1 } }, idle: 0 }); },
+          dec: () => { if (q > 0) this.setState({ wiz: { ...w, sauces: { ...w.sauces, [x.id]: q - 1 } }, idle: 0 }); }
+        };
+      }),
+      wizSauceCount: (() => {
+        const w = s.wiz || { sauces: {} };
+        const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return (lang === 'kk' ? 'таңдалды ' : 'выбрано ') + sel + ' / ' + this.wizItem().sauces;
+      })(),
+      wizSauceBg: (() => {
+        const w = s.wiz || { sauces: {} };
+        const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return sel === this.wizItem().sauces ? 'var(--blue)' : 'var(--n100)';
+      })(),
+      wizSauceFg: (() => {
+        const w = s.wiz || { sauces: {} };
+        const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+        return sel === this.wizItem().sauces ? '#FFFFFF' : 'var(--n600)';
+      })(),
+      wizDrinks: ['n1', 'n2', 'n3', 'n4'].map(id => {
+        const d = this.DOPS.find(x => x.id === id);
+        const w = s.wiz || { drinks: {} }, q = w.drinks[id] || 0;
+        return {
+          name: d.name, priceLabel: this.MONEY(d.price), qty: q,
+          inc: () => this.setState({ wiz: { ...w, drinks: { ...w.drinks, [id]: Math.min(20, q + 1) } }, idle: 0 }),
+          dec: () => this.setState({ wiz: { ...w, drinks: { ...w.drinks, [id]: Math.max(0, q - 1) } }, idle: 0 })
+        };
+      }),
+      wizPriceLabel: this.MONEY(this.wizItem().price + this.wizDrinkTotal()),
+      wizNextLabel: ((s.wiz || {}).step || 1) === 3 ? t.toCart : t.next,
+      wizNextBg: (() => {
+        const w = s.wiz || { step: 1, sauces: {} };
+        if (w.step === 2) {
+          const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+          if (sel !== this.wizItem().sauces) return 'var(--n300)';
+        }
+        return 'var(--orange)';
+      })(),
+      wizNextFg: (() => {
+        const w = s.wiz || { step: 1, sauces: {} };
+        if (w.step === 2) {
+          const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+          if (sel !== this.wizItem().sauces) return 'var(--n600)';
+        }
+        return '#FFFFFF';
+      })(),
+      wizNextShadow: 'none',
+      wizNext: () => {
+        const w = s.wiz;
+        if (!w) return;
+        if (w.step === 2) {
+          const sel = this.SAUCES.reduce((sum, y) => sum + (w.sauces[y.id] || 0), 0);
+          if (sel !== this.wizItem().sauces) return;
+          return this.setState({ wiz: { ...w, step: 3 }, idle: 0 });
+        }
+        this.wizCommit(true);
+      },
+      wizSkip: () => this.wizCommit(false),
+      wizBack: () => {
+        const w = s.wiz;
+        if (!w || w.step <= 2) return this.setState({ wiz: null, idle: 0 });
+        this.setState({ wiz: { ...w, step: w.step - 1 }, idle: 0 });
+      },
+      closeWiz: () => this.setState({ wiz: null, idle: 0 }),
+
+      upsellItems: (() => {
+        const hasParty = s.cart.some(c => this.PARTY.some(p => p.id === c.id));
+        const ids = hasParty ? ['d2', 'd7', 'n1', 'n2'] : ['d2', 'd5', 'd3', 'n1'];
+        return ids.map(id => {
+          const x = this.DOPS.find(y => y.id === id);
+          const added = s.cart.some(c => c.id === id);
+          return {
+            name: x.name, priceLabel: this.MONEY(x.price), img: x.img || false, noImg: !x.img, slot: 'kiosk-' + x.id,
+            border: added ? 'var(--blue)' : 'var(--n300)',
+            btnBg: added ? 'var(--blue)' : 'var(--orange)', btnFg: '#FFFFFF', btnLabel: added ? '✓' : '+',
+            add: () => {
+              let cart = s.cart.slice();
+              this.addLine(cart, x, '', 0, 1);
+              this.setState({ cart, idle: 0 });
+              this.say(x.name + ' ' + t.inOrder);
+            }
+          };
+        });
+      })(),
+
+      cartLines: s.cart.map((c, i) => ({
+        name: c.name, mods: c.mods || '—', qty: c.qty, total: this.MONEY((c.price + c.extra) * c.qty),
+        slot: 'kiosk-' + c.id, img: (this.all().find(x => x.id === c.id) || {}).img || false, noImg: !(this.all().find(x => x.id === c.id) || {}).img,
+        inc: () => { const n = s.cart.slice(); n[i] = { ...n[i], qty: Math.min(10, n[i].qty + 1) }; this.setState({ cart: n, idle: 0 }); },
+        dec: () => { const n = s.cart.slice(); if (n[i].qty > 1) n[i] = { ...n[i], qty: n[i].qty - 1 }; else n.splice(i, 1); this.setState({ cart: n, idle: 0 }); },
+        remove: () => { const n = s.cart.slice(); n.splice(i, 1); this.setState({ cart: n, idle: 0 }); }
+      })),
+      cartEmpty: s.cart.length === 0,
+      checkoutBg: s.cart.length ? 'var(--orange)' : 'var(--n300)',
+      checkoutFg: s.cart.length ? '#FFFFFF' : 'var(--n600)',
+      checkoutShadow: s.cart.length ? '0 14px 32px rgba(255,103,31,.35)' : 'none',
+
+      noUser: !s.user, hasUser: !!s.user,
+      userTitle: s.user ? (s.user.method === 'qr' ? 'Азамат · Пик-мастер' : '+7 (' + s.phone.slice(0, 3) + ') ···-··-' + s.phone.slice(8)) : '',
+      userBalance: s.user && s.user.method === 'qr' ? '1 240 Ч' : '',
+      userAccrual: t.accrual + ': +' + this.NUM(this.chiki()) + ' ' + t.andChiki,
+      userHasGifts: false,
+      userPhoneOnly: !!s.user && s.user.method === 'phone',
+      giftRows: [
+        { id: 'g1', name: 'Фирменный соус', note: lang === 'kk' ? '5 сапар үшін' : 'за 5 визитов' },
+        { id: 'g2', name: 'Картофельные дольки', note: lang === 'kk' ? 'стрик, 4 апта' : 'стрик, 4 недели' }
+      ].map(g => {
+        const on = !!s.gifts[g.id];
+        return {
+          name: g.name, note: g.note,
+          check: on ? '✓' : '', boxBg: on ? 'var(--blue)' : '#FFFFFF', boxBorder: on ? 'var(--blue)' : 'var(--n300)',
+          bg: on ? '#EDF3FD' : '#FFFFFF', border: on ? 'var(--blue)' : 'var(--n300)',
+          toggle: () => this.setState({ gifts: { ...s.gifts, [g.id]: !on }, idle: 0 })
+        };
+      }),
+      openIdentify: () => this.setState({ identify: 'phone', idle: 0 }),
+      closeIdentify: () => this.setState({ identify: null, idle: 0 }),
+      identifyTitle: t.enterPhone,
+      identifyIsPhone: s.identify === 'phone',
+      phoneFg: s.phone ? 'var(--n900)' : 'var(--n600)',
+      phoneMask: (() => {
+        const d = s.phone.padEnd(10, '_');
+        return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6, 8) + '-' + d.slice(8, 10);
+      })(),
+      keypad: ['1', '2', '3', '4', '5', '6', '7', '8', '9', t.clear, '0', '⌫'].map(k => ({
+        label: k,
+        tap: () => {
+          this.bump();
+          if (k === '⌫') return this.setState({ phone: s.phone.slice(0, -1) });
+          if (k === t.clear) return this.setState({ phone: '' });
+          if (s.phone.length < 10) this.setState({ phone: s.phone + k });
+        }
+      })),
+      phoneBtnBg: s.phone.length === 10 ? 'var(--orange)' : 'var(--n300)',
+      phoneBtnFg: s.phone.length === 10 ? '#FFFFFF' : 'var(--n600)',
+      confirmPhone: () => {
+        if (s.phone.length !== 10) return;
+        this.saveGuest({ phone: '+7' + s.phone });
+        this.setState({ user: { method: 'phone' }, identify: null, idle: 0 });
+        this.say('+' + this.NUM(this.chiki()) + ' ' + t.andChiki);
+      },
+
+      reviewLines: (() => {
+        const rows = s.cart.map(c => ({
+          name: c.name + ' ×' + c.qty, mods: c.mods || false,
+          total: this.MONEY((c.price + c.extra) * c.qty), priceFg: 'var(--n900)'
+        }));
+        this.giftLines().forEach(g => rows.push({ name: t.gift + ': ' + g, mods: false, total: '0 ₸', priceFg: 'var(--blue)' }));
+        return rows;
+      })(),
+      placeOrder: () => {
+        if (!s.pay) return;
+        const no = String(100 + Math.floor(Math.random() * 100));
+        this.setState({ step: 'number', orderNo: no, doneLeft: 8, idle: 0 });
+      },
+      orderNo: s.orderNo || '147',
+      doneDots: Array.from({ length: 8 }, (_, i) => ({ bg: i < s.doneLeft ? 'var(--orange)' : 'var(--n300)' }))
+    };
+  }
+}
+
+</script>
+
+
+</body></html>
