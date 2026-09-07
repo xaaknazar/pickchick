@@ -52,6 +52,32 @@ def maintenance_overlay(directory):
     }}}
 
 
+def maintenance_write_script():
+    """Only the static, non-secret Caddy JSON is readable by its container UID.
+
+    Caddy root lacks DAC_OVERRIDE and cannot read an ops-owned 0600 bind mount.
+    Ownership metadata/compose remain private, as does the containing directory.
+    """
+    return '''import json,os,pathlib,sys
+path=pathlib.Path(sys.argv[1]); path.mkdir(mode=0o700)
+assert not path.is_symlink()
+for name,value in json.load(sys.stdin).items():
+ with open(path/name,'x') as output:
+  os.fchmod(output.fileno(),0o644 if name=='maintenance.json' else 0o600); output.write(value)
+'''
+
+
+def caddy_validation_command(config_path):
+    # Validate using the gateway's actual DAC restrictions before changing any service.
+    return ('docker run --rm --network none --read-only --cap-drop ALL '
+            '--cap-add NET_BIND_SERVICE --security-opt no-new-privileges:true '
+            '--pids-limit 64 --memory 128m --cpus 0.5 '
+            '--tmpfs /tmp:size=16m,mode=1777 --tmpfs /config:size=4m,mode=0700 '
+            '--tmpfs /data:size=4m,mode=0700 --entrypoint caddy -v '
+            + quote(config_path) + ':/tmp/maintenance.json:ro ' + CADDY
+            + ' validate --config /tmp/maintenance.json')
+
+
 def check_cron(text):
     expected = ('*/15 * * * * /bin/bash ' + REMOTE + '/releases/' + PROFILE.old_api +
                 '/infra/staging/identity-cleanup-cron.sh ' + PROFILE.old_api)
@@ -159,20 +185,12 @@ class TransportRelease(market.Release):
                     'compose.json': json.dumps(maintenance_overlay(self.maintenance_path), sort_keys=True)}
         self.maintenance_hashes = {self.maintenance_path + '/' + name: digest(value.encode())
                                    for name, value in contents.items()}
-        program = '''import json,os,pathlib,sys
-path=pathlib.Path(sys.argv[1]); path.mkdir(mode=0o700)
-assert not path.is_symlink()
-for name,value in json.load(sys.stdin).items():
- with open(path/name,'x') as output:
-  os.fchmod(output.fileno(),0o600); output.write(value)
-'''
+        program = maintenance_write_script()
         self.remote('python3 -c ' + quote(program) + ' ' + quote(self.maintenance_path), input=json.dumps(contents))
         self.journal('maintenance_prepared', file_sha256=self.maintenance_hashes)
         require(self.file_hashes(list(self.maintenance_hashes)) == self.maintenance_hashes,
                 'Maintenance artifacts changed after writing')
-        self.remote(f'docker run --rm --network none --entrypoint caddy '
-                    f'-v {quote(self.maintenance_path + "/maintenance.json")}:/tmp/maintenance.json:ro '
-                    + CADDY + ' validate --config /tmp/maintenance.json', timeout=45)
+        self.remote(caddy_validation_command(self.maintenance_path + '/maintenance.json'), timeout=45)
         self.remote(self.closed_compose(PROFILE.old_web) + ' config --quiet')
 
     def cleanup(self, action):

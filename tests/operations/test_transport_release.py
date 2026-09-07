@@ -335,5 +335,31 @@ class PointerTests(unittest.TestCase):
             self.assertEqual(pointer.resolve(), root / 'old')
 
 
+
+class MaintenancePermissionTests(unittest.TestCase):
+    def test_only_static_caddy_config_is_readable_while_owner_and_compose_stay_private(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary).resolve() / 'maintenance'
+            contents = {'maintenance.json': json.dumps(transport.maintenance_config()),
+                        'owner.json': '{"id":"synthetic-owner"}', 'compose.json': '{}'}
+            subprocess.run([sys.executable, '-c', transport.maintenance_write_script(), str(directory)],
+                           input=json.dumps(contents).encode(), check=True, capture_output=True)
+            self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
+            for name, mode in [('maintenance.json', 0o644), ('owner.json', 0o600), ('compose.json', 0o600)]:
+                self.assertEqual((directory / name).stat().st_mode & 0o777, mode)
+                self.assertEqual((directory / name).read_text(), contents[name])
+
+    def test_preflight_validate_uses_the_same_DAC_restrictions_before_gateway_changes(self):
+        import shlex
+        args = shlex.split(transport.caddy_validation_command('/private/owned/maintenance.json'))
+        for flag in ['--read-only', '--rm']: self.assertIn(flag, args)
+        self.assertEqual(args[args.index('--cap-drop') + 1], 'ALL')
+        self.assertEqual(args[args.index('--cap-add') + 1], 'NET_BIND_SERVICE')
+        self.assertEqual(args[args.index('--security-opt') + 1], 'no-new-privileges:true')
+        self.assertEqual(args[args.index('--network') + 1], 'none')
+        self.assertNotIn('DAC_OVERRIDE', args)
+        self.assertEqual(args[-3:], ['validate', '--config', '/tmp/maintenance.json'])
+
+
 if __name__ == '__main__':
     unittest.main()
