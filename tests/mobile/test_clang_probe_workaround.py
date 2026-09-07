@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -84,6 +86,110 @@ print(sys.argv[0], '|'.join(sys.argv[1:]), os.getcwd())
         with self.assertRaises(FileExistsError):
             WORKAROUND.prepare_launcher(self.destination, self.real, self.cxx)
         self.assertTrue(Path(self.metadata['cc']).is_file())
+
+
+class NestedXcodebuildLauncherTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = ClangProbeWorkaroundTests()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+        self.real = self.root / 'Xcode With Spaces/usr/bin/xcodebuild'
+        self.real.parent.mkdir(parents=True)
+        self.real.write_text(f'''#!{sys.executable}
+import json, os, sys
+if '-fixture-sigkill' in sys.argv:
+    os.kill(os.getpid(), 9)
+print(json.dumps({{'argv': sys.argv, 'environment': dict(os.environ), 'cwd': os.getcwd()}}))
+os.write(2, b'fixture real xcodebuild stderr\\x00\\xff')
+sys.exit(37)
+''')
+        self.real.chmod(0o700)
+        self.metadata = WORKAROUND.prepare_launcher(
+            self.root / 'nested launcher', self.fixture.real, self.fixture.cxx, self.real)
+        self.environment = {'PATH': self.metadata['path_prefix'] + ':/usr/bin:/bin',
+                            'PODS_ROOT': '/fixture/Pods With Spaces',
+                            'RN_ROOT': '/fixture/RN', 'DEVELOPER_DIR': '/fixture/Xcode',
+                            'UNCHANGED_FIXTURE': 'value with spaces=$()',
+                            'XCODE_XCCONFIG_FILE': '/fixture/parent settings.xcconfig'}
+
+    def invoke(self, arguments, launcher=True, clean_environment=False):
+        command = [self.metadata['xcodebuild_launcher'] if launcher else str(self.real),
+                   *arguments]
+        if clean_environment:
+            # The real Expo script forwards PATH, but not XCODE_XCCONFIG_FILE.
+            forwarded = {key: value for key, value in self.environment.items()
+                         if key != 'XCODE_XCCONFIG_FILE'}
+            command = ['/usr/bin/env', '-i',
+                       *[f'{key}={value}' for key, value in forwarded.items()],
+                       'xcodebuild', *arguments]
+        return subprocess.run(command, cwd=self.root, env=self.environment,
+                              capture_output=True, timeout=5)
+
+    def test_scoped_build_survives_env_i_and_preserves_all_other_arguments(self):
+        arguments = ['build', '-scheme', 'ExpoModulesJSI', '-sdk', 'iphonesimulator',
+                     '-destination', 'generic/platform=iOS Simulator',
+                     '-derivedDataPath', '/fixture/Derived Data', '-quiet',
+                     'CC=/obsolete/clang', 'CXX=/obsolete/clang++',
+                     'LD=/fixture/linker', 'OTHER_CFLAGS=-DNAME="a b"',
+                     'SWIFT_COMPILATION_MODE=wholemodule']
+        result = self.invoke(arguments, clean_environment=True)
+        captured = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 37)
+        self.assertEqual(result.stderr, b'fixture real xcodebuild stderr\x00\xff')
+        self.assertEqual(captured['argv'], [str(self.real),
+                         *[arg for arg in arguments if not arg.startswith(('CC=', 'CXX='))],
+                         'CC=' + self.metadata['cc'], 'CXX=' + self.metadata['cxx']])
+        self.assertEqual(captured['cwd'], str(self.root.resolve()))
+        self.assertNotIn('XCODE_XCCONFIG_FILE', captured['environment'])
+        for key, value in self.environment.items():
+            if key != 'XCODE_XCCONFIG_FILE':
+                self.assertEqual(captured['environment'][key], value)
+
+    def test_other_invocations_are_byte_for_byte_pass_through(self):
+        cases = [[], ['-version'], ['archive', '-scheme', 'ExpoModulesJSI'],
+                 ['build', '-scheme', 'PickChickKiosk'],
+                 ['build', '-scheme', 'ExpoModulesJSI', '-showBuildSettings'],
+                 ['build', '-scheme', 'ExpoModulesJSI', 'clean'],
+                 ['build', '-scheme', 'ExpoModulesJSI', '-scheme', 'Other'],
+                 ['build', '-scheme'], ['build', '-workspace', 'ExpoModulesJSI'],
+                 ['build', 'MY_SCHEME=ExpoModulesJSI'],
+                 ['-scheme', 'ExpoModulesJSI', 'build'],
+                 ['-create-xcframework', '-framework', 'ExpoModulesJSI.framework']]
+        for arguments in cases:
+            with self.subTest(arguments=arguments):
+                expected = self.invoke(arguments, launcher=False)
+                actual = self.invoke(arguments)
+                self.assertEqual((actual.returncode, actual.stdout, actual.stderr),
+                                 (expected.returncode, expected.stdout, expected.stderr))
+
+    def test_matching_build_preserves_environment_and_real_signal_exit(self):
+        arguments = ['build', '-scheme', 'ExpoModulesJSI']
+        actual = json.loads(self.invoke(arguments).stdout)
+        expected = json.loads(self.invoke(arguments, launcher=False).stdout)
+        self.assertEqual(actual['environment'], expected['environment'])
+        self.assertEqual(self.invoke([*arguments, '-fixture-sigkill']).returncode, -9)
+
+    def test_opt_in_and_provenance_identify_actual_launchers_and_binaries(self):
+        self.assertNotIn('path_prefix', self.fixture.metadata)
+        self.assertFalse((self.fixture.destination / 'path-bin').exists())
+        saved = json.loads((self.root / 'nested launcher/provenance.json').read_text())
+        self.assertEqual(saved, self.metadata)
+        self.assertEqual(saved['real_xcodebuild'], str(self.real))
+        self.assertEqual(saved['real_xcodebuild_sha256'], WORKAROUND.sha256(self.real))
+        launcher = Path(saved['xcodebuild_launcher'])
+        self.assertEqual(saved['xcodebuild_launcher_sha256'], WORKAROUND.sha256(launcher))
+        self.assertTrue(os.access(launcher, os.X_OK))
+        self.assertEqual(saved['xcodebuild_overrides'],
+                         {'CC': saved['cc'], 'CXX': saved['cxx']})
+        self.assertEqual(list(Path(saved['path_prefix']).iterdir()), [launcher])
+
+    def test_invalid_real_xcodebuild_does_not_create_partial_destination(self):
+        destination = self.root / 'invalid launcher'
+        with self.assertRaises(ValueError):
+            WORKAROUND.prepare_launcher(destination, self.fixture.real, self.fixture.cxx,
+                                        self.root / 'absent xcodebuild')
+        self.assertFalse(destination.exists())
 
 
 if __name__ == '__main__':
