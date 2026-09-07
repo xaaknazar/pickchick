@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BluePattern, LightBackground } from '../components/PatternBackground';
 import { assets } from '../assets';
 import { ProductArtwork } from '../components/ProductArtwork';
 import { defaultSelections, money, validSelections } from '../cart';
@@ -19,6 +21,10 @@ import {
 } from '../components/UI';
 const categoryKeys = ['combo', 'duo', 'sets', 'extras'] as const;
 type Category = (typeof categoryKeys)[number];
+export interface MenuMemory {
+  category: Category;
+  offsets: Partial<Record<Category, number>>;
+}
 const inCategory = (product: KioskProduct, category: Category) =>
   category === 'combo'
     ? product.category === 'Комбо'
@@ -101,11 +107,18 @@ export function ProductCard({
     </View>
   );
 }
-export function MenuScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
+export function MenuScreen({
+  model,
+  context,
+  memory,
+}: {
+  model: KioskModel;
+  context: ScreenContext;
+  memory: MenuMemory;
+}) {
   const { px, columns } = useMetrics();
   const t = copy(context.locale);
-  const [category, setCategory] = useState<Category>('combo');
-  const list = useRef<FlatList<KioskProduct>>(null);
+  const [category, setCategory] = useState<Category>(memory.category);
   const products = model.catalog?.products.filter((product) => inCategory(product, category)) ?? [];
   const promo = model.catalog?.products.find((p) => p.id === 'master-combo');
   const quickAdd = (product: KioskProduct) => {
@@ -116,47 +129,56 @@ export function MenuScreen({ model, context }: { model: KioskModel; context: Scr
   };
   return (
     <View testID="kiosk-screen-menu" style={layout.screen}>
-      <Header {...context} back={model.goMode} mode={model.mode === 'dine_in' ? t.here : t.togo} />
-      <View style={{ backgroundColor: colors.blue, paddingBottom: px(24), paddingTop: px(6) }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: px(24), gap: px(12) }}
-        >
-          {categoryKeys.map((key) => (
-            <Pressable
-              key={key}
-              testID={`kiosk-category-${key}`}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: category === key }}
-              onPress={() => {
-                model.touch();
-                setCategory(key);
-                list.current?.scrollToOffset({ offset: 0, animated: false });
-              }}
-              style={({ pressed }) => ({
-                minHeight: Math.max(56, px(76)),
-                paddingHorizontal: px(28),
-                paddingVertical: px(20),
-                borderRadius: px(38),
-                justifyContent: 'center',
-                backgroundColor: category === key ? colors.white : 'rgba(255,255,255,.13)',
-                opacity: pressed ? 0.75 : 1,
-              })}
-            >
-              <Heading
-                size={24}
-                color={category === key ? colors.blue : colors.white}
-                style={{ fontFamily: fonts.heading }}
+      <LightBackground />
+      <View style={{ backgroundColor: '#0B4FC4' }}>
+        <BluePattern />
+        <Header
+          {...context}
+          transparent
+          back={model.goMode}
+          mode={model.mode === 'dine_in' ? t.here : t.togo}
+        />
+        <View style={{ paddingBottom: px(24), paddingTop: px(6) }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: px(24), gap: px(12) }}
+          >
+            {categoryKeys.map((key) => (
+              <Pressable
+                key={key}
+                testID={`kiosk-category-${key}`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: category === key }}
+                onPress={() => {
+                  model.touch();
+                  memory.category = key;
+                  memory.offsets[key] = 0;
+                  setCategory(key);
+                }}
+                style={({ pressed }) => ({
+                  minHeight: Math.max(56, px(76)),
+                  paddingHorizontal: px(28),
+                  paddingVertical: px(20),
+                  borderRadius: px(38),
+                  justifyContent: 'center',
+                  backgroundColor: category === key ? colors.white : 'rgba(255,255,255,.13)',
+                  opacity: pressed ? 0.75 : 1,
+                })}
               >
-                {t[key]}
-              </Heading>
-            </Pressable>
-          ))}
-        </ScrollView>
+                <Heading
+                  size={24}
+                  color={category === key ? colors.blue : colors.white}
+                  style={{ fontFamily: fonts.heading }}
+                >
+                  {t[key]}
+                </Heading>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
       </View>
       <FlatList
-        ref={list}
         key={`${columns}-${category}`}
         testID="kiosk-menu-scroll"
         style={layout.grow}
@@ -165,6 +187,11 @@ export function MenuScreen({ model, context }: { model: KioskModel; context: Scr
         keyExtractor={(p) => p.id}
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={model.touch}
+        contentOffset={{ x: 0, y: memory.offsets[category] ?? 0 }}
+        scrollEventThrottle={64}
+        onScroll={(event) => {
+          memory.offsets[category] = Math.max(0, event.nativeEvent.contentOffset.y);
+        }}
         columnWrapperStyle={{ gap: px(22) }}
         contentContainerStyle={{ padding: px(24), gap: px(22), paddingBottom: px(30) }}
         ListHeaderComponent={
@@ -182,6 +209,10 @@ export function MenuScreen({ model, context }: { model: KioskModel; context: Scr
               }}
             >
               <Image source={assets.promo} contentFit="cover" style={StyleSheet.absoluteFill} />
+              <LinearGradient
+                colors={['rgba(11,79,196,.5)', 'rgba(11,79,196,.82)']}
+                style={StyleSheet.absoluteFill}
+              />
               <View style={{ flex: 1, gap: px(12) }}>
                 <View
                   style={{
@@ -222,7 +253,10 @@ export function MenuScreen({ model, context }: { model: KioskModel; context: Scr
       {
         <Footer blue testID="kiosk-cart-bar">
           <View style={[layout.spread, { gap: px(24) }]}>
-            <View>
+            <View style={{ flex: 1, minWidth: 0, gap: px(4) }}>
+              <Body style={{ color: 'rgba(255,255,255,.72)', fontSize: px(19) }}>
+                {t.cart}: {model.cart.reduce((sum, line) => sum + line.quantity, 0)}
+              </Body>
               <Heading size={44} color={colors.white}>
                 {model.cartValid
                   ? money(model.cartTotalMinor)
@@ -230,9 +264,6 @@ export function MenuScreen({ model, context }: { model: KioskModel; context: Scr
                     ? 'Проверьте корзину'
                     : 'Себетті тексеріңіз'}
               </Heading>
-              <Body style={{ color: 'rgba(255,255,255,.72)', fontSize: px(19) }}>
-                {t.items}: {model.cart.reduce((sum, line) => sum + line.quantity, 0)}
-              </Body>
             </View>
             <Button
               label={t.checkout}
@@ -241,7 +272,7 @@ export function MenuScreen({ model, context }: { model: KioskModel; context: Scr
               testID="kiosk-menu-checkout"
               disabled={!model.cart.length && !model.unavailableCartLines.length}
               busy={model.busy}
-              style={{ flex: 1, maxWidth: '65%' }}
+              style={{ maxWidth: '65%', paddingHorizontal: px(42) }}
             />
           </View>
         </Footer>

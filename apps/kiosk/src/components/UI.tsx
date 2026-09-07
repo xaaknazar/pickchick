@@ -15,6 +15,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
+import { BluePattern } from './PatternBackground';
 import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 export type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -86,7 +87,11 @@ export function Button({
   compact?: boolean;
 }) {
   const { px } = useMetrics();
-  const ink = tone === 'outline' || tone === 'white' ? colors.blue : colors.white;
+  const ink = disabled
+    ? colors.muted
+    : tone === 'outline' || tone === 'white'
+      ? colors.blue
+      : colors.white;
   return (
     <Pressable
       accessibilityRole="button"
@@ -107,15 +112,16 @@ export function Button({
           gap: px(16),
           borderWidth: tone === 'outline' ? 2 : 0,
           borderColor: colors.blue,
-          backgroundColor:
-            tone === 'orange'
+          backgroundColor: disabled
+            ? colors.border
+            : tone === 'orange'
               ? colors.orange
               : tone === 'blue'
                 ? colors.blue
                 : tone === 'glass'
                   ? 'rgba(255,255,255,.12)'
                   : colors.white,
-          opacity: disabled || busy ? 0.45 : pressed ? 0.8 : 1,
+          opacity: busy ? 0.65 : pressed ? 0.8 : 1,
         },
         style,
       ]}
@@ -268,25 +274,27 @@ export function Header({
   back,
   title,
   mode,
-}: ScreenContext & { back?: () => void; title?: string; mode?: string }) {
+  minimal = false,
+  transparent = false,
+}: ScreenContext & {
+  back?: () => void;
+  title?: string;
+  mode?: string;
+  minimal?: boolean;
+  transparent?: boolean;
+}) {
   const { px, width } = useMetrics();
   const safe = useSafeAreaInsets();
   const t = copy(locale);
   return (
     <View
       style={{
-        backgroundColor: colors.blue,
+        backgroundColor: transparent ? 'transparent' : colors.blue,
         paddingTop: safe.top,
         paddingLeft: Math.max(safe.left, px(24)),
         paddingRight: Math.max(safe.right, px(24)),
       }}
     >
-      <Image
-        source={assets.blue}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        pointerEvents="none"
-      />
       <View
         style={{
           minHeight: px(104),
@@ -298,7 +306,7 @@ export function Header({
       >
         {back ? <IconButton name="arrow-back" label={t.back} dark onPress={back} /> : <Logo />}
         <View style={{ flex: 1, minWidth: 0 }}>
-          {title ? (
+          {minimal ? null : title ? (
             <Heading size={28} color={colors.white}>
               {title}
             </Heading>
@@ -306,15 +314,38 @@ export function Header({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(14) }}>
               <Logo />
               {mode && width >= 600 ? (
-                <Body style={{ fontFamily: fonts.medium, color: colors.white, flexShrink: 1 }}>
-                  {mode}
-                </Body>
+                <View
+                  style={{
+                    minHeight: px(52),
+                    borderRadius: px(26),
+                    backgroundColor: 'rgba(255,255,255,.16)',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: px(18),
+                    gap: px(9),
+                    flexShrink: 1,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: px(9),
+                      height: px(9),
+                      borderRadius: 5,
+                      backgroundColor: colors.orange,
+                    }}
+                  />
+                  <Body style={{ fontFamily: fonts.heading, color: colors.white, flexShrink: 1 }}>
+                    {mode}
+                  </Body>
+                </View>
               ) : null}
             </View>
           )}
         </View>
-        <IconButton name="help-circle-outline" label={t.help} dark onPress={onHelp} />
-        {onCancel ? (
+        {!minimal ? (
+          <IconButton name="help-circle-outline" label={t.help} dark onPress={onHelp} />
+        ) : null}
+        {!minimal ? (
           <IconButton
             name="close"
             label={t.cancel}
@@ -358,6 +389,7 @@ export function Footer({
         style,
       ]}
     >
+      {blue ? <BluePattern footer /> : null}
       {children}
     </View>
   );

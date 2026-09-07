@@ -53,7 +53,12 @@ export function ModifierOptions({
         </Body>
       </View>
       <View
-        style={{ flexDirection: group.max === 1 ? 'row' : 'column', flexWrap: 'wrap', gap: px(12) }}
+        style={{
+          flexDirection: group.max === 1 ? 'row' : 'column',
+          flexWrap: group.max === 1 ? 'wrap' : 'nowrap',
+          alignItems: 'stretch',
+          gap: px(12),
+        }}
       >
         {group.options.slice(0, limit).map((option) => {
           const quantity =
@@ -109,13 +114,7 @@ export function ModifierOptions({
                   height: px(28),
                   borderRadius: px(14),
                   borderWidth: 2,
-                  borderColor: selected
-                    ? group.max === 1
-                      ? colors.white
-                      : colors.orange
-                    : dark
-                      ? '#CCD0DA'
-                      : '#8791A4',
+                  borderColor: selected ? colors.blue : dark ? '#CCD0DA' : '#8791A4',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -156,7 +155,7 @@ export function ModifierOptions({
             <View
               key={option.id}
               testID={`kiosk-modifier-${group.id}-${option.id}`}
-              style={[optionStyle, layout.spread, { gap: px(20) }]}
+              style={[optionStyle, layout.spread, { width: '100%', gap: px(20) }]}
             >
               <View style={{ flex: 1, gap: px(6) }}>
                 <Body style={{ color: ink }}>{option.label}</Body>

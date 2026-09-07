@@ -6,7 +6,7 @@ import { copy, type Locale } from './i18n';
 import { colors, useMetrics } from './theme';
 import { Body, Button, Dialog, Heading, layout, type ScreenContext } from './components/UI';
 import { WelcomeScreen, ModeScreen } from './screens/WelcomeMode';
-import { MenuScreen } from './screens/MenuScreen';
+import { MenuScreen, type MenuMemory } from './screens/MenuScreen';
 import { ProductScreen } from './screens/ProductScreen';
 import { CartScreen, ReviewScreen, UpsellScreen } from './screens/CartScreens';
 import { OrderScreen, PaymentScreen, RecoveryScreen } from './screens/PaymentOrderScreens';
@@ -18,10 +18,12 @@ export function KioskApp() {
   const [cancel, setCancel] = useState(false);
   const t = copy(locale);
   const upsellSeen = useRef(false);
+  const menuMemory = useRef<MenuMemory>({ category: 'combo', offsets: {} });
   const previousStep = useRef(liveModel.step);
   useEffect(() => {
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
       upsellSeen.current = false;
+      menuMemory.current = { category: 'combo', offsets: {} };
       setLocale('ru');
       setCancel(false);
       setHelp(false);
@@ -91,7 +93,7 @@ export function KioskApp() {
         screen = <ModeScreen model={model} context={context} />;
         break;
       case 'menu':
-        screen = <MenuScreen model={model} context={context} />;
+        screen = <MenuScreen model={model} context={context} memory={menuMemory.current} />;
         break;
       case 'product':
         screen = model.selectedProduct ? (
@@ -102,7 +104,7 @@ export function KioskApp() {
             context={context}
           />
         ) : (
-          <MenuScreen model={model} context={context} />
+          <MenuScreen model={model} context={context} memory={menuMemory.current} />
         );
         break;
       case 'upsell':
