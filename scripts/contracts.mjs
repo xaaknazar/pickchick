@@ -35,7 +35,7 @@ import {
   PullRequestSchema,
   PullResponseSchema,
   TransportAckSchema,
-  EdgeEventSchema,
+  TransportEdgeEventSchema,
   TransportReceiptSchema,
 } from '@pickchick/fulfillment-transport';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
@@ -713,7 +713,7 @@ Object.assign(openapi.components.schemas, {
   FulfillmentTransportPullRequest: jsonSchema(PullRequestSchema),
   FulfillmentTransportPullResponse: jsonSchema(PullResponseSchema),
   FulfillmentTransportAck: jsonSchema(TransportAckSchema),
-  FulfillmentTransportEvent: jsonSchema(EdgeEventSchema),
+  FulfillmentTransportEvent: jsonSchema(TransportEdgeEventSchema),
   FulfillmentTransportReceipt: jsonSchema(TransportReceiptSchema),
 });
 for (const [path, operationId, input, result, description] of [
