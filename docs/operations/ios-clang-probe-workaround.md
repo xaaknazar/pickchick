@@ -39,6 +39,73 @@ launcher и `features.json`. Если обход применяется к relea
 скрипт сам такие overrides не включает. После обновления Xcode создать
 директорию заново и повторить проверку; локальные launcher/provenance не коммитить.
 
+## Вложенная сборка ExpoModulesJSI после `env -i`
+
+В установленном ExpoModulesJSI 57.0.8 скрипт
+`apple/scripts/build-xcframework.sh` запускает отдельный
+`xcodebuild build -scheme ExpoModulesJSI`. Перед ним `env -i` намеренно удаляет
+настройки родительского Xcode, включая `XCODE_XCCONFIG_FILE`, чтобы не смешать
+SDK разных сборок. Скрипт сохраняет `PATH`, `HOME`, `PODS_ROOT`, `RN_ROOT` и
+при наличии `DEVELOPER_DIR`. Поэтому обход, применённый только к родительскому
+archive/build, не обязательно попадает во вложенную проверку Clang.
+
+Если именно эта вложенная сборка воспроизвела зависание, создать новый локальный
+каталог с дополнительным launcher:
+
+```sh
+python3 scripts/mobile/clang_probe_workaround.py \
+  --destination .local/clang-probe-expo-jsi-run-01 \
+  --expo-jsi-xcodebuild
+```
+
+Флаг выключен по умолчанию. В результате появляются абсолютные `path_prefix`
+и `xcodebuild_launcher`; обычная подготовка Clang этих файлов не создаёт.
+Xcode добавляет собственный `Developer/usr/bin` впереди родительского `PATH`
+(подтверждено в локальном kiosk Build01). Одной переменной shell у основного
+`xcodebuild` недостаточно. Поэтому сначала отдельно запустить **оригинальный**
+Expo build script с теми же абсолютными `PODS_ROOT`, `RN_ROOT` и выбранным Xcode:
+
+```sh
+env PATH="<path_prefix>:$PATH" \
+  DEVELOPER_DIR="<selected Xcode>/Contents/Developer" \
+  PODS_ROOT="<repository>/apps/kiosk/ios/Pods" \
+  RN_ROOT="<same React Native root as the CocoaPods phase>" \
+  PLATFORM_NAME=iphonesimulator \
+  /bin/bash "<installed expo-modules-jsi>/apple/scripts/build-xcframework.sh"
+```
+
+Здесь нет родительского Xcode phase, поэтому launcher остаётся первым после
+вложенного `env -i`. Передать реальные абсолютные пути вместо placeholders;
+не менять `HOME`. Сохранить полный лог, provenance и код завершения. Только
+после успешного build slice запустить основную native сборку. Оригинальный
+Expo script сам проверяет хеши исходников, Pods/RN путей и версии Swift и
+повторно использует соответствующий slice; кеш-файлы вручную не создавать,
+не подменять и не отмечать успешными. Проверить фактический cache-hit в логе
+основной сборки. При отличающихся путях или toolchain совпадение не гарантировано.
+Для archive аналогично подготовить `PLATFORM_NAME=iphoneos`: готовый simulator
+slice не заменяет device slice. Настройки CC/CXX самого основного build
+передаются отдельно, как выше. Одновременно основной и предварительный build
+одного Expo package не запускать: они используют общие generated Products.
+
+Launcher консервативно перехватывает только вызов, у которого первый аргумент
+`build`, ровно один `-scheme ExpoModulesJSI` и нет другой build action или
+metadata query. В этом вызове он заменяет только CLI-настройки `CC=`/`CXX=`
+на созданные Clang wrappers и выполняет настоящий выбранный `xcodebuild`
+через `execv`. Остальные аргументы, окружение, cwd, потоки и завершение
+сохраняются. Archive, другая схема, `-showBuildSettings`, `-create-xcframework`,
+неоднозначные и option-first формы проходят без изменений. Launcher не
+возвращает удалённые `SDKROOT`/`PLATFORM_NAME` и не меняет исходники `node_modules`,
+глобальный Xcode или проект. Generated Products и slice cache создаёт сам
+оригинальный Expo script в обычном порядке. После запуска убрать этот `PATH` override.
+
+Дополнительная provenance содержит путь и SHA-256 настоящего `xcodebuild`,
+путь и SHA-256 launcher, точную область действия и оба compiler override.
+Проверки используют искусственный executable и `env -i`: подтверждают
+узкий выбор схемы, сохранение аргументов с пробелами, окружения, cwd,
+stdout/stderr и exit/signal, а также отсутствие launcher без opt-in.
+Это проверка запуска инструмента; успешная сборка ExpoModulesJSI, основной
+сборки и работа приложения подтверждаются отдельными native build/UI результатами.
+
 Проверки: `python3 -m unittest discover -s tests/mobile -p 'test_clang_probe_workaround.py'`.
 Они проверяют большой stderr до stdout с последовательно читающим родителем,
 побайтовое сохранение потоков/exit, `execv` для обычной компиляции и настоящие

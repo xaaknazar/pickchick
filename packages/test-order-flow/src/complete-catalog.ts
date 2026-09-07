@@ -2584,7 +2584,7 @@ export const testCompleteCatalog = TestCompleteCatalogSchema.parse({
         'Сочный бургер с хрустящими куриными фингерсами, свежим коулслоу, фирменным соусом и мягкой булочкой бриошь.',
       category: 'Допы',
       price_minor: '239000',
-      image_id: 'i22.jpg',
+      image_id: 'shot.jpg',
       prep_required: true,
       serving_label: '240 г',
       ingredients:
@@ -2676,7 +2676,7 @@ export const testCompleteCatalog = TestCompleteCatalogSchema.parse({
         'Освежающий холодный чай собственного приготовления. Есть сладкий и не сладкий, можно миксовать',
       category: 'Напитки',
       price_minor: '49000',
-      image_id: 'i23.jpg',
+      image_id: 'i22.jpg',
       prep_required: false,
       serving_label: '500 мл',
       ingredients:
@@ -2699,7 +2699,7 @@ export const testCompleteCatalog = TestCompleteCatalogSchema.parse({
       description: 'Питьевая вода без газа, 0,5 л.',
       category: 'Напитки',
       price_minor: '59000',
-      image_id: 'generic-drink',
+      image_id: 'i23.jpg',
       prep_required: false,
       serving_label: '500 мл',
       ingredients: 'Питьевая вода без газа, 0,5 л.',
