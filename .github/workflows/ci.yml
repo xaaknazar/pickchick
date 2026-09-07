@@ -238,7 +238,9 @@ jobs:
           pnpm --filter @pickchick/api... build
           pnpm --filter @pickchick/edge... build
       - name: Verify durable delivery, permissions and interrupted requests
-        run: pnpm test:fulfillment-transport
+        run: |
+          pnpm test:fulfillment-transport
+          node --test tests/load/fulfillment-capacity.test.mjs
       - name: Stop isolated local infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
