@@ -235,6 +235,7 @@ export function Language({
           accessibilityRole="button"
           accessibilityLabel={value === 'kk' ? 'Қазақша' : 'Русский'}
           accessibilityState={{ selected: value === locale }}
+          aria-pressed={value === locale}
           onPress={() => onChange(value)}
           style={{
             minWidth: Math.max(52, px(66)),

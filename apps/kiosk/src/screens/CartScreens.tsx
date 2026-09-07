@@ -316,7 +316,8 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
               key={method}
               testID={`kiosk-payment-method-${method}`}
               accessibilityRole="radio"
-              accessibilityState={{ selected: model.paymentMethod === method }}
+              accessibilityState={{ checked: model.paymentMethod === method }}
+              aria-checked={model.paymentMethod === method}
               onPress={() => model.setPaymentMethod(method)}
               style={{
                 backgroundColor: colors.white,
