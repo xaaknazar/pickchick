@@ -212,7 +212,8 @@ test('gravity advances by elapsed time, preserves rendering references and segme
   assert.strictEqual(partial.board, state.board);
   assert.strictEqual(partial.next, state.next);
   assert.equal(partial.gravityMs, 100);
-  assert.equal(tick(state, 850).active.y, 1);
+  assert.equal(tick(state, 719).active.y, 0);
+  assert.equal(tick(state, 720).active.y, 1);
   const single = tick(state, 1000);
   let chunks = state;
   for (let index = 0; index < 10; index += 1) chunks = tick(chunks, 100);
@@ -221,14 +222,27 @@ test('gravity advances by elapsed time, preserves rendering references and segme
   for (const delta of [NaN, Infinity, -1, 0]) assert.strictEqual(tick(state, delta), state);
 });
 
+test('a saved game from the slower pace resumes without losing the board or score', () => {
+  const saved = withPiece('O', 0, 4, 0);
+  saved.gravityMs = 849;
+  saved.score = 24;
+  const restored = parseGame(clone(saved));
+  assert.deepEqual(restored, { ...saved, gravityMs: 719 });
+  assert.deepEqual(parseGame(clone(restored)), restored);
+  assert.equal(tick(restored, 1).active.y, 1);
+  assert.equal(tick(restored, 1).score, 24);
+  const fractional = { ...saved, gravityMs: 719.5 };
+  assert.deepEqual(parseGame(clone(fractional)), fractional);
+});
+
 test('landing starts the 500 ms delay after contact and settles without input', () => {
   const state = withPiece('O', 0, 4, 17);
   const landed = tick(state, 1000);
   assert.equal(landed.active.y, 18);
-  assert.equal(landed.lockMs, 150);
+  assert.equal(landed.lockMs, 280);
   assert.equal(landed.piecesPlaced, 0);
-  assert.equal(tick(landed, 349).piecesPlaced, 0);
-  assert.equal(tick(landed, 350).piecesPlaced, 1);
+  assert.equal(tick(landed, 219).piecesPlaced, 0);
+  assert.equal(tick(landed, 220).piecesPlaced, 1);
 });
 
 test('ground movement resets lock delay at most 15 times; blocked inputs never reset it', () => {

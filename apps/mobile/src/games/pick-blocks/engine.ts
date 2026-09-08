@@ -159,7 +159,7 @@ function grounded(state: GameState): boolean {
 }
 
 export function gravityIntervalMs(level: number): number {
-  return Math.max(90, Math.round(850 * 0.82 ** (level - 1)));
+  return Math.max(90, Math.round(720 * 0.82 ** (level - 1)));
 }
 
 function random(rng: number): number {
@@ -444,7 +444,8 @@ export function parseGame(value: unknown): GameState | null {
       value.lines > value.piecesPlaced * 4 ||
       typeof value.over !== 'boolean' ||
       !integer(value.rng, 1, 0xffff_ffff) ||
-      !timer(value.gravityMs, gravityIntervalMs(value.level)) ||
+      // Version 1 saves may contain time accumulated at the previous 850 ms pace.
+      !timer(value.gravityMs, Math.max(90, Math.round(850 * 0.82 ** (value.level - 1)))) ||
       !timer(value.lockMs, LOCK_DELAY_MS) ||
       !integer(value.lockResets, 0, MAX_LOCK_RESETS)
     )
@@ -496,7 +497,10 @@ export function parseGame(value: unknown): GameState | null {
       lastClear,
       rng: value.rng,
       bag: [...value.bag],
-      gravityMs: value.gravityMs,
+      gravityMs:
+        value.gravityMs < gravityIntervalMs(value.level)
+          ? value.gravityMs
+          : gravityIntervalMs(value.level) - 1,
       lockMs: value.lockMs,
       lockResets: value.lockResets,
     };
