@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 import {
   createContext,
   useContext,
@@ -9,9 +10,9 @@ import {
   type ReactNode,
 } from 'react';
 import type { MenuSnapshot } from '@pickchick/contracts';
-import { loadCatalog } from './api';
+import { isRetryableCatalogError, loadCatalog, loadTestCatalog } from './api';
+import { createCatalogRecovery } from './catalog-recovery';
 import { DESIGN_RELEASE, designProducts, serverProducts, connectedProducts } from './catalog';
-import { loadTestCatalog } from './test-client';
 import { useTestOrders } from './useTestOrders';
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import {
@@ -101,17 +102,21 @@ export function MobileProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    const controller = new AbortController();
-    setConnection((previous) => ({ ...previous, status: 'loading', message: null }));
-    void loadCatalog(requestedBranchId, controller.signal)
-      .then(async (result) => {
-        if (controller.signal.aborted) return;
+    const recovery = createCatalogRecovery({
+      load: async (signal) => {
+        const result = await loadCatalog(requestedBranchId, signal);
+        if (signal.aborted) throw new Error('Aborted');
         const testCatalog = result.capabilities.features.test_order_flow
-          ? await loadTestCatalog()
+          ? await loadTestCatalog(signal)
           : null;
-        if (controller.signal.aborted) return;
         if (testCatalog && testCatalog.branch_id !== result.branch.id)
           throw new Error('Test branch mismatch');
+        return { result, testCatalog };
+      },
+      isRetryable: isRetryableCatalogError,
+      onLoading: () =>
+        setConnection((previous) => ({ ...previous, status: 'loading', message: null })),
+      onSuccess: ({ result, testCatalog }) => {
         const nextRelease = testCatalog
           ? `test:${testCatalog.catalog_version}`
           : result.menu.release_id;
@@ -137,16 +142,24 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           checkedAt: new Date().toISOString(),
           message: null,
         });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setConnection((previous) => ({
-            ...previous,
-            status: 'offline',
-            message: 'Не удалось обновить меню. Проверьте интернет и повторите.',
-          }));
-      });
-    return () => controller.abort();
+      },
+      onFailure: () =>
+        setConnection((previous) => ({
+          ...previous,
+          status: 'offline',
+          message: 'Не удалось обновить меню. Проверьте интернет и повторите.',
+        })),
+    });
+    const subscription = AppState.addEventListener('change', (state) =>
+      recovery.setActive(state === 'active'),
+    );
+    recovery.setActive(
+      AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
+    );
+    return () => {
+      subscription.remove();
+      recovery.stop();
+    };
   }, [hydrated, requestedBranchId, refreshIndex]);
 
   const products = useMemo(
