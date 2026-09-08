@@ -1,9 +1,14 @@
 import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { assets } from '../assets';
 import { font } from '../theme';
 import { Icon, Logo } from '../components/UI';
+
+export function useGameCardHeight() {
+  const { fontScale } = useWindowDimensions();
+  return Math.ceil(212 * Math.max(1, fontScale));
+}
 
 export function ArcadeCard({
   name,
@@ -20,13 +25,14 @@ export function ArcadeCard({
   onPress(): void;
   testID: string;
 }) {
+  const height = useGameCardHeight();
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={`Играть в ${name}. ${description}`}
       onPress={onPress}
-      style={({ pressed }) => [s.card, pressed && { opacity: 0.88 }]}
+      style={({ pressed }) => [s.card, { height }, pressed && { opacity: 0.88 }]}
     >
       <Image
         source={assets.blue}
@@ -35,13 +41,15 @@ export function ArcadeCard({
         pointerEvents="none"
       />
       <View style={s.tint} pointerEvents="none" />
-      <View style={s.top}>
-        <Logo size={38} />
-        <Text style={s.tag}>{subtitle}</Text>
+      <View style={s.logo}>
+        <Logo size={30} />
       </View>
+      <Text style={s.tag}>{subtitle}</Text>
       <View style={s.middle}>
         <View style={s.copy}>
-          <Text style={s.title}>{name.replace(' ', '\n')}</Text>
+          <Text testID={`${testID}-title`} style={s.title}>
+            {name.replace(' ', '\n')}
+          </Text>
           <Text style={s.description}>{description}</Text>
         </View>
         <View
@@ -66,7 +74,7 @@ export function ArcadeCard({
 const s = StyleSheet.create({
   card: {
     marginTop: 12,
-    padding: 20,
+    padding: 16,
     borderRadius: 26,
     overflow: 'hidden',
     backgroundColor: '#0047BB',
@@ -74,32 +82,44 @@ const s = StyleSheet.create({
     borderColor: '#5286DC60',
   },
   tint: { ...StyleSheet.absoluteFill, backgroundColor: '#003485BA' },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  tag: { fontFamily: font.bold, fontSize: 10, letterSpacing: 1.1, color: '#E6EEFF' },
-  middle: { flexDirection: 'row', minHeight: 165, marginTop: 16, alignItems: 'center' },
+  logo: { position: 'absolute', top: 12, right: 14 },
+  tag: {
+    fontFamily: font.bold,
+    fontSize: 9,
+    lineHeight: 14,
+    letterSpacing: 0.8,
+    color: '#E6EEFF',
+    paddingRight: 40,
+  },
+  middle: { flex: 1, flexDirection: 'row', marginTop: 4, alignItems: 'center' },
   copy: { flex: 1, zIndex: 1 },
   title: {
     fontFamily: font.display,
-    fontSize: 34,
-    lineHeight: 34,
+    fontSize: 24,
+    lineHeight: 36,
     letterSpacing: -0.7,
     color: '#FFFFFF',
   },
   description: {
     fontFamily: font.medium,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     color: '#D6E5FF',
-    marginTop: 12,
-    maxWidth: 155,
+    marginTop: 2,
   },
-  art: { width: '42%', height: 155, alignItems: 'center', justifyContent: 'center' },
+  art: {
+    width: '38%',
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ scale: 0.75 }],
+  },
   bottom: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    marginTop: 12,
+    marginTop: 8,
   },
   play: {
     minHeight: 48,
