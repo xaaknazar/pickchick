@@ -5,7 +5,6 @@ import {
   Animated,
   AppState,
   Easing,
-  Image,
   Platform,
   StyleSheet,
   Text,
@@ -18,9 +17,7 @@ import * as SplashScreen from 'expo-splash-screen';
 export const launchBackground = '#0133CC';
 
 export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: () => void }) {
-  const opacity = useRef(new Animated.Value(1)).current;
-  const logoLift = useRef(new Animated.Value(0)).current;
-  const accentMotion = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
   const artworkSize = Math.min(320, width, height * 0.65);
   const [laidOut, setLaidOut] = useState(false);
@@ -28,7 +25,6 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
   const [imageFailed, setImageFailed] = useState(false);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [active, setActive] = useState(AppState.currentState !== 'background');
-  const [introFinished, setIntroFinished] = useState(false);
   const imageReady = imagesReady.length === 3;
   const imageLoaded = (name: string) =>
     setImagesReady((names) => (names.includes(name) ? names : [...names, name]));
@@ -59,54 +55,40 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
   useEffect(() => {
     if (!laidOut || !imageReady || !active || reduceMotion === null) return;
     if (reduceMotion || imageFailed) {
-      logoLift.setValue(0);
-      accentMotion.setValue(0);
-      setIntroFinished(true);
+      progress.setValue(0);
+      if (ready) onFinish();
       return;
     }
-    if (introFinished) return;
-    const timing = (value: Animated.Value, toValue: number, duration: number) =>
-      Animated.timing(value, {
-        toValue,
-        duration,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: Platform.OS !== 'web',
-      });
-    const intro = Animated.parallel([
-      Animated.sequence([timing(logoLift, 1, 360), timing(logoLift, 0, 400)]),
-      Animated.sequence([timing(accentMotion, 1, 460), timing(accentMotion, 0, 300)]),
-    ]);
-    intro.start(({ finished }) => {
-      if (finished) setIntroFinished(true);
-    });
-    return () => intro.stop();
-  }, [
-    laidOut,
-    imageReady,
-    active,
-    reduceMotion,
-    imageFailed,
-    introFinished,
-    logoLift,
-    accentMotion,
-  ]);
-
-  useEffect(() => {
-    if (!ready || !introFinished || !active || reduceMotion === null) return;
-    if (reduceMotion) {
-      onFinish();
-      return;
-    }
-    const animation = Animated.timing(opacity, {
-      toValue: 0,
-      duration: 260,
+    // Start growing as soon as the native screen hands over. Slow fonts only
+    // hold the early part of the movement; never reveal an unmounted page.
+    const animation = Animated.timing(progress, {
+      toValue: ready ? 1 : 0.14,
+      duration: ready ? 640 : 900,
+      easing: ready ? Easing.bezier(0.32, 0, 0.2, 1) : Easing.out(Easing.cubic),
       useNativeDriver: Platform.OS !== 'web',
     });
     animation.start(({ finished }) => {
-      if (finished) onFinish();
+      if (finished && ready) onFinish();
     });
+    // Animated keeps its current value, including across background/foreground.
     return () => animation.stop();
-  }, [ready, introFinished, active, reduceMotion, opacity, onFinish]);
+  }, [laidOut, imageReady, active, reduceMotion, imageFailed, ready, progress, onFinish]);
+
+  const opacity = progress.interpolate({
+    inputRange: [0, 0.32, 0.82, 1],
+    outputRange: [1, 1, 0.12, 0],
+    extrapolate: 'clamp',
+  });
+  const detailOpacity = progress.interpolate({
+    inputRange: [0, 0.14, 0.3, 1],
+    outputRange: [1, 1, 0, 0],
+    extrapolate: 'clamp',
+  });
+  const logoScale = progress.interpolate({
+    inputRange: [0, 0.14, 0.45, 0.75, 1],
+    outputRange: [1, 1.15, 2.4, 5, Math.max(8, (height / artworkSize) * 3)],
+    extrapolate: 'clamp',
+  });
 
   return (
     <Animated.View
@@ -131,10 +113,7 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
             styles.layer,
             {
               zIndex: 1,
-              transform: [
-                { translateY: logoLift.interpolate({ inputRange: [0, 1], outputRange: [0, -7] }) },
-                { scale: logoLift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) },
-              ],
+              transform: [{ scale: logoScale }],
             },
           ]}
           resizeMode="contain"
@@ -149,16 +128,7 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
             styles.layer,
             {
               zIndex: 2,
-              transform: [
-                { scale: accentMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
-                {
-                  rotate: accentMotion.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '5deg'],
-                  }),
-                },
-              ],
-              opacity: accentMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.65] }),
+              opacity: detailOpacity,
             },
           ]}
           resizeMode="contain"
@@ -166,10 +136,10 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
           onError={() => setImageFailed(true)}
           onLoadEnd={() => imageLoaded('accents')}
         />
-        <Image
+        <Animated.Image
           testID="launch-tagline"
           source={require('../../assets/launch/tagline.png')}
-          style={[styles.layer, { zIndex: 3 }]}
+          style={[styles.layer, { zIndex: 3, opacity: detailOpacity }]}
           resizeMode="contain"
           accessible={false}
           onError={() => setImageFailed(true)}

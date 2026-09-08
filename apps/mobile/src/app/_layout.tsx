@@ -18,6 +18,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function Layout() {
   const [launchVisible, setLaunchVisible] = useState(true);
+  const [contentReady, setContentReady] = useState(false);
   const finishLaunch = useCallback(() => setLaunchVisible(false), []);
   const [loaded, error] = useFonts({
     Jost_600SemiBold,
@@ -36,24 +37,31 @@ export default function Layout() {
         pointerEvents={launchVisible ? 'none' : 'auto'}
       >
         {error ? (
-          <View testID="launch-error" style={{ flex: 1, justifyContent: 'center', padding: 32 }}>
+          <View
+            testID="launch-error"
+            onLayout={() => setContentReady(true)}
+            style={{ flex: 1, justifyContent: 'center', padding: 32 }}
+          >
             <Text style={{ color: 'white', fontSize: 18, lineHeight: 28 }}>
               Не удалось загрузить приложение. Закройте и откройте PickChick снова.
             </Text>
           </View>
         ) : loaded ? (
-          <AccountProvider>
-            <MobileProvider>
-              <Stack
-                screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#04143A' } }}
-              />
-            </MobileProvider>
-          </AccountProvider>
+          <View style={{ flex: 1 }} onLayout={() => setContentReady(true)}>
+            <AccountProvider>
+              <MobileProvider>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: '#04143A' },
+                  }}
+                />
+              </MobileProvider>
+            </AccountProvider>
+          </View>
         ) : null}
       </View>
-      {launchVisible ? (
-        <LaunchScreen ready={loaded || Boolean(error)} onFinish={finishLaunch} />
-      ) : null}
+      {launchVisible ? <LaunchScreen ready={contentReady} onFinish={finishLaunch} /> : null}
     </View>
   );
 }
