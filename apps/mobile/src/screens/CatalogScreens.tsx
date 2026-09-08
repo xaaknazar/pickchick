@@ -905,7 +905,7 @@ const s = StyleSheet.create({
     textShadowRadius: 18,
   },
   heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
-  menuBody: { paddingHorizontal: 18, marginTop: -104, gap: 16 },
+  menuBody: { paddingHorizontal: 18, marginTop: -128, gap: 16 },
   stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
   categoryList: {
     gap: 8,
