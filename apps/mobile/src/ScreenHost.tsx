@@ -24,7 +24,8 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     tabRoutes[id as keyof typeof tabRoutes] === `/${segments.join('/')}`;
   const navigate = (next: ScreenId) => {
     if (!preview && returnTo && id === 'M04' && (next === 'M06' || next === 'M30')) {
-      if (returnTo === 'pick-blocks') router.replace('/games/pick-blocks');
+      if (returnTo === 'pick-man') router.replace('/games/pick-man');
+      else if (returnTo === 'pick-blocks') router.replace('/games/pick-blocks');
       else router.replace({ pathname: '/screen/[id]', params: { id: returnTo } });
       return;
     }

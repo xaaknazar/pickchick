@@ -74,6 +74,8 @@ jobs:
           .local/design-venv/bin/python tests/operations/layout_regression.py
           .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
           .local/design-venv/bin/python tests/mobile/browser_pick_blocks.py
+          .local/design-venv/bin/python tests/mobile/browser_pick_man.py
+          .local/design-venv/bin/python tests/mobile/browser_arcade_motion.py
           .local/design-venv/bin/python tests/mobile/browser_account_required.py
       - name: Verify POS against the local edge and PostgreSQL
         env:
