@@ -314,11 +314,12 @@ export class CommerceRepository {
     input: unknown,
     run: (client: DatabaseClient, scope: CommerceScope) => Promise<T>,
     manager = false,
+    db?: DatabaseClient,
   ): Promise<T> {
     const scope = parse(ScopeSchema, scopeInput);
     parse(UUIDSchema, key);
     if (manager && scope.role !== 'manager') throw new CommerceError('FORBIDDEN');
-    return transaction(this.pool, async (client) => {
+    const execute = async (client: DatabaseClient) => {
       await boundary(client, scope);
       const parts = [scope.organizationId, scope.branchId, scope.principalId, operation, key];
       await lock(client, ['command', ...parts]);
@@ -339,7 +340,8 @@ export class CommerceRepository {
         [...parts, hash, result],
       );
       return result;
-    });
+    };
+    return db ? execute(db) : transaction(this.pool, execute);
   }
 
   /** Internal pricing port: amounts MUST originate from a trusted pricing service. */
@@ -613,7 +615,12 @@ export class CommerceRepository {
     return result;
   }
   /** Trusted internal manager port only; no HTTP principal is accepted here. */
-  async requestUnpaidCancellation(scope: CommerceScope, key: string, input: unknown) {
+  async requestUnpaidCancellation(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
     const request = parse(UnpaidCancellationRequestSchema, input);
     return this.command(
       scope,
@@ -663,6 +670,7 @@ export class CommerceRepository {
         return this.cancellationView(client, actor, row.id);
       },
       true,
+      db,
     );
   }
   private async cancellationView(client: DatabaseClient, scope: Boundary, orderId: string) {
@@ -960,7 +968,7 @@ export class CommerceRepository {
       return reconcile(client, row);
     });
   }
-  async requestRefund(scope: CommerceScope, key: string, input: unknown) {
+  async requestRefund(scope: CommerceScope, key: string, input: unknown, db?: DatabaseClient) {
     const request = parse(RefundRequestSchema, input);
     return this.command(
       scope,
@@ -1030,6 +1038,7 @@ export class CommerceRepository {
         };
       },
       true,
+      db,
     );
   }
   async observeRefund(provider: TrustedProvider, input: unknown) {

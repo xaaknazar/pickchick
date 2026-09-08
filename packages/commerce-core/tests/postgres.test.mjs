@@ -1,3 +1,4 @@
+import { orderRecipeGrants } from '../../../infra/staging/backoffice-grants.mjs';
 import assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers';
 import test from 'node:test';
@@ -693,6 +694,7 @@ test('restricted runtime DML role completes commerce without DDL, deletes or acc
         commerce_commands,commerce_provider_inbox,commerce_edge_inbox,commerce_reconciliation_issues,commerce_outbox TO ${role};
       GRANT UPDATE ON commerce_orders,commerce_payment_intents,commerce_payment_attempts,commerce_refunds,commerce_fiscal_documents,commerce_outbox TO ${role};
       GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${f.schema} TO ${role}`);
+      await f.pool.query(orderRecipeGrants(role));
       const url = new URL(f.url);
       url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
       runtime = createPool(url.toString(), 5);

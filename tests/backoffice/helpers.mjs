@@ -1,3 +1,12 @@
+import {
+  Backoffice,
+  BACKOFFICE,
+  grantBackoffice,
+} from '../../packages/backoffice-core/dist/index.js';
+import {
+  BackofficeController,
+  BackofficeContentController,
+} from '../../services/api/dist/backoffice-controller.js';
 import { createRequire } from 'node:module';
 import {
   CatalogAdmin,
@@ -29,11 +38,14 @@ export async function withCatalog(run, options = {}) {
         name: 'Синтетический управляющий',
         branch_ids: [branch],
       });
+    const backoffice = new Backoffice(cloud.pool, true);
+    await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
     class CatalogModule {}
     Module({
-      controllers: [CatalogAdminController],
+      controllers: [CatalogAdminController, BackofficeController, BackofficeContentController],
       providers: [
         { provide: CATALOG_ADMIN, useValue: service },
+        { provide: BACKOFFICE, useValue: backoffice },
         {
           provide: RESOURCE,
           useValue: {
@@ -64,7 +76,7 @@ export async function withCatalog(run, options = {}) {
       return value;
     };
     try {
-      await run({ ...context, service, manager, url, transport, upstream });
+      await run({ ...context, service, backoffice, manager, url, transport, upstream });
     } finally {
       await new Promise((resolve) => proxy.close(resolve));
       await app.close();

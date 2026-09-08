@@ -1,3 +1,4 @@
+import { GameAvailability } from './backoffice/GameAvailability';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { accountDestination } from './account-access';
 import { Pressable, Text, View } from 'react-native';
@@ -40,17 +41,24 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
         },
       });
   };
+  const screen = (
+    <MobileScreen
+      screenId={id}
+      model={model}
+      navigate={navigate}
+      goBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu'))}
+      preview={preview}
+      inTabLayout={segments[0] === '(tabs)'}
+      openReview={() => router.push('/review')}
+    />
+  );
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
-      <MobileScreen
-        screenId={id}
-        model={model}
-        navigate={navigate}
-        goBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu'))}
-        preview={preview}
-        inTabLayout={segments[0] === '(tabs)'}
-        openReview={() => router.push('/review')}
-      />
+      {!preview && (id === 'M27' || id === 'M28') ? (
+        <GameAvailability template="pick-run">{screen}</GameAvailability>
+      ) : (
+        screen
+      )}
       {activeTab ? <CartShortcut model={model} onPress={() => navigate('M09')} /> : null}
       {preview ? (
         <Pressable
