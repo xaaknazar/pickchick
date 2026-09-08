@@ -18,7 +18,11 @@ export function AccountGate({
   const account = useAccount();
   const router = useRouter();
   if (accountCanAct(account)) return children;
-  const game = destination === 'pick-blocks' || destination === 'M27' || destination === 'M28';
+  const game =
+    destination === 'pick-man' ||
+    destination === 'pick-blocks' ||
+    destination === 'M27' ||
+    destination === 'M28';
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#04143A' }}>
       <View
