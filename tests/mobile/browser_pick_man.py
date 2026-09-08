@@ -23,12 +23,27 @@ def fixture(status):
 def saved(page):return page.evaluate('(key)=>JSON.parse(localStorage.getItem(key))',KEY)
 
 def open_page(browser,path='/games/pick-man',snapshot=None,guest=False,size=(393,852)):
-    c=browser.new_context(viewport={'width':size[0],'height':size[1]})
+    c=browser.new_context(viewport={'width':size[0],'height':size[1]}, has_touch=True)
     c.route('**/v1/**',lambda r:r.abort())
     if not guest:signed_in(c)
     if snapshot:c.add_init_script("if(!sessionStorage.getItem('maze-seeded')){localStorage.setItem(%s,%s);sessionStorage.setItem('maze-seeded','1')}"%(json.dumps(KEY),json.dumps(json.dumps(snapshot))))
     page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+path)
     return page
+
+def swipe(page, dx, dy, outside_board=False):
+    box = page.get_by_test_id('pick-man-board').bounding_box()
+    x, y = box['x'] + box['width']/2, box['y'] + box['height']/2
+    if outside_board:
+        stage = page.get_by_test_id('pick-man-swipe-area').bounding_box()
+        y = stage['y'] + 30
+        assert y + abs(dy) < box['y'], (stage, box)
+    session = page.context.new_cdp_session(page)
+    session.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x, 'y': y}]})
+    for step in range(1, 5):
+        session.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': x+dx*step/4, 'y': y+dy*step/4}]})
+        page.wait_for_timeout(20)
+    session.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+    session.detach()
 
 with sync_playwright() as p:
     b=p.chromium.launch()
@@ -52,12 +67,13 @@ with sync_playwright() as p:
     page.get_by_test_id('pick-man-start').click()
     expect(page.get_by_test_id('pick-man-board')).to_be_visible()
     page.wait_for_function('(key)=>JSON.parse(localStorage.getItem(key))?.game.ticks>=5',arg=KEY)
-    page.get_by_test_id('pick-man-up').click()
+    swipe(page, 0, -65)
     page.get_by_test_id('pick-man-pause').click()
     expect(page.get_by_test_id('pick-man-resume')).to_be_visible()
     page.wait_for_timeout(200)
     before=saved(page);page.wait_for_timeout(700);assert saved(page)==before
-    expect(page.get_by_test_id('pick-man-left')).to_be_disabled()
+    assert saved(page)['game']['desired'] == 'up'
+    expect(page.get_by_test_id('pick-man-left')).to_have_count(0)
     page.screenshot(path=str(OUTPUT/'paused.png'))
     page.get_by_test_id('pick-man-rules').click()
     expect(page.get_by_test_id('pick-man-help-close')).to_be_visible()
@@ -71,10 +87,20 @@ with sync_playwright() as p:
         assert board['x']>=0 and board['x']+board['width']<=width+1,board
         assert board['y']>=0 and board['y']+board['height']<=height+1,board
         for direction in ['up','down','left','right']:
-            box=page.get_by_test_id('pick-man-'+direction).bounding_box();assert box['width']>=48 and box['height']>=48
+            expect(page.get_by_test_id('pick-man-'+direction)).to_have_count(0)
         page.get_by_test_id('pick-man-resume').click()
         page.screenshot(path=str(OUTPUT/f'game-{width}.png'))
         page.get_by_test_id('pick-man-pause').click()
+    page.set_viewport_size({'width':393,'height':852})
+    for direction, dx, dy in [('left',-65,0),('right',65,0),('up',0,-65),('down',0,65)]:
+        page.get_by_test_id('pick-man-resume').click()
+        swipe(page, dx, dy, outside_board=direction == 'left')
+        page.get_by_test_id('pick-man-pause').click()
+        page.wait_for_function('([key, direction]) => JSON.parse(localStorage.getItem(key)).game.desired === direction',arg=[KEY,direction])
+    before = saved(page)
+    # A gesture during pause cannot change the buffered turn or restart movement.
+    swipe(page, -65, 0)
+    assert saved(page) == before
     page.get_by_test_id('pick-man-restart').click()
     page.get_by_test_id('pick-man-restart-confirm').click()
     expect(page.get_by_test_id('pick-man-lives')).to_have_text('♥♥♥')
@@ -90,4 +116,4 @@ with sync_playwright() as p:
         page.context.close()
     assert not errors,errors
     b.close()
-print('PASS: Events order and artwork, guest gate, movement, controls, pause/help/reload, three sizes, restart, victory and defeat; local-only.')
+print('PASS: Events order and artwork, guest gate, movement, four touch swipe directions, no direction buttons, pause/help/reload, three sizes, restart, victory and defeat; local-only.')
