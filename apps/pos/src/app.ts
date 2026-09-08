@@ -22,11 +22,35 @@ const sessions = {
   setItem: (key: string, value: string) => sessionStorage.setItem(key, value),
   removeItem: (key: string) => sessionStorage.removeItem(key),
 };
-const journal = {
+const browserJournal = {
   getItem: (key: string) => localStorage.getItem(key),
   setItem: (key: string, value: string) => localStorage.setItem(key, value),
   removeItem: (key: string) => localStorage.removeItem(key),
 };
+const nativeJournal = () => {
+  const bridge = (
+    globalThis as typeof globalThis & {
+      pickchickPosJournal?: Pick<Storage, 'getItem' | 'setItem'> & { endSession(): void };
+    }
+  ).pickchickPosJournal;
+  if (!bridge || typeof bridge.getItem !== 'function' || typeof bridge.setItem !== 'function')
+    throw new Error('STORAGE_UNAVAILABLE');
+  return bridge;
+};
+// The packaged client requires a disk acknowledgement before model.save returns.
+// A failed/missing preload must never silently fall back to buffered web storage.
+const requiresNativeJournal = Boolean(
+  document.querySelector('meta[name="pickchick-pos-storage"][content="native-v1"]'),
+);
+const journal = requiresNativeJournal
+  ? {
+      getItem: (key: string) => nativeJournal().getItem(key),
+      setItem: (key: string, value: string) => nativeJournal().setItem(key, value),
+      removeItem: () => {
+        throw new Error('STORAGE_UNAVAILABLE');
+      },
+    }
+  : browserJournal;
 const model = new PosController(transport, sessions, journal, () => crypto.randomUUID(), lease);
 const escape = (value: unknown) =>
   String(value ?? '').replace(
@@ -48,7 +72,7 @@ function notice() {
   return `${s.error ? `<div class="notice error" role="alert" data-testid="pos-error">${escape(errorMessage(s.error))}</div>` : ''}${s.pending ? `<section class="notice pending" role="status" data-testid="pos-recovery"><div><strong>Проверка сохранённого запроса</strong><p>Результат пока не подтверждён. Новый заказ заблокирован.</p><small>Запрос ${escape(s.pending.key)}</small></div><button data-action="recover"${disabled(s.busy)} data-testid="pos-recover">Проверить результат</button></section>` : ''}`;
 }
 function login() {
-  return `<main class="login"><section class="login-brand"><img src="/logo.png" alt="PickChick" /><div class="eyebrow">РАБОЧЕЕ МЕСТО КАССИРА</div><h1>Ваш заказ.<br />Под контролем.</h1><p>Локальная касса PickChick для персонала ресторана.</p><span class="brand-note">НЕОПЛАЧЕННЫЕ ЛОКАЛЬНЫЕ ЗАКАЗЫ</span></section><section class="login-form"><span class="eyebrow">ВХОД СОТРУДНИКА</span><h2>Подключите сессию</h2><p class="muted">Выберите приватный JSON-файл, который выдал оператор локального узла. Пароль и PIN здесь ещё не используются.</p>${notice()}<label class="file-label" for="staff-file">${model.state.busy ? 'Проверяем доступ…' : 'Выбрать файл сессии'}<input id="staff-file" data-testid="pos-staff-file" type="file" accept=".json,application/json"${disabled(model.state.busy)} /></label><p class="fine">Ключ используется только для запросов к локальному узлу. Вход сохраняется в текущей вкладке до выхода или окончания доступа. При завершении работы нажмите «Выйти».</p><div class="quiet-box"><strong>Сейчас доступно</strong><p>Меню → расчёт на сервере → неоплаченный заказ.</p><small>Оплата, чек, смены ККМ и кухня ещё не подключены.</small></div></section></main>`;
+  return `<main class="login"><section class="login-brand"><img src="/logo.png" alt="PickChick" /><div class="eyebrow">РАБОЧЕЕ МЕСТО КАССИРА</div><h1>Ваш заказ.<br />Под контролем.</h1><p>Локальная касса PickChick для персонала ресторана.</p><span class="brand-note">НЕОПЛАЧЕННЫЕ ЛОКАЛЬНЫЕ ЗАКАЗЫ</span></section><section class="login-form"><span class="eyebrow">ВХОД СОТРУДНИКА</span><h2>Подключите сессию</h2><p class="muted">Выберите приватный JSON-файл, который выдал оператор локального узла. Пароль и PIN здесь ещё не используются.</p>${notice()}<label class="file-label" for="staff-file">${model.state.busy ? 'Проверяем доступ…' : 'Выбрать файл сессии'}<input id="staff-file" data-testid="pos-staff-file" type="file" accept=".json,application/json"${disabled(model.state.busy)} /></label><p class="fine">Ключ используется только для запросов к локальному узлу. Вход действует в текущем сеансе до выхода или окончания доступа. При завершении работы нажмите «Выйти».</p><div class="quiet-box"><strong>Сейчас доступно</strong><p>Меню → расчёт на сервере → неоплаченный заказ.</p><small>Оплата, чек, смены ККМ и кухня ещё не подключены.</small></div></section></main>`;
 }
 function toolbar() {
   const s = model.state,
@@ -221,6 +245,7 @@ root.addEventListener('click', (event) => {
   switch (button.dataset.action) {
     case 'logout':
       model.logout();
+      if (requiresNativeJournal && !model.state.actor) nativeJournal().endSession();
       break;
     case 'refresh':
       void model.refresh();
