@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
+import { restaurantLocation } from '../restaurant-location';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import {
@@ -177,8 +178,10 @@ export function Tracker(props: ScreenProps) {
         <Row>
           <Icon name="location-outline" color={colors.accent} />
           <View style={ui.flex}>
-            <Heading small>Тестовая точка</Heading>
-            <Caption>Адрес получения · пример</Caption>
+            <Heading small>{props.model.branch?.name ?? 'Ресторан PickChick'}</Heading>
+            <Caption>
+              {restaurantLocation(props.model.branch?.id)?.address ?? 'Ресторан получения'}
+            </Caption>
           </View>
         </Row>
       </Card>
@@ -225,7 +228,7 @@ export function Ready(props: ScreenProps) {
         <View style={ui.flex} />
         <Button title="Состав и чек" secondary onPress={() => props.navigate('M20')} />
         <Caption style={[s.readyText, { textAlign: 'center', marginTop: 10 }]}>
-          Тестовая точка · Алматы
+          {props.model.branch?.name ?? 'Ресторан PickChick'}
         </Caption>
       </ScrollView>
     </View>
@@ -266,7 +269,9 @@ export function History(props: ScreenProps) {
               </Heading>
               <Pill>{order.state}</Pill>
             </Row>
-            <Caption>{order.date} · Тестовая точка</Caption>
+            <Caption>
+              {order.date} · {props.model.branch?.name ?? 'Ресторан PickChick'}
+            </Caption>
             <Row>
               <Image source={assets.combo} style={s.historyImage} contentFit="cover" />
               <View style={ui.flex}>

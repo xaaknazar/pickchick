@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "locations": [
+    {
+      "branch_id": "10000000-0000-4000-8000-000000000003",
+      "name": "ТЦ Abay Plaza",
+      "city": "Алматы",
+      "address": "4-й микрорайон, 10Б",
+      "map_url": "https://2gis.kz/almaty/geo/70030076952394244"
+    }
+  ]
+}

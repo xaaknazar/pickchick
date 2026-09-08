@@ -33,6 +33,7 @@ import {
 } from '../domain';
 import { assets } from '../assets';
 import { cartMatchesOrder } from '../test-order-session';
+import { restaurantLocation } from '../restaurant-location';
 
 const statusNames: Record<TestOrder['state'], string> = {
   awaiting_test_payment: 'Ждёт тестовой оплаты',
@@ -123,6 +124,9 @@ export function ConnectedCheckout(props: ScreenProps) {
       cartMatchesOrder(order, props.model.cart, props.model.diningMode, props.model.paymentMethod),
   );
   const pending = unknown ?? matching ?? null;
+  const branchId = pending?.branch_id ?? props.model.branch?.id;
+  const branch = props.model.branches.find((candidate) => candidate.id === branchId);
+  const location = restaurantLocation(branchId);
   const submit = async () => {
     if (pending) flow.select(pending.order_id);
     const order = pending ?? (await flow.submit());
@@ -161,7 +165,12 @@ export function ConnectedCheckout(props: ScreenProps) {
         </Notice>
       ) : null}
       <Card>
-        <Heading small>{props.model.branch?.name ?? 'Тестовая точка PickChick'}</Heading>
+        <Heading small>{branch?.name ?? location?.name ?? 'Ресторан PickChick'}</Heading>
+        {location ? (
+          <Caption>
+            {location.city}, {location.address}
+          </Caption>
+        ) : null}
         <Body>
           {(pending?.snapshot.service_mode ?? props.model.diningMode) === 'takeaway'
             ? 'С собой'
@@ -465,6 +474,8 @@ export function ConnectedOrder(props: ScreenProps) {
   );
 }
 function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder }) {
+  const branch = props.model.branches.find((candidate) => candidate.id === order.branch_id);
+  const location = restaurantLocation(order.branch_id);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [numberWidth, setNumberWidth] = useState<number | null>(null);
@@ -535,7 +546,8 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
         {props.model.testFlow.error ? <Notice warning>{props.model.testFlow.error}</Notice> : null}
         <ContinueSession props={props} />
         <Caption style={[s.readyInk, { textAlign: 'center' }]}>
-          {props.model.branch?.name ?? 'Тестовая точка · Алматы'}
+          {branch?.name ?? location?.name ?? 'Ресторан PickChick'}
+          {location ? ` · ${location.city}, ${location.address}` : ''}
         </Caption>
       </ScrollView>
     </View>
