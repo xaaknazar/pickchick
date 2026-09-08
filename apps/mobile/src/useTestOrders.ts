@@ -6,6 +6,8 @@ import { TestApiError, TestCustomerClient } from './test-client';
 import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
 import { canCreateTestOrder, observeSavedOrders } from './test-order-observation';
 import type { CartLine, DiningMode, PaymentMethod } from './model';
+import { useAccount } from './useAccount';
+import { accountCanAct } from './account-access';
 
 export interface TestFlowModel {
   available: boolean;
@@ -51,6 +53,9 @@ export function useTestOrders(
   diningMode: DiningMode,
   paymentMethod: PaymentMethod = 'kaspi',
 ): TestFlowModel {
+  const account = useAccount();
+  const access = useRef(account);
+  access.current = account;
   const client = useMemo(() => new TestCustomerClient(), []);
   const [orders, setOrders] = useState<TestOrder[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -146,6 +151,10 @@ export function useTestOrders(
   }, [restored, hasSavedSession, recoveryAvailable, sessionExpired, refresh, hasActiveOrders]);
 
   const run = async (command: () => Promise<TestOrder>): Promise<TestOrder | null> => {
+    if (!accountCanAct(access.current)) {
+      setError('Войдите в аккаунт, чтобы продолжить заказ.');
+      return null;
+    }
     if (!restored || busyRef.current) return null;
     generation.current += 1;
     const epoch = generation.current;
@@ -177,6 +186,7 @@ export function useTestOrders(
   };
 
   const continueSession = async (): Promise<boolean> => {
+    if (!accountCanAct(access.current)) return false;
     if (!hasSavedSession || !restored || busyRef.current) return false;
     generation.current += 1;
     const epoch = generation.current;
