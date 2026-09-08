@@ -1,4 +1,5 @@
 import { BranchSchema, MenuSnapshotSchema } from '@pickchick/contracts';
+import { TestCatalogSchema } from '@pickchick/test-order-flow/contracts';
 import type { Branch, MenuSnapshot } from '@pickchick/contracts';
 
 export const API_URL = 'https://pickchick.185.129.51.103.nip.io';
@@ -33,31 +34,72 @@ export function parseCapabilities(value: unknown): Capabilities {
   return c as unknown as Capabilities;
 }
 
-async function readJson(path: string, signal?: AbortSignal): Promise<unknown> {
+export class CatalogRequestError extends Error {
+  readonly retryable: boolean;
+
+  constructor(reason: 'transport' | 'http' | 'invalid_response', status?: number) {
+    super(`Catalog ${reason}${status === undefined ? '' : ` (${status})`}`);
+    this.name = 'CatalogRequestError';
+    this.retryable =
+      reason === 'transport' ||
+      (reason === 'http' && (status === 408 || status === 429 || (status ?? 0) >= 500));
+  }
+}
+
+export function isRetryableCatalogError(error: unknown): boolean {
+  return error instanceof CatalogRequestError && error.retryable;
+}
+
+async function readCatalogJson(
+  path: string,
+  signal?: AbortSignal,
+  timeoutMs = 8000,
+): Promise<unknown> {
   const timeout = new AbortController();
   const abort = () => timeout.abort();
   signal?.addEventListener('abort', abort, { once: true });
-  const timer = setTimeout(abort, 8000);
+  const timer = setTimeout(abort, timeoutMs);
   try {
     if (signal?.aborted) throw new Error('Aborted');
-    const response = await fetch(`${API_URL}${path}`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      signal: timeout.signal,
-      credentials: 'omit',
-      redirect: 'error',
-    });
-    if (!response.ok || !response.headers.get('content-type')?.includes('application/json'))
-      throw new Error('Service unavailable');
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}${path}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: timeout.signal,
+        credentials: 'omit',
+        redirect: 'error',
+      });
+    } catch {
+      throw new CatalogRequestError('transport');
+    }
+    if (!response.ok) throw new CatalogRequestError('http', response.status);
+    if (!response.headers.get('content-type')?.includes('application/json'))
+      throw new CatalogRequestError('invalid_response');
     const length = Number(response.headers.get('content-length') ?? 0);
-    if (length > 2_000_000) throw new Error('Response too large');
-    const body = await response.text();
-    if (body.length > 2_000_000) throw new Error('Response too large');
-    return JSON.parse(body) as unknown;
+    if (length > 2_000_000) throw new CatalogRequestError('invalid_response');
+    let body: string;
+    try {
+      body = await response.text();
+    } catch {
+      throw new CatalogRequestError('transport');
+    }
+    if (body.length > 2_000_000) throw new CatalogRequestError('invalid_response');
+    try {
+      return JSON.parse(body) as unknown;
+    } catch {
+      throw new CatalogRequestError('invalid_response');
+    }
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', abort);
   }
+}
+
+export async function loadTestCatalog(signal?: AbortSignal) {
+  return TestCatalogSchema.parse(
+    await readCatalogJson('/v1/test/catalog?catalog_version=mockup-v0.3', signal, 10_000),
+  );
 }
 
 export async function loadCatalog(
@@ -69,10 +111,16 @@ export async function loadCatalog(
   branch: Branch;
   menu: MenuSnapshot;
 }> {
-  const [capabilities, response] = await Promise.all([
-    readJson('/v1/capabilities', signal).then(parseCapabilities),
-    readJson('/v1/branches', signal),
+  // Wait for both bounded reads to settle before permitting a retry. A quick
+  // failure of one endpoint must not leave its sibling running in the next attempt.
+  const [capabilitiesResult, branchesResult] = await Promise.allSettled([
+    readCatalogJson('/v1/capabilities', signal).then(parseCapabilities),
+    readCatalogJson('/v1/branches', signal),
   ]);
+  if (capabilitiesResult.status === 'rejected') throw capabilitiesResult.reason;
+  if (branchesResult.status === 'rejected') throw branchesResult.reason;
+  const capabilities = capabilitiesResult.value;
+  const response = branchesResult.value;
   if (
     !response ||
     typeof response !== 'object' ||
@@ -85,7 +133,9 @@ export async function loadCatalog(
   if (branches.some((branch) => branch.ordering_enabled)) throw new Error('Unsupported ordering');
   const branch = branches.find((candidate) => candidate.id === branchId) ?? branches[0];
   if (!branch) throw new Error('No branches');
-  const menu = MenuSnapshotSchema.parse(await readJson(`/v1/branches/${branch.id}/menu`, signal));
+  const menu = MenuSnapshotSchema.parse(
+    await readCatalogJson(`/v1/branches/${branch.id}/menu`, signal),
+  );
   if (menu.branch_id !== branch.id) throw new Error('Branch mismatch');
   return { capabilities, branches, branch, menu };
 }
