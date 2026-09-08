@@ -2,6 +2,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 export const assets = {
+  pickBlocksCover: require('../assets/games/pick-blocks-cover.png') as ImageSourcePropType,
   logo: require('../../../design/prototype/assets/mockup/logo.png') as ImageSourcePropType,
   skyline: require('../../../design/prototype/assets/mockup/skyline.svg') as ImageSourcePropType,
   mix: require('../../../design/prototype/assets/mockup/bg-mix.png') as ImageSourcePropType,
