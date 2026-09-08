@@ -234,12 +234,6 @@ export function ConnectedHistory(props: ScreenProps) {
   return (
     <Page props={props} title="Мои заказы" noBack>
       <FlowNotice props={props} />
-      <Button
-        title="Обновить заказы"
-        testID="test-refresh-order"
-        secondary
-        onPress={flow.refresh}
-      />
       {!flow.restored ? (
         <Loading title="Восстанавливаем тестовый сеанс" />
       ) : !flow.orders.length && (flow.error || flow.recoveryAvailable) ? (
