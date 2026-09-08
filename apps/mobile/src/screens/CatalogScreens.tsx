@@ -492,7 +492,11 @@ export function Menu(props: ScreenProps) {
                 {location?.name ?? props.model.branch?.name ?? 'Выбрать ресторан'}
               </Text>
               <Caption style={s.branchCaption}>
-                {location?.closing_time ? `до ${location.closing_time}` : 'Часы уточняются'}
+                {location?.opening_time && location.closing_time
+                  ? `${location.opening_time}–${location.closing_time}`
+                  : location?.closing_time
+                    ? `до ${location.closing_time}`
+                    : 'Часы уточняются'}
               </Caption>
             </Pressable>
             <IconButton
