@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 import { assets } from '../../assets';
-import { ArcadeCard } from '../ArcadeCard';
+import { GamePosterCard } from '../GamePosterCard';
 import type { PieceKind } from './engine';
 
 export const blockColors: Record<PieceKind, string> = {
@@ -116,17 +116,13 @@ export function BlockArt({ size = 27 }: { size?: number }) {
 export function PickBlocksCard() {
   const router = useRouter();
   return (
-    <ArcadeCard
+    <GamePosterCard
       name="PICK BLOCKS"
       subtitle="СОБИРАЙ СВОЙ ПИК"
       description={'Заполняй ряды.\nВсё сложится.'}
       testID="pick-blocks-open"
       onPress={() => router.push('/games/pick-blocks')}
-      art={
-        <View style={{ transform: [{ rotate: '-9deg' }, { scale: 0.86 }] }}>
-          <BlockArt size={21} />
-        </View>
-      }
+      cover={assets.pickBlocksCover}
     />
   );
 }
