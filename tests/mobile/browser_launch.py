@@ -27,7 +27,7 @@ def start(browser, width=393, height=852, motion='reduce', fail_image=False):
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(URL + '/screen/M01', wait_until='domcontentloaded')
     expect(page.get_by_test_id('launch-screen')).to_be_visible(timeout=20000)
-    page.wait_for_timeout(400)
+    page.wait_for_timeout(80 if motion == 'no-preference' else 400)
     assert pending, 'Font requests must be held to observe real startup'
     return context, page, pending
 
@@ -65,17 +65,22 @@ with sync_playwright() as p:
     page.evaluate('''() => {
       window.launchSamples = [];
       window.logoSamples = [];
-      window.accentSamples = [];
+      window.detailSamples = [];
+      window.revealSamples = [];
       function sample() {
         const el = document.querySelector('[data-testid="launch-screen"]');
         if (!el) return;
         window.launchSamples.push(Number(getComputedStyle(el).opacity));
-        window.logoSamples.push(getComputedStyle(document.querySelector('[data-testid="launch-logo"]')).transform);
-        window.accentSamples.push(getComputedStyle(document.querySelector('[data-testid="launch-accents"]')).transform);
+        window.logoSamples.push(new DOMMatrixReadOnly(getComputedStyle(document.querySelector('[data-testid="launch-logo"]')).transform).a);
+        window.detailSamples.push(Number(getComputedStyle(document.querySelector('[data-testid="launch-tagline"]')).opacity));
+        window.revealSamples.push({ opacity: Number(getComputedStyle(el).opacity), mounted: !!document.querySelector('[data-testid="screen-M01"]') });
         requestAnimationFrame(sample);
       }
       requestAnimationFrame(sample);
     }''')
+    page.wait_for_timeout(160)
+    early_scales = page.evaluate('window.logoSamples')
+    assert len(early_scales) > 3 and early_scales[-1] > early_scales[0], 'Logo must grow before fonts are ready'
     cdp = context.new_cdp_session(page)
     capture = cdp.send('Page.captureScreenshot', {'format': 'png'})
     (OUT / 'animated-393.png').write_bytes(base64.b64decode(capture['data']))
@@ -98,11 +103,19 @@ with sync_playwright() as p:
     context.unroute('**/*.ttf')
     for route in pending:
         route.continue_()
-    expect(page.get_by_test_id('launch-screen')).to_have_count(0, timeout=20000)
+    page.wait_for_function('window.launchSamples.some(value => value < 0.85)')
+    cdp = context.new_cdp_session(page)
+    capture = cdp.send('Page.captureScreenshot', {'format': 'png'})
+    (OUT / 'reveal-393.png').write_bytes(base64.b64decode(capture['data']))
+    cdp.detach()
+    expect(page.get_by_test_id('launch-screen')).to_have_count(0, timeout=2000)
     samples = page.evaluate('window.launchSamples')
     assert any(0 < sample < 1 for sample in samples), samples
-    assert len(set(page.evaluate('window.logoSamples'))) > 3, 'Logo must move during launch'
-    assert len(set(page.evaluate('window.accentSamples'))) > 3, 'Accents must move independently'
+    scales = page.evaluate('window.logoSamples')
+    assert max(scales) > 5, scales
+    assert all(b >= a - 0.001 for a, b in zip(scales, scales[1:])), 'Zoom must never shrink or restart'
+    assert any(0 < x < 1 for x in page.evaluate('window.detailSamples')), 'Details fade before zoom completes'
+    assert all(s['mounted'] for s in page.evaluate('window.revealSamples') if s['opacity'] < 1), 'Only reveal a mounted page'
     context.close()
 
     context, page, pending = start(browser)
@@ -124,4 +137,4 @@ with sync_playwright() as p:
     browser.close()
 
 assert not errors, errors
-print('PASS: 4 viewports, deep links, no repeated launch, reduced motion, independent logo/accent animation, fade, font/image failures')
+print('PASS: 4 viewports, deep links, no repeated launch, reduced motion, immediate monotonic logo zoom, mounted-page reveal, font/image failures')
