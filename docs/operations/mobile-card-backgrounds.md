@@ -35,3 +35,8 @@
 не аппаратная проверка iOS Dynamic Type. iOS/Android export также не заменяет
 визуальную приёмку на телефоне. Новых native-зависимостей нет, изменения
 передаются через существующий Metro в PickChick Dev; TestFlight не обновляется.
+
+После объединения с актуальной заставкой из `d11237d` основной checkout
+обновлён fast-forward, чужие изменения сохранены. Mobile TypeScript и проверка
+живого iOS manifest/bundle прошли. Metro не перезапускался; физический экран
+профиля на iPhone этим этапом не снимался. [PR #47](https://github.com/xaaknazar/pickchick/pull/47).
