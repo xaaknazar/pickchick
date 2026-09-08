@@ -6,7 +6,7 @@ import { assets } from '../../assets';
 import { GamePosterCard } from '../GamePosterCard';
 import type { Direction, Food } from './engine';
 
-// Original vector miniatures stay legible at maze-cell size on both native and web.
+// Rival artwork remains vector-based for crisp rendering at maze-cell size.
 const svg = (body: string) => ({
   uri: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">' + body + '</svg>')}`,
 });
