@@ -22,11 +22,35 @@ const sessions = {
   setItem: (key: string, value: string) => sessionStorage.setItem(key, value),
   removeItem: (key: string) => sessionStorage.removeItem(key),
 };
-const journal = {
+const browserJournal = {
   getItem: (key: string) => localStorage.getItem(key),
   setItem: (key: string, value: string) => localStorage.setItem(key, value),
   removeItem: (key: string) => localStorage.removeItem(key),
 };
+const nativeJournal = () => {
+  const bridge = (
+    globalThis as typeof globalThis & {
+      pickchickPosJournal?: Pick<Storage, 'getItem' | 'setItem'> & { endSession(): void };
+    }
+  ).pickchickPosJournal;
+  if (!bridge || typeof bridge.getItem !== 'function' || typeof bridge.setItem !== 'function')
+    throw new Error('STORAGE_UNAVAILABLE');
+  return bridge;
+};
+// The packaged client requires a disk acknowledgement before model.save returns.
+// A failed/missing preload must never silently fall back to buffered web storage.
+const requiresNativeJournal = Boolean(
+  document.querySelector('meta[name="pickchick-pos-storage"][content="native-v1"]'),
+);
+const journal = requiresNativeJournal
+  ? {
+      getItem: (key: string) => nativeJournal().getItem(key),
+      setItem: (key: string, value: string) => nativeJournal().setItem(key, value),
+      removeItem: () => {
+        throw new Error('STORAGE_UNAVAILABLE');
+      },
+    }
+  : browserJournal;
 const model = new PosController(transport, sessions, journal, () => crypto.randomUUID(), lease);
 const escape = (value: unknown) =>
   String(value ?? '').replace(
@@ -221,6 +245,7 @@ root.addEventListener('click', (event) => {
   switch (button.dataset.action) {
     case 'logout':
       model.logout();
+      if (requiresNativeJournal && !model.state.actor) nativeJournal().endSession();
       break;
     case 'refresh':
       void model.refresh();

@@ -42,6 +42,12 @@ checkout; обычный dev build допускает правки и отмеч
 - `PickChick-POS-Setup-0.1.0-x64.exe` - установка для текущего Windows-пользователя.
 - `PickChick-POS-Portable-0.1.0-x64.exe` - запуск без установки.
 
+После сборки `npm run verify:win` сверяет чистый HEAD, все входные исходники,
+main/preload/journal и семь renderer assets в ASAR, allowlist содержимого,
+native-storage marker, PE32+ AMD64 payload и security fuses. Результат с SHA256
+EXE сохраняется в `release/verification.json`. Это структурная проверка пакета,
+она не обозначает проверенную подпись или запуск на Windows.
+
 Оба файла содержат приложение x64. NSIS bootstrap может быть PE32 - это
 архитектура распаковщика; вложенный `PickChickPOS.exe` должен быть PE32+ x64.
 Подписи Authenticode сейчас нет. Проверка Windows Defender/SmartScreen,
@@ -62,9 +68,16 @@ checkout; обычный dev build допускает правки и отмеч
 4. Перезапустить приложение и выбрать приватный JSON-файл сессии сотрудника,
    выданный оператором. В `config.json` не хранить токены и пароли.
 
-Журнал находится в постоянном профиле и привязан к origin `pickchick-pos://app/`,
-точке, сотруднику и терминалу. Установка и portable используют один профиль и
-одновременно не запускаются. При штатном закрытии вызывается сброс web storage.
+Журнал находится в `%APPDATA%\PickChickPOS\journal-v1` и привязан к
+точке, сотруднику и терминалу. Main разрешает доступ только после настоящего
+успешного `/session` локального edge, в пределах его роли и срока действия.
+Установка и portable используют один профиль и одновременно не запускаются.
+Перед отправкой изменяющей команды существующий `PosController.save` получает
+синхронное подтверждение записи: временный файл в том же каталоге, `fsync`, затем
+замена предыдущего файла через `rename`. Ключ становится SHA256-именем файла;
+произвольный путь и неизвестные поля JSON не принимаются, лимит - 100 KB.
+Ошибка записи или повреждённый журнал блокируют отправку команды. Подмена на
+пустой журнал или fallback в `localStorage` в установленном клиенте запрещены.
 Обновление и удаление приложения не удаляют профиль. Не очищать его вручную,
 особенно если результат запроса ещё не подтверждён.
 
@@ -73,12 +86,25 @@ checkout; обычный dev build допускает правки и отмеч
 Credential Vault; бессрочное хранение ключа и PIN-вход не реализованы. Журнал
 не является единственной копией заказа - подтверждённый заказ хранится в
 локальной PostgreSQL. Защита от потери питания/диска требует отдельного испытания.
+Это первый выпуск desktop: миграция журналов экспериментальных ранних сборок
+из `localStorage` не включена, старые EXE не распространялись.
+
+На Windows Node/libuv использует `MoveFileExW(MOVEFILE_REPLACE_EXISTING)` для
+замены в том же каталоге и `FlushFileBuffers` для `fsync` файла. Предыдущий файл
+не удаляется заранее; sharing violation/ошибка замены считается отказом записи.
+Каталог через Node на Windows не `fsync`-ится; устойчивость к аппаратной потере
+питания и поведение антивируса/диска проверяются отдельно на Windows/NTFS.
+Режимы 700/600 применимы к POSIX; на Windows приватность обеспечивается ACL
+профиля Windows, приложение не является Windows Credential Vault.
 
 ## Границы оболочки
 
 - `sandbox` и `contextIsolation` включены, Node в renderer выключен.
-- Preload и IPC API отсутствуют. Внешняя навигация, новые окна, webview,
-  загрузки и разрешения устройств запрещены.
+- Изолированный preload экспортирует только `pickchickPosJournal.getItem`,
+  `setItem`, `endSession`. Последний отзывает доступ без удаления данных.
+  Main проверяет sender, главный frame и точный origin; общего IPC, доступа
+  к файлам, shell, URL и credential-хранилищу у renderer нет.
+  Внешняя навигация, новые окна, webview, загрузки и разрешения запрещены.
 - Стандартная secure custom scheme сохраняет browser storage и Web Locks;
   CSP не обходится. Только packaged UI и allowlist существующего edge API.
 - Main не повторяет POST, не меняет Idempotency-Key и не подтверждает оплату.
@@ -100,3 +126,8 @@ Mac-сборку для проверки упаковки, а не распро�
 [Electron 44.2.0](https://releases.electronjs.org/release/v44.2.0),
 [NSIS](https://www.electron.build/v26/docs/targets/nsis/),
 [cross-platform build](https://www.electron.build/v26/docs/multi-platform-build/).
+Синхронный IPC выбран как ограниченный барьер существующего Store перед POST;
+он блокирует renderer на время небольшой записи, а не произвольной операции:
+[Electron IPC](https://www.electronjs.org/docs/latest/api/ipc-renderer),
+[Node fs](https://nodejs.org/docs/latest-v24.x/api/fs.html),
+[libuv Windows fs](https://github.com/libuv/libuv/blob/v1.x/src/win/fs.c).

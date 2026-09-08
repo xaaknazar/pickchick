@@ -33,11 +33,14 @@ for (const path of [
   ...[
     'main.mjs',
     'protocol.mjs',
+    'journal.mjs',
+    'preload.cjs',
     'package.json',
     'package-lock.json',
     'electron-builder.yml',
     'tsconfig.renderer.json',
     'scripts/build.mjs',
+    'scripts/verify-package.mjs',
     'resources/config.example.json',
   ].map((name) => `apps/pos-desktop/${name}`),
   'apps/pos/tsconfig.json',
@@ -92,8 +95,13 @@ for (const name of ['app', 'model', 'api', 'types']) {
   });
   await writeFile(new URL(`${name}.js`, output), compiled.outputText);
 }
-for (const name of ['index.html', 'styles.css'])
-  await copyFile(new URL(name, source), new URL(name, output));
+await copyFile(new URL('styles.css', source), new URL('styles.css', output));
+const html = await readFile(new URL('index.html', source), 'utf8');
+if (!html.includes('<head>')) throw new Error('Missing renderer head');
+await writeFile(
+  new URL('index.html', output),
+  html.replace('<head>', '<head>\n<meta name="pickchick-pos-storage" content="native-v1" />'),
+);
 await copyFile(
   new URL('design/prototype/assets/mockup/logo.png', root),
   new URL('logo.png', output),

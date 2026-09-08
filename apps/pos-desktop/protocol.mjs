@@ -126,6 +126,7 @@ export function createProtocolHandler({
   config = {},
   fetchImpl = globalThis.fetch,
   timeoutMs = 10000,
+  onSession = () => {},
 }) {
   const settings = validateConfig(config);
   if (
@@ -148,6 +149,8 @@ export function createProtocolHandler({
       )
         return json(404, { code: 'NOT_FOUND' });
       const headers = {};
+      const authenticating = request.method === 'GET' && path === '/edge/v1/session';
+      if (authenticating) onSession(null);
       for (const name of ['authorization', 'x-staff-session-id', 'idempotency-key']) {
         const value = request.headers.get(name);
         if (value && value.length < 200) headers[name] = value;
@@ -175,6 +178,17 @@ export function createProtocolHandler({
         if (response.redirected || (response.status >= 300 && response.status < 400))
           return json(502, { code: 'INVALID_RESPONSE' });
         const payload = await readBounded(response.body, 4000000);
+        if ([401, 403].includes(response.status)) onSession(null);
+        if (authenticating && response.status === 200) {
+          try {
+            onSession(
+              JSON.parse(Buffer.from(payload).toString('utf8')),
+              headers['x-staff-session-id'],
+            );
+          } catch {
+            onSession(null);
+          }
+        }
         return new Response([204, 205, 304].includes(response.status) ? null : payload, {
           status: response.status,
           headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
