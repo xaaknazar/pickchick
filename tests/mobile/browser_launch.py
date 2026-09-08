@@ -22,7 +22,7 @@ def start(browser, width=393, height=852, motion='reduce', fail_image=False):
     pending = []
     context.route('**/*.ttf', lambda route: pending.append(route))
     if fail_image:
-        context.route('**/*artwork*.png', lambda route: route.abort())
+        context.route('**/launch/logo*.png', lambda route: route.abort())
     page = context.new_page()
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(URL + '/screen/M01', wait_until='domcontentloaded')
@@ -41,6 +41,10 @@ with sync_playwright() as p:
         assert artwork['y'] + artwork['height'] < loading['y'], (artwork, loading)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         assert page.get_by_test_id('launch-screen').evaluate('(el)=>getComputedStyle(el).opacity') == '1'
+        logo = page.get_by_test_id('launch-logo')
+        still = logo.evaluate('(el)=>getComputedStyle(el).transform')
+        page.wait_for_timeout(100)
+        assert logo.evaluate('(el)=>getComputedStyle(el).transform') == still, 'Reduce Motion must keep the logo still'
         # Page.screenshot waits for fonts by default; these fonts are intentionally blocked.
         cdp = context.new_cdp_session(page)
         capture = cdp.send('Page.captureScreenshot', {'format': 'png'})
@@ -60,20 +64,45 @@ with sync_playwright() as p:
     context, page, pending = start(browser, motion='no-preference')
     page.evaluate('''() => {
       window.launchSamples = [];
+      window.logoSamples = [];
+      window.accentSamples = [];
       function sample() {
         const el = document.querySelector('[data-testid="launch-screen"]');
         if (!el) return;
         window.launchSamples.push(Number(getComputedStyle(el).opacity));
+        window.logoSamples.push(getComputedStyle(document.querySelector('[data-testid="launch-logo"]')).transform);
+        window.accentSamples.push(getComputedStyle(document.querySelector('[data-testid="launch-accents"]')).transform);
         requestAnimationFrame(sample);
       }
       requestAnimationFrame(sample);
     }''')
+    cdp = context.new_cdp_session(page)
+    capture = cdp.send('Page.captureScreenshot', {'format': 'png'})
+    (OUT / 'animated-393.png').write_bytes(base64.b64decode(capture['data']))
+    cdp.detach()
+    # Pixel evidence catches the opaque moving logo layer covering the stationary tagline.
+    bounds = page.get_by_test_id('launch-artwork').bounding_box()
+    white_pixels = page.evaluate('''async ({data, bounds}) => {
+      const img = new Image(); img.src = 'data:image/png;base64,' + data; await img.decode();
+      const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+      const pixels = ctx.getImageData(bounds.x + bounds.width * .2, bounds.y + bounds.height * .8,
+        bounds.width * .6, bounds.height * .1).data;
+      let white = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i] > 235 && pixels[i + 1] > 235 && pixels[i + 2] > 235) white++;
+      }
+      return white;
+    }''', {'data': capture['data'], 'bounds': bounds})
+    assert white_pixels > 100, 'Tagline must remain visible over the animated logo'
     context.unroute('**/*.ttf')
     for route in pending:
         route.continue_()
     expect(page.get_by_test_id('launch-screen')).to_have_count(0, timeout=20000)
     samples = page.evaluate('window.launchSamples')
     assert any(0 < sample < 1 for sample in samples), samples
+    assert len(set(page.evaluate('window.logoSamples'))) > 3, 'Logo must move during launch'
+    assert len(set(page.evaluate('window.accentSamples'))) > 3, 'Accents must move independently'
     context.close()
 
     context, page, pending = start(browser)
@@ -95,4 +124,4 @@ with sync_playwright() as p:
     browser.close()
 
 assert not errors, errors
-print('PASS: 4 viewports, deep links, no repeated launch, reduced motion, fade, font/image failures')
+print('PASS: 4 viewports, deep links, no repeated launch, reduced motion, independent logo/accent animation, fade, font/image failures')

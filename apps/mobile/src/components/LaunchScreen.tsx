@@ -3,11 +3,14 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   Animated,
+  AppState,
+  Easing,
   Image,
   Platform,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -16,10 +19,19 @@ export const launchBackground = '#0133CC';
 
 export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: () => void }) {
   const opacity = useRef(new Animated.Value(1)).current;
+  const logoLift = useRef(new Animated.Value(0)).current;
+  const accentMotion = useRef(new Animated.Value(0)).current;
+  const { width, height } = useWindowDimensions();
+  const artworkSize = Math.min(320, width, height * 0.65);
   const [laidOut, setLaidOut] = useState(false);
-  const [imageReady, setImageReady] = useState(false);
+  const [imagesReady, setImagesReady] = useState<string[]>([]);
   const [imageFailed, setImageFailed] = useState(false);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+  const [active, setActive] = useState(AppState.currentState !== 'background');
+  const [introFinished, setIntroFinished] = useState(false);
+  const imageReady = imagesReady.length === 3;
+  const imageLoaded = (name: string) =>
+    setImagesReady((names) => (names.includes(name) ? names : [...names, name]));
 
   useEffect(() => {
     let mounted = true;
@@ -32,18 +44,55 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
       },
     );
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    const appState = AppState.addEventListener('change', (state) => setActive(state === 'active'));
     return () => {
       mounted = false;
       subscription.remove();
+      appState.remove();
     };
   }, []);
 
   useEffect(() => {
-    if (laidOut && imageReady) SplashScreen.hide();
-  }, [laidOut, imageReady]);
+    if (laidOut && imageReady && active) SplashScreen.hide();
+  }, [laidOut, imageReady, active]);
 
   useEffect(() => {
-    if (!ready || !laidOut || !imageReady || reduceMotion === null) return;
+    if (!laidOut || !imageReady || !active || reduceMotion === null) return;
+    if (reduceMotion || imageFailed) {
+      logoLift.setValue(0);
+      accentMotion.setValue(0);
+      setIntroFinished(true);
+      return;
+    }
+    if (introFinished) return;
+    const timing = (value: Animated.Value, toValue: number, duration: number) =>
+      Animated.timing(value, {
+        toValue,
+        duration,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      });
+    const intro = Animated.parallel([
+      Animated.sequence([timing(logoLift, 1, 360), timing(logoLift, 0, 400)]),
+      Animated.sequence([timing(accentMotion, 1, 460), timing(accentMotion, 0, 300)]),
+    ]);
+    intro.start(({ finished }) => {
+      if (finished) setIntroFinished(true);
+    });
+    return () => intro.stop();
+  }, [
+    laidOut,
+    imageReady,
+    active,
+    reduceMotion,
+    imageFailed,
+    introFinished,
+    logoLift,
+    accentMotion,
+  ]);
+
+  useEffect(() => {
+    if (!ready || !introFinished || !active || reduceMotion === null) return;
     if (reduceMotion) {
       onFinish();
       return;
@@ -57,7 +106,7 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
       if (finished) onFinish();
     });
     return () => animation.stop();
-  }, [ready, laidOut, imageReady, reduceMotion, opacity, onFinish]);
+  }, [ready, introFinished, active, reduceMotion, opacity, onFinish]);
 
   return (
     <Animated.View
@@ -68,15 +117,65 @@ export function LaunchScreen({ ready, onFinish }: { ready: boolean; onFinish: ()
     >
       <View style={styles.haloTop} pointerEvents="none" accessible={false} />
       <View style={styles.haloBottom} pointerEvents="none" accessible={false} />
-      <Image
+      <View
         testID="launch-artwork"
-        source={require('../../assets/launch/artwork.png')}
-        style={styles.artwork}
-        resizeMode="contain"
+        style={{ width: artworkSize, height: artworkSize }}
+        accessible
         accessibilityLabel="PickChick. Твой пик вкуса"
-        onError={() => setImageFailed(true)}
-        onLoadEnd={() => setImageReady(true)}
-      />
+        accessibilityRole="image"
+      >
+        <Animated.Image
+          testID="launch-logo"
+          source={require('../../assets/launch/logo.png')}
+          style={[
+            styles.layer,
+            {
+              zIndex: 1,
+              transform: [
+                { translateY: logoLift.interpolate({ inputRange: [0, 1], outputRange: [0, -7] }) },
+                { scale: logoLift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) },
+              ],
+            },
+          ]}
+          resizeMode="contain"
+          accessible={false}
+          onError={() => setImageFailed(true)}
+          onLoadEnd={() => imageLoaded('logo')}
+        />
+        <Animated.Image
+          testID="launch-accents"
+          source={require('../../assets/launch/accents.png')}
+          style={[
+            styles.layer,
+            {
+              zIndex: 2,
+              transform: [
+                { scale: accentMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
+                {
+                  rotate: accentMotion.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '5deg'],
+                  }),
+                },
+              ],
+              opacity: accentMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.65] }),
+            },
+          ]}
+          resizeMode="contain"
+          accessible={false}
+          onError={() => setImageFailed(true)}
+          onLoadEnd={() => imageLoaded('accents')}
+        />
+        <Image
+          testID="launch-tagline"
+          source={require('../../assets/launch/tagline.png')}
+          style={[styles.layer, { zIndex: 3 }]}
+          resizeMode="contain"
+          accessible={false}
+          onError={() => setImageFailed(true)}
+          onLoadEnd={() => imageLoaded('tagline')}
+        />
+      </View>
       {imageFailed ? <Text style={styles.fallback}>PickChick</Text> : null}
       {!ready ? (
         <View
@@ -101,7 +200,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     zIndex: 10,
   },
-  artwork: { width: 320, height: 320, maxWidth: '100%', maxHeight: '65%' },
+  layer: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
   haloTop: {
     position: 'absolute',
     width: 390,
