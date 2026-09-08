@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
 import {
   api,
+  ApiError,
   errorText,
   money,
   paymentLabels,
@@ -8,28 +9,14 @@ import {
   type StaffRole,
   type TestOrder,
 } from './client';
-import {
-  Brand,
-  Connection,
-  Empty,
-  Loading,
-  Notice,
-  TestBanner,
-  commandKey,
-  usePoll,
-} from './shared';
+import { Brand, Connection, Empty, Loading, Notice, commandKey, usePoll } from './shared';
+import { DisplayScreen } from './DisplayScreen';
 
 const titles: Record<StaffRole, string> = {
   prep: 'A · Приготовление',
   assembly: 'B · Сборка и выдача',
   display: 'Табло выдачи',
   manager: 'Управляющий',
-};
-const paths: Record<StaffRole, string> = {
-  prep: '/kitchen/prep',
-  assembly: '/kitchen/assembly',
-  display: '/display',
-  manager: '/manager',
 };
 
 export function Staff({ role }: { role: StaffRole }) {
@@ -65,7 +52,6 @@ export function Staff({ role }: { role: StaffRole }) {
   if (!token)
     return (
       <div className={`staff-login ${role === 'manager' ? 'dark' : ''}`}>
-        <TestBanner />
         <header>
           <Brand />
         </header>
@@ -104,32 +90,16 @@ export function Staff({ role }: { role: StaffRole }) {
         </main>
       </div>
     );
-  if (role === 'display') return <DisplayScreen token={token} logout={logout} />;
+  if (role === 'display') return <DisplayScreen token={token} restoreAccess={logout} />;
   if (role === 'manager') return <Manager token={token} logout={logout} />;
   return <KitchenScreen token={token} station={role} logout={logout} />;
 }
 
-function StaffHeader({
-  title,
-  role,
-  logout,
-}: {
-  title: string;
-  role: StaffRole;
-  logout: () => void;
-}) {
+function StaffHeader({ title }: { title: string }) {
   return (
     <header className="staff-header">
       <Brand />
       <h1>{title}</h1>
-      <nav aria-label="Рабочие экраны">
-        {(['prep', 'assembly', 'display', 'manager'] as const).map((item) => (
-          <a key={item} href={paths[item]} aria-current={role === item ? 'page' : undefined}>
-            {titles[item]}
-          </a>
-        ))}
-      </nav>
-      <button onClick={logout}>Выйти</button>
     </header>
   );
 }
@@ -183,9 +153,13 @@ function KitchenScreen({
   }
   return (
     <div className="kitchen-shell">
-      <TestBanner />
-      <StaffHeader title={titles[station]} role={station} logout={logout} />
+      <StaffHeader title={titles[station]} />
       <Connection observed={remote.observed} error={remote.error} refresh={remote.refresh} />
+      {remote.error instanceof ApiError && [401, 403].includes(remote.error.status) ? (
+        <button className="staff-access-recovery" onClick={logout}>
+          Восстановить доступ
+        </button>
+      ) : null}
       <main className="kitchen-main">
         <div className="queue-controls">
           <div>
@@ -211,7 +185,8 @@ function KitchenScreen({
         ) : null}
         {remote.data && !permitted ? (
           <Notice warning>
-            Этот ключ выдан для другой кухонной станции. Выйдите и используйте ключ нужной роли.
+            Этот ключ выдан для другой кухонной станции.
+            <button onClick={logout}>Восстановить доступ</button>
           </Notice>
         ) : !remote.data ? (
           <Loading />
@@ -305,81 +280,6 @@ function KitchenScreen({
   );
 }
 
-function DisplayScreen({ token, logout }: { token: string; logout: () => void }) {
-  const load = useCallback(() => api.display(token), [token]);
-  const remote = usePoll(load);
-  const [page, setPage] = useState(0);
-  const pages = Math.max(
-    1,
-    Math.ceil(Math.max(remote.data?.preparing.length ?? 0, remote.data?.ready.length ?? 0) / 6),
-  );
-  const offset = (page % pages) * 6;
-  useEffect(() => {
-    const timer = globalThis.setInterval(() => {
-      if (!document.hidden) setPage((old) => (old + 1) % pages);
-    }, 8000);
-    return () => globalThis.clearInterval(timer);
-  }, [pages]);
-  return (
-    <div className="display-shell">
-      <TestBanner />
-      <header className="display-header">
-        <Brand />
-        <h1>Твой хруст уже близко</h1>
-        <button onClick={logout} aria-label="Выйти из тестового табло">
-          Выход
-        </button>
-      </header>
-      <Connection observed={remote.observed} error={remote.error} refresh={remote.refresh} />
-      {!remote.data ? (
-        <Loading />
-      ) : (
-        <main className="display-columns">
-          <section>
-            <h2>
-              Готовится <span>Дайындалуда</span>
-            </h2>
-            <div className="display-numbers">
-              {remote.data.preparing.slice(offset, offset + 6).map((item) => (
-                <div key={item.number}>{item.number}</div>
-              ))}
-            </div>
-            {!remote.data.preparing.length ? <p>Новые номера появятся здесь</p> : null}
-          </section>
-          <section className="ready">
-            <h2>
-              Готово <span>Дайын</span>
-            </h2>
-            <div className="display-numbers">
-              {remote.data.ready.slice(offset, offset + 6).map((item) => (
-                <div key={item.number}>{item.number}</div>
-              ))}
-            </div>
-            {!remote.data.ready.length ? <p>Готовим для вас</p> : null}
-          </section>
-        </main>
-      )}
-      <footer>
-        Назовите номер сотруднику · Заказ исчезнет после подтверждённой выдачи
-        {pages > 1 ? ` · Страница ${(page % pages) + 1} из ${pages}` : ''}
-      </footer>
-    </div>
-  );
-}
-
-const designLinks = [
-  ['B05', 'Номенклатура'],
-  ['B12', 'Остатки'],
-  ['B18', 'Отчёты'],
-  ['B20', 'Касса и бухгалтерия'],
-  ['B23', 'Промо'],
-  ['B25', 'Игры'],
-  ['B28', 'Гости и push'],
-  ['B35', 'Станции'],
-  ['B36', 'Устройства'],
-  ['B41', 'Сотрудники'],
-  ['B42', 'Аудит'],
-];
 function Metric({ value, children }: { value: number; children: ReactNode }) {
   return (
     <article className="metric">
@@ -429,32 +329,7 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
   }
   return (
     <div className="manager-shell">
-      <TestBanner />
       <div className="manager-layout">
-        <aside className="manager-sidebar">
-          <Brand />
-          <span className="eyebrow">Управление тестовой точкой</span>
-          <a className="selected" href="/manager">
-            Заказы и результаты
-          </a>
-          <a href="/kitchen/prep">A · Приготовление</a>
-          <a href="/kitchen/assembly">B · Сборка и выдача</a>
-          <a href="/display">Табло выдачи</a>
-          <a href="/kiosk">Открыть киоск</a>
-          <span className="eyebrow">Макеты будущих разделов</span>
-          {designLinks.map(([id, name]) => (
-            <a
-              href={`/design/prototype/index.html#${id}`}
-              key={id}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {name}
-              <small>Макет ↗</small>
-            </a>
-          ))}
-          <button onClick={logout}>Выйти из роли</button>
-        </aside>
         <main className="manager-main">
           <header>
             <div>
@@ -462,7 +337,10 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
               <h1>Заказы и результаты</h1>
               <p>Серверный тестовый контур · Алматы</p>
             </div>
-            <span className="test-label">Реальные продажи отключены</span>
+            <div className="manager-header-actions">
+              <span className="test-label">Реальные продажи отключены</span>
+              <button onClick={logout}>Выйти из роли</button>
+            </div>
           </header>
           <Connection observed={remote.observed} error={remote.error} refresh={remote.refresh} />
           <div className="metrics">
