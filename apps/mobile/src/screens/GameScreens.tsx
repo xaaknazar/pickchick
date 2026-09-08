@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
+import { PickBlocksCard } from '../games/pick-blocks/visuals';
 import {
   Body,
   Button,
@@ -56,6 +57,8 @@ export function Events(props: ScreenProps) {
         <Body muted style={s.eventsSubtitle}>
           Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.
         </Body>
+
+        <PickBlocksCard />
 
         <View style={s.streakCard}>
           <Image source={assets.skyline} style={s.skyline} contentFit="cover" />
