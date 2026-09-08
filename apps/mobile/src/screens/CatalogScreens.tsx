@@ -7,10 +7,12 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Product, ScreenProps } from '../model';
 import { assets } from '../assets';
+import { restaurantLocation } from '../restaurant-location';
 import {
   cartLineKey,
   defaultSelections,
@@ -38,7 +40,6 @@ import {
   NavRow,
   Notice,
   Page,
-  Pill,
   ReviewBadge,
   Row,
   SummaryRow,
@@ -94,54 +95,68 @@ export function Welcome(props: ScreenProps) {
   );
 }
 export function Branches(props: ScreenProps) {
+  const [mapError, setMapError] = useState(false);
   return (
     <Page props={props} title="Наши рестораны">
       <Heading>Где ваш{`\n`}следующий пик?</Heading>
       <Body muted>Выберите ресторан, чтобы увидеть его меню.</Body>
-      <View style={s.branchMap}>
-        <View style={s.mapRoadA} />
-        <View style={s.mapRoadB} />
-        <View style={s.mapPark} />
-        <View style={s.mapPin}>
-          <Icon name="location" size={28} color={colors.white} />
-        </View>
-        <Pill>Казахстан</Pill>
-        <Caption style={s.mapLabel}>
-          Схема · точный адрес появится после настройки ресторана
-        </Caption>
-      </View>
       {props.model.connection.status === 'loading' ? <Loading title="Ищем рестораны" /> : null}
-      {props.model.branches.map((branch) => (
-        <Pressable
-          key={branch.id}
-          testID={`branch-${branch.id}`}
-          accessibilityRole="radio"
-          accessibilityState={{ selected: props.model.branch?.id === branch.id }}
-          onPress={() => {
-            props.model.setBranch(branch.id);
-            props.navigate('M06');
-          }}
-        >
-          <Card
-            style={
-              props.model.branch?.id === branch.id ? { borderColor: colors.accent } : undefined
-            }
-          >
-            <Row>
-              <View style={ui.flex}>
-                <Heading small>{branch.name}</Heading>
-                <Caption style={{ marginTop: 7 }}>
-                  {branch.ordering_enabled ? 'Приём заказов доступен' : 'Заказы пока недоступны'}
-                </Caption>
-              </View>
-              <Icon
-                name={props.model.branch?.id === branch.id ? 'checkmark-circle' : 'chevron-forward'}
-                color={colors.accent}
+      {props.model.branches.map((branch) => {
+        const location = restaurantLocation(branch.id);
+        return (
+          <View key={branch.id} style={{ gap: 12 }}>
+            <Pressable
+              testID={`branch-${branch.id}`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: props.model.branch?.id === branch.id }}
+              onPress={() => {
+                props.model.setBranch(branch.id);
+                props.navigate('M06');
+              }}
+            >
+              <Card
+                style={
+                  props.model.branch?.id === branch.id ? { borderColor: colors.accent } : undefined
+                }
+              >
+                <Row>
+                  <View style={ui.flex}>
+                    <Heading small>{branch.name}</Heading>
+                    {location ? (
+                      <Body style={{ marginTop: 8 }}>
+                        {location.city}, {location.address}
+                      </Body>
+                    ) : null}
+                    <Caption style={{ marginTop: 7 }}>
+                      {branch.ordering_enabled
+                        ? 'Приём заказов доступен'
+                        : 'Заказы пока недоступны'}
+                    </Caption>
+                  </View>
+                  <Icon
+                    name={
+                      props.model.branch?.id === branch.id ? 'checkmark-circle' : 'chevron-forward'
+                    }
+                    color={colors.accent}
+                  />
+                </Row>
+              </Card>
+            </Pressable>
+            {location ? (
+              <Button
+                title="Открыть в 2ГИС"
+                secondary
+                testID={`branch-map-${branch.id}`}
+                onPress={() => {
+                  setMapError(false);
+                  void Linking.openURL(location.map_url).catch(() => setMapError(true));
+                }}
               />
-            </Row>
-          </Card>
-        </Pressable>
-      ))}
+            ) : null}
+          </View>
+        );
+      })}
+      {mapError ? <Notice warning>Не удалось открыть 2ГИС. Попробуйте ещё раз.</Notice> : null}
       {!props.model.branches.length && props.model.connection.status !== 'loading' ? (
         <Empty
           icon="location-outline"
@@ -779,6 +794,7 @@ export function Unavailable(props: ScreenProps) {
 }
 export function Checkout(props: ScreenProps) {
   const total = cartTotal(props.model.cart);
+  const location = restaurantLocation(props.model.branch?.id);
   return (
     <Page
       props={props}
@@ -791,7 +807,9 @@ export function Checkout(props: ScreenProps) {
           <Icon name="location-outline" color={colors.accent} />
           <View style={ui.flex}>
             <Heading small>{props.model.branch?.name ?? 'Pick Chick'}</Heading>
-            <Caption>Ресторан получения</Caption>
+            <Caption>
+              {location ? `${location.city}, ${location.address}` : 'Ресторан получения'}
+            </Caption>
           </View>
         </Row>
         <DiningSelector value={props.model.diningMode} onChange={props.model.setDiningMode} />
@@ -1030,51 +1048,4 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  branchMap: {
-    height: 215,
-    backgroundColor: '#142D50',
-    borderRadius: 24,
-    overflow: 'hidden',
-    padding: 18,
-  },
-  mapRoadA: {
-    position: 'absolute',
-    top: 85,
-    left: -30,
-    width: 460,
-    height: 22,
-    backgroundColor: '#244367',
-    transform: [{ rotate: '-28deg' }],
-  },
-  mapRoadB: {
-    position: 'absolute',
-    top: 10,
-    left: 150,
-    width: 21,
-    height: 400,
-    backgroundColor: '#244367',
-    transform: [{ rotate: '-19deg' }],
-  },
-  mapPark: {
-    position: 'absolute',
-    top: 55,
-    right: 40,
-    width: 72,
-    height: 55,
-    borderRadius: 15,
-    backgroundColor: '#254F4C',
-    transform: [{ rotate: '-20deg' }],
-  },
-  mapPin: {
-    position: 'absolute',
-    top: 62,
-    left: '42%',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.action,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapLabel: { position: 'absolute', bottom: 15, left: 18, right: 18, color: '#D5E0F3' },
 });
