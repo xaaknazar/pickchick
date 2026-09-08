@@ -71,7 +71,8 @@ with sync_playwright() as p:
     assert page.locator('video').evaluate('(v)=>!v.controls && v.muted && v.loop')
     hero = page.get_by_test_id('storefront-hero').bounding_box()
     title = page.get_by_text('Комбо недели', exact=True).bounding_box()
-    assert abs(hero['height'] - 660) < 1
+    # Owner-requested taller video; the original source remains the visual baseline.
+    assert abs(hero['height'] - 760) < 1
     assert abs(title['x'] + title['width']/2 - 201) < 1, title
     selected = page.get_by_test_id('dining-takeaway')
     assert selected.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(255, 255, 255)'
