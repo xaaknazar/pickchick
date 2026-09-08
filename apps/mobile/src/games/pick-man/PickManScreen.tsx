@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Icon, Logo, type IconName } from '../../components/UI';
+import { Button, Icon, Logo } from '../../components/UI';
 import { font } from '../../theme';
 import {
   COLS,
@@ -188,6 +188,7 @@ function MazeBoard({
         origin.current = { x: 0, y: 0 };
       },
       onPanResponderMove: (_, gesture) => {
+        if (!live.current.playing || gesture.numberActiveTouches !== 1) return;
         const dx = gesture.dx - origin.current.x,
           dy = gesture.dy - origin.current.y;
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 14) return;
@@ -201,22 +202,41 @@ function MazeBoard({
   ).current;
   return (
     <View
-      testID="pick-man-board"
+      testID="pick-man-swipe-area"
       {...pan.panHandlers}
-      accessibilityLabel="Лабиринт Pick Man. Направляйте Чика свайпами или кнопками стрелок."
+      accessible
+      accessibilityActions={[
+        { name: 'left', label: 'Влево' },
+        { name: 'right', label: 'Вправо' },
+        { name: 'up', label: 'Вверх' },
+        { name: 'down', label: 'Вниз' },
+      ]}
+      onAccessibilityAction={({ nativeEvent }) => {
+        const direction = nativeEvent.actionName as Direction;
+        if (live.current.playing && ['left', 'right', 'up', 'down'].includes(direction))
+          live.current.steer(direction);
+      }}
+      accessibilityLabel="Лабиринт Pick Man. Свайпните влево, вправо, вверх или вниз, чтобы направить Чика."
       style={{
-        width: COLS * cell,
-        height: ROWS * cell,
-        backgroundColor: '#020D27',
-        borderRadius: cell * 0.4,
-        overflow: 'hidden',
+        flex: 1,
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...(Platform.OS === 'web' ? { touchAction: 'none' } : {}),
       }}
     >
       <View
+        testID="pick-man-board"
         pointerEvents="none"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={StyleSheet.absoluteFill}
+        style={{
+          width: COLS * cell,
+          height: ROWS * cell,
+          backgroundColor: '#020D27',
+          borderRadius: cell * 0.4,
+          overflow: 'hidden',
+        }}
       >
         <Walls cell={cell} />
         <FoodLayer remaining={game.remaining} cell={cell} />
@@ -238,36 +258,6 @@ function MazeBoard({
           reduced={reduced || !playing}
           shield={game.shield > 0}
         />
-      </View>
-    </View>
-  );
-}
-function DirectionPad({
-  enabled,
-  onDirection,
-}: {
-  enabled: boolean;
-  onDirection(d: Direction): void;
-}) {
-  const button = (d: Direction, icon: IconName) => (
-    <Pressable
-      testID={`pick-man-${d}`}
-      accessibilityRole="button"
-      accessibilityLabel={{ up: 'Вверх', down: 'Вниз', left: 'Влево', right: 'Вправо' }[d]}
-      disabled={!enabled}
-      onPressIn={() => onDirection(d)}
-      style={({ pressed }) => [s.arrow, pressed && s.arrowPressed, !enabled && { opacity: 0.4 }]}
-    >
-      <Icon name={icon} size={23} color="#FFFFFF" />
-    </Pressable>
-  );
-  return (
-    <View style={s.pad}>
-      <View style={s.padRow}>{button('up', 'arrow-up')}</View>
-      <View style={s.padRow}>
-        {button('left', 'arrow-back')}
-        {button('down', 'arrow-down')}
-        {button('right', 'arrow-forward')}
       </View>
     </View>
   );
@@ -394,7 +384,7 @@ export function PickManScreen() {
                 </View>
               ))}
             </View>
-            <Text style={s.caption}>Три жизни · свайпы или стрелки</Text>
+            <Text style={s.caption}>Три жизни · управляй свайпами</Text>
             {best > 0 ? (
               <Text style={s.best}>Твой рекорд - {best.toLocaleString('ru-RU')}</Text>
             ) : null}
@@ -462,7 +452,7 @@ export function PickManScreen() {
                   {game.power > 0 ? 'Острый режим!' : 'Следующий поворот - твой.'}
                 </Text>
                 <Text style={s.caption}>
-                  {game.power > 0 ? 'Лови соперников' : 'Свайпни заранее или нажми стрелку.'}
+                  {game.power > 0 ? 'Лови соперников' : 'Свайпни по полю в нужную сторону.'}
                 </Text>
                 {game.power > 0 ? (
                   <View style={s.powerTrack}>
@@ -470,7 +460,6 @@ export function PickManScreen() {
                   </View>
                 ) : null}
               </View>
-              <DirectionPad enabled={playing && !tooSmall} onDirection={controller.steer} />
             </View>
             {overlay ? (
               <View testID="pick-man-overlay" style={s.scrim}>
@@ -490,7 +479,7 @@ export function PickManScreen() {
                     </Text>
                     <Text style={[s.body, s.centerText]}>
                       {help
-                        ? 'Свайпайте или нажимайте стрелки. Чик движется сам, поворот можно выбрать заранее. Соберите все блюда и не попадитесь соперникам. Острый соус на время позволяет ловить их.'
+                        ? 'Свайп влево, вправо, вверх или вниз задаёт направление. Чик движется сам; у стены поворот выполнится в ближайшем проходе. Соберите все блюда и не попадитесь соперникам. Острый соус на время позволяет ловить их.'
                         : restart
                           ? 'Текущая партия закончится. Личный рекорд сохранится.'
                           : status === 'won'
@@ -674,22 +663,9 @@ const s = StyleSheet.create({
     gap: 8,
     paddingVertical: 8,
   },
-  controlsWide: { width: 190, flexDirection: 'column', justifyContent: 'center' },
-  controlCopy: { maxWidth: 130, gap: 4 },
+  controlsWide: { width: 150, flexDirection: 'column', justifyContent: 'center' },
+  controlCopy: { gap: 4, paddingHorizontal: 12 },
   hint: { fontFamily: font.bold, fontSize: 12, lineHeight: 17, color: '#FFF' },
-  pad: { gap: 5 },
-  padRow: { flexDirection: 'row', justifyContent: 'center', gap: 5 },
-  arrow: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
-    backgroundColor: '#173362',
-    borderWidth: 1,
-    borderColor: '#325488',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  arrowPressed: { backgroundColor: '#0047BB', borderColor: '#FF7A3D' },
   powerTrack: {
     height: 4,
     borderRadius: 3,
