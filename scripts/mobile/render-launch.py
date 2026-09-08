@@ -10,4 +10,14 @@ with sync_playwright() as p:
     page.evaluate("document.fonts.ready")
     page.locator("img").evaluate("img => img.decode()")
     page.screenshot(path=str(ROOT / "apps/mobile/assets/launch/artwork.png"))
+    # Separate UI layers start in exactly the same positions as the native artwork.
+    # Render transparent overlays; the supplied logo itself remains unchanged.
+    for name, selector in [('logo', 'img'), ('accents', 'svg'), ('tagline', 'p')]:
+        page.evaluate('''selector => {
+          document.body.style.background = 'transparent';
+          for (const el of document.querySelector('.art').children) {
+            el.style.visibility = el.matches(selector) ? 'visible' : 'hidden';
+          }
+        }''', selector)
+        page.screenshot(path=str(ROOT / f"apps/mobile/assets/launch/{name}.png"), omit_background=True)
     browser.close()
