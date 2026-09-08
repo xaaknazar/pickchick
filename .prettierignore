@@ -13,3 +13,7 @@ apps/mobile/ios
 apps/mobile/android
 apps/kiosk/ios
 apps/kiosk/android
+apps/pos-desktop/renderer
+apps/pos-desktop/release
+apps/pos-desktop/build
+apps/pos-desktop/package-lock.json
