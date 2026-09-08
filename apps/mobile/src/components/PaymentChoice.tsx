@@ -1,3 +1,6 @@
+import { Image } from 'expo-image';
+import { assets } from '../assets';
+import { orderSimulatorEnabled } from '../order-simulator';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +10,30 @@ import { colors, font } from '../theme';
 
 export function paymentName(method: PaymentMethod) {
   return method === 'kaspi' ? 'Kaspi' : 'Банковская карта';
+}
+export function PaymentMark({ method, size = 34 }: { method: PaymentMethod; size?: number }) {
+  return method === 'kaspi' ? (
+    <Image
+      source={assets.kaspi}
+      accessibilityLabel="Kaspi"
+      testID="kaspi-logo"
+      contentFit="contain"
+      style={{ width: size, height: size, borderRadius: size * 0.3, backgroundColor: '#FFFFFF' }}
+    />
+  ) : (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.3,
+        backgroundColor: colors.action,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Icon name="card-outline" size={size * 0.6} color={colors.white} />
+    </View>
+  );
 }
 export function PaymentChoice({ model }: { model: MobileModel }) {
   const [open, setOpen] = useState(false);
@@ -22,11 +49,7 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
       >
         <Caption style={{ fontSize: 11, lineHeight: 16 }}>Способ оплаты</Caption>
         <Row style={{ gap: 7 }}>
-          <Icon
-            name={model.paymentMethod === 'kaspi' ? 'wallet-outline' : 'card-outline'}
-            size={19}
-            color={colors.accent}
-          />
+          <PaymentMark method={model.paymentMethod} size={22} />
           <Body style={{ fontFamily: font.bold, fontSize: 14, lineHeight: 21 }}>
             {paymentName(model.paymentMethod)}
           </Body>
@@ -60,14 +83,19 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
                 />
               </Row>
               <Caption>
-                Имитация оплаты для теста. Деньги не списываются, реквизиты не нужны.
+                {orderSimulatorEnabled
+                  ? 'Имитация оплаты для теста. Деньги не списываются, реквизиты не нужны.'
+                  : 'Выберите удобный способ. Онлайн-оплата скоро появится.'}
               </Caption>
               {(['kaspi', 'card'] as const).map((method) => (
                 <Pressable
                   key={method}
                   testID={`payment-method-${method}`}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: model.paymentMethod === method }}
+                  accessibilityState={{
+                    checked: model.paymentMethod === method,
+                    selected: model.paymentMethod === method,
+                  }}
                   onPress={() => {
                     model.setPaymentMethod(method);
                     setOpen(false);
@@ -80,23 +108,13 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      s.mark,
-                      { backgroundColor: method === 'kaspi' ? '#E63132' : colors.action },
-                    ]}
-                  >
-                    <Icon
-                      name={method === 'kaspi' ? 'wallet-outline' : 'card-outline'}
-                      color={colors.white}
-                    />
-                  </View>
+                  <PaymentMark method={method} size={38} />
                   <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                     <Body style={{ fontFamily: font.bold }}>{paymentName(method)}</Body>
                     <Caption>
                       {method === 'kaspi'
-                        ? 'Тестовый сценарий Kaspi'
-                        : 'Тестовая карта · без ввода номера'}
+                        ? 'Оплата в приложении Kaspi.kz'
+                        : 'Оплата банковской картой'}
                     </Caption>
                   </View>
                   <Icon
@@ -138,5 +156,4 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  mark: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
 });

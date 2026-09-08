@@ -70,6 +70,9 @@ jobs:
             if curl --fail --silent http://127.0.0.1:4182/ > /dev/null; then break; fi
             sleep 1
           done
+          .local/design-venv/bin/python tests/mobile/browser_checkout.py
+          # Simulator regressions use an explicit QA export; customer/native exports above stay disabled.
+          EXPO_PUBLIC_ORDER_SIMULATOR=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear
           .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
           .local/design-venv/bin/python tests/mobile/browser_menu_recovery.py
           .local/design-venv/bin/python tests/mobile/browser_demo_account.py
