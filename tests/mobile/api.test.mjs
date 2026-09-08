@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { API_URL, loadCatalog, parseCapabilities } from '../../apps/mobile/src/api.ts';
+import { setImmediate as flush } from 'node:timers/promises';
+import {
+  API_URL,
+  loadCatalog,
+  loadTestCatalog,
+  isRetryableCatalogError,
+  parseCapabilities,
+} from '../../apps/mobile/src/api.ts';
 
 const capabilities = {
   schema_version: 1,
@@ -98,4 +105,114 @@ test('HTTP failure and malformed data never produce a successful catalog', async
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(loadCatalog(null, controller.signal), /Aborted/);
+});
+
+test('only transport failures and temporary HTTP statuses permit automatic catalog retries', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    throw new TypeError('Network request failed');
+  });
+  await assert.rejects(loadTestCatalog(), isRetryableCatalogError);
+  for (const status of [408, 429, 500, 502, 503, 504]) {
+    fetchMock.mock.mockImplementation(async () => new Response('maintenance', { status }));
+    await assert.rejects(loadTestCatalog(), isRetryableCatalogError);
+  }
+  for (const status of [400, 401, 403, 404, 409]) {
+    fetchMock.mock.mockImplementation(async () => new Response('{}', { status }));
+    await assert.rejects(loadTestCatalog(), (error) => !isRetryableCatalogError(error));
+  }
+  for (const [body, contentType] of [
+    ['<html>', 'text/html'],
+    ['{', 'application/json'],
+    ['{}', 'application/json'],
+  ]) {
+    fetchMock.mock.mockImplementation(
+      async () => new Response(body, { headers: { 'content-type': contentType } }),
+    );
+    await assert.rejects(loadTestCatalog(), (error) => !isRetryableCatalogError(error));
+  }
+});
+
+test('complete catalog stays a cancellable public GET with the exact version and strict schema', async (t) => {
+  const catalog = {
+    synthetic: true,
+    namespace: 'pickchick-test',
+    branch_id: branchId,
+    catalog_version: 'mockup-v0.2',
+    currency: 'KZT',
+    products: [],
+  };
+  const calls = [];
+  const fetchMock = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push([url, options]);
+    return new Response(JSON.stringify(catalog), {
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+  assert.deepEqual(await loadTestCatalog(), catalog);
+  assert.equal(calls[0][0], API_URL + '/v1/test/catalog?catalog_version=mockup-v0.3');
+  assert.equal(calls[0][1].method, 'GET');
+  assert.deepEqual(calls[0][1].headers, { Accept: 'application/json' });
+  assert.equal(calls[0][1].credentials, 'omit');
+  assert.equal(calls[0][1].redirect, 'error');
+  const controller = new AbortController();
+  let passedSignal;
+  fetchMock.mock.mockImplementation(
+    (_url, options) =>
+      new Promise((_resolve, reject) => {
+        passedSignal = options.signal;
+        options.signal.addEventListener('abort', () => reject(new Error('Aborted')), {
+          once: true,
+        });
+      }),
+  );
+  const pending = loadTestCatalog(controller.signal);
+  controller.abort();
+  await assert.rejects(pending);
+  assert.equal(passedSignal.aborted, true);
+});
+
+test('failed parallel catalog read waits for its sibling before the attempt finishes', async (t) => {
+  let finishBranches;
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    if (new URL(url).pathname === '/v1/capabilities') return new Response('{}', { status: 503 });
+    return new Promise((resolve) => {
+      finishBranches = resolve;
+    });
+  });
+  let finished = false;
+  const pending = loadCatalog(null).finally(() => {
+    finished = true;
+  });
+  const rejection = assert.rejects(pending, isRetryableCatalogError);
+  await flush();
+  assert.equal(finished, false);
+  finishBranches(
+    new Response(JSON.stringify({ branches: [branch] }), {
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
+  await rejection;
+  assert.equal(finished, true);
+});
+
+test('a stalled full-catalog GET is aborted at its original ten-second deadline and is retryable', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let passedSignal;
+  t.mock.method(
+    globalThis,
+    'fetch',
+    (_url, options) =>
+      new Promise((_resolve, reject) => {
+        passedSignal = options.signal;
+        options.signal.addEventListener('abort', () => reject(new Error('Timed out')), {
+          once: true,
+        });
+      }),
+  );
+  const pending = assert.rejects(loadTestCatalog(), isRetryableCatalogError);
+  t.mock.timers.tick(9999);
+  assert.equal(passedSignal.aborted, false);
+  t.mock.timers.tick(1);
+  await pending;
+  assert.equal(passedSignal.aborted, true);
 });

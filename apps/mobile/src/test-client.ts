@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TestCatalogSchema } from '@pickchick/test-order-flow/contracts';
 import { API_URL } from './api';
+export { loadTestCatalog } from './api';
 import { SESSION_KEY, TestApiError, TestCustomerCore } from './test-order-session';
 export { TestApiError } from './test-order-session';
 
@@ -53,9 +53,6 @@ export async function testRequest(
   } finally {
     clearTimeout(timer);
   }
-}
-export async function loadTestCatalog() {
-  return TestCatalogSchema.parse(await testRequest('/catalog'));
 }
 export class TestCustomerClient extends TestCustomerCore {
   constructor() {
