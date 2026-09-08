@@ -2,6 +2,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 export const assets = {
+  kaspi: require('../assets/payments/kaspi.png') as ImageSourcePropType,
   pickManCover: require('../assets/games/pick-man-cover.png') as ImageSourcePropType,
   pickManChick: require('../assets/games/pick-man-chick.png') as ImageSourcePropType,
   burger: require('../../../design/prototype/assets/mockup/shot.jpg') as ImageSourcePropType,
