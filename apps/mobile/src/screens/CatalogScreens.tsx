@@ -499,14 +499,15 @@ export function Menu(props: ScreenProps) {
                     : 'Часы уточняются'}
               </Caption>
             </Pressable>
-            <IconButton
-              name="person"
-              label="Профиль"
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Профиль"
               testID="storefront-profile"
-              color={colors.background}
               onPress={() => props.navigate('M30')}
-              style={s.heroProfile}
-            />
+              style={({ pressed }) => [s.heroProfile, pressed && s.heroProfilePressed]}
+            >
+              <Icon name="person-outline" size={26} color={colors.white} />
+            </Pressable>
           </Row>
         </View>
         {!collapsed ? (
@@ -900,7 +901,21 @@ const s = StyleSheet.create({
     color: colors.white,
   },
   branchCaption: { fontSize: 13, lineHeight: 18, color: '#FFFFFFDD', textAlign: 'left' },
-  heroProfile: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.white },
+  heroProfile: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0B2454D9',
+    borderWidth: 1,
+    borderColor: '#FFFFFF66',
+    boxShadow: '0 4px 14px rgba(0, 8, 30, 0.24)',
+  },
+  heroProfilePressed: {
+    backgroundColor: '#23467CEB',
+    transform: [{ scale: 0.96 }],
+  },
   heroCaption: {
     position: 'absolute',
     left: 24,
@@ -921,7 +936,7 @@ const s = StyleSheet.create({
     textShadowRadius: 18,
   },
   heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
-  menuBody: { paddingHorizontal: 24, paddingTop: 26, paddingBottom: 28, gap: 16 },
+  menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 28, gap: 16 },
   stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
   categoryList: {
     gap: 24,
