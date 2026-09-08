@@ -113,7 +113,9 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
       style={({ pressed }) => [brand.loyalty, pressed && ui.pressed]}
     >
       <Image
-        source={assets.skyline}
+        // The card-only SVG disables internal aspect-ratio letterboxing so the
+        // mountain layers reach every edge when accessibility text grows.
+        source={require('../../assets/loyalty/skyline-card.svg')}
         testID="loyalty-skyline"
         pointerEvents="none"
         style={[brand.skyline, { top: skylineTop }]}

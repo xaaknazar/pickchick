@@ -1,6 +1,14 @@
 import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Icon, Loading, ReviewBadge, type IconName } from '../components/UI';
 import { ProfileRestoreNotice } from '../components/ProfileRestoreNotice';
@@ -9,6 +17,16 @@ import { formatBirthDate } from '../profile-details';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import { useAccount } from '../useAccount';
+import { assets } from '../assets';
+
+// Keep the original blue brand pattern subdued behind personal information.
+const identityGradient =
+  'linear-gradient(125deg, rgba(0,40,110,0.3) 0%, rgba(0,26,80,0.65) 60%, rgba(4,20,58,0.9) 100%)';
+const identityShade = (
+  Platform.OS === 'web'
+    ? { backgroundImage: identityGradient }
+    : { experimental_backgroundImage: identityGradient }
+) as ViewStyle;
 
 function ProfileRow({
   title,
@@ -95,6 +113,16 @@ export function Profile(props: ScreenProps) {
         </View>
 
         <View testID="profile-identity" style={s.identity}>
+          <View
+            testID="profile-identity-background"
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={s.identityBackground}
+          >
+            <Image source={assets.blue} style={s.identityPattern} contentFit="cover" />
+            <View style={[StyleSheet.absoluteFill, identityShade]} />
+          </View>
           {!account.ready ? (
             <Loading title="Восстанавливаем профиль…" />
           ) : (
@@ -108,8 +136,10 @@ export function Profile(props: ScreenProps) {
                   )}
                 </View>
                 <View style={s.flex}>
-                  <Text style={s.name}>{account.account ? name : 'Добро пожаловать'}</Text>
-                  <Text style={s.subtitle}>
+                  <Text testID="profile-name" style={s.name}>
+                    {account.account ? name : 'Добро пожаловать'}
+                  </Text>
+                  <Text testID="profile-phone" style={s.subtitle}>
                     {account.account
                       ? formatDemoPhone(account.account.phone)
                       : 'Без входа в аккаунт'}
@@ -197,6 +227,7 @@ export function Profile(props: ScreenProps) {
           style={({ pressed }) => [s.loyalty, pressed && s.pressed]}
         >
           <Image
+            testID="profile-loyalty-background"
             source={require('../../assets/loyalty/almaty-ascent.svg')}
             style={s.mountains}
             contentFit="cover"
@@ -337,11 +368,17 @@ const s = StyleSheet.create({
   identity: {
     padding: 20,
     borderRadius: 24,
-    backgroundColor: '#10264D',
+    backgroundColor: '#0B4FC4',
     borderWidth: 1,
-    borderColor: '#FFFFFF12',
+    borderColor: '#7BA8F44D',
     gap: 16,
   },
+  identityBackground: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 23,
+    overflow: 'hidden',
+  },
+  identityPattern: { ...StyleSheet.absoluteFill, opacity: 0.2 },
   identityRow: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   avatar: {
     flexShrink: 0,
@@ -350,19 +387,19 @@ const s = StyleSheet.create({
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF7A3D1A',
+    backgroundColor: '#FFFFFF16',
     borderWidth: 1,
-    borderColor: '#FF7A3D59',
+    borderColor: '#FFFFFF45',
   },
   initial: { fontFamily: font.display, fontSize: 25, lineHeight: 32, color: colors.accent },
   name: { fontFamily: font.heading, fontSize: 23, lineHeight: 28, color: colors.white },
-  subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 13, lineHeight: 20, color: '#B6C4DD' },
+  subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 14, lineHeight: 20, color: '#D1DFF5' },
   demoLabel: {
     marginTop: 4,
     fontFamily: font.medium,
     fontSize: 11,
     lineHeight: 16,
-    color: '#B6C4DD',
+    color: '#C6D7F0',
   },
   intro: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: '#C0CDE3' },
   signIn: {
@@ -389,14 +426,16 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF09',
+    backgroundColor: '#FFFFFF12',
+    borderWidth: 1,
+    borderColor: '#FFFFFF20',
     paddingHorizontal: 8,
   },
   editLabel: {
     fontFamily: font.medium,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 20,
-    color: '#BDD3FF',
+    color: '#E2ECFF',
     flexShrink: 1,
   },
   shortcuts: { flexDirection: 'row', gap: 12 },
@@ -420,11 +459,7 @@ const s = StyleSheet.create({
     borderColor: '#638ED747',
   },
   mountains: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFill,
     opacity: 0.26,
   },
   loyaltyTop: {
