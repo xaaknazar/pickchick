@@ -59,11 +59,11 @@ const FoodLayer = memo(function FoodLayer({
           key={id}
           style={{
             position: 'absolute',
-            left: (id % COLS) * cell + cell * 0.2,
-            top: Math.floor(id / COLS) * cell + cell * 0.2,
+            left: (id % COLS) * cell + cell * 0.15,
+            top: Math.floor(id / COLS) * cell + cell * 0.15,
           }}
         >
-          <FoodIcon kind={foodKind(id)} size={cell * 0.6} />
+          <FoodIcon kind={foodKind(id)} size={cell * 0.7} />
         </View>
       ))}
     </>

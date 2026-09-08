@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="crust" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFE69C"/><stop offset=".4" stop-color="#F3B441"/><stop offset=".78" stop-color="#CE7625"/><stop offset="1" stop-color="#94421C"/></linearGradient>
+</defs>
+<g stroke="#B46425" stroke-width="1.3" stroke-linejoin="round">
+<path d="m30 5 5 1 3 5-1 5 3 4-3 6 2 5-4 5 1 5-5 5-1 6-6 5-7-1-2-6 2-6-1-5 4-5-1-6 4-5-1-5 4-5v-5Z" fill="url(#crust)"/>
+<path d="m47 8 7 2 3 5-2 5 2 5-4 5 1 6-5 4-1 7-5 3-3 6-8 2-4-6 2-7-1-5 5-4v-5l5-5-1-6 5-4-1-4Z" fill="url(#crust)"/>
+<path d="m13 12 6 1 4 4-1 5 3 5-1 5 4 6-2 5 2 6-3 7-7 3-6-4-1-7-4-5 1-7-3-4 2-5-2-5 3-5Z" fill="url(#crust)"/>
+</g>
+<g fill="none" stroke="#FFE5A1" stroke-width="2.6" stroke-linecap="round"><path d="m31 11-3 5 1 4-4 5 1 4-3 5m26-20-3 5 1 3-5 5 1 4-4 4M14 18l-2 4 3 4-1 5 3 4-1 5 3 5"/></g>
+<g fill="#B46823"><path d="m31 29 3 1-2 4-3-1Zm15 9 3 2-3 4-2-2ZM20 43l3 1-1 4-3-1Z"/></g>
+<g fill="#FFD471"><path d="m21 48 3 2-2 3-3-1Zm17-4 3 1-1 3-3-1ZM17 26l3 2-2 3-3-2Z"/></g>
+</svg>
