@@ -25,8 +25,11 @@ entitlements и compiled storyboard проверены; установка на 
 Dev обновлён без удаления приложения, Metro не перезапускался, TestFlight
 не изменялся. Следующий шаг - оценка владельцем холодного запуска на iPhone.
 
-Опубликован [PR #45](https://github.com/xaaknazar/pickchick/pull/45).
-[CI коммита 3810038](https://github.com/xaaknazar/pickchick/actions/runs/34229425690)
+Первый дизайн опубликован в [PR #45](https://github.com/xaaknazar/pickchick/pull/45),
+анимация и установка Dev 6 - в [PR #46](https://github.com/xaaknazar/pickchick/pull/46).
+Запуск обновлённого клиента с Mac отклонён iOS с причиной Locked; владельцу
+предложено открыть приложение после разблокировки телефона.
+[CI коммита 95e550a](https://github.com/xaaknazar/pickchick/actions/runs/34232316548)
 не запустил все 6 jobs: GitHub явно указал неуспешную оплату аккаунта или
 необходимость увеличить spending limit. Удалённые проверки не пройдены.
 
