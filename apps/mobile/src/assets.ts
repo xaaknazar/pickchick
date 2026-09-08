@@ -2,6 +2,9 @@
 import type { ImageSourcePropType } from 'react-native';
 
 export const assets = {
+  pickManCover: require('../assets/games/pick-man-cover.png') as ImageSourcePropType,
+  pickManChick: require('../assets/games/pick-man-chick.png') as ImageSourcePropType,
+  burger: require('../../../design/prototype/assets/mockup/shot.jpg') as ImageSourcePropType,
   pickBlocksCover: require('../assets/games/pick-blocks-cover.png') as ImageSourcePropType,
   logo: require('../../../design/prototype/assets/mockup/logo.png') as ImageSourcePropType,
   skyline: require('../../../design/prototype/assets/mockup/skyline.svg') as ImageSourcePropType,
