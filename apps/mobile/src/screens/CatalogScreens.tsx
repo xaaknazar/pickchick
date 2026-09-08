@@ -348,7 +348,7 @@ export function Menu(props: ScreenProps) {
             <Body style={s.heroSubtitle}>подробнее</Body>
           </Pressable>
         </View>
-        <View style={s.menuBody}>
+        <View style={[s.menuBody, heroHeight < 600 && s.compactMenuBody]}>
           <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
           {props.preview ? <ReviewBadge /> : null}
           {props.model.testFlow.available && props.model.testFlow.current ? (
@@ -905,7 +905,8 @@ const s = StyleSheet.create({
     textShadowRadius: 18,
   },
   heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
-  menuBody: { paddingHorizontal: 18, marginTop: -128, gap: 16 },
+  menuBody: { paddingHorizontal: 18, marginTop: -144, gap: 16 },
+  compactMenuBody: { marginTop: -128 },
   stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
   categoryList: {
     gap: 8,
