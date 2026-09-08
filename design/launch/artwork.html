@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+  <meta charset="utf-8" />
+  <title>PickChick - launch artwork</title>
+  <style>
+    @font-face {
+      font-family: Jost;
+      src: url('../../apps/mobile/node_modules/@expo-google-fonts/jost/600SemiBold/Jost_600SemiBold.ttf');
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #0133cc;
+    }
+    .art {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      overflow: hidden;
+    }
+    img {
+      position: absolute;
+      width: 440px;
+      height: 440px;
+      left: -60px;
+      top: -82px;
+    }
+    svg {
+      position: absolute;
+      inset: 0;
+      width: 320px;
+      height: 320px;
+    }
+    p {
+      position: absolute;
+      top: 249px;
+      width: 100%;
+      margin: 0;
+      color: white;
+      font:
+        600 25px/38px Jost,
+        sans-serif;
+      text-align: center;
+    }
+  </style>
+  <div class="art">
+    <img src="../prototype/assets/mockup/logo.png" alt="PickChick" />
+    <svg viewBox="0 0 320 320" fill="none" aria-hidden="true">
+      <path
+        d="M37 125C19 148 14 174 26 198M288 105C307 128 309 156 297 179"
+        stroke="#FFFFFF"
+        stroke-opacity=".22"
+        stroke-width="1.5"
+        stroke-linecap="round"
+      />
+      <path d="M50 46V62M42 54H58" stroke="#FF7A3D" stroke-width="3" stroke-linecap="round" />
+      <path
+        d="M277 212V224M271 218H283"
+        stroke="#FF7A3D"
+        stroke-width="2.5"
+        stroke-linecap="round"
+      />
+      <circle cx="276" cy="61" r="3" fill="#FFFFFF" fill-opacity=".7" />
+      <circle cx="45" cy="228" r="2" fill="#FFFFFF" fill-opacity=".5" />
+      <path d="M138 305H182" stroke="#FF7A3D" stroke-width="3" stroke-linecap="round" />
+    </svg>
+    <p>Твой пик вкуса</p>
+  </div>
+</html>
