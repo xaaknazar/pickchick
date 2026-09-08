@@ -316,7 +316,7 @@ export function Menu(props: ScreenProps) {
       >
         <View
           testID="storefront-hero"
-          style={[s.hero, { height: Math.max(560, Math.min(660, (width * 660) / 402)) }]}
+          style={[s.hero, { height: Math.max(640, Math.min(760, (width * 760) / 402)) }]}
         >
           <HeroVideo />
           <Pressable
