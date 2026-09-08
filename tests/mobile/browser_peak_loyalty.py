@@ -27,7 +27,7 @@ def assert_unactivated(page):
     wallet = page.get_by_test_id('screen-M23').last
     expect(wallet.get_by_test_id('peak-wallet-balance')).to_have_text('-')
     expect(wallet.get_by_test_id('peak-earned-progress')).to_have_text('-')
-    expect(wallet.get_by_text('Готовим программу. Пороги и подарки предварительные;', exact=False)).to_be_visible()
+    expect(wallet.get_by_text('Готовим программу. Пороги и подарки предварительные;', exact=False)).to_have_count(0)
     assert wallet.get_by_text('ОТКРЫТА · ПРИМЕР', exact=True).count() == 0
 
 

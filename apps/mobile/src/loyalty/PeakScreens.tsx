@@ -258,17 +258,11 @@ export function PeakWallet(props: ScreenProps) {
           <Text style={s.balanceHint}>Всего заработано</Text>
         </View>
       </View>
-      <Text style={s.note}>
-        {props.preview
-          ? 'Пример: 540 Чиков заработано, 360 потрачено. Вершина Фурманова остаётся открытой.'
-          : 'Готовим программу. Пороги и подарки предварительные; личный прогресс появится после запуска.'}
-      </Text>
-      <View style={s.motto}>
-        <Icon name="trending-up-outline" color={colors.accent} size={24} />
-        <Text style={s.mottoText}>
-          Трать Чики на любимое.{`\n`}Твой путь к вершинам продолжается.
+      {props.preview ? (
+        <Text style={s.note}>
+          Пример: 540 Чиков заработано, 360 потрачено. Вершина Фурманова остаётся открытой.
         </Text>
-      </View>
+      ) : null}
       <MountainRoad preview={props.preview} />
       <NavRow
         title="Миссии и подарки"
@@ -445,8 +439,6 @@ const s = StyleSheet.create({
   balanceNumber: { fontFamily: font.display, fontSize: 34, lineHeight: 43, color: colors.text },
   balanceHint: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: colors.muted },
   note: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: '#A8BCDE' },
-  motto: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  mottoText: { flex: 1, fontFamily: font.medium, fontSize: 14, lineHeight: 22, color: '#D9E6FC' },
   roadHeading: { gap: 8, marginBottom: 20 },
   sectionTitle: { fontSize: 24, lineHeight: 30 },
   road: { gap: 0 },
