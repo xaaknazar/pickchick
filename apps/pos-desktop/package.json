@@ -13,9 +13,10 @@
   "packageManager": "npm@11.13.0",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --project tsconfig.renderer.json --noEmit && node --check main.mjs && node --check protocol.mjs",
+    "typecheck": "tsc --project tsconfig.renderer.json --noEmit && node --check main.mjs && node --check protocol.mjs && node --check journal.mjs && node --check preload.cjs",
     "start": "npm run build && electron .",
     "dist:win": "node scripts/build.mjs --release && electron-builder --win nsis portable --x64 --publish never",
+    "verify:win": "node scripts/verify-package.mjs",
     "pack:mac-test": "node scripts/build.mjs --release && electron-builder --mac dir --arm64 --publish never"
   },
   "devDependencies": {
