@@ -26,6 +26,7 @@ with sync_playwright() as pw:
     page.goto(config['url'])
     assert page.locator('script[type=module]').get_attribute('src') == './app.js'
     at('credential-file').set_input_files({'name': 'synthetic-manager.json', 'mimeType': 'application/json', 'buffer': json.dumps(config['manager']).encode()})
+    at('nav-items').click()
     at('seed').click()
     expect(at('catalog-products').locator('tr')).to_have_count(24)
     assert page.locator('.sidebar').evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(9, 16, 32)'

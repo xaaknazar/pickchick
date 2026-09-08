@@ -72,6 +72,7 @@ jobs:
           done
           .local/design-venv/bin/python tests/mobile/browser_launch.py
           .local/design-venv/bin/python tests/mobile/browser_checkout.py
+          MOBILE_RECOVERY_URL=http://127.0.0.1:4182 BACKOFFICE_TEST_PYTHON=.local/design-venv/bin/python node --env-file=.env tests/backoffice/content-browser.mjs
           # Simulator regressions use an explicit QA export; customer/native exports above stay disabled.
           EXPO_PUBLIC_ORDER_SIMULATOR=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear
           .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
@@ -90,10 +91,10 @@ jobs:
         env:
           POS_TEST_PYTHON: .local/design-venv/bin/python
         run: pnpm test:pos
-      - name: Verify backoffice catalog editing against PostgreSQL
+      - name: Verify backoffice operations and catalog against PostgreSQL
         env:
           BACKOFFICE_TEST_PYTHON: .local/design-venv/bin/python
-        run: pnpm test:backoffice
+        run: pnpm --filter @pickchick/backoffice-core test && pnpm --filter @pickchick/backoffice-core test:integration && pnpm test:backoffice
       - name: Verify opt-in server account screens and recovery
         run: |
           EXPO_PUBLIC_CUSTOMER_AUTH=server pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web

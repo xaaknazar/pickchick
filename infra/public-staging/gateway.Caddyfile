@@ -22,7 +22,7 @@
 		-Server
 	}
 	@synthetic_surfaces {
-		not path /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*
+		not path /v1/content/* /v1/admin/backoffice/* /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*
 	}
 	header @synthetic_surfaces X-PickChick-Data synthetic
 	@catalog_draft_body {
@@ -42,6 +42,53 @@
 		max_size 16KB
 	}
 
+	@backoffice_get {
+		method GET
+		path_regexp backoffice_get ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$
+	}
+	handle @backoffice_get {
+		header X-PickChick-Data backoffice
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@backoffice_post {
+		method POST
+		path_regexp backoffice_post ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/commands$
+	}
+	handle @backoffice_post {
+		header X-PickChick-Data backoffice
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@published_content {
+		method GET
+		path_regexp published_content ^/v1/content/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+	}
+	handle @published_content {
+		header X-PickChick-Data backoffice
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			header_up -Authorization
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
 	@catalog_admin_get {
 		method GET
 		path_regexp catalog_admin_get ^/v1/admin/catalog/branches(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$

@@ -67,6 +67,43 @@ export class Resources implements OnApplicationShutdown {
             for (const table of ['catalog_managers', 'catalog_manager_branches'])
               await this.pool.query(`SELECT lock_anchor FROM ${table} LIMIT 0`);
           }
+          if (this.config.backofficeEnabled) {
+            const version = await this.pool.query(
+              "SELECT 1 FROM schema_migrations WHERE version='017_cloud_backoffice.sql' AND scope='cloud'",
+            );
+            if (version.rowCount !== 1) throw new Error('Backoffice schema unavailable');
+            for (const table of [
+              'bo_records',
+              'bo_audit',
+              'bo_commands',
+              'bo_stock_balances',
+              'bo_stock_documents',
+              'bo_stock_movements',
+              'bo_publications',
+              'bo_delivery_outbox',
+              'bo_access_grants',
+              'bo_order_recipes',
+              'pos_order_sync_projection',
+              'commerce_captures',
+              'commerce_refund_effects',
+              'cloud_fulfillment_projection',
+            ])
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+            for (const table of [
+              'bo_audit',
+              'bo_commands',
+              'bo_stock_documents',
+              'bo_stock_movements',
+              'bo_publications',
+              'bo_delivery_outbox',
+            ]) {
+              const grant = await this.pool.query(
+                "SELECT has_table_privilege(current_user,$1,'INSERT') ok",
+                [table],
+              );
+              if (!grant.rows[0]?.ok) throw new Error('Backoffice write grant unavailable');
+            }
+          }
           if (this.config.testOrderFlowEnabled) {
             for (const migration of [
               '004_cloud_test_order_flow.sql',

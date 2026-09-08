@@ -63,7 +63,8 @@
     "@pickchick/phone-verification": "workspace:*",
     "@pickchick/customer-identity": "workspace:*",
     "@pickchick/fulfillment-transport": "workspace:*",
-    "@pickchick/pos-order-sync": "workspace:*"
+    "@pickchick/pos-order-sync": "workspace:*",
+    "@pickchick/backoffice-core": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

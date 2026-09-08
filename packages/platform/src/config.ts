@@ -13,6 +13,7 @@ export interface ServiceConfig {
   httpMaxInFlight?: number;
   customerAuthEnabled?: boolean;
   catalogAdminEnabled?: boolean;
+  backofficeEnabled?: boolean;
   trustedProxyIps?: string[];
   edgeFulfillmentEnabled?: boolean;
   edgeDeviceId?: string;
@@ -70,7 +71,12 @@ export function loadConfig(
     throw new Error('CUSTOMER_AUTH_ENABLED must be true or false');
   if (customerAuth === 'true' && service !== 'api')
     throw new Error('Customer identity belongs to cloud API');
+  const backoffice = env.BACKOFFICE_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(backoffice) || (backoffice === 'true' && service !== 'api'))
+    throw new Error('BACKOFFICE_ENABLED configuration invalid');
   const catalogAdmin = env.CATALOG_ADMIN_ENABLED ?? 'false';
+  if (backoffice === 'true' && catalogAdmin !== 'true')
+    throw new Error('Backoffice requires the scoped catalog login');
   if (!['true', 'false'].includes(catalogAdmin))
     throw new Error('CATALOG_ADMIN_ENABLED must be true or false');
   if (catalogAdmin === 'true' && service !== 'api')
@@ -142,6 +148,7 @@ export function loadConfig(
     databasePoolMax: boundedInteger(env, 'DB_POOL_MAX', 5, 64),
     httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
     ...(customerAuth === 'true' ? { customerAuthEnabled: true } : {}),
+    ...(backoffice === 'true' ? { backofficeEnabled: true } : {}),
     ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
     ...(fulfillment === 'true'
       ? { edgeFulfillmentEnabled: true, edgeDeviceId: env.EDGE_DEVICE_ID! }

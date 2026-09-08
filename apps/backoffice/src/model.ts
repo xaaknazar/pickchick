@@ -10,7 +10,7 @@ import {
   type CatalogState,
   type Product,
 } from './domain.js';
-import { ApiError, type Transport } from './api.js';
+import { ApiError, type Transport, type Request } from './api.js';
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 type Pending = {
   actorId: string;
@@ -48,6 +48,10 @@ export class CatalogModel {
     private storage: Store,
     private requestId = () => crypto.randomUUID(),
   ) {}
+  async operations(path: string, options?: Request) {
+    if (!this.actor || !this.token) throw new ApiError('UNAUTHORIZED', 401);
+    return this.api('operations/' + path, this.token, options);
+  }
   subscribe(fn: () => void) {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
