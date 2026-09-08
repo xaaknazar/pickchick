@@ -5,6 +5,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "dev": "PICKCHICK_APP_VARIANT=development expo start --dev-client --lan --scheme pickchick-dev",
     "ios": "expo run:ios",
     "android": "expo run:android",
     "web": "expo start --web",
@@ -26,6 +27,7 @@
     "expo-asset": "57.0.16",
     "expo-constants": "57.0.17",
     "expo-crypto": "57.0.2",
+    "expo-dev-client": "57.0.18",
     "expo-font": "57.0.3",
     "expo-image": "57.0.4",
     "expo-linking": "57.0.9",
