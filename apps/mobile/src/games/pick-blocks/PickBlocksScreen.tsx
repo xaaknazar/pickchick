@@ -54,83 +54,6 @@ const lineLabel = (count: number) =>
       ? 'ряда'
       : 'рядов';
 
-function Action({
-  icon,
-  label,
-  testID,
-  onPress,
-  primary = false,
-  repeat = false,
-  disabled = false,
-}: {
-  icon: IconName;
-  label: string;
-  testID?: string;
-  onPress(): void;
-  primary?: boolean;
-  repeat?: boolean;
-  disabled?: boolean;
-}) {
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const delay = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const release = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pressedIn = useRef(false);
-  const action = useRef(onPress);
-  action.current = onPress;
-  const stop = useCallback(() => {
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-    if (delay.current) clearTimeout(delay.current);
-    delay.current = null;
-  }, []);
-  useEffect(() => {
-    if (disabled) stop();
-    return () => {
-      stop();
-      if (release.current) clearTimeout(release.current);
-    };
-  }, [disabled, stop]);
-  return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={disabled}
-      accessibilityState={{ disabled }}
-      onPressIn={
-        repeat
-          ? () => {
-              stop();
-              pressedIn.current = true;
-              action.current();
-              delay.current = setTimeout(() => {
-                timer.current = setInterval(() => action.current(), 85);
-              }, 200);
-            }
-          : undefined
-      }
-      onPress={() => {
-        if (!repeat || !pressedIn.current) action.current();
-        pressedIn.current = false;
-      }}
-      onPressOut={() => {
-        stop();
-        if (release.current) clearTimeout(release.current);
-        release.current = setTimeout(() => {
-          pressedIn.current = false;
-        }, 0);
-      }}
-      style={({ pressed }) => [
-        s.control,
-        primary && s.controlPrimary,
-        disabled && { opacity: 0.35 },
-        pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
-      ]}
-    >
-      <Icon name={icon} size={27} color={primary ? colors.orangeInk : '#ECF2FF'} />
-    </Pressable>
-  );
-}
 function SolidButton({
   title,
   onPress,
@@ -250,52 +173,6 @@ function SideRail({ game, compact }: { game: GameState; compact: boolean }) {
     </View>
   );
 }
-function Controls({ controller }: { controller: ReturnType<typeof usePickBlocks> }) {
-  const off = controller.status !== 'playing';
-  return (
-    <View testID="blocks-controls" style={s.controls}>
-      <Action
-        icon="arrow-back"
-        label="Сдвинуть влево; удерживайте для повторения"
-        testID="blocks-left"
-        disabled={off}
-        repeat
-        onPress={() => controller.move(-1)}
-      />
-      <Action
-        icon="arrow-forward"
-        label="Сдвинуть вправо; удерживайте для повторения"
-        testID="blocks-right"
-        disabled={off}
-        repeat
-        onPress={() => controller.move(1)}
-      />
-      <Action
-        icon="refresh"
-        label="Повернуть фигуру"
-        testID="blocks-rotate"
-        disabled={off}
-        onPress={controller.rotate}
-      />
-      <Action
-        icon="arrow-down"
-        label="Опустить на одну клетку; удерживайте для ускорения"
-        testID="blocks-down"
-        disabled={off}
-        repeat
-        onPress={controller.softDrop}
-      />
-      <Action
-        icon="chevron-down"
-        label="Мгновенно уронить фигуру"
-        testID="blocks-drop"
-        disabled={off}
-        primary
-        onPress={controller.hardDrop}
-      />
-    </View>
-  );
-}
 /** Native-driver interpolation fills the time between deterministic gravity steps. */
 function FallingPiece({
   game,
@@ -389,16 +266,32 @@ function Board({
   const glow = useRef(new Animated.Value(0)).current;
   const live = useRef({ controller, cell });
   live.current = { controller, cell };
-  const drag = useRef({ x: 0, y: 0, moved: false });
+  const drag = useRef({ x: 0, y: 0, moved: false, cancelled: false, started: 0, piece: -1 });
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => live.current.controller.status === 'playing',
       onMoveShouldSetPanResponder: () => live.current.controller.status === 'playing',
       onPanResponderGrant: () => {
-        drag.current = { x: 0, y: 0, moved: false };
+        drag.current = {
+          x: 0,
+          y: 0,
+          moved: false,
+          cancelled: false,
+          started: Date.now(),
+          piece: live.current.controller.game?.piecesPlaced ?? -1,
+        };
+      },
+      onPanResponderStart: (_, gesture) => {
+        if (gesture.numberActiveTouches > 1) drag.current.cancelled = true;
       },
       onPanResponderMove: (_, gesture) => {
-        if (live.current.controller.status !== 'playing') return;
+        if (gesture.numberActiveTouches > 1) drag.current.cancelled = true;
+        if (
+          live.current.controller.status !== 'playing' ||
+          drag.current.cancelled ||
+          drag.current.piece !== live.current.controller.game?.piecesPlaced
+        )
+          return;
         if (Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8) drag.current.moved = true;
         const step = Math.max(12, live.current.cell * 0.85);
         const x = Math.trunc(gesture.dx / step),
@@ -411,8 +304,23 @@ function Board({
         drag.current.x = x;
         drag.current.y = y;
       },
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (_, gesture) => {
+        if (
+          live.current.controller.status !== 'playing' ||
+          drag.current.cancelled ||
+          drag.current.piece !== live.current.controller.game?.piecesPlaced
+        )
+          return;
         if (!drag.current.moved) live.current.controller.rotate();
+        else if (
+          gesture.dy >= Math.max(36, live.current.cell * 2) &&
+          gesture.dy > Math.abs(gesture.dx) * 1.5 &&
+          Date.now() - drag.current.started < 240
+        )
+          live.current.controller.hardDrop();
+      },
+      onPanResponderTerminate: () => {
+        drag.current.cancelled = true;
       },
       onPanResponderTerminationRequest: () => true,
       onShouldBlockNativeResponder: () => true,
@@ -435,8 +343,34 @@ function Board({
     <View
       testID="blocks-board"
       {...pan.panHandlers}
-      style={[s.board, { width: BOARD_WIDTH * cell + 2, height: BOARD_HEIGHT * cell + 2 }]}
-      accessibilityLabel="Игровое поле. Касание поворачивает фигуру, свайп двигает, движение вниз ускоряет"
+      style={[
+        s.board,
+        {
+          width: BOARD_WIDTH * cell + 2,
+          height: BOARD_HEIGHT * cell + 2,
+          ...(Platform.OS === 'web' ? { touchAction: 'none' } : {}),
+        },
+      ]}
+      accessible
+      accessibilityLabel="Игровое поле. Касание - поворот, свайп - движение, вниз - ускорение, быстрый свайп вниз - сброс"
+      accessibilityActions={[
+        { name: 'left', label: 'Сдвинуть влево' },
+        { name: 'right', label: 'Сдвинуть вправо' },
+        { name: 'rotate', label: 'Повернуть фигуру' },
+        { name: 'down', label: 'Опустить на клетку' },
+        { name: 'drop', label: 'Сбросить фигуру' },
+      ]}
+      onAccessibilityAction={({ nativeEvent }) => {
+        if (controller.status !== 'playing') return;
+        const actions: Record<string, () => void> = {
+          left: () => controller.move(-1),
+          right: () => controller.move(1),
+          rotate: controller.rotate,
+          down: controller.softDrop,
+          drop: controller.hardDrop,
+        };
+        actions[nativeEvent.actionName]?.();
+      }}
     >
       <View
         pointerEvents="none"
@@ -574,38 +508,6 @@ export function PickBlocksScreen() {
     controller.pause();
     setHelp(true);
   };
-  useEffect(() => {
-    if (Platform.OS !== 'web' || status !== 'playing' || help || restart) return;
-    const key = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
-      const actions: Record<string, () => void> = {
-        ArrowLeft: () => controller.move(-1),
-        ArrowRight: () => controller.move(1),
-        ArrowDown: controller.softDrop,
-        ArrowUp: controller.rotate,
-        x: controller.rotate,
-        ' ': controller.hardDrop,
-        Escape: controller.pause,
-        p: controller.pause,
-      };
-      const action = actions[event.key];
-      if (!action) return;
-      event.preventDefault();
-      if (event.repeat && ['ArrowUp', 'x', ' '].includes(event.key)) return;
-      action();
-    };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [
-    status,
-    help,
-    restart,
-    controller.move,
-    controller.rotate,
-    controller.softDrop,
-    controller.hardDrop,
-    controller.pause,
-  ]);
   const compact = height < 700 || region.height < 350;
   const railWidth = compact ? 68 : 78;
   const cell = Math.max(
@@ -740,8 +642,9 @@ export function PickBlocksScreen() {
               <Text style={s.hintText}>СОБИРАЙ СВОЙ ПИК</Text>
               <View style={s.hintLine} />
             </View>
-            <Controls controller={controller} />
-            <Text style={s.gestureHint}>Свайп - двигать · касание поля - поворот</Text>
+            <Text testID="blocks-gesture-hint" style={s.gestureHint}>
+              Свайп - двигать · касание - поворот{`\n`}Вниз - ускорить · быстрый свайп вниз - сброс
+            </Text>
           </View>
         </View>
       ) : null}
@@ -801,7 +704,7 @@ export function PickBlocksScreen() {
                     : status === 'over'
                       ? 'Места больше нет. А новый пик - впереди.'
                       : tooSmall
-                        ? 'Поверни телефон: полю и кнопкам нужно чуть больше места.'
+                        ? 'Поверни телефон: полю нужно чуть больше места.'
                         : 'Игра на паузе. Продолжим с того же места.'}
               </Text>
               {controller.storageError ? (
@@ -818,13 +721,13 @@ export function PickBlocksScreen() {
                         [
                           'swap-horizontal-outline',
                           'Двигай',
-                          'Свайп по полю или кнопки ← и →. Кнопки можно удерживать.',
+                          'Веди пальцем по полю влево или вправо.',
                         ],
-                        ['refresh', 'Поворачивай', 'Коснись поля или нажми кнопку поворота.'],
+                        ['refresh', 'Поворачивай', 'Коротко коснись поля, чтобы повернуть фигуру.'],
                         [
                           'arrow-down',
                           'Ускоряй',
-                          'Потяни вниз или удерживай ↓. Оранжевая кнопка сразу опустит фигуру.',
+                          'Веди пальцем вниз для ускорения. Быстрый свайп вниз сразу уложит фигуру на контур.',
                         ],
                         [
                           'sparkles-outline',
@@ -1111,7 +1014,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   portraitControls: { paddingTop: 0 },
-  wideControls: { width: 280, justifyContent: 'center' },
+  wideControls: { width: 220, justifyContent: 'center' },
   controlHint: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   hintText: {
     fontFamily: font.bold,
@@ -1121,25 +1024,12 @@ const s = StyleSheet.create({
     color: '#6689BC',
   },
   hintLine: { height: 1, flex: 1, backgroundColor: '#244268' },
-  controls: { flexDirection: 'row', gap: 7 },
-  control: {
-    flex: 1,
-    minWidth: 48,
-    minHeight: 56,
-    borderRadius: 17,
-    backgroundColor: '#122C56',
-    borderWidth: 1,
-    borderColor: '#335282',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlPrimary: { backgroundColor: '#FFAD73', borderColor: '#FFC194' },
   gestureHint: {
     fontFamily: font.medium,
-    fontSize: 10.5,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 18,
     textAlign: 'center',
-    color: '#7494C4',
+    color: '#A3BDE2',
     marginTop: 9,
   },
   storageNotice: {
