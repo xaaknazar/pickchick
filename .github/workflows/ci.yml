@@ -61,6 +61,8 @@ jobs:
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
           .local/design-venv/bin/python tests/operations/kiosk_recovery.py
+          .local/design-venv/bin/python tests/operations/browser_staff_display.py
+          python3 -m unittest tests/operations/test_operations_overlay.py
           MOBILE_PREVIEW_PORT=4182 node scripts/mobile/preview-server.mjs > .local/mobile-recovery-server.log 2>&1 &
           recovery_pid=$!
           trap 'kill "$recovery_pid"' EXIT
