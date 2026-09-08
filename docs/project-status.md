@@ -1,5 +1,22 @@
 # PickChick — состояние проекта
 
+## Живой просмотр дизайна на iPhone — 8 сентября 2026
+
+Подготовлен [PickChick Dev](operations/mobile-live-review.md): отдельный
+`kz.pickchick.app.dev`, нативный Debug-клиент и запуск Metro командой
+`pnpm --filter @pickchick/mobile dev`. Обычные идентификаторы, backend и flags
+сохранены. `expo-dev-client` закреплён на 57.0.18; штатная настройка plugin
+не добавляет dev URL scheme обычному приложению. EAS/OTA не подключены.
+
+Прошли 92 Node- и 30 Python-проверок mobile, typecheck/ESLint/формат, четыре
+проверки конфигурации/реальных native schemes и Release export iOS/Android/web.
+Debug arm64 собран и подписан; проверены Bundle ID, Team, development
+entitlements, включение зарегистрированного iPhone в profile и strict codesign.
+Metro отвечает правильным Dev manifest. Установка пока отклонена iPhone:
+Developer Mode выключен (CoreDeviceError 10005). Артефакт готов к повтору после
+включения режима и перезагрузки; запуск и физический Fast Refresh ещё не приняты.
+VPS и существующее TestFlight-приложение не изменены.
+
 ## Уточнение оборудования и ОФД — 8 сентября 2026
 
 Заказчик подтвердил сенсорный BX S7 на кухне и BX S6 Dual у кассира, обе машины

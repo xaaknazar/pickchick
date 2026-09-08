@@ -1,6 +1,8 @@
 # PickChick Mobile
 
 Нативный Expo-клиент iOS/Android по [дизайну v0.2](../../docs/design/README.md).
+Для просмотра изменений на собственном iPhone без каждой новой загрузки в
+TestFlight используется [PickChick Dev и Fast Refresh](../../docs/operations/mobile-live-review.md).
 Первая версия предназначена для внутреннего тестирования: меню читается с VPS,
 корзина сохраняется на устройстве, все 35 мобильных страниц доступны в галерее.
 При действующем `features.test_order_flow` клиент создаёт синтетические заказы
