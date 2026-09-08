@@ -7,6 +7,7 @@ These checks prove browser recovery behavior, not real backend/provider integrat
 
 import copy
 import json
+import os
 import re
 import threading
 import unittest
@@ -20,7 +21,7 @@ from playwright.sync_api import expect, sync_playwright
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DIST = ROOT / 'apps/operations/dist'
+DIST = Path(os.environ.get('OPS_DIST', ROOT / 'apps/operations/dist'))
 REMOTE_API = 'https://pickchick.185.129.51.103.nip.io/v1/test'
 SYNTHETIC = {'synthetic': True, 'namespace': 'pickchick-test'}
 BRANCH = '10000000-0000-4000-8000-000000000003'
@@ -198,6 +199,7 @@ class KioskRecovery(unittest.TestCase):
         self.page.on('pageerror', lambda error: self.errors.append(str(error)))
         self.page.goto(self.url + '/kiosk')
         self.page.wait_for_load_state('networkidle')
+        expect(self.page.locator('.test-banner')).to_have_count(0)
 
     def tearDown(self):
         self.context.close()

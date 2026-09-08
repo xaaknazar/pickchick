@@ -1151,97 +1151,6 @@ label {
 .kitchen-main > .notice {
   margin-bottom: 24px;
 }
-.display-shell {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  background: white;
-}
-.display-header {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  padding: 24px 36px;
-  border-bottom: 1px solid #e3e8f1;
-}
-.display-header h1 {
-  font-size: 30px;
-  margin-left: auto;
-}
-.display-header > button {
-  font-size: 13px;
-  min-height: 48px;
-  background: #f0f3f8;
-  color: #56627a;
-}
-.display-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  flex: 1;
-}
-.display-columns > section {
-  padding: 42px 36px;
-  min-width: 0;
-}
-.display-columns h2 {
-  font-size: 48px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 20px;
-  padding-bottom: 28px;
-  border-bottom: 2px solid #dfe5ed;
-  margin-bottom: 36px;
-}
-.display-columns h2 > span {
-  font-family: 'Golos Text', sans-serif;
-  font-size: 22px;
-  font-weight: 400;
-  opacity: 0.7;
-}
-.display-columns .ready {
-  background: var(--blue);
-  color: white;
-}
-.display-columns .ready h2 {
-  border-color: #ffffff33;
-}
-.display-numbers {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
-}
-.display-numbers > div {
-  display: grid;
-  place-items: center;
-  min-height: 140px;
-  background: #f0f3f8;
-  border-radius: 24px;
-  font-family: Montserrat, sans-serif;
-  font-size: clamp(26px, 3.3vw, 56px);
-  white-space: nowrap;
-  font-weight: 900;
-  letter-spacing: -0.045em;
-  padding: 15px;
-}
-.ready .display-numbers > div {
-  background: #ffffff18;
-  color: white;
-  border: 1px solid #ffffff2b;
-}
-.display-columns section > p {
-  font-size: 24px;
-  line-height: 1.5;
-  opacity: 0.65;
-  padding: 50px 0;
-}
-.display-shell > footer {
-  padding: 20px;
-  text-align: center;
-  font-size: 16px;
-  color: #526078;
-  background: #edf2f8;
-}
 .manager-shell,
 .dark {
   background: #0c1222;
@@ -1250,9 +1159,8 @@ label {
   --muted: #a2b0c8;
 }
 .manager-layout {
-  display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
-  min-height: calc(100dvh - 40px);
+  display: block;
+  min-height: 100dvh;
 }
 .manager-sidebar {
   display: flex;
@@ -1562,21 +1470,6 @@ label {
   .metric {
     gap: 10px;
   }
-  .display-columns h2 {
-    font-size: 38px;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .display-numbers {
-    gap: 14px;
-  }
-  .display-numbers > div {
-    font-size: clamp(26px, 3.3vw, 40px);
-    min-height: 120px;
-  }
-  .display-columns > section {
-    padding: 30px 24px;
-  }
 }
 @media (max-width: 760px) {
   .kiosk-header {
@@ -1792,40 +1685,6 @@ label {
   .staff-login main {
     padding: 35px 20px;
   }
-  .display-header {
-    padding: 20px;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .display-header .brand strong {
-    display: none;
-  }
-  .display-header h1 {
-    font-size: 23px;
-    max-width: 220px;
-  }
-  .display-header > button {
-    margin-left: auto;
-  }
-  .display-columns > section {
-    padding: 26px 15px;
-  }
-  .display-columns h2 {
-    font-size: 30px;
-  }
-  .display-columns h2 > span {
-    font-size: 18px;
-  }
-  .display-numbers {
-    grid-template-columns: 1fr;
-  }
-  .display-numbers > div {
-    font-size: clamp(25px, 5vw, 40px);
-    min-height: 95px;
-  }
-  .display-columns section > p {
-    font-size: 18px;
-  }
   .manager-layout {
     display: block;
   }
@@ -1987,4 +1846,15 @@ label {
   .attract video {
     visibility: hidden;
   }
+}
+
+.manager-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.staff-access-recovery {
+  margin: 12px 24px;
 }

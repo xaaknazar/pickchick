@@ -16,6 +16,9 @@ Expo, локальный POS, коммерческое ядро платежей
 На VPS обновлены API и web; [бэк-офис](https://pickchick.185.129.51.103.nip.io/backoffice/)
 работает с приватным доступом управляющего и черновиком из 24 блюд.
 [Проверенный выпуск и восстановление резервной копии](docs/operations/deployments/2026-09-07-market-foundations.md).
+8 сентября отдельно обновлены рабочие экраны: убраны общий тестовый баннер
+и переходы, [табло выдачи](https://pickchick.185.129.51.103.nip.io/display)
+оформлено по исходному макету. [Протокол web-выпуска](docs/operations/deployments/2026-09-08-operations-display.md).
 Новая [LAN-кухня](docs/operations/lan-kitchen-client.md) пока проверена локально:
 настоящие роли, станции, журнал команд и путь приготовления до выдачи.
 [Cloud↔edge worker](docs/operations/fulfillment-transport.md) проверен через
