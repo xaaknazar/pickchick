@@ -12,6 +12,7 @@
   },
   "packageManager": "npm@11.13.0",
   "scripts": {
+    "runtime:install": "node node_modules/electron/install.js",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --project tsconfig.renderer.json --noEmit && node --check main.mjs && node --check protocol.mjs && node --check journal.mjs && node --check preload.cjs",
     "start": "npm run build && electron .",

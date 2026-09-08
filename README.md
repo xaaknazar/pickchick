@@ -61,6 +61,11 @@ Apple подтвердила обработку и статус «Тестиру
 Первый заказ: [локальный POS](docs/operations/local-orders.md),
 [ADR 0003](docs/architecture/adr/0003-local-orders.md).
 
+Windows-касса: [устанавливаемый клиент и ограничения первой поставки](docs/operations/windows-pos.md),
+[сборка EXE](apps/pos-desktop/README.md),
+[синхронизация неоплаченных POS-заказов](docs/operations/pos-order-sync.md).
+Установщик не содержит локальный edge/PostgreSQL и пока не заменяет кассу iiko.
+
 **Дизайн v0.2 по мокапу:** [130 экранов всех интерфейсов](docs/design/README.md),
 сценарии, состояния и общие дизайн-токены. Интерактивный просмотр: `pnpm design:serve`.
 Галерея использует демонстрационные данные; её экраны не означают готовность

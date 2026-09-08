@@ -121,6 +121,16 @@ Credential Vault; бессрочное хранение ключа и PIN-вхо
 локальный исходный клиент; `npm run pack:mac-test` создаёт вспомогательную
 Mac-сборку для проверки упаковки, а не распространяемый продукт.
 
+Перед тестом с прямым `executablePath` выполнить `npm run runtime:install`:
+Electron 44 загружает runtime лениво через CLI, а тест запускает binary напрямую.
+Первый download требует сети или готового локального cache. Сам EXE уже содержит
+runtime. [Официальный порядок загрузки](https://www.electronjs.org/docs/latest/tutorial/installation).
+Node-проверки без GUI:
+`node --test ../../tests/pos-desktop/protocol.test.mjs ../../tests/pos-desktop/journal.test.mjs`.
+Для `browser.test.mjs` нужны собранные API/edge, отдельный локальный PostgreSQL
+с временными схемами, приватный env и установленный Python Playwright;
+`POS_TEST_PYTHON` указывает на его interpreter. Тест не использует VPS.
+
 Основание настроек: [Electron security](https://www.electronjs.org/docs/latest/tutorial/security),
 [secure standard schemes и storage](https://www.electronjs.org/docs/latest/api/protocol),
 [Electron 44.2.0](https://releases.electronjs.org/release/v44.2.0),

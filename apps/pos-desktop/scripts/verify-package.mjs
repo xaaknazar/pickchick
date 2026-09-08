@@ -67,7 +67,9 @@ for (const path of expectedInputs) {
   assert.equal(hash(input), manifest.inputs[path].sha256, `Source hash differs: ${path}`);
   assert.equal(input.byteLength, manifest.inputs[path].bytes);
 }
-const asarFiles = listPackage(asar).sort();
+const asarFiles = listPackage(asar)
+  .map((path) => path.replaceAll('\\', '/'))
+  .sort();
 assert.deepEqual(
   asarFiles,
   [
