@@ -65,7 +65,13 @@ const rivalArt = (color: string, scared = false) =>
   );
 const rivals = ['#91BFFF', '#C5A3F5', '#6FDDC6'].map((color) => rivalArt(color));
 const scaredRival = rivalArt('#CBDDFA', true);
-export function Chick({ size, direction = 'right' }: { size: number; direction?: Direction }) {
+export const Chick = memo(function Chick({
+  size,
+  direction = 'right',
+}: {
+  size: number;
+  direction?: Direction;
+}) {
   return (
     <Image
       source={assets.pickManChick}
@@ -82,8 +88,8 @@ export function Chick({ size, direction = 'right' }: { size: number; direction?:
       }}
     />
   );
-}
-export function Rival({
+});
+export const Rival = memo(function Rival({
   size,
   scared = false,
   variant = 0,
@@ -99,7 +105,7 @@ export function Rival({
       style={{ width: size, height: size }}
     />
   );
-}
+});
 
 // Trace only exposed wall edges, so adjoining cells form a single rounded shape.
 // The source is built once; food and actors can move without rebuilding the maze.
