@@ -1,10 +1,8 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   AccessibilityInfo,
-  Animated,
   BackHandler,
-  Easing,
   PanResponder,
   Platform,
   Pressable,
@@ -14,6 +12,14 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  runOnUI,
+  useAnimatedStyle,
+  useFrameCallback,
+  useSharedValue,
+  type FrameInfo,
+} from 'react-native-reanimated';
+import { advanceMotion, createMotion, queueMotion } from './motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Icon, Logo } from '../../components/UI';
 import { font } from '../../theme';
@@ -45,6 +51,19 @@ function useReducedMotion() {
   }, []);
   return reduced;
 }
+const FoodTile = memo(function FoodTile({ id, cell }: { id: number; cell: number }) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: (id % COLS) * cell + cell * 0.15,
+        top: Math.floor(id / COLS) * cell + cell * 0.15,
+      }}
+    >
+      <FoodIcon kind={foodKind(id)} size={cell * 0.7} />
+    </View>
+  );
+});
 const FoodLayer = memo(function FoodLayer({
   remaining,
   cell,
@@ -55,16 +74,7 @@ const FoodLayer = memo(function FoodLayer({
   return (
     <>
       {remaining.map((id) => (
-        <View
-          key={id}
-          style={{
-            position: 'absolute',
-            left: (id % COLS) * cell + cell * 0.15,
-            top: Math.floor(id / COLS) * cell + cell * 0.15,
-          }}
-        >
-          <FoodIcon kind={foodKind(id)} size={cell * 0.7} />
-        </View>
+        <FoodTile key={id} id={id} cell={cell} />
       ))}
     </>
   );
@@ -74,6 +84,9 @@ function MovingActor({
   cell,
   duration,
   reduced,
+  playing,
+  reset,
+  epoch,
   enemy = false,
   variant = 0,
   scared = false,
@@ -83,56 +96,98 @@ function MovingActor({
   cell: number;
   duration: number;
   reduced: boolean;
+  playing: boolean;
+  reset: boolean;
+  epoch: string;
   enemy?: boolean;
   variant?: number;
   scared?: boolean;
   shield?: boolean;
 }) {
-  const position = useRef(new Animated.ValueXY({ x: actor.x * cell, y: actor.y * cell })).current;
-  const previous = useRef({ actor, cell });
+  const motion = useSharedValue(createMotion(actor));
+  const running = useSharedValue(false);
+  const interval = useSharedValue(duration);
+  const previous = useRef({ cell, epoch });
+  useLayoutEffect(() => {
+    const forceReset =
+      reset || reduced || previous.current.cell !== cell || previous.current.epoch !== epoch;
+    previous.current = { cell, epoch };
+    runOnUI((target: Actor, force: boolean, active: boolean, stepMs: number) => {
+      'worklet';
+      motion.value = queueMotion(motion.value, target, force);
+      interval.value = stepMs;
+      running.value = active;
+    })(actor, forceReset, playing && !reduced, duration);
+  }, [
+    actor.x,
+    actor.y,
+    actor.direction,
+    cell,
+    duration,
+    epoch,
+    reset,
+    playing,
+    reduced,
+    motion,
+    running,
+    interval,
+  ]);
+  const updateFrame = useCallback(
+    (frame: FrameInfo) => {
+      'worklet';
+      if (running.value && frame.timeSincePreviousFrame !== null) {
+        motion.value = advanceMotion(motion.value, frame.timeSincePreviousFrame, interval.value);
+      }
+    },
+    [motion, running, interval],
+  );
+  const frame = useFrameCallback(updateFrame, false);
   useEffect(() => {
-    const before = previous.current;
-    previous.current = { actor, cell };
-    const target = { x: actor.x * cell, y: actor.y * cell };
-    if (
-      reduced ||
-      before.cell !== cell ||
-      Math.abs(before.actor.x - actor.x) + Math.abs(before.actor.y - actor.y) > 1
-    ) {
-      position.setValue(target);
-      return;
-    }
-    const animation = Animated.timing(position, {
-      toValue: target,
-      duration,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    });
-    animation.start();
-    return () => animation.stop();
-  }, [actor.x, actor.y, cell, duration, position, reduced]);
+    frame.setActive(playing && !reduced);
+    return () => frame.setActive(false);
+  }, [frame, playing, reduced]);
+  const position = useAnimatedStyle(() => ({
+    transform: [{ translateX: motion.value.x * cell }, { translateY: motion.value.y * cell }],
+  }));
+  const facing = useAnimatedStyle(() => ({
+    transform: [
+      {
+        rotate:
+          motion.value.direction === 'up'
+            ? '-90deg'
+            : motion.value.direction === 'down'
+              ? '90deg'
+              : '0deg',
+      },
+      { scaleX: motion.value.direction === 'left' ? -1 : 1 },
+    ],
+  }));
   return (
     <Animated.View
-      testID={enemy ? undefined : 'pick-man-player'}
+      testID={enemy ? `pick-man-rival-${variant}` : 'pick-man-player'}
       pointerEvents="none"
-      style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: cell,
-        height: cell,
-        transform: position.getTranslateTransform(),
-        backgroundColor: shield ? '#FFC57655' : enemy ? 'transparent' : '#FFAA4026',
-        borderWidth: shield ? 1 : 0,
-        borderColor: '#FFD68E',
-        borderRadius: cell / 2,
-      }}
+      style={[
+        {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: cell,
+          height: cell,
+          backgroundColor: shield ? '#FFC57655' : enemy ? 'transparent' : '#FFAA4026',
+          borderWidth: shield ? 1 : 0,
+          borderColor: '#FFD68E',
+          borderRadius: cell / 2,
+        },
+        position,
+      ]}
     >
       <View style={{ position: 'absolute', left: -cell * 0.04, top: -cell * 0.04 }}>
         {enemy ? (
           <Rival size={cell * 1.08} scared={scared} variant={variant} />
         ) : (
-          <Chick size={cell * 1.08} direction={actor.direction} />
+          <Animated.View style={facing}>
+            <Chick size={cell * 1.08} />
+          </Animated.View>
         )}
       </View>
     </Animated.View>
@@ -226,8 +281,11 @@ function MazeBoard({
             key={i}
             actor={actor}
             cell={cell}
-            duration={stepDuration(game.level) * 0.94}
-            reduced={reduced || !playing}
+            duration={stepDuration(game.level)}
+            reduced={reduced}
+            playing={playing}
+            reset={game.ticks === 0}
+            epoch={`${game.level}:${game.lives}`}
             enemy
             variant={i}
             scared={game.power > 0}
@@ -236,8 +294,11 @@ function MazeBoard({
         <MovingActor
           actor={game.player}
           cell={cell}
-          duration={stepDuration(game.level) * 0.94}
-          reduced={reduced || !playing}
+          duration={stepDuration(game.level)}
+          reduced={reduced}
+          playing={playing}
+          reset={game.ticks === 0}
+          epoch={`${game.level}:${game.lives}`}
           shield={game.shield > 0}
         />
       </View>
