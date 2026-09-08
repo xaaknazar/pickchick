@@ -18,6 +18,8 @@ export default function mobileConfig({ config }: ConfigContext): ExpoConfig {
     ios: {
       ...config.ios,
       bundleIdentifier: development ? 'kz.pickchick.app.dev' : config.ios?.bundleIdentifier,
+      // Native launch artwork must replace the previously installed Dev build.
+      buildNumber: development ? '6' : config.ios?.buildNumber,
     },
     android: {
       ...config.android,
