@@ -15,17 +15,7 @@ import {
   type TestQuote,
 } from './client';
 import { assets, productImage } from './assets';
-import {
-  Brand,
-  Connection,
-  Empty,
-  Loading,
-  Notice,
-  TestBanner,
-  readJson,
-  saveJson,
-  usePoll,
-} from './shared';
+import { Brand, Connection, Empty, Loading, Notice, readJson, saveJson, usePoll } from './shared';
 
 type Screen = 'welcome' | 'mode' | 'menu' | 'product' | 'cart' | 'loyalty' | 'quote' | 'order';
 type Pending =
@@ -401,7 +391,6 @@ export function Kiosk() {
 
   return (
     <div className={`kiosk-shell screen-${draft.screen}`}>
-      <TestBanner />
       {accessExpired ? (
         <section className="notice warning session-recovery" role="alert">
           <h2>Срок тестового сеанса истёк</h2>
