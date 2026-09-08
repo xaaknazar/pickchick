@@ -182,6 +182,8 @@ with sync_playwright() as p:
         context = browser.new_context(viewport={'width': width, 'height': height}, reduced_motion='reduce')
         fixture = Fixture()
         context.route('**/v1/**', fixture.route)
+        from account_fixture import signed_in
+        signed_in(context)
         page = context.new_page()
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))

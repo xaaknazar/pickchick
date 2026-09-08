@@ -44,6 +44,8 @@ with sync_playwright() as p:
     context.route('**/v1/**', intercept)
     context.add_init_script('localStorage.setItem(' + json.dumps(SESSION_KEY) + ',' +
                             json.dumps(json.dumps(SESSION)) + ');')
+    from account_fixture import signed_in
+    signed_in(context)
     page = context.new_page()
     page.goto(URL + '/screen/M19')
     history = page.get_by_test_id('screen-M19')
