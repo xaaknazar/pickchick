@@ -4,6 +4,8 @@ import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import { testCompleteCatalog } from '@pickchick/test-order-flow/complete-catalog';
 
 export const DESIGN_RELEASE = 'mockup-v0.3';
+// Format published menu copy for display without changing the source payload.
+const displayCopy = (text: string) => text.replace(/[\u2013\u2014]/g, '-');
 // Literal asset paths let Metro bundle the supplied originals offline.
 const images: Record<string, number> = {
   'i0.jpg': require('../../../design/prototype/assets/mockup/i0.jpg'),
@@ -34,7 +36,7 @@ export function connectedProducts(catalog: TestCatalog): Product[] {
   return catalog.products.map((item) => ({
     id: item.id,
     name: item.name,
-    description: item.description,
+    description: displayCopy(item.description),
     category: item.category,
     priceMinor: item.price_minor,
     catalogVersion: catalog.catalog_version,
@@ -44,7 +46,7 @@ export function connectedProducts(catalog: TestCatalog): Product[] {
       ? {
           servingLabel: item.serving_label,
           nutrition: item.nutrition,
-          ingredients: item.ingredients,
+          ingredients: displayCopy(item.ingredients),
           allergens: item.allergens,
           prepMinutes: item.prep_minutes,
           modifierGroups: item.modifier_groups,

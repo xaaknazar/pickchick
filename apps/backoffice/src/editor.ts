@@ -275,7 +275,7 @@ export function openEditor(
               p.weight_g = v.trim() ? Number(v) : null;
               changed();
             },
-            { id: 'edit-weight', type: 'number', hint: 'Пустое поле — вес не указан.' },
+            { id: 'edit-weight', type: 'number', hint: 'Пустое поле - вес не указан.' },
           ),
           field(
             'Объём, мл',
@@ -289,7 +289,7 @@ export function openEditor(
         ),
         loc('Ингредиенты', p.ingredients, 'ingredients', true),
         field(
-          'Аллергены — по одному на строку',
+          'Аллергены - по одному на строку',
           p.allergens.join('\n'),
           (v) => {
             p.allergens = v

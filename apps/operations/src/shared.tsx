@@ -63,7 +63,7 @@ export function Brand() {
 export function TestBanner() {
   return (
     <div className="test-banner">
-      Тестовый контур — не ресторан · Реальные деньги не списываются
+      Тестовый контур - не ресторан · Реальные деньги не списываются
     </div>
   );
 }

@@ -64,7 +64,7 @@ function previewRules(s) {
   if (s.surface === 'display')
     return [
       'Только номера заказов, без телефона, имени и состава.',
-      'Источник — edge. Нет связи: явное сообщение, без случайных обновлений.',
+      'Источник - edge. Нет связи: явное сообщение, без случайных обновлений.',
       'После выдачи убрать номер по событию сотрудника.',
     ];
   if (s.surface === 'kitchen')
@@ -133,7 +133,7 @@ function overviewHtml() {
 function render() {
   const s = byId.get(selected);
   document.body.classList.toggle('focus', focus);
-  document.title = `${overview ? 'Экосистема' : s.id + ' · ' + s.title} — PickChick`;
+  document.title = `${overview ? 'Экосистема' : s.id + ' · ' + s.title} - PickChick`;
   document.querySelector('#app').innerHTML =
     `<div class="atlas">${nav()}<main class="atlas-main"><header class="atlas-toolbar"><div><span class="eyebrow muted">${overview ? 'Дизайн экосистемы' : groups[s.surface].name + ' / ' + s.id}</span><h1>${overview ? 'Все интерфейсы PickChick' : s.title}</h1></div><div class="atlas-actions"><button class="tool" data-action="overview">Обзор</button><button class="tool ${spec ? 'active' : ''}" data-action="spec">Спецификация</button><button class="tool ${focus ? 'active' : ''}" data-action="focus">${focus ? 'Выйти из фокуса' : 'Фокус'}</button><button class="tool" data-action="copy">Ссылка</button></div></header><nav class="flow-strip" aria-label="Ключевые сценарии">${[
       ['M06', 'Заказ в приложении'],

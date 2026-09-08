@@ -396,7 +396,7 @@ export function PickManScreen() {
             </View>
             <Text style={s.caption}>Три жизни · свайпы или стрелки</Text>
             {best > 0 ? (
-              <Text style={s.best}>Твой рекорд — {best.toLocaleString('ru-RU')}</Text>
+              <Text style={s.best}>Твой рекорд - {best.toLocaleString('ru-RU')}</Text>
             ) : null}
           </ScrollView>
           <View style={s.footer}>
@@ -459,7 +459,7 @@ export function PickManScreen() {
             <View style={[s.controls, wide && s.controlsWide]}>
               <View style={s.controlCopy}>
                 <Text style={s.hint}>
-                  {game.power > 0 ? 'Острый режим!' : 'Следующий поворот — твой.'}
+                  {game.power > 0 ? 'Острый режим!' : 'Следующий поворот - твой.'}
                 </Text>
                 <Text style={s.caption}>
                   {game.power > 0 ? 'Лови соперников' : 'Свайпни заранее или нажми стрелку.'}
@@ -496,7 +496,7 @@ export function PickManScreen() {
                           : status === 'won'
                             ? 'Все блюда собраны. Следующий маршрут будет немного быстрее.'
                             : status === 'over'
-                              ? `Твой счёт — ${game.score}. Рекорд — ${best}. Ещё один вкусный маршрут?`
+                              ? `Твой счёт - ${game.score}. Рекорд - ${best}. Ещё один вкусный маршрут?`
                               : 'Игра на паузе. Продолжим, когда будешь готов.'}
                     </Text>
                     {help ? (

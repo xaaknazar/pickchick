@@ -48,7 +48,7 @@ function MountainHero({ preview }: { preview: boolean }) {
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <View style={{ flex: 1 }}>
             <Text style={s.heroProgressTitle}>
-              {preview ? 'Следом — Кумбель' : 'Первая вершина — Фурманова'}
+              {preview ? 'Следом - Кумбель' : 'Первая вершина - Фурманова'}
             </Text>
             <Text style={s.heroProgressCopy}>
               {preview
@@ -110,7 +110,7 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
                 </View>
               </View>
               <Text style={s.copy}>
-                Предлагаем дарить награду один раз при достижении вершины. После открытия —{' '}
+                Предлагаем дарить награду один раз при достижении вершины. После открытия -{' '}
                 {proposedProgram.giftDays} дней, чтобы использовать подарок. Тратить Чики для этого
                 не нужно.
               </Text>
@@ -133,7 +133,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
     <View testID="mountain-road">
       <View style={s.roadHeading}>
         <Heading style={s.sectionTitle}>Шесть вершин вкуса</Heading>
-        <Text style={s.note}>Каждый пик — новый подарок. Посмотри, что ждёт впереди.</Text>
+        <Text style={s.note}>Каждый пик - новый подарок. Посмотри, что ждёт впереди.</Text>
       </View>
       <View style={s.road}>
         {peaks.map((peak, index) => {
@@ -189,7 +189,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
         })}
         <View style={s.finish}>
           <Icon name="sparkles-outline" color={colors.accent} size={20} />
-          <Text style={s.finishText}>Талгар — твоя вершина вкуса</Text>
+          <Text style={s.finishText}>Талгар - твоя вершина вкуса</Text>
         </View>
       </View>
       <PeakDetails peak={selected} close={() => setSelected(null)} />
@@ -226,7 +226,7 @@ function HowItWorks() {
           </Text>
           <Text style={s.copy}>
             Возврат заказа корректирует начисление и прогресс. Подарок за одну вершину выдаётся
-            только один раз. Высота реальной горы и порог Чиков — разные числа.
+            только один раз. Высота реальной горы и порог Чиков - разные числа.
           </Text>
           <Text style={s.note}>
             Это предварительная программа. Сейчас начисления, подарки и прогресс ещё не
@@ -246,14 +246,14 @@ export function PeakWallet(props: ScreenProps) {
         <View style={s.balanceCell}>
           <Text style={s.balanceLabel}>БАЛАНС ЧИКОВ</Text>
           <Text testID="peak-wallet-balance" style={s.balanceNumber}>
-            {props.preview ? '180' : '—'}
+            {props.preview ? '180' : '-'}
           </Text>
           <Text style={s.balanceHint}>Можно потратить</Text>
         </View>
         <View style={s.balanceCell}>
           <Text style={s.balanceLabel}>ДЛЯ УРОВНЯ</Text>
           <Text testID="peak-earned-progress" style={[s.balanceNumber, { color: colors.accent }]}>
-            {props.preview ? '540' : '—'}
+            {props.preview ? '540' : '-'}
           </Text>
           <Text style={s.balanceHint}>Всего заработано</Text>
         </View>
@@ -308,7 +308,7 @@ export function PeakRewards(props: ScreenProps) {
         <Text style={s.eyebrow}>ПОДАРОК ВТОРОЙ ВЕРШИНЫ</Text>
         <Text style={s.comboTitle}>Кумбель.{`\n`}Комбо за твой путь.</Text>
         <Text style={s.copy}>
-          1 000 заработанных Чиков — и базовое комбо в подарок. Баланс останется с тобой.
+          1 000 заработанных Чиков - и базовое комбо в подарок. Баланс останется с тобой.
         </Text>
         <Text style={s.note}>Предварительные условия · подарок ещё не активен</Text>
         <Button title="Посмотреть вершины" secondary onPress={() => props.navigate('M23')} />

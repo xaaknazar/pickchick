@@ -25,8 +25,8 @@ PEAKS = [
 def assert_unactivated(page):
     # React Navigation can retain the earlier M23 underneath a newly pushed M23.
     wallet = page.get_by_test_id('screen-M23').last
-    expect(wallet.get_by_test_id('peak-wallet-balance')).to_have_text('—')
-    expect(wallet.get_by_test_id('peak-earned-progress')).to_have_text('—')
+    expect(wallet.get_by_test_id('peak-wallet-balance')).to_have_text('-')
+    expect(wallet.get_by_test_id('peak-earned-progress')).to_have_text('-')
     expect(wallet.get_by_text('Готовим программу. Пороги и подарки предварительные;', exact=False)).to_be_visible()
     assert wallet.get_by_text('ОТКРЫТА · ПРИМЕР', exact=True).count() == 0
 

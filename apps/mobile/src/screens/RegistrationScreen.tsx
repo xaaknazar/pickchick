@@ -149,7 +149,7 @@ export function Onboarding(props: ScreenProps) {
             style={s.nicknameInput}
           />
         </View>
-        {nameLength > 32 ? <Body style={s.error}>Никнейм — не больше 32 символов.</Body> : null}
+        {nameLength > 32 ? <Body style={s.error}>Никнейм - не больше 32 символов.</Body> : null}
       </View>
 
       <View style={s.field}>
@@ -218,7 +218,7 @@ export function Onboarding(props: ScreenProps) {
                   !part.value && s.placeholder,
                 ]}
               >
-                {part.value ?? '—'}
+                {part.value ?? '-'}
               </Body>
             </Pressable>
           ))}

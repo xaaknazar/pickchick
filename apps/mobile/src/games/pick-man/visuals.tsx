@@ -31,7 +31,7 @@ export const FoodIcon = memo(function FoodIcon({ kind, size }: { kind: Food; siz
       contentFit="contain"
       pointerEvents="none"
       accessibilityLabel={
-        { burger: 'Бургер', fingers: 'Фингерсы', cola: 'Кола', power: 'Острый соус — защита' }[kind]
+        { burger: 'Бургер', fingers: 'Фингерсы', cola: 'Кола', power: 'Острый соус - защита' }[kind]
       }
     />
   );

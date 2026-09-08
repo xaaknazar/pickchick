@@ -366,7 +366,7 @@ export function ConnectedOrder(props: ScreenProps) {
                   ? 'Выдача подтверждена на кухне. Заказ убран с табло.'
                   : order.state === 'cancelled'
                     ? (order.cancellation_reason ?? 'Заказ отменён.')
-                    : 'Следующий шаг — проверка симулятора оплаты.'}
+                    : 'Следующий шаг - проверка симулятора оплаты.'}
         </Body>
       </View>
       {receipt ? (
