@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - '!apps/pos-desktop'
   - services/*
   - packages/*
 
