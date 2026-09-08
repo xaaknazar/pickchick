@@ -69,6 +69,7 @@ jobs:
             sleep 1
           done
           .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
+          .local/design-venv/bin/python tests/mobile/browser_menu_recovery.py
           .local/design-venv/bin/python tests/mobile/browser_demo_account.py
           .local/design-venv/bin/python tests/mobile/browser_profile.py
           .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
