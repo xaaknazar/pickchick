@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Product, ScreenProps } from '../model';
 import { assets } from '../assets';
@@ -174,6 +174,7 @@ export function Menu(props: ScreenProps) {
   const { width, height } = useWindowDimensions();
   // Owner screenshot: about twice the phone width, fitting short screens too.
   const heroHeight = Math.round(Math.min(width * 2, height * 0.93, 900));
+  const location = restaurantLocation(props.model.branch?.id);
   const scroll = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
   const [category, setCategory] = useState('Комбо');
@@ -253,6 +254,8 @@ export function Menu(props: ScreenProps) {
   const stickyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
     opacity: categoryTop ? 1 : 0,
+    backgroundColor:
+      scrollY.value >= categoryTop - headerHeight ? colors.background : 'transparent',
   }));
   useEffect(() => {
     const layout = chipLayouts.current[category];
@@ -299,13 +302,17 @@ export function Menu(props: ScreenProps) {
             // Native shared-value writes are scheduled; use the local target for this command.
             scroll.current?.scrollTo({ y: targetY, animated: true });
           }}
-          style={({ pressed }) => [
-            s.category,
-            category === item && s.categorySelected,
-            pressed && ui.pressed,
-          ]}
+          style={({ pressed }) => [s.category, pressed && ui.pressed]}
         >
-          <Body style={s.categoryText}>{item}</Body>
+          <Body style={[s.categoryText, category === item && s.categoryTextSelected]}>
+            {item === 'Комбо'
+              ? 'Комбо на одного'
+              : item === 'На двоих'
+                ? 'Комбо на двоих'
+                : item === 'На компанию'
+                  ? 'Комбо на компанию'
+                  : item}
+          </Body>
         </Pressable>
       ))}
     </ScrollView>
@@ -348,7 +355,12 @@ export function Menu(props: ScreenProps) {
             <Body style={s.heroSubtitle}>подробнее</Body>
           </Pressable>
         </View>
-        <View style={[s.menuBody, heroHeight < 600 && s.compactMenuBody]}>
+        <View
+          testID="storefront-category-anchor"
+          onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
+          style={{ height: categoryHeight, marginTop: -Math.round(heroHeight * 0.26) }}
+        />
+        <View style={s.menuBody}>
           <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
           {props.preview ? <ReviewBadge /> : null}
           {props.model.testFlow.available && props.model.testFlow.current ? (
@@ -378,10 +390,6 @@ export function Menu(props: ScreenProps) {
             </>
           ) : null}
         </View>
-        <View
-          onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
-          style={{ height: categoryHeight }}
-        />
         <View style={s.catalogSections} onLayout={(e) => setCatalogTop(e.nativeEvent.layout.y)}>
           {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
@@ -480,16 +488,20 @@ export function Menu(props: ScreenProps) {
               onPress={() => props.navigate('M05')}
               style={s.branchTitle}
             >
-              <Heading style={s.brandTitle}>Pick Chick</Heading>
+              <Text style={s.brandTitle} numberOfLines={1}>
+                {location?.name ?? props.model.branch?.name ?? 'Выбрать ресторан'}
+              </Text>
               <Caption style={s.branchCaption}>
-                {props.model.branch?.name ?? 'Выбрать ресторан'}⌄
+                {location?.closing_time ? `до ${location.closing_time}` : 'Часы уточняются'}
               </Caption>
             </Pressable>
             <IconButton
-              name="notifications-outline"
-              label="Уведомления"
-              onPress={() => props.navigate('M34')}
-              style={s.heroBell}
+              name="person"
+              label="Профиль"
+              testID="storefront-profile"
+              color={colors.background}
+              onPress={() => props.navigate('M30')}
+              style={s.heroProfile}
             />
           </Row>
         </View>
@@ -875,16 +887,16 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  branchTitle: { flex: 1, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
+  branchTitle: { flex: 1, alignItems: 'flex-start', minHeight: 48, justifyContent: 'center' },
   brandTitle: {
-    fontFamily: font.display,
-    fontSize: 19,
+    fontFamily: font.medium,
+    fontSize: 17,
     lineHeight: 23,
-    letterSpacing: -0.19,
-    textAlign: 'center',
+    textAlign: 'left',
+    color: colors.white,
   },
-  branchCaption: { fontSize: 12, lineHeight: 17, color: '#FFFFFFBB', textAlign: 'center' },
-  heroBell: { width: 44, height: 44, backgroundColor: '#FFFFFF33' },
+  branchCaption: { fontSize: 13, lineHeight: 18, color: '#FFFFFFDD', textAlign: 'left' },
+  heroProfile: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.white },
   heroCaption: {
     position: 'absolute',
     left: 24,
@@ -894,8 +906,8 @@ const s = StyleSheet.create({
     minHeight: 54,
   },
   heroTitle: {
-    fontFamily: font.display,
-    fontSize: 34,
+    fontFamily: font.medium,
+    fontSize: 28,
     lineHeight: 36,
     letterSpacing: -0.68,
     color: colors.white,
@@ -905,28 +917,24 @@ const s = StyleSheet.create({
     textShadowRadius: 18,
   },
   heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
-  menuBody: { paddingHorizontal: 18, marginTop: -144, gap: 16 },
-  compactMenuBody: { marginTop: -128 },
+  menuBody: { paddingHorizontal: 24, paddingTop: 26, paddingBottom: 28, gap: 16 },
   stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
   categoryList: {
-    gap: 8,
-    paddingTop: 18,
-    paddingBottom: 10,
-    paddingHorizontal: 18,
-    backgroundColor: colors.background,
+    gap: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
   },
   category: {
-    minHeight: 44,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    minHeight: 48,
     justifyContent: 'center',
   },
-  categorySelected: { backgroundColor: colors.action, borderColor: colors.action },
-  categoryText: { fontSize: 13.5, lineHeight: 19, fontFamily: font.medium },
+  categoryText: {
+    fontSize: 20,
+    lineHeight: 28,
+    fontFamily: font.medium,
+    color: '#FFFFFFA6',
+  },
+  categoryTextSelected: { color: colors.white },
   catalogSections: { paddingHorizontal: 18, gap: 26 },
   sectionTitle: {
     fontFamily: font.display,

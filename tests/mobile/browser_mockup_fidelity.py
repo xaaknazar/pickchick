@@ -76,7 +76,33 @@ with sync_playwright() as p:
     assert abs(title['x'] + title['width']/2 - 201) < 1, title
     selected = page.get_by_test_id('dining-takeaway')
     assert selected.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(255, 255, 255)'
+    # Owner's new source puts text categories between promotion and loyalty.
+    header = page.get_by_test_id('storefront-header')
+    branch = header.get_by_role('button', name='Выбрать ресторан', exact=True)
+    profile = page.get_by_test_id('storefront-profile')
+    assert branch.evaluate('(e)=>getComputedStyle(e).alignItems') == 'flex-start'
+    assert profile.bounding_box()['x'] > branch.bounding_box()['x'] + branch.bounding_box()['width']
+    assert profile.bounding_box()['width'] >= 44 and profile.bounding_box()['height'] >= 44
+    category = page.get_by_test_id('category-Комбо')
+    expect(category).to_have_text('Комбо на одного')
+    promo = page.get_by_test_id('hero-promotion').bounding_box()
+    tab = category.bounding_box()
+    loyalty = page.get_by_test_id('loyalty-card').bounding_box()
+    assert promo['y'] + promo['height'] <= tab['y'], (promo, tab)
+    assert tab['y'] + tab['height'] < loyalty['y'], (tab, loyalty)
+    assert category.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgba(0, 0, 0, 0)'
     page.screenshot(path=str(output / 'menu.png'))
+    page.get_by_test_id('dining-dine_in').click()
+    expect(page.get_by_test_id('dining-dine_in')).to_have_css('background-color', 'rgb(255, 255, 255)')
+    page.get_by_test_id('dining-takeaway').click()
+    expect(selected).to_have_css('background-color', 'rgb(255, 255, 255)')
+    profile.click()
+    expect(page.get_by_test_id('screen-M30')).to_be_visible()
+    page.goto(url + '/menu')
+    page.get_by_test_id('hero-promotion').click()
+    expect(page.get_by_test_id('screen-M07')).to_be_visible()
+    page.get_by_role('button', name='Закрыть блюдо', exact=True).click()
+    expect(page.get_by_test_id('screen-M06')).to_be_visible()
     page.get_by_test_id('category-Комбо').click()
     page.wait_for_timeout(500)
     header = page.get_by_test_id('storefront-header').bounding_box()
@@ -102,7 +128,7 @@ with sync_playwright() as p:
     page.goto(url + '/events')
     expect(page.get_by_test_id('screen-M26')).to_be_visible()
     page.screenshot(path=str(output / 'events.png'))
-    # Long restaurant names and category changes keep the selected anchor visible.
+    # Category changes keep the selected anchor visible at narrow widths.
     base = fixture.catalog['products'][0]
     categories = ['Комбо', 'На двоих', 'На компанию', 'Допы', 'Напитки']
     fixture.catalog['products'] = [dict(base, id=f'cat-{i}-{j}', name=f'Пример {i}.{j}', category=cat)
