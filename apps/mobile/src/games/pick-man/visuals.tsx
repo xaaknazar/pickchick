@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 import { ArcadeCard } from '../ArcadeCard';
-import type { Direction, Food } from './engine';
+import { MAZE, COLS, ROWS, type Direction, type Food } from './engine';
 
 // Original vector miniatures stay legible at maze-cell size on both native and web.
 const svg = (body: string) => ({
@@ -37,11 +37,14 @@ export const FoodIcon = memo(function FoodIcon({ kind, size }: { kind: Food; siz
   );
 });
 const chicken = svg(
-  '<path d="m19 12-2-7 8 5 5-6 1 11" fill="#FF7A3D"/><path d="M38 25c0 13-10 20-20 17C4 38 4 16 17 12c12-4 22 4 21 13" fill="#FFAB6F"/><path d="m34 23 12 5-12 6Z" fill="#FF7A3D"/><ellipse cx="29" cy="21" rx="6" ry="7" fill="#FFF"/><ellipse cx="31" cy="22" rx="2.6" ry="3.2" fill="#04143A"/><path d="M13 27c8-3 10 7 3 8" fill="none" stroke="#F57B3F" stroke-width="3" stroke-linecap="round"/>',
+  '<defs><linearGradient id="chick" x2="0" y2="1"><stop stop-color="#FFE099"/><stop offset="1" stop-color="#FF9A45"/></linearGradient></defs><path d="m17 13-1-8 8 5 6-6 2 12" fill="#FF7841"/><path d="M39 26c0 12-9 18-20 16C5 40 3 23 11 15c11-11 28-3 28 11Z" fill="url(#chick)" stroke="#FFE2A5" stroke-width="1.5"/><path d="m35 23 11 5-11 5Z" fill="#FF7138"/><ellipse cx="29" cy="21" rx="6" ry="7" fill="#FFF"/><ellipse cx="31" cy="22" rx="2.8" ry="3.4" fill="#04143A"/><circle cx="32" cy="20" r="1" fill="#FFF"/><path d="M11 28c4-5 12-1 10 4-2 5-7 5-9 2" fill="#F99743"/><path d="m12 19 3-3" stroke="#FFF3CB" stroke-width="3" stroke-linecap="round"/>',
 );
-const rival = svg(
-  '<path d="M7 39V21C7 2 41 2 41 21v18l-7-4-6 5-7-5-7 5Z" fill="#B6D2FF"/><path d="M8 23h32v9H8Z" fill="#0047BB"/><ellipse cx="18" cy="22" rx="5" ry="6" fill="#FFF"/><ellipse cx="31" cy="22" rx="5" ry="6" fill="#FFF"/><circle cx="19" cy="23" r="2.3" fill="#04143A"/><circle cx="32" cy="23" r="2.3" fill="#04143A"/>',
-);
+const rivalArt = (color: string, scared = false) =>
+  svg(
+    `<path d="M6 40V22C6 1 42 1 42 22v18l-9-5-9 6-9-6Z" fill="${color}" stroke="#E4EFFF" stroke-width="1.5"/><path d="M8 29h32v4H8Z" fill="#04143A" opacity=".16"/><ellipse cx="18" cy="21" rx="5.5" ry="6.5" fill="#FFF"/><ellipse cx="32" cy="21" rx="5.5" ry="6.5" fill="#FFF"/><circle cx="19" cy="22" r="2.7" fill="#04143A"/><circle cx="33" cy="22" r="2.7" fill="#04143A"/>${scared ? '<path d="m16 33 4-3 4 3 4-3 4 3" fill="none" stroke="#04143A" stroke-width="2"/>' : ''}`,
+  );
+const rivals = ['#91BFFF', '#C5A3F5', '#6FDDC6'].map((color) => rivalArt(color));
+const scaredRival = rivalArt('#CBDDFA', true);
 export function Chick({ size, direction = 'right' }: { size: number; direction?: Direction }) {
   return (
     <Image
@@ -58,13 +61,126 @@ export function Chick({ size, direction = 'right' }: { size: number; direction?:
     />
   );
 }
-export function Rival({ size, scared = false }: { size: number; scared?: boolean }) {
+export function Rival({
+  size,
+  scared = false,
+  variant = 0,
+}: {
+  size: number;
+  scared?: boolean;
+  variant?: number;
+}) {
   return (
     <Image
-      source={rival}
+      source={scared ? scaredRival : rivals[variant % rivals.length]}
       contentFit="contain"
-      style={{ width: size, height: size, opacity: scared ? 0.45 : 1 }}
+      style={{ width: size, height: size }}
     />
+  );
+}
+
+// Trace only exposed wall edges, so adjoining cells form a single rounded shape.
+// The source is built once; food and actors can move without rebuilding the maze.
+type Corner = { x: number; y: number };
+function wallContours() {
+  const edges = new Map<string, Corner[]>();
+  const key = (p: Corner) => `${p.x},${p.y}`;
+  const edge = (from: Corner, to: Corner) =>
+    edges.set(key(from), [...(edges.get(key(from)) ?? []), to]);
+  const wall = (x: number, y: number) => MAZE[y]?.[x] === '#';
+  MAZE.forEach((row, y) =>
+    [...row].forEach((tile, x) => {
+      if (tile !== '#') return;
+      if (!wall(x, y - 1)) edge({ x, y }, { x: x + 1, y });
+      if (!wall(x + 1, y)) edge({ x: x + 1, y }, { x: x + 1, y: y + 1 });
+      if (!wall(x, y + 1)) edge({ x: x + 1, y: y + 1 }, { x, y: y + 1 });
+      if (!wall(x - 1, y)) edge({ x, y: y + 1 }, { x, y });
+    }),
+  );
+  const paths: string[] = [];
+  while (edges.size) {
+    const start = edges.keys().next().value!;
+    const [x, y] = start.split(',').map(Number);
+    const points: Corner[] = [];
+    let point: Corner = { x: x!, y: y! };
+    do {
+      points.push(point);
+      const options = edges.get(key(point))!;
+      const next = options.shift()!;
+      if (!options.length) edges.delete(key(point));
+      point = next;
+    } while (key(point) !== start);
+    // Remove collinear vertices before rounding; long walls stay perfectly straight.
+    const corners = points.filter((p, i) => {
+      const a = points[(i + points.length - 1) % points.length]!;
+      const b = points[(i + 1) % points.length]!;
+      return (p.x - a.x) * (b.y - p.y) !== (p.y - a.y) * (b.x - p.x);
+    });
+    paths.push(
+      corners
+        .map((p, i) => {
+          const a = corners[(i + corners.length - 1) % corners.length]!;
+          const b = corners[(i + 1) % corners.length]!;
+          const from = {
+            x: p.x + Math.sign(a.x - p.x) * 0.22,
+            y: p.y + Math.sign(a.y - p.y) * 0.22,
+          };
+          const to = { x: p.x + Math.sign(b.x - p.x) * 0.22, y: p.y + Math.sign(b.y - p.y) * 0.22 };
+          return `${i ? 'L' : 'M'}${from.x} ${from.y}Q${p.x} ${p.y} ${to.x} ${to.y}`;
+        })
+        .join('') + 'Z',
+    );
+  }
+  return paths.join('');
+}
+const wallsSource = {
+  uri: `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${COLS} ${ROWS}"><defs><linearGradient id="walls" x2="0" y2="1"><stop stop-color="#16477E"/><stop offset="1" stop-color="#102C56"/></linearGradient></defs><path d="${wallContours()}" fill="url(#walls)" fill-rule="evenodd" stroke="#4583CC" stroke-width=".065" stroke-linejoin="round"/></svg>`,
+  )}`,
+};
+export const MazeWalls = memo(function MazeWalls({ cell }: { cell: number }) {
+  return (
+    <Image
+      source={wallsSource}
+      style={{ width: COLS * cell, height: ROWS * cell }}
+      contentFit="contain"
+      pointerEvents="none"
+    />
+  );
+});
+export function PickManHero({ size }: { size: number }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ position: 'absolute', opacity: 0.7, transform: [{ rotate: '-6deg' }] }}>
+        <MazeWalls cell={size / ROWS} />
+      </View>
+      <View
+        style={{
+          width: size * 0.43,
+          height: size * 0.43,
+          borderRadius: size,
+          backgroundColor: '#FFAF60',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 6,
+          borderColor: '#FFD59B',
+        }}
+      >
+        <Chick size={size * 0.35} />
+      </View>
+      <View style={{ position: 'absolute', left: '2%', top: '15%' }}>
+        <FoodIcon kind="burger" size={size * 0.2} />
+      </View>
+      <View style={{ position: 'absolute', right: '2%', top: '13%' }}>
+        <Rival size={size * 0.22} variant={2} />
+      </View>
+      <View style={{ position: 'absolute', left: '9%', bottom: '9%' }}>
+        <FoodIcon kind="cola" size={size * 0.18} />
+      </View>
+      <View style={{ position: 'absolute', right: '7%', bottom: '5%' }}>
+        <FoodIcon kind="fingers" size={size * 0.21} />
+      </View>
+    </View>
   );
 }
 export function MazeArt({ size = 140 }: { size?: number }) {
