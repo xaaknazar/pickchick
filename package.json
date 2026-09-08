@@ -44,7 +44,10 @@
     "test:backoffice": "node --env-file=.env --test --test-concurrency=1 tests/backoffice/*.test.mjs",
     "test:fulfillment": "pnpm --filter @pickchick/edge-fulfillment test && pnpm --filter @pickchick/edge-fulfillment test:integration",
     "test:kitchen": "pnpm --filter @pickchick/kitchen test && node --env-file=.env --test --test-concurrency=1 tests/kitchen/*.test.mjs",
-    "test:fulfillment-transport": "pnpm --filter @pickchick/fulfillment-transport test && pnpm --filter @pickchick/fulfillment-transport test:integration"
+    "test:fulfillment-transport": "pnpm --filter @pickchick/fulfillment-transport test && pnpm --filter @pickchick/fulfillment-transport test:integration",
+    "test:pos-order-sync": "pnpm --filter @pickchick/pos-order-sync test && pnpm --filter @pickchick/pos-order-sync test:integration",
+    "pos:sync": "node --env-file=.env scripts/pos-order-sync-worker.mjs",
+    "pos:sync:setup": "node --env-file=.env scripts/pos-order-sync-setup.mjs"
   },
   "dependencies": {
     "@pickchick/catalog-admin": "workspace:*",
@@ -59,7 +62,8 @@
     "@pickchick/local-orders": "workspace:*",
     "@pickchick/phone-verification": "workspace:*",
     "@pickchick/customer-identity": "workspace:*",
-    "@pickchick/fulfillment-transport": "workspace:*"
+    "@pickchick/fulfillment-transport": "workspace:*",
+    "@pickchick/pos-order-sync": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

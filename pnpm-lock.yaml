@@ -41,6 +41,9 @@ importers:
       '@pickchick/platform':
         specifier: workspace:*
         version: link:packages/platform
+      '@pickchick/pos-order-sync':
+        specifier: workspace:*
+        version: link:packages/pos-order-sync
       '@pickchick/test-fixtures':
         specifier: workspace:*
         version: link:packages/test-fixtures
@@ -557,6 +560,28 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/pos-order-sync:
+    dependencies:
+      '@pickchick/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/menu-sync':
+        specifier: workspace:*
+        version: link:../menu-sync
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/test-fixtures:
     dependencies:
       '@pickchick/contracts':
@@ -618,6 +643,9 @@ importers:
       '@pickchick/platform':
         specifier: workspace:*
         version: link:../../packages/platform
+      '@pickchick/pos-order-sync':
+        specifier: workspace:*
+        version: link:../../packages/pos-order-sync
       '@pickchick/test-order-flow':
         specifier: workspace:*
         version: link:../../packages/test-order-flow

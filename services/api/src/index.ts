@@ -38,6 +38,7 @@ import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
 import { CATALOG_ADMIN, CatalogAdmin } from '@pickchick/catalog-admin';
 import { CatalogAdminController } from './catalog-admin-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
+import { PosOrderSyncController } from './pos-order-sync-controller.js';
 
 @Controller('v1/capabilities')
 class CapabilitiesController {
@@ -149,6 +150,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CustomerAuthController,
       CatalogAdminController,
       FulfillmentTransportController,
+      PosOrderSyncController,
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
