@@ -31,7 +31,7 @@ export function OrderUnavailable(props: ScreenProps, title: string) {
     <Page props={props} title={title}>
       <Empty
         title="Здесь будут ваши заказы"
-        detail="История, статусы и чеки появятся после входа. Сейчас онлайн-заказы ещё подключаются."
+        detail="История, статусы и чеки появятся после первого заказа."
         action={<Button title="Посмотреть меню" onPress={() => props.navigate('M06')} />}
       />
     </Page>
@@ -243,7 +243,7 @@ export function History(props: ScreenProps) {
         <Empty
           icon="receipt-outline"
           title="Пока без заказов"
-          detail="Войдите по номеру, чтобы история и чеки были под рукой. Вход пока подключается."
+          detail="Здесь появятся ваши заказы. Выбирайте любимые блюда в меню."
           action={
             <Button title="Выбрать что-нибудь вкусное" onPress={() => props.navigate('M06')} />
           }

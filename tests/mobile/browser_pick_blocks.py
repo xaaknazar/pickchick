@@ -67,7 +67,7 @@ def pause(page):
 def resume(page):
     page.get_by_test_id('blocks-resume').click()
     expect(page.get_by_test_id('blocks-resume')).not_to_be_visible()
-    expect(page.get_by_test_id('blocks-left')).to_be_enabled()
+    expect(page.get_by_test_id('blocks-board')).to_be_visible()
 
 
 def assert_still_paused(page):
@@ -80,6 +80,24 @@ def assert_still_paused(page):
     expect(page.get_by_test_id('blocks-resume')).to_be_visible()
 
 
+def touch(page, direction='tap', cancel=False):
+    box = page.get_by_test_id('blocks-board').bounding_box()
+    cell = (box['width'] - 2) / 10
+    step = max(12, cell * .85)
+    x, y = box['x'] + box['width']/2, box['y'] + box['height']/2
+    dx, dy = {'tap':(0,0), 'left':(-step*1.2,0), 'right':(step*1.2,0),
+              'down':(0,step*1.2), 'drop':(0,max(50,cell*3))}[direction]
+    session = page.context.new_cdp_session(page)
+    session.send('Input.dispatchTouchEvent', {'type':'touchStart','touchPoints':[{'x':x,'y':y}]})
+    if dx or dy:
+        for n in range(1,5):
+            session.send('Input.dispatchTouchEvent', {'type':'touchMove',
+                'touchPoints':[{'x':x+dx*n/4,'y':y+dy*n/4}]})
+            page.wait_for_timeout(18)
+    session.send('Input.dispatchTouchEvent', {'type':'touchCancel' if cancel else 'touchEnd','touchPoints':[]})
+    session.detach()
+
+
 def geometry(page):
     # onLayout and useWindowDimensions settle on separate animation frames.
     last = None
@@ -87,8 +105,7 @@ def geometry(page):
     deadline = stable_since + 8
     while time.monotonic() < deadline:
         current = page.evaluate("""() => {
-          const ids = ['blocks-board','blocks-stage','blocks-controls','blocks-left',
-            'blocks-right','blocks-rotate','blocks-down','blocks-drop'];
+          const ids = ['blocks-board','blocks-stage','blocks-gesture-hint'];
           return Object.fromEntries(ids.map(id => [id,
             document.querySelector('[data-testid="'+id+'"]')?.getBoundingClientRect().toJSON()]));
         }""")
@@ -109,7 +126,7 @@ with sync_playwright() as playwright:
 
     def open_game(snapshot=None, extra_script='', path='/games/pick-blocks', size=(393, 852)):
         context = browser.new_context(
-            viewport={'width': size[0], 'height': size[1]}, reduced_motion='reduce',
+            viewport={'width': size[0], 'height': size[1]}, reduced_motion='reduce', has_touch=True,
         )
         contexts.append(context)
 
@@ -133,7 +150,7 @@ with sync_playwright() as playwright:
         page.goto(URL + path)
         return page
 
-    # Entry from Events, rules, start and the complete five-button control path.
+    # Entry from Events, rules, start and the complete touch-only control path.
     page = open_game(path='/events')
     expect(page.get_by_test_id('pick-blocks-open')).to_be_visible(timeout=20000)
     page.get_by_test_id('pick-blocks-open').click()
@@ -146,7 +163,7 @@ with sync_playwright() as playwright:
     page.get_by_test_id('blocks-start').click()
     expect(page.get_by_test_id('blocks-board')).to_be_visible()
     wait_saved(page, 'value.game && value.game.piecesPlaced === 0')
-    page.get_by_test_id('blocks-drop').click()
+    touch(page, 'drop')
     wait_saved(page, 'value.game.piecesPlaced === 1')
     page.get_by_test_id('blocks-help').click()
     page.get_by_test_id('blocks-help-close').click()
@@ -156,16 +173,30 @@ with sync_playwright() as playwright:
     moves = open_game(game_fixture())
     assert_still_paused(moves)
     resume(moves)
-    moves.get_by_test_id('blocks-left').click()
+    touch(moves, 'left')
     pause(moves)
     assert wait_saved(moves, 'value.game.active.x === 2')['game']['active']['x'] == 2
     resume(moves)
-    moves.get_by_test_id('blocks-right').click()
-    moves.get_by_test_id('blocks-rotate').click()
-    moves.get_by_test_id('blocks-down').click()
+    touch(moves, 'right')
+    touch(moves, 'tap')
+    touch(moves, 'down')
     pause(moves)
     moved = wait_saved(moves, 'value.game.active.x === 3 && value.game.active.rotation === 1')
     assert moved['game']['active']['y'] >= 1 and moved['game']['score'] >= 1
+
+    # No keyboard moves, no accidental tap after a cancelled gesture, and no
+    # gesture can change a paused game.
+    keys = open_game(game_fixture())
+    resume(keys)
+    for key in ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','x','Space']:
+        keys.keyboard.press(key)
+    touch(keys, cancel=True)
+    unchanged = pause(keys)['game']
+    assert unchanged['active']['x']==3 and unchanged['active']['rotation']==0
+    assert unchanged['piecesPlaced']==0 and unchanged['score']==0
+    before=saved(keys)
+    touch(keys, 'drop')
+    assert saved(keys)==before
 
     # Blur/focus, help, reload and leaving the route require an explicit resume.
     resume(moves)
@@ -190,10 +221,10 @@ with sync_playwright() as playwright:
     moves.get_by_test_id('pick-blocks-open').click()
     assert_still_paused(moves)
 
-    # Four rows really clear through the rendered controls, with the engine's score.
+    # Four rows really clear through a downward touch flick, with the engine's score.
     clear = open_game(game_fixture('clear'))
     resume(clear)
-    clear.get_by_test_id('blocks-drop').click()
+    touch(clear, 'drop')
     result = wait_saved(clear, 'value.game.lines === 4')
     assert result['game']['score'] == 800, result['game']['score']
     assert result['best'] == 800
@@ -205,7 +236,7 @@ with sync_playwright() as playwright:
 
     over = open_game(game_fixture('over'))
     resume(over)
-    over.get_by_test_id('blocks-drop').click()
+    touch(over, 'drop')
     expect(over.get_by_test_id('blocks-result')).to_have_text('120')
     wait_saved(over, 'value.game.over && value.best === 120')
     over.screenshot(path=str(OUTPUT / 'result.png'))
@@ -217,7 +248,7 @@ with sync_playwright() as playwright:
     expect(over.get_by_test_id('blocks-best')).to_contain_text('120')
     pause(over)
 
-    # The complete 10x20 field and all touch controls fit at each phone orientation.
+    # The complete 10x20 field and gesture hint fit at each phone orientation.
     layout = open_game(game_fixture())
     resume(layout)
     for width, height in [(393, 852), (320, 568), (568, 320), (852, 393), (393, 852)]:
@@ -232,14 +263,10 @@ with sync_playwright() as playwright:
         assert abs((field['height'] - 2) - 2 * (field['width'] - 2)) <= 1, field
         assert 0 <= field['x'] and 0 <= field['y'], field
         assert field['right'] <= width + 1 and field['bottom'] <= height + 1, field
-        buttons = [settled['blocks-' + name] for name in ['left', 'right', 'rotate', 'down', 'drop']]
-        for button in buttons:
-            assert button['width'] >= 48 and button['height'] >= 48, (width, height, button)
-            assert button['x'] >= 0 and button['y'] >= 0, button
-            assert button['right'] <= width + 1 and button['bottom'] <= height + 1, button
-            overlap = (min(field['right'], button['right']) > max(field['x'], button['x']) and
-                       min(field['bottom'], button['bottom']) > max(field['y'], button['y']))
-            assert not overlap, (field, button)
+        for name in ['controls','left','right','rotate','down','drop']:
+            expect(layout.get_by_test_id('blocks-' + name)).to_have_count(0)
+        hint = settled['blocks-gesture-hint']
+        assert hint['right'] <= width + 1 and hint['bottom'] <= height + 1, hint
         layout.screenshot(path=str(OUTPUT / f'playing-{width}x{height}.png'))
     pause(layout)
 

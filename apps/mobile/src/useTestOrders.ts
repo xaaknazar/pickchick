@@ -7,6 +7,7 @@ import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
 import { canCreateTestOrder, observeSavedOrders } from './test-order-observation';
 import type { CartLine, DiningMode, PaymentMethod } from './model';
 import { useAccount } from './useAccount';
+import { orderSimulatorEnabled } from './order-simulator';
 import { accountCanAct } from './account-access';
 
 export interface TestFlowModel {
@@ -79,6 +80,10 @@ export function useTestOrders(
     setObservedAt(new Date().toISOString());
   }, []);
   const refresh = useCallback(async () => {
+    if (!orderSimulatorEnabled) {
+      setRestored(true);
+      return;
+    }
     if (polling.current || busyRef.current) return;
     const epoch = generation.current;
     polling.current = true;
@@ -151,6 +156,7 @@ export function useTestOrders(
   }, [restored, hasSavedSession, recoveryAvailable, sessionExpired, refresh, hasActiveOrders]);
 
   const run = async (command: () => Promise<TestOrder>): Promise<TestOrder | null> => {
+    if (!orderSimulatorEnabled) return null;
     if (!accountCanAct(access.current)) {
       setError('Войдите в аккаунт, чтобы продолжить заказ.');
       return null;
@@ -186,7 +192,7 @@ export function useTestOrders(
   };
 
   const continueSession = async (): Promise<boolean> => {
-    if (!accountCanAct(access.current)) return false;
+    if (!orderSimulatorEnabled || !accountCanAct(access.current)) return false;
     if (!hasSavedSession || !restored || busyRef.current) return false;
     generation.current += 1;
     const epoch = generation.current;
@@ -215,7 +221,7 @@ export function useTestOrders(
   };
 
   return {
-    available,
+    available: orderSimulatorEnabled && available,
     restored,
     hasSavedSession,
     busy: busy || !restored,

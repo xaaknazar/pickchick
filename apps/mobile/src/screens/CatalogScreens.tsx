@@ -808,63 +808,7 @@ export function Unavailable(props: ScreenProps) {
     </Page>
   );
 }
-export function Checkout(props: ScreenProps) {
-  const total = cartTotal(props.model.cart);
-  const location = restaurantLocation(props.model.branch?.id);
-  return (
-    <Page
-      props={props}
-      title="Оформление"
-      footer={<Button title="Оплата пока недоступна" disabled testID="checkout-pay-disabled" />}
-    >
-      <Heading>Всё по вашему{`\n`}вкусу</Heading>
-      <Card>
-        <Row>
-          <Icon name="location-outline" color={colors.accent} />
-          <View style={ui.flex}>
-            <Heading small>{props.model.branch?.name ?? 'Pick Chick'}</Heading>
-            <Caption>
-              {location ? `${location.city}, ${location.address}` : 'Ресторан получения'}
-            </Caption>
-          </View>
-        </Row>
-        <DiningSelector value={props.model.diningMode} onChange={props.model.setDiningMode} />
-        <Caption>Заказ на ближайшее доступное время. Доставки в приложении нет.</Caption>
-      </Card>
-      <NavRow
-        title="Войти по номеру"
-        subtitle="Чтобы сохранять ваши заказы"
-        icon="person-outline"
-        onPress={() => props.navigate('M02')}
-      />
-      <Card>
-        <Row>
-          <View style={s.kaspiMark}>
-            <Body style={{ color: colors.white, fontFamily: font.bold }}>K</Body>
-          </View>
-          <View style={ui.flex}>
-            <Body style={{ fontFamily: font.bold }}>Kaspi</Body>
-            <Caption>Подключение в процессе</Caption>
-          </View>
-          <Icon name="lock-closed-outline" color={colors.muted} />
-        </Row>
-      </Card>
-      <View>
-        <SummaryRow label="Товары по меню" value={MinorMoney(total)} />
-        <SummaryRow label="Итого" value={MinorMoney(total)} strong />
-      </View>
-      <Notice warning title="Заказы ещё не открыты">
-        Вход по SMS, оплата и электронные чеки пока подключаются. Деньги не списываются, заказ на
-        кухню не отправляется.
-      </Notice>
-      <NavRow
-        title="Условия заказа"
-        subtitle="Документы Pick Chick"
-        onPress={() => props.navigate('M33')}
-      />
-    </Page>
-  );
-}
+export { Checkout } from './CheckoutScreen';
 const s = StyleSheet.create({
   welcome: { flexGrow: 1, paddingHorizontal: 26, gap: 14 },
   welcomeHeading: {
@@ -1065,13 +1009,5 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
-  },
-  kaspiMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#E63132',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

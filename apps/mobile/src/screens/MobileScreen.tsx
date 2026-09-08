@@ -1,3 +1,4 @@
+import { orderSimulatorEnabled } from '../order-simulator';
 import type { ScreenProps } from '../model';
 import { requiresAccount } from '../account-access';
 import { AccountGate } from '../components/AccountGate';
@@ -52,7 +53,7 @@ export function MobileScreen(props: ScreenProps) {
 }
 
 function ScreenContent(props: ScreenProps) {
-  if (!props.preview) {
+  if (!props.preview && orderSimulatorEnabled) {
     if (props.screenId === 'M12') return <ConnectedCheckout {...props} />;
     if (props.screenId === 'M19') return <ConnectedHistory {...props} />;
     if (['M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M20', 'M21', 'M22'].includes(props.screenId))
