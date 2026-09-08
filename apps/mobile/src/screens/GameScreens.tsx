@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
+import { useGameCardHeight } from '../games/ArcadeCard';
 import { PickBlocksCard } from '../games/pick-blocks/visuals';
 import { PickManCard } from '../games/pick-man/visuals';
 import {
@@ -35,6 +36,7 @@ import {
 } from '../components/UI';
 
 export function Events(props: ScreenProps) {
+  const cardHeight = useGameCardHeight();
   const insets = useSafeAreaInsets();
   const posterGradient =
     'linear-gradient(180deg, rgba(4,20,58,0.35) 0%, rgba(4,20,58,0) 34%, rgba(2,10,30,0.88) 100%)';
@@ -112,7 +114,7 @@ export function Events(props: ScreenProps) {
           accessibilityRole="button"
           accessibilityLabel="Играть в Pick Run, тренировочный режим без начисления Чиков"
           onPress={() => props.navigate('M27')}
-          style={s.eventPoster}
+          style={[s.eventPoster, { height: cardHeight }]}
         >
           <Image
             source={assets.pickrunRunner}
@@ -127,7 +129,9 @@ export function Events(props: ScreenProps) {
           </Row>
           <Row style={s.posterBottom}>
             <View style={ui.flex}>
-              <Heading style={s.posterTitle}>PICK RUN</Heading>
+              <Heading testID="pickrun-open-title" style={s.posterTitle}>
+                PICK RUN
+              </Heading>
               <Body style={s.posterDescription}>
                 Прыжки через препятствия.{`\n`}Без начисления Чиков.
               </Body>
@@ -472,7 +476,7 @@ const s = StyleSheet.create({
   posterTitle: {
     fontFamily: font.display,
     fontSize: 34,
-    lineHeight: 34,
+    lineHeight: 50,
     letterSpacing: -0.85,
     color: '#FFFFFF',
   },
