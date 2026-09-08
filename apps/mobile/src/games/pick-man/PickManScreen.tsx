@@ -20,7 +20,6 @@ import { font } from '../../theme';
 import {
   COLS,
   ROWS,
-  MAZE,
   FOOD_IDS,
   stepDuration,
   foodKind,
@@ -28,7 +27,7 @@ import {
   type Direction,
   type MazeGame,
 } from './engine';
-import { Chick, FoodIcon, MazeArt, Rival } from './visuals';
+import { Chick, FoodIcon, MazeWalls, PickManHero, Rival } from './visuals';
 import { usePickMan } from './usePickMan';
 
 function useReducedMotion() {
@@ -46,37 +45,6 @@ function useReducedMotion() {
   }, []);
   return reduced;
 }
-const Walls = memo(function Walls({ cell }: { cell: number }) {
-  return (
-    <>
-      {MAZE.flatMap((row, y) => {
-        const runs: { x: number; length: number }[] = [];
-        for (let x = 0; x < COLS; x++)
-          if (row[x] === '#') {
-            const start = x;
-            while (x + 1 < COLS && row[x + 1] === '#') x++;
-            runs.push({ x: start, length: x - start + 1 });
-          }
-        return runs.map(({ x, length }) => (
-          <View
-            key={`${x}-${y}`}
-            style={{
-              position: 'absolute',
-              left: x * cell + 1,
-              top: y * cell + 1,
-              width: length * cell - 2,
-              height: cell - 2,
-              borderRadius: cell * 0.25,
-              backgroundColor: '#08337E',
-              borderWidth: 1,
-              borderColor: '#3679D9',
-            }}
-          />
-        ));
-      })}
-    </>
-  );
-});
 const FoodLayer = memo(function FoodLayer({
   remaining,
   cell,
@@ -91,11 +59,11 @@ const FoodLayer = memo(function FoodLayer({
           key={id}
           style={{
             position: 'absolute',
-            left: (id % COLS) * cell + cell * 0.13,
-            top: Math.floor(id / COLS) * cell + cell * 0.13,
+            left: (id % COLS) * cell + cell * 0.2,
+            top: Math.floor(id / COLS) * cell + cell * 0.2,
           }}
         >
-          <FoodIcon kind={foodKind(id)} size={cell * 0.74} />
+          <FoodIcon kind={foodKind(id)} size={cell * 0.6} />
         </View>
       ))}
     </>
@@ -107,6 +75,7 @@ function MovingActor({
   duration,
   reduced,
   enemy = false,
+  variant = 0,
   scared = false,
   shield = false,
 }: {
@@ -115,6 +84,7 @@ function MovingActor({
   duration: number;
   reduced: boolean;
   enemy?: boolean;
+  variant?: number;
   scared?: boolean;
   shield?: boolean;
 }) {
@@ -152,15 +122,19 @@ function MovingActor({
         width: cell,
         height: cell,
         transform: position.getTranslateTransform(),
-        backgroundColor: shield ? '#FFF2D330' : 'transparent',
+        backgroundColor: shield ? '#FFC57655' : enemy ? 'transparent' : '#FFAA4026',
+        borderWidth: shield ? 1 : 0,
+        borderColor: '#FFD68E',
         borderRadius: cell / 2,
       }}
     >
-      {enemy ? (
-        <Rival size={cell} scared={scared} />
-      ) : (
-        <Chick size={cell} direction={actor.direction} />
-      )}
+      <View style={{ position: 'absolute', left: -cell * 0.04, top: -cell * 0.04 }}>
+        {enemy ? (
+          <Rival size={cell * 1.08} scared={scared} variant={variant} />
+        ) : (
+          <Chick size={cell * 1.08} direction={actor.direction} />
+        )}
+      </View>
     </Animated.View>
   );
 }
@@ -225,6 +199,13 @@ function MazeBoard({
         ...(Platform.OS === 'web' ? { touchAction: 'none' } : {}),
       }}
     >
+      <View style={[s.boardHeading, { width: COLS * cell }]} pointerEvents="none">
+        <View style={s.boardLabel}>
+          <View style={s.statusDot} />
+          <Text style={s.boardTitle}>СОБЕРИ СВОЙ ВКУС</Text>
+        </View>
+        <Text style={s.boardMeta}>{game.remaining.length} осталось</Text>
+      </View>
       <View
         testID="pick-man-board"
         pointerEvents="none"
@@ -233,12 +214,12 @@ function MazeBoard({
         style={{
           width: COLS * cell,
           height: ROWS * cell,
-          backgroundColor: '#020D27',
+          backgroundColor: '#060F22',
           borderRadius: cell * 0.4,
           overflow: 'hidden',
         }}
       >
-        <Walls cell={cell} />
+        <MazeWalls cell={cell} />
         <FoodLayer remaining={game.remaining} cell={cell} />
         {game.enemies.map((actor, i) => (
           <MovingActor
@@ -248,6 +229,7 @@ function MazeBoard({
             duration={stepDuration(game.level) * 0.94}
             reduced={reduced || !playing}
             enemy
+            variant={i}
             scared={game.power > 0}
           />
         ))}
@@ -273,7 +255,9 @@ export function PickManScreen() {
     [restart, setRestart] = useState(false);
   const { game, status, best } = controller;
   const playing = status === 'playing';
-  const cell = Math.floor(Math.min(25, region.width / COLS, region.height / ROWS));
+  const cell = Math.floor(Math.min(25, region.width / COLS, (region.height - 48) / ROWS));
+  const compact = height < 680;
+  const collected = game ? FOOD_IDS.length - game.remaining.length : 0;
   const tooSmall = region.width > 0 && cell < 10;
   const close = useCallback(() => {
     controller.pause();
@@ -339,13 +323,13 @@ export function PickManScreen() {
   const overlay = help || restart || status === 'paused' || status === 'over' || status === 'won';
   return (
     <SafeAreaView testID="pick-man-screen" style={s.page}>
-      <View style={s.header}>
+      <View style={[s.header, compact && { height: 58 }]}>
         <Pressable
           testID="pick-man-exit"
           accessibilityRole="button"
           accessibilityLabel="К событиям"
           onPress={close}
-          style={s.icon}
+          style={({ pressed }) => [s.icon, pressed && s.iconPressed]}
         >
           <Icon name="arrow-back" size={24} />
         </Pressable>
@@ -358,7 +342,7 @@ export function PickManScreen() {
           accessibilityRole="button"
           accessibilityLabel={playing ? 'Пауза' : 'Как играть'}
           onPress={playing ? controller.pause : openHelp}
-          style={s.icon}
+          style={({ pressed }) => [s.icon, pressed && s.iconPressed]}
         >
           <Icon name={playing ? 'pause' : 'help-circle-outline'} size={24} />
         </Pressable>
@@ -371,8 +355,8 @@ export function PickManScreen() {
         <>
           <ScrollView contentContainerStyle={s.intro} showsVerticalScrollIndicator={false}>
             <Text style={s.eyebrow}>ПОЙМАЙ СВОЙ ВКУС</Text>
-            <MazeArt size={Math.min(width - 110, 220)} />
-            <Text style={s.introTitle}>Аппетит к победе.</Text>
+            <PickManHero size={Math.min(width - 80, 260)} />
+            <Text style={s.introTitle}>Весь вкус.{`\n`}Твой маршрут.</Text>
             <Text style={[s.body, s.centerText]}>
               Веди Чика по лабиринту. Собирай{`\n`}любимые блюда и обходи соперников.
             </Text>
@@ -400,22 +384,56 @@ export function PickManScreen() {
           </View>
         </>
       ) : game ? (
-        <>
-          <View style={s.stats}>
-            <View>
+        <View style={[s.gameLayout, wide && s.gameLayoutWide]}>
+          <View style={[s.stats, compact && s.statsCompact, wide && s.statsWide]}>
+            <View style={[s.statCard, s.scoreCard, compact && s.statCompact]}>
               <Text style={s.caption}>СЧЁТ</Text>
-              <Text testID="pick-man-score" style={s.score}>
+              <Text
+                testID="pick-man-score"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.55}
+                style={[
+                  s.score,
+                  {
+                    fontSize:
+                      game.score >= 10000000
+                        ? 10
+                        : game.score >= 1000000
+                          ? 12
+                          : game.score >= 100000
+                            ? 14
+                            : game.score >= 10000
+                              ? 17
+                              : 25,
+                  },
+                ]}
+              >
                 {game.score.toLocaleString('ru-RU')}
               </Text>
             </View>
-            <View style={s.statCenter}>
+            <View style={[s.statCard, compact && s.statCompact]}>
               <Text style={s.caption}>УРОВЕНЬ {game.level}</Text>
               <Text testID="pick-man-remaining" style={s.count}>
-                {FOOD_IDS.length - game.remaining.length} / {FOOD_IDS.length}
+                {collected} / {FOOD_IDS.length}
               </Text>
+              <View
+                testID="pick-man-progress"
+                accessibilityRole="progressbar"
+                accessibilityLabel="Блюда собраны"
+                accessible
+                aria-valuemin={0}
+                aria-valuemax={FOOD_IDS.length}
+                aria-valuenow={collected}
+                style={s.progressTrack}
+              >
+                <View
+                  style={[s.progressFill, { width: `${(collected / FOOD_IDS.length) * 100}%` }]}
+                />
+              </View>
             </View>
-            <View>
-              <Text style={[s.caption, { textAlign: 'right' }]}>ЖИЗНИ</Text>
+            <View style={[s.statCard, compact && s.statCompact]}>
+              <Text style={s.caption}>ЖИЗНИ</Text>
               <Text
                 testID="pick-man-lives"
                 accessibilityLabel={`${game.lives} жизни`}
@@ -430,7 +448,10 @@ export function PickManScreen() {
             <View
               testID="pick-man-stage"
               onLayout={(e) => setRegion(e.nativeEvent.layout)}
-              style={s.stage}
+              style={[
+                s.stage,
+                !wide && { maxHeight: Math.min(25, (width - 32) / COLS) * ROWS + 48 },
+              ]}
             >
               {cell >= 10 ? (
                 <MazeBoard
@@ -446,26 +467,77 @@ export function PickManScreen() {
                 </Text>
               ) : null}
             </View>
-            <View style={[s.controls, wide && s.controlsWide]}>
-              <View style={s.controlCopy}>
-                <Text style={s.hint}>
-                  {game.power > 0 ? 'Острый режим!' : 'Следующий поворот - твой.'}
-                </Text>
-                <Text style={s.caption}>
-                  {game.power > 0 ? 'Лови соперников' : 'Свайпни по полю в нужную сторону.'}
-                </Text>
-                {game.power > 0 ? (
-                  <View style={s.powerTrack}>
-                    <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
-                  </View>
-                ) : null}
+            <View style={[s.controls, compact && s.controlsCompact, wide && s.controlsWide]}>
+              <View
+                style={[
+                  s.gestureHint,
+                  compact && { padding: 10 },
+                  game.power > 0 && s.gesturePower,
+                ]}
+              >
+                <View style={[s.gestureIcon, compact && { width: 34, height: 34 }]}>
+                  <Icon
+                    name={game.power > 0 ? 'flash' : 'move-outline'}
+                    size={23}
+                    color="#FFB878"
+                  />
+                </View>
+                <View style={s.controlCopy}>
+                  <Text style={s.hint}>
+                    {game.power > 0 ? 'Острый режим!' : 'Веди Чика свайпами'}
+                  </Text>
+                  <Text style={s.caption}>
+                    {game.power > 0
+                      ? 'Лови соперников, пока действует соус'
+                      : 'Вверх, вниз, влево или вправо'}
+                  </Text>
+                  {game.power > 0 ? (
+                    <View
+                      testID="pick-man-power"
+                      accessibilityRole="progressbar"
+                      accessibilityLabel="Защита фирменного соуса"
+                      accessible
+                      aria-valuemin={0}
+                      aria-valuemax={42}
+                      aria-valuenow={game.power}
+                      style={s.powerTrack}
+                    >
+                      <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
+                    </View>
+                  ) : null}
+                </View>
               </View>
+              {!compact && !wide ? (
+                <View style={s.recordLine}>
+                  <Icon name="trophy-outline" size={14} color="#8FA9CB" />
+                  <Text style={s.caption}>Личный рекорд</Text>
+                  <Text style={s.recordValue}>
+                    {Math.max(best, game.score).toLocaleString('ru-RU')}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             {overlay ? (
               <View testID="pick-man-overlay" style={s.scrim}>
                 <ScrollView contentContainerStyle={s.overlayScroll}>
                   <View style={s.dialog}>
-                    <Logo size={42} />
+                    <View style={s.dialogBadge}>
+                      <Icon
+                        name={
+                          help
+                            ? 'help-circle-outline'
+                            : restart
+                              ? 'refresh'
+                              : status === 'won'
+                                ? 'trophy-outline'
+                                : status === 'over'
+                                  ? 'flag-outline'
+                                  : 'pause'
+                        }
+                        size={30}
+                        color="#FFB878"
+                      />
+                    </View>
                     <Text testID="pick-man-dialog-title" style={s.dialogTitle}>
                       {help
                         ? 'Как играть'
@@ -571,7 +643,7 @@ export function PickManScreen() {
               </View>
             ) : null}
           </View>
-        </>
+        </View>
       ) : null}
       {status === 'ready' && help ? (
         <View style={s.readyHelp}>
@@ -601,14 +673,24 @@ export function PickManScreen() {
   );
 }
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#04143A', paddingHorizontal: 16 },
+  page: { flex: 1, backgroundColor: '#060F22', paddingHorizontal: 16 },
   header: {
-    height: 58,
+    height: 66,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  icon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: '#10213D',
+    borderWidth: 1,
+    borderColor: '#203655',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPressed: { backgroundColor: '#213F66', transform: [{ scale: 0.96 }] },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   name: { fontFamily: font.display, fontSize: 19, color: '#FFF', letterSpacing: 0.4 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -618,54 +700,108 @@ const s = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 22,
-    paddingVertical: 24,
+    gap: 18,
+    paddingVertical: 22,
   },
   eyebrow: { fontFamily: font.bold, fontSize: 10, letterSpacing: 2, color: '#FFB38A' },
   introTitle: {
     fontFamily: font.display,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 34,
+    lineHeight: 46,
     color: '#FFF',
     textAlign: 'center',
   },
   legend: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 18 },
-  legendItem: { alignItems: 'center', gap: 7 },
+  legendItem: {
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: '#10213D',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#213655',
+  },
   small: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: '#D8E5FD' },
   caption: { fontFamily: font.medium, fontSize: 10, lineHeight: 16, color: '#9FB6DA' },
   best: { fontFamily: font.display, fontSize: 17, color: '#FFB38A' },
   footer: { paddingTop: 12, paddingBottom: 12, gap: 10 },
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  score: { fontFamily: font.display, fontSize: 25, color: '#FFF', lineHeight: 30 },
-  statCenter: { alignItems: 'center' },
-  count: { fontFamily: font.display, fontSize: 17, color: '#D4E4FF' },
-  lives: { fontSize: 20, color: '#FF9359', letterSpacing: 2 },
-  main: { flex: 1, minHeight: 0 },
-  mainWide: { flexDirection: 'row' },
-  stage: {
+  stats: { flexDirection: 'row', gap: 8, paddingTop: 10, paddingBottom: 14 },
+  gameLayout: { flex: 1, minHeight: 0 },
+  gameLayoutWide: { flexDirection: 'row', gap: 12 },
+  statsWide: { width: 132, flexDirection: 'column', paddingTop: 8, paddingBottom: 8 },
+  statsCompact: { paddingTop: 4, paddingBottom: 6 },
+  statCard: {
     flex: 1,
     minWidth: 0,
-    minHeight: 0,
-    alignItems: 'center',
+    backgroundColor: '#10213D',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#203655',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     justifyContent: 'center',
-    paddingVertical: 2,
+    gap: 2,
   },
-  controls: {
+  statCompact: { paddingVertical: 6 },
+  controlsCompact: { paddingTop: 8, paddingBottom: 0 },
+  scoreCard: { backgroundColor: '#30251F', borderColor: '#65452F' },
+  score: { fontFamily: font.display, fontSize: 25, color: '#FFC388', lineHeight: 34 },
+  count: { fontFamily: font.bold, fontSize: 15, lineHeight: 23, color: '#E4EDFC' },
+  lives: { fontSize: 20, lineHeight: 32, color: '#FFAB76', letterSpacing: 1 },
+  progressTrack: {
+    height: 3,
+    backgroundColor: '#293D5E',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: { height: '100%', backgroundColor: '#FFAA70' },
+  main: { flex: 1, minHeight: 0, justifyContent: 'center', paddingBottom: 10 },
+  mainWide: { flexDirection: 'row', gap: 14, paddingBottom: 0 },
+  stage: { flex: 1, minWidth: 0, minHeight: 0, alignItems: 'center', justifyContent: 'center' },
+  boardHeading: {
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     gap: 8,
-    paddingVertical: 8,
   },
-  controlsWide: { width: 150, flexDirection: 'column', justifyContent: 'center' },
-  controlCopy: { gap: 4, paddingHorizontal: 12 },
-  hint: { fontFamily: font.bold, fontSize: 12, lineHeight: 17, color: '#FFF' },
+  boardLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  statusDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFB878' },
+  boardTitle: {
+    fontFamily: font.bold,
+    fontSize: 9,
+    lineHeight: 14,
+    color: '#B9CDE8',
+    letterSpacing: 1,
+  },
+  boardMeta: { fontFamily: font.medium, fontSize: 10, lineHeight: 16, color: '#8FA9CB' },
+  controls: { gap: 14, paddingTop: 14, paddingBottom: 8 },
+  controlsWide: { width: 175, justifyContent: 'center', paddingTop: 0 },
+  gestureHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: '#10213D',
+    borderWidth: 1,
+    borderColor: '#203655',
+  },
+  gesturePower: { backgroundColor: '#30251F', borderColor: '#775033' },
+  gestureIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFB87812',
+  },
+  controlCopy: { gap: 3, flex: 1 },
+  hint: { fontFamily: font.bold, fontSize: 13, lineHeight: 19, color: '#F2F6FF' },
+  recordLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  recordValue: { fontFamily: font.bold, fontSize: 12, lineHeight: 18, color: '#C8D8EE' },
   powerTrack: {
     height: 4,
     borderRadius: 3,
@@ -679,18 +815,27 @@ const s = StyleSheet.create({
   dialog: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#0D2550',
+    backgroundColor: '#10213D',
     borderWidth: 1,
-    borderColor: '#2B4773',
+    borderColor: '#304864',
     borderRadius: 26,
     padding: 22,
     alignItems: 'stretch',
     gap: 16,
   },
+  dialogBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: '#FFB87812',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
   dialogTitle: {
     fontFamily: font.display,
     fontSize: 27,
-    lineHeight: 32,
+    lineHeight: 40,
     color: '#FFF',
     textAlign: 'center',
   },

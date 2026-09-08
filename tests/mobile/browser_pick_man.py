@@ -73,6 +73,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     before=saved(page);page.wait_for_timeout(700);assert saved(page)==before
     assert saved(page)['game']['desired'] == 'up'
+    expect(page.get_by_test_id('pick-man-progress')).to_have_attribute('aria-valuenow', str(163-len(before['game']['remaining'])))
     expect(page.get_by_test_id('pick-man-left')).to_have_count(0)
     page.screenshot(path=str(OUTPUT/'paused.png'))
     page.get_by_test_id('pick-man-rules').click()
@@ -86,6 +87,10 @@ with sync_playwright() as p:
         board=page.get_by_test_id('pick-man-board').bounding_box()
         assert board['x']>=0 and board['x']+board['width']<=width+1,board
         assert board['y']>=0 and board['y']+board['height']<=height+1,board
+        assert board['height'] >= 285, board
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (width, height)
+        back=page.get_by_test_id('pick-man-exit').bounding_box()
+        assert back['width']>=44 and back['height']>=44,back
         for direction in ['up','down','left','right']:
             expect(page.get_by_test_id('pick-man-'+direction)).to_have_count(0)
         page.get_by_test_id('pick-man-resume').click()
@@ -114,6 +119,20 @@ with sync_playwright() as p:
         if status=='won':expect(page.get_by_text('УРОВЕНЬ 2',exact=True)).to_be_visible()
         else:expect(page.get_by_test_id('pick-man-lives')).to_have_text('♥♥♥')
         page.context.close()
+    snapshot=fixture('playing')
+    snapshot['game'].update(score=999990,lives=2,power=28)
+    snapshot['game']['remaining']=snapshot['game']['remaining'][20:]
+    page=open_page(b,snapshot=snapshot,size=(320,568))
+    expect(page.get_by_test_id('pick-man-resume')).to_be_visible(timeout=20000)
+    expect(page.get_by_test_id('pick-man-progress')).to_have_attribute('aria-valuenow','20')
+    expect(page.get_by_test_id('pick-man-power')).to_have_attribute('aria-valuenow','28')
+    expect(page.get_by_test_id('pick-man-lives')).to_have_text('♥♥♡')
+    assert page.get_by_test_id('pick-man-score').evaluate('(el)=>el.scrollWidth<=el.clientWidth')
+    page.get_by_test_id('pick-man-resume').click()
+    expect(page.get_by_text('Острый режим!',exact=True)).to_be_visible()
+    page.screenshot(path=str(OUTPUT/'power-320.png'))
+    page.get_by_test_id('pick-man-pause').click()
+    page.context.close()
     assert not errors,errors
     b.close()
-print('PASS: Events order and artwork, guest gate, movement, four touch swipe directions, no direction buttons, pause/help/reload, three sizes, restart, victory and defeat; local-only.')
+print('PASS: Events order and artwork, guest gate, movement, four touch swipe directions, no direction buttons, pause/help/reload, three sizes, progress and power indicators, large score, restart, victory and defeat; local-only.')
