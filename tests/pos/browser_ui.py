@@ -60,7 +60,7 @@ with sync_playwright() as playwright:
         second = context.new_page()
         second.goto(url)
         sign_in(second, fixture['cashier'])
-        expect(second.get_by_test_id('pos-error')).to_contain_text('другой вкладке')
+        expect(second.get_by_test_id('pos-error')).to_contain_text('другом окне')
         second.close()
         add.click()
         add.click()
