@@ -199,3 +199,6 @@ const kk: Strings = {
 };
 export const copy = (locale: Locale): Strings => (locale === 'kk' ? kk : ru);
 export type Copy = Strings;
+
+// Published menu snapshots keep their original text; format only the displayed copy.
+export const displayCopy = (text: string) => text.replace(/[\u2013\u2014]/g, '-');

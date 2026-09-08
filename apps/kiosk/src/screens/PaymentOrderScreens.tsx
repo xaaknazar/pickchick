@@ -149,7 +149,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
           : order?.state === 'preparing'
             ? t.preparing
             : t.waiting;
-  const number = order?.number ?? '—';
+  const number = order?.number ?? '-';
   const numberSize = Math.min(
     px(340),
     Math.floor((width - px(96)) / Math.max(1, number.length) / 0.72),

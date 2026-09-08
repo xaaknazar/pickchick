@@ -40,7 +40,7 @@ import {
   UnknownScreen,
 } from './ProfileScreens';
 
-/** Native counterparts of the canonical design catalog M01–M35. */
+/** Native counterparts of the canonical design catalog M01-M35. */
 export function MobileScreen(props: ScreenProps) {
   return requiresAccount(props.screenId, props.preview) ? (
     <AccountGate destination={props.screenId}>

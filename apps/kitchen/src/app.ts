@@ -109,7 +109,7 @@ function render() {
     ? `<aside class="error" role="alert">${escape(errors[s.error] ?? 'Операция не завершена. Проверьте локальный узел и доступ.')} ${s.lastSync ? 'Показаны последние полученные данные.' : ''}</aside>`
     : '';
   const recovery = s.pending
-    ? `<aside class="recovery" data-testid="recovery"><h2>${s.conflict ? 'Требуется сверка' : 'Незавершённая команда'}</h2><p>${escape(actionLabel[s.pending.body.action])} · заказ ${escape(s.reviewed?.displayNumber ?? s.pending.orderId)}. Новые действия заблокированы.</p>${s.conflict ? `<p>Состояние на узле: <strong>${escape(s.reviewed ? (labels[s.reviewed.state] ?? s.reviewed.state) : 'не получено')}</strong>${s.reviewed ? ` · версия ${s.reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', 'id="review"', s.busy)} ${button('Сверил состояние — продолжить', 'id="acknowledge"', s.busy || !s.reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', 'id="retry"', s.busy || s.storageBlocked)}`}</aside>`
+    ? `<aside class="recovery" data-testid="recovery"><h2>${s.conflict ? 'Требуется сверка' : 'Незавершённая команда'}</h2><p>${escape(actionLabel[s.pending.body.action])} · заказ ${escape(s.reviewed?.displayNumber ?? s.pending.orderId)}. Новые действия заблокированы.</p>${s.conflict ? `<p>Состояние на узле: <strong>${escape(s.reviewed ? (labels[s.reviewed.state] ?? s.reviewed.state) : 'не получено')}</strong>${s.reviewed ? ` · версия ${s.reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', 'id="review"', s.busy)} ${button('Сверил состояние - продолжить', 'id="acknowledge"', s.busy || !s.reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', 'id="retry"', s.busy || s.storageBlocked)}`}</aside>`
     : '';
   const board = displayWindow(s.display, boardPage);
   const boardPages = board.pages;
@@ -140,7 +140,7 @@ function render() {
       s.orders
         .map((o) => {
           const actions = allowedActions(o, s.stationId ?? '');
-          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '—')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">Приложение</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div><div class="lines">${o.tasks
+          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">Приложение</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div><div class="lines">${o.tasks
             .map((t) => {
               const own = t.stationId === s.stationId;
               const a = actions.find((a) => 'taskId' in a && a.taskId === t.taskId);

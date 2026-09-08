@@ -569,7 +569,7 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
                 {current.tasks.length ? (
                   current.tasks.map((task) => (
                     <li key={task.task_id}>
-                      {task.station === 'prep' ? 'A' : 'B'} · {task.title} —{' '}
+                      {task.station === 'prep' ? 'A' : 'B'} · {task.title} -{' '}
                       {task.state === 'done' ? 'готово' : 'ожидает'}
                     </li>
                   ))

@@ -182,7 +182,7 @@ export function Profile(props: ScreenProps) {
             >
               <Caption style={s.membershipBalanceLabel}>БАЛАНС</Caption>
               <View style={s.membershipBalanceValue}>
-                <Body style={s.membershipAmount}>—</Body>
+                <Body style={s.membershipAmount}>-</Body>
                 <Body style={s.membershipCurrency}>Чиков ›</Body>
               </View>
             </Pressable>
@@ -219,7 +219,7 @@ export function Profile(props: ScreenProps) {
           <ProfileRow
             title="Мои Чики и уровни"
             icon="ellipse-outline"
-            value="—"
+            value="-"
             orange
             onPress={() => props.navigate('M23')}
           />

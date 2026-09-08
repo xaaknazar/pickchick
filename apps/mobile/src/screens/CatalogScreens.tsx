@@ -493,7 +493,7 @@ export function Menu(props: ScreenProps) {
               </Text>
               <Caption style={s.branchCaption}>
                 {location?.opening_time && location.closing_time
-                  ? `${location.opening_time}–${location.closing_time}`
+                  ? `${location.opening_time}-${location.closing_time}`
                   : location?.closing_time
                     ? `до ${location.closing_time}`
                     : 'Часы уточняются'}
@@ -586,7 +586,7 @@ export function Cart(props: ScreenProps) {
       {!props.model.cart.length ? (
         <Empty
           title="Здесь пока тихо"
-          detail="Добавьте любимые блюда — и станет хрустяще."
+          detail="Добавьте любимые блюда - и станет хрустяще."
           action={<Button title="Выбрать в меню" onPress={() => props.navigate('M06')} />}
         />
       ) : (

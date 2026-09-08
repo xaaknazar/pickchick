@@ -7,7 +7,7 @@ import { assets } from '../assets';
 import { ProductArtwork } from '../components/ProductArtwork';
 import { defaultSelections, money, validSelections } from '../cart';
 import type { KioskModel, KioskProduct } from '../model';
-import { copy } from '../i18n';
+import { copy, displayCopy } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import {
   Body,
@@ -86,7 +86,7 @@ export function ProductCard({
               color: colors.muted,
             }}
           >
-            {product.description}
+            {displayCopy(product.description)}
           </Body>
         </View>
       </Pressable>
@@ -282,7 +282,9 @@ export function MenuScreen({
                 <Heading size={42} color={colors.white}>
                   {promo.name}
                 </Heading>
-                <Body style={{ color: colors.white, fontSize: px(20) }}>{promo.description}</Body>
+                <Body style={{ color: colors.white, fontSize: px(20) }}>
+                  {displayCopy(promo.description)}
+                </Body>
               </View>
               <View style={{ alignItems: 'flex-end', gap: px(18), maxWidth: '42%' }}>
                 <Heading size={42} color={colors.orange}>

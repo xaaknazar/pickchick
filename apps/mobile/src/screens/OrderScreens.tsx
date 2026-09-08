@@ -56,7 +56,7 @@ const paymentCopy: Record<
     title: 'Проверяем платёж',
     heading: 'Уточняем результат',
     detail:
-      'Ответ банка ещё не получен. Не оплачивайте заказ повторно — сначала проверим эту попытку.',
+      'Ответ банка ещё не получен. Не оплачивайте заказ повторно - сначала проверим эту попытку.',
     icon: 'hourglass-outline',
     steps: [
       ['Оплата', 'Результат неизвестен'],
@@ -153,7 +153,7 @@ export function Tracker(props: ScreenProps) {
       <Text accessibilityLabel="Пример, заказ номер 083" style={s.trackerNumber}>
         083
       </Text>
-      <Body muted>Ориентировочно ещё 6–9 минут · пример</Body>
+      <Body muted>Ориентировочно ещё 6-9 минут · пример</Body>
       <Row style={s.progress}>
         <View style={s.progressDone} />
         <View style={s.progressDone} />
@@ -428,7 +428,7 @@ export function Ledger(props: ScreenProps) {
               </Row>
             </Card>
           ))}
-          <Notice>Все записи на этом экране — образцы для просмотра дизайна.</Notice>
+          <Notice>Все записи на этом экране - образцы для просмотра дизайна.</Notice>
         </>
       ) : (
         <Empty

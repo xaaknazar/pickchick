@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { KioskModel, KioskModifierGroup, KioskProduct } from '../model';
 import { defaultSelections, money, selectedPriceMinor, validSelections } from '../cart';
 import { productImage } from '../assets';
-import { copy } from '../i18n';
+import { copy, displayCopy } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import {
   Body,
@@ -149,7 +149,7 @@ export function ProductScreen({
                 <Heading size={38} color={colors.blue}>
                   {product.name}
                 </Heading>
-                <Body style={{ color: colors.muted }}>{product.description}</Body>
+                <Body style={{ color: colors.muted }}>{displayCopy(product.description)}</Body>
               </View>
             </View>
           ) : (
@@ -158,7 +158,7 @@ export function ProductScreen({
                 {product.name}
               </Heading>
               <Body style={{ color: ink, textAlign: 'center', maxWidth: px(770) }}>
-                {product.description}
+                {displayCopy(product.description)}
               </Body>
               <Body
                 style={{ color: '#D7DBE4', textAlign: 'center', fontSize: Math.max(16, px(18)) }}
@@ -226,7 +226,7 @@ export function ProductScreen({
           </View>
           <Body style={{ color: dark ? '#BBC2D2' : colors.muted }}>
             <Body style={{ fontFamily: fonts.bold, color: ink }}>{t.ingredients}: </Body>
-            {product.ingredients}
+            {displayCopy(product.ingredients)}
           </Body>
           <Body style={{ color: dark ? '#BBC2D2' : colors.muted }}>
             {product.allergens.length

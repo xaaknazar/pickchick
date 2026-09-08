@@ -366,7 +366,7 @@ function render() {
       c.append(
         el('h3', '', g.title.ru),
         el('small', 'muted', p.name.ru),
-        el('p', '', `${g.options.length} вариантов · выбрать ${g.min}–${g.max}`),
+        el('p', '', `${g.options.length} вариантов · выбрать ${g.min}-${g.max}`),
       );
       cards.append(c);
     }

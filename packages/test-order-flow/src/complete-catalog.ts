@@ -1809,14 +1809,14 @@ export const testCompleteCatalog = TestCompleteCatalogSchema.parse({
       id: 'fingers-25',
       name: '25 фингерсов',
       description:
-        'Большой сет для компании из 6–8 человек. 25 хрустящих куриных фингерсов и 8 фирменных соусов',
+        'Большой сет для компании из 6-8 человек. 25 хрустящих куриных фингерсов и 8 фирменных соусов',
       category: 'На компанию',
       price_minor: '1399000',
       image_id: 'i14.jpg',
       prep_required: true,
       serving_label: '1900 г',
       ingredients:
-        'Большой сет для компании из 6–8 человек. 25 хрустящих куриных фингерсов и 8 фирменных соусов',
+        'Большой сет для компании из 6-8 человек. 25 хрустящих куриных фингерсов и 8 фирменных соусов',
       allergens: [],
       prep_minutes: 13,
       nutrition: {
@@ -2082,13 +2082,13 @@ export const testCompleteCatalog = TestCompleteCatalogSchema.parse({
     {
       id: 'fingers-75',
       name: '75 фингерсов',
-      description: 'Сет на 20–22 человека. 75 куриных фингерсов и 24 фирменных соуса',
+      description: 'Сет на 20-22 человека. 75 куриных фингерсов и 24 фирменных соуса',
       category: 'На компанию',
       price_minor: '3999000',
       image_id: 'i16.jpg',
       prep_required: true,
       serving_label: '5700 г',
-      ingredients: 'Сет на 20–22 человека. 75 куриных фингерсов и 24 фирменных соуса',
+      ingredients: 'Сет на 20-22 человека. 75 куриных фингерсов и 24 фирменных соуса',
       allergens: [],
       prep_minutes: 13,
       nutrition: {
@@ -2444,14 +2444,14 @@ export const testCompleteCatalog = TestCompleteCatalogSchema.parse({
       id: 'sauce-hot',
       name: 'Соус острый',
       description:
-        'Фирменный соус Pick Chick с перцем чили — для тех, кто любит острее. 60, 180 или 300 г.',
+        'Фирменный соус Pick Chick с перцем чили - для тех, кто любит острее. 60, 180 или 300 г.',
       category: 'Допы',
       price_minor: '39000',
       image_id: 'i19.jpg',
       prep_required: false,
       serving_label: '60 г',
       ingredients:
-        'Фирменный соус Pick Chick с перцем чили — для тех, кто любит острее. 60, 180 или 300 г.',
+        'Фирменный соус Pick Chick с перцем чили - для тех, кто любит острее. 60, 180 или 300 г.',
       allergens: [],
       prep_minutes: 3,
       nutrition: {

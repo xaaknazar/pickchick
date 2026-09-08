@@ -188,7 +188,7 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                   <Caption>
                     {group.min === 0
                       ? 'По желанию'
-                      : `Выберите ${group.min === group.max ? group.min : `${group.min}–${group.max}`}`}{' '}
+                      : `Выберите ${group.min === group.max ? group.min : `${group.min}-${group.max}`}`}{' '}
                     {!radio ? `· выбрано ${total}` : ''}
                   </Caption>
                 </View>

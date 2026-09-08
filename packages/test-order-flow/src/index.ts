@@ -135,7 +135,7 @@ function kitchenLineTitle(line: TestOrder['snapshot']['lines'][number]) {
           )
           .join('; ')
       : '';
-  return `${line.name} × ${line.quantity}${choices ? ` — ${choices}` : ''}`;
+  return `${line.name} × ${line.quantity}${choices ? ` - ${choices}` : ''}`;
 }
 const synthetic = { synthetic: true as const, namespace: TEST_NAMESPACE };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');

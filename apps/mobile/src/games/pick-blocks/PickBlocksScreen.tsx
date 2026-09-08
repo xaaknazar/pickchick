@@ -241,7 +241,7 @@ function SideRail({ game, compact }: { game: GameState; compact: boolean }) {
         <View style={s.railTip}>
           <Icon name="sparkles-outline" size={21} color="#FFD09E" />
           <Text style={s.tipText}>
-            Больше рядов{`\n`}за раз —{`\n`}больше очков
+            Больше рядов{`\n`}за раз -{`\n`}больше очков
           </Text>
         </View>
       ) : null}
@@ -623,7 +623,7 @@ export function PickBlocksScreen() {
               <View style={s.featureDot} />
               <Text style={s.feature}>Без интернета</Text>
             </View>
-            {best > 0 ? <Text style={s.introBest}>Твой рекорд — {number(best)}</Text> : null}
+            {best > 0 ? <Text style={s.introBest}>Твой рекорд - {number(best)}</Text> : null}
           </ScrollView>
           <View style={s.introFooter}>
             <SolidButton title="Начать игру" testID="blocks-start" onPress={start} />
@@ -660,7 +660,7 @@ export function PickBlocksScreen() {
               <View style={s.hintLine} />
             </View>
             <Controls controller={controller} />
-            <Text style={s.gestureHint}>Свайп — двигать · касание поля — поворот</Text>
+            <Text style={s.gestureHint}>Свайп - двигать · касание поля - поворот</Text>
           </View>
         </View>
       ) : null}
@@ -718,7 +718,7 @@ export function PickBlocksScreen() {
                   : restart
                     ? 'Текущая партия начнётся с нуля. Личный рекорд останется.'
                     : status === 'over'
-                      ? 'Места больше нет. А новый пик — впереди.'
+                      ? 'Места больше нет. А новый пик - впереди.'
                       : tooSmall
                         ? 'Поверни телефон: полю и кнопкам нужно чуть больше места.'
                         : 'Игра на паузе. Продолжим с того же места.'}

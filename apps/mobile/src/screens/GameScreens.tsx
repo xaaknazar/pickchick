@@ -66,7 +66,7 @@ export function Events(props: ScreenProps) {
             <View style={ui.flex}>
               <Caption style={s.streakLabel}>СТРИК ЗАКАЗОВ · АЛМАТЫ</Caption>
               <Row style={s.streakCountRow}>
-                <Text style={s.streakCount}>{props.preview ? '5' : '—'}</Text>
+                <Text style={s.streakCount}>{props.preview ? '5' : '-'}</Text>
                 <Text style={s.streakWeeks}>недели подряд</Text>
               </Row>
             </View>
@@ -353,7 +353,7 @@ export function Game(props: ScreenProps) {
         </Row>
       )}
       <Caption style={{ textAlign: 'center' }}>
-        30 секунд, три попытки. За каждое преодолённое препятствие — одно игровое очко.
+        30 секунд, три попытки. За каждое преодолённое препятствие - одно игровое очко.
       </Caption>
       <Notice>
         Результат сохраняется только в этой сессии приложения. Доступ к кошельку и бонусам игре не
@@ -374,7 +374,7 @@ export function GameResult(props: ScreenProps) {
           {score === null ? 'Твой пик впереди' : 'Хороший забег!'}
         </Heading>
         <Caption>ТРЕНИРОВОЧНЫЙ РЕЗУЛЬТАТ</Caption>
-        <Text style={s.resultScore}>{score === null ? '—' : score}</Text>
+        <Text style={s.resultScore}>{score === null ? '-' : score}</Text>
         <Body muted>игровых очков</Body>
       </View>
       <Card>
@@ -382,7 +382,7 @@ export function GameResult(props: ScreenProps) {
           <Icon name="sparkles-outline" color={colors.accent} />
           <View style={ui.flex}>
             <Body style={{ fontFamily: font.bold }}>Чики не начисляются</Body>
-            <Caption>Этот забег — для тренировки</Caption>
+            <Caption>Этот забег - для тренировки</Caption>
           </View>
         </Row>
       </Card>

@@ -355,7 +355,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
   const safe = useSafeAreaInsets();
   const t = copy(context.locale);
   const estimated = model.catalog?.estimated_minutes;
-  const total = model.cartValid ? money(model.cartTotalMinor) : '—';
+  const total = model.cartValid ? money(model.cartTotalMinor) : '-';
   return (
     <View testID="kiosk-screen-loyalty" style={layout.screen}>
       <LightBackground />
@@ -471,7 +471,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           </View>
           {estimated ? (
             <Body style={{ color: colors.muted, paddingBottom: px(16) }}>
-              {t.preparation} {estimated.min}–{estimated.max} {t.minutes}
+              {t.preparation} {estimated.min}-{estimated.max} {t.minutes}
             </Body>
           ) : null}
         </View>
@@ -533,11 +533,11 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
                 <Body style={{ fontSize: Math.max(16, px(19)), color: colors.muted }}>
                   {context.locale === 'ru'
                     ? method === 'kaspi'
-                      ? 'Тестовый сценарий Kaspi — без QR и списания денег.'
-                      : 'Тестовый сценарий карты — без терминала и списания денег.'
+                      ? 'Тестовый сценарий Kaspi - без QR и списания денег.'
+                      : 'Тестовый сценарий карты - без терминала и списания денег.'
                     : method === 'kaspi'
-                      ? 'Kaspi сынағы — QR-кодсыз, ақша алынбайды.'
-                      : 'Карта сынағы — терминалсыз, ақша алынбайды.'}
+                      ? 'Kaspi сынағы - QR-кодсыз, ақша алынбайды.'
+                      : 'Карта сынағы - терминалсыз, ақша алынбайды.'}
                 </Body>
               </View>
               <View
@@ -572,7 +572,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
         <View style={layout.spread}>
           <Heading size={30}>{t.toPay}</Heading>
           <Heading size={48} color={colors.blue}>
-            {model.cartValid ? money(model.cartTotalMinor) : '—'}
+            {model.cartValid ? money(model.cartTotalMinor) : '-'}
           </Heading>
         </View>
         <Button
