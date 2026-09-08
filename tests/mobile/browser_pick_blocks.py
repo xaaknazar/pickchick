@@ -126,6 +126,8 @@ with sync_playwright() as playwright:
               if (raw !== null && localStorage.getItem(key) === null) localStorage.setItem(key, raw);
               {extra_script}
             """)
+        from account_fixture import signed_in
+        signed_in(context)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + path)

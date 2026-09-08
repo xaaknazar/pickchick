@@ -73,6 +73,10 @@ class MobileLayout(unittest.TestCase):
                 else:
                     route.abort()
             context.route('**/v1/**', read_fixture)
+            import sys
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'mobile'))
+            from account_fixture import signed_in
+            signed_in(context)
             page = context.new_page()
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))

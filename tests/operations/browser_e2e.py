@@ -234,6 +234,10 @@ def run():
         if MODE != 'operations':
             stage = 'mobile web create'
             mobile_context = browser.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+            import sys
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'mobile'))
+            from account_fixture import signed_in
+            signed_in(mobile_context)
             mobile = mobile_context.new_page(); watch(mobile)
             mobile.goto(MOBILE + '/screen/M06')
             mobile.get_by_test_id('product-pick-combo').click(timeout=60000)

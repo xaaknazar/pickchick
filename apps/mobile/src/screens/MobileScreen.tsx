@@ -1,4 +1,6 @@
 import type { ScreenProps } from '../model';
+import { requiresAccount } from '../account-access';
+import { AccountGate } from '../components/AccountGate';
 import { ConnectedCheckout, ConnectedHistory, ConnectedOrder } from './ConnectedOrderScreens';
 import {
   Branches,
@@ -40,6 +42,16 @@ import {
 
 /** Native counterparts of the canonical design catalog M01–M35. */
 export function MobileScreen(props: ScreenProps) {
+  return requiresAccount(props.screenId, props.preview) ? (
+    <AccountGate destination={props.screenId}>
+      <ScreenContent {...props} />
+    </AccountGate>
+  ) : (
+    <ScreenContent {...props} />
+  );
+}
+
+function ScreenContent(props: ScreenProps) {
   if (!props.preview) {
     if (props.screenId === 'M12') return <ConnectedCheckout {...props} />;
     if (props.screenId === 'M19') return <ConnectedHistory {...props} />;
