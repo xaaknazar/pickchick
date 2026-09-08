@@ -6,6 +6,9 @@ export default [
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      'apps/pos-desktop/renderer/**',
+      'apps/pos-desktop/release/**',
+      'apps/pos-desktop/build/**',
       '**/.expo/**',
       'apps/mobile/ios/**',
       'apps/mobile/android/**',
