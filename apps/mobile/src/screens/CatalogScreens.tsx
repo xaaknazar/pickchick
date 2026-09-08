@@ -171,7 +171,9 @@ export function Branches(props: ScreenProps) {
 }
 export function Menu(props: ScreenProps) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  // Owner screenshot: about twice the phone width, fitting short screens too.
+  const heroHeight = Math.round(Math.min(width * 2, height * 0.93, 900));
   const scroll = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
   const [category, setCategory] = useState('Комбо');
@@ -329,10 +331,7 @@ export function Menu(props: ScreenProps) {
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >
-        <View
-          testID="storefront-hero"
-          style={[s.hero, { height: Math.max(640, Math.min(760, (width * 760) / 402)) }]}
-        >
+        <View testID="storefront-hero" style={[s.hero, { height: heroHeight }]}>
           <HeroVideo />
           <Pressable
             testID="hero-promotion"
@@ -343,7 +342,7 @@ export function Menu(props: ScreenProps) {
               if (combo) openProduct(combo);
               else props.navigate('M08');
             }}
-            style={s.heroCaption}
+            style={[s.heroCaption, { bottom: Math.round(heroHeight * 0.27) }]}
           >
             <Heading style={s.heroTitle}>Комбо недели</Heading>
             <Body style={s.heroSubtitle}>подробнее</Body>
@@ -890,7 +889,6 @@ const s = StyleSheet.create({
     position: 'absolute',
     left: 24,
     right: 24,
-    bottom: 164,
     gap: 6,
     alignItems: 'center',
     minHeight: 54,
