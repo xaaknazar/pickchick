@@ -50,7 +50,7 @@ def watch(page):
 
 def assert_layout(page, name):
     assert not page.locator('body').evaluate('(e)=>e.scrollWidth>window.innerWidth+2'), f'{name}: horizontal overflow'
-    assert page.locator('.display-numbers>div').evaluate_all('''els=>els.every(e=>{
+    assert page.locator('.display-number').evaluate_all('''els=>els.every(e=>{
         const range=document.createRange();range.selectNodeContents(e);
         return range.getClientRects().length===1 && e.scrollWidth<=e.clientWidth;
     })'''), f'{name}: split or overflowing order number'
@@ -63,9 +63,15 @@ def staff_page(browser, role, token):
     page = context.new_page()
     watch(page)
     page.goto(OPS + path)
+    expect(page.locator('.test-banner')).to_have_count(0)
     page.get_by_label('Ключ доступа', exact=True).fill(token)
     page.get_by_role('button', name='Открыть рабочий экран', exact=True).click()
     page.locator('.display-shell' if role == 'display' else '.manager-layout' if role == 'manager' else '.kitchen-main').wait_for()
+    expect(page.locator('.test-banner')).to_have_count(0)
+    expect(page.get_by_role('navigation', name='Рабочие экраны')).to_have_count(0)
+    expect(page.locator('a[href="/kitchen/prep"], a[href="/kitchen/assembly"], a[href="/display"], a[href="/kiosk"]')).to_have_count(0)
+    if role in ('prep', 'assembly', 'display'):
+        expect(page.get_by_role('button', name=re.compile('^(Выйти|Выход)'))).to_have_count(0)
     return page
 
 
