@@ -254,6 +254,7 @@ jobs:
       - name: Verify durable delivery, permissions and interrupted requests
         run: |
           pnpm test:fulfillment-transport
+          pnpm test:pos-order-sync
           node --test tests/load/fulfillment-capacity.test.mjs
       - name: Stop isolated local infrastructure
         if: always()

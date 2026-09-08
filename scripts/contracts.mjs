@@ -39,6 +39,7 @@ import {
   TransportReceiptSchema,
 } from '@pickchick/fulfillment-transport';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
+import { PosOrderEventSchema, PosOrderReceiptSchema } from '@pickchick/pos-order-sync';
 import {
   CatalogStateSchema,
   CatalogBranchesSchema,
@@ -763,6 +764,35 @@ for (const [path, operationId, input, result, description] of [
       },
     },
   };
+
+Object.assign(openapi.components.schemas, {
+  PosOrderSyncEvent: jsonSchema(PosOrderEventSchema),
+  PosOrderSyncReceipt: jsonSchema(PosOrderReceiptSchema),
+});
+openapi.paths['/internal/v1/edge/pos-orders/events'] = {
+  post: {
+    operationId: 'observeEdgePosOrder',
+    description:
+      'Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order create v1 then cancel v2. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.',
+    security: [{ deviceBearer: [], deviceId: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': { schema: { $ref: '#/components/schemas/PosOrderSyncEvent' } },
+      },
+    },
+    responses: {
+      200: response('PosOrderSyncReceipt'),
+      400: response('Error', 'Malformed, oversized or unsupported event'),
+      401: response('Error', 'Invalid, expired or revoked device'),
+      403: response('Error', 'Device, branch or producer binding mismatch'),
+      404: response('Error', 'Feature disabled'),
+      409: response('Error', 'Changed duplicate, snapshot or order version conflict'),
+      413: response('Error', 'Global HTTP body limit exceeded'),
+      500: response('Error', 'Internal error'),
+    },
+  },
+};
 
 for (const [filename, value] of [
   ['openapi.json', openapi],

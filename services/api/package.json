@@ -24,7 +24,8 @@
     "@pickchick/customer-identity": "workspace:*",
     "@pickchick/phone-verification": "workspace:*",
     "@pickchick/fulfillment-transport": "workspace:*",
-    "@pickchick/commerce-core": "workspace:*"
+    "@pickchick/commerce-core": "workspace:*",
+    "@pickchick/pos-order-sync": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",

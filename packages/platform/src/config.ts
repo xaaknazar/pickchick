@@ -17,6 +17,7 @@ export interface ServiceConfig {
   edgeFulfillmentEnabled?: boolean;
   edgeDeviceId?: string;
   fulfillmentTransportEnabled?: boolean;
+  posOrderSyncEnabled?: boolean;
 }
 
 function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
@@ -99,6 +100,19 @@ export function loadConfig(
     ] === 'true';
   if (transport && service === 'edge' && fulfillment !== 'true')
     throw new Error('Edge transport requires enabled local fulfillment');
+  for (const [name, owner] of [
+    ['CLOUD_POS_ORDER_SYNC_ENABLED', 'api'],
+    ['EDGE_POS_ORDER_SYNC_ENABLED', 'edge'],
+  ]) {
+    const value = env[name!] ?? 'false';
+    if (!['true', 'false'].includes(value) || (value === 'true' && service !== owner))
+      throw new Error('POS order sync flag service mismatch or invalid value');
+  }
+  const posSync =
+    env[service === 'api' ? 'CLOUD_POS_ORDER_SYNC_ENABLED' : 'EDGE_POS_ORDER_SYNC_ENABLED'] ===
+    'true';
+  if (posSync && service === 'edge' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
+    throw new Error('POS order sync requires EDGE_DEVICE_ID');
   const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
   if (
     proxyIps &&
@@ -134,6 +148,8 @@ export function loadConfig(
       : {}),
     ...(proxyIps ? { trustedProxyIps: proxyIps } : {}),
     ...(transport ? { fulfillmentTransportEnabled: true } : {}),
+    ...(posSync ? { posOrderSyncEnabled: true } : {}),
+    ...(posSync && service === 'edge' ? { edgeDeviceId: env.EDGE_DEVICE_ID! } : {}),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

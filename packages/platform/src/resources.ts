@@ -145,6 +145,19 @@ export class Resources implements OnApplicationShutdown {
             ])
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
           }
+          if (this.config.posOrderSyncEnabled) {
+            const pos = await this.pool.query(
+              'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+              ['cloud', '016_cloud_pos_order_sync.sql'],
+            );
+            if (pos.rowCount !== 1) throw new Error('POS sync schema unavailable');
+            for (const table of [
+              'pos_order_sync_bindings',
+              'pos_order_sync_inbox',
+              'pos_order_sync_projection',
+            ])
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+          }
           schema = 'up';
         } else {
           const assigned = await this.pool.query('SELECT 1 FROM branch_config WHERE id = $1', [
@@ -195,6 +208,18 @@ export class Resources implements OnApplicationShutdown {
             await this.pool.query(
               'SELECT branch_id FROM fulfillment_transport_reverse_failures LIMIT 0',
             );
+          }
+          if (this.config.posOrderSyncEnabled) {
+            const pos = await this.pool.query(
+              'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
+              ['edge', '008_edge_pos_order_sync.sql'],
+            );
+            if (pos.rowCount !== 1) throw new Error('POS sync schema unavailable');
+            const binding = await this.pool.query(
+              'SELECT 1 FROM pos_order_sync_state WHERE branch_id=$1 AND device_id=$2',
+              [this.config.branchId, this.config.edgeDeviceId],
+            );
+            if (binding.rowCount !== 1) throw new Error('POS sync binding unavailable');
           }
           if (assigned.rowCount === 1) schema = 'up';
         }
