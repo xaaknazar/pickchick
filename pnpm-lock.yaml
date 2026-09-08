@@ -11,6 +11,9 @@ importers:
       '@pickchick/api':
         specifier: workspace:*
         version: link:services/api
+      '@pickchick/backoffice-core':
+        specifier: workspace:*
+        version: link:packages/backoffice-core
       '@pickchick/catalog-admin':
         specifier: workspace:*
         version: link:packages/catalog-admin
@@ -41,6 +44,9 @@ importers:
       '@pickchick/platform':
         specifier: workspace:*
         version: link:packages/platform
+      '@pickchick/pos-order-sync':
+        specifier: workspace:*
+        version: link:packages/pos-order-sync
       '@pickchick/test-fixtures':
         specifier: workspace:*
         version: link:packages/test-fixtures
@@ -287,6 +293,28 @@ importers:
       '@pickchick/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+
+  packages/backoffice-core:
+    dependencies:
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../catalog-admin
+      '@pickchick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
   packages/catalog-admin:
     dependencies:
@@ -557,6 +585,28 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/pos-order-sync:
+    dependencies:
+      '@pickchick/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/menu-sync':
+        specifier: workspace:*
+        version: link:../menu-sync
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/test-fixtures:
     dependencies:
       '@pickchick/contracts':
@@ -591,6 +641,9 @@ importers:
       '@nestjs/common':
         specifier: 12.0.1
         version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      '@pickchick/backoffice-core':
+        specifier: workspace:*
+        version: link:../../packages/backoffice-core
       '@pickchick/catalog-admin':
         specifier: workspace:*
         version: link:../../packages/catalog-admin
@@ -618,6 +671,9 @@ importers:
       '@pickchick/platform':
         specifier: workspace:*
         version: link:../../packages/platform
+      '@pickchick/pos-order-sync':
+        specifier: workspace:*
+        version: link:../../packages/pos-order-sync
       '@pickchick/test-order-flow':
         specifier: workspace:*
         version: link:../../packages/test-order-flow

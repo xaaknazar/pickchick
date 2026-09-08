@@ -3,19 +3,25 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const allowed = (method, path) =>
-  method === 'GET'
+  (method === 'GET' &&
+    new RegExp(
+      `^/v1/admin/backoffice/branches/${UUID}(?:/orders/${UUID}|\\?period=(?:day|week|month|quarter))?$`,
+      'i',
+    ).test(path)) ||
+  (method === 'POST' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/commands$`, 'i').test(path)) ||
+  (method === 'GET'
     ? new RegExp(`^/v1/admin/catalog/branches(?:/${UUID})?$`, 'i').test(path)
     : method === 'PUT'
       ? new RegExp(`^/v1/admin/catalog/branches/${UUID}/draft$`, 'i').test(path)
       : method === 'POST' &&
-        new RegExp(`^/v1/admin/catalog/branches/${UUID}/(?:draft/seed|publish)$`, 'i').test(path);
+        new RegExp(`^/v1/admin/catalog/branches/${UUID}/(?:draft/seed|publish)$`, 'i').test(path));
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ...['styles', 'fonts'].map((n) => [`/${n}.css`, [`${n}.css`, 'text/css; charset=utf-8']]),
-  ...['app', 'api', 'model', 'domain', 'dom', 'editor'].map((n) => [
-    `/${n}.js`,
-    [`${n}.js`, 'text/javascript; charset=utf-8'],
-  ]),
+  ...['app', 'api', 'model', 'domain', 'dom', 'editor', 'operations', 'operations-model'].map(
+    (n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']],
+  ),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,
     [`assets/${n}`, n.endsWith('.png') ? 'image/png' : 'image/jpeg'],

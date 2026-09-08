@@ -1,3 +1,4 @@
+import { UnpaidCancellationRequestSchema, UnpaidCancellationViewSchema } from './model.js';
 import { randomUUID } from 'node:crypto';
 import { authenticateDevice } from '@pickchick/menu-sync';
 import type { DeviceAuth } from '@pickchick/menu-sync';
@@ -259,7 +260,9 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     row.admission_reservation_id &&
     !row.attention_required &&
     BigInt(money.refunded) === 0n &&
-    BigInt(money.reserved) === 0n
+    BigInt(money.reserved) === 0n &&
+    !(await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [row.id]))
+      .rowCount
   ) {
     const effectId = await emit(
       client,
@@ -311,11 +314,12 @@ export class CommerceRepository {
     input: unknown,
     run: (client: DatabaseClient, scope: CommerceScope) => Promise<T>,
     manager = false,
+    db?: DatabaseClient,
   ): Promise<T> {
     const scope = parse(ScopeSchema, scopeInput);
     parse(UUIDSchema, key);
     if (manager && scope.role !== 'manager') throw new CommerceError('FORBIDDEN');
-    return transaction(this.pool, async (client) => {
+    const execute = async (client: DatabaseClient) => {
       await boundary(client, scope);
       const parts = [scope.organizationId, scope.branchId, scope.principalId, operation, key];
       await lock(client, ['command', ...parts]);
@@ -336,7 +340,8 @@ export class CommerceRepository {
         [...parts, hash, result],
       );
       return result;
-    });
+    };
+    return db ? execute(db) : transaction(this.pool, execute);
   }
 
   /** Internal pricing port: amounts MUST originate from a trusted pricing service. */
@@ -609,6 +614,150 @@ export class CommerceRepository {
     );
     return result;
   }
+  /** Trusted internal manager port only; no HTTP principal is accepted here. */
+  async requestUnpaidCancellation(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
+    const request = parse(UnpaidCancellationRequestSchema, input);
+    return this.command(
+      scope,
+      key,
+      'unpaid_cancellation',
+      request,
+      async (client, actor) => {
+        const row = await order(client, actor, request.orderId);
+        const binding = (
+          await client.query(
+            'SELECT active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
+            [actor.branchId],
+          )
+        ).rows[0];
+        if (!binding?.active) throw new CommerceError('NOT_READY');
+        if (
+          (
+            await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
+              row.id,
+            ])
+          ).rowCount
+        )
+          throw new CommerceError('CONFLICT');
+        if (
+          row.kitchen_effect_id ||
+          row.attention_required ||
+          (
+            await client.query(
+              `SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_refunds WHERE order_id=$1 LIMIT 1`,
+              [row.id],
+            )
+          ).rowCount
+        )
+          throw new CommerceError('NOT_READY');
+        await client.query(
+          "INSERT INTO commerce_cancellation_intents(id,order_id,organization_id,branch_id,requested_by,reason,state) VALUES($1,$2,$3,$4,$5,$6,'waiting_admission')",
+          [
+            randomUUID(),
+            row.id,
+            actor.organizationId,
+            actor.branchId,
+            actor.principalId,
+            request.reason,
+          ],
+        );
+        await this.scheduleUnpaidCancellation(client, actor, row.id);
+        return this.cancellationView(client, actor, row.id);
+      },
+      true,
+      db,
+    );
+  }
+  private async cancellationView(client: DatabaseClient, scope: Boundary, orderId: string) {
+    const row = (
+      await client.query(
+        'SELECT * FROM commerce_cancellation_intents WHERE order_id=$1 AND organization_id=$2 AND branch_id=$3',
+        [orderId, scope.organizationId, scope.branchId],
+      )
+    ).rows[0];
+    if (!row) throw new CommerceError('NOT_FOUND');
+    return UnpaidCancellationViewSchema.parse({
+      cancellationId: row.id,
+      orderId: row.order_id,
+      state: row.state,
+      releaseEventId: row.release_event_id,
+      expectedEdgeVersion: row.expected_edge_version,
+      resultEventId: row.result_event_id,
+      resolutionCode: row.resolution_code,
+    });
+  }
+  async readUnpaidCancellation(scopeInput: CommerceScope, orderId: string) {
+    const scope = parse(ScopeSchema, scopeInput);
+    parse(UUIDSchema, orderId);
+    if (scope.role !== 'manager') throw new CommerceError('FORBIDDEN');
+    return transaction(this.pool, async (client) => {
+      await boundary(client, scope);
+      return this.cancellationView(client, scope, orderId);
+    });
+  }
+  /** Called inside authenticated admission/projection TX; never across HTTP. */
+  async scheduleUnpaidCancellation(client: DatabaseClient, scope: Boundary, orderId: string) {
+    const row = await order(client, scope, orderId);
+    const intent = (
+      await client.query(
+        'SELECT * FROM commerce_cancellation_intents WHERE order_id=$1 FOR UPDATE',
+        [orderId],
+      )
+    ).rows[0];
+    if (!intent || intent.state !== 'waiting_admission') return;
+    if (!row.admission_reservation_id) return;
+    const p = (
+      await client.query('SELECT * FROM cloud_fulfillment_projection WHERE order_id=$1', [row.id])
+    ).rows[0];
+    let problem: string | null = null;
+    if (
+      (
+        await client.query('SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 LIMIT 1', [
+          row.id,
+        ])
+      ).rowCount ||
+      row.kitchen_effect_id
+    )
+      problem = 'PAYMENT_HISTORY';
+    else if (
+      !p ||
+      p.device_id !== row.admission_device_id ||
+      p.reservation_id !== row.admission_reservation_id
+    )
+      problem = 'ADMISSION_UNCONFIRMED';
+    else if (p.state !== 'held') problem = 'EDGE_NOT_HELD';
+    if (problem) {
+      await client.query(
+        "UPDATE commerce_cancellation_intents SET state='needs_review',resolution_code=$2,updated_at=clock_timestamp() WHERE id=$1",
+        [intent.id, problem],
+      );
+      return;
+    }
+    const eventId = await emit(
+      client,
+      row.id,
+      'unpaid-release:' + intent.id,
+      'edge.admission_release_requested',
+      {
+        orderId: row.id,
+        branchId: row.branch_id,
+        reservationId: row.admission_reservation_id,
+        quoteDigest: row.quote_digest,
+        owner: 'cloud',
+        expectedVersion: p.version,
+        reason: intent.reason,
+      },
+    );
+    await client.query(
+      "UPDATE commerce_cancellation_intents SET state='release_pending',release_event_id=$2,expected_edge_version=$3,reservation_id=$4,updated_at=clock_timestamp() WHERE id=$1",
+      [intent.id, eventId, p.version, row.admission_reservation_id],
+    );
+  }
   async startPaymentAttempt(scope: CommerceScope, key: string, input: unknown) {
     const request = parse(AttemptSchema, input);
     return this.command(scope, key, 'attempt', request, async (client, actor) => {
@@ -618,6 +767,14 @@ export class CommerceRepository {
         request.orderId,
         actor.role === 'manager' ? undefined : actor.principalId,
       );
+      if (
+        (
+          await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
+            row.id,
+          ])
+        ).rowCount
+      )
+        throw new CommerceError('NOT_READY');
       // A transport-owned admission may have been released/cancelled by its edge.
       // The order lock serializes this decision with incoming fulfillment facts.
       const transport = (
@@ -811,7 +968,7 @@ export class CommerceRepository {
       return reconcile(client, row);
     });
   }
-  async requestRefund(scope: CommerceScope, key: string, input: unknown) {
+  async requestRefund(scope: CommerceScope, key: string, input: unknown, db?: DatabaseClient) {
     const request = parse(RefundRequestSchema, input);
     return this.command(
       scope,
@@ -881,6 +1038,7 @@ export class CommerceRepository {
         };
       },
       true,
+      db,
     );
   }
   async observeRefund(provider: TrustedProvider, input: unknown) {
@@ -1158,7 +1316,8 @@ export class CommerceRepository {
           `WITH selected AS (
         SELECT e.id FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id
         WHERE o.organization_id=$1 AND o.branch_id=$2 AND e.acknowledged_at IS NULL AND (e.lease_until IS NULL OR e.lease_until<clock_timestamp())
-        AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id))
+        AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested','edge.admission_release_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id))
+        AND (e.event_type NOT IN ('payment.submit_requested','edge.kitchen_admission_requested') OR NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=o.id))
         AND (e.event_type NOT IN ('payment.submit_requested','refund.submit_requested','fiscal.submit_requested','edge.kitchen_admission_requested') OR NOT o.attention_required)
         AND (e.event_type NOT IN ('payment.submit_requested','refund.submit_requested','fiscal.submit_requested') OR EXISTS(SELECT 1 FROM commerce_provider_accounts a WHERE a.id=(e.payload->>'accountId')::uuid AND a.enabled))
         AND (e.event_type<>'payment.submit_requested' OR EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.id=(e.payload->>'attemptId')::uuid AND a.state='pending'))
@@ -1186,7 +1345,7 @@ export class CommerceRepository {
       request = parse(AckSchema, input);
     if (scope.role !== 'manager') throw new CommerceError('FORBIDDEN');
     const result = await this.pool.query(
-      `UPDATE commerce_outbox e SET acknowledged_at=COALESCE(e.acknowledged_at,clock_timestamp()) FROM commerce_orders o WHERE e.order_id=o.id AND o.organization_id=$1 AND o.branch_id=$2 AND e.id=$3 AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id)) AND e.lease_worker=$4 AND e.lease_token=$5 AND (e.lease_until>clock_timestamp() OR e.acknowledged_at IS NOT NULL) RETURNING e.id`,
+      `UPDATE commerce_outbox e SET acknowledged_at=COALESCE(e.acknowledged_at,clock_timestamp()) FROM commerce_orders o WHERE e.order_id=o.id AND o.organization_id=$1 AND o.branch_id=$2 AND e.id=$3 AND (e.event_type NOT IN ('edge.admission_requested','edge.kitchen_admission_requested','edge.admission_release_requested') OR NOT EXISTS (SELECT 1 FROM fulfillment_transport_bindings b WHERE b.branch_id=o.branch_id)) AND e.lease_worker=$4 AND e.lease_token=$5 AND (e.lease_until>clock_timestamp() OR e.acknowledged_at IS NOT NULL) RETURNING e.id`,
       [scope.organizationId, scope.branchId, request.eventId, request.workerId, request.leaseToken],
     );
     if (!result.rowCount) throw new CommerceError('CONFLICT');

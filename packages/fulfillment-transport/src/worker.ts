@@ -6,7 +6,7 @@ import type { DatabasePool } from '@pickchick/database';
 import { EdgeFulfillment, FulfillmentError, digest } from '@pickchick/edge-fulfillment';
 import {
   DeliverySchema,
-  EdgeEventSchema,
+  TransportEdgeEventSchema,
   PullResponseSchema,
   TransportReceiptSchema,
   TransportScopeSchema,
@@ -55,6 +55,15 @@ export async function syncFulfillmentOnce(
   io: TransportIo = {},
 ) {
   if (!options.enabled) return { state: 'disabled' as const };
+  // A protocol-v2 worker must never run against the pre-result edge schema.
+  if (
+    (
+      await pool.query(
+        "SELECT 1 FROM schema_migrations WHERE scope='edge' AND version='007_edge_release_results.sql'",
+      )
+    ).rowCount !== 1
+  )
+    return { state: 'blocked' as const, error: 'SCHEMA_UNAVAILABLE' as const };
   const identity = DeviceIdentitySchema.parse(options.identity),
     branchId = z.uuid().parse(options.branchId),
     origin = cloudTransportOrigin(options.origin);
@@ -177,7 +186,7 @@ export async function syncFulfillmentOnce(
       };
       const hash = digest(raw);
       try {
-        const event = EdgeEventSchema.parse(raw);
+        const event = TransportEdgeEventSchema.parse(raw);
         const receipt = TransportReceiptSchema.parse(
           await transportRequest(origin, 'events', identity, event, io),
         );
@@ -204,7 +213,13 @@ export async function syncFulfillmentOnce(
       acquired.pending_cloud === null ? null : PendingSchema.parse(acquired.pending_cloud);
     if (!pending) {
       const pulled = PullResponseSchema.parse(
-        await transportRequest(origin, 'pull', identity, { workerId, leaseSeconds: 30 }, io),
+        await transportRequest(
+          origin,
+          'pull',
+          identity,
+          { workerId, leaseSeconds: 30, protocolVersion: 2 },
+          io,
+        ),
       );
       if (JSON.stringify(pulled.scope) !== JSON.stringify(scope))
         throw new TransportHttpError('INVALID_RESPONSE');
@@ -241,7 +256,9 @@ export async function syncFulfillmentOnce(
       throw new FulfillmentError('CONFLICT');
     // Atomic edge inbox+reservation/tasks+reverse outbox commit precedes cloud ACK.
     try {
-      await repo.acceptCloud(scope, pending.delivery.command);
+      if (pending.delivery.command.type === 'edge.admission_release_requested')
+        await repo.acceptRelease(scope, pending.delivery.command);
+      else await repo.acceptCloud(scope, pending.delivery.command);
     } catch (error) {
       if (error instanceof FulfillmentError && error.code === 'ROUTING_MISSING') {
         await park(pending);

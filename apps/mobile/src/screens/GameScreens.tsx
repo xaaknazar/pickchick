@@ -1,3 +1,4 @@
+import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
@@ -36,6 +37,7 @@ import {
 } from '../components/UI';
 
 export function Events(props: ScreenProps) {
+  const published = usePublishedContent(props.model.branch?.id);
   const cardHeight = useGameCardHeight();
   const insets = useSafeAreaInsets();
   const posterGradient =
@@ -107,40 +109,42 @@ export function Events(props: ScreenProps) {
         <Heading testID="events-games" style={s.eventSection}>
           Игры
         </Heading>
-        <PickBlocksCard />
-        <PickManCard />
-        <Pressable
-          testID="pickrun-open"
-          accessibilityRole="button"
-          accessibilityLabel="Играть в Pick Run, тренировочный режим без начисления Чиков"
-          onPress={() => props.navigate('M27')}
-          style={[s.eventPoster, { height: cardHeight }]}
-        >
-          <Image
-            source={assets.pickrunRunner}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            contentPosition={{ top: '30%', left: '50%' }}
-          />
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, gradientStyle]} />
-          <Row style={s.posterTags}>
-            <Text style={s.posterTag}>ТРЕНИРОВКА</Text>
-            <Text style={s.posterTag}>3 ПОПЫТКИ</Text>
-          </Row>
-          <Row style={s.posterBottom}>
-            <View style={ui.flex}>
-              <Heading testID="pickrun-open-title" style={s.posterTitle}>
-                PICK RUN
-              </Heading>
-              <Body style={s.posterDescription}>
-                Прыжки через препятствия.{`\n`}Без начисления Чиков.
-              </Body>
-            </View>
-            <View style={s.posterPlay}>
-              <Icon name="play" size={25} color="#FFFFFF" />
-            </View>
-          </Row>
-        </Pressable>
+        {published.gameEnabled('pick-blocks') ? <PickBlocksCard /> : null}
+        {published.gameEnabled('pick-man') ? <PickManCard /> : null}
+        {published.gameEnabled('pick-run') ? (
+          <Pressable
+            testID="pickrun-open"
+            accessibilityRole="button"
+            accessibilityLabel="Играть в Pick Run, тренировочный режим без начисления Чиков"
+            onPress={() => props.navigate('M27')}
+            style={[s.eventPoster, { height: cardHeight }]}
+          >
+            <Image
+              source={assets.pickrunRunner}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              contentPosition={{ top: '30%', left: '50%' }}
+            />
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, gradientStyle]} />
+            <Row style={s.posterTags}>
+              <Text style={s.posterTag}>ТРЕНИРОВКА</Text>
+              <Text style={s.posterTag}>3 ПОПЫТКИ</Text>
+            </Row>
+            <Row style={s.posterBottom}>
+              <View style={ui.flex}>
+                <Heading testID="pickrun-open-title" style={s.posterTitle}>
+                  PICK RUN
+                </Heading>
+                <Body style={s.posterDescription}>
+                  Прыжки через препятствия.{`\n`}Без начисления Чиков.
+                </Body>
+              </View>
+              <View style={s.posterPlay}>
+                <Icon name="play" size={25} color="#FFFFFF" />
+              </View>
+            </Row>
+          </Pressable>
+        ) : null}
         <Heading style={s.eventSection}>Миссии</Heading>
         <View style={s.missionCard}>
           <View style={s.missionIcon}>

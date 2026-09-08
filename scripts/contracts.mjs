@@ -1,5 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import {
+  Request as BackofficeRequest,
+  Schemas as BackofficeRecords,
+} from '@pickchick/backoffice-core/model';
+import {
   BranchSchema,
   CapabilitiesSchema,
   MenuSnapshotSchema,
@@ -35,10 +39,11 @@ import {
   PullRequestSchema,
   PullResponseSchema,
   TransportAckSchema,
-  EdgeEventSchema,
+  TransportEdgeEventSchema,
   TransportReceiptSchema,
 } from '@pickchick/fulfillment-transport';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
+import { PosOrderEventSchema, PosOrderReceiptSchema } from '@pickchick/pos-order-sync';
 import {
   CatalogStateSchema,
   CatalogBranchesSchema,
@@ -713,7 +718,7 @@ Object.assign(openapi.components.schemas, {
   FulfillmentTransportPullRequest: jsonSchema(PullRequestSchema),
   FulfillmentTransportPullResponse: jsonSchema(PullResponseSchema),
   FulfillmentTransportAck: jsonSchema(TransportAckSchema),
-  FulfillmentTransportEvent: jsonSchema(EdgeEventSchema),
+  FulfillmentTransportEvent: jsonSchema(TransportEdgeEventSchema),
   FulfillmentTransportReceipt: jsonSchema(TransportReceiptSchema),
 });
 for (const [path, operationId, input, result, description] of [
@@ -763,6 +768,103 @@ for (const [path, operationId, input, result, description] of [
       },
     },
   };
+
+Object.assign(openapi.components.schemas, {
+  PosOrderSyncEvent: jsonSchema(PosOrderEventSchema),
+  PosOrderSyncReceipt: jsonSchema(PosOrderReceiptSchema),
+});
+openapi.paths['/internal/v1/edge/pos-orders/events'] = {
+  post: {
+    operationId: 'observeEdgePosOrder',
+    description:
+      'Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order create v1 then cancel v2. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.',
+    security: [{ deviceBearer: [], deviceId: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': { schema: { $ref: '#/components/schemas/PosOrderSyncEvent' } },
+      },
+    },
+    responses: {
+      200: response('PosOrderSyncReceipt'),
+      400: response('Error', 'Malformed, oversized or unsupported event'),
+      401: response('Error', 'Invalid, expired or revoked device'),
+      403: response('Error', 'Device, branch or producer binding mismatch'),
+      404: response('Error', 'Feature disabled'),
+      409: response('Error', 'Changed duplicate, snapshot or order version conflict'),
+      413: response('Error', 'Global HTTP body limit exceeded'),
+      500: response('Error', 'Internal error'),
+    },
+  },
+};
+
+// Branch-scoped operational API. Record payloads are validated by the command discriminator.
+openapi.components.schemas.BackofficeRequest = jsonSchema(BackofficeRequest);
+for (const [kind, schema] of Object.entries(BackofficeRecords))
+  openapi.components.schemas['BackofficeRecord_' + kind] = jsonSchema(schema);
+openapi.components.schemas.BackofficeSnapshot = {
+  type: 'object',
+  required: ['schema_version', 'branch_id', 'records', 'metrics'],
+  properties: {
+    schema_version: { const: 1 },
+    branch_id: { type: 'string', format: 'uuid' },
+    records: { type: 'array', items: { type: 'object' } },
+    metrics: { type: 'object' },
+  },
+  additionalProperties: true,
+};
+openapi.components.schemas.BackofficeResult = { type: 'object', additionalProperties: true };
+openapi.components.schemas.BackofficeContent = {
+  type: 'object',
+  required: ['schema_version', 'branch_id', 'promos', 'games'],
+  properties: {
+    schema_version: { const: 1 },
+    branch_id: { type: 'string', format: 'uuid' },
+    promos: { type: 'array', maxItems: 20, items: { type: 'object' } },
+    games: { type: 'array', maxItems: 3, items: { type: 'object' } },
+  },
+  additionalProperties: false,
+};
+function boOperation(id, result, input, publicRead = false) {
+  const op = catalogOperation(id, result, input, true, publicRead);
+  op.tags = ['Backoffice'];
+  op.description = publicRead
+    ? 'Explicitly published, scheduled public content. No guest/staff/order data.'
+    : 'Requires explicit manager or analyst grant for this branch. Writes require manager, durable request_id and reason; matching replay returns the previous result. Refunds remain pending until a trusted payment observation. Stock changes and audit commit atomically. HTTP commands are limited to 16 KiB.';
+  return op;
+}
+const boRead = boOperation('readBackoffice', 'BackofficeSnapshot');
+boRead.parameters.push({
+  name: 'period',
+  in: 'query',
+  schema: { type: 'string', enum: ['day', 'week', 'month', 'quarter'], default: 'day' },
+});
+const boOrder = boOperation('readBackofficeOrder', 'BackofficeResult');
+boOrder.parameters.push({
+  name: 'orderId',
+  in: 'path',
+  required: true,
+  schema: { type: 'string', format: 'uuid' },
+});
+const boContent = boOperation(
+  'readBackofficePublishedContent',
+  'BackofficeContent',
+  undefined,
+  true,
+);
+boContent.parameters.push({
+  name: 'channel',
+  in: 'query',
+  schema: { type: 'string', enum: ['mobile', 'kiosk', 'display'], default: 'mobile' },
+});
+Object.assign(openapi.paths, {
+  '/v1/admin/backoffice/branches/{branchId}': { get: boRead },
+  '/v1/admin/backoffice/branches/{branchId}/orders/{orderId}': { get: boOrder },
+  '/v1/admin/backoffice/branches/{branchId}/commands': {
+    post: boOperation('executeBackofficeCommand', 'BackofficeResult', 'BackofficeRequest'),
+  },
+  '/v1/content/branches/{branchId}': { get: boContent },
+});
 
 for (const [filename, value] of [
   ['openapi.json', openapi],

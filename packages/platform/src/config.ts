@@ -13,10 +13,12 @@ export interface ServiceConfig {
   httpMaxInFlight?: number;
   customerAuthEnabled?: boolean;
   catalogAdminEnabled?: boolean;
+  backofficeEnabled?: boolean;
   trustedProxyIps?: string[];
   edgeFulfillmentEnabled?: boolean;
   edgeDeviceId?: string;
   fulfillmentTransportEnabled?: boolean;
+  posOrderSyncEnabled?: boolean;
 }
 
 function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
@@ -69,7 +71,12 @@ export function loadConfig(
     throw new Error('CUSTOMER_AUTH_ENABLED must be true or false');
   if (customerAuth === 'true' && service !== 'api')
     throw new Error('Customer identity belongs to cloud API');
+  const backoffice = env.BACKOFFICE_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(backoffice) || (backoffice === 'true' && service !== 'api'))
+    throw new Error('BACKOFFICE_ENABLED configuration invalid');
   const catalogAdmin = env.CATALOG_ADMIN_ENABLED ?? 'false';
+  if (backoffice === 'true' && catalogAdmin !== 'true')
+    throw new Error('Backoffice requires the scoped catalog login');
   if (!['true', 'false'].includes(catalogAdmin))
     throw new Error('CATALOG_ADMIN_ENABLED must be true or false');
   if (catalogAdmin === 'true' && service !== 'api')
@@ -99,6 +106,19 @@ export function loadConfig(
     ] === 'true';
   if (transport && service === 'edge' && fulfillment !== 'true')
     throw new Error('Edge transport requires enabled local fulfillment');
+  for (const [name, owner] of [
+    ['CLOUD_POS_ORDER_SYNC_ENABLED', 'api'],
+    ['EDGE_POS_ORDER_SYNC_ENABLED', 'edge'],
+  ]) {
+    const value = env[name!] ?? 'false';
+    if (!['true', 'false'].includes(value) || (value === 'true' && service !== owner))
+      throw new Error('POS order sync flag service mismatch or invalid value');
+  }
+  const posSync =
+    env[service === 'api' ? 'CLOUD_POS_ORDER_SYNC_ENABLED' : 'EDGE_POS_ORDER_SYNC_ENABLED'] ===
+    'true';
+  if (posSync && service === 'edge' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
+    throw new Error('POS order sync requires EDGE_DEVICE_ID');
   const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
   if (
     proxyIps &&
@@ -128,12 +148,15 @@ export function loadConfig(
     databasePoolMax: boundedInteger(env, 'DB_POOL_MAX', 5, 64),
     httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
     ...(customerAuth === 'true' ? { customerAuthEnabled: true } : {}),
+    ...(backoffice === 'true' ? { backofficeEnabled: true } : {}),
     ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
     ...(fulfillment === 'true'
       ? { edgeFulfillmentEnabled: true, edgeDeviceId: env.EDGE_DEVICE_ID! }
       : {}),
     ...(proxyIps ? { trustedProxyIps: proxyIps } : {}),
     ...(transport ? { fulfillmentTransportEnabled: true } : {}),
+    ...(posSync ? { posOrderSyncEnabled: true } : {}),
+    ...(posSync && service === 'edge' ? { edgeDeviceId: env.EDGE_DEVICE_ID! } : {}),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { createPool, migrate, transaction } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { customerAuthGrants } from './customer-auth-grants.mjs';
+import { backofficeGrants } from './backoffice-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 
@@ -83,6 +84,7 @@ async function provision() {
       await client.query(
         fulfillmentTransportGrants('pickchick_app', config.fulfillmentTransportEnabled === true),
       );
+      await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
     });
     console.log(JSON.stringify({ event: 'staging_provisioned', applied }));
   } finally {
