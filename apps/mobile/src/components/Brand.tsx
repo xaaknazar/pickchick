@@ -213,10 +213,10 @@ export function DiningSelector({
     </Row>
   );
 }
-// Owner-requested softer fade for the taller hero. Ease into the page color
-// before the lower edge so the video blends behind the loyalty card without a seam.
+// Match the owner screenshot: keep the product visible through the caption,
+// then fade broadly behind the first card into the exact page color at the edge.
 const gradient =
-  'linear-gradient(180deg, rgba(4,20,58,0.45) 0%, rgba(4,20,58,0.05) 26%, rgba(4,20,58,0) 44%, rgba(4,20,58,0.10) 54%, rgba(4,20,58,0.34) 64%, rgba(4,20,58,0.66) 74%, rgba(4,20,58,0.90) 82%, rgba(4,20,58,0.985) 88%, #04143A 92%, #04143A 100%)';
+  'linear-gradient(180deg, rgba(4,20,58,0.45) 0%, rgba(4,20,58,0.05) 26%, rgba(4,20,58,0) 40%, rgba(4,20,58,0.07) 50%, rgba(4,20,58,0.19) 60%, rgba(4,20,58,0.40) 70%, rgba(4,20,58,0.66) 80%, rgba(4,20,58,0.86) 88%, rgba(4,20,58,0.965) 94%, #04143A 99%, #04143A 100%)';
 const heroGradient = (
   Platform.OS === 'web' ? { backgroundImage: gradient } : { experimental_backgroundImage: gradient }
 ) as ViewStyle;
