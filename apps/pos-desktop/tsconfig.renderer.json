@@ -1,0 +1,13 @@
+{
+  "extends": "../pos/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "noEmit": true,
+    "types": [],
+    "paths": {
+      "@pickchick/contracts": ["../../packages/contracts/src/index.ts"],
+      "zod": ["./node_modules/zod/index.d.ts"]
+    }
+  },
+  "include": ["../pos/src/**/*.ts"]
+}
