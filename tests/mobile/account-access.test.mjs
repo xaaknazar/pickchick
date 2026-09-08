@@ -27,7 +27,8 @@ test('all order operations and playable game screens require login, including pr
 });
 
 test('login continuation accepts only known protected destinations', () => {
-  for (const id of ['pick-blocks', 'M12', 'M27', 'M28']) assert.equal(accountDestination(id), id);
+  for (const id of ['pick-man', 'pick-blocks', 'M12', 'M27', 'M28'])
+    assert.equal(accountDestination(id), id);
   for (const value of [undefined, null, ['M12'], '/screen/M12', 'https://example.com', 'M02']) {
     assert.equal(accountDestination(value), null);
   }

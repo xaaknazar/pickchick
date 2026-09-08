@@ -17,6 +17,7 @@ import { assets } from '../assets';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
 import { PickBlocksCard } from '../games/pick-blocks/visuals';
+import { PickManCard } from '../games/pick-man/visuals';
 import {
   Body,
   Button,
@@ -58,9 +59,7 @@ export function Events(props: ScreenProps) {
           Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.
         </Body>
 
-        <PickBlocksCard />
-
-        <View style={s.streakCard}>
+        <View testID="events-streak" style={s.streakCard}>
           <Image source={assets.skyline} style={s.skyline} contentFit="cover" />
           <Row style={{ alignItems: 'flex-start' }}>
             <View style={ui.flex}>
@@ -103,22 +102,11 @@ export function Events(props: ScreenProps) {
           ) : null}
         </View>
 
-        <Heading style={s.eventSection}>Игры</Heading>
-        <View style={s.eventPoster}>
-          <Image source={assets.pickrun} style={StyleSheet.absoluteFill} contentFit="cover" />
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, gradientStyle]} />
-          <Row style={s.posterTags}>
-            <Text style={[s.posterTag, s.posterTagBlue]}>ИГРА</Text>
-            <Text style={s.posterTag}>ГОТОВИТСЯ</Text>
-          </Row>
-          <Row style={s.posterBottom}>
-            <View style={ui.flex}>
-              <Heading style={s.posterTitle}>PICK MAN</Heading>
-              <Body style={s.posterDescription}>Полёт на паутине над городом</Body>
-            </View>
-            <Text style={s.posterSoon}>Скоро</Text>
-          </Row>
-        </View>
+        <Heading testID="events-games" style={s.eventSection}>
+          Игры
+        </Heading>
+        <PickBlocksCard />
+        <PickManCard />
         <Pressable
           testID="pickrun-open"
           accessibilityRole="button"
@@ -149,6 +137,16 @@ export function Events(props: ScreenProps) {
             </View>
           </Row>
         </Pressable>
+        <Heading style={s.eventSection}>Миссии</Heading>
+        <View style={s.missionCard}>
+          <View style={s.missionIcon}>
+            <Icon name="restaurant-outline" size={26} color={colors.accent} />
+          </View>
+          <View style={ui.flex}>
+            <Body style={s.upcomingTitle}>Найди свой любимый вкус</Body>
+            <Caption style={s.upcomingDetail}>Новые задания и вкусные открытия. Скоро.</Caption>
+          </View>
+        </View>
         <Heading style={s.eventSection}>Скоро</Heading>
         <View style={s.upcomingList}>
           {[
@@ -470,7 +468,6 @@ const s = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
   },
-  posterTagBlue: { backgroundColor: colors.action },
   posterBottom: { flex: 1, alignItems: 'flex-end', padding: 16, paddingTop: 45, gap: 14 },
   posterTitle: {
     fontFamily: font.display,
@@ -480,16 +477,6 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   posterDescription: { marginTop: 7, fontSize: 12.5, lineHeight: 18, color: '#FFFFFFE0' },
-  posterSoon: {
-    fontFamily: font.medium,
-    fontSize: 13.5,
-    color: '#FFFFFF',
-    backgroundColor: '#FFFFFF29',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    overflow: 'hidden',
-  },
   posterPlay: {
     width: 58,
     height: 58,
@@ -499,6 +486,23 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 3,
+  },
+  missionCard: {
+    marginTop: 12,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  missionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: colors.raised,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   upcomingList: {
     marginTop: 12,

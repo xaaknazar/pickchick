@@ -13,7 +13,7 @@ const orderScreens: readonly string[] = [
   'M21',
   'M22',
 ];
-export type AccountDestination = ScreenId | 'pick-blocks';
+export type AccountDestination = ScreenId | 'pick-blocks' | 'pick-man';
 
 export function requiresAccount(id: ScreenId, preview: boolean): boolean {
   return id === 'M27' || id === 'M28' || (!preview && orderScreens.includes(id));
@@ -21,7 +21,11 @@ export function requiresAccount(id: ScreenId, preview: boolean): boolean {
 
 export function accountDestination(value: unknown): AccountDestination | null {
   return typeof value === 'string' &&
-    (value === 'pick-blocks' || value === 'M27' || value === 'M28' || orderScreens.includes(value))
+    (value === 'pick-man' ||
+      value === 'pick-blocks' ||
+      value === 'M27' ||
+      value === 'M28' ||
+      orderScreens.includes(value))
     ? (value as AccountDestination)
     : null;
 }

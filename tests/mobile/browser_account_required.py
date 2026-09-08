@@ -51,7 +51,7 @@ def login(page):
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    for destination, target in [('/games/pick-blocks', 'blocks-start'), ('/screen/M27', 'game-start'),
+    for destination, target in [('/games/pick-man', 'pick-man-start'), ('/games/pick-blocks', 'blocks-start'), ('/screen/M27', 'game-start'),
                                 ('/screen/M12', 'test-checkout-create')]:
         context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
         context.route('**/v1/**', route_api)
