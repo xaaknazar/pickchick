@@ -10,52 +10,28 @@ import { MAZE, COLS, ROWS, type Direction, type Food } from './engine';
 const svg = (body: string) => ({
   uri: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">' + body + '</svg>')}`,
 });
-// Frame the original menu photos in small collectible badges. These are the
-// same bundled images used by the menu, with no network load during a game.
+// Transparent vector silhouettes with shaded surfaces stay crisp even at
+// maze-cell size. The shapes and packaging follow the owner's menu photos.
 const foods = {
-  burger: { source: assets.burger, width: 1.285, height: 1.375, left: -0.169, top: -0.325 },
-  fingers: { source: assets.fingers, width: 2.245, height: 1.331, left: -0.602, top: -0.184 },
-  cola: { source: assets.drink, width: 1.667, height: 1.667, left: -0.333, top: -0.4 },
-  power: { source: assets.sauce, width: 1.786, height: 1.786, left: -0.393, top: -0.5 },
+  burger: require('../../../assets/games/food-burger.svg'),
+  fingers: require('../../../assets/games/food-fingers.svg'),
+  cola: require('../../../assets/games/food-cola.svg'),
+  power: require('../../../assets/games/food-sauce.svg'),
 };
 export const FoodIcon = memo(function FoodIcon({ kind, size }: { kind: Food; size: number }) {
-  const photo = foods[kind];
   return (
-    <View
+    <Image
       testID={`pick-man-food-${kind}`}
+      source={foods[kind]}
+      contentFit="contain"
+      style={{ width: size, height: size }}
       pointerEvents="none"
-      accessible
       accessibilityLabel={
-        {
-          burger: 'Бургер',
-          fingers: 'Фингерсы',
-          cola: 'Coca-Cola',
-          power: 'Фирменный соус - защита',
-        }[kind]
+        { burger: 'Бургер', fingers: 'Фингерсы', cola: 'Кола', power: 'Фирменный соус - защита' }[
+          kind
+        ]
       }
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.3,
-        overflow: 'hidden',
-        backgroundColor: '#F4F4F4',
-        borderWidth: kind === 'power' ? Math.max(1, size * 0.07) : 0,
-        borderColor: '#FF9A45',
-      }}
-    >
-      <Image
-        source={photo.source}
-        contentFit="fill"
-        accessible={false}
-        style={{
-          position: 'absolute',
-          width: size * photo.width,
-          height: size * photo.height,
-          left: size * photo.left,
-          top: size * photo.top,
-        }}
-      />
-    </View>
+    />
   );
 });
 
@@ -65,7 +41,13 @@ const rivalArt = (color: string, scared = false) =>
   );
 const rivals = ['#91BFFF', '#C5A3F5', '#6FDDC6'].map((color) => rivalArt(color));
 const scaredRival = rivalArt('#CBDDFA', true);
-export function Chick({ size, direction = 'right' }: { size: number; direction?: Direction }) {
+export const Chick = memo(function Chick({
+  size,
+  direction = 'right',
+}: {
+  size: number;
+  direction?: Direction;
+}) {
   return (
     <Image
       source={assets.pickManChick}
@@ -82,8 +64,8 @@ export function Chick({ size, direction = 'right' }: { size: number; direction?:
       }}
     />
   );
-}
-export function Rival({
+});
+export const Rival = memo(function Rival({
   size,
   scared = false,
   variant = 0,
@@ -99,7 +81,7 @@ export function Rival({
       style={{ width: size, height: size }}
     />
   );
-}
+});
 
 // Trace only exposed wall edges, so adjoining cells form a single rounded shape.
 // The source is built once; food and actors can move without rebuilding the maze.
