@@ -129,10 +129,10 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
       </View>
       <View style={ui.flex}>
         <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
-          {preview ? 'Пик-мастер · кэшбэк 7%' : 'Чики за любимый вкус'}
+          {preview ? 'Фурманова · пример уровня' : 'Чики за любимый вкус'}
         </Heading>
         <Caption style={{ color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 3 }}>
-          {preview ? '1 240 Чиков · пример баланса' : 'Программа лояльности · скоро'}
+          {preview ? '6 вершин Алматы · пример пути' : '6 вершин Алматы · скоро'}
         </Caption>
       </View>
       <Icon name="chevron-forward" size={17} color={colors.muted} />
