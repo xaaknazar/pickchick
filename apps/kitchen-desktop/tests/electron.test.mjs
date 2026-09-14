@@ -69,6 +69,7 @@ async function login(page, credential) {
   });
 }
 async function station(page, id) {
+  await page.locator('button[data-station], #station').first().waitFor({ state: 'visible' });
   const button = page.locator(`button[data-station="${id}"]`);
   if (await button.count()) await button.click();
   else await page.locator('#station').selectOption(id);
