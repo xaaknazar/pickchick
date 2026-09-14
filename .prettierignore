@@ -17,3 +17,9 @@ apps/pos-desktop/renderer
 apps/pos-desktop/release
 apps/pos-desktop/build
 apps/pos-desktop/package-lock.json
+apps/kitchen-desktop/renderer
+apps/kitchen-desktop/release
+apps/kitchen-desktop/build
+apps/kitchen-desktop/gateway.mjs
+apps/kitchen-desktop/package-lock.json
+apps/kitchen-desktop/.local
