@@ -6,6 +6,14 @@ from urllib.parse import urlparse
 from playwright.sync_api import expect, sync_playwright
 fixture = json.loads(Path(sys.argv[1]).read_text())
 url, width, height = fixture['url'], fixture['width'], fixture['height']
+workstation = fixture.get('mode') == 'workstation'
+
+def activate(button):
+    if workstation:
+        button.tap()
+    else:
+        button.click()
+
 assert urlparse(url).hostname == '127.0.0.1'
 output = Path(fixture['output'])
 
@@ -17,11 +25,12 @@ def login(page, actor):
 def capture(page, name):
     page.evaluate('async () => { await document.fonts.ready; await Promise.all([...document.images].map(i=>i.decode())); await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))); }')
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
-    page.screenshot(path=str(output / f'{width}-{name}.png'))
+    filename = f'{width}-'+('workstation-' if workstation else '')+f'{name}.png'
+    page.screenshot(path=str(output / filename))
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    context = browser.new_context(viewport={'width':width,'height':height})
+    context = browser.new_context(viewport={'width':width,'height':height}, has_touch=workstation)
     context.route('**/*', lambda route: route.continue_() if route.request.url.startswith(url+'/') else route.abort())
     page = context.new_page()
     errors = []
@@ -41,7 +50,18 @@ with sync_playwright() as p:
         sys.exit(0)
     ticket = page.locator('[data-order="'+fixture['orderId']+'"]')
     expect(ticket).to_be_visible()
-    assert page.locator('#station option').count() == 1, 'Cook must see only assigned station'
+    expect(page.locator('[data-station]')).to_have_count(2 if workstation else 1)
+    prep = page.locator('[data-station="'+fixture['prep']+'"]')
+    if workstation:
+        assert fixture['cook']['role'] == 'kitchen', 'Switching must not require elevated role'
+        assembly = page.locator('[data-station="'+fixture['assembly']+'"]')
+        for station in [prep, assembly]:
+            bounds = station.bounding_box()
+            assert bounds['height'] >= 72 and bounds['width'] >= 200, 'Stations must have large touch targets'
+        expect(page.locator('[data-station]').first).to_have_attribute('data-station', fixture['prep'])
+        activate(prep)
+        expect(prep).to_have_attribute('aria-pressed', 'true')
+        expect(assembly).to_have_attribute('aria-pressed', 'false')
     capture(page, 'prep')
     first_command = []
     def lose_response(route):
@@ -50,15 +70,23 @@ with sync_playwright() as p:
         route.abort('failed')
         page.unroute('**/edge/v1/fulfillment/orders/*/actions', lose_response)
     page.route('**/edge/v1/fulfillment/orders/*/actions', lose_response)
-    ticket.locator('[data-command]').first.click()
+    activate(ticket.locator('[data-command]').first)
     expect(page.get_by_test_id('recovery')).to_be_visible()
     expect(page.locator('#retry')).to_be_enabled()
+    for station in page.locator('[data-station]').all():
+        expect(station).to_be_disabled()
+    expect(page.locator('#mode-display')).to_be_disabled()
+    if workstation:
+        # Dispatching a click even on a disabled DOM control cannot bypass model recovery.
+        assembly.dispatch_event('click')
+        expect(prep).to_have_attribute('aria-pressed', 'true')
+        expect(assembly).to_have_attribute('aria-pressed', 'false')
     capture(page, 'recovery')
     page.reload()
     expect(page.get_by_test_id('recovery')).to_be_visible()
     retried = []
     page.on('request', lambda req: retried.append((req.post_data, req.headers.get('idempotency-key'))) if req.method=='POST' else None)
-    page.locator('#retry').click()
+    activate(page.locator('#retry'))
     expect(page.get_by_test_id('recovery')).to_have_count(0)
     assert retried == first_command, 'Exact body and idempotency key must survive reload'
     ticket = page.locator('[data-order="'+fixture['orderId']+'"]')
@@ -67,11 +95,16 @@ with sync_playwright() as p:
         if buttons.count() == 0: break
         button = buttons.first
         expect(button).to_be_enabled()
-        button.click()
+        activate(button)
         expect(page.locator('#refresh')).to_be_enabled()
     assert ticket.locator('[data-command]').count()==0
-    page.locator('#logout').click()
-    login(page, fixture['packer'])
+    if workstation:
+        activate(assembly)
+        expect(assembly).to_have_attribute('aria-pressed', 'true')
+        expect(prep).to_have_attribute('aria-pressed', 'false')
+    else:
+        page.locator('#logout').click()
+        login(page, fixture['packer'])
     ticket = page.locator('[data-order="'+fixture['orderId']+'"]')
     expect(ticket).to_be_visible()
     capture(page, 'assembly')
@@ -80,22 +113,22 @@ with sync_playwright() as p:
         button = ticket.locator('[data-command]').first
         if button.count()==0 or button.inner_text()=='Заказ собран': break
         expect(button).to_be_enabled()
-        button.click()
+        activate(button)
         expect(page.locator('#refresh')).to_be_enabled()
     ready = ticket.get_by_role('button',name='Заказ собран',exact=True)
     expect(ready).to_be_enabled()
-    ready.click()
+    activate(ready)
     expect(ticket.get_by_role('button',name='Подтвердить выдачу')).to_be_enabled()
     number = ticket.locator('.number').inner_text()
-    page.locator('#mode-display').click()
+    activate(page.locator('#mode-display'))
     expect(page.get_by_test_id('display')).to_be_visible()
     expect(page.locator('.ready .numbers')).to_contain_text(number)
     assert page.locator('[data-order]').count()==0
     assert 'Synthetic' not in page.get_by_test_id('display').inner_text()
     capture(page, 'display')
-    page.locator('#mode-kitchen').click()
+    activate(page.locator('#mode-kitchen'))
     ticket = page.locator('[data-order="'+fixture['orderId']+'"]')
-    ticket.get_by_role('button',name='Подтвердить выдачу').click()
+    activate(ticket.get_by_role('button',name='Подтвердить выдачу'))
     expect(ticket).to_have_count(0)
     # A transport outage leaves stale data explicit and does not invent success.
     count = page.locator('[data-order]').count()
