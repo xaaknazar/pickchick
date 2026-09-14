@@ -13,6 +13,9 @@ const { createEdge } = await import(pathToFileURL(resolve(apiRoot, 'services/edg
 const { fixture } = await import(
   pathToFileURL(resolve(apiRoot, 'packages/edge-fulfillment/tests/fixture.mjs'))
 );
+const { grantStation } = await import(
+  pathToFileURL(resolve(apiRoot, 'packages/edge-fulfillment/dist/index.js'))
+);
 const output = resolve(repo, '.local/kitchen-browser');
 const python =
   process.env.PICKCHICK_BROWSER_PYTHON ?? resolve(repo, '.local/design-venv/bin/python');
@@ -20,11 +23,24 @@ for (const [width, height, mode] of [
   [1280, 800, 'journey'],
   [1920, 1080, 'journey'],
   [1280, 800, 'injection'],
+  [1280, 800, 'workstation'],
+  [1920, 1080, 'workstation'],
 ])
   test(`real PG kitchen ${mode} ${width}×${height}`, { timeout: 180000 }, async () => {
     await fixture(async (ctx) => {
-      const first = mode === 'journey' ? await ctx.accepted(true) : null;
-      if (mode === 'journey') for (let i = 0; i < 5; i++) await ctx.accepted(i % 2 === 0);
+      const first = mode !== 'injection' ? await ctx.accepted(true) : null;
+      if (mode !== 'injection') for (let i = 0; i < 5; i++) await ctx.accepted(i % 2 === 0);
+      if (mode === 'workstation') {
+        await grantStation(ctx.pool, ctx.scope.branchId, ctx.cook.staff_id, ctx.assembly);
+        await ctx.pool.query(
+          'UPDATE fulfillment_stations SET name=$1 WHERE branch_id=$2 AND id=$3',
+          ['Фритюр', ctx.scope.branchId, ctx.prep],
+        );
+        await ctx.pool.query(
+          'UPDATE fulfillment_stations SET name=$1 WHERE branch_id=$2 AND id=$3',
+          ['Упаковка', ctx.scope.branchId, ctx.assembly],
+        );
+      }
       if (mode === 'injection')
         await ctx.pool.query(
           'UPDATE fulfillment_stations SET name=$1 WHERE branch_id=$2 AND id=$3',

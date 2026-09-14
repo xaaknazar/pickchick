@@ -104,7 +104,10 @@ function render() {
       });
     return;
   }
-  const nav = `<nav aria-label="Рабочий экран">${button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.mode === 'kitchen' ? `<label>Станция <select id="station" ${blocked ? 'disabled' : ''}>${s.stations.map((t) => `<option value="${t.id}"${t.id === s.stationId ? ' selected' : ''}>${escape(t.name)}</option>`).join('')}</select></label>` : ''}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${button('Выйти', 'id="logout"')}</nav>`;
+  const stations = [...s.stations].sort(
+    (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
+  );
+  const nav = `<nav aria-label="Рабочий экран">${button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const error = s.error
     ? `<aside class="error" role="alert">${escape(errors[s.error] ?? 'Операция не завершена. Проверьте локальный узел и доступ.')} ${s.lastSync ? 'Показаны последние полученные данные.' : ''}</aside>`
     : '';
@@ -177,9 +180,11 @@ function render() {
     next: () => model.page(),
   }))
     document.getElementById(id)?.addEventListener('click', fn);
-  document.querySelector<HTMLSelectElement>('#station')?.addEventListener('change', (e) => {
-    void model.selectStation((e.target as HTMLSelectElement).value);
-  });
+  document.querySelectorAll<HTMLButtonElement>('[data-station]').forEach((b) =>
+    b.addEventListener('click', () => {
+      if (b.dataset.station) void model.selectStation(b.dataset.station);
+    }),
+  );
   document.querySelectorAll<HTMLButtonElement>('[data-command]').forEach((b) =>
     b.addEventListener('click', () => {
       const data = JSON.parse(b.dataset.command!) as { orderId: string; body: Action };
