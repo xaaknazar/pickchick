@@ -20,7 +20,7 @@ Thumbs.db
 *.jks
 
 # Dependencies, generated builds and temporary output
-node_modules/
+node_modules
 .pnpm-store/
 .expo/
 .turbo/
