@@ -7,6 +7,22 @@ credentials, environment secrets, migrations or services. Fulfillment remains
 unconfigured. This narrower first step allows archive delivery and native binary
 startup to be checked before introducing database ownership and secret handling.
 
+PostgreSQL's Windows binaries also require the x64 Microsoft Visual C++ runtime.
+On the physical cashier, the first version probe returned `0xC0000135` because
+`vcruntime140.dll`, `vcruntime140_1.dll` and `msvcp140.dll` were absent. The official
+[Microsoft package](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
+14.51.36247.0 was downloaded directly from Microsoft, verified as Authenticode
+`Valid` / Microsoft Corporation, and installed with `/install /passive /norestart`.
+Its SHA-256 was `843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c`.
+Installation and the subsequent PostgreSQL 18.6 probe both returned exit 0.
+The permanent download URL can change bytes; validate the current signed package
+instead of treating this historical hash as a latest-version promise.
+
+If extraction completed but its final native version probe failed, repair the
+observed dependency, then use the [recovery verifier](native-foundation-recovery.md).
+It checks installed bytes and ACLs before creating the stage-1 record; do not rerun
+the fresh installer over existing directories.
+
 Use elevated **64-bit Windows PowerShell 5.1**. Supply local NTFS files whose hashes
 were checked against the delivery record, a short release label and an externally
 assigned branch UUID. The default SHA-256 pins match the released files in
