@@ -9,6 +9,9 @@ import {
   readSession,
   setOrdering,
   setStop,
+  openCashShift,
+  closeCashShift,
+  readCashShift,
 } from '@pickchick/local-orders';
 import { EdgeFulfillment } from '@pickchick/edge-fulfillment';
 import { applyMenu, hashJson } from '@pickchick/menu-sync';
@@ -66,6 +69,9 @@ test('real edge runtime executes POS, row locks and kitchen lifecycle without se
     await runtime(ctx, async (pool) => {
       const branch = ctx.scope.branchId;
       assert.equal((await readSession(pool, branch, ctx.cashier.auth)).role, 'cashier');
+      const shift = await openCashShift(pool, branch, ctx.cashier.auth, randomUUID(), {
+        opening_cash_minor: '500000',
+      });
       const quote = await createQuote(pool, branch, ctx.cashier.auth, {
         release_id: menu.release_id,
         service_mode: 'takeaway',
@@ -90,6 +96,21 @@ test('real edge runtime executes POS, row locks and kitchen lifecycle without se
         ).state,
         'cancelled',
       );
+      assert.equal(
+        (await readCashShift(pool, branch, ctx.cashier.auth, shift.shift_id)).order_count,
+        1,
+      );
+      const closed = await closeCashShift(
+        pool,
+        branch,
+        ctx.cashier.auth,
+        randomUUID(),
+        shift.shift_id,
+        { expected_version: 1, counted_cash_minor: '499900', reason: 'Synthetic cash count' },
+      );
+      assert.equal(closed.discrepancy_minor, '-100');
+      await assert.rejects(pool.query('UPDATE local_cash_shifts SET opening_cash_minor=1'), denied);
+      await assert.rejects(pool.query('DELETE FROM local_cash_shifts'), denied);
       await setStop(pool, branch, ctx.manager.auth, randomUUID(), {
         variant_id: menu.items[0].variant_id,
         expected_version: 0,
