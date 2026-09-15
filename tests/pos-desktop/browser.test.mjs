@@ -216,6 +216,31 @@ test(
             await page.evaluate(() => Object.keys(globalThis.pickchickPosJournal).sort()),
             ['endSession', 'getItem', 'setItem'],
           );
+          stage = 'native fullscreen controls';
+          assert.deepEqual(
+            await page.evaluate(() => Object.keys(globalThis.pickchickPosWindow).sort()),
+            ['isFullscreen', 'onChange', 'toggleFullscreen'],
+          );
+          const initialFullscreen = await page.evaluate(() =>
+            globalThis.pickchickPosWindow.isFullscreen(),
+          );
+          assert.equal(
+            await page.evaluate(() => globalThis.pickchickPosWindow.toggleFullscreen()),
+            !initialFullscreen,
+          );
+          await eventually(
+            () =>
+              app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()),
+            (value) => value === !initialFullscreen,
+            'Native fullscreen request must change the actual window',
+          );
+          await page.evaluate(() => globalThis.pickchickPosWindow.toggleFullscreen());
+          await eventually(
+            () =>
+              app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()),
+            (value) => value === initialFullscreen,
+            'Fullscreen must be reversible',
+          );
           assert.equal(
             await page.evaluate((key) => {
               try {
@@ -271,9 +296,14 @@ test(
             } catch {
               privateBlocked = true;
             }
-            return { styles: (await fetch('/styles.css')).status, privateBlocked };
+            return {
+              styles: (await fetch('/styles.css')).status,
+              photo: (await fetch('/assets/menu/i0.jpg')).status,
+              privateBlocked,
+            };
           });
           assert.equal(localAssets.styles, 200);
+          assert.equal(localAssets.photo, 200);
           assert.equal(localAssets.privateBlocked, true);
 
           stage = 'valid real staff authentication';
