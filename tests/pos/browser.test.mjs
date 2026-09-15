@@ -6,12 +6,17 @@ import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createEdge } from '@pickchick/edge';
 import { applyMenu, publishMenu } from '@pickchick/menu-sync';
-import { withOrderDesk } from '../helpers/orders.mjs';
+import { provisionStaff, openCashShift } from '@pickchick/local-orders';
+import { withOrderDesk, staffAuth } from '../helpers/orders.mjs';
 import { running } from '../helpers/sync.mjs';
 import { createPosServer } from '../../apps/pos/server.mjs';
 
 test('browser POS uses real temporary PostgreSQL + staff API, restores lost create and fixed controls', async () => {
   await withOrderDesk(async (ctx) => {
+    const secondCashier = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.setup('cashier'));
+    await openCashShift(ctx.edge.pool, ctx.branch, staffAuth(secondCashier), randomUUID(), {
+      opening_cash_minor: '0',
+    });
     const categories = [randomUUID(), randomUUID(), randomUUID()];
     const menu = {
       ...ctx.menu(2),
@@ -46,7 +51,7 @@ test('browser POS uses real temporary PostgreSQL + staff API, restores lost crea
         file,
         JSON.stringify({
           url: `http://127.0.0.1:${proxy.address().port}`,
-          cashier: ctx.cashier,
+          cashiers: { 1280: ctx.cashier, 1920: secondCashier },
           manager: ctx.manager,
           variant: menu.items[0].variant_id,
           category: menu.items[0].category_id,

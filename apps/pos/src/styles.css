@@ -31,7 +31,7 @@ textarea {
   font: inherit;
 }
 button {
-  min-width: 44px;
+  min-width: 48px;
   min-height: 48px;
   border: 1px solid var(--border);
   background: #fff;
@@ -191,7 +191,7 @@ p {
   color: #c3d7f7;
 }
 .brand-note {
-  margin-top: 44px;
+  margin-top: 48px;
   font-size: 12px;
   letter-spacing: 0.1em;
   border-top: 1px solid #ffffff40;
@@ -363,7 +363,7 @@ p {
   background: #fff0f3;
 }
 button.shift-pill {
-  min-height: 44px;
+  min-height: 48px;
 }
 .workspace {
   display: flex;
@@ -620,7 +620,7 @@ button.product-body:hover:not(:disabled) {
 .product-open,
 button.product-body {
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   text-align: left;
   border: 0;
   border-radius: 0;
@@ -659,10 +659,10 @@ button.product-body {
   font-variant-numeric: tabular-nums;
 }
 .product-bottom button {
-  width: 46px;
-  min-width: 46px;
-  height: 46px;
-  min-height: 46px;
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
   padding: 0;
   border-radius: 12px;
   background: var(--orange);
@@ -692,7 +692,7 @@ button.product-body {
   color: #a12437;
 }
 .stop-action {
-  min-height: 44px;
+  min-height: 48px;
   padding: 7px 10px;
   font-size: 11px;
   background: #f8f9fc;
@@ -706,7 +706,7 @@ button.product-body {
   flex: none;
 }
 .pagination button {
-  min-height: 44px;
+  min-height: 48px;
   padding: 8px 14px;
 }
 .cart {
@@ -757,7 +757,7 @@ button.product-body {
   border: 0;
   background: transparent;
   min-width: 0;
-  min-height: 46px;
+  min-height: 48px;
   border-radius: 9px;
   font-size: 13px;
 }
@@ -823,7 +823,7 @@ button.product-body {
   display: block;
 }
 .cart-edit {
-  min-height: 44px;
+  min-height: 48px;
   padding: 8px 11px;
   font-size: 11px;
   color: var(--blue);
@@ -837,9 +837,9 @@ button.product-body {
   min-width: 0;
 }
 .line-controls button {
-  width: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 0;
   font-size: 22px;
   border-radius: 10px;
@@ -858,7 +858,7 @@ button.product-body {
 }
 .line-controls .cart-edit {
   width: auto;
-  min-width: 44px;
+  min-width: 48px;
   font-size: 11px;
   padding-inline: 9px;
 }
@@ -1578,8 +1578,8 @@ dialog textarea {
   gap: 6px;
 }
 .cart-line-heading .remove {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 0;
   font-size: 22px;
   color: #a12437;
@@ -1624,8 +1624,8 @@ dialog textarea {
   margin-left: auto;
 }
 .option-quantity button {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 0;
   font-size: 21px;
 }
@@ -1639,7 +1639,7 @@ dialog textarea {
   justify-content: space-between;
   gap: 18px;
   cursor: pointer;
-  min-height: 44px;
+  min-height: 48px;
 }
 .shift-history[open] summary {
   margin-bottom: 16px;
@@ -1675,4 +1675,235 @@ dialog textarea {
   .header-metric {
     padding-left: 10px;
   }
+}
+
+/* Staff sign-in shares control sizes and focus treatment with the cashier desk. */
+.login-title {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-form {
+  width: 100%;
+  max-width: 600px;
+  gap: 22px;
+}
+.credential-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.credential-form label {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 8px;
+}
+.credential-form input {
+  height: 58px;
+  width: 100%;
+  font-size: 18px;
+}
+.password-field {
+  position: relative;
+  display: flex;
+}
+.password-field input {
+  padding-right: 110px;
+}
+.password-toggle {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  height: 48px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 13px;
+}
+.login-submit {
+  width: 100%;
+  height: 58px;
+  margin-top: 12px;
+  font-size: 18px;
+}
+.login-wait {
+  color: #8e3342;
+  font-size: 13px;
+}
+.login-wait:empty {
+  display: none;
+}
+.login-service {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.login-service summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 14px 0;
+  min-height: 48px;
+  font-size: 13px;
+}
+.login-service .file-label {
+  display: block;
+  margin-top: 14px;
+  background: #e9f1ff;
+  color: var(--blue);
+  padding: 15px;
+}
+.login-service .fine {
+  margin-top: 8px;
+}
+.login-brand h1 {
+  font-size: clamp(38px, 3.4vw, 62px);
+}
+.login-brand p {
+  color: #dce8ff;
+  font-size: 19px;
+}
+
+/* Server-quoted confirmation and live kitchen status. */
+.review-dialog {
+  max-width: 680px;
+}
+.review-dialog header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.review-dialog .review-items {
+  border-top: 1px solid var(--border);
+}
+.review-dialog .review-line {
+  padding-block: 16px;
+}
+.review-dialog .total-row {
+  padding-block: 8px;
+}
+.service-mode-note {
+  border-radius: 12px;
+  background: #edf4ff;
+  color: #24456e;
+  padding: 14px 16px;
+  font-size: 14px;
+}
+.order-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 18px;
+}
+.kitchen-state {
+  width: fit-content;
+  color: var(--blue);
+  background: #e9f1ff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 18px;
+  font-weight: 750;
+}
+.kitchen-state.ready {
+  color: #176338;
+  background: #e8f5ed;
+}
+.kitchen-state.handed_over {
+  color: #465b71;
+  background: #edf1f5;
+}
+.kitchen-state.cancelled,
+.kitchen-state.cancel_requested {
+  color: #a12437;
+  background: #fff0f3;
+}
+.kitchen-number {
+  font-size: clamp(64px, 6vw, 104px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  color: var(--blue);
+  overflow-wrap: anywhere;
+}
+.payment-summary {
+  padding-top: 2px;
+  border-top: 1px solid var(--border);
+}
+.order-reference {
+  color: var(--muted);
+  font-size: 13px;
+}
+.order-reference summary {
+  cursor: pointer;
+  min-height: 48px;
+  padding-block: 14px;
+}
+.order-reference .order-id {
+  font-size: 12px;
+  padding: 0;
+  margin: 0;
+}
+.service-tag {
+  border-radius: 10px;
+  background: #f1f5fb;
+  color: #425a7a;
+  padding: 9px 13px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.product-bottom button {
+  color: #14243c;
+}
+.order-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+.order-filters button[aria-pressed='true'] {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.order-badge.ready {
+  color: #176338;
+  background: #e8f5ed;
+}
+.order-badge.handed_over {
+  color: #465b71;
+  background: #edf1f5;
+}
+.cart-line {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 10px 12px;
+}
+.cart-line-main {
+  flex-direction: column;
+  gap: 5px;
+  grid-column: 2;
+}
+.cart-line-main > div {
+  flex: initial;
+  width: 100%;
+}
+.cart-line:not(:has(.cart-line-thumb)) .cart-line-main {
+  grid-column: 1 / -1;
+}
+.cart-line > .line-controls {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+
+.in-cart-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: var(--blue);
+  color: white;
+  font-size: 12px;
+  font-weight: 750;
+  box-shadow: 0 2px 8px #0c356b24;
 }
