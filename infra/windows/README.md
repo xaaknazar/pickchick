@@ -27,6 +27,10 @@ node --env-file="C:\ProgramData\PickChick\private\edge-owner.env" scripts/edge-r
 
 The first command applies only `db/edge/migrations`, with the existing migration
 ledger, checksums and transaction lock. It inserts no restaurant or demo data.
+The release includes canonical cancellation migration 007 unchanged from commit
+`5584542`, before 008/009. This prepares its schema without activating transport
+v2 or writing release-result events. A database that already recorded 008/009
+without 007 still fails the out-of-order guard; do not rewrite its ledger to bypass it.
 The second requires migration 009, clears the role's previous table, sequence
 and column privileges in the application schema, then installs explicit POS and
 kitchen rights. Omit `--fulfillment` for POS-only rights. Reapplying with that flag

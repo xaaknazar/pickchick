@@ -146,6 +146,8 @@ test('real edge runtime executes POS, row locks and kitchen lifecycle without se
         'UPDATE fulfillment_routing SET payload=payload',
         'UPDATE fulfillment_config SET device_id=device_id',
         'UPDATE fulfillment_stations SET kind=kind',
+        'SELECT 1 FROM fulfillment_release_results',
+        'INSERT INTO fulfillment_release_results(producer_id) VALUES(gen_random_uuid())',
         'UPDATE fulfillment_reservations SET snapshot=snapshot',
         'UPDATE fulfillment_outbox SET acknowledged_at=now()',
         'CREATE TABLE should_not_exist(id int)',
