@@ -13,15 +13,15 @@ from urllib.parse import quote
 def load_installers(manifest):
     manifest = Path(manifest).resolve(strict=True)
     entries = json.loads(manifest.read_text(encoding="utf-8"))
-    if not isinstance(entries, list) or not 1 <= len(entries) <= 4:
-        raise ValueError("Expected one to four installers")
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 8:
+        raise ValueError("Expected one to eight installation files")
     files = {}
     for entry in entries:
         if not isinstance(entry, dict) or set(entry) != {"file", "label", "sha256"}:
             raise ValueError("Invalid installer entry")
         name = entry["file"]
-        if not isinstance(name, str) or not name.isascii() or not name.endswith(".exe"):
-            raise ValueError("Installer must have an ASCII .exe filename")
+        if not isinstance(name, str) or not name.isascii() or not name.endswith((".exe", ".zip")):
+            raise ValueError("Installation file must have an ASCII .exe or .zip filename")
         if Path(name).name != name or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_." for c in name):
             raise ValueError("Invalid filename")
         path = manifest.parent / name
@@ -45,7 +45,7 @@ def make_server(address, allowed_clients, files):
     allowed = {str(ipaddress.ip_address(value)) for value in allowed_clients}
     cards = "".join(
         '<section><h2>' + html.escape(item["label"]) + '</h2><a href="' + quote(path) +
-        '">Скачать установщик</a><p>' + html.escape(path[1:]) +
+        '">Скачать установочный файл</a><p>' + html.escape(path[1:]) +
         '</p><small>SHA-256: ' + item["sha256"] + '</small></section>'
         for path, item in files.items()
     )
@@ -53,9 +53,9 @@ def make_server(address, allowed_clients, files):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PickChick - установка рабочих мест</title>
 <style>body{font:18px system-ui;background:#edf3fc;color:#102650;max-width:850px;margin:40px auto;padding:24px}h1{color:#0047bb}section{background:white;border-radius:20px;padding:24px;margin:20px 0}a{display:inline-block;background:#0047bb;color:white;padding:18px 24px;border-radius:12px;text-decoration:none}small{overflow-wrap:anywhere}p{line-height:1.5}</style>
-<h1>PickChick</h1><p>Установка кассы и кухни на Windows.</p>''' + cards + '''
-<p>Это предпусковые клиенты. Для работы нужен настроенный локальный сервер и отдельный доступ сотрудника. Установщики не включают банк, ККМ или базу данных.</p>
-<p>После установки откройте ярлык PickChick на рабочем столе. Если Windows блокирует неподписанный установщик, сохраните текст сообщения для проверки; системную защиту отключать не нужно.</p>
+<h1>PickChick</h1><p>Файлы для установки кассы, кухни и локального сервера на Windows.</p>''' + cards + '''
+<p>Клиенты PickChick - предпусковые. Для работы нужен настроенный локальный сервер и отдельный доступ сотрудника. Банк и ККМ ещё не подключены.</p>
+<p>Архивы ZIP используются при настройке сервера по инструкции. После установки клиента откройте ярлык PickChick на рабочем столе. Если Windows блокирует неподписанный установщик, сохраните текст сообщения для проверки; системную защиту отключать не нужно.</p>
 </html>''').encode("utf-8")
 
     class Handler(BaseHTTPRequestHandler):
