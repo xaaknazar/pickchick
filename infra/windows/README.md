@@ -1,12 +1,14 @@
 # Native Windows edge setup tools
 
 These tools prepare the dedicated edge database and protect staff credential files.
-They do not install PostgreSQL, Node, Windows services or device tunnels. Use the
-repository's supported Node version and build the workspace packages first.
+Use the repository's supported Node version and build the workspace packages first.
 
 For a fresh physical Windows host, the separate [native stage-1 operator script](native-foundation-stage1.md)
 can verify and extract the pinned binaries into protected directories. It still
 does not initialize PostgreSQL or install a running service.
+The subsequent [native stage-2 operator script](native-services.md) initializes
+the fresh database and installs PostgreSQL/edge Windows services with protected
+credentials. Restaurant provisioning and device tunnels remain separate.
 
 ## Database installation
 
