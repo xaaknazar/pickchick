@@ -21,6 +21,8 @@ files:
   - renderer/api.js
   - renderer/model.js
   - renderer/types.js
+  - renderer/auth-view.js
+  - renderer/order-view.js
   - renderer/asset-manifest.json
   - package.json
 extraResources:
