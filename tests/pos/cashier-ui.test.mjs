@@ -107,6 +107,31 @@ function fixture() {
       return { branch_id: actor.branch_id, ordering_enabled: true, version: 1 };
     if (path.startsWith('availability/stops/'))
       return { variant_id: item.variant_id, stopped: false, version: 0 };
+    if (path === 'checkout/quotes')
+      return {
+        quote_id: randomUUID(),
+        branch_id: actor.branch_id,
+        release_id: menu.release_id,
+        menu_version: menu.version,
+        service_mode: options.body.service_mode,
+        channel: 'pos',
+        lines: [
+          {
+            product_id: item.product_id,
+            variant_id: item.variant_id,
+            name: item.name,
+            quantity: 1,
+            unit_price_minor: item.price_minor,
+            total_minor: item.price_minor,
+          },
+        ],
+        currency: 'KZT',
+        subtotal_minor: item.price_minor,
+        discount_minor: '0',
+        total_minor: item.price_minor,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 120000).toISOString(),
+      };
     if (path === 'cash-shifts/current')
       return { shift: current, server_time: new Date().toISOString() };
     if (path === 'cash-shifts' && options.method !== 'POST')
@@ -336,3 +361,126 @@ test('oversized modifier drafts leave the last recoverable journal intact', asyn
   assert.equal(restored.state.error, null);
   assert.deepEqual(restored.state.draft, model.state.draft);
 });
+
+for (const state of ['never_confirmed', 'last_read_failed', 'closed']) {
+  test(`valid quote cannot create an order when shift is ${state}`, async () => {
+    const f = fixture();
+    f.item.modifier_groups = [];
+    if (state === 'closed') f.setCurrent(null);
+    let readFails = state === 'never_confirmed',
+      posts = 0;
+    const api = async (path, actor, options = {}) => {
+      if (path === 'cash-shifts/current' && readFails) throw new ApiError('EDGE_UNREACHABLE');
+      if (path === 'orders' && options.method === 'POST') {
+        posts++;
+        throw new ApiError('EDGE_UNREACHABLE');
+      }
+      return f.api(path, actor, options);
+    };
+    const model = new PosController(api, memory(), memory(), randomUUID);
+    await model.login(JSON.stringify(f.credential));
+    model.quantity(f.item.variant_id, 1);
+    await model.calculate();
+    assert(model.state.quote);
+    if (state === 'last_read_failed') {
+      assert(model.hasConfirmedOpenShift);
+      readFails = true;
+      await model.refreshOperations();
+    }
+    assert.equal(model.hasConfirmedOpenShift, false);
+    await model.create();
+    assert.equal(posts, 0);
+    assert.equal(model.state.pending, null);
+    assert.equal(
+      model.state.error.message,
+      state === 'closed' ? 'CASH_SHIFT_REQUIRED' : 'CASH_SHIFT_STATUS_UNKNOWN',
+    );
+    readFails = false;
+    f.setCurrent(f.shift);
+    await model.refreshOperations();
+    assert(model.hasConfirmedOpenShift);
+    await model.create();
+    assert.equal(posts, 1, 'confirmed own open shift permits dispatch');
+    assert.equal(model.state.pending.kind, 'create');
+  });
+}
+
+for (const kind of ['open', 'close']) {
+  for (const refreshFails of [false, true]) {
+    test(`definitive shift ${kind} conflict resolves journal and refreshes state, refresh fails=${refreshFails}`, async () => {
+      const f = fixture(),
+        storage = memory(),
+        sessions = memory();
+      if (kind === 'open') f.setCurrent(null);
+      let posts = 0,
+        readsAfterConflict = 0;
+      const api = async (path, actor, options = {}) => {
+        if (options.method === 'POST') {
+          posts++;
+          assert.equal(JSON.parse([...storage.data.values()][0]).pending.kind, `shift_${kind}`);
+          f.setCurrent(kind === 'open' ? f.shift : null);
+          throw new ApiError('CONFLICT', 409);
+        }
+        if (path === 'cash-shifts/current' && posts) {
+          readsAfterConflict++;
+          if (refreshFails) throw new ApiError('EDGE_UNREACHABLE');
+        }
+        return f.api(path, actor, options);
+      };
+      const model = new PosController(api, sessions, storage, randomUUID);
+      await model.login(JSON.stringify(f.credential));
+      if (kind === 'open') await model.openShift('500000');
+      else await model.closeShift(f.shift.shift_id, '500000', 'Пересчёт');
+      assert.equal(posts, 1);
+      assert.equal(model.state.pending, null, 'HTTP 409 rejected this exact command');
+      assert.equal(model.state.error.code, 'CONFLICT');
+      assert.equal(readsAfterConflict, 1);
+      assert.equal(model.hasConfirmedOpenShift, !refreshFails && kind === 'open');
+      if (refreshFails) assert.equal(model.state.operationsAvailable, false);
+      else
+        assert.equal(
+          model.state.shift?.shift_id ?? null,
+          kind === 'open' ? f.shift.shift_id : null,
+        );
+      await model.recover();
+      const restored = new PosController(api, sessions, storage, randomUUID);
+      await restored.boot();
+      assert.equal(restored.state.pending, null);
+      assert.equal(posts, 1, 'rejected command must not retry forever');
+    });
+  }
+}
+
+for (const error of [
+  new ApiError('EDGE_UNREACHABLE'),
+  new ApiError('CONFLICT', 500),
+  new ApiError('INVALID_RESPONSE', 200),
+]) {
+  test(`uncertain shift result ${error.code}/${error.status} retains exact replay command`, async () => {
+    const f = fixture(),
+      sessions = memory(),
+      storage = memory(),
+      requests = [];
+    f.setCurrent(null);
+    const api = async (path, actor, options = {}) => {
+      if (options.method === 'POST') {
+        requests.push(globalThis.structuredClone(options));
+        throw error;
+      }
+      return f.api(path, actor, options);
+    };
+    const model = new PosController(api, sessions, storage, randomUUID);
+    await model.login(JSON.stringify(f.credential));
+    await model.openShift('500000');
+    const pending = globalThis.structuredClone(model.state.pending);
+    assert.equal(pending.kind, 'shift_open');
+    const restored = new PosController(api, sessions, storage, randomUUID);
+    await restored.boot();
+    assert.equal(requests.length, 1);
+    assert.deepEqual(restored.state.pending, pending);
+    await restored.recover();
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests[1], requests[0]);
+    assert.deepEqual(restored.state.pending, pending);
+  });
+}
