@@ -8,6 +8,7 @@ import type {
   StaffSession,
 } from '@pickchick/contracts';
 export type { Cart, LocalOrder, MenuSnapshot, Quote, CashShift, StaffCredential, StaffSession };
+export type FulfillmentState = NonNullable<LocalOrder['fulfillment']>['state'];
 export type Item = MenuSnapshot['items'][number];
 export type CartLine = Cart['items'][number];
 export type Selection = NonNullable<CartLine['modifiers']>[number];
@@ -26,7 +27,12 @@ export const sortedSelections = (selections: Selection[]) =>
   [...selections].sort(
     (a, b) => a.group_id.localeCompare(b.group_id) || a.option_id.localeCompare(b.option_id),
   );
-export type Ordering = { branch_id: string; ordering_enabled: boolean; version: number };
+export type Ordering = {
+  branch_id: string;
+  ordering_enabled: boolean;
+  version: number;
+  pos_service_mode?: 'payment_required' | 'unpaid_service';
+};
 export type Stop = { variant_id: string; stopped: boolean; version: number };
 export const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
@@ -313,12 +319,36 @@ export function quote(value: unknown): Quote {
 }
 export function order(value: unknown): LocalOrder {
   const o = record(value);
+  const admitted = o.execution_mode === 'unpaid_service';
+  let fulfillment: LocalOrder['fulfillment'];
+  if (admitted) {
+    const f = record(o.fulfillment);
+    if (
+      ![
+        'accepted',
+        'in_production',
+        'ready',
+        'handed_over',
+        'cancel_requested',
+        'cancelled',
+      ].includes(String(f.state)) ||
+      f.state !== o.fulfillment_state ||
+      minor(f.display_number) === '0'
+    )
+      throw new Error('INVALID_RESPONSE');
+    fulfillment = {
+      version: integer(f.version),
+      display_number: minor(f.display_number),
+      state: f.state as FulfillmentState,
+    };
+  } else if (o.execution_mode !== undefined || o.fulfillment !== undefined)
+    throw new Error('INVALID_RESPONSE');
   if (
     !['awaiting_payment', 'cancelled'].includes(String(o.state)) ||
     o.payment_state !== 'not_started' ||
     o.fiscal_state !== 'not_requested' ||
-    o.fulfillment_state !== 'blocked' ||
-    o.next_action !== (o.state === 'cancelled' ? 'none' : 'payment_not_available') ||
+    (!admitted && o.fulfillment_state !== 'blocked') ||
+    o.next_action !== (admitted || o.state === 'cancelled' ? 'none' : 'payment_not_available') ||
     !(o.cancellation_reason === null || typeof o.cancellation_reason === 'string')
   )
     throw new Error('INVALID_RESPONSE');
@@ -333,8 +363,9 @@ export function order(value: unknown): LocalOrder {
     state: o.state as LocalOrder['state'],
     payment_state: 'not_started',
     fiscal_state: 'not_requested',
-    fulfillment_state: 'blocked',
+    fulfillment_state: o.fulfillment_state as LocalOrder['fulfillment_state'],
     next_action: o.next_action as LocalOrder['next_action'],
+    ...(fulfillment ? { execution_mode: 'unpaid_service' as const, fulfillment } : {}),
     snapshot,
     created_at: date(o.created_at),
     cancellation_reason: o.cancellation_reason as string | null,
@@ -346,10 +377,18 @@ export function order(value: unknown): LocalOrder {
 export function ordering(value: unknown): Ordering {
   const o = record(value);
   if (typeof o.ordering_enabled !== 'boolean') throw new Error('INVALID_RESPONSE');
+  if (
+    o.pos_service_mode !== undefined &&
+    !['payment_required', 'unpaid_service'].includes(String(o.pos_service_mode))
+  )
+    throw new Error('INVALID_RESPONSE');
   return {
     branch_id: uuid(o.branch_id),
     ordering_enabled: o.ordering_enabled,
     version: integer(o.version),
+    ...(o.pos_service_mode === undefined
+      ? {}
+      : { pos_service_mode: o.pos_service_mode as 'payment_required' | 'unpaid_service' }),
   };
 }
 export function stop(value: unknown): Stop {
