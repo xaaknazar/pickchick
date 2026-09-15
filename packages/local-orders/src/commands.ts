@@ -11,10 +11,11 @@ export interface BranchState {
   id: string;
   ordering_enabled: boolean;
   ordering_version: number;
+  pos_service_mode: 'payment_required' | 'unpaid_service';
 }
 export async function lockBranch(client: DatabaseClient, branchId: string): Promise<BranchState> {
   const result = await client.query<BranchState>(
-    'SELECT id, ordering_enabled, ordering_version FROM branch_config WHERE id = $1 FOR UPDATE',
+    'SELECT id, ordering_enabled, ordering_version, pos_service_mode FROM branch_config WHERE id = $1 FOR UPDATE',
     [branchId],
   );
   if (!result.rows[0]) throw new OrderError('BRANCH_UNAVAILABLE');

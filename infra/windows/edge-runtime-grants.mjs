@@ -81,7 +81,13 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
           grant('UPDATE(state, version, updated_at, cancellation_reason, inventory_disposition)', [
             'fulfillment_reservations',
           ]),
-          grant('INSERT', ['fulfillment_commands', 'fulfillment_outbox']),
+          grant('INSERT', [
+            'fulfillment_commands',
+            'fulfillment_outbox',
+            'fulfillment_reservations',
+            'fulfillment_tasks',
+          ]),
+          `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_display_sequence TO ${target};`,
           `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_outbox_sequence_seq TO ${target};`,
         ]
       : []),
@@ -111,9 +117,9 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     );
     if (unsafe.rowCount) throw new Error('Runtime role may not own objects or inherit roles');
     const ledger = await client.query(
-      `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='011_staff_passwords.sql'`,
+      `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='012_edge_pos_unpaid_fulfillment.sql'`,
     );
-    if (ledger.rowCount !== 1) throw new Error('Edge migration 011 required');
+    if (ledger.rowCount !== 1) throw new Error('Edge migration 012 required');
     const otherScope = await client.query(
       `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope<>'edge' LIMIT 1`,
     );

@@ -8743,8 +8743,58 @@
             "const": "not_requested"
           },
           "fulfillment_state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "blocked"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "accepted",
+                  "in_production",
+                  "ready",
+                  "handed_over",
+                  "cancel_requested",
+                  "cancelled"
+                ]
+              }
+            ]
+          },
+          "execution_mode": {
             "type": "string",
-            "const": "blocked"
+            "const": "unpaid_service"
+          },
+          "fulfillment": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              },
+              "display_number": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,18})$"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "accepted",
+                  "in_production",
+                  "ready",
+                  "handed_over",
+                  "cancel_requested",
+                  "cancelled"
+                ]
+              }
+            },
+            "required": [
+              "version",
+              "display_number",
+              "state"
+            ],
+            "additionalProperties": false
           },
           "next_action": {
             "type": "string",
@@ -9055,8 +9105,58 @@
                   "const": "not_requested"
                 },
                 "fulfillment_state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "blocked"
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "in_production",
+                        "ready",
+                        "handed_over",
+                        "cancel_requested",
+                        "cancelled"
+                      ]
+                    }
+                  ]
+                },
+                "execution_mode": {
                   "type": "string",
-                  "const": "blocked"
+                  "const": "unpaid_service"
+                },
+                "fulfillment": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 2147483647
+                    },
+                    "display_number": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "in_production",
+                        "ready",
+                        "handed_over",
+                        "cancel_requested",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "display_number",
+                    "state"
+                  ],
+                  "additionalProperties": false
                 },
                 "next_action": {
                   "type": "string",
@@ -9933,6 +10033,10 @@
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kitchen_admission": {
+            "type": "string",
+            "const": "unpaid"
           }
         },
         "required": [
@@ -9980,6 +10084,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "pos_service_mode": {
+            "type": "string",
+            "enum": [
+              "payment_required",
+              "unpaid_service"
+            ]
+          },
           "branch_id": {
             "type": "string",
             "format": "uuid",
@@ -17117,7 +17228,10 @@
           },
           "channel": {
             "type": "string",
-            "const": "mobile"
+            "enum": [
+              "mobile",
+              "pos"
+            ]
           },
           "serviceMode": {
             "type": "string",
@@ -17197,7 +17311,7 @@
                       "maximum": 1000000
                     },
                     "modifiers": {
-                      "maxItems": 40,
+                      "maxItems": 100,
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -17385,7 +17499,10 @@
           },
           "channel": {
             "type": "string",
-            "const": "mobile"
+            "enum": [
+              "mobile",
+              "pos"
+            ]
           },
           "serviceMode": {
             "type": "string",
@@ -17465,7 +17582,7 @@
                       "maximum": 1000000
                     },
                     "modifiers": {
-                      "maxItems": 40,
+                      "maxItems": 100,
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -17687,7 +17804,10 @@
                 },
                 "channel": {
                   "type": "string",
-                  "const": "mobile"
+                  "enum": [
+                    "mobile",
+                    "pos"
+                  ]
                 },
                 "serviceMode": {
                   "type": "string",
@@ -17767,7 +17887,7 @@
                             "maximum": 1000000
                           },
                           "modifiers": {
-                            "maxItems": 40,
+                            "maxItems": 100,
                             "type": "array",
                             "items": {
                               "type": "object",
@@ -18277,7 +18397,7 @@
                                               ]
                                             },
                                             "modifiers": {
-                                              "maxItems": 40,
+                                              "maxItems": 100,
                                               "type": "array",
                                               "items": {
                                                 "type": "object",
@@ -18590,7 +18710,7 @@
                                               ]
                                             },
                                             "modifiers": {
-                                              "maxItems": 40,
+                                              "maxItems": 100,
                                               "type": "array",
                                               "items": {
                                                 "type": "object",
