@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { normalize } from 'node:path';
 import { extractFile, listPackage } from '@electron/asar';
 import { getCurrentFuseWire, FuseV1Options, FuseState } from '@electron/fuses';
 import { ASSETS, APP_URL } from '../security.mjs';
@@ -11,13 +12,15 @@ import { inputPaths } from './inputs.mjs';
 const base = new URL('../', import.meta.url);
 const root = new URL('../../', base);
 const asar = fileURLToPath(new URL('release/win-unpacked/resources/app.asar', base));
+// ASAR 3 traverses directories using the host path separator. Manifest names stay POSIX.
+const readEntry = (name) => extractFile(asar, normalize(name));
 const hash = (data) => createHash('sha256').update(data).digest('hex');
 const git = (args) => {
   const result = spawnSync('git', args, { cwd: fileURLToPath(root), encoding: 'utf8' });
   assert.equal(result.status, 0, 'Git verification failed');
   return result.stdout.trim();
 };
-const manifest = JSON.parse(extractFile(asar, 'renderer/asset-manifest.json').toString('utf8'));
+const manifest = JSON.parse(readEntry('renderer/asset-manifest.json').toString('utf8'));
 assert.equal(manifest.schemaVersion, 1);
 assert.equal(manifest.source, 'apps/kitchen/src');
 assert.equal(manifest.sourceDirty, false, 'Only a clean-source package can be released');
@@ -56,28 +59,22 @@ assert.deepEqual(
   'Unexpected packaged file',
 );
 for (const name of ASSETS) {
-  const data = extractFile(asar, `renderer/${name}`);
+  const data = readEntry(`renderer/${name}`);
   assert.equal(hash(data), manifest.files[name].sha256, `Renderer hash differs: ${name}`);
   assert.equal(data.byteLength, manifest.files[name].bytes);
 }
 for (const name of ['main.mjs', 'security.mjs']) {
-  assert.equal(
-    hash(extractFile(asar, name)),
-    manifest.inputs[`apps/kitchen-desktop/${name}`].sha256,
-  );
+  assert.equal(hash(readEntry(name)), manifest.inputs[`apps/kitchen-desktop/${name}`].sha256);
 }
-assert.equal(
-  hash(extractFile(asar, 'gateway.mjs')),
-  manifest.inputs['apps/kitchen/server.mjs'].sha256,
-);
+assert.equal(hash(readEntry('gateway.mjs')), manifest.inputs['apps/kitchen/server.mjs'].sha256);
 for (const name of ['index.html', 'styles.css']) {
   assert.equal(
-    hash(extractFile(asar, `renderer/${name}`)),
+    hash(readEntry(`renderer/${name}`)),
     manifest.inputs[`apps/kitchen/src/${name}`].sha256,
   );
 }
 const pkg = JSON.parse(await readFile(new URL('package.json', base), 'utf8'));
-const packed = JSON.parse(extractFile(asar, 'package.json').toString('utf8'));
+const packed = JSON.parse(readEntry('package.json').toString('utf8'));
 assert.equal(packed.version, pkg.version);
 assert.equal(packed.name, '@pickchick/kitchen-desktop');
 assert.equal(packed.main, 'main.mjs');
