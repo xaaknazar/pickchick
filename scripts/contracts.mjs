@@ -16,6 +16,8 @@ import {
   MenuAckSchema,
   AckReceiptSchema,
   StaffSessionSchema,
+  StaffCredentialSchema,
+  StaffLoginSchema,
   CartSchema,
   QuoteSchema,
   LocalOrderSchema,
@@ -190,6 +192,37 @@ const openapi = {
     '/edge/v1/menu': get('getLocalMenu', 'MenuSnapshot', {
       404: response('Error', 'No local menu'),
     }),
+    '/edge/v1/staff/login': {
+      post: {
+        operationId: 'loginLocalStaff',
+        security: [],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/StaffLogin' } } },
+        },
+        responses: {
+          200: response('StaffCredential'),
+          401: response('Error', 'Invalid login, password, staff or terminal'),
+          413: response('Error', 'Login body exceeds 2 KiB'),
+          429: {
+            ...response('Error', 'AUTH_RATE_LIMITED'),
+            headers: { 'Retry-After': { schema: { type: 'string', const: '60' } } },
+          },
+          503: response('Error', 'Local service unavailable'),
+        },
+      },
+    },
+    '/edge/v1/staff/logout': {
+      post: {
+        operationId: 'logoutLocalStaff',
+        security: [{ staffBearer: [], staffSession: [] }],
+        responses: {
+          204: { description: 'Current session revoked' },
+          401: response('Error', 'Invalid or expired session'),
+          503: response('Error', 'Local service unavailable'),
+        },
+      },
+    },
     '/edge/v1/session': staffOperation('get', 'getLocalStaffSession', 'StaffSession'),
     '/edge/v1/checkout/quotes': staffOperation('post', 'createLocalQuote', 'Quote', 'Cart', {
       status: 201,
@@ -329,6 +362,8 @@ const openapi = {
       MenuAck: jsonSchema(MenuAckSchema),
       AckReceipt: jsonSchema(AckReceiptSchema),
       StaffSession: jsonSchema(StaffSessionSchema),
+      StaffCredential: jsonSchema(StaffCredentialSchema),
+      StaffLogin: jsonSchema(StaffLoginSchema),
       Cart: jsonSchema(CartSchema),
       Quote: jsonSchema(QuoteSchema),
       LocalOrder: jsonSchema(LocalOrderSchema),

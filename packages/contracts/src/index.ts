@@ -136,6 +136,7 @@ export const ErrorSchema = z.strictObject({
     'NOT_FOUND',
     'SERVICE_UNAVAILABLE',
     'RATE_LIMITED',
+    'AUTH_RATE_LIMITED',
     'INTERNAL_ERROR',
   ]),
   message_key: z.string(),
@@ -210,6 +211,20 @@ export const StaffSessionSchema = z.strictObject({
 export const StaffCredentialSchema = StaffSessionSchema.extend({
   token: z.string().regex(/^[a-f0-9]{64}$/),
 });
+// Passwords are deliberately never transformed or included in validation errors at HTTP boundaries.
+export const StaffLoginNameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9._-]{2,63}$/);
+export const StaffPasswordSchema = z.string().min(12).max(128);
+export const StaffLoginSchema = z.strictObject({
+  login: StaffLoginNameSchema,
+  password: StaffPasswordSchema,
+  terminal_id: UuidSchema,
+});
+export type StaffLogin = z.infer<typeof StaffLoginSchema>;
+
 export const ModifierSelectionSchema = z.strictObject({
   group_id: UuidSchema,
   option_id: UuidSchema,
