@@ -14,7 +14,7 @@ import {
 // No default connection: the operator must explicitly provide a disposable test
 // database. These tests never use the existing shared Mac development database.
 test(
-  'closed local upgrade is atomic, rejects foreign/cloud state and retains immutable history/session/stop/quote data',
+  'closed catalog upgrade on schema013 is atomic, rejects cloud state and retains immutable history/session/stop/quote data',
   { skip: !process.env.LOCAL_POS_CATALOG_UPGRADE_TEST_DATABASE_URL },
   async () => {
     const url = new URL(process.env.LOCAL_POS_CATALOG_UPGRADE_TEST_DATABASE_URL);
@@ -33,6 +33,15 @@ test(
         pool,
         fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url)),
         'edge',
+      );
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT count(*) FROM schema_migrations WHERE scope='edge' AND version='013_pos_kitchen_sync.sql'",
+          )
+        ).rows[0].count,
+        '1',
+        'Catalog upgrade is exercised after the complete service schema013 migration',
       );
       const oldBytes = await readFile(
         new URL('../../infra/windows/local-pos-draft-catalog.json', import.meta.url),
@@ -158,6 +167,11 @@ test(
         'fulfillment_config',
         'pos_order_sync_state',
         'local_orders',
+        'local_cash_shifts',
+        'local_staff_passwords',
+        'local_staff_login_limits',
+        'local_pos_service_setup',
+        'pos_kitchen_sync_state',
       ])
         assert.equal((await pool.query(`SELECT count(*) FROM ${table}`)).rows[0].count, '0');
       assert.equal(
@@ -178,6 +192,10 @@ test(
       assert.equal(
         (await pool.query('SELECT ordering_enabled FROM branch_config')).rows[0].ordering_enabled,
         false,
+      );
+      assert.equal(
+        (await pool.query('SELECT pos_service_mode FROM branch_config')).rows[0].pos_service_mode,
+        'payment_required',
       );
     } finally {
       await pool?.end();
