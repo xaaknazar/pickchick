@@ -13,10 +13,11 @@ import { withSyncDatabases } from '../helpers/sync.mjs';
 test('read-only preview verifier preserves all old table fingerprints through 009 to 010 and rejects wrong scope', async () => {
   const directory = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
   const old = await mkdtemp(join(tmpdir(), 'pickchick-native-upgrade-'));
+  const target = await mkdtemp(join(tmpdir(), 'pickchick-native-upgrade-010-'));
   try {
     const migrations = [];
     for (const name of (await readdir(directory))
-      .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name))
+      .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name) && name < '011')
       .sort()) {
       migrations.push({
         name,
@@ -24,6 +25,7 @@ test('read-only preview verifier preserves all old table fingerprints through 00
           .update(await readFile(join(directory, name)))
           .digest('hex'),
       });
+      await copyFile(join(directory, name), join(target, name));
       if (name < '010') await copyFile(join(directory, name), join(old, name));
     }
     await withSyncDatabases(
@@ -52,7 +54,7 @@ test('read-only preview verifier preserves all old table fingerprints through 00
         await ctx.edge.pool.query('UPDATE branch_config SET ordering_enabled=true');
         await assert.rejects(inspectPreview(ctx.edge.pool, options));
         await ctx.edge.pool.query('UPDATE branch_config SET ordering_enabled=false');
-        await migrate(ctx.edge.pool, directory, 'edge');
+        await migrate(ctx.edge.pool, target, 'edge');
         const after = await inspectPreview(ctx.edge.pool, { ...options, migrations });
         assert.equal(after.migrations, 10);
         assert.deepEqual(after.fingerprints, before.fingerprints);
@@ -65,5 +67,6 @@ test('read-only preview verifier preserves all old table fingerprints through 00
     );
   } finally {
     await rm(old, { recursive: true, force: true });
+    await rm(target, { recursive: true, force: true });
   }
 });
