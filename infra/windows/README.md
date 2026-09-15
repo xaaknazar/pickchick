@@ -4,6 +4,10 @@ These tools prepare the dedicated edge database and protect staff credential fil
 They do not install PostgreSQL, Node, Windows services or device tunnels. Use the
 repository's supported Node version and build the workspace packages first.
 
+For a fresh physical Windows host, the separate [native stage-1 operator script](native-foundation-stage1.md)
+can verify and extract the pinned binaries into protected directories. It still
+does not initialize PostgreSQL or install a running service.
+
 ## Database installation
 
 Provision a separate loopback PostgreSQL database named `pickchick_edge`, an owner
