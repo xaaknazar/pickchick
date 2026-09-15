@@ -1,10 +1,13 @@
 import { KitchenModel, allowedActions, displayWindow } from './model.js';
 import { request } from './api.js';
 import { startRuntime } from './runtime.js';
-import type { Action } from './types.js';
+import { UUID, type Action } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
 let branch = 'Локальная точка';
 let boardPage = 0;
+let terminalId: string | undefined;
+let loginName = '';
+let configLoaded = false;
 const escape = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -34,7 +37,11 @@ const errors: Record<string, string> = {
   CONNECTION_UNKNOWN: 'Нет ответа локального узла. Результат команды неизвестен.',
   EDGE_TIMEOUT: 'Локальный узел не ответил. Результат команды неизвестен.',
   CONFLICT: 'Заказ изменён другим сотрудником. Сверьте актуальное состояние.',
-  SESSION_EXPIRED: 'Сессия истекла. Импортируйте новый файл доступа.',
+  SESSION_EXPIRED: 'Сессия истекла. Войдите снова под своим логином.',
+  INVALID_LOGIN: 'Не удалось войти. Проверьте логин и пароль или обратитесь к управляющему.',
+  AUTH_RATE_LIMITED: 'Слишком много попыток входа. Подождите перед следующей попыткой.',
+  TERMINAL_NOT_CONFIGURED: 'Рабочее место ещё не привязано к терминалу. Обратитесь к управляющему.',
+  UNAUTHORIZED: 'Сессия истекла или отозвана. Войдите снова.',
   UNAUTHENTICATED: 'Доступ отозван или истёк. Требуется вход.',
   FORBIDDEN: 'Нет доступа к этой станции. Требуется вход.',
   OTHER_WINDOW: 'Этот рабочий доступ уже открыт в другом окне. Закройте его.',
@@ -81,14 +88,52 @@ function render() {
   const focus = document.activeElement instanceof HTMLElement ? document.activeElement.id : '';
   const scroll = document.querySelector('.workspace')?.scrollTop ?? 0;
   const blocked = s.busy || !!s.pending || s.storageBlocked || !s.lease || !!s.error;
-  const clock = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(
-    new Date(),
-  );
-  const header = `<header><div class="brand"><img src="/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${s.actor && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${s.orders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time>${clock}</time></header>`;
+  const clock = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Asia/Almaty',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date());
+  const header = `<header><div class="brand"><img src="/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${s.actor && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${s.orders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
   if (!s.actor) {
+    const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
+    const disabled = s.busy || !terminalId ? ' disabled' : '';
     root.innerHTML =
       header +
-      `<main class="login"><section><h2>Доступ сотрудника</h2><p>Импортируйте JSON-файл, выданный управляющим для этой точки и терминала.</p><label class="file">Выбрать файл доступа<input id="credential" type="file" accept="application/json,.json" ${s.busy ? 'disabled' : ''}></label><p class="muted">Кухня работает через локальный узел. Сессия хранится только в этом окне; незавершённая команда сохраняется после выхода.</p>${s.error ? `<p class="error" role="alert">${escape(errors[s.error] ?? 'Не удалось подключиться. Проверьте доступ и локальный узел.')}</p>` : ''}</section></main>`;
+      `<main class="login"><section>
+      <span class="login-eyebrow">РАБОЧИЙ ЭКРАН PICK CHICK</span><h2>Вход на кухню</h2><p>Войдите под своим логином. Вам будут доступны назначенные станции приготовления, сборки и выдачи.</p>
+      ${s.error ? `<p class="error" role="alert">${escape(errors[s.error] ?? 'Не удалось подключиться. Проверьте доступ и локальный узел.')}</p>` : ''}
+      ${!configLoaded ? '<p class="setup-notice" role="status">Подключаем рабочее место...</p>' : !terminalId ? '<p class="setup-notice" role="status">Управляющий должен завершить привязку этого терминала перед входом.</p>' : ''}
+      <form id="password-login" class="password-login">
+        <label for="staff-login">Логин</label><input id="staff-login" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="${escape(loginName)}" placeholder="Ваш логин"${disabled}>
+        <label for="staff-password">Пароль</label><div class="password-field"><input id="staff-password" name="password" type="password" autocomplete="current-password" maxlength="128" required placeholder="Введите пароль"${disabled}><button type="button" id="password-toggle" aria-label="Показать пароль" aria-pressed="false"${disabled}>Показать</button></div>
+        <span id="login-wait" role="status"></span><button class="login-submit" id="sign-in" type="submit"${disabled}>Войти</button>
+      </form><p class="muted">Логин и первый пароль выдаёт управляющий. Используйте свою учётную запись.</p>
+      <details class="login-service"${serviceOpen ? ' open' : ''}><summary>Обслуживание терминала</summary><p>Вход по файлу для оператора.</p><label class="file">Выбрать файл доступа<input id="credential" type="file" accept="application/json,.json" ${s.busy ? 'disabled' : ''}></label></details>
+    </section></main>`;
+    document.getElementById('staff-login')?.addEventListener('input', (event) => {
+      loginName = (event.target as HTMLInputElement).value;
+    });
+    document.getElementById('password-toggle')?.addEventListener('click', () => {
+      const input = document.querySelector<HTMLInputElement>('#staff-password')!;
+      const button = document.getElementById('password-toggle')!;
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      button.textContent = show ? 'Скрыть' : 'Показать';
+      button.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
+      button.setAttribute('aria-pressed', String(show));
+      input.focus();
+    });
+    document.getElementById('password-login')?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      loginName = document.querySelector<HTMLInputElement>('#staff-login')!.value;
+      const input = document.querySelector<HTMLInputElement>('#staff-password')!;
+      const password = input.value;
+      input.value = '';
+      void model.signInWithPassword(loginName, password, terminalId).then(() => {
+        if (!model.state.actor) document.getElementById('staff-password')?.focus();
+      });
+    });
+    updateLoginWait();
     document
       .querySelector<HTMLInputElement>('#credential')
       ?.addEventListener('change', async (e) => {
@@ -143,7 +188,7 @@ function render() {
       s.orders
         .map((o) => {
           const actions = allowedActions(o, s.stationId ?? '');
-          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">Приложение</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div><div class="lines">${o.tasks
+          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : 'Приложение'}</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div><div class="lines">${o.tasks
             .map((t) => {
               const own = t.stationId === s.stationId;
               const a = actions.find((a) => 'taskId' in a && a.taskId === t.taskId);
@@ -194,14 +239,47 @@ function render() {
   );
   if (focus) document.getElementById(focus)?.focus({ preventScroll: true });
 }
+function updateLoginWait() {
+  const seconds = Math.max(0, Math.ceil((model.retryLoginAt - Date.now()) / 1000));
+  const submit = document.querySelector<HTMLButtonElement>('#sign-in');
+  if (submit) {
+    submit.disabled = model.state.busy || !terminalId || seconds > 0;
+    submit.textContent = model.state.busy
+      ? 'Входим...'
+      : seconds
+        ? `Подождите ${seconds} с`
+        : 'Войти';
+    document.getElementById('login-wait')!.textContent = seconds
+      ? `Повторить вход через ${seconds} с`
+      : '';
+  }
+}
+render();
 try {
-  const response = await fetch('/config.json', { credentials: 'omit', redirect: 'error' });
-  const config = (await response.json()) as { branchLabel?: unknown };
+  const response = await fetch('/config.json', {
+    credentials: 'omit',
+    redirect: 'error',
+    signal: AbortSignal.timeout(10000),
+  });
+  const config = (await response.json()) as { branchLabel?: unknown; terminalId?: unknown };
   if (typeof config.branchLabel === 'string') branch = config.branchLabel.slice(0, 120);
+  if (typeof config.terminalId === 'string' && UUID.test(config.terminalId))
+    terminalId = config.terminalId;
 } catch {
   /* local default */
 }
+configLoaded = true;
 render();
+window.setInterval(() => {
+  updateLoginWait();
+  const clock = document.getElementById('clock');
+  if (clock)
+    clock.textContent = new Intl.DateTimeFormat('ru-RU', {
+      timeZone: 'Asia/Almaty',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date());
+}, 1000);
 await model.restore();
 startRuntime(model, () => {
   boardPage++;
