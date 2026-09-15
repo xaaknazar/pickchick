@@ -85,7 +85,8 @@ function Save-State {
     $script:state.updatedAt = [DateTime]::UtcNow.ToString('o')
     $temp = Join-Path $script:privateRoot ('state-' + [guid]::NewGuid().ToString() + '.tmp')
     Write-PrivateText $temp ($script:state | ConvertTo-Json -Depth 4)
-    if (Test-Path -LiteralPath $script:statePath) { [IO.File]::Replace($temp, $script:statePath, $null) }
+    # PS5.1 converts ordinary $null to an empty string for this string overload.
+    if (Test-Path -LiteralPath $script:statePath) { [IO.File]::Replace($temp, $script:statePath, [System.Management.Automation.Language.NullString]::Value) }
     else { [IO.File]::Move($temp, $script:statePath) }
 }
 
