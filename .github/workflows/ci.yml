@@ -160,6 +160,7 @@ jobs:
       - name: Check deployment guards and operator maintenance installer
         run: |
           python3 -m unittest discover -s tests/operations -p 'test_*.py'
+          python3 tests/operations/docker_context.py
           bash -n infra/staging/identity-cleanup-cron.sh
       - name: Build immutable image
         run: docker build -f infra/staging/Dockerfile --build-arg RELEASE_SHA=${{ github.sha }} -t pickchick-api:${{ github.sha }} .

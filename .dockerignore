@@ -12,8 +12,12 @@
 !scripts/
 !scripts/**
 !infra/
+infra/**
 !infra/staging/
 !infra/staging/**
+!infra/windows/
+infra/windows/**
+!infra/windows/pos-sync-worker-grants.mjs
 **/node_modules
 **/dist
 **/.env*
