@@ -1,5 +1,14 @@
 # PickChick — состояние проекта
 
+## Подготовка VPS к unpaid POS pilot
+
+Read-only SSH подтвердил API93b14e7/webbc1d1d5 и cloud001-014. Добавлены
+локальный release profile с проверкой этого baseline, opt-in compose/grants
+для BO/POS ingress и отдельная Docker-репетиция сохранности/backup/ACL.
+[Порядок и scope](operations/pos-pilot-release.md) явно сохраняют synthetic
+staging organization/legal entity и physical branch UUID; это не production
+onboarding. План не имеет apply и не утверждает завершённый VPS deployment.
+
 ## Локальная кухня POS и облачный бэк-офис
 
 Подготовлены edge013/cloud018 и отдельный наблюдательный поток kitchen events
