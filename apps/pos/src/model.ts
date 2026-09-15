@@ -548,9 +548,24 @@ export class PosController {
     this.emit();
     await this.replay();
   }
+  get hasConfirmedOpenShift() {
+    const { actor, shift, operationsAvailable, operationsError } = this.state;
+    return Boolean(
+      actor &&
+      operationsAvailable &&
+      !operationsError &&
+      shift?.state === 'open' &&
+      shift.branch_id === actor.branch_id &&
+      shift.staff_id === actor.staff_id &&
+      shift.terminal_id === actor.terminal_id,
+    );
+  }
   async create() {
     if (!this.editable()) return;
     await this.run(async () => {
+      if (!this.state.operationsAvailable || this.state.operationsError)
+        throw new Error('CASH_SHIFT_STATUS_UNKNOWN');
+      if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
       const q = this.state.quote;
       if (!q || Date.parse(q.expires_at) <= Date.now()) throw new Error('QUOTE_EXPIRED');
       await this.begin('create', 'orders', { quote_id: q.quote_id });
@@ -567,6 +582,19 @@ export class PosController {
     try {
       value = await this.request(p.path, { method: 'POST', body: p.body, key: p.key });
     } catch (error) {
+      const shiftConflict =
+        error instanceof ApiError &&
+        error.code === 'CONFLICT' &&
+        error.status === 409 &&
+        (p.kind === 'shift_open' || p.kind === 'shift_close');
+      if (shiftConflict) {
+        // The server rejected this command. A committed same-key replay returns success instead.
+        // Persist resolution before reading the new state; uncertain responses remain pending.
+        this.save({ ...j, pending: null });
+        this.state.operationsAvailable = false;
+        this.state.shift = null;
+        await this.readOperations();
+      }
       if (
         error instanceof ApiError &&
         [
