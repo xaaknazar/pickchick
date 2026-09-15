@@ -99,7 +99,12 @@ export function validateJournal(key, raw, scope) {
     if (!/^\d{4}-\d\d-\d\dT/.test(p.at) || !Number.isFinite(Date.parse(p.at))) fail();
     if (p.kind === 'create') {
       if (p.path !== 'orders') fail();
-      exact(p.body, ['quote_id']);
+      const keys =
+        p.body && Object.hasOwn(p.body, 'kitchen_admission')
+          ? ['quote_id', 'kitchen_admission']
+          : ['quote_id'];
+      exact(p.body, keys);
+      if (keys.length === 2 && p.body.kitchen_admission !== 'unpaid') fail();
       id(p.body.quote_id);
     } else if (p.kind === 'cancel') {
       text(p.path, 160);

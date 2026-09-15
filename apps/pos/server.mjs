@@ -12,7 +12,7 @@ const allowed = (method, path) =>
       ).test(path)
     : method === 'POST' &&
       new RegExp(
-        `^/edge/v1/(checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/close|ordering/(open|close)|availability/stops)$`,
+        `^/edge/v1/(staff/(login|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/close|ordering/(open|close)|availability/stops)$`,
         'i',
       ).test(path);
 const assets = new Map([
@@ -20,7 +20,7 @@ const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/logo.png', ['logo.png', 'image/png']],
-  ...['app', 'model', 'api', 'types'].map((n) => [
+  ...['app', 'model', 'api', 'types', 'auth-view', 'order-view'].map((n) => [
     `/${n}.js`,
     [`${n}.js`, 'text/javascript; charset=utf-8'],
   ]),
@@ -39,11 +39,18 @@ export function createPosServer({
   assetDir = new URL('dist/', import.meta.url),
   branchLabel = 'Локальная точка',
   categories = {},
+  terminalId,
   timeoutMs = 10000,
 } = {}) {
   if (!Number.isInteger(edgePort) || edgePort < 1 || edgePort > 65535)
     throw new Error('Invalid local edge port');
+  if (
+    terminalId !== undefined &&
+    (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId))
+  )
+    throw new Error('Invalid terminal id');
   const config = {
+    ...(terminalId === undefined ? {} : { terminalId }),
     branchLabel: String(branchLabel).slice(0, 120),
     categories: Object.fromEntries(
       Object.entries(categories).filter(
@@ -89,7 +96,7 @@ export function createPosServer({
         try {
           for await (const chunk of req) {
             size += chunk.length;
-            if (size > 64000) {
+            if (size > (path === '/edge/v1/staff/login' ? 2048 : 64000)) {
               send(413, { code: 'INVALID_REQUEST' });
               return;
             }
@@ -121,9 +128,13 @@ export function createPosServer({
           send(502, { code: 'INVALID_RESPONSE' });
           return;
         }
-        // No Set-Cookie, Location, CORS or other upstream headers cross the boundary.
+        // Only a bounded numeric retry hint crosses the response-header boundary.
         res.writeHead(response.status, {
           ...security,
+          ...(response.status === 429 &&
+          /^[1-9][0-9]{0,3}$/.test(response.headers.get('retry-after') ?? '')
+            ? { 'Retry-After': response.headers.get('retry-after') }
+            : {}),
           'Content-Type': 'application/json; charset=utf-8',
         });
         res.end(payload);

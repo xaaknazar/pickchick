@@ -304,3 +304,82 @@ test('an unresponsive local edge is bounded by the transport timeout', async () 
     await new Promise((resolve) => idle.close(resolve));
   }
 });
+
+test('password login has a small body, fixed terminal config and bounded retry hints; logout clears native authority', async () => {
+  const sessions = [];
+  await fixture(
+    async (handler, upstream) => {
+      assert.equal((await (await handler(request('/config.json'))).json()).terminalId, ID);
+      const body = JSON.stringify({
+        login: 'fixture.cashier',
+        password: 'synthetic-password-only',
+        terminal_id: ID,
+      });
+      const response = await handler(
+        request('/edge/v1/staff/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        }),
+      );
+      assert.equal(response.status, 429);
+      assert.equal(response.headers.get('retry-after'), '60');
+      assert.equal(response.headers.get('set-cookie'), null);
+      assert.deepEqual(sessions, [null]);
+      assert.equal(upstream.length, 0);
+      assert.equal(
+        (
+          await handler(
+            request('/edge/v1/staff/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: 'я'.repeat(1024) }),
+            }),
+          )
+        ).status,
+        413,
+      );
+    },
+    {
+      config: { terminalId: ID },
+      onSession: (value) => sessions.push(value),
+      fetchImpl: async () =>
+        new Response('{}', {
+          status: 429,
+          headers: { 'Retry-After': '60', 'Set-Cookie': 'fixture=value' },
+        }),
+    },
+  );
+  await fixture(
+    async (handler) => {
+      const response = await handler(
+        request('/edge/v1/staff/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        }),
+      );
+      assert.equal(response.status, 204);
+      assert.equal(await response.text(), '');
+    },
+    {
+      onSession: (value) => sessions.push(value),
+      fetchImpl: async () => new Response(null, { status: 204 }),
+    },
+  );
+  assert.ok(sessions.every((value) => value === null));
+  for (const terminalId of ['', 'invalid', null, 123])
+    assert.throws(() => validateConfig({ terminalId }));
+  for (const hint of ['0', '10000', 'soon', 'Wed, 21 Oct 2030 07:28:00 GMT']) {
+    await fixture(
+      async (handler) => {
+        const response = await handler(request('/edge/v1/session'));
+        assert.equal(response.headers.get('retry-after'), null);
+      },
+      {
+        fetchImpl: async () =>
+          new Response('{}', { status: 429, headers: { 'Retry-After': hint } }),
+      },
+    );
+  }
+});

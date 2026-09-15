@@ -196,3 +196,35 @@ test('a malformed or oversized existing journal blocks reads and replacement ins
     }
   });
 });
+
+test('atomic unpaid kitchen admission survives restart and rejects altered mode without losing the pending order', async () => {
+  await fixture(async ({ options }) => {
+    const value = JSON.parse(snapshot());
+    value.pending = {
+      kind: 'create',
+      path: 'orders',
+      body: { quote_id: id(9), kitchen_admission: 'unpaid' },
+      key: id(10),
+      at: '2030-01-01T00:00:00.000Z',
+    };
+    const store = createJournalStore(options);
+    authorize(store);
+    const expected = JSON.stringify(value);
+    store.setItem(key, expected);
+    const restarted = createJournalStore(options);
+    authorize(restarted);
+    assert.equal(restarted.getItem(key), expected);
+    for (const mode of ['paid', null, true]) {
+      value.pending.body.kitchen_admission = mode;
+      assert.throws(() => restarted.setItem(key, JSON.stringify(value)));
+      assert.equal(restarted.getItem(key), expected);
+    }
+    delete value.pending.body.kitchen_admission;
+    restarted.setItem(key, JSON.stringify(value));
+    assert.deepEqual(
+      JSON.parse(restarted.getItem(key)),
+      value,
+      'Legacy pending create remains readable',
+    );
+  });
+});

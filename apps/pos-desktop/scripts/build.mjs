@@ -28,9 +28,16 @@ if (process.argv.includes('--release') && (!sourceCommit || dirty)) {
 }
 const inputs = {};
 for (const path of [
-  ...['app.ts', 'api.ts', 'model.ts', 'types.ts', 'styles.css', 'index.html'].map(
-    (name) => `apps/pos/src/${name}`,
-  ),
+  ...[
+    'app.ts',
+    'api.ts',
+    'model.ts',
+    'types.ts',
+    'auth-view.ts',
+    'order-view.ts',
+    'styles.css',
+    'index.html',
+  ].map((name) => `apps/pos/src/${name}`),
   ...[
     'main.mjs',
     'protocol.mjs',
@@ -87,7 +94,7 @@ await copyFile(
   new URL('resources/config.example.json', base),
   new URL('config.example.json', buildResources),
 );
-for (const name of ['app', 'model', 'api', 'types']) {
+for (const name of ['app', 'model', 'api', 'types', 'auth-view', 'order-view']) {
   const text = await readFile(new URL(`${name}.ts`, source), 'utf8');
   const compiled = ts.transpileModule(text, {
     compilerOptions: {
@@ -120,6 +127,8 @@ const files = {};
 for (const name of [
   'api.js',
   'app.js',
+  'auth-view.js',
+  'order-view.js',
   'index.html',
   'logo.png',
   'model.js',

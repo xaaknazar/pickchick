@@ -33,6 +33,8 @@ assert.equal(
 const renderer = [
   'api.js',
   'app.js',
+  'auth-view.js',
+  'order-view.js',
   'index.html',
   'logo.png',
   'model.js',
@@ -42,9 +44,16 @@ const renderer = [
 ].sort();
 assert.deepEqual(Object.keys(manifest.files).sort(), renderer);
 const expectedInputs = [
-  ...['app.ts', 'api.ts', 'model.ts', 'types.ts', 'styles.css', 'index.html'].map(
-    (name) => `apps/pos/src/${name}`,
-  ),
+  ...[
+    'app.ts',
+    'api.ts',
+    'model.ts',
+    'types.ts',
+    'auth-view.ts',
+    'order-view.ts',
+    'styles.css',
+    'index.html',
+  ].map((name) => `apps/pos/src/${name}`),
   ...[
     'main.mjs',
     'protocol.mjs',
