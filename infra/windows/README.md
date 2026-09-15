@@ -9,6 +9,8 @@ does not initialize PostgreSQL or install a running service.
 The subsequent [native stage-2 operator script](native-services.md) initializes
 the fresh database and installs PostgreSQL/edge Windows services with protected
 credentials. Restaurant provisioning and device tunnels remain separate.
+A separate [protected local backup and restore rehearsal](native-backup.md) can
+verify the installed cashier database without overwriting any existing database.
 
 ## Database installation
 
