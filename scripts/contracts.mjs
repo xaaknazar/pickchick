@@ -15,6 +15,12 @@ import {
   CartSchema,
   QuoteSchema,
   LocalOrderSchema,
+  CashShiftSchema,
+  CashShiftOpenSchema,
+  CashShiftCloseSchema,
+  CashShiftCurrentSchema,
+  CashShiftListSchema,
+  LocalOrderListSchema,
   CreateLocalOrderSchema,
   CancelLocalOrderSchema,
   OrderingCommandSchema,
@@ -73,9 +79,30 @@ function staffOperation(
   operationId,
   result,
   input,
-  { status = 200, idempotent = false, orderId = false, variantId = false } = {},
+  {
+    status = 200,
+    idempotent = false,
+    orderId = false,
+    variantId = false,
+    shiftId = false,
+    shiftFilter = false,
+  } = {},
 ) {
   const parameters = [];
+  if (shiftId)
+    parameters.push({
+      name: 'shiftId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string', format: 'uuid' },
+    });
+  if (shiftFilter)
+    parameters.push({
+      name: 'shift_id',
+      in: 'query',
+      required: false,
+      schema: { type: 'string', format: 'uuid' },
+    });
   if (variantId)
     parameters.push({
       name: 'variantId',
@@ -163,12 +190,36 @@ const openapi = {
     '/edge/v1/checkout/quotes': staffOperation('post', 'createLocalQuote', 'Quote', 'Cart', {
       status: 201,
     }),
-    '/edge/v1/orders': staffOperation(
+    '/edge/v1/orders': {
+      ...staffOperation('get', 'listLocalOrders', 'LocalOrderList', undefined, {
+        shiftFilter: true,
+      }),
+      ...staffOperation('post', 'createLocalOrder', 'LocalOrder', 'CreateLocalOrder', {
+        status: 201,
+        idempotent: true,
+      }),
+    },
+    '/edge/v1/cash-shifts': {
+      ...staffOperation('get', 'listCashShifts', 'CashShiftList'),
+      ...staffOperation('post', 'openCashShift', 'CashShift', 'CashShiftOpen', {
+        status: 201,
+        idempotent: true,
+      }),
+    },
+    '/edge/v1/cash-shifts/current': staffOperation('get', 'currentCashShift', 'CashShiftCurrent'),
+    '/edge/v1/cash-shifts/{shiftId}': staffOperation(
+      'get',
+      'readCashShift',
+      'CashShift',
+      undefined,
+      { shiftId: true },
+    ),
+    '/edge/v1/cash-shifts/{shiftId}/close': staffOperation(
       'post',
-      'createLocalOrder',
-      'LocalOrder',
-      'CreateLocalOrder',
-      { status: 201, idempotent: true },
+      'closeCashShift',
+      'CashShift',
+      'CashShiftClose',
+      { idempotent: true, shiftId: true },
     ),
     '/edge/v1/orders/{orderId}': staffOperation('get', 'readLocalOrder', 'LocalOrder', undefined, {
       orderId: true,
@@ -277,6 +328,12 @@ const openapi = {
       Cart: jsonSchema(CartSchema),
       Quote: jsonSchema(QuoteSchema),
       LocalOrder: jsonSchema(LocalOrderSchema),
+      LocalOrderList: jsonSchema(LocalOrderListSchema),
+      CashShift: jsonSchema(CashShiftSchema),
+      CashShiftOpen: jsonSchema(CashShiftOpenSchema),
+      CashShiftClose: jsonSchema(CashShiftCloseSchema),
+      CashShiftCurrent: jsonSchema(CashShiftCurrentSchema),
+      CashShiftList: jsonSchema(CashShiftListSchema),
       CreateLocalOrder: jsonSchema(CreateLocalOrderSchema),
       CancelLocalOrder: jsonSchema(CancelLocalOrderSchema),
       OrderingCommand: jsonSchema(OrderingCommandSchema),
