@@ -273,7 +273,23 @@ export const QuoteSchema = z.strictObject({
   created_at: z.iso.datetime(),
   expires_at: z.iso.datetime(),
 });
-export const CreateLocalOrderSchema = z.strictObject({ quote_id: UuidSchema });
+export const CreateLocalOrderSchema = z.strictObject({
+  quote_id: UuidSchema,
+  kitchen_admission: z.literal('unpaid').optional(),
+});
+export const LocalFulfillmentStateSchema = z.enum([
+  'accepted',
+  'in_production',
+  'ready',
+  'handed_over',
+  'cancel_requested',
+  'cancelled',
+]);
+export const LocalFulfillmentSchema = z.strictObject({
+  version: z.number().int().positive().max(2147483647),
+  display_number: MoneyMinorSchema.refine((value) => BigInt(value) > 0n),
+  state: LocalFulfillmentStateSchema,
+});
 export const CancelLocalOrderSchema = z.strictObject({
   expected_version: z.number().int().positive().max(2147483647),
   reason: z.string().trim().min(1).max(300),
@@ -287,7 +303,9 @@ export const LocalOrderSchema = z.strictObject({
   state: z.enum(['awaiting_payment', 'cancelled']),
   payment_state: z.literal('not_started'),
   fiscal_state: z.literal('not_requested'),
-  fulfillment_state: z.literal('blocked'),
+  fulfillment_state: z.union([z.literal('blocked'), LocalFulfillmentStateSchema]),
+  execution_mode: z.literal('unpaid_service').optional(),
+  fulfillment: LocalFulfillmentSchema.optional(),
   next_action: z.enum(['payment_not_available', 'none']),
   snapshot: QuoteSchema,
   created_at: z.iso.datetime(),
@@ -297,6 +315,7 @@ export const OrderingCommandSchema = z.strictObject({
   expected_version: z.number().int().positive().max(2147483647),
 });
 export const OrderingStateSchema = z.strictObject({
+  pos_service_mode: z.enum(['payment_required', 'unpaid_service']).optional(),
   branch_id: UuidSchema,
   ordering_enabled: z.boolean(),
   version: z.number().int().positive().max(2147483647),

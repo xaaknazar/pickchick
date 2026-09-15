@@ -385,8 +385,15 @@ test('010 to 011 preserves existing sessions/menu/shift rows and does not seed a
         for (const table of tables)
           before.set(
             table,
-            (await ctx.edge.pool.query('SELECT row_to_json(t) AS record FROM ' + table + ' t'))
-              .rows,
+            (
+              await ctx.edge.pool.query(
+                'SELECT to_jsonb(t)' +
+                  (table === 'branch_config' ? "-'pos_service_mode'" : '') +
+                  ' AS record FROM ' +
+                  table +
+                  ' t',
+              )
+            ).rows,
           );
         const ledger = (
           await ctx.edge.pool.query(
@@ -406,8 +413,15 @@ test('010 to 011 preserves existing sessions/menu/shift rows and does not seed a
         );
         for (const table of tables)
           assert.deepEqual(
-            (await ctx.edge.pool.query('SELECT row_to_json(t) AS record FROM ' + table + ' t'))
-              .rows,
+            (
+              await ctx.edge.pool.query(
+                'SELECT to_jsonb(t)' +
+                  (table === 'branch_config' ? "-'pos_service_mode'" : '') +
+                  ' AS record FROM ' +
+                  table +
+                  ' t',
+              )
+            ).rows,
             before.get(table),
           );
         for (const table of ['local_staff_passwords', 'local_staff_login_limits'])
