@@ -19,49 +19,10 @@ import {
   LeaseSchema,
   AckSchema,
 } from './model.js';
-import type { TrustedCloud, Snapshot, TaskPlan } from './model.js';
+import type { TrustedCloud } from './model.js';
 
-type State =
-  | 'held'
-  | 'accepted'
-  | 'in_production'
-  | 'ready'
-  | 'handed_over'
-  | 'cancel_requested'
-  | 'cancelled'
-  | 'released';
-interface Reservation {
-  order_id: string;
-  branch_id: string;
-  reservation_id: string;
-  quote_id: string;
-  quote_hash: string;
-  owner_hash: string;
-  device_id: string;
-  snapshot: Snapshot;
-  routing_version: number;
-  task_plan: TaskPlan[];
-  assembly_station_id: string;
-  version: number;
-  state: State;
-  display_number: string | null;
-  business_day: string | null;
-  authorized_event_id: string | null;
-  created_at: Date;
-  updated_at: Date;
-  cancellation_reason: string | null;
-  inventory_disposition: string | null;
-}
-interface Task {
-  id: string;
-  branch_id: string;
-  order_id: string;
-  station_id: string;
-  version: number;
-  state: 'queued' | 'in_progress' | 'done' | 'cancel_requested' | 'cancelled';
-  kind: 'prep' | 'assembly_item';
-  details: TaskPlan['details'];
-}
+import { view, emit, advance } from './records.js';
+import type { Reservation, Task, State } from './records.js';
 const fail = (code: ConstructorParameters<typeof FulfillmentError>[0]): never => {
   throw new FulfillmentError(code);
 };
@@ -85,55 +46,6 @@ async function readReservation(client: DatabaseClient, branchId: string, id: str
     )
   ).rows[0];
   return row ?? fail('NOT_FOUND');
-}
-function view(row: Reservation) {
-  return {
-    orderId: row.order_id,
-    branchId: row.branch_id,
-    reservationId: row.reservation_id,
-    quoteId: row.quote_id,
-    quoteDigest: row.quote_hash,
-    ownerHash: row.owner_hash,
-    commercialOwner: 'cloud' as const,
-    fulfillmentOwner: 'edge' as const,
-    deviceId: row.device_id,
-    version: row.version,
-    state: row.state,
-    displayNumber: row.display_number,
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
-    routingVersion: row.routing_version,
-    assemblyStationId: row.assembly_station_id,
-  };
-}
-async function emit(
-  client: DatabaseClient,
-  row: Reservation,
-  type: string,
-  extra: Record<string, unknown> = {},
-) {
-  const id = randomUUID();
-  await client.query(
-    `INSERT INTO fulfillment_outbox(event_id,branch_id,order_id,aggregate_version,event_type,payload) VALUES($1,$2,$3,$4,$5,$6)`,
-    [id, row.branch_id, row.order_id, row.version, type, { ...view(row), ...extra }],
-  );
-  return id;
-}
-async function advance(
-  client: DatabaseClient,
-  row: Reservation,
-  state: State,
-  type: string,
-  extra: Record<string, unknown> = {},
-) {
-  const next = (
-    await client.query<Reservation>(
-      'UPDATE fulfillment_reservations SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *',
-      [row.order_id, state],
-    )
-  ).rows[0]!;
-  await emit(client, next, type, extra);
-  return next;
 }
 async function stationPermission(
   client: DatabaseClient,
@@ -214,6 +126,7 @@ export class EdgeFulfillment {
         });
         if (existing) {
           if (
+            existing.commercial_owner !== 'cloud' ||
             existing.owner_hash !== ownerHash ||
             ['cancelled', 'released'].includes(existing.state)
           )
@@ -269,6 +182,7 @@ export class EdgeFulfillment {
       } else {
         row = await order(client, scope.branchId, payload.orderId);
         if (
+          row.commercial_owner !== 'cloud' ||
           !('reservationId' in payload) ||
           row.reservation_id !== payload.reservationId ||
           row.quote_hash !== payload.quoteDigest ||
@@ -372,6 +286,7 @@ export class EdgeFulfillment {
       let row = await order(client, scope.branchId, command.payload.orderId);
       const p = command.payload;
       if (
+        row.commercial_owner !== 'cloud' ||
         row.reservation_id !== p.reservationId ||
         row.quote_hash !== p.quoteDigest ||
         row.device_id !== scope.deviceId
@@ -422,6 +337,9 @@ export class EdgeFulfillment {
     return transaction(this.pool, async (client) => {
       const staff = await authenticateStaff(client, branchId, auth);
       if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      // Commercial cancellation locks branch before reservation. Take the audit
+      // FK's key-share lock now as well, never after owning the reservation.
+      await client.query('SELECT id FROM branch_config WHERE id=$1 FOR KEY SHARE', [branchId]);
       await lock(
         client,
         'fulfillment:staff:' + branchId + ':' + staff.staff_id + ':' + command.commandId,
@@ -648,7 +566,7 @@ export class EdgeFulfillment {
       await boundary(client, scope);
       return (
         await client.query(
-          `WITH chosen AS (SELECT event_id FROM fulfillment_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL AND (lease_until IS NULL OR lease_until<clock_timestamp()) ORDER BY sequence LIMIT $2 FOR UPDATE SKIP LOCKED) UPDATE fulfillment_outbox o SET lease_worker=$3,lease_token=$4,lease_until=clock_timestamp()+$5*interval '1 second',attempts=attempts+1 FROM chosen c WHERE o.event_id=c.event_id RETURNING o.*`,
+          `WITH chosen AS (SELECT event_id FROM fulfillment_outbox WHERE branch_id=$1 AND EXISTS(SELECT 1 FROM fulfillment_reservations r WHERE r.order_id=fulfillment_outbox.order_id AND r.commercial_owner='cloud') AND acknowledged_at IS NULL AND (lease_until IS NULL OR lease_until<clock_timestamp()) ORDER BY sequence LIMIT $2 FOR UPDATE SKIP LOCKED) UPDATE fulfillment_outbox o SET lease_worker=$3,lease_token=$4,lease_until=clock_timestamp()+$5*interval '1 second',attempts=attempts+1 FROM chosen c WHERE o.event_id=c.event_id RETURNING o.*`,
           [scope.branchId, req.limit, req.workerId, randomUUID(), req.leaseSeconds],
         )
       ).rows;
@@ -661,7 +579,7 @@ export class EdgeFulfillment {
       const row =
         (
           await client.query(
-            'SELECT * FROM fulfillment_outbox WHERE event_id=$1 AND branch_id=$2 FOR UPDATE',
+            "SELECT * FROM fulfillment_outbox WHERE event_id=$1 AND branch_id=$2 AND EXISTS(SELECT 1 FROM fulfillment_reservations r WHERE r.order_id=fulfillment_outbox.order_id AND r.commercial_owner='cloud') FOR UPDATE",
             [req.eventId, scope.branchId],
           )
         ).rows[0] ?? fail('NOT_FOUND');
