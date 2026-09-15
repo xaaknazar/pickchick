@@ -51,7 +51,11 @@ import {
   TransportReceiptSchema,
 } from '@pickchick/fulfillment-transport';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
-import { PosOrderEventSchema, PosOrderReceiptSchema } from '@pickchick/pos-order-sync';
+import {
+  PosOrderEventSchema,
+  PosKitchenEventSchema,
+  PosOrderReceiptSchema,
+} from '@pickchick/pos-order-sync';
 import {
   CatalogStateSchema,
   CatalogBranchesSchema,
@@ -863,18 +867,26 @@ for (const [path, operationId, input, result, description] of [
 
 Object.assign(openapi.components.schemas, {
   PosOrderSyncEvent: jsonSchema(PosOrderEventSchema),
+  PosKitchenSyncEvent: jsonSchema(PosKitchenEventSchema),
   PosOrderSyncReceipt: jsonSchema(PosOrderReceiptSchema),
 });
 openapi.paths['/internal/v1/edge/pos-orders/events'] = {
   post: {
     operationId: 'observeEdgePosOrder',
     description:
-      'Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order create v1 then cancel v2. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.',
+      'Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order commercial create v1 then cancel v2, or kitchen version+1. Kitchen has a separate immutable inbox and requires the unpaid commercial snapshot/owner hash. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.',
     security: [{ deviceBearer: [], deviceId: [] }],
     requestBody: {
       required: true,
       content: {
-        'application/json': { schema: { $ref: '#/components/schemas/PosOrderSyncEvent' } },
+        'application/json': {
+          schema: {
+            oneOf: [
+              { $ref: '#/components/schemas/PosOrderSyncEvent' },
+              { $ref: '#/components/schemas/PosKitchenSyncEvent' },
+            ],
+          },
+        },
       },
     },
     responses: {

@@ -9,7 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { RESOURCE, Resources } from '@pickchick/platform';
-import { PosSyncError, receivePosOrder } from '@pickchick/pos-order-sync';
+import { PosSyncError, receivePosOrder, receivePosKitchen } from '@pickchick/pos-order-sync';
 import { SyncError } from '@pickchick/menu-sync';
 
 /** Private authenticated transport only; no public or manager mutation endpoint. */
@@ -27,7 +27,14 @@ export class PosOrderSyncController {
     if (!this.resources.config.posOrderSyncEnabled) throw new HttpException('NOT_FOUND', 404);
     if (Object.keys(query).length) throw new HttpException('INVALID_REQUEST', 400);
     try {
-      return await receivePosOrder(
+      const receive =
+        body &&
+        typeof body === 'object' &&
+        'aggregate_type' in body &&
+        body.aggregate_type === 'order_fulfillment'
+          ? receivePosKitchen
+          : receivePosOrder;
+      return await receive(
         this.resources.pool,
         {
           deviceId: deviceId ?? '',

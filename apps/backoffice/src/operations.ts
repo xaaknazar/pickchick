@@ -20,6 +20,15 @@ export const sections = [
   ['audit', 'Журнал аудита', 'Кто, когда и что изменил'],
 ] as const;
 const labels: Record<string, string> = {
+  'order.created': 'Заказ создан',
+  'order.cancelled': 'Заказ отменён',
+  'edge.fulfillment_accepted': 'Принят кухней',
+  'edge.task_changed': 'Этап приготовления',
+  'edge.fulfillment_ready': 'Готов к выдаче',
+  'edge.fulfillment_handed_over': 'Выдан гостю',
+  'edge.fulfillment_cancelled': 'Отменён на кухне',
+  done: 'Готово',
+  edge_pos: 'Касса',
   active: 'Активно',
   archived: 'В архиве',
   draft: 'Черновик',
@@ -873,6 +882,9 @@ export class OperationsView {
           ['Статус', status(o['state'])],
           ['Версия', val(o['version'])],
           ['Владелец', status(data['owner'])],
+          ...(o['kitchen_state']
+            ? [['Кухня', status(o['kitchen_state'])] as [string, string]]
+            : []),
         ]),
       );
       const lines = (
@@ -882,7 +894,10 @@ export class OperationsView {
         table(
           ['Позиция', 'Количество', 'Цена'],
           lines.map((l) => [
-            val(l['title'] ?? l['name']),
+            val(
+              l['title'] ??
+                (l['name'] && typeof l['name'] === 'object' ? object(l['name'])['ru'] : l['name']),
+            ),
             val(l['quantity']),
             amount(l['unitPriceMinor'] ?? l['unit_price_minor']),
           ]),
@@ -905,11 +920,12 @@ export class OperationsView {
           ),
         );
       d.append(
-        el('h3', '', 'История кухни'),
+        el('h3', '', 'История заказа и кухни'),
         table(
-          ['Событие', 'Версия', 'Получено'],
+          ['Событие', 'Состояние', 'Версия', 'Получено'],
           (data['events'] as Data[]).map((r) => [
-            val(r['event_type']),
+            status(r['event_type']),
+            status(r['task_state'] ?? r['state']),
             val(r['aggregate_version']),
             date(r['received_at']),
           ]),

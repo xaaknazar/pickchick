@@ -102,7 +102,8 @@ export async function receivePosOrder(pool: DatabasePool, auth: DeviceAuth, inpu
             existing.producer_id !== event.producer_id ||
             existing.snapshot_hash !== snapshotHash ||
             existing.quote_id !== p.quote_id ||
-            existing.total_minor !== p.total_minor
+            existing.total_minor !== p.total_minor ||
+            (existing.execution_mode ?? undefined) !== p.execution_mode
       )
         throw new PosSyncError('CONFLICT');
       // No contiguous-global-sequence requirement: unrelated filtered stream events may create gaps.
@@ -125,8 +126,8 @@ export async function receivePosOrder(pool: DatabasePool, auth: DeviceAuth, inpu
       if (event.aggregate_version === 1) {
         await client.query(
           `INSERT INTO pos_order_sync_projection(order_id,branch_id,device_id,producer_id,
-          quote_id,snapshot,snapshot_hash,total_minor,version,state,last_event_id)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,'awaiting_payment',$9)`,
+          quote_id,snapshot,snapshot_hash,total_minor,version,state,last_event_id,execution_mode)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,'awaiting_payment',$9,$10)`,
           [
             event.aggregate_id,
             branch,
@@ -137,6 +138,7 @@ export async function receivePosOrder(pool: DatabasePool, auth: DeviceAuth, inpu
             snapshotHash,
             p.total_minor,
             event.event_id,
+            p.execution_mode ?? null,
           ],
         );
       } else {

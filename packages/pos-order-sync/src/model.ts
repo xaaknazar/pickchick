@@ -27,6 +27,7 @@ export const PosOrderEventSchema = EventEnvelopeSchema.extend({
     state: z.enum(['awaiting_payment', 'cancelled']),
     payment_state: z.literal('not_started'),
     fulfillment_state: z.literal('blocked'),
+    execution_mode: z.literal('unpaid_service').optional(),
     total_minor: MoneyMinorSchema,
     currency: z.literal('KZT'),
     channel: z.literal('pos'),
