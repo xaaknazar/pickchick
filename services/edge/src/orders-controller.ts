@@ -8,6 +8,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
@@ -20,6 +21,12 @@ import {
   readOrdering,
   setStop,
   readStop,
+  openCashShift,
+  closeCashShift,
+  currentCashShift,
+  readCashShift,
+  listCashShifts,
+  listLocalOrders,
   OrderError,
   orderErrorStatus,
 } from '@pickchick/local-orders';
@@ -76,6 +83,56 @@ export class LocalOrdersController {
   create(@Headers() headers: Record<string, string | undefined>, @Body() body: unknown) {
     return this.run(headers, (auth) =>
       createLocalOrder(this.pool, this.branchId, auth, headers['idempotency-key'] ?? '', body),
+    );
+  }
+
+  @Get('orders')
+  listOrders(
+    @Headers() headers: Record<string, string | undefined>,
+    @Query('shift_id') shiftId?: string,
+  ) {
+    return this.run(headers, (auth) => listLocalOrders(this.pool, this.branchId, auth, shiftId));
+  }
+
+  @Get('cash-shifts/current')
+  currentShift(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, (auth) => currentCashShift(this.pool, this.branchId, auth));
+  }
+
+  @Get('cash-shifts')
+  shifts(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, (auth) => listCashShifts(this.pool, this.branchId, auth));
+  }
+
+  @Get('cash-shifts/:shiftId')
+  shift(@Headers() headers: Record<string, string | undefined>, @Param('shiftId') shiftId: string) {
+    return this.run(headers, (auth) => readCashShift(this.pool, this.branchId, auth, shiftId));
+  }
+
+  @Post('cash-shifts')
+  @HttpCode(201)
+  openShift(@Headers() headers: Record<string, string | undefined>, @Body() body: unknown) {
+    return this.run(headers, (auth) =>
+      openCashShift(this.pool, this.branchId, auth, headers['idempotency-key'] ?? '', body),
+    );
+  }
+
+  @Post('cash-shifts/:shiftId/close')
+  @HttpCode(200)
+  closeShift(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('shiftId') shiftId: string,
+    @Body() body: unknown,
+  ) {
+    return this.run(headers, (auth) =>
+      closeCashShift(
+        this.pool,
+        this.branchId,
+        auth,
+        headers['idempotency-key'] ?? '',
+        shiftId,
+        body,
+      ),
     );
   }
 

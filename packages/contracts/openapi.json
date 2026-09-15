@@ -418,6 +418,108 @@
       }
     },
     "/edge/v1/orders": {
+      "get": {
+        "operationId": "listLocalOrders",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shift_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalOrderList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "createLocalOrder",
         "security": [
@@ -454,6 +556,533 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LocalOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts": {
+      "get": {
+        "operationId": "listCashShifts",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "openCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashShiftOpen"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShift"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts/current": {
+      "get": {
+        "operationId": "currentCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftCurrent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts/{shiftId}": {
+      "get": {
+        "operationId": "readCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shiftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShift"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts/{shiftId}/close": {
+      "post": {
+        "operationId": "closeCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shiftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashShiftClose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShift"
                 }
               }
             }
@@ -6559,6 +7188,121 @@
                 "currency": {
                   "type": "string",
                   "const": "KZT"
+                },
+                "image_url": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^(?:https:\\/\\/[^\\s]+|\\/(?!\\/)[^\\s]*)$"
+                },
+                "modifier_groups": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "name": {
+                        "type": "object",
+                        "properties": {
+                          "ru": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "kk": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "required": [
+                          "ru",
+                          "kk"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "min_selected": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 99
+                      },
+                      "max_selected": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99
+                      },
+                      "options": {
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "price_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "max_quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "default_quantity": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 99
+                            },
+                            "available": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "price_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "min_selected",
+                      "max_selected",
+                      "options"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
@@ -6678,6 +7422,7 @@
               "MENU_CHANGED",
               "BRANCH_UNAVAILABLE",
               "ITEM_STOPPED",
+              "CASH_SHIFT_REQUIRED",
               "CONFLICT",
               "PAYLOAD_TOO_LARGE",
               "NOT_FOUND",
@@ -6851,6 +7596,121 @@
                         "currency": {
                           "type": "string",
                           "const": "KZT"
+                        },
+                        "image_url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^(?:https:\\/\\/[^\\s]+|\\/(?!\\/)[^\\s]*)$"
+                        },
+                        "modifier_groups": {
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "object",
+                                "properties": {
+                                  "ru": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "kk": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "ru",
+                                  "kk"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "min_selected": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 99
+                              },
+                              "max_selected": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              },
+                              "options": {
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ru": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "kk": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "ru",
+                                        "kk"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "price_minor": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                                    },
+                                    "max_quantity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 99
+                                    },
+                                    "default_quantity": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 99
+                                    },
+                                    "available": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name",
+                                    "price_minor"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "min_selected",
+                              "max_selected",
+                              "options"
+                            ],
+                            "additionalProperties": false
+                          }
                         }
                       },
                       "required": [
@@ -7054,6 +7914,121 @@
                                 "currency": {
                                   "type": "string",
                                   "const": "KZT"
+                                },
+                                "image_url": {
+                                  "type": "string",
+                                  "maxLength": 2048,
+                                  "pattern": "^(?:https:\\/\\/[^\\s]+|\\/(?!\\/)[^\\s]*)$"
+                                },
+                                "modifier_groups": {
+                                  "maxItems": 20,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "name": {
+                                        "type": "object",
+                                        "properties": {
+                                          "ru": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 300
+                                          },
+                                          "kk": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 300
+                                          }
+                                        },
+                                        "required": [
+                                          "ru",
+                                          "kk"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "min_selected": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 99
+                                      },
+                                      "max_selected": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 99
+                                      },
+                                      "options": {
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "name": {
+                                              "type": "object",
+                                              "properties": {
+                                                "ru": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 300
+                                                },
+                                                "kk": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 300
+                                                }
+                                              },
+                                              "required": [
+                                                "ru",
+                                                "kk"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            "price_minor": {
+                                              "type": "string",
+                                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                                            },
+                                            "max_quantity": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 99
+                                            },
+                                            "default_quantity": {
+                                              "type": "integer",
+                                              "minimum": 0,
+                                              "maximum": 99
+                                            },
+                                            "available": {
+                                              "type": "boolean"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "price_minor"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "min_selected",
+                                      "max_selected",
+                                      "options"
+                                    ],
+                                    "additionalProperties": false
+                                  }
                                 }
                               },
                               "required": [
@@ -7261,6 +8236,35 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 99
+                },
+                "modifiers": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "group_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "option_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99
+                      }
+                    },
+                    "required": [
+                      "group_id",
+                      "option_id"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
@@ -7320,6 +8324,82 @@
             "items": {
               "type": "object",
               "properties": {
+                "modifiers": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "group_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "option_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99
+                      },
+                      "group_name": {
+                        "type": "object",
+                        "properties": {
+                          "ru": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "kk": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "required": [
+                          "ru",
+                          "kk"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "name": {
+                        "type": "object",
+                        "properties": {
+                          "ru": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "kk": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "required": [
+                          "ru",
+                          "kk"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "price_minor": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,18})$"
+                      }
+                    },
+                    "required": [
+                      "group_id",
+                      "option_id",
+                      "group_name",
+                      "name",
+                      "price_minor"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
                 "product_id": {
                   "type": "string",
                   "format": "uuid",
@@ -7423,6 +8503,18 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "cash_shift_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "order_id": {
             "type": "string",
             "format": "uuid",
@@ -7510,6 +8602,82 @@
                 "items": {
                   "type": "object",
                   "properties": {
+                    "modifiers": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "option_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 99
+                          },
+                          "group_name": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "kk": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "name": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "kk": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "price_minor": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9]\\d{0,18})$"
+                          }
+                        },
+                        "required": [
+                          "group_id",
+                          "option_id",
+                          "group_name",
+                          "name",
+                          "price_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "product_id": {
                       "type": "string",
                       "format": "uuid",
@@ -7634,6 +8802,934 @@
           "snapshot",
           "created_at",
           "cancellation_reason"
+        ],
+        "additionalProperties": false
+      },
+      "LocalOrderList": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "orders": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cash_shift_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "order_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "branch_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "quote_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2147483647
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "awaiting_payment",
+                    "cancelled"
+                  ]
+                },
+                "payment_state": {
+                  "type": "string",
+                  "const": "not_started"
+                },
+                "fiscal_state": {
+                  "type": "string",
+                  "const": "not_requested"
+                },
+                "fulfillment_state": {
+                  "type": "string",
+                  "const": "blocked"
+                },
+                "next_action": {
+                  "type": "string",
+                  "enum": [
+                    "payment_not_available",
+                    "none"
+                  ]
+                },
+                "snapshot": {
+                  "type": "object",
+                  "properties": {
+                    "quote_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "branch_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "release_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "menu_version": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 2147483647
+                    },
+                    "service_mode": {
+                      "type": "string",
+                      "enum": [
+                        "dine_in",
+                        "takeaway"
+                      ]
+                    },
+                    "channel": {
+                      "type": "string",
+                      "const": "pos"
+                    },
+                    "lines": {
+                      "minItems": 1,
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "modifiers": {
+                            "maxItems": 100,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "group_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "option_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 99
+                                },
+                                "group_name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "price_minor": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                                }
+                              },
+                              "required": [
+                                "group_id",
+                                "option_id",
+                                "group_name",
+                                "name",
+                                "price_minor"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "product_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "variant_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "kk": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 99
+                          },
+                          "unit_price_minor": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9]\\d{0,18})$"
+                          },
+                          "total_minor": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9]\\d{0,18})$"
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "variant_id",
+                          "name",
+                          "quantity",
+                          "unit_price_minor",
+                          "total_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "currency": {
+                      "type": "string",
+                      "const": "KZT"
+                    },
+                    "subtotal_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    "discount_minor": {
+                      "type": "string",
+                      "const": "0"
+                    },
+                    "total_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "quote_id",
+                    "branch_id",
+                    "release_id",
+                    "menu_version",
+                    "service_mode",
+                    "channel",
+                    "lines",
+                    "currency",
+                    "subtotal_minor",
+                    "discount_minor",
+                    "total_minor",
+                    "created_at",
+                    "expires_at"
+                  ],
+                  "additionalProperties": false
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "cancellation_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "order_id",
+                "branch_id",
+                "quote_id",
+                "version",
+                "state",
+                "payment_state",
+                "fiscal_state",
+                "fulfillment_state",
+                "next_action",
+                "snapshot",
+                "created_at",
+                "cancellation_reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "orders",
+          "server_time"
+        ],
+        "additionalProperties": false
+      },
+      "CashShift": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "shift_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "branch_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "terminal_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "staff_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 2147483647
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "closed_by_staff_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "opening_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "expected_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "counted_cash_minor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,18})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "discrepancy_minor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "closing_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "const": "KZT"
+          },
+          "order_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "awaiting_payment_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "cancelled_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "order_total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "unpaid_total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "cash_received_minor": {
+            "type": "string",
+            "const": "0"
+          },
+          "cash_refunded_minor": {
+            "type": "string",
+            "const": "0"
+          },
+          "payment_processing_available": {
+            "type": "boolean",
+            "const": false
+          },
+          "report_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "shift_id",
+          "branch_id",
+          "terminal_id",
+          "staff_id",
+          "version",
+          "state",
+          "opened_at",
+          "closed_at",
+          "closed_by_staff_id",
+          "opening_cash_minor",
+          "expected_cash_minor",
+          "counted_cash_minor",
+          "discrepancy_minor",
+          "closing_reason",
+          "currency",
+          "order_count",
+          "awaiting_payment_count",
+          "cancelled_count",
+          "order_total_minor",
+          "unpaid_total_minor",
+          "cash_received_minor",
+          "cash_refunded_minor",
+          "payment_processing_available",
+          "report_at"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftOpen": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "opening_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          }
+        },
+        "required": [
+          "opening_cash_minor"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftClose": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 2147483647
+          },
+          "counted_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "expected_version",
+          "counted_cash_minor",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftCurrent": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "shift": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "shift_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "branch_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "terminal_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "staff_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  },
+                  "opened_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "closed_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "closed_by_staff_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "opening_cash_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "expected_cash_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "counted_cash_minor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,18})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discrepancy_minor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "closing_reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string",
+                    "const": "KZT"
+                  },
+                  "order_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "awaiting_payment_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cancelled_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "order_total_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "unpaid_total_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "cash_received_minor": {
+                    "type": "string",
+                    "const": "0"
+                  },
+                  "cash_refunded_minor": {
+                    "type": "string",
+                    "const": "0"
+                  },
+                  "payment_processing_available": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "report_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "shift_id",
+                  "branch_id",
+                  "terminal_id",
+                  "staff_id",
+                  "version",
+                  "state",
+                  "opened_at",
+                  "closed_at",
+                  "closed_by_staff_id",
+                  "opening_cash_minor",
+                  "expected_cash_minor",
+                  "counted_cash_minor",
+                  "discrepancy_minor",
+                  "closing_reason",
+                  "currency",
+                  "order_count",
+                  "awaiting_payment_count",
+                  "cancelled_count",
+                  "order_total_minor",
+                  "unpaid_total_minor",
+                  "cash_received_minor",
+                  "cash_refunded_minor",
+                  "payment_processing_available",
+                  "report_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "shift",
+          "server_time"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftList": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "shifts": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "shift_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "branch_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "terminal_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "staff_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2147483647
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "closed"
+                  ]
+                },
+                "opened_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "closed_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "closed_by_staff_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "opening_cash_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "expected_cash_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "counted_cash_minor": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "discrepancy_minor": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "closing_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "currency": {
+                  "type": "string",
+                  "const": "KZT"
+                },
+                "order_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "awaiting_payment_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "cancelled_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "order_total_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "unpaid_total_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "cash_received_minor": {
+                  "type": "string",
+                  "const": "0"
+                },
+                "cash_refunded_minor": {
+                  "type": "string",
+                  "const": "0"
+                },
+                "payment_processing_available": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "report_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "shift_id",
+                "branch_id",
+                "terminal_id",
+                "staff_id",
+                "version",
+                "state",
+                "opened_at",
+                "closed_at",
+                "closed_by_staff_id",
+                "opening_cash_minor",
+                "expected_cash_minor",
+                "counted_cash_minor",
+                "discrepancy_minor",
+                "closing_reason",
+                "currency",
+                "order_count",
+                "awaiting_payment_count",
+                "cancelled_count",
+                "order_total_minor",
+                "unpaid_total_minor",
+                "cash_received_minor",
+                "cash_refunded_minor",
+                "payment_processing_available",
+                "report_at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "shifts",
+          "server_time"
         ],
         "additionalProperties": false
       },
@@ -16947,6 +19043,82 @@
                     "items": {
                       "type": "object",
                       "properties": {
+                        "modifiers": {
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "group_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "option_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              },
+                              "group_name": {
+                                "type": "object",
+                                "properties": {
+                                  "ru": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "kk": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "ru",
+                                  "kk"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "name": {
+                                "type": "object",
+                                "properties": {
+                                  "ru": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "kk": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "ru",
+                                  "kk"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,18})$"
+                              }
+                            },
+                            "required": [
+                              "group_id",
+                              "option_id",
+                              "group_name",
+                              "name",
+                              "price_minor"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "product_id": {
                           "type": "string",
                           "format": "uuid",

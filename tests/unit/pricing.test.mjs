@@ -21,7 +21,7 @@ test('pricing uses exact integer arithmetic above JavaScript safe range and refu
     priceCart({ ...menu, items: [{ ...menu.items[0], price_minor: '9223372036854775807' }] }, cart),
   );
 });
-test('cart rejects client money, unknown or repeated variants, modifiers and invalid quantities', () => {
+test('cart rejects client money, unknown or repeated variants and invalid quantities', () => {
   for (const invalid of [
     { ...cart, total_minor: '1' },
     { ...cart, items: [] },
@@ -30,7 +30,6 @@ test('cart rejects client money, unknown or repeated variants, modifiers and inv
     { ...cart, items: [{ ...cart.items[0], quantity: 0 }] },
     { ...cart, items: [{ ...cart.items[0], quantity: 1.5 }] },
     { ...cart, items: [{ ...cart.items[0], quantity: 100 }] },
-    { ...cart, items: [{ ...cart.items[0], modifiers: [] }] },
   ])
     assert.throws(() => priceCart(fixtureMenu, invalid));
   assert.throws(

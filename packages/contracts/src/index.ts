@@ -38,6 +38,40 @@ export const CapabilitiesSchema = z.strictObject({
   notice: LocalizedTextSchema,
 });
 
+export const MenuModifierOptionSchema = z
+  .strictObject({
+    id: UuidSchema,
+    name: LocalizedTextSchema,
+    price_minor: MoneyMinorSchema,
+    max_quantity: z.number().int().min(1).max(99).optional(),
+    default_quantity: z.number().int().min(0).max(99).optional(),
+    available: z.boolean().optional(),
+  })
+  .refine(
+    (option) =>
+      (option.default_quantity ?? 0) <= (option.max_quantity ?? 1) &&
+      (option.available !== false || !option.default_quantity),
+    'Invalid option defaults',
+  );
+export const MenuModifierGroupSchema = z
+  .strictObject({
+    id: UuidSchema,
+    name: LocalizedTextSchema,
+    min_selected: z.number().int().min(0).max(99),
+    max_selected: z.number().int().min(1).max(99),
+    options: z.array(MenuModifierOptionSchema).min(1).max(20),
+  })
+  .refine(
+    (group) =>
+      group.min_selected <= group.max_selected &&
+      group.max_selected <=
+        group.options.reduce((sum, option) => sum + (option.max_quantity ?? 1), 0) &&
+      group.options.reduce((sum, option) => sum + (option.default_quantity ?? 0), 0) <=
+        group.max_selected &&
+      new Set(group.options.map((option) => option.id)).size === group.options.length,
+    'Invalid modifier group',
+  );
+
 export const MenuItemSchema = z.strictObject({
   product_id: UuidSchema,
   variant_id: UuidSchema,
@@ -45,6 +79,19 @@ export const MenuItemSchema = z.strictObject({
   name: LocalizedTextSchema,
   price_minor: MoneyMinorSchema,
   currency: z.literal('KZT'),
+  image_url: z
+    .string()
+    .max(2048)
+    .regex(/^(?:https:\/\/[^\s]+|\/(?!\/)[^\s]*)$/)
+    .optional(),
+  modifier_groups: z
+    .array(MenuModifierGroupSchema)
+    .max(20)
+    .refine(
+      (groups) => new Set(groups.map((group) => group.id)).size === groups.length,
+      'Duplicate modifier groups',
+    )
+    .optional(),
 });
 
 export const MenuSnapshotSchema = z.strictObject({
@@ -81,6 +128,7 @@ export const ErrorSchema = z.strictObject({
     'MENU_CHANGED',
     'BRANCH_UNAVAILABLE',
     'ITEM_STOPPED',
+    'CASH_SHIFT_REQUIRED',
     'CONFLICT',
     'PAYLOAD_TOO_LARGE',
     'NOT_FOUND',
@@ -160,15 +208,32 @@ export const StaffSessionSchema = z.strictObject({
 export const StaffCredentialSchema = StaffSessionSchema.extend({
   token: z.string().regex(/^[a-f0-9]{64}$/),
 });
+export const ModifierSelectionSchema = z.strictObject({
+  group_id: UuidSchema,
+  option_id: UuidSchema,
+  quantity: z.number().int().min(1).max(99).optional(),
+});
+export const QuoteModifierSchema = ModifierSelectionSchema.extend({
+  group_name: LocalizedTextSchema,
+  name: LocalizedTextSchema,
+  price_minor: MoneyMinorSchema,
+});
 export const CartSchema = z.strictObject({
   release_id: UuidSchema,
   service_mode: z.enum(['dine_in', 'takeaway']),
   items: z
-    .array(z.strictObject({ variant_id: UuidSchema, quantity: z.number().int().min(1).max(99) }))
+    .array(
+      z.strictObject({
+        variant_id: UuidSchema,
+        quantity: z.number().int().min(1).max(99),
+        modifiers: z.array(ModifierSelectionSchema).max(100).optional(),
+      }),
+    )
     .min(1)
     .max(50),
 });
 export const QuoteLineSchema = z.strictObject({
+  modifiers: z.array(QuoteModifierSchema).max(100).optional(),
   product_id: UuidSchema,
   variant_id: UuidSchema,
   name: LocalizedTextSchema,
@@ -197,6 +262,7 @@ export const CancelLocalOrderSchema = z.strictObject({
   reason: z.string().trim().min(1).max(300),
 });
 export const LocalOrderSchema = z.strictObject({
+  cash_shift_id: UuidSchema.nullable().optional(),
   order_id: UuidSchema,
   branch_id: UuidSchema,
   quote_id: UuidSchema,
@@ -235,6 +301,61 @@ export type StaffRole = z.infer<typeof StaffRoleSchema>;
 export type Cart = z.infer<typeof CartSchema>;
 export type Quote = z.infer<typeof QuoteSchema>;
 export type LocalOrder = z.infer<typeof LocalOrderSchema>;
+
+export const CashShiftOpenSchema = z.strictObject({ opening_cash_minor: MoneyMinorSchema });
+export const CashShiftCloseSchema = z.strictObject({
+  expected_version: z.number().int().positive().max(2147483647),
+  counted_cash_minor: MoneyMinorSchema,
+  reason: z.string().trim().min(1).max(300),
+});
+export const CashShiftSchema = z.strictObject({
+  shift_id: UuidSchema,
+  branch_id: UuidSchema,
+  terminal_id: UuidSchema,
+  staff_id: UuidSchema,
+  version: z.number().int().positive().max(2147483647),
+  state: z.enum(['open', 'closed']),
+  opened_at: z.iso.datetime(),
+  closed_at: z.iso.datetime().nullable(),
+  closed_by_staff_id: UuidSchema.nullable(),
+  opening_cash_minor: MoneyMinorSchema,
+  expected_cash_minor: MoneyMinorSchema,
+  counted_cash_minor: MoneyMinorSchema.nullable(),
+  discrepancy_minor: z
+    .string()
+    .regex(/^(?:0|-?[1-9]\d{0,18})$/)
+    .refine(
+      (value) =>
+        /^(?:0|-?[1-9]\d{0,18})$/.test(value) &&
+        BigInt(value) >= -9223372036854775807n &&
+        BigInt(value) <= 9223372036854775807n,
+    )
+    .nullable(),
+  closing_reason: z.string().nullable(),
+  currency: z.literal('KZT'),
+  order_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  awaiting_payment_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  cancelled_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  order_total_minor: MoneyMinorSchema,
+  unpaid_total_minor: MoneyMinorSchema,
+  cash_received_minor: z.literal('0'),
+  cash_refunded_minor: z.literal('0'),
+  payment_processing_available: z.literal(false),
+  report_at: z.iso.datetime(),
+});
+export const CashShiftCurrentSchema = z.strictObject({
+  shift: CashShiftSchema.nullable(),
+  server_time: z.iso.datetime(),
+});
+export const CashShiftListSchema = z.strictObject({
+  shifts: z.array(CashShiftSchema).max(50),
+  server_time: z.iso.datetime(),
+});
+export const LocalOrderListSchema = z.strictObject({
+  orders: z.array(LocalOrderSchema).max(100),
+  server_time: z.iso.datetime(),
+});
+export type CashShift = z.infer<typeof CashShiftSchema>;
 
 // OpenAPI and event JSON Schema are generated from these runtime schemas.
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);

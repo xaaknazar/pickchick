@@ -13,6 +13,7 @@ const posRead = [
   'local_orders',
   'local_command_results',
   'local_order_streams',
+  'local_cash_shifts',
 ];
 const kitchenRead = [
   'fulfillment_config',
@@ -51,8 +52,13 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
       'local_order_streams',
       'outbox_events',
       'local_audit',
+      'local_cash_shifts',
     ]),
     grant('UPDATE(state, version, cancellation_reason)', ['local_orders']),
+    grant(
+      'UPDATE(state, version, closed_at, closed_by_staff_id, counted_cash_minor, discrepancy_minor, closing_reason, closed_report)',
+      ['local_cash_shifts'],
+    ),
     grant('UPDATE(last_sequence)', ['local_order_streams']),
     grant('INSERT', ['local_stops']),
     grant('UPDATE(stopped, version, reason)', ['local_stops']),
@@ -98,9 +104,9 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     );
     if (unsafe.rowCount) throw new Error('Runtime role may not own objects or inherit roles');
     const ledger = await client.query(
-      `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='009_edge_runtime_lock_grants.sql'`,
+      `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='010_edge_cash_shifts.sql'`,
     );
-    if (ledger.rowCount !== 1) throw new Error('Edge migration 009 required');
+    if (ledger.rowCount !== 1) throw new Error('Edge migration 010 required');
     const otherScope = await client.query(
       `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope<>'edge' LIMIT 1`,
     );

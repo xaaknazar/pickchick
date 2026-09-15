@@ -12,29 +12,18 @@ import {
   MenuSnapshotSchema,
   UuidSchema,
   EventEnvelopeSchema,
+  LocalOrderListSchema,
 } from '@pickchick/contracts';
 import type { StaffSession, LocalOrder } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
-import { hashJson } from '@pickchick/menu-sync';
 import { authenticateStaff, requirePermission, audit } from './staff.js';
 import type { StaffAuth } from './staff.js';
 import { OrderError } from './errors.js';
 import { priceCart } from './pricing.js';
+import { command, lockBranch } from './commands.js';
+import { requireOpenCashShift, loadCashShift } from './shifts.js';
 
-interface BranchState {
-  id: string;
-  ordering_enabled: boolean;
-  ordering_version: number;
-}
-async function lockBranch(client: DatabaseClient, branchId: string): Promise<BranchState> {
-  const result = await client.query<BranchState>(
-    'SELECT id, ordering_enabled, ordering_version FROM branch_config WHERE id = $1 FOR UPDATE',
-    [branchId],
-  );
-  if (!result.rows[0]) throw new OrderError('BRANCH_UNAVAILABLE');
-  return result.rows[0];
-}
 async function activeMenu(client: DatabaseClient, branchId: string) {
   const result = await client.query(
     `SELECT s.payload FROM active_menu a JOIN menu_snapshots s
@@ -50,41 +39,6 @@ async function checkStops(client: DatabaseClient, branchId: string, variants: st
     [branchId, variants],
   );
   if (stopped.rowCount) throw new OrderError('ITEM_STOPPED');
-}
-
-async function command<T>(
-  pool: DatabasePool,
-  branchId: string,
-  auth: StaffAuth,
-  permission: 'checkout' | 'manage',
-  type: string,
-  key: string,
-  input: unknown,
-  run: (client: DatabaseClient, actor: StaffSession, branch: BranchState) => Promise<T>,
-): Promise<T> {
-  if (!UuidSchema.safeParse(key).success) throw new OrderError('INVALID_REQUEST');
-  return transaction(pool, async (client) => {
-    const actor = await authenticateStaff(client, branchId, auth);
-    requirePermission(actor, permission);
-    const branch = await lockBranch(client, branchId);
-    const scope = [branchId, actor.staff_id, actor.terminal_id, type, key];
-    const old = await client.query(
-      `SELECT request_hash, result FROM local_command_results
-      WHERE branch_id=$1 AND staff_id=$2 AND terminal_id=$3 AND command_type=$4 AND idempotency_key=$5`,
-      scope,
-    );
-    if (old.rows[0]) {
-      if (old.rows[0].request_hash !== hashJson(input)) throw new OrderError('CONFLICT');
-      return old.rows[0].result as T;
-    }
-    const result = await run(client, actor, branch);
-    await client.query(
-      `INSERT INTO local_command_results(branch_id,staff_id,terminal_id,command_type,idempotency_key,request_hash,result)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [...scope, hashJson(input), result],
-    );
-    return result;
-  });
 }
 
 export async function createQuote(
@@ -170,6 +124,7 @@ async function loadOrder(
     snapshot: row.snapshot,
     created_at: row.created_at.toISOString(),
     cancellation_reason: row.cancellation_reason,
+    ...(row.cash_shift_id ? { cash_shift_id: row.cash_shift_id } : {}),
   });
 }
 
@@ -272,10 +227,19 @@ export async function createLocalOrder(
         branchId,
         quote.lines.map((item) => item.variant_id),
       );
+      const shift = await requireOpenCashShift(client, branchId, actor);
+      const shiftTotal = (
+        await client.query(
+          'SELECT coalesce(sum(total_minor),0)::text AS total FROM local_orders WHERE cash_shift_id=$1 AND branch_id=$2',
+          [shift.id, branchId],
+        )
+      ).rows[0].total;
+      if (BigInt(shiftTotal) + BigInt(quote.total_minor) > 9223372036854775807n)
+        throw new OrderError('INVALID_REQUEST');
       const orderId = randomUUID();
       await client.query(
-        'INSERT INTO local_orders(id,branch_id,quote_id,total_minor) VALUES ($1,$2,$3,$4)',
-        [orderId, branchId, quote.quote_id, quote.total_minor],
+        'INSERT INTO local_orders(id,branch_id,quote_id,total_minor,cash_shift_id) VALUES ($1,$2,$3,$4,$5)',
+        [orderId, branchId, quote.quote_id, quote.total_minor, shift.id],
       );
       const order = await loadOrder(client, branchId, actor, orderId);
       await orderEvent(client, order, 'order.created');
@@ -441,5 +405,37 @@ export function readStop(pool: DatabasePool, branchId: string, auth: StaffAuth, 
     return StopStateSchema.parse(
       result.rows[0] ?? { variant_id: variantId, stopped: false, version: 0 },
     );
+  });
+}
+
+export function listLocalOrders(
+  pool: DatabasePool,
+  branchId: string,
+  auth: StaffAuth,
+  shiftId?: string,
+) {
+  if (shiftId !== undefined && !UuidSchema.safeParse(shiftId).success)
+    throw new OrderError('INVALID_REQUEST');
+  return transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+    await lockBranch(client, branchId);
+    if (shiftId) await loadCashShift(client, branchId, actor, shiftId);
+    const rows = await client.query(
+      `SELECT o.id FROM local_orders o JOIN checkout_quotes q ON q.id=o.quote_id
+      WHERE o.branch_id=$1 AND ($2::boolean OR (q.staff_id=$3 AND q.terminal_id=$4))
+      AND ($5::uuid IS NULL OR o.cash_shift_id=$5) ORDER BY o.created_at DESC,o.id DESC LIMIT 100`,
+      [
+        branchId,
+        actor.role === 'shift_manager',
+        actor.staff_id,
+        actor.terminal_id,
+        shiftId ?? null,
+      ],
+    );
+    const orders = [];
+    for (const row of rows.rows) orders.push(await loadOrder(client, branchId, actor, row.id));
+    const time = (await client.query('SELECT clock_timestamp() AS time')).rows[0].time;
+    return LocalOrderListSchema.parse({ orders, server_time: time.toISOString() });
   });
 }

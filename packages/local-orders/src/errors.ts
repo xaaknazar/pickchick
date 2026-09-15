@@ -9,7 +9,8 @@ export class OrderError extends Error {
       | 'QUOTE_EXPIRED'
       | 'MENU_CHANGED'
       | 'BRANCH_UNAVAILABLE'
-      | 'ITEM_STOPPED',
+      | 'ITEM_STOPPED'
+      | 'CASH_SHIFT_REQUIRED',
   ) {
     super(code);
   }
@@ -24,4 +25,5 @@ export const orderErrorStatus = {
   MENU_CHANGED: 409,
   BRANCH_UNAVAILABLE: 409,
   ITEM_STOPPED: 409,
+  CASH_SHIFT_REQUIRED: 409,
 } as const;

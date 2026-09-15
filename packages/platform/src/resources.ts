@@ -36,7 +36,7 @@ export class Resources implements OnApplicationShutdown {
       await this.pool.query('SELECT 1');
       database = 'up';
       const scope = this.config.service === 'api' ? 'cloud' : 'edge';
-      const version = scope === 'cloud' ? '003_cloud_menu_sync.sql' : '004_edge_local_orders.sql';
+      const version = scope === 'cloud' ? '003_cloud_menu_sync.sql' : '010_edge_cash_shifts.sql';
       const result = await this.pool.query(
         'SELECT 1 FROM schema_migrations WHERE scope = $1 AND version = $2',
         [scope, version],
@@ -157,7 +157,8 @@ export class Resources implements OnApplicationShutdown {
             this.config.branchId,
           ]);
           await this.pool.query('SELECT branch_id FROM active_menu LIMIT 1');
-          await this.pool.query('SELECT id FROM local_orders LIMIT 1');
+          await this.pool.query('SELECT id,cash_shift_id FROM local_orders LIMIT 0');
+          await this.pool.query('SELECT id FROM local_cash_shifts LIMIT 0');
           if (this.config.edgeFulfillmentEnabled) {
             const fulfillment = await this.pool.query(
               'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
