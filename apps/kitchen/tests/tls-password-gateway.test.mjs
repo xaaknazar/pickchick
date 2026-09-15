@@ -1,18 +1,27 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:https';
 import { once } from 'node:events';
 import { networkInterfaces, tmpdir } from 'node:os';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, copyFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { allowed, createKitchenServer, validateUpstream } from '../server.mjs';
-import {
-  validateConfig,
-  isAllowedRendererRequest,
-  APP_ORIGIN,
-} from '../../kitchen-desktop/security.mjs';
+import { pathToFileURL } from 'node:url';
+
+// Desktop build copies the canonical server beside security.mjs. Use a private
+// fixture for the same module pair; a clean web checkout has no generated gateway.
+const desktopFixture = await mkdtemp(join(tmpdir(), 'pickchick-kitchen-security-'));
+after(() => rm(desktopFixture, { recursive: true, force: true }));
+await copyFile(
+  new URL('../../kitchen-desktop/security.mjs', import.meta.url),
+  join(desktopFixture, 'security.mjs'),
+);
+await copyFile(new URL('../server.mjs', import.meta.url), join(desktopFixture, 'gateway.mjs'));
+const { validateConfig, isAllowedRendererRequest, APP_ORIGIN } = await import(
+  pathToFileURL(join(desktopFixture, 'security.mjs')).href
+);
 
 const privateIP = Object.values(networkInterfaces())
   .flat()
