@@ -91,9 +91,9 @@ test('create commits but response is lost: reload replays identical request and 
     const requests = [];
     let drop = true;
     const flaky = async (path, c, o) => {
-      if (path === 'orders') requests.push(globalThis.structuredClone(o));
+      if (path === 'orders' && o?.method === 'POST') requests.push(globalThis.structuredClone(o));
       const value = await api(path, c, o);
-      if (path === 'orders' && drop) {
+      if (path === 'orders' && o?.method === 'POST' && drop) {
         drop = false;
         throw new ApiError('EDGE_UNREACHABLE');
       }
@@ -134,7 +134,7 @@ test('expired actor preserves pending journal; wrong actor cannot replay; renewe
     let drop = true;
     const flaky = async (path, c, o) => {
       const result = await api(path, c, o);
-      if (path === 'orders' && drop) {
+      if (path === 'orders' && o?.method === 'POST' && drop) {
         drop = false;
         throw new ApiError('EDGE_UNREACHABLE');
       }
@@ -171,7 +171,7 @@ test('failed durable write blocks POST, malformed journal blocks recovery, serve
     const { controller, storage } = await prepared(ctx, api);
     let posts = 0;
     const apiCount = async (...args) => {
-      if (args[0] === 'orders') posts++;
+      if (args[0] === 'orders' && args[2]?.method === 'POST') posts++;
       return api(...args);
     };
     const c = new PosController(apiCount, memory(), storage, randomUUID);
