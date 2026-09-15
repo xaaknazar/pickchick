@@ -58,6 +58,10 @@ export async function provisionEdgePosSync(
       scope.branchId,
       active,
     ]);
+    await client.query(
+      'INSERT INTO pos_kitchen_sync_state(branch_id) VALUES($1) ON CONFLICT(branch_id) DO NOTHING',
+      [scope.branchId],
+    );
     return { ...scope, producerId };
   });
 }
