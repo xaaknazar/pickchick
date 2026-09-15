@@ -224,7 +224,9 @@ jobs:
       - name: Verify local queue, command recovery and display
         env:
           PICKCHICK_BROWSER_PYTHON: .local/design-venv/bin/python
-        run: pnpm test:kitchen
+        run: |
+          pnpm test:kitchen
+          node --env-file=.env --test --test-concurrency=1 tests/operations/kitchen-lan.test.mjs tests/operations/kitchen-lan-chain.test.mjs
       - name: Stop isolated local infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
