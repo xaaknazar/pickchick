@@ -10,11 +10,13 @@ directories:
 files:
   - main.mjs
   - protocol.mjs
+  - menu-assets.mjs
   - journal.mjs
   - preload.cjs
   - renderer/index.html
   - renderer/styles.css
   - renderer/logo.png
+  - renderer/assets/menu/*.jpg
   - renderer/app.js
   - renderer/api.js
   - renderer/model.js

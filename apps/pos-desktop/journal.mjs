@@ -28,6 +28,45 @@ function integer(value, min = 1, max = 2147483647) {
 function text(value, max = 300) {
   if (typeof value !== 'string' || !value.length || value.length > max) fail();
 }
+function money(value) {
+  if (
+    typeof value !== 'string' ||
+    !/^(0|[1-9]\d{0,18})$/.test(value) ||
+    BigInt(value) > 9223372036854775807n
+  )
+    fail();
+}
+function lineKey(item) {
+  if (!item || typeof item !== 'object') fail();
+  exact(
+    item,
+    Object.hasOwn(item, 'modifiers')
+      ? ['variant_id', 'quantity', 'modifiers']
+      : ['variant_id', 'quantity'],
+  );
+  id(item.variant_id);
+  integer(item.quantity, 1, 99);
+  const modifiers = item.modifiers ?? [];
+  if (!Array.isArray(modifiers) || modifiers.length > 100) fail();
+  const keys = modifiers.map((modifier) => {
+    if (!modifier || typeof modifier !== 'object') fail();
+    exact(
+      modifier,
+      Object.hasOwn(modifier, 'quantity')
+        ? ['group_id', 'option_id', 'quantity']
+        : ['group_id', 'option_id'],
+    );
+    id(modifier.group_id);
+    id(modifier.option_id);
+    if (Object.hasOwn(modifier, 'quantity')) integer(modifier.quantity, 1, 99);
+    return `${modifier.group_id.toLowerCase()}:${modifier.option_id.toLowerCase()}`;
+  });
+  if (new Set(keys).size !== keys.length) fail();
+  const selections = modifiers
+    .map((modifier, index) => `${keys[index]}=${modifier.quantity ?? 1}`)
+    .sort();
+  return `${item.variant_id.toLowerCase()}|${selections.join('|')}`;
+}
 export function validateJournal(key, raw, scope) {
   if (typeof scope !== 'string' || scope.split('.').length !== 3) fail();
   scope.split('.').forEach(id);
@@ -51,12 +90,7 @@ export function validateJournal(key, raw, scope) {
       d.items.length > 50
     )
       fail();
-    d.items.forEach((item) => {
-      exact(item, ['variant_id', 'quantity']);
-      id(item.variant_id);
-      integer(item.quantity, 1, 99);
-    });
-    if (new Set(d.items.map((item) => item.variant_id)).size !== d.items.length) fail();
+    if (new Set(d.items.map(lineKey)).size !== d.items.length) fail();
   }
   if (j.pending !== null) {
     const p = exact(j.pending, ['key', 'path', 'body', 'kind', 'at']);
@@ -75,6 +109,20 @@ export function validateJournal(key, raw, scope) {
       exact(p.body, ['expected_version', 'reason']);
       integer(p.body.expected_version);
       text(p.body.reason);
+    } else if (p.kind === 'shift_open') {
+      if (p.path !== 'cash-shifts') fail();
+      exact(p.body, ['opening_cash_minor']);
+      money(p.body.opening_cash_minor);
+    } else if (p.kind === 'shift_close') {
+      text(p.path, 160);
+      const parts = p.path.split('/');
+      if (parts.length !== 3 || parts[0] !== 'cash-shifts' || parts[2] !== 'close') fail();
+      id(parts[1]);
+      exact(p.body, ['expected_version', 'counted_cash_minor', 'reason']);
+      integer(p.body.expected_version);
+      money(p.body.counted_cash_minor);
+      text(p.body.reason);
+      if (!p.body.reason.trim()) fail();
     } else if (p.kind === 'ordering') {
       if (!['ordering/open', 'ordering/close'].includes(p.path)) fail();
       exact(p.body, ['expected_version']);

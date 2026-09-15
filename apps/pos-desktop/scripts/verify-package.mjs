@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { MENU_ASSETS } from '../menu-assets.mjs';
 import { extractFile, listPackage } from '@electron/asar';
 import { getCurrentFuseWire, FuseV1Options, FuseState } from '@electron/fuses';
 
@@ -37,7 +38,8 @@ const renderer = [
   'model.js',
   'styles.css',
   'types.js',
-];
+  ...MENU_ASSETS.map((name) => `assets/menu/${name}`),
+].sort();
 assert.deepEqual(Object.keys(manifest.files).sort(), renderer);
 const expectedInputs = [
   ...['app.ts', 'api.ts', 'model.ts', 'types.ts', 'styles.css', 'index.html'].map(
@@ -46,6 +48,7 @@ const expectedInputs = [
   ...[
     'main.mjs',
     'protocol.mjs',
+    'menu-assets.mjs',
     'journal.mjs',
     'preload.cjs',
     'package.json',
@@ -60,6 +63,7 @@ const expectedInputs = [
   'tsconfig.base.json',
   'packages/contracts/src/index.ts',
   'design/prototype/assets/mockup/logo.png',
+  ...MENU_ASSETS.map((name) => `design/prototype/assets/mockup/${name}`),
 ].sort();
 assert.deepEqual(Object.keys(manifest.inputs).sort(), expectedInputs);
 for (const path of expectedInputs) {
@@ -75,11 +79,14 @@ assert.deepEqual(
   [
     '/main.mjs',
     '/protocol.mjs',
+    '/menu-assets.mjs',
     '/journal.mjs',
     '/preload.cjs',
     '/package.json',
     '/renderer',
     '/renderer/asset-manifest.json',
+    '/renderer/assets',
+    '/renderer/assets/menu',
     ...renderer.map((name) => `/renderer/${name}`),
   ].sort(),
   'Unexpected packaged file',
@@ -89,7 +96,7 @@ for (const name of renderer) {
   assert.equal(hash(asset), manifest.files[name].sha256, `Renderer hash differs: ${name}`);
   assert.equal(asset.byteLength, manifest.files[name].bytes);
 }
-for (const name of ['main.mjs', 'protocol.mjs', 'journal.mjs', 'preload.cjs'])
+for (const name of ['main.mjs', 'protocol.mjs', 'menu-assets.mjs', 'journal.mjs', 'preload.cjs'])
   assert.equal(
     hash(extractFile(asar, name)),
     manifest.inputs[`apps/pos-desktop/${name}`].sha256,

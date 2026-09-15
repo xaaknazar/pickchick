@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -6,15 +7,16 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|ordering|orders/${UUID}|availability/stops/${UUID})$`,
+        `^/edge/v1/(session|menu|ordering|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops/${UUID})$`,
         'i',
       ).test(path)
     : method === 'POST' &&
       new RegExp(
-        `^/edge/v1/(checkout/quotes|orders|orders/${UUID}/cancel|ordering/(open|close)|availability/stops)$`,
+        `^/edge/v1/(checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/close|ordering/(open|close)|availability/stops)$`,
         'i',
       ).test(path);
 const assets = new Map([
+  ...MENU_ASSETS.map((name) => [`/assets/menu/${name}`, [`assets/menu/${name}`, 'image/jpeg']]),
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/logo.png', ['logo.png', 'image/png']],

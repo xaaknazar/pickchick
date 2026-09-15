@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer } from 'node:http';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -23,6 +23,8 @@ async function fixture(run, options = {}) {
     );
     await writeFile(join(directory, 'app.js'), 'globalThis.LOCAL_ASSET_FIXTURE = true;');
     await writeFile(join(directory, 'private.txt'), 'MUST_NOT_BE_PUBLIC');
+    await mkdir(join(directory, 'assets/menu'), { recursive: true });
+    await writeFile(join(directory, 'assets/menu/i0.jpg'), Buffer.from([255, 216, 255, 217]));
     const handler = createProtocolHandler({
       assetDir: pathToFileURL(directory + '/'),
       config: validateConfig({ edgePort: 3101, branchLabel: 'Synthetic desktop', categories: {} }),
@@ -93,7 +95,11 @@ test('foreign origins, unsupported edge operations and query tricks never reach 
     );
     for (const [method, path] of [
       ['GET', '/edge/v1/session?token=not-a-token'],
-      ['GET', '/edge/v1/orders'],
+      ['GET', '/edge/v1/orders?shift_id=invalid'],
+      ['GET', `/edge/v1/orders?shift_id=${ID}&shift_id=${ID}`],
+      ['GET', `/edge/v1/orders?shift_id=${ID}&all=true`],
+      ['GET', `/edge/v1/cash-shifts?shift_id=${ID}`],
+      ['POST', `/edge/v1/orders?shift_id=${ID}`],
       ['GET', '/edge/v1/http://127.0.0.1/'],
       ['POST', `/edge/v1/orders/${ID}/payments`],
       ['POST', '/edge/v1/fiscal/receipts'],
@@ -103,6 +109,49 @@ test('foreign origins, unsupported edge operations and query tricks never reach 
       assert.ok((await handler(request(path, { method }))).status >= 400, method + ' ' + path);
     }
     assert.equal(upstream.length, 0);
+  });
+});
+
+test('reviewed menu photos are local and shift/order routes preserve only the allowed filter', async () => {
+  await fixture(async (handler, upstream) => {
+    const photo = await handler(request('/assets/menu/i0.jpg'));
+    assert.equal(photo.status, 200);
+    assert.equal(photo.headers.get('content-type'), 'image/jpeg');
+    assert.equal((await photo.arrayBuffer()).byteLength, 4);
+    for (const path of [
+      '/assets/menu/unknown.jpg',
+      '/assets/menu/../../private.txt',
+      '/assets/menu/i0.jpg?x=1',
+    ])
+      assert.ok((await handler(request(path))).status >= 400);
+    assert.equal(upstream.length, 0);
+    for (const path of [
+      'orders',
+      `orders?shift_id=${ID}`,
+      'cash-shifts',
+      'cash-shifts/current',
+      `cash-shifts/${ID}`,
+    ]) {
+      const url = `/edge/v1/${path}`;
+      assert.equal(isAllowedRendererURL(new URL(url, APP_URL).href), true);
+      assert.equal((await handler(request(url))).status, 200);
+      assert.equal(upstream.at(-1).url, `http://127.0.0.1:3101${url}`);
+    }
+    for (const path of ['cash-shifts', `cash-shifts/${ID}/close`]) {
+      assert.equal(
+        (
+          await handler(
+            request(`/edge/v1/${path}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}',
+            }),
+          )
+        ).status,
+        200,
+      );
+      assert.equal(upstream.at(-1).options.method, 'POST');
+    }
   });
 });
 

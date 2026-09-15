@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { MENU_ASSETS } from '../menu-assets.mjs';
 import ts from 'typescript';
 
 const base = new URL('../', import.meta.url);
@@ -33,6 +34,7 @@ for (const path of [
   ...[
     'main.mjs',
     'protocol.mjs',
+    'menu-assets.mjs',
     'journal.mjs',
     'preload.cjs',
     'package.json',
@@ -47,6 +49,7 @@ for (const path of [
   'tsconfig.base.json',
   'packages/contracts/src/index.ts',
   'design/prototype/assets/mockup/logo.png',
+  ...MENU_ASSETS.map((name) => `design/prototype/assets/mockup/${name}`),
 ].sort()) {
   const data = await readFile(new URL(path, root));
   inputs[path] = {
@@ -106,6 +109,13 @@ await copyFile(
   new URL('design/prototype/assets/mockup/logo.png', root),
   new URL('logo.png', output),
 );
+await mkdir(new URL('assets/menu/', output), { recursive: true });
+for (const name of MENU_ASSETS) {
+  await copyFile(
+    new URL(`design/prototype/assets/mockup/${name}`, root),
+    new URL(`assets/menu/${name}`, output),
+  );
+}
 const files = {};
 for (const name of [
   'api.js',
@@ -115,7 +125,8 @@ for (const name of [
   'model.js',
   'styles.css',
   'types.js',
-]) {
+  ...MENU_ASSETS.map((name) => `assets/menu/${name}`),
+].sort()) {
   const data = await readFile(new URL(name, output));
   files[name] = { bytes: data.byteLength, sha256: createHash('sha256').update(data).digest('hex') };
 }
@@ -127,4 +138,6 @@ await writeFile(
     2,
   ) + '\n',
 );
-console.log('Built packaged POS renderer: 7 local assets; no server or database bundled.');
+console.log(
+  `Built packaged POS renderer: ${Object.keys(files).length} local assets; no server or database bundled.`,
+);

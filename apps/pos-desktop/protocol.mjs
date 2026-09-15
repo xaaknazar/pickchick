@@ -1,17 +1,19 @@
 import { readFile } from 'node:fs/promises';
+import { MENU_ASSETS } from './menu-assets.mjs';
 
 export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const readPath = new RegExp(
-  `^/edge/v1/(session|menu|ordering|orders/${UUID}|availability/stops/${UUID})$`,
+  `^/edge/v1/(session|menu|ordering|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops/${UUID})$`,
   'i',
 );
 const writePath = new RegExp(
-  `^/edge/v1/(checkout/quotes|orders|orders/${UUID}/cancel|ordering/(open|close)|availability/stops)$`,
+  `^/edge/v1/(checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/close|ordering/(open|close)|availability/stops)$`,
   'i',
 );
 const assets = new Map([
+  ...MENU_ASSETS.map((name) => [`/assets/menu/${name}`, [`assets/menu/${name}`, 'image/jpeg']]),
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/logo.png', ['logo.png', 'image/png']],
@@ -37,7 +39,9 @@ function localURL(value) {
       url.port ||
       url.username ||
       url.password ||
-      url.search ||
+      (url.search &&
+        (url.pathname !== '/edge/v1/orders' ||
+          !new RegExp(`^\\?shift_id=${UUID}$`, 'i').test(url.search))) ||
       url.hash
     )
       return null;
@@ -144,8 +148,9 @@ export function createProtocolHandler({
     const path = url.pathname;
     if (path.startsWith('/edge/')) {
       if (
-        !(request.method === 'GET' && readPath.test(path)) &&
-        !(request.method === 'POST' && writePath.test(path))
+        (request.method !== 'GET' && url.search) ||
+        (!(request.method === 'GET' && readPath.test(path)) &&
+          !(request.method === 'POST' && writePath.test(path)))
       )
         return json(404, { code: 'NOT_FOUND' });
       const headers = {};
@@ -168,13 +173,16 @@ export function createProtocolHandler({
         headers['Content-Type'] = 'application/json';
       }
       try {
-        const response = await fetchImpl(`http://127.0.0.1:${settings.edgePort}${path}`, {
-          method: request.method,
-          headers,
-          redirect: 'error',
-          signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
-          ...(body === undefined ? {} : { body }),
-        });
+        const response = await fetchImpl(
+          `http://127.0.0.1:${settings.edgePort}${path}${url.search}`,
+          {
+            method: request.method,
+            headers,
+            redirect: 'error',
+            signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
+            ...(body === undefined ? {} : { body }),
+          },
+        );
         if (response.redirected || (response.status >= 300 && response.status < 400))
           return json(502, { code: 'INVALID_RESPONSE' });
         const payload = await readBounded(response.body, 4000000);

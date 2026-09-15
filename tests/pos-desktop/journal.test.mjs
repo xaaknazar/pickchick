@@ -53,6 +53,65 @@ function authorize(store) {
   store.setSession(session, session.session_id);
 }
 
+test('modifier selections and pending shift commands survive a native journal restart', async () => {
+  await fixture(async ({ options }) => {
+    const value = JSON.parse(snapshot());
+    const option = { group_id: id(20), option_id: id(21), quantity: 2 };
+    value.draft.items.push({ variant_id: id(6), quantity: 1, modifiers: [option] });
+    for (const pending of [
+      { kind: 'shift_open', path: 'cash-shifts', body: { opening_cash_minor: '100000' } },
+      {
+        kind: 'shift_close',
+        path: `cash-shifts/${id(30)}/close`,
+        body: {
+          expected_version: 1,
+          counted_cash_minor: '100000',
+          reason: 'End of synthetic shift',
+        },
+      },
+    ]) {
+      value.pending = { ...pending, key: id(31), at: '2030-01-01T00:00:00.000Z' };
+      const store = createJournalStore(options);
+      authorize(store);
+      store.setItem(key, JSON.stringify(value));
+      const restarted = createJournalStore(options);
+      authorize(restarted);
+      assert.deepEqual(JSON.parse(restarted.getItem(key)), value);
+    }
+    const valid = JSON.stringify(value);
+    const store = createJournalStore(options);
+    authorize(store);
+    const invalid = [
+      (v) => v.draft.items.push({ variant_id: id(6), quantity: 3 }),
+      (v) => v.draft.items[1].modifiers.push({ ...option, quantity: 1 }),
+      (v) => {
+        v.draft.items[1].modifiers[0].quantity = 0;
+      },
+      (v) => {
+        v.draft.items[1].modifiers[0].quantity = 100;
+      },
+      (v) => {
+        v.pending.path = `orders/${id(30)}/close`;
+      },
+      (v) => {
+        v.pending.body.counted_cash_minor = '-1';
+      },
+      (v) => {
+        v.pending.body.counted_cash_minor = '9223372036854775808';
+      },
+      (v) => {
+        v.pending.body.reason = ' ';
+      },
+    ];
+    for (const change of invalid) {
+      const rejected = JSON.parse(valid);
+      change(rejected);
+      assert.throws(() => store.setItem(key, JSON.stringify(rejected)), /STORAGE_UNAVAILABLE/);
+      assert.equal(store.getItem(key), valid, 'Rejected write must preserve pending recovery');
+    }
+  });
+});
+
 test('native journal requires a matching confirmed unexpired staff scope and has no credential fields', async () => {
   await fixture(async ({ options, advance, directory }) => {
     const store = createJournalStore(options);
