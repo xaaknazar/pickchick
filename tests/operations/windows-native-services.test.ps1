@@ -1,4 +1,4 @@
-# Parser and pure-function checks only; never executes installation steps.
+# Parser, pure functions and synthetic temporary state files; no installation.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $scriptPath = Join-Path $PSScriptRoot '../../infra/windows/install-native-services.ps1'
@@ -36,4 +36,24 @@ foreach ($array in $argumentArrays) {
         if ($values[0] -cne '--env-file=owner with space' -or $values.Count -lt 2) { throw 'Node arguments lost their boundaries.' }
     }
 }
-[pscustomobject]@{ parser = 'pass'; argumentEscaping = 'pass'; generatedCredentials = 'pass'; argumentArrays = 3; windowsExecution = 'not tested by this suite' } | ConvertTo-Json
+# Real filesystem writes exercise the actual Save-State/File.Replace overload.
+# Only the NTFS-path guard is replaced, confined to this synthetic temp directory;
+# no ACL/service installation functions execute in this suite.
+$script:privateRoot = Join-Path ([IO.Path]::GetTempPath()) ('pickchick-state-test-' + [guid]::NewGuid().ToString())
+$script:statePath = Join-Path $script:privateRoot 'foundation-state.json'
+[IO.Directory]::CreateDirectory($script:privateRoot) | Out-Null
+function Assert-NtfsPath([string]$Path) {
+    if ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Path)) -ne $script:privateRoot) { throw 'Test attempted a path outside its temporary directory.' }
+}
+try {
+    $script:state = [pscustomobject]@{ marker = 'first'; updatedAt = '' }
+    Save-State
+    foreach ($marker in @('second', 'third')) {
+        $script:state.marker = $marker
+        Save-State
+        $recorded = Get-Content -LiteralPath $script:statePath -Raw | ConvertFrom-Json
+        if ($recorded.marker -cne $marker -or -not $recorded.updatedAt) { throw 'Atomic state replacement did not persist the new record.' }
+    }
+    if (@(Get-ChildItem -LiteralPath $script:privateRoot -Force).Count -ne 1) { throw 'Successful replacement left an unexpected backup/temp file.' }
+} finally { [IO.Directory]::Delete($script:privateRoot, $true) }
+[pscustomobject]@{ parser = "pass"; argumentEscaping = "pass"; generatedCredentials = "pass"; argumentArrays = 3; stateReplacements = 2; windowsServicesAndAcl = "not tested by this suite" } | ConvertTo-Json

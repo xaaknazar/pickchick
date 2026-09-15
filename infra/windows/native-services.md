@@ -81,6 +81,11 @@ format/uniqueness without executing Windows installation actions. The Node suite
 tests credential validation and supports an opt-in disposable PostgreSQL 18.6
 cluster through `PICKCHICK_NATIVE_RUNTIME` and `PICKCHICK_TEST_PG_BIN`.
 PowerShell 7 on macOS parsing is not Windows PowerShell 5.1/NTFS/SCM acceptance.
+Actual Windows PowerShell 5.1 exposed a null-to-empty-string conversion in
+`File.Replace`; explicit `NullString` was then verified twice on that host.
+The portable suite now also performs two real atomic state replacements. An
+already interrupted credential write still requires inspected operator recovery;
+this fix does not silently advance or regenerate existing credentials.
 Before delivery, PostgreSQL 18.6 was also exercised in a new network-isolated
 Docker container with the pinned runtime closure: both SCRAM logins, repeated
 bootstrap, all nine migrations, restricted runtime rights, absence of branch
