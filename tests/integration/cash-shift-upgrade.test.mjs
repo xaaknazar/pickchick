@@ -71,9 +71,12 @@ test('edge 009 to 010 preserves existing order/quote/menu bytes and allows legac
           ),
         });
         const oldHashes = await hashes();
-        assert.deepEqual(await migrate(ctx.edge.pool, directory, 'edge'), [
-          '010_edge_cash_shifts.sql',
-        ]);
+        assert.deepEqual(
+          await migrate(ctx.edge.pool, directory, 'edge'),
+          (await readdir(directory))
+            .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name) && name >= '010')
+            .sort(),
+        );
         assert.deepEqual(await migrate(ctx.edge.pool, directory, 'edge'), []);
         assert.deepEqual(
           (
