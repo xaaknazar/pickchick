@@ -60,6 +60,23 @@ execution_mode из018 остаётся null для исторического �
 Нормальный gateway репетиции - локальный proxy fixture; public routing, SSH,
 release pointer CAS и фактический VPS backup требуют отдельных доказательств.
 
+## Подтверждённая локальная репетиция
+
+15 сентября прошли49 Python guard/orchestration tests, включая5 новых для этого
+profile. Docker-репетиция PostgreSQL18.3/age1.2.1 сохранила75 прежних таблиц,
+четыре revisions каталога и TEST заказ. Проверены nonempty device/credential,
+точный набор/определения старых колонок,18 пустых новых таблиц, неизменные
+sequences/ledger applied_at, восстановление зашифрованной копии, повторный
+provision, disable/re-enable receiver, старый API93b на018 и cleanup7cd.
+После открытия scoped manager read/write работает; чужой branch и запрос без
+token отвергаются. Собственные временные containers/network удалены.
+[Машинный протокол](../../tests/operations/evidence/pos-pilot-release-local-2026-09-15.json)
+содержит exact image revisions/IDs и hash проверочного скрипта. Candidate API
+собран из git archive98a56b7114262d020bdddf28398c41ee18bcff73. Public webbc1d
+в этой Docker-репетиции не запускается: сравнение/rollback его реальных assets
+и public gateway routing остаётся acceptance будущего maintenance apply.
+Эта проверка не меняла VPS и не является доказательством physical Windows→VPS sync.
+
 ## Scope физической точки и порядок назначения
 
 На VPS существует только `PickChick synthetic test organization`

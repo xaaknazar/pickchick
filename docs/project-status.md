@@ -36,7 +36,10 @@ commit заказа, аварийный и обычный перезапуск, 
 
 Read-only SSH подтвердил API93b14e7/webbc1d1d5 и cloud001-014. Добавлены
 локальный release profile с проверкой этого baseline, opt-in compose/grants
-для BO/POS ingress и отдельная Docker-репетиция сохранности/backup/ACL.
+для BO/POS ingress. Прошли49 guard tests и реальная Docker-репетиция:75 старых
+таблиц/колонки/sequences/ledger сохранены,18 новых пусты, encrypted backup
+восстановлен, API new→old93b→new, ACL disable/re-enable/rollback и cleanup7cd
+на018 проверены. Собственные временные containers/network удалены.
 [Порядок и scope](operations/pos-pilot-release.md) явно сохраняют synthetic
 staging organization/legal entity и physical branch UUID; это не production
 onboarding. План не имеет apply и не утверждает завершённый VPS deployment.

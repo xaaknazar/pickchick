@@ -14,6 +14,7 @@ import secrets
 import subprocess
 import time
 import uuid
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
 def load(name, path):
@@ -22,7 +23,7 @@ def load(name, path):
 base = load('pilot_rehearsal_base', ROOT/'tests/operations/rehearse_transport_release.py')
 pilot = load('pilot_profile', ROOT/'infra/staging/release-pos-pilot.py')
 market, release, PG, REDIS = base.market, base.release, base.PG, base.REDIS
-SEED = base.SEED.replace("console.log(JSON.stringify", """await pool.query("INSERT INTO devices(id,branch_id,organization_id,kind,name) VALUES($1,$2,$3,'edge','Synthetic old device')",[randomUUID(),branch,org]);
+SEED = "import {provisionDevice} from './packages/menu-sync/dist/index.js';\n" + base.SEED.replace("console.log(JSON.stringify", """const device=randomUUID();await pool.query("INSERT INTO devices(id,branch_id,organization_id,kind,name) VALUES($1,$2,$3,'edge','Synthetic old device')",[device,branch,org]);await provisionDevice(pool,device);
  console.log(JSON.stringify""")
 BO_GRANT = """import {createPool} from '@pickchick/database';
 import {grantBackoffice} from '@pickchick/backoffice-core';
@@ -60,6 +61,20 @@ class Rehearsal(base.Rehearsal):
             "(SELECT sequencename,start_value,min_value,max_value,increment_by,cycle,cache_size,last_value "
             "FROM pg_sequences WHERE schemaname='public') s))"))
 
+    def columns(self):
+        return json.loads(self.psql(market.DB,"SELECT json_object_agg(table_name,columns) FROM "
+            "(SELECT table_name,json_agg(json_build_object('name',column_name,'type',data_type,"
+            "'nullable',is_nullable,'default',column_default) ORDER BY ordinal_position) columns "
+            "FROM information_schema.columns WHERE table_schema='public' GROUP BY table_name) c"))
+
+    def verify_columns(self, before):
+        after=self.columns()
+        assert set(after)-set(before)==pilot.NEW_TABLES
+        for table, columns in before.items():
+            expected=columns+[{'name':key,'type':'boolean','nullable':'NO','default':'false'}
+                for key in pilot.OLD_TABLE_ADDITIONS.get(table,{})]
+            assert after[table]==expected, 'Unexpected old column definition change: '+table
+
     def verify_acl(self):
         # Actual shared API login must never gain device issuance, verifier rewrite,
         # financial effects, owner grants or DDL through the additive receiver.
@@ -83,6 +98,8 @@ class Rehearsal(base.Rehearsal):
         assert host.startswith('unix://'), 'Only a local Unix Docker socket is allowed'
         old, new = self.inspect(self.args.old_image), self.inspect(self.args.new_image)
         assert old['revision'] == pilot.BASELINE_API and new['revision'] == self.sha
+        cleanup = self.inspect(self.args.cleanup_image)
+        assert cleanup['revision'] == market.TRANSPORT_BASELINE
         assert re.fullmatch('[a-f0-9]{40}', self.sha) and self.sha != old['revision']
         # Values only enter protected files, never argv or public result JSON.
         admin, owner, app, redis_password = (secrets.token_hex(32) for _ in range(4))
@@ -150,6 +167,7 @@ class Rehearsal(base.Rehearsal):
             assert self.http(route, method=method, token=token, body=save if method == 'PUT' else None)[0] == 503
         self.remove(self.api)
         before, ledger, acl = self.snapshot(), self.ledger(), self.acl()
+        baseline_columns = self.columns()
         ledger_rows = release.TransportRelease.ledger_rows(self)
         assert len(ledger) == 14 and before['tables']['test_orders']['rows'] == 1
         assert before['tables']['catalog_draft_versions']['rows'] >= 3
@@ -191,11 +209,23 @@ class Rehearsal(base.Rehearsal):
             after = self.snapshot()
             assert self.ledger()[:14] == ledger and len(self.ledger()) == 18
             market.compare_existing(before, after, additions=True, new_tables=pilot.NEW_TABLES, new_sequences=())
+            self.verify_columns(baseline_columns)
             self.verify_acl()
             if new_acl is None: new_acl = self.acl()
             assert self.acl() == new_acl
             assert release.TransportRelease.ledger_rows(self)[:14] == ledger_rows
         self.steps.append('015_018_twice_18_empty_tables_no_new_sequences_reviewed_API_grants')
+        original_new_owner = self.new_owner_env
+        self.new_owner_env = self.owner_env
+        try: self.provision(self.args.new_image)
+        finally: self.new_owner_env = original_new_owner
+        for table in ['pos_order_sync_inbox','pos_kitchen_sync_inbox','pos_kitchen_sync_projection']:
+            assert self.psql(market.DB,f"SELECT has_table_privilege('pickchick_app','{table}','INSERT')")=='f'
+        assert self.psql(market.DB,"SELECT has_column_privilege('pickchick_app','devices','pos_sync_lock_anchor','UPDATE')")=='f'
+        self.provision(self.args.new_image)
+        assert self.acl()==new_acl
+        market.compare_existing(before,self.snapshot(),additions=True,new_tables=pilot.NEW_TABLES)
+        self.steps.append('disabled_receiver_revokes_write_authority_and_reenable_restores_exact_ACL')
         for image in [self.args.new_image, self.args.old_image, self.args.new_image]:
             self.start_api(image)
             assert self.http('/health/ready', public=False)[0] == 200
@@ -206,11 +236,14 @@ class Rehearsal(base.Rehearsal):
             status, body = self.http(path, public=False, token=token)
             assert status == 200 and json.loads(body) == expected_state
             market.compare_existing(before, self.snapshot(), additions=True, new_tables=pilot.NEW_TABLES)
+            self.verify_columns(baseline_columns)
             self.verify_acl()
             if new_acl is None: new_acl = self.acl()
             assert self.acl() == new_acl
             assert release.TransportRelease.ledger_rows(self)[:14] == ledger_rows
             assert self.http(path, token=token)[0] == 503
+            expected_sync_status = 400 if image == self.args.new_image else 404
+            assert self.http('/internal/v1/edge/pos-orders/events', public=False, method='POST', body={})[0] == expected_sync_status
         self.steps.append('new_old93b_new_API_readiness_CMS_TEST_compatibility_behind_503')
         # Exercise the exact rollback ACL program against a deliberately extra column grant.
         self.psql(market.DB, 'GRANT UPDATE (active) ON fulfillment_transport_bindings TO pickchick_app')
@@ -242,11 +275,11 @@ class Rehearsal(base.Rehearsal):
         self.steps.append('reopened_CMS_write_persists_and_cleanup_resumes')
         assert self.psql(market.DB, 'SELECT count(*) FROM identity_otp_challenges WHERE phone_cipher IS NOT NULL') == '1'
         self.run(['docker', 'run', '--rm', '--network', self.prefix, '--env-file', self.owner_env,
-                  self.args.old_image, 'node', 'scripts/customer-identity-maintenance.mjs', 'cleanup'])
+                  self.args.cleanup_image, 'node', 'scripts/customer-identity-maintenance.mjs', 'cleanup'])
         assert self.psql(market.DB, 'SELECT count(*) FROM identity_otp_challenges WHERE phone_cipher IS NOT NULL OR code_hash IS NOT NULL') == '0'
         assert json.loads(self.http(path, token=token)[1]) == json.loads(body)
-        self.steps.append('old93b_cleanup_executes_real_retention_on_018_without_CMS_loss')
-        self.save('result.json', {'scope': 'local_synthetic_Docker_rehearsal', 'old_image': old, 'new_image': new, 'profile': pilot.PROFILE.name,
+        self.steps.append('pinned_old7cd_cleanup_executes_real_retention_on_018_without_CMS_loss')
+        self.save('result.json', {'scope': 'local_synthetic_Docker_rehearsal', 'old_image': old, 'new_image': new, 'cleanup_image': cleanup, 'profile': pilot.PROFILE.name,
                   'tool_image': self.inspect(self.args.tool_image)['id'],
                   'postgres': self.psql(market.DB, 'SHOW server_version'),
                   'age': self.run(['docker', 'exec', self.tool, 'age', '--version']).decode().strip(),
@@ -266,6 +299,7 @@ def main():
     parser.add_argument('--new-image', required=True)
     parser.add_argument('--new-sha', required=True)
     parser.add_argument('--tool-image', required=True)
+    parser.add_argument('--cleanup-image', required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     os.umask(0o077)
