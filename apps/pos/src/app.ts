@@ -1,3 +1,5 @@
+import { orderView, kitchenLabel, orderNumber, confirmationView } from './order-view.js';
+import { loginView } from './auth-view.js';
 import { PosController } from './model.js';
 import { transport, errorMessage } from './api.js';
 import {
@@ -5,6 +7,7 @@ import {
   lineKey,
   linePrice,
   inputMoney,
+  isUuid,
   type Item,
   type Selection,
   type CashShift,
@@ -69,10 +72,13 @@ let view = 'sale',
   category = '',
   search = '',
   page = 0;
-let config: { branchLabel: string; categories: Record<string, string> } = {
+let orderFilter = 'all';
+let config: { branchLabel: string; categories: Record<string, string>; terminalId?: string } = {
   branchLabel: 'Локальная точка',
   categories: {},
 };
+let configLoaded = false;
+let loginName = '';
 const disabled = (condition: unknown) => (condition ? ' disabled' : '');
 const idShort = (id: string) => id.slice(0, 8);
 const almatyTime = (value: string | number = Date.now()) =>
@@ -109,13 +115,21 @@ async function syncFullscreen() {
   updateClock();
 }
 function updateClock() {
+  const retry = Math.max(0, Math.ceil((model.retryLoginAt - Date.now()) / 1000));
+  const submit = root.querySelector<HTMLButtonElement>('[data-testid=pos-sign-in]');
+  if (submit) {
+    submit.disabled = model.state.busy || !isUuid(config.terminalId) || retry > 0;
+    submit.textContent = model.state.busy ? 'Входим...' : retry ? `Подождите ${retry} с` : 'Войти';
+    const wait = document.getElementById('login-wait');
+    if (wait) wait.textContent = retry ? `Повторить вход через ${retry} с` : '';
+  }
   const clock = document.getElementById('pos-clock');
   if (clock) clock.textContent = almatyTime();
   const date = document.getElementById('pos-date');
   if (date) date.textContent = almatyDate() + ' · Алматы';
   const button = document.querySelector<HTMLButtonElement>('[data-action="fullscreen"]');
   if (button) {
-    button.textContent = fullscreen ? 'Свернуть экран' : 'На весь экран';
+    button.textContent = fullscreen ? 'Оконный режим' : 'На весь экран';
     button.setAttribute('aria-pressed', String(fullscreen));
   }
 }
@@ -137,15 +151,23 @@ async function toggleFullscreen() {
 
 function notice() {
   const s = model.state;
-  return `${s.error ? `<div class="notice error" role="alert" data-testid="pos-error">${escape(errorMessage(s.error))}</div>` : ''}${s.pending ? `<section class="notice pending" role="status" data-testid="pos-recovery"><div><strong>Проверка сохранённого запроса</strong><p>Результат пока не подтверждён. Новый заказ заблокирован.</p><small>Запрос ${escape(s.pending.key)}</small></div><button data-action="recover"${disabled(s.busy)} data-testid="pos-recover">Проверить результат</button></section>` : ''}`;
+  return `${s.error ? `<div class="notice error" role="alert" data-testid="pos-error">${escape(errorMessage(s.error))}</div>` : ''}${s.pending ? `<section class="notice pending" role="status" data-testid="pos-recovery"><div><strong>Проверка сохранённого запроса</strong><p>Результат пока не подтверждён. Новый заказ заблокирован.</p><small>Запрос ${escape(s.pending.key)}</small></div>${s.actor ? `<button data-action="recover"${disabled(s.busy)} data-testid="pos-recover">Проверить результат</button>` : '<p>Войдите под тем же логином, чтобы проверить результат.</p>'}</section>` : ''}`;
 }
 function login() {
-  return `<main class="login"><section class="login-brand"><img src="/logo.png" alt="PickChick" /><div class="eyebrow">РАБОЧЕЕ МЕСТО КАССИРА</div><h1>Ваш заказ.<br />Под контролем.</h1><p>Локальная касса PickChick для персонала ресторана.</p><span class="brand-note">НЕОПЛАЧЕННЫЕ ЛОКАЛЬНЫЕ ЗАКАЗЫ</span></section><section class="login-form"><span class="eyebrow">ВХОД СОТРУДНИКА</span><h2>Подключите сессию</h2><p class="muted">Выберите приватный JSON-файл, который выдал оператор локального узла. Пароль и PIN здесь ещё не используются.</p>${notice()}<label class="file-label" for="staff-file">${model.state.busy ? 'Проверяем доступ…' : 'Выбрать файл сессии'}<input id="staff-file" data-testid="pos-staff-file" type="file" accept=".json,application/json"${disabled(model.state.busy)} /></label><p class="fine">Ключ используется только для запросов к локальному узлу. Вход действует в текущем сеансе до выхода или окончания доступа. При завершении работы нажмите «Выйти».</p><div class="quiet-box"><strong>Сейчас доступно</strong><p>Меню → расчёт на сервере → неоплаченный заказ.</p><small>Оплата, чек, смены ККМ и кухня ещё не подключены.</small></div></section></main>`;
+  return loginView({
+    name: loginName,
+    branchLabel: config.branchLabel,
+    configured: isUuid(config.terminalId),
+    loaded: configLoaded,
+    busy: model.state.busy,
+    retrySeconds: Math.max(0, Math.ceil((model.retryLoginAt - Date.now()) / 1000)),
+    notice: notice(),
+  });
 }
 function toolbar() {
   const s = model.state,
     actor = s.actor!;
-  return `<header class="topbar"><div class="brand"><img src="/logo.png" alt="PickChick" /><div><strong>Касса PickChick</strong><small>${escape(config.branchLabel)}</small></div></div><div class="header-live"><div class="clock-block"><strong class="clock-time" id="pos-clock">${almatyTime()}</strong><small class="clock-date" id="pos-date">${almatyDate()} · Алматы</small></div><button class="shift-pill ${s.shift ? 'open' : 'closed'}" data-view="shifts" data-testid="pos-shift-status"><span class="status-dot"></span><span>${s.operationsAvailable ? (s.shift ? 'Смена открыта' : 'Смена закрыта') : 'Проверка смены'}<small>${s.shift ? `с ${almatyTime(s.shift.opened_at).slice(0, 5)}` : 'Рабочее место кассира'}</small></span></button><div class="header-metric"><strong data-testid="pos-order-count">${s.shift?.order_count ?? '-'}</strong><small>заказов в смене</small></div><button class="subtle fullscreen-button" data-action="fullscreen" aria-pressed="${fullscreen}" data-testid="pos-fullscreen">${fullscreen ? 'Свернуть экран' : 'На весь экран'}</button><div class="top-status"><span class="status ${s.connectedAt ? 'online' : 'offline'}" data-testid="pos-connectivity">${s.connectedAt ? 'Локальный узел' : 'Нет связи'}</span><button class="subtle" data-action="logout"${disabled(s.busy)} data-testid="pos-logout">${actor.role === 'shift_manager' ? 'Управляющий' : 'Кассир'} · Выйти</button></div></div></header>`;
+  return `<header class="topbar"><div class="brand"><img src="/logo.png" alt="PickChick" /><div><strong>Касса PickChick</strong><small>${escape(config.branchLabel)}</small></div></div><div class="header-live"><div class="clock-block"><strong class="clock-time" id="pos-clock">${almatyTime()}</strong><small class="clock-date" id="pos-date">${almatyDate()} · Алматы</small></div><button class="shift-pill ${s.shift ? 'open' : 'closed'}" data-view="shifts" data-testid="pos-shift-status"><span class="status-dot"></span><span>${s.operationsAvailable ? (s.shift ? 'Смена открыта' : 'Смена закрыта') : 'Проверка смены'}<small>${s.shift ? `с ${almatyTime(s.shift.opened_at).slice(0, 5)}` : 'Рабочее место кассира'}</small></span></button><div class="header-metric"><strong data-testid="pos-order-count">${s.shift?.order_count ?? '-'}</strong><small>заказов в смене</small></div><button class="subtle fullscreen-button" data-action="fullscreen" aria-pressed="${fullscreen}" data-testid="pos-fullscreen">${fullscreen ? 'Оконный режим' : 'На весь экран'}</button><div class="top-status"><span class="status ${s.connectedAt ? 'online' : 'offline'}" data-testid="pos-connectivity">${s.connectedAt ? 'Локальный узел' : 'Нет связи'}</span><button class="subtle" data-action="logout"${disabled(s.busy)} data-testid="pos-logout">${actor.role === 'shift_manager' ? 'Управляющий' : 'Кассир'} · Выйти</button></div></div></header>`;
 }
 function navigation() {
   return `<nav class="nav" aria-label="Касса"><button data-view="sale" aria-current="${view === 'sale' ? 'page' : 'false'}">▦<span>Новый заказ</span></button><button data-view="orders" aria-current="${view === 'orders' ? 'page' : 'false'}">≡<span>Заказы</span></button><button data-view="shifts" aria-current="${view === 'shifts' ? 'page' : 'false'}">◷<span>Смена</span></button><button data-view="status" aria-current="${view === 'status' ? 'page' : 'false'}">⚙<span>Настройки</span></button><div class="nav-note">PICK<br />CHICK</div></nav>`;
@@ -200,13 +222,13 @@ function cart() {
         missing = true;
       }
       if (unit !== null) estimate += unit * BigInt(line.quantity);
-      return `<div class="cart-line" data-line-key="${escape(key)}" data-testid="pos-cart-line-${line.variant_id}">${item?.image_url ? `<img class="cart-line-thumb" src="${escape(item.image_url)}" alt="" />` : ''}<div class="cart-line-main"><div class="cart-line-heading"><h3>${escape(item?.name.ru ?? 'Позиция отсутствует в меню')}</h3><button class="remove" data-quantity="${escape(key)}" data-count="0" aria-label="Убрать ${escape(item?.name.ru ?? 'позицию')}"${disabled(locked)}>×</button></div>${line.modifiers?.length ? `<p class="cart-line-modifiers">${escape(selectionText(item, line.modifiers))}</p>` : ''}<small>${unit === null ? 'Проверьте состав блюда' : `${money(unit.toString())} за порцию`}${s.stops.get(line.variant_id)?.stopped ? ' · В стоп-листе' : ''}</small><div class="line-controls"><button data-quantity="${escape(key)}" data-count="${line.quantity - 1}" aria-label="Уменьшить количество"${disabled(locked)}>-</button><strong data-testid="pos-quantity-${line.variant_id}">${line.quantity}</strong><button data-quantity="${escape(key)}" data-count="${line.quantity + 1}" aria-label="Увеличить количество"${disabled(locked || line.quantity >= 99 || !item || s.stops.get(line.variant_id)?.stopped !== false)}>+</button>${item?.modifier_groups?.length ? `<button class="cart-edit" data-edit="${escape(key)}"${disabled(locked)}>Состав</button>` : ''}<b>${unit === null ? '-' : money((unit * BigInt(line.quantity)).toString())}</b></div></div></div>`;
+      return `<div class="cart-line" data-line-key="${escape(key)}" data-testid="pos-cart-line-${line.variant_id}">${item?.image_url ? `<img class="cart-line-thumb" src="${escape(item.image_url)}" alt="" />` : ''}<div class="cart-line-main"><div class="cart-line-heading"><h3>${escape(item?.name.ru ?? 'Позиция отсутствует в меню')}</h3><button class="remove" data-quantity="${escape(key)}" data-count="0" aria-label="Убрать ${escape(item?.name.ru ?? 'позицию')}"${disabled(locked)}>×</button></div>${line.modifiers?.length ? `<p class="cart-line-modifiers">${escape(selectionText(item, line.modifiers))}</p>` : ''}<small>${unit === null ? 'Проверьте состав блюда' : `${money(unit.toString())} за порцию`}${s.stops.get(line.variant_id)?.stopped ? ' · В стоп-листе' : ''}</small></div><div class="line-controls"><button data-quantity="${escape(key)}" data-count="${line.quantity - 1}" aria-label="Уменьшить количество"${disabled(locked)}>-</button><strong data-testid="pos-quantity-${line.variant_id}">${line.quantity}</strong><button data-quantity="${escape(key)}" data-count="${line.quantity + 1}" aria-label="Увеличить количество"${disabled(locked || line.quantity >= 99 || !item || s.stops.get(line.variant_id)?.stopped !== false)}>+</button>${item?.modifier_groups?.length ? `<button class="cart-edit" data-edit="${escape(key)}"${disabled(locked)}>Состав</button>` : ''}<b>${unit === null ? '-' : money((unit * BigInt(line.quantity)).toString())}</b></div></div>`;
     })
     .join('');
   const q = s.quote,
     expired = q && Date.parse(q.expires_at) <= Date.now();
   const noShift = !model.hasConfirmedOpenShift;
-  return `<aside class="cart" data-testid="pos-cart"><header><div class="eyebrow">НОВЫЙ ЗАКАЗ</div><h2>Заказ <span>${d?.items.reduce((n, i) => n + i.quantity, 0) ?? 0}</span></h2><div class="segmented"><button data-mode="dine_in" aria-pressed="${d?.service_mode === 'dine_in'}"${disabled(locked)}>В зале</button><button data-mode="takeaway" aria-pressed="${d?.service_mode === 'takeaway'}"${disabled(locked)}>С собой</button></div></header><div class="cart-lines">${lines || '<div class="empty"><span>＋</span><h3>Добавьте первое блюдо</h3><p>Выберите блюдо в меню.<br />Состав можно изменить в заказе.</p></div>'}</div><footer data-testid="pos-cart-footer"><div class="total-row"><span>${q ? 'Итого по расчёту' : 'Итого предварительно'}</span><strong data-testid="pos-total">${missing ? '-' : estimate > 9223372036854775807n ? 'Лимит суммы' : money(q?.total_minor ?? estimate.toString())}</strong></div>${noShift ? `<button class="subtle" data-view="shifts">${s.operationsAvailable && !s.operationsError ? 'Откройте смену для оформления' : 'Проверьте состояние смены'}</button>` : ''}<button class="primary" data-action="calculate" data-testid="pos-calculate"${disabled(locked || !d?.items.length || !s.menu || !s.ordering?.ordering_enabled || missing || estimate > 9223372036854775807n)}>Рассчитать заказ</button>${q ? `<button class="orange" data-action="create" data-testid="pos-create"${disabled(locked || expired || noShift)}>Создать неоплаченный заказ</button>` : ''}<p class="fine">${q ? (expired ? 'Расчёт истёк. Пересчитайте заказ.' : `Расчёт до ${almatyTime(q.expires_at).slice(0, 5)}. `) : ''}Оплата и отправка на кухню пока недоступны.</p></footer></aside>`;
+  return `<aside class="cart" data-testid="pos-cart"><header><div class="eyebrow">НОВЫЙ ЗАКАЗ</div><h2>Заказ <span>${d?.items.reduce((n, i) => n + i.quantity, 0) ?? 0}</span></h2><div class="segmented"><button data-mode="dine_in" aria-pressed="${d?.service_mode === 'dine_in'}"${disabled(locked)}>В зале</button><button data-mode="takeaway" aria-pressed="${d?.service_mode === 'takeaway'}"${disabled(locked)}>С собой</button></div></header><div class="cart-lines">${lines || '<div class="empty"><span>＋</span><h3>Добавьте первое блюдо</h3><p>Выберите блюдо в меню.<br />Состав можно изменить в заказе.</p></div>'}</div><footer data-testid="pos-cart-footer"><div class="total-row"><span>${q ? 'Итого по расчёту' : 'Итого предварительно'}</span><strong data-testid="pos-total">${missing ? '-' : estimate > 9223372036854775807n ? 'Лимит суммы' : money(q?.total_minor ?? estimate.toString())}</strong></div>${noShift ? `<button class="subtle" data-view="shifts">${s.operationsAvailable && !s.operationsError ? 'Откройте смену для оформления' : 'Проверьте состояние смены'}</button>` : ''}<button class="primary" data-action="calculate" data-testid="pos-calculate"${disabled(locked || !d?.items.length || !s.menu || !s.ordering?.ordering_enabled || missing || estimate > 9223372036854775807n)}>Проверить заказ</button><p class="fine">${q ? (expired ? 'Расчёт истёк. Пересчитайте заказ.' : `Расчёт до ${almatyTime(q.expires_at).slice(0, 5)}. `) : ''}${s.ordering?.pos_service_mode === 'unpaid_service' ? 'Передача на кухню без оплаты и чека.' : 'Сохранение заказа без оплаты.'}</p></footer></aside>`;
 }
 function sale() {
   const s = model.state;
@@ -220,16 +242,41 @@ function sale() {
       .map(product)
       .join('') ||
     '<div class="empty"><h3>Блюда не найдены</h3><p>Проверьте поиск или загрузите меню локального узла.</p></div>'
-  }</div><div class="pagination"><span>${items.length} позиций · меню v${s.menu?.version ?? '-'}</span>${items.length > 36 ? `<button data-page="${page - 1}"${disabled(!page)}>Назад</button><span>${page + 1} / ${Math.ceil(items.length / 36)}</span><button data-page="${page + 1}"${disabled((page + 1) * 36 >= items.length)}>Дальше</button>` : ''}</div></div>${cart()}</section>`;
+  }</div><div class="pagination"><span>Позиций: ${items.length} · меню v${s.menu?.version ?? '-'}</span>${items.length > 36 ? `<button data-page="${page - 1}"${disabled(!page)}>Назад</button><span>${page + 1} / ${Math.ceil(items.length / 36)}</span><button data-page="${page + 1}"${disabled((page + 1) * 36 >= items.length)}>Дальше</button>` : ''}</div></div>${cart()}</section>`;
 }
 function orderDetail() {
-  const s = model.state,
-    o = s.order!;
-  return `<section class="order-detail" data-testid="pos-order"><div class="section-head"><div><span class="eyebrow">ЗАКАЗ СОХРАНЁН НА ЛОКАЛЬНОМ УЗЛЕ</span><h1>${o.state === 'cancelled' ? 'Заказ отменён' : 'Ожидает оплаты'}</h1></div><button class="subtle" data-action="new"${disabled(s.busy || s.pending)}>Новый заказ</button></div><div class="order-id" data-testid="pos-order-id">${escape(o.order_id)}</div><div class="order-columns"><section class="panel"><h2>Состав заказа</h2><p>${o.snapshot.service_mode === 'dine_in' ? 'В зале' : 'С собой'} · ${`${almatyDate(o.created_at)} ${almatyTime(o.created_at)}`}</p>${o.snapshot.lines.map((l) => `<div class="review-line"><div><strong>${escape(l.name.ru)}</strong><small>${l.quantity} × ${money(l.unit_price_minor)}</small>${l.modifiers?.length ? `<p class="cart-line-modifiers">${l.modifiers.map((m) => escape(`${(m.quantity ?? 1) > 1 ? `${m.quantity} × ` : ''}${m.name.ru}`)).join(' · ')}</p>` : ''}</div><b>${money(l.total_minor)}</b></div>`).join('')}<div class="total-row"><span>Итого</span><strong>${money(o.snapshot.total_minor)}</strong></div></section><section class="panel"><h2>Что дальше</h2><div class="state-line"><span>Оплата</span><strong>Не начата</strong></div><div class="state-line"><span>Фискальный чек</span><strong>Не запрошен</strong></div><div class="state-line"><span>Кухня</span><strong>Заблокирована</strong></div><div class="notice">${o.state === 'cancelled' ? `Причина отмены: ${escape(o.cancellation_reason)}` : 'Платёжный адаптер ещё не подключён. Этот заказ не является оплаченным и не готовится.'}</div><button class="primary" data-open="${o.order_id}"${disabled(s.busy || s.pending)}>Проверить состояние</button>${o.state === 'awaiting_payment' ? `<button class="danger" data-action="cancel" data-testid="pos-cancel"${disabled(s.busy || s.pending)}>Отменить с причиной</button>` : ''}</section></div></section>`;
+  const s = model.state;
+  return orderView(
+    s.order!,
+    Boolean(s.busy || s.pending),
+    s.operationsAt ? `Обновлено ${almatyTime(s.operationsAt)}` : '',
+  );
 }
 function orders() {
   const s = model.state;
-  return `<section class="page"><div class="section-head"><div><span class="eyebrow">ЗАКАЗЫ НА ЛОКАЛЬНОМ УЗЛЕ</span><h1>Заказы</h1></div><button class="subtle" data-action="operations-refresh"${disabled(s.busy)}>Обновить</button></div>${s.operationsError ? `<div class="notice">Ленту не удалось обновить. ${s.operationsAt ? 'Ниже сохранённый результат предыдущего запроса.' : 'Проверьте соединение с сервером.'}</div>` : ''}<div class="order-feed" data-testid="pos-order-feed">${s.orders.map((o) => `<button class="order-row" data-open="${o.order_id}"${disabled(s.busy || s.pending)}><span class="order-row-main"><strong>Заказ ${idShort(o.order_id)}</strong><small>${almatyDate(o.created_at)} · ${almatyTime(o.created_at).slice(0, 5)} · ${o.snapshot.service_mode === 'dine_in' ? 'В зале' : 'С собой'}</small></span><span class="order-row-meta"><span class="order-badge ${o.state === 'cancelled' ? 'cancelled' : ''}">${o.state === 'cancelled' ? 'Отменён' : 'Ожидает оплаты'}</span><strong>${money(o.snapshot.total_minor)}</strong></span></button>`).join('') || `<div class="empty-state"><h2>${s.operationsAvailable ? 'Пока нет заказов' : 'Загружаем заказы'}</h2><p>Сохранённые сервером заказы появятся здесь.</p></div>`}</div><p class="fine">Последние 100 доступных заказов. ${s.actor?.role === 'shift_manager' ? 'Заказы точки.' : 'Ваши заказы на этом терминале.'}${s.operationsAt ? ` Обновлено ${almatyTime(s.operationsAt)}.` : ''}</p><details class="order-search-details" data-detail-key="order-search"><summary>Найти заказ по номеру UUID</summary><form id="find-order" class="search-order"><label class="sr-only" for="order-id">UUID заказа</label><input id="order-id" placeholder="UUID заказа" required /><button class="primary"${disabled(s.busy || s.pending)}>Открыть</button></form>${s.known.length ? `<p class="fine">Сохранённые ссылки этого рабочего места</p><div class="order-list">${s.known.map((id) => `<button data-open="${id}"${disabled(s.busy || s.pending)}>${escape(id)} →</button>`).join('')}</div>` : ''}</details></section>`;
+  const visibleOrders = s.orders.filter(
+    (order) =>
+      orderFilter === 'all' ||
+      (orderFilter === 'kitchen' &&
+        ['accepted', 'in_production'].includes(order.fulfillment_state)) ||
+      (orderFilter === 'ready' && order.fulfillment_state === 'ready') ||
+      (orderFilter === 'done' &&
+        (order.state === 'cancelled' || order.fulfillment_state === 'handed_over')),
+  );
+
+  return `<section class="page"><div class="section-head"><div><span class="eyebrow">ЗАКАЗЫ НА ЛОКАЛЬНОМ УЗЛЕ</span><h1>Заказы</h1></div><button class="subtle" data-action="operations-refresh"${disabled(s.busy)}>Обновить</button></div>${s.operationsError ? `<div class="notice">Ленту не удалось обновить. ${s.operationsAt ? 'Ниже сохранённый результат предыдущего запроса.' : 'Проверьте соединение с сервером.'}</div>` : ''}<div class="order-filters" role="group" aria-label="Статус кухни">${[
+    ['all', 'Все'],
+    ['kitchen', 'На кухне'],
+    ['ready', 'Готовы'],
+    ['done', 'Завершены'],
+  ]
+    .map(
+      ([key, label]) =>
+        `<button class="subtle" data-order-filter="${key}" aria-pressed="${orderFilter === key}">${label}</button>`,
+    )
+    .join(
+      '',
+    )}</div><div class="order-feed" data-testid="pos-order-feed">${visibleOrders.map((o) => `<button class="order-row" data-open="${o.order_id}"${disabled(s.busy || s.pending)}><span class="order-row-main"><strong>Заказ ${orderNumber(o)}</strong><small>${almatyDate(o.created_at)} · ${almatyTime(o.created_at).slice(0, 5)} · ${o.snapshot.service_mode === 'dine_in' ? 'В зале' : 'С собой'}</small></span><span class="order-row-meta"><span class="order-badge ${o.fulfillment_state}">${kitchenLabel(o)}</span><strong>${money(o.snapshot.total_minor)}</strong></span></button>`).join('') || `<div class="empty-state"><h2>${s.operationsAvailable ? 'Пока нет заказов' : 'Загружаем заказы'}</h2><p>Сохранённые сервером заказы появятся здесь.</p></div>`}</div><p class="fine">Последние 100 доступных заказов. ${s.actor?.role === 'shift_manager' ? 'Заказы точки.' : 'Ваши заказы на этом терминале.'}${s.operationsAt ? ` Обновлено ${almatyTime(s.operationsAt)}.` : ''}</p><details class="order-search-details" data-detail-key="order-search"><summary>Найти заказ по номеру UUID</summary><form id="find-order" class="search-order"><label class="sr-only" for="order-id">UUID заказа</label><input id="order-id" placeholder="UUID заказа" required /><button class="primary"${disabled(s.busy || s.pending)}>Открыть</button></form>${s.known.length ? `<p class="fine">Сохранённые ссылки этого рабочего места</p><div class="order-list">${s.known.map((id) => `<button data-open="${id}"${disabled(s.busy || s.pending)}>${escape(id)} →</button>`).join('')}</div>` : ''}</details></section>`;
 }
 function shiftPanel(shift: CashShift) {
   return `<div class="shift-stats"><div><small>Заказов</small><strong>${shift.order_count}</strong></div><div><small>Ожидают оплаты</small><strong>${shift.awaiting_payment_count}</strong></div><div><small>Отменено</small><strong>${shift.cancelled_count}</strong></div><div><small>Сумма заказов</small><strong>${money(shift.order_total_minor)}</strong></div></div><div class="state-line"><span>Наличные при открытии</span><strong>${money(shift.opening_cash_minor)}</strong></div><div class="state-line"><span>Ожидается в кассе</span><strong>${money(shift.expected_cash_minor)}</strong></div>${shift.counted_cash_minor !== null ? `<div class="state-line"><span>Пересчитано при закрытии</span><strong>${money(shift.counted_cash_minor)}</strong></div><div class="state-line"><span>Расхождение</span><strong>${shift.discrepancy_minor?.startsWith('-') ? '-' : ''}${money((shift.discrepancy_minor ?? '0').replace('-', ''))}</strong></div>` : ''}`;
@@ -246,7 +293,13 @@ function status() {
     ['Интернет (WAN)', 'Не измеряется'],
     ['Банк / терминал', 'Не подключён'],
     ['ККМ / принтер', 'Не подключены'],
-    ['Кухня и облачная синхронизация', 'Не подключены'],
+    [
+      'Кухня',
+      s.ordering?.pos_service_mode === 'unpaid_service'
+        ? 'Передача заказов включена'
+        : 'Передача отключена',
+    ],
+    ['Облачная синхронизация', 'Здесь не измеряется'],
   ]
     .map(([a, b]) => `<div class="state-line"><span>${a}</span><strong>${b}</strong></div>`)
     .join(
@@ -271,7 +324,7 @@ function render() {
   const inputs = preserve
     ? [
         ...root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-          'input:not([type="file"]),textarea',
+          'input:not([type="file"]):not([data-sensitive]),textarea',
         ),
       ].map((n) => ({ id: n.id, value: n.value }))
     : [];
@@ -329,9 +382,54 @@ function reasonDialog(title: string, action: (reason: string) => Promise<void>) 
     }
   });
 }
+function reviewDialog() {
+  const quote = model.state.quote;
+  if (!quote || model.state.pending || model.state.busy) return;
+  const admission = model.state.ordering?.pos_service_mode === 'unpaid_service';
+  const dialog = document.createElement('dialog');
+  dialog.className = 'review-dialog';
+  dialog.dataset.testid = 'pos-review';
+  dialog.setAttribute('aria-labelledby', 'review-title');
+  dialog.innerHTML = confirmationView(quote, admission);
+  document.body.append(dialog);
+  const update = () => {
+    const expired =
+      Date.parse(quote.expires_at) <= Date.now() || model.state.quote?.quote_id !== quote.quote_id;
+    const button = dialog.querySelector<HTMLButtonElement>('[data-testid=pos-create]')!;
+    button.disabled =
+      expired || !model.hasConfirmedOpenShift || model.state.busy || Boolean(model.state.pending);
+    const message = dialog.querySelector('[data-quote-error]')!;
+    message.textContent = expired
+      ? 'Расчёт истёк. Вернитесь к заказу и проверьте его ещё раз.'
+      : !model.hasConfirmedOpenShift
+        ? 'Для передачи заказа нужна подтверждённая открытая смена.'
+        : '';
+  };
+  update();
+  const timer = window.setInterval(update, 1000);
+  dialog.showModal();
+  dialog.querySelector('[data-dismiss]')!.addEventListener('click', () => dialog.close());
+  dialog.addEventListener(
+    'close',
+    () => {
+      window.clearInterval(timer);
+      dialog.remove();
+    },
+    { once: true },
+  );
+  dialog.addEventListener('submit', (event) => {
+    event.preventDefault();
+    update();
+    if (dialog.querySelector<HTMLButtonElement>('[data-testid=pos-create]')!.disabled) return;
+    dialog.close();
+    void model.create(admission);
+  });
+}
 function modifierDialog(item: Item, previousKey?: string) {
   const existing = model.state.draft?.items.find((line) => lineKey(line) === previousKey);
-  const groups = item.modifier_groups ?? [];
+  const groups = [...(item.modifier_groups ?? [])].sort(
+    (a, b) => Number(b.min_selected > 0) - Number(a.min_selected > 0),
+  );
   let selected: Selection[] = existing?.modifiers
     ? structuredClone(existing.modifiers)
     : groups.flatMap((group) =>
@@ -468,8 +566,17 @@ root.addEventListener('click', (event) => {
   if (!button || button.disabled) return;
   if (button.dataset.view) {
     view = button.dataset.view;
+    if (view === 'sale' && model.state.order) {
+      model.newDraft();
+      return;
+    }
     render();
     if (view === 'orders' || view === 'shifts') void model.refreshOperations();
+    return;
+  }
+  if (button.dataset.orderFilter) {
+    orderFilter = button.dataset.orderFilter;
+    render();
     return;
   }
   if (button.dataset.category !== undefined) {
@@ -523,6 +630,17 @@ root.addEventListener('click', (event) => {
     return;
   }
   switch (button.dataset.action) {
+    case 'password-toggle': {
+      const input = root.querySelector<HTMLInputElement>('#staff-password');
+      if (!input) break;
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      button.textContent = visible ? 'Скрыть' : 'Показать';
+      button.setAttribute('aria-label', visible ? 'Скрыть пароль' : 'Показать пароль');
+      button.setAttribute('aria-pressed', String(visible));
+      input.focus({ preventScroll: true });
+      break;
+    }
     case 'fullscreen':
       void toggleFullscreen();
       break;
@@ -543,10 +661,9 @@ root.addEventListener('click', (event) => {
       void model.refresh();
       break;
     case 'calculate':
-      void model.calculate();
-      break;
-    case 'create':
-      void model.create();
+      void model.calculate().then(() => {
+        if (model.state.quote && !model.state.error) reviewDialog();
+      });
       break;
     case 'recover':
       void model.recover();
@@ -565,6 +682,7 @@ root.addEventListener('click', (event) => {
 });
 root.addEventListener('input', (event) => {
   const input = event.target as HTMLInputElement;
+  if (input.id === 'staff-login') loginName = input.value;
   if (input.id === 'search') {
     search = input.value;
     page = 0;
@@ -592,6 +710,18 @@ root.addEventListener('change', async (event) => {
   }
 });
 root.addEventListener('submit', (event) => {
+  if ((event.target as HTMLFormElement).id === 'password-login') {
+    event.preventDefault();
+    const input = root.querySelector<HTMLInputElement>('#staff-password')!;
+    loginName = root.querySelector<HTMLInputElement>('#staff-login')!.value;
+    const password = input.value;
+    input.value = '';
+    input.type = 'password';
+    void model.signIn(loginName, password, config.terminalId).then(() => {
+      if (!model.state.actor) root.querySelector<HTMLInputElement>('#staff-password')?.focus();
+    });
+    return;
+  }
   if ((event.target as HTMLFormElement).id === 'find-order') {
     event.preventDefault();
     const id = (document.getElementById('order-id') as HTMLInputElement).value.trim();
@@ -607,6 +737,7 @@ try {
 } catch {
   /* Display labels do not change branch authority. */
 }
+configLoaded = true;
 await model.boot();
 render();
 

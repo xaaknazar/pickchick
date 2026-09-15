@@ -11,7 +11,7 @@ import type {
   CashShift,
   Selection,
 } from './types.js';
-import { ApiError, type Transport } from './api.js';
+import { ApiError, passwordTransport, type PasswordTransport, type Transport } from './api.js';
 export type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export type Pending = {
   key: string;
@@ -87,6 +87,7 @@ export class PosController {
     private storage: Store,
     private newKey = () => crypto.randomUUID(),
     private lease?: (scope: string) => Promise<() => void>,
+    private passwordApi: PasswordTransport = passwordTransport,
   ) {}
   subscribe(listener: () => void) {
     this.listeners.add(listener);
@@ -186,7 +187,12 @@ export class PosController {
       body = parse.record(p.body),
       path = parse.text(p.path, 160);
     if (p.kind === 'create') {
-      if (path !== 'orders' || Object.keys(body).length !== 1) throw new Error();
+      if (
+        path !== 'orders' ||
+        ![1, 2].includes(Object.keys(body).length) ||
+        (Object.keys(body).length === 2 && body.kitchen_admission !== 'unpaid')
+      )
+        throw new Error();
       parse.uuid(body.quote_id);
     } else if (p.kind === 'cancel') {
       if (!/^orders\/[0-9a-f-]+\/cancel$/.test(path) || Object.keys(body).length !== 2)
@@ -246,60 +252,91 @@ export class PosController {
       } catch {
         throw new Error('INVALID_CREDENTIAL');
       }
-      const actor = parse.session(await this.api('session', candidate));
-      if (actor.session_id !== candidate.session_id || scopeFor(actor) !== scopeFor(candidate))
-        throw new Error('WRONG_BRANCH');
-      if (actor.role === 'kitchen') throw new ApiError('FORBIDDEN', 403);
-      const saved = { ...actor, token: candidate.token };
-      if (!this.releaseLease && this.lease)
-        this.releaseLease = await this.lease(`${actor.branch_id}.${actor.terminal_id}`);
-      let journal: Journal;
+      await this.establishSession(candidate);
+    });
+  }
+  retryLoginAt = 0;
+  async signIn(login: string, password: string, terminalId: string | undefined) {
+    await this.run(async () => {
+      if (!parse.isUuid(terminalId)) throw new Error('TERMINAL_NOT_CONFIGURED');
+      if (Date.now() < this.retryLoginAt) throw new ApiError('AUTH_RATE_LIMITED', 429);
+      const account = login.trim().toLowerCase();
+      if (
+        !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(account) ||
+        password.length < 12 ||
+        password.length > 128
+      )
+        throw new Error('INVALID_LOGIN');
+      let candidate: StaffCredential;
       try {
-        journal = this.readJournal(actor);
+        candidate = parse.credential(
+          await this.passwordApi({ login: account, password, terminal_id: terminalId }),
+        );
       } catch (error) {
-        this.state.storageBlocked = true;
-        this.releaseLease?.();
-        this.releaseLease = null;
+        if (error instanceof ApiError && error.code === 'AUTH_RATE_LIMITED')
+          this.retryLoginAt = Date.now() + (error.retryAfterSeconds || 60) * 1000;
         throw error;
       }
-      try {
-        this.sessions.setItem(AUTH_KEY, JSON.stringify(saved));
-      } catch {
-        this.releaseLease?.();
-        this.releaseLease = null;
-        throw new Error('STORAGE_UNAVAILABLE');
-      }
-      this.generation++;
-      this.credential = saved;
-      this.journal = journal;
-      this.state = {
-        ...this.state,
-        actor,
-        menu: null,
-        ordering: null,
-        stops: new Map(),
-        quote: null,
-        order: null,
-        error: null,
-        connectedAt: Date.now(),
-        draft: journal.draft,
-        known: journal.known,
-        pending: journal.pending,
-        storageBlocked: false,
-        shift: null,
-        shifts: [],
-        orders: [],
-        operationsAvailable: false,
-        operationsAt: null,
-        operationsError: null,
-      };
-      await this.refreshData();
-      await this.readOperations();
-      if (journal.selected) await this.readOrder(journal.selected);
+      if (candidate.terminal_id !== terminalId) throw new Error('WRONG_BRANCH');
+      await this.establishSession(candidate);
+      this.retryLoginAt = 0;
     });
+  }
+  private async establishSession(candidate: StaffCredential) {
+    const actor = parse.session(await this.api('session', candidate));
+    if (actor.session_id !== candidate.session_id || scopeFor(actor) !== scopeFor(candidate))
+      throw new Error('WRONG_BRANCH');
+    if (actor.role === 'kitchen') throw new ApiError('FORBIDDEN', 403);
+    const saved = { ...actor, token: candidate.token };
+    if (!this.releaseLease && this.lease)
+      this.releaseLease = await this.lease(`${actor.branch_id}.${actor.terminal_id}`);
+    let journal: Journal;
+    try {
+      journal = this.readJournal(actor);
+    } catch (error) {
+      this.state.storageBlocked = true;
+      this.releaseLease?.();
+      this.releaseLease = null;
+      throw error;
+    }
+    try {
+      this.sessions.setItem(AUTH_KEY, JSON.stringify(saved));
+    } catch {
+      this.releaseLease?.();
+      this.releaseLease = null;
+      throw new Error('STORAGE_UNAVAILABLE');
+    }
+    this.generation++;
+    this.credential = saved;
+    this.journal = journal;
+    this.state = {
+      ...this.state,
+      actor,
+      menu: null,
+      ordering: null,
+      stops: new Map(),
+      quote: null,
+      order: null,
+      error: null,
+      connectedAt: Date.now(),
+      draft: journal.draft,
+      known: journal.known,
+      pending: journal.pending,
+      storageBlocked: false,
+      shift: null,
+      shifts: [],
+      orders: [],
+      operationsAvailable: false,
+      operationsAt: null,
+      operationsError: null,
+    };
+    await this.refreshData();
+    await this.readOperations();
+    if (journal.selected) await this.readOrder(journal.selected);
   }
   logout() {
     if (this.state.busy) return;
+    const credential = this.credential;
     try {
       this.sessions.removeItem(AUTH_KEY);
     } catch {
@@ -308,6 +345,7 @@ export class PosController {
     }
     this.generation++;
     this.credential = null;
+    if (credential) void this.api('staff/logout', credential, { method: 'POST' }).catch(() => {});
     this.journal = null;
     this.releaseLease?.();
     this.releaseLease = null;
@@ -370,10 +408,12 @@ export class PosController {
       actor = this.state.actor;
     if (!actor) return;
     try {
-      const [shift, orders, shifts] = await Promise.all([
+      const selectedId = this.state.order?.order_id;
+      const [shift, orders, shifts, selectedOrder] = await Promise.all([
         this.request('cash-shifts/current').then(parse.currentShift),
         this.request('orders').then(parse.orderFeed),
         this.request('cash-shifts').then(parse.shiftHistory),
+        selectedId ? this.request(`orders/${selectedId}`).then(parse.order) : null,
       ]);
       if (epoch !== this.generation || read !== this.operationsRead) return;
       const own = (value: CashShift) =>
@@ -387,12 +427,16 @@ export class PosController {
             shift.staff_id !== actor.staff_id ||
             shift.terminal_id !== actor.terminal_id)) ||
         shifts.some((s) => !own(s)) ||
-        orders.some((o) => o.branch_id !== actor.branch_id)
+        orders.some((o) => o.branch_id !== actor.branch_id) ||
+        (selectedOrder &&
+          (selectedOrder.branch_id !== actor.branch_id || selectedOrder.order_id !== selectedId))
       )
         throw new Error('WRONG_BRANCH');
       this.state.shift = shift;
       this.state.shifts = shifts;
       this.state.orders = orders;
+      if (selectedOrder && this.state.order?.order_id === selectedId)
+        this.state.order = selectedOrder;
       this.state.operationsAvailable = true;
       this.state.operationsAt = Date.now();
       this.state.operationsError = null;
@@ -560,7 +604,7 @@ export class PosController {
       shift.terminal_id === actor.terminal_id,
     );
   }
-  async create() {
+  async create(kitchenAdmission = false) {
     if (!this.editable()) return;
     await this.run(async () => {
       if (!this.state.operationsAvailable || this.state.operationsError)
@@ -568,7 +612,12 @@ export class PosController {
       if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
       const q = this.state.quote;
       if (!q || Date.parse(q.expires_at) <= Date.now()) throw new Error('QUOTE_EXPIRED');
-      await this.begin('create', 'orders', { quote_id: q.quote_id });
+      if (kitchenAdmission && this.state.ordering?.pos_service_mode !== 'unpaid_service')
+        throw new Error('SERVICE_MODE_DISABLED');
+      await this.begin('create', 'orders', {
+        quote_id: q.quote_id,
+        ...(kitchenAdmission ? { kitchen_admission: 'unpaid' } : {}),
+      });
     });
   }
   async recover() {
@@ -582,6 +631,19 @@ export class PosController {
     try {
       value = await this.request(p.path, { method: 'POST', body: p.body, key: p.key });
     } catch (error) {
+      const admissionRejected =
+        error instanceof ApiError &&
+        error.status === 409 &&
+        ((p.kind === 'create' &&
+          ['SERVICE_MODE_DISABLED', 'KITCHEN_UNAVAILABLE'].includes(error.code)) ||
+          (p.kind === 'cancel' && error.code === 'ORDER_IN_PRODUCTION'));
+      if (admissionRejected) {
+        this.save({ ...j, pending: null });
+        this.state.quote = null;
+        if (p.kind === 'cancel') await this.readOrder(p.path.split('/')[1]!);
+        await this.refreshData();
+        await this.readOperations();
+      }
       const shiftConflict =
         error instanceof ApiError &&
         error.code === 'CONFLICT' &&
@@ -617,7 +679,10 @@ export class PosController {
       const created = parse.order(value);
       if (
         created.branch_id !== this.state.actor?.branch_id ||
-        (p.kind === 'create' && created.quote_id !== p.body.quote_id) ||
+        (p.kind === 'create' &&
+          (created.quote_id !== p.body.quote_id ||
+            (p.body.kitchen_admission === 'unpaid' &&
+              created.execution_mode !== 'unpaid_service'))) ||
         (p.kind === 'cancel' && p.path !== `orders/${created.order_id}/cancel`)
       )
         throw new Error('INVALID_RESPONSE');

@@ -16,6 +16,7 @@ output = Path(fixture['output'])
 
 
 def sign_in(page, actor):
+    page.locator('details.login-service').evaluate('(node) => node.open = true')
     page.get_by_test_id('pos-staff-file').set_input_files({
         'name': 'synthetic-session.json', 'mimeType': 'application/json',
         'buffer': json.dumps(actor).encode(),
@@ -46,11 +47,12 @@ with sync_playwright() as playwright:
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(url)
-        bad = {**fixture['cashier'], 'token': '0' * 64}
+        actor = fixture['cashiers'][str(width)]
+        bad = {**actor, 'token': '0' * 64}
         sign_in(page, bad)
-        expect(page.get_by_test_id('pos-error')).to_contain_text('Доступ закончился')
+        expect(page.get_by_test_id('pos-error')).to_contain_text('Сессия закончилась')
         expect(page.get_by_test_id('pos-staff-file')).to_be_visible()
-        sign_in(page, fixture['cashier'])
+        sign_in(page, actor)
         add = page.get_by_test_id('pos-add-' + fixture['variant'])
         expect(add).to_be_enabled()
         page.evaluate('() => document.fonts.ready')
@@ -59,7 +61,7 @@ with sync_playwright() as playwright:
         # A second tab may not take the same physical terminal's journal lease.
         second = context.new_page()
         second.goto(url)
-        sign_in(second, fixture['cashier'])
+        sign_in(second, actor)
         expect(second.get_by_test_id('pos-error')).to_contain_text('другом окне')
         second.close()
         add.click()
@@ -100,16 +102,15 @@ with sync_playwright() as playwright:
         page.route(url + '/edge/v1/orders', lose_first_response)
         page.get_by_test_id('pos-create').click()
         expect(page.get_by_test_id('pos-recovery')).to_be_visible()
-        expect(page.get_by_test_id('pos-create')).to_be_disabled()
+        expect(page.get_by_test_id('pos-review')).to_have_count(0)
         page.reload()
         expect(page.get_by_test_id('pos-recovery')).to_be_visible()
         page.get_by_test_id('pos-recover').click()
         expect(page.get_by_test_id('pos-order')).to_be_visible()
         expect(page.get_by_test_id('pos-recovery')).to_have_count(0)
         assert len(creations) == 2 and creations[0] == creations[1]
-        order_id = page.get_by_test_id('pos-order-id').inner_text()
-        expect(page.get_by_role('heading', name='Ожидает оплаты', exact=True)).to_be_visible()
-        expect(page.get_by_text('Заблокирована', exact=True)).to_be_visible()
+        order_id = page.get_by_test_id('pos-order-id').text_content()
+        expect(page.get_by_test_id('pos-kitchen-state')).to_have_text('Не передан на кухню')
         assert not page.get_by_role('button', name='Оплатить', exact=True).count()
         capture(page, f'pos-order-{width}.png')
         page.reload()
@@ -119,12 +120,12 @@ with sync_playwright() as playwright:
         page.get_by_test_id('pos-reason').fill(reason)
         expect(page.get_by_test_id('pos-reason')).to_have_value(reason)
         page.get_by_test_id('pos-confirm').click()
-        expect(page.get_by_role('heading', name='Заказ отменён', exact=True)).to_be_visible()
+        expect(page.get_by_test_id('pos-kitchen-state')).to_have_text('Отменён')
         expect(page.get_by_text('Причина отмены: ' + reason, exact=True)).to_be_visible()
         page.get_by_test_id('pos-logout').click()
-        expect(page.get_by_test_id('pos-staff-file')).to_be_visible()
+        expect(page.get_by_test_id('pos-sign-in')).to_be_visible()
         assert page.evaluate('Object.keys(sessionStorage).length') == 0
-        assert fixture['cashier']['token'] not in page.evaluate('JSON.stringify(localStorage)')
+        assert actor['token'] not in page.evaluate('JSON.stringify(localStorage)')
         assert errors == [], errors
         context.close()
         print(f'PASS POS {width}x{height}: real auth, fixed actions, reload, lost-create recovery, cancellation')
