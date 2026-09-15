@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --env-file=../../.env.example --test tests/integration.test.mjs"
+    "test:integration": "node --env-file=../../.env.example --test --test-concurrency=1 tests/integration.test.mjs tests/kitchen-integration.test.mjs tests/kitchen-upgrade.test.mjs"
   },
   "dependencies": {
     "@pickchick/contracts": "workspace:*",

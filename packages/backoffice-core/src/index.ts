@@ -141,7 +141,7 @@ export class Backoffice {
         [branch, start],
       );
       const pos = await rows(
-        `SELECT order_id id,first_observed_at created_at,total_minor::text,version::text,state,'pos' channel,commercial_owner owner,payment_state,fulfillment_state kitchen_state,updated_at observed_at FROM pos_order_sync_projection WHERE branch_id=$1 AND first_observed_at >= $2 ORDER BY first_observed_at DESC,order_id LIMIT 200`,
+        `SELECT p.order_id id,p.first_observed_at created_at,p.total_minor::text,p.version::text,p.state,'pos' channel,p.commercial_owner owner,p.payment_state,coalesce(k.state,p.fulfillment_state) kitchen_state,coalesce(k.observed_at,p.updated_at) observed_at,p.execution_mode FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.branch_id=$1 AND p.first_observed_at >= $2 ORDER BY p.first_observed_at DESC,p.order_id LIMIT 200`,
         [branch, start],
       );
       const metrics = (
@@ -152,7 +152,7 @@ export class Backoffice {
     (SELECT coalesce(sum(c.amount_minor),0)::text FROM commerce_captures c JOIN commerce_orders o ON o.id=c.order_id WHERE o.branch_id=$1 AND c.occurred_at >= $2) captured_minor,
     (SELECT coalesce(sum(r.amount_minor),0)::text FROM commerce_refund_effects r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 AND r.occurred_at >= $2) refunded_minor,
     (SELECT count(*)::int FROM commerce_payment_attempts p JOIN commerce_orders o ON o.id=p.order_id WHERE o.branch_id=$1 AND p.state='unknown') unknown_payments,
-    (SELECT count(*)::int FROM cloud_fulfillment_projection WHERE branch_id=$1 AND state IN ('accepted','in_production')) kitchen_active,
+    ((SELECT count(*)::int FROM cloud_fulfillment_projection WHERE branch_id=$1 AND state IN ('accepted','in_production')) + (SELECT count(*)::int FROM pos_kitchen_sync_projection WHERE branch_id=$1 AND state IN ('accepted','in_production'))) kitchen_active,
     (SELECT count(*)::int FROM pos_order_sync_projection WHERE branch_id=$1 AND first_observed_at >= $2) pos_orders,
     (SELECT coalesce(sum(o.total_minor),0)::text FROM commerce_orders o JOIN cloud_fulfillment_projection f ON f.order_id=o.id WHERE o.branch_id=$1 AND o.created_at >= $2 AND f.state='handed_over') completed_total_minor`,
           [branch, start],
@@ -173,10 +173,10 @@ export class Backoffice {
       );
       const devices = await rows(`SELECT d.id,d.name,d.kind,d.status,
     (SELECT max(received_at) FROM cloud_fulfillment_inbox i WHERE i.device_id=d.id) last_fulfillment_at,
-    (SELECT max(received_at) FROM pos_order_sync_inbox p WHERE p.device_id=d.id) last_pos_at
+    greatest((SELECT max(received_at) FROM pos_order_sync_inbox p WHERE p.device_id=d.id),(SELECT max(received_at) FROM pos_kitchen_sync_inbox p WHERE p.device_id=d.id)) last_pos_at
     FROM devices d WHERE d.branch_id=$1 ORDER BY d.name,d.id`);
       const kitchen = await rows(
-        `SELECT f.order_id,f.state,f.version,f.display_number::text,f.routing_version,f.assembly_station_id,f.observed_at FROM cloud_fulfillment_projection f WHERE f.branch_id=$1 ORDER BY f.observed_at DESC,f.order_id LIMIT 200`,
+        `SELECT * FROM (SELECT f.order_id,f.state,f.version,f.display_number::text,f.routing_version,f.assembly_station_id,f.observed_at,'cloud' commercial_owner FROM cloud_fulfillment_projection f WHERE f.branch_id=$1 UNION ALL SELECT k.order_id,k.state,k.version,k.display_number::text,k.routing_version,k.assembly_station_id,k.observed_at,'edge_pos' commercial_owner FROM pos_kitchen_sync_projection k WHERE k.branch_id=$1) observations ORDER BY observed_at DESC,order_id LIMIT 200`,
       );
       const guests =
         await rows(`SELECT c.id,c.created_at,count(o.id)::int orders,max(o.created_at) last_order_at,
@@ -241,12 +241,20 @@ export class Backoffice {
       if (!o) {
         const pos = (
           await db.query(
-            'SELECT order_id id,snapshot,state,version,total_minor::text FROM pos_order_sync_projection WHERE order_id=$1 AND branch_id=$2',
+            'SELECT p.order_id id,p.snapshot,p.state,p.version,p.total_minor::text,p.payment_state,p.fiscal_state,p.execution_mode,coalesce(k.state,p.fulfillment_state) kitchen_state,k.version kitchen_version,k.observed_at FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.order_id=$1 AND p.branch_id=$2',
             [id, branch],
           )
         ).rows[0];
         if (!pos) return fail('NOT_FOUND');
-        return { order: pos, owner: 'edge', captures: [], refunds: [], fiscal: [], events: [] };
+        const events = (
+          await db.query(
+            `SELECT event_id,envelope->>'event_type' event_type,aggregate_version,received_at,'order_commercial' aggregate_type,envelope->'payload'->>'state' state,NULL::text task_state FROM pos_order_sync_inbox WHERE order_id=$1 AND branch_id=$2
+           UNION ALL SELECT event_id,event_type,aggregate_version,received_at,'order_fulfillment' aggregate_type,envelope->'payload'->>'state' state,envelope->'payload'->>'taskState' task_state FROM pos_kitchen_sync_inbox WHERE order_id=$1 AND branch_id=$2
+           ORDER BY received_at,event_id LIMIT 500`,
+            [id, branch],
+          )
+        ).rows;
+        return { order: pos, owner: 'edge', captures: [], refunds: [], fiscal: [], events };
       }
       const captures = (
         await db.query(

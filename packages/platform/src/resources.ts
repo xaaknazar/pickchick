@@ -69,6 +69,13 @@ export class Resources implements OnApplicationShutdown {
               await this.pool.query(`SELECT lock_anchor FROM ${table} LIMIT 0`);
           }
           if (this.config.backofficeEnabled) {
+            const kitchen = await this.pool.query(
+              "SELECT 1 FROM schema_migrations WHERE scope='cloud' AND version='018_pos_kitchen_sync.sql'",
+            );
+            if (kitchen.rowCount !== 1)
+              throw new Error('POS kitchen observation schema unavailable');
+            for (const table of ['pos_kitchen_sync_inbox', 'pos_kitchen_sync_projection'])
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
             const version = await this.pool.query(
               "SELECT 1 FROM schema_migrations WHERE version='017_cloud_backoffice.sql' AND scope='cloud'",
             );
@@ -184,6 +191,13 @@ export class Resources implements OnApplicationShutdown {
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
           }
           if (this.config.posOrderSyncEnabled) {
+            const kitchen = await this.pool.query(
+              "SELECT 1 FROM schema_migrations WHERE scope='cloud' AND version='018_pos_kitchen_sync.sql'",
+            );
+            if (kitchen.rowCount !== 1)
+              throw new Error('POS kitchen observation schema unavailable');
+            for (const table of ['pos_kitchen_sync_inbox', 'pos_kitchen_sync_projection'])
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
             const pos = await this.pool.query(
               'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
               ['cloud', '016_cloud_pos_order_sync.sql'],
@@ -255,13 +269,18 @@ export class Resources implements OnApplicationShutdown {
             );
           }
           if (this.config.posOrderSyncEnabled) {
+            const kitchen = await this.pool.query(
+              "SELECT 1 FROM schema_migrations WHERE scope='edge' AND version='013_pos_kitchen_sync.sql'",
+            );
+            if (kitchen.rowCount !== 1) throw new Error('POS kitchen delivery schema unavailable');
+            await this.pool.query('SELECT branch_id FROM pos_kitchen_sync_state LIMIT 0');
             const pos = await this.pool.query(
               'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
               ['edge', '008_edge_pos_order_sync.sql'],
             );
             if (pos.rowCount !== 1) throw new Error('POS sync schema unavailable');
             const binding = await this.pool.query(
-              'SELECT 1 FROM pos_order_sync_state WHERE branch_id=$1 AND device_id=$2',
+              'SELECT 1 FROM pos_order_sync_state s JOIN pos_kitchen_sync_state k ON k.branch_id=s.branch_id WHERE s.branch_id=$1 AND s.device_id=$2',
               [this.config.branchId, this.config.edgeDeviceId],
             );
             if (binding.rowCount !== 1) throw new Error('POS sync binding unavailable');
