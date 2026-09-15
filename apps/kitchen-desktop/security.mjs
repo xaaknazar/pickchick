@@ -1,4 +1,4 @@
-import { allowed, createKitchenServer } from './gateway.mjs';
+import { allowed, createKitchenServer, validateUpstream } from './gateway.mjs';
 
 // The origin is part of the operation journal's identity. Never pick a free port
 // or accept a caller-supplied URL: either own this listener or fail closed.
@@ -31,7 +31,10 @@ export function validateConfig(value) {
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
-    Object.keys(value).some((key) => !['edgePort', 'branchLabel'].includes(key))
+    Object.keys(value).some(
+      (key) =>
+        !['edgePort', 'branchLabel', 'edgeHost', 'edgeCertificatePem', 'terminalId'].includes(key),
+    )
   )
     throw new Error('INVALID_KITCHEN_CONFIG');
   const edgePort = value.edgePort === undefined ? 3101 : value.edgePort;
@@ -49,7 +52,21 @@ export function validateConfig(value) {
     )
   )
     throw new Error('INVALID_KITCHEN_CONFIG');
-  return Object.freeze({ edgePort, branchLabel });
+  const upstream = validateUpstream(value);
+  if (
+    value.terminalId !== undefined &&
+    (typeof value.terminalId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value.terminalId,
+      ))
+  )
+    throw new Error('INVALID_KITCHEN_CONFIG');
+  return Object.freeze({
+    edgePort,
+    branchLabel,
+    ...upstream,
+    ...(value.terminalId === undefined ? {} : { terminalId: value.terminalId }),
+  });
 }
 
 export function isAllowedRendererRequest(raw, method = 'GET') {

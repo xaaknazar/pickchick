@@ -18,6 +18,14 @@ assert urlparse(url).hostname == '127.0.0.1'
 output = Path(fixture['output'])
 
 def login(page, actor):
+    if workstation:
+        page.locator('#staff-login').fill('kitchen.synthetic')
+        page.locator('#staff-password').fill(fixture['password'])
+        page.locator('#sign-in').click()
+        expect(page.locator('#logout')).to_be_visible()
+        expect(page.locator('#refresh')).to_be_enabled()
+        return
+    page.locator('details.login-service').evaluate('(node) => node.open = true')
     page.locator('#credential').set_input_files({'name':'synthetic-staff.json','mimeType':'application/json','buffer':json.dumps(actor).encode()})
     expect(page.locator('#logout')).to_be_visible()
     expect(page.locator('#refresh')).to_be_enabled()
@@ -36,6 +44,15 @@ with sync_playwright() as p:
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(url)
+    if workstation:
+        capture(page, 'password-login')
+        page.locator('#staff-login').fill('kitchen.synthetic')
+        page.locator('#staff-password').fill('Synthetic wrong password')
+        page.locator('#password-toggle').click()
+        expect(page.locator('#staff-password')).to_have_attribute('type', 'text')
+        page.locator('#staff-password').press('Enter')
+        expect(page.get_by_role('alert')).to_contain_text('Не удалось войти')
+        expect(page.locator('#staff-password')).to_have_value('')
     login(page, fixture['cook'])
     if fixture.get('mode') == 'injection':
         expect(page.locator('h1')).to_contain_text('</h1><button id="acknowledge">Подмена</button><h1>')
@@ -139,7 +156,8 @@ with sync_playwright() as p:
     capture(page, 'offline')
     page.unroute('**/edge/v1/fulfillment/kitchen?*')
     page.locator('#logout').click()
-    expect(page.locator('#credential')).to_be_visible()
+    expect(page.locator('#staff-login')).to_be_visible()
+    page.locator('details.login-service').evaluate('(node) => node.open = true')
     bad = {**fixture['cook'], 'token':'0'*64}
     page.locator('#credential').set_input_files({'name':'invalid-synthetic.json','mimeType':'application/json','buffer':json.dumps(bad).encode()})
     expect(page.get_by_role('alert')).to_be_visible()

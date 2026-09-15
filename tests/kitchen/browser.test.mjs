@@ -1,6 +1,8 @@
 /** Real disposable PG + LAN HTTP + browser. Never calls cloud/TEST checkout. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { setStaffPassword } from '@pickchick/local-orders';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
@@ -28,6 +30,7 @@ for (const [width, height, mode] of [
 ])
   test(`real PG kitchen ${mode} ${width}×${height}`, { timeout: 180000 }, async () => {
     await fixture(async (ctx) => {
+      const password = 'Synthetic-' + randomUUID();
       const first = mode !== 'injection' ? await ctx.accepted(true) : null;
       if (mode !== 'injection') for (let i = 0; i < 5; i++) await ctx.accepted(i % 2 === 0);
       if (mode === 'workstation') {
@@ -41,6 +44,14 @@ for (const [width, height, mode] of [
           ['Упаковка', ctx.scope.branchId, ctx.assembly],
         );
       }
+      if (mode === 'workstation')
+        await setStaffPassword(
+          ctx.pool,
+          ctx.scope.branchId,
+          ctx.cook.auth,
+          'kitchen.synthetic',
+          password,
+        );
       if (mode === 'injection')
         await ctx.pool.query(
           'UPDATE fulfillment_stations SET name=$1 WHERE branch_id=$2 AND id=$3',
@@ -63,6 +74,7 @@ for (const [width, height, mode] of [
         const edgePort = Number(new URL(await app.getUrl()).port);
         gateway = createKitchenServer({
           edgePort,
+          ...(mode === 'workstation' ? { terminalId: ctx.cook.terminal_id } : {}),
           branchLabel: 'Алматы · проверка локальной кухни',
           assetDir: new URL('../../apps/kitchen/dist/', import.meta.url),
         });
@@ -78,6 +90,7 @@ for (const [width, height, mode] of [
             width,
             height,
             mode,
+            ...(mode === 'workstation' ? { password } : {}),
             cook: redactActor(ctx.cook),
             packer: redactActor(ctx.packer),
             manager: redactActor(ctx.manager),

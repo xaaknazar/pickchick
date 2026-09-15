@@ -193,6 +193,51 @@ export class KitchenModel {
       await this.signIn(credential(JSON.parse(raw)));
     });
   }
+  retryLoginAt = 0;
+  async signInWithPassword(login: string, password: string, terminalId: string | undefined) {
+    await this.run(async () => {
+      try {
+        uuid(terminalId);
+      } catch {
+        throw new Error('TERMINAL_NOT_CONFIGURED');
+      }
+      if (Date.now() < this.retryLoginAt) throw new ApiError('AUTH_RATE_LIMITED', 429);
+      const account = login.trim().toLowerCase();
+      if (
+        !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(account) ||
+        password.length < 12 ||
+        password.length > 128
+      )
+        throw new Error('INVALID_LOGIN');
+      let c: Credential;
+      try {
+        c = credential(
+          await this.call('/edge/v1/staff/login', null, {
+            login: account,
+            password,
+            terminal_id: terminalId,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'AUTH_RATE_LIMITED')
+          this.retryLoginAt = Date.now() + (error.retryAfterSeconds || 60) * 1000;
+        throw error;
+      }
+      if (c.terminal_id !== terminalId) throw new Error('SCOPE_MISMATCH');
+      const session = credential({
+        ...record(await this.call('/edge/v1/session', c)),
+        token: c.token,
+      });
+      if (
+        Object.keys(c).some(
+          (key) => c[key as keyof Credential] !== session[key as keyof Credential],
+        )
+      )
+        throw new Error('SCOPE_MISMATCH');
+      await this.signIn(c);
+      this.retryLoginAt = 0;
+    });
+  }
   private async signIn(c: Credential) {
     const epoch = this.epoch;
     if (Date.parse(c.expires_at) <= Date.now()) throw new Error('SESSION_EXPIRED');
@@ -246,7 +291,9 @@ export class KitchenModel {
     await this.read();
   }
   logout() {
+    const actor = this.state.actor;
     this.forget();
+    if (actor) void this.transport('/edge/v1/staff/logout', actor).catch(() => {});
     this.state.error = null;
     this.emit();
   }

@@ -5,6 +5,7 @@ export class ApiError extends Error {
     public code: string,
     public status = 0,
     public validated = false,
+    public retryAfterSeconds = 0,
   ) {
     super(code);
   }
@@ -27,7 +28,7 @@ export const request: Transport = async (path, actor, body, key) => {
   let response: Response;
   try {
     response = await fetch(path, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: body === undefined && path !== '/edge/v1/staff/logout' ? 'GET' : 'POST',
       headers,
       credentials: 'omit',
       redirect: 'error',
@@ -37,6 +38,23 @@ export const request: Transport = async (path, actor, body, key) => {
     });
   } catch {
     throw new ApiError('CONNECTION_UNKNOWN');
+  }
+  if (path === '/edge/v1/staff/logout' && response.status === 204) return null;
+  if (path === '/edge/v1/staff/login') {
+    if (response.status === 401) {
+      await response.body?.cancel();
+      throw new ApiError('INVALID_LOGIN', 401);
+    }
+    if (response.status === 429) {
+      const seconds = Number(response.headers.get('Retry-After'));
+      await response.body?.cancel();
+      throw new ApiError(
+        'AUTH_RATE_LIMITED',
+        429,
+        false,
+        Number.isInteger(seconds) && seconds > 0 && seconds <= 3600 ? seconds : 60,
+      );
+    }
   }
   const reader = response.body?.getReader();
   let bytes = 0;
