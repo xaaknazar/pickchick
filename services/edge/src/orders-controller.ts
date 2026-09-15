@@ -30,6 +30,7 @@ import {
   OrderError,
   orderErrorStatus,
 } from '@pickchick/local-orders';
+import { localUnpaidExecution } from '@pickchick/edge-fulfillment';
 import type { StaffAuth } from '@pickchick/local-orders';
 
 @Controller('edge/v1')
@@ -54,6 +55,12 @@ export class LocalOrdersController {
   }
   private get branchId() {
     return this.resources.config.branchId!;
+  }
+  private get execution() {
+    return localUnpaidExecution({
+      enabled: this.resources.config.edgeFulfillmentEnabled,
+      deviceId: this.resources.config.edgeDeviceId,
+    });
   }
   private get pool() {
     return this.resources.pool;
@@ -82,7 +89,14 @@ export class LocalOrdersController {
   @HttpCode(201)
   create(@Headers() headers: Record<string, string | undefined>, @Body() body: unknown) {
     return this.run(headers, (auth) =>
-      createLocalOrder(this.pool, this.branchId, auth, headers['idempotency-key'] ?? '', body),
+      createLocalOrder(
+        this.pool,
+        this.branchId,
+        auth,
+        headers['idempotency-key'] ?? '',
+        body,
+        this.execution,
+      ),
     );
   }
 
@@ -156,6 +170,7 @@ export class LocalOrdersController {
         headers['idempotency-key'] ?? '',
         orderId,
         body,
+        this.execution,
       ),
     );
   }

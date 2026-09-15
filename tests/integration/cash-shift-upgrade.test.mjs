@@ -6,13 +6,14 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { migrate } from '@pickchick/database';
+import { QuoteSchema } from '@pickchick/contracts';
 import { applyMenu, publishMenu, hashJson } from '@pickchick/menu-sync';
 import {
   createQuote,
   createLocalOrder,
   readLocalOrder,
   provisionStaff,
-  setOrdering,
+  priceCart,
   cancelLocalOrder,
 } from '@pickchick/local-orders';
 import { withSyncDatabases } from '../helpers/sync.mjs';
@@ -35,16 +36,42 @@ test('edge 009 to 010 preserves existing order/quote/menu bytes and allows legac
           name: 'Synthetic migration staff',
         });
         const auth = staffAuth(manager);
-        await setOrdering(ctx.edge.pool, ctx.branch, auth, randomUUID(), true, {
-          expected_version: 1,
-        });
+        // Build the historical 009 rows with that schema's SQL, not newer application code.
+        await ctx.edge.pool.query(
+          'UPDATE branch_config SET ordering_enabled=true,ordering_version=2',
+        );
         const cart = {
           release_id: menu.release_id,
           service_mode: 'takeaway',
           items: [{ variant_id: menu.items[0].variant_id, quantity: 1 }],
         };
-        const quote = await createQuote(ctx.edge.pool, ctx.branch, auth, cart),
-          id = randomUUID();
+        const time = new Date();
+        const quote = QuoteSchema.parse({
+          quote_id: randomUUID(),
+          branch_id: ctx.branch,
+          release_id: menu.release_id,
+          menu_version: menu.version,
+          service_mode: cart.service_mode,
+          channel: 'pos',
+          ...priceCart(menu, cart),
+          created_at: time.toISOString(),
+          expires_at: new Date(time.getTime() + 300000).toISOString(),
+        });
+        await ctx.edge.pool.query(
+          'INSERT INTO checkout_quotes(id,branch_id,staff_id,terminal_id,release_id,total_minor,snapshot,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+          [
+            quote.quote_id,
+            ctx.branch,
+            manager.staff_id,
+            manager.terminal_id,
+            menu.release_id,
+            quote.total_minor,
+            quote,
+            quote.created_at,
+            quote.expires_at,
+          ],
+        );
+        const id = randomUUID();
         await ctx.edge.pool.query(
           'INSERT INTO local_orders(id,branch_id,quote_id,total_minor) VALUES($1,$2,$3,$4)',
           [id, ctx.branch, quote.quote_id, quote.total_minor],
@@ -89,6 +116,13 @@ test('edge 009 to 010 preserves existing order/quote/menu bytes and allows legac
         assert.deepEqual(await hashes(), oldHashes);
         const read = await readLocalOrder(ctx.edge.pool, ctx.branch, auth, id);
         assert.equal(read.cash_shift_id, undefined);
+        assert.equal(read.execution_mode, undefined);
+        assert.equal(read.fulfillment_state, 'blocked');
+        assert.equal(
+          (await ctx.edge.pool.query('SELECT pos_service_mode FROM branch_config')).rows[0]
+            .pos_service_mode,
+          'payment_required',
+        );
         assert.deepEqual(read.snapshot, quote);
         assert.equal(
           (

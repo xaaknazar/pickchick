@@ -87,7 +87,7 @@ const DetailsSchema = z
           })
           .passthrough(),
       )
-      .max(40),
+      .max(100),
     components: z
       .array(
         z
@@ -106,7 +106,7 @@ export const SnapshotSchema = z
   .object({
     organizationId: uuid,
     branchId: uuid,
-    channel: z.literal('mobile'),
+    channel: z.enum(['mobile', 'pos']),
     serviceMode: z.enum(['takeaway', 'dine_in']),
     currency: z.literal('KZT'),
     totalMinor: z.string().regex(/^[1-9][0-9]{0,15}$/),
@@ -132,7 +132,7 @@ export const AdmissionPayloadSchema = z.strictObject({
   branchId: uuid,
   quoteId: uuid,
   quoteDigest: hash,
-  snapshot: SnapshotSchema,
+  snapshot: SnapshotSchema.extend({ channel: z.literal('mobile') }),
   owner: z.literal('cloud'),
 });
 export const AuthorizePayloadSchema = z.strictObject({
@@ -141,7 +141,7 @@ export const AuthorizePayloadSchema = z.strictObject({
   reservationId: uuid,
   deviceId: uuid,
   quoteDigest: hash,
-  snapshot: SnapshotSchema,
+  snapshot: SnapshotSchema.extend({ channel: z.literal('mobile') }),
   owner: z.literal('cloud'),
 });
 export const CloudCommandSchema = z.discriminatedUnion('type', [

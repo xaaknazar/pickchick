@@ -49,12 +49,12 @@ export const FulfillmentTaskSchema = z.strictObject({
     parentTitle: z.string().min(1).max(250),
     description: z.string().max(2000),
     quantity: z.int().min(1).max(1_000_000),
-    modifiers: z.array(FulfillmentModifierSchema).max(40),
+    modifiers: z.array(FulfillmentModifierSchema).max(100),
   }),
 });
 export const FulfillmentKitchenOrderSchema = FulfillmentSummarySchema.extend({
   assemblyStationId: uuid,
-  channel: z.literal('mobile'),
+  channel: z.enum(['mobile', 'pos']),
   serviceMode: z.enum(['takeaway', 'dine_in']),
   tasks: z.array(FulfillmentTaskSchema).max(2000),
 });

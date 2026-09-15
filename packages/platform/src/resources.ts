@@ -36,7 +36,8 @@ export class Resources implements OnApplicationShutdown {
       await this.pool.query('SELECT 1');
       database = 'up';
       const scope = this.config.service === 'api' ? 'cloud' : 'edge';
-      const version = scope === 'cloud' ? '003_cloud_menu_sync.sql' : '011_staff_passwords.sql';
+      const version =
+        scope === 'cloud' ? '003_cloud_menu_sync.sql' : '012_edge_pos_unpaid_fulfillment.sql';
       const result = await this.pool.query(
         'SELECT 1 FROM schema_migrations WHERE scope = $1 AND version = $2',
         [scope, version],
