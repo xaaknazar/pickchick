@@ -85,8 +85,36 @@ function Save-State {
     $script:state.updatedAt = [DateTime]::UtcNow.ToString('o')
     $temp = Join-Path $script:privateRoot ('state-' + [guid]::NewGuid().ToString() + '.tmp')
     Write-PrivateText $temp ($script:state | ConvertTo-Json -Depth 4)
-    if (Test-Path -LiteralPath $script:statePath) { [IO.File]::Replace($temp, $script:statePath, $null) }
+    # Windows PowerShell 5.1 coerces ordinary $null to an empty string for this
+    # .NET string overload; NullString preserves the required null backup path.
+    if (Test-Path -LiteralPath $script:statePath) { [IO.File]::Replace($temp, $script:statePath, [System.Management.Automation.Language.NullString]::Value) }
     else { [IO.File]::Move($temp, $script:statePath) }
+}
+
+function Assert-CredentialBinding($Credential, $State) {
+    if ($Credential.format -ne 'pickchick-native-secrets-v1' -or $Credential.installId -ne $State.installId -or $Credential.branchId -ne $State.branchId) { throw 'Private credential binding differs.' }
+    $expected = @('pickchick_bootstrap', 'pickchick_edge_owner', 'pickchick_edge_runtime')
+    $actual = @($Credential.passwords.PSObject.Properties.Name | Sort-Object)
+    if (($actual -join ',') -cne ($expected -join ',')) { throw 'Unexpected private credential keys.' }
+    $values = @($Credential.passwords.PSObject.Properties.Value)
+    if (@($values | Where-Object { $_ -isnot [string] -or $_ -cnotmatch '^[a-f0-9]{64}$' }).Count -or @($values | Sort-Object -Unique).Count -ne 3) { throw 'Invalid or repeated private passwords.' }
+}
+
+function Assert-PendingCredentialState($Current, $Pending) {
+    if ($Current.credentialsReady -ne $false -or $Pending.credentialsReady -ne $true) { throw 'Pending state is not the completed credential phase.' }
+    foreach ($flag in @('clusterReady', 'pgRegistered', 'databaseReady', 'migrationsReady', 'edgeRegistered', 'complete', 'branchReady', 'rebootVerified', 'wanVerified')) {
+        if ($Current.$flag -ne $false) { throw 'Credential recovery requires untouched later phases.' }
+    }
+    if ($Current.systemIdentifier -ne '') { throw 'Credential recovery requires an uninitialized cluster.' }
+    $keys = @($Current.PSObject.Properties.Name | Sort-Object)
+    if (($keys -join ',') -cne (@($Pending.PSObject.Properties.Name | Sort-Object) -join ',')) { throw 'Pending state fields differ.' }
+    foreach ($key in $keys) {
+        if ($key -in @('credentialsReady', 'updatedAt')) { continue }
+        if (($Current.$key | ConvertTo-Json -Compress -Depth 4) -cne ($Pending.$key | ConvertTo-Json -Compress -Depth 4)) { throw 'Pending state changed another installation field.' }
+    }
+    $previous = [DateTimeOffset]::Parse($Current.updatedAt, [Globalization.CultureInfo]::InvariantCulture)
+    $next = [DateTimeOffset]::Parse($Pending.updatedAt, [Globalization.CultureInfo]::InvariantCulture)
+    if ($next -lt $previous -or $next -gt [DateTimeOffset]::UtcNow.AddMinutes(5)) { throw 'Pending state timestamp is invalid.' }
 }
 
 function New-Secret {
@@ -256,18 +284,35 @@ try {
     if ((Get-FileHash -LiteralPath $copiedHelper -Algorithm SHA256).Hash.ToLowerInvariant() -ne $helperSha256) { throw 'Private helper differs from reviewed bytes.' }
     if (-not $state.credentialsReady) {
         if ($VerifyOnly) { throw 'Credential phase is incomplete.' }
-        if (Test-Path -LiteralPath $credentialFile) { throw 'Credential creation has an uncertain result; inspect the record before recovery.' }
-        $credential = [ordered]@{ format = 'pickchick-native-secrets-v1'; installId = $state.installId; branchId = $branch; passwords = [ordered]@{
-            pickchick_bootstrap = New-Secret; pickchick_edge_owner = New-Secret; pickchick_edge_runtime = New-Secret
-        } }
-        Write-PrivateText $credentialFile ($credential | ConvertTo-Json -Depth 3)
-        $state.credentialsReady = $true; Save-State
+        if (Test-Path -LiteralPath $credentialFile) {
+            # Recover only the exact interrupted atomic state replacement observed
+            # on PS5.1: complete matching credentials and one complete pending state.
+            if (-not $Resume) { throw 'Existing credentials require explicit reviewed recovery.' }
+            Assert-Acl $pgData
+            if (@(Get-ChildItem -LiteralPath $pgData -Force).Count -or @(Get-Service | Where-Object { $_.Name -in @('PickChickPostgres', 'PickChickEdge') }).Count) { throw 'Credential recovery requires empty data and no target services.' }
+            $pendingFiles = @(Get-ChildItem -LiteralPath $privateRoot -Filter 'state-*.tmp' -Force)
+            if ($pendingFiles.Count -ne 1 -or $pendingFiles[0].PSIsContainer -or $pendingFiles[0].Length -gt 10000) { throw 'A single complete pending state is required for credential recovery.' }
+            Assert-Acl $pendingFiles[0].FullName -InheritedAllowed
+            Assert-Acl $credentialFile -InheritedAllowed
+            if ((Get-Item -LiteralPath $credentialFile).Length -gt 10000) { throw 'Unexpected private credential file size.' }
+            $pending = Get-Content -LiteralPath $pendingFiles[0].FullName -Raw | ConvertFrom-Json
+            $credential = Get-Content -LiteralPath $credentialFile -Raw | ConvertFrom-Json
+            Assert-PendingCredentialState $state $pending
+            Assert-CredentialBinding $credential $state
+            [IO.File]::Replace($pendingFiles[0].FullName, $statePath, [System.Management.Automation.Language.NullString]::Value)
+            $script:state = $pending
+        } else {
+            $credential = [ordered]@{ format = 'pickchick-native-secrets-v1'; installId = $state.installId; branchId = $branch; passwords = [ordered]@{
+                pickchick_bootstrap = New-Secret; pickchick_edge_owner = New-Secret; pickchick_edge_runtime = New-Secret
+            } }
+            Write-PrivateText $credentialFile ($credential | ConvertTo-Json -Depth 3)
+            $state.credentialsReady = $true; Save-State
+        }
     }
     Assert-Acl $credentialFile -InheritedAllowed
     $credential = Get-Content -LiteralPath $credentialFile -Raw | ConvertFrom-Json
-    if ($credential.format -ne 'pickchick-native-secrets-v1' -or $credential.installId -ne $state.installId -or $credential.branchId -ne $branch) { throw 'Private credential binding differs.' }
+    Assert-CredentialBinding $credential $state
     $script:secrets = @($credential.passwords.PSObject.Properties.Value)
-    if ($secrets.Count -ne 3 -or @($secrets | Where-Object { $_ -notmatch '^[a-f0-9]{64}$' }).Count) { throw 'Invalid private passwords.' }
     if ($VerifyOnly) {
         if (-not $state.complete) { throw 'Installation is not yet complete.' }
         $ready = Verify-Foundation

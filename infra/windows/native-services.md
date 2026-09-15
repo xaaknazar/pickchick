@@ -66,8 +66,12 @@ same Windows account. Matching completed phases are reused. Conflicting services
 foreign state, changed credentials/configuration, unexpected ACLs, or uncertain
 partial initdb data stop execution and preserve existing files. There is no
 automatic deletion, cluster reinitialization or overwrite of an existing env.
-An incomplete initdb result or interrupted credential creation needs explicit
-operator inspection; repeatedly invoking `-Resume` does not resolve uncertainty.
+An incomplete initdb result needs explicit operator inspection. One narrowly
+defined credential-write interruption can be recovered with `-Resume`: data must
+still be empty, target services absent, credentials privately protected and bound
+to the same installation with three unique valid passwords, and exactly one
+protected pending state must differ only by `credentialsReady=true` and its newer
+timestamp. Other uncertain credential writes still stop for inspection.
 Use `-VerifyOnly` after completion; setup cannot overwrite a completed record.
 
 Backups and restore rehearsal, an actual Windows reboot, WAN-loss behavior,
@@ -81,6 +85,10 @@ format/uniqueness without executing Windows installation actions. The Node suite
 tests credential validation and supports an opt-in disposable PostgreSQL 18.6
 cluster through `PICKCHICK_NATIVE_RUNTIME` and `PICKCHICK_TEST_PG_BIN`.
 PowerShell 7 on macOS parsing is not Windows PowerShell 5.1/NTFS/SCM acceptance.
+Actual Windows PowerShell 5.1 exposed a null-to-empty-string conversion in
+`File.Replace`; the explicit `NullString` overload was then verified twice on that
+host. The portable suite now also performs two real atomic state replacements
+and rejects altered pending recovery state/credential bindings.
 Before delivery, PostgreSQL 18.6 was also exercised in a new network-isolated
 Docker container with the pinned runtime closure: both SCRAM logins, repeated
 bootstrap, all nine migrations, restricted runtime rights, absence of branch
