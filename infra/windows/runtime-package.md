@@ -107,8 +107,9 @@ provisioning must still use trusted data. An unpaid POS order does not become a
 paid kitchen admission merely because both clients connect. Staff sessions
 currently last eight hours. Payments, KKM, permanent sign-in, WAN loss, backup
 restoration and physical Windows execution are separate acceptance requirements.
-Before the first installation, reconcile the complete migration sequence with
-other active branches. In particular, migration 007 from the unpaid-cancellation
-branch must be resolved before applying 008/009: the migrator rejects late
-out-of-order migrations. A successfully built ZIP is not approval to migrate an
-existing restaurant database.
+The package includes the byte-identical canonical migration 007 from the
+unpaid-cancellation branch before 008/009. This avoids an out-of-order failure in
+future updates without activating transport v2. Fresh installation and upgrade
+from 006 are tested; a database already at 008/009 without 007 is still rejected
+and needs a separately reviewed recovery plan. Never edit its migration ledger
+to force an update. A successfully built ZIP is not production acceptance.
