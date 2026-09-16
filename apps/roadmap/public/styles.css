@@ -141,6 +141,7 @@ small {
   min-height: 100vh;
 }
 .sidebar {
+  min-width: 0;
   background: var(--sidebar);
   color: #dce0d8;
   position: sticky;
@@ -1546,7 +1547,7 @@ dialog::backdrop {
 }
 @media (max-width: 900px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .sidebar {
     height: auto;

@@ -37,13 +37,20 @@ export default [
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
-    files: ['design/prototype/*.js'],
+    files: ['design/prototype/*.js', 'apps/roadmap/public/*.js'],
     languageOptions: {
       globals: {
         document: 'readonly',
+        Node: 'readonly',
+        URL: 'readonly',
+        history: 'readonly',
         window: 'readonly',
         location: 'readonly',
         navigator: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        AbortController: 'readonly',
+        FormData: 'readonly',
         fetch: 'readonly',
         URLSearchParams: 'readonly',
         requestAnimationFrame: 'readonly',

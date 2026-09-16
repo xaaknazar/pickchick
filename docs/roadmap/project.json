@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-16T06:45:27Z",
+  "updatedAt": "2026-09-16T06:54:19.348213Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -221,6 +221,42 @@
       ],
       "acceptance": ["Объём и сценарии AC-01-41 записаны в репозитории."],
       "nextAction": "Согласовать T0, принимающих лиц и актуальную оценку интеграций.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "project-roadmap",
+      "workstream": "project",
+      "title": "Онлайн-пульт проекта и общие проверки",
+      "summary": "Отдельный защищённый сайт: 21 направление, зависимости, план, источники в GitHub и совместные отметки с историей.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["project-scope"],
+      "evidence": [
+        {
+          "label": "Устройство пульта и работа команды",
+          "path": "docs/operations/project-roadmap.md"
+        },
+        {
+          "label": "Проверки API и сохранения",
+          "path": "apps/roadmap/test/server.test.mjs"
+        },
+        {
+          "label": "Публикация и возврат версии",
+          "path": "infra/roadmap/README.md"
+        }
+      ],
+      "acceptance": [
+        "Все направления проекта видны и раскрываются до задачи.",
+        "Отметки сохраняются после перезапуска; конфликт двух участников не перезаписывает результат.",
+        "Ссылки различают макет, TEST-контур и установленный интерфейс."
+      ],
+      "nextAction": "Проверить онлайн-выпуск и согласовать удобство пульта с владельцем.",
       "checks": {
         "implemented": true,
         "verified": true,

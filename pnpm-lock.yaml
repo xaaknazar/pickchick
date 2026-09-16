@@ -294,6 +294,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/contracts
 
+  apps/roadmap: {}
+
   packages/backoffice-core:
     dependencies:
       '@pickchick/catalog-admin':
