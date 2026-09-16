@@ -65,14 +65,14 @@
 ```sh
 pnpm --filter @pickchick/roadmap build
 pnpm --filter @pickchick/roadmap test
-ROADMAP_ORIGIN=http://127.0.0.1:4190 \
+ROADMAP_ORIGIN=http://127.0.0.1:4192 \
 ROADMAP_DATA_DIR=/private/path/roadmap-data \
 ROADMAP_KEY_FILE=/private/path/roadmap-key \
 node apps/roadmap/server.mjs
 ```
 
 Создайте случайный ключ длиной не меньше 40 символов в закрытом файле,
-не копируйте ключи из примеров тестов. Открыть `http://127.0.0.1:4190/roadmap/`.
+не копируйте ключи из примеров тестов. Открыть `http://127.0.0.1:4192/roadmap/`.
 Развёртывание использует отдельный контейнер и внутреннюю сеть только с gateway;
 существующая версия API и данные ресторана не меняются.
 

@@ -255,7 +255,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     key,
     origin: process.env.ROADMAP_ORIGIN,
   });
-  const port = Number(process.env.ROADMAP_PORT ?? 4190);
+  const port = Number(process.env.ROADMAP_PORT ?? 4192);
   server.listen(port, process.env.ROADMAP_HOST ?? '127.0.0.1', () =>
     console.log(`Roadmap ready on port ${port}`),
   );
