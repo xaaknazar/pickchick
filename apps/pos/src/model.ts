@@ -8,14 +8,16 @@ import type {
   StaffSession,
   Stop,
   Ordering,
+  CashShift,
+  Selection,
 } from './types.js';
-import { ApiError, type Transport } from './api.js';
+import { ApiError, passwordTransport, type PasswordTransport, type Transport } from './api.js';
 export type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export type Pending = {
   key: string;
   path: string;
   body: Record<string, unknown>;
-  kind: 'create' | 'cancel' | 'ordering' | 'stop';
+  kind: 'create' | 'cancel' | 'ordering' | 'stop' | 'shift_open' | 'shift_close';
   at: string;
 };
 type Journal = {
@@ -40,6 +42,12 @@ export type State = {
   error: unknown;
   connectedAt: number | null;
   storageBlocked: boolean;
+  shift: CashShift | null;
+  shifts: CashShift[];
+  orders: LocalOrder[];
+  operationsAvailable: boolean;
+  operationsAt: number | null;
+  operationsError: unknown;
 };
 const AUTH_KEY = 'pickchick.pos.staff-session.v1';
 export const scopeFor = (actor: StaffSession) =>
@@ -61,6 +69,12 @@ export class PosController {
     error: null,
     connectedAt: null,
     storageBlocked: false,
+    shift: null,
+    shifts: [],
+    orders: [],
+    operationsAvailable: false,
+    operationsAt: null,
+    operationsError: null,
   };
   private credential: StaffCredential | null = null;
   private journal: Journal | null = null;
@@ -73,6 +87,7 @@ export class PosController {
     private storage: Store,
     private newKey = () => crypto.randomUUID(),
     private lease?: (scope: string) => Promise<() => void>,
+    private passwordApi: PasswordTransport = passwordTransport,
   ) {}
   subscribe(listener: () => void) {
     this.listeners.add(listener);
@@ -120,8 +135,10 @@ export class PosController {
   }
   private save(next: Journal) {
     if (this.state.storageBlocked) throw new Error('STORAGE_UNAVAILABLE');
+    const serialized = JSON.stringify(next);
+    if (serialized.length > 100000) throw new Error('LIMIT');
     try {
-      this.storage.setItem(journalKey(next.scope), JSON.stringify(next));
+      this.storage.setItem(journalKey(next.scope), serialized);
     } catch {
       this.state.storageBlocked = true;
       throw new Error('STORAGE_UNAVAILABLE');
@@ -170,7 +187,12 @@ export class PosController {
       body = parse.record(p.body),
       path = parse.text(p.path, 160);
     if (p.kind === 'create') {
-      if (path !== 'orders' || Object.keys(body).length !== 1) throw new Error();
+      if (
+        path !== 'orders' ||
+        ![1, 2].includes(Object.keys(body).length) ||
+        (Object.keys(body).length === 2 && body.kitchen_admission !== 'unpaid')
+      )
+        throw new Error();
       parse.uuid(body.quote_id);
     } else if (p.kind === 'cancel') {
       if (!/^orders\/[0-9a-f-]+\/cancel$/.test(path) || Object.keys(body).length !== 2)
@@ -191,6 +213,16 @@ export class PosController {
         throw new Error();
       parse.uuid(body.variant_id);
       parse.integer(body.expected_version, 0);
+      parse.text(body.reason);
+    } else if (p.kind === 'shift_open') {
+      if (path !== 'cash-shifts' || Object.keys(body).length !== 1) throw new Error();
+      parse.minor(body.opening_cash_minor);
+    } else if (p.kind === 'shift_close') {
+      if (!/^cash-shifts\/[0-9a-f-]+\/close$/.test(path) || Object.keys(body).length !== 3)
+        throw new Error();
+      parse.uuid(path.split('/')[1]);
+      parse.integer(body.expected_version);
+      parse.minor(body.counted_cash_minor);
       parse.text(body.reason);
     } else throw new Error();
     return {
@@ -220,53 +252,91 @@ export class PosController {
       } catch {
         throw new Error('INVALID_CREDENTIAL');
       }
-      const actor = parse.session(await this.api('session', candidate));
-      if (actor.session_id !== candidate.session_id || scopeFor(actor) !== scopeFor(candidate))
-        throw new Error('WRONG_BRANCH');
-      if (actor.role === 'kitchen') throw new ApiError('FORBIDDEN', 403);
-      const saved = { ...actor, token: candidate.token };
-      if (!this.releaseLease && this.lease)
-        this.releaseLease = await this.lease(`${actor.branch_id}.${actor.terminal_id}`);
-      let journal: Journal;
+      await this.establishSession(candidate);
+    });
+  }
+  retryLoginAt = 0;
+  async signIn(login: string, password: string, terminalId: string | undefined) {
+    await this.run(async () => {
+      if (!parse.isUuid(terminalId)) throw new Error('TERMINAL_NOT_CONFIGURED');
+      if (Date.now() < this.retryLoginAt) throw new ApiError('AUTH_RATE_LIMITED', 429);
+      const account = login.trim().toLowerCase();
+      if (
+        !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(account) ||
+        password.length < 12 ||
+        password.length > 128
+      )
+        throw new Error('INVALID_LOGIN');
+      let candidate: StaffCredential;
       try {
-        journal = this.readJournal(actor);
+        candidate = parse.credential(
+          await this.passwordApi({ login: account, password, terminal_id: terminalId }),
+        );
       } catch (error) {
-        this.state.storageBlocked = true;
-        this.releaseLease?.();
-        this.releaseLease = null;
+        if (error instanceof ApiError && error.code === 'AUTH_RATE_LIMITED')
+          this.retryLoginAt = Date.now() + (error.retryAfterSeconds || 60) * 1000;
         throw error;
       }
-      try {
-        this.sessions.setItem(AUTH_KEY, JSON.stringify(saved));
-      } catch {
-        this.releaseLease?.();
-        this.releaseLease = null;
-        throw new Error('STORAGE_UNAVAILABLE');
-      }
-      this.generation++;
-      this.credential = saved;
-      this.journal = journal;
-      this.state = {
-        ...this.state,
-        actor,
-        menu: null,
-        ordering: null,
-        stops: new Map(),
-        quote: null,
-        order: null,
-        error: null,
-        connectedAt: Date.now(),
-        draft: journal.draft,
-        known: journal.known,
-        pending: journal.pending,
-        storageBlocked: false,
-      };
-      await this.refreshData();
-      if (journal.selected) await this.readOrder(journal.selected);
+      if (candidate.terminal_id !== terminalId) throw new Error('WRONG_BRANCH');
+      await this.establishSession(candidate);
+      this.retryLoginAt = 0;
     });
+  }
+  private async establishSession(candidate: StaffCredential) {
+    const actor = parse.session(await this.api('session', candidate));
+    if (actor.session_id !== candidate.session_id || scopeFor(actor) !== scopeFor(candidate))
+      throw new Error('WRONG_BRANCH');
+    if (actor.role === 'kitchen') throw new ApiError('FORBIDDEN', 403);
+    const saved = { ...actor, token: candidate.token };
+    if (!this.releaseLease && this.lease)
+      this.releaseLease = await this.lease(`${actor.branch_id}.${actor.terminal_id}`);
+    let journal: Journal;
+    try {
+      journal = this.readJournal(actor);
+    } catch (error) {
+      this.state.storageBlocked = true;
+      this.releaseLease?.();
+      this.releaseLease = null;
+      throw error;
+    }
+    try {
+      this.sessions.setItem(AUTH_KEY, JSON.stringify(saved));
+    } catch {
+      this.releaseLease?.();
+      this.releaseLease = null;
+      throw new Error('STORAGE_UNAVAILABLE');
+    }
+    this.generation++;
+    this.credential = saved;
+    this.journal = journal;
+    this.state = {
+      ...this.state,
+      actor,
+      menu: null,
+      ordering: null,
+      stops: new Map(),
+      quote: null,
+      order: null,
+      error: null,
+      connectedAt: Date.now(),
+      draft: journal.draft,
+      known: journal.known,
+      pending: journal.pending,
+      storageBlocked: false,
+      shift: null,
+      shifts: [],
+      orders: [],
+      operationsAvailable: false,
+      operationsAt: null,
+      operationsError: null,
+    };
+    await this.refreshData();
+    await this.readOperations();
+    if (journal.selected) await this.readOrder(journal.selected);
   }
   logout() {
     if (this.state.busy) return;
+    const credential = this.credential;
     try {
       this.sessions.removeItem(AUTH_KEY);
     } catch {
@@ -275,6 +345,7 @@ export class PosController {
     }
     this.generation++;
     this.credential = null;
+    if (credential) void this.api('staff/logout', credential, { method: 'POST' }).catch(() => {});
     this.journal = null;
     this.releaseLease?.();
     this.releaseLease = null;
@@ -292,6 +363,12 @@ export class PosController {
       error: null,
       connectedAt: null,
       storageBlocked: false,
+      shift: null,
+      shifts: [],
+      orders: [],
+      operationsAvailable: false,
+      operationsAt: null,
+      operationsError: null,
     };
     this.emit();
   }
@@ -319,7 +396,60 @@ export class PosController {
     ]);
   }
   async refresh() {
-    await this.run(() => this.refreshData());
+    await this.run(async () => {
+      await this.refreshData();
+      await this.readOperations();
+    });
+  }
+  private operationsRead = 0;
+  private async readOperations() {
+    const read = ++this.operationsRead,
+      epoch = this.generation,
+      actor = this.state.actor;
+    if (!actor) return;
+    try {
+      const selectedId = this.state.order?.order_id;
+      const [shift, orders, shifts, selectedOrder] = await Promise.all([
+        this.request('cash-shifts/current').then(parse.currentShift),
+        this.request('orders').then(parse.orderFeed),
+        this.request('cash-shifts').then(parse.shiftHistory),
+        selectedId ? this.request(`orders/${selectedId}`).then(parse.order) : null,
+      ]);
+      if (epoch !== this.generation || read !== this.operationsRead) return;
+      const own = (value: CashShift) =>
+        value.branch_id === actor.branch_id &&
+        (actor.role === 'shift_manager' ||
+          (value.staff_id === actor.staff_id && value.terminal_id === actor.terminal_id));
+      if (
+        (shift &&
+          (shift.state !== 'open' ||
+            !own(shift) ||
+            shift.staff_id !== actor.staff_id ||
+            shift.terminal_id !== actor.terminal_id)) ||
+        shifts.some((s) => !own(s)) ||
+        orders.some((o) => o.branch_id !== actor.branch_id) ||
+        (selectedOrder &&
+          (selectedOrder.branch_id !== actor.branch_id || selectedOrder.order_id !== selectedId))
+      )
+        throw new Error('WRONG_BRANCH');
+      this.state.shift = shift;
+      this.state.shifts = shifts;
+      this.state.orders = orders;
+      if (selectedOrder && this.state.order?.order_id === selectedId)
+        this.state.order = selectedOrder;
+      this.state.operationsAvailable = true;
+      this.state.operationsAt = Date.now();
+      this.state.operationsError = null;
+    } catch (error) {
+      if (epoch !== this.generation || read !== this.operationsRead) return;
+      this.state.operationsError = error;
+      if (error instanceof ApiError && error.code === 'UNAUTHORIZED') this.fail(error);
+    }
+    this.emit();
+  }
+  async refreshOperations() {
+    if (this.state.busy || this.state.pending || !this.state.actor) return;
+    await this.readOperations();
   }
   async loadStops(ids: string[]) {
     const epoch = this.generation;
@@ -360,15 +490,51 @@ export class PosController {
     if (!this.editable() || !this.journal?.draft || !this.state.menu) return;
     try {
       if (!Number.isInteger(count) || count < 0 || count > 99) throw new Error('LIMIT');
-      const old = this.journal.draft.items.find((i) => i.variant_id === id)?.quantity ?? 0;
-      if (
-        count > old &&
-        (!this.state.menu.items.some((i) => i.variant_id === id) ||
-          this.state.stops.get(id)?.stopped !== false)
-      )
+      const existing = this.journal.draft.items.find((i) => parse.lineKey(i) === id);
+      const variant = existing?.variant_id ?? id;
+      const item = this.state.menu.items.find((i) => i.variant_id === variant);
+      const old = existing?.quantity ?? 0;
+      if (count > old && (!item || this.state.stops.get(variant)?.stopped !== false))
         throw new Error('ITEM_STOPPED');
-      const items = this.journal.draft.items.filter((i) => i.variant_id !== id);
-      if (count) items.push({ variant_id: id, quantity: count });
+      if (count && item) parse.validateSelections(item, existing?.modifiers ?? []);
+      const items = this.journal.draft.items.flatMap((i) =>
+        parse.lineKey(i) === id ? (count ? [{ ...i, quantity: count }] : []) : [i],
+      );
+      if (count && !existing) items.push({ variant_id: variant, quantity: count });
+      if (items.length > 50) throw new Error('LIMIT');
+      this.save({
+        ...this.journal,
+        draft: { ...this.journal.draft, release_id: this.state.menu.release_id, items },
+      });
+      this.state.quote = null;
+      this.state.error = null;
+      this.emit();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+  configure(variantId: string, modifiers: Selection[], quantity: number, previousKey?: string) {
+    if (!this.editable() || !this.journal?.draft || !this.state.menu) return;
+    try {
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) throw new Error('LIMIT');
+      const item = this.state.menu.items.find((i) => i.variant_id === variantId);
+      if (!item || this.state.stops.get(variantId)?.stopped !== false)
+        throw new Error('ITEM_STOPPED');
+      const selected = parse.validateSelections(item, modifiers);
+      const next = {
+        variant_id: variantId,
+        quantity,
+        ...(selected.length ? { modifiers: selected } : {}),
+      };
+      const key = parse.lineKey(next);
+      if (previousKey && !this.journal.draft.items.some((i) => parse.lineKey(i) === previousKey))
+        throw new Error('INVALID_REQUEST');
+      const remaining = this.journal.draft.items.filter((i) => parse.lineKey(i) !== previousKey);
+      const matching = remaining.find((i) => parse.lineKey(i) === key);
+      if (matching) next.quantity += matching.quantity;
+      if (next.quantity > 99) throw new Error('LIMIT');
+      const items = remaining.filter((i) => parse.lineKey(i) !== key);
+      items.push(next);
       if (items.length > 50) throw new Error('LIMIT');
       this.save({
         ...this.journal,
@@ -401,15 +567,17 @@ export class PosController {
       this.state.quote = null;
       const q = parse.quote(await this.request('checkout/quotes', { method: 'POST', body: draft }));
       const actual = q.lines
-        .map((l) => ({ variant_id: l.variant_id, quantity: l.quantity }))
-        .sort((a, b) => a.variant_id.localeCompare(b.variant_id));
+        .map((l) => ({ key: parse.lineKey(l), quantity: l.quantity }))
+        .sort((a, b) => a.key.localeCompare(b.key));
       if (
         q.branch_id !== this.state.actor?.branch_id ||
         q.release_id !== draft.release_id ||
         q.service_mode !== draft.service_mode ||
         !unchanged(
           actual,
-          [...draft.items].sort((a, b) => a.variant_id.localeCompare(b.variant_id)),
+          draft.items
+            .map((l) => ({ key: parse.lineKey(l), quantity: l.quantity }))
+            .sort((a, b) => a.key.localeCompare(b.key)),
         )
       )
         throw new Error('INVALID_RESPONSE');
@@ -424,12 +592,32 @@ export class PosController {
     this.emit();
     await this.replay();
   }
-  async create() {
+  get hasConfirmedOpenShift() {
+    const { actor, shift, operationsAvailable, operationsError } = this.state;
+    return Boolean(
+      actor &&
+      operationsAvailable &&
+      !operationsError &&
+      shift?.state === 'open' &&
+      shift.branch_id === actor.branch_id &&
+      shift.staff_id === actor.staff_id &&
+      shift.terminal_id === actor.terminal_id,
+    );
+  }
+  async create(kitchenAdmission = false) {
     if (!this.editable()) return;
     await this.run(async () => {
+      if (!this.state.operationsAvailable || this.state.operationsError)
+        throw new Error('CASH_SHIFT_STATUS_UNKNOWN');
+      if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
       const q = this.state.quote;
       if (!q || Date.parse(q.expires_at) <= Date.now()) throw new Error('QUOTE_EXPIRED');
-      await this.begin('create', 'orders', { quote_id: q.quote_id });
+      if (kitchenAdmission && this.state.ordering?.pos_service_mode !== 'unpaid_service')
+        throw new Error('SERVICE_MODE_DISABLED');
+      await this.begin('create', 'orders', {
+        quote_id: q.quote_id,
+        ...(kitchenAdmission ? { kitchen_admission: 'unpaid' } : {}),
+      });
     });
   }
   async recover() {
@@ -443,6 +631,32 @@ export class PosController {
     try {
       value = await this.request(p.path, { method: 'POST', body: p.body, key: p.key });
     } catch (error) {
+      const admissionRejected =
+        error instanceof ApiError &&
+        error.status === 409 &&
+        ((p.kind === 'create' &&
+          ['SERVICE_MODE_DISABLED', 'KITCHEN_UNAVAILABLE'].includes(error.code)) ||
+          (p.kind === 'cancel' && error.code === 'ORDER_IN_PRODUCTION'));
+      if (admissionRejected) {
+        this.save({ ...j, pending: null });
+        this.state.quote = null;
+        if (p.kind === 'cancel') await this.readOrder(p.path.split('/')[1]!);
+        await this.refreshData();
+        await this.readOperations();
+      }
+      const shiftConflict =
+        error instanceof ApiError &&
+        error.code === 'CONFLICT' &&
+        error.status === 409 &&
+        (p.kind === 'shift_open' || p.kind === 'shift_close');
+      if (shiftConflict) {
+        // The server rejected this command. A committed same-key replay returns success instead.
+        // Persist resolution before reading the new state; uncertain responses remain pending.
+        this.save({ ...j, pending: null });
+        this.state.operationsAvailable = false;
+        this.state.shift = null;
+        await this.readOperations();
+      }
       if (
         error instanceof ApiError &&
         [
@@ -453,6 +667,7 @@ export class PosController {
           'INVALID_REQUEST',
           'NOT_FOUND',
           'FORBIDDEN',
+          'CASH_SHIFT_REQUIRED',
         ].includes(error.code)
       ) {
         this.save({ ...j, pending: null });
@@ -464,7 +679,10 @@ export class PosController {
       const created = parse.order(value);
       if (
         created.branch_id !== this.state.actor?.branch_id ||
-        (p.kind === 'create' && created.quote_id !== p.body.quote_id) ||
+        (p.kind === 'create' &&
+          (created.quote_id !== p.body.quote_id ||
+            (p.body.kitchen_admission === 'unpaid' &&
+              created.execution_mode !== 'unpaid_service'))) ||
         (p.kind === 'cancel' && p.path !== `orders/${created.order_id}/cancel`)
       )
         throw new Error('INVALID_RESPONSE');
@@ -483,15 +701,34 @@ export class PosController {
       this.state.quote = null;
       // Idempotent POST replays its historical result; GET is the authoritative current state.
       await this.readOrder(created.order_id);
+      await this.readOperations();
     } else {
       if (p.kind === 'ordering') this.state.ordering = parse.ordering(value);
       if (p.kind === 'stop') {
         const s = parse.stop(value);
         this.state.stops.set(s.variant_id, s);
       }
+      if (p.kind === 'shift_open' || p.kind === 'shift_close') {
+        const shift = parse.cashShift(value),
+          actor = this.state.actor!;
+        if (
+          shift.branch_id !== actor.branch_id ||
+          (p.kind === 'shift_open' &&
+            (shift.staff_id !== actor.staff_id ||
+              shift.terminal_id !== actor.terminal_id ||
+              shift.opening_cash_minor !== p.body.opening_cash_minor ||
+              shift.state !== 'open')) ||
+          (p.kind === 'shift_close' &&
+            (p.path !== `cash-shifts/${shift.shift_id}/close` ||
+              shift.state !== 'closed' ||
+              shift.counted_cash_minor !== p.body.counted_cash_minor))
+        )
+          throw new Error('INVALID_RESPONSE');
+      }
       this.save({ ...j, pending: null });
       this.state.quote = null;
       await this.refreshData();
+      await this.readOperations();
     }
   }
   private async readOrder(id: string) {
@@ -549,6 +786,26 @@ export class PosController {
         throw new ApiError('FORBIDDEN', 403);
       await this.begin('ordering', `ordering/${enabled ? 'open' : 'close'}`, {
         expected_version: this.state.ordering.version,
+      });
+    });
+  }
+  async openShift(openingCashMinor: string) {
+    await this.run(async () => {
+      parse.minor(openingCashMinor);
+      await this.begin('shift_open', 'cash-shifts', { opening_cash_minor: openingCashMinor });
+    });
+  }
+  async closeShift(shiftId: string, countedCashMinor: string, reason: string) {
+    await this.run(async () => {
+      const shift = parse.cashShift(await this.request(`cash-shifts/${parse.uuid(shiftId)}`));
+      if (shift.branch_id !== this.state.actor?.branch_id || shift.state !== 'open')
+        throw new Error('CONFLICT');
+      parse.minor(countedCashMinor);
+      if (!reason.trim() || reason.trim().length > 300) throw new Error('INVALID_REQUEST');
+      await this.begin('shift_close', `cash-shifts/${shiftId}/close`, {
+        expected_version: shift.version,
+        counted_cash_minor: countedCashMinor,
+        reason: reason.trim(),
       });
     });
   }

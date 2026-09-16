@@ -1,6 +1,7 @@
 import { mkdir, copyFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const app = fileURLToPath(new URL('./', import.meta.url));
@@ -15,3 +16,11 @@ await copyFile(
   new URL('../../design/prototype/assets/mockup/logo.png', import.meta.url),
   new URL('dist/logo.png', import.meta.url),
 );
+
+await mkdir(new URL('dist/assets/menu/', import.meta.url), { recursive: true });
+for (const name of MENU_ASSETS) {
+  await copyFile(
+    new URL(`../../design/prototype/assets/mockup/${name}`, import.meta.url),
+    new URL(`dist/assets/menu/${name}`, import.meta.url),
+  );
+}

@@ -21,7 +21,7 @@ const ownKeys = (value, keys) =>
   !Array.isArray(value) &&
   Object.keys(value).sort().join(',') === keys.slice().sort().join(',');
 
-function previewId(branchId, kind, key) {
+export function previewId(branchId, kind, key) {
   const hash = digest(`pickchick-local-draft-v1:${branchId}:${kind}:${key}`).slice(0, 32).split('');
   hash[12] = '8';
   hash[16] = (8 | (parseInt(hash[16], 16) & 3)).toString(16);

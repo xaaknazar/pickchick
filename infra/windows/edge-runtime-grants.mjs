@@ -13,6 +13,9 @@ const posRead = [
   'local_orders',
   'local_command_results',
   'local_order_streams',
+  'local_cash_shifts',
+  'local_staff_passwords',
+  'local_staff_login_limits',
 ];
 const kitchenRead = [
   'fulfillment_config',
@@ -42,6 +45,11 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
   return [
     `GRANT USAGE ON SCHEMA ${namespace} TO ${target};`,
     grant('SELECT', posRead),
+    grant('UPDATE(access_expires_at)', ['local_staff']),
+    grant('UPDATE(revoked)', ['staff_sessions']),
+    grant('UPDATE(failed_attempts, locked_until)', ['local_staff_passwords']),
+    grant('INSERT', ['staff_sessions', 'local_staff_login_limits']),
+    grant('UPDATE(window_started_at, attempts)', ['local_staff_login_limits']),
     grant('UPDATE(lock_anchor)', ['local_staff', 'local_terminals', 'staff_sessions']),
     grant('UPDATE(ordering_enabled, ordering_version)', ['branch_config']),
     grant('INSERT', [
@@ -51,8 +59,13 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
       'local_order_streams',
       'outbox_events',
       'local_audit',
+      'local_cash_shifts',
     ]),
     grant('UPDATE(state, version, cancellation_reason)', ['local_orders']),
+    grant(
+      'UPDATE(state, version, closed_at, closed_by_staff_id, counted_cash_minor, discrepancy_minor, closing_reason, closed_report)',
+      ['local_cash_shifts'],
+    ),
     grant('UPDATE(last_sequence)', ['local_order_streams']),
     grant('INSERT', ['local_stops']),
     grant('UPDATE(stopped, version, reason)', ['local_stops']),
@@ -68,7 +81,13 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
           grant('UPDATE(state, version, updated_at, cancellation_reason, inventory_disposition)', [
             'fulfillment_reservations',
           ]),
-          grant('INSERT', ['fulfillment_commands', 'fulfillment_outbox']),
+          grant('INSERT', [
+            'fulfillment_commands',
+            'fulfillment_outbox',
+            'fulfillment_reservations',
+            'fulfillment_tasks',
+          ]),
+          `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_display_sequence TO ${target};`,
           `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_outbox_sequence_seq TO ${target};`,
         ]
       : []),
@@ -98,9 +117,9 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     );
     if (unsafe.rowCount) throw new Error('Runtime role may not own objects or inherit roles');
     const ledger = await client.query(
-      `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='009_edge_runtime_lock_grants.sql'`,
+      `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='012_edge_pos_unpaid_fulfillment.sql'`,
     );
-    if (ledger.rowCount !== 1) throw new Error('Edge migration 009 required');
+    if (ledger.rowCount !== 1) throw new Error('Edge migration 012 required');
     const otherScope = await client.query(
       `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope<>'edge' LIMIT 1`,
     );

@@ -1,5 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import {
+  Request as BackofficeRequest,
+  Schemas as BackofficeRecords,
+} from '@pickchick/backoffice-core/model';
+import {
   BranchSchema,
   CapabilitiesSchema,
   MenuSnapshotSchema,
@@ -12,9 +16,17 @@ import {
   MenuAckSchema,
   AckReceiptSchema,
   StaffSessionSchema,
+  StaffCredentialSchema,
+  StaffLoginSchema,
   CartSchema,
   QuoteSchema,
   LocalOrderSchema,
+  CashShiftSchema,
+  CashShiftOpenSchema,
+  CashShiftCloseSchema,
+  CashShiftCurrentSchema,
+  CashShiftListSchema,
+  LocalOrderListSchema,
   CreateLocalOrderSchema,
   CancelLocalOrderSchema,
   OrderingCommandSchema,
@@ -35,11 +47,15 @@ import {
   PullRequestSchema,
   PullResponseSchema,
   TransportAckSchema,
-  EdgeEventSchema,
+  TransportEdgeEventSchema,
   TransportReceiptSchema,
 } from '@pickchick/fulfillment-transport';
 import * as testContracts from '@pickchick/test-order-flow/contracts';
-import { PosOrderEventSchema, PosOrderReceiptSchema } from '@pickchick/pos-order-sync';
+import {
+  PosOrderEventSchema,
+  PosKitchenEventSchema,
+  PosOrderReceiptSchema,
+} from '@pickchick/pos-order-sync';
 import {
   CatalogStateSchema,
   CatalogBranchesSchema,
@@ -73,9 +89,30 @@ function staffOperation(
   operationId,
   result,
   input,
-  { status = 200, idempotent = false, orderId = false, variantId = false } = {},
+  {
+    status = 200,
+    idempotent = false,
+    orderId = false,
+    variantId = false,
+    shiftId = false,
+    shiftFilter = false,
+  } = {},
 ) {
   const parameters = [];
+  if (shiftId)
+    parameters.push({
+      name: 'shiftId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string', format: 'uuid' },
+    });
+  if (shiftFilter)
+    parameters.push({
+      name: 'shift_id',
+      in: 'query',
+      required: false,
+      schema: { type: 'string', format: 'uuid' },
+    });
   if (variantId)
     parameters.push({
       name: 'variantId',
@@ -159,16 +196,71 @@ const openapi = {
     '/edge/v1/menu': get('getLocalMenu', 'MenuSnapshot', {
       404: response('Error', 'No local menu'),
     }),
+    '/edge/v1/staff/login': {
+      post: {
+        operationId: 'loginLocalStaff',
+        security: [],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/StaffLogin' } } },
+        },
+        responses: {
+          200: response('StaffCredential'),
+          401: response('Error', 'Invalid login, password, staff or terminal'),
+          413: response('Error', 'Login body exceeds 2 KiB'),
+          429: {
+            ...response('Error', 'AUTH_RATE_LIMITED'),
+            headers: { 'Retry-After': { schema: { type: 'string', const: '60' } } },
+          },
+          503: response('Error', 'Local service unavailable'),
+        },
+      },
+    },
+    '/edge/v1/staff/logout': {
+      post: {
+        operationId: 'logoutLocalStaff',
+        security: [{ staffBearer: [], staffSession: [] }],
+        responses: {
+          204: { description: 'Current session revoked' },
+          401: response('Error', 'Invalid or expired session'),
+          503: response('Error', 'Local service unavailable'),
+        },
+      },
+    },
     '/edge/v1/session': staffOperation('get', 'getLocalStaffSession', 'StaffSession'),
     '/edge/v1/checkout/quotes': staffOperation('post', 'createLocalQuote', 'Quote', 'Cart', {
       status: 201,
     }),
-    '/edge/v1/orders': staffOperation(
+    '/edge/v1/orders': {
+      ...staffOperation('get', 'listLocalOrders', 'LocalOrderList', undefined, {
+        shiftFilter: true,
+      }),
+      ...staffOperation('post', 'createLocalOrder', 'LocalOrder', 'CreateLocalOrder', {
+        status: 201,
+        idempotent: true,
+      }),
+    },
+    '/edge/v1/cash-shifts': {
+      ...staffOperation('get', 'listCashShifts', 'CashShiftList'),
+      ...staffOperation('post', 'openCashShift', 'CashShift', 'CashShiftOpen', {
+        status: 201,
+        idempotent: true,
+      }),
+    },
+    '/edge/v1/cash-shifts/current': staffOperation('get', 'currentCashShift', 'CashShiftCurrent'),
+    '/edge/v1/cash-shifts/{shiftId}': staffOperation(
+      'get',
+      'readCashShift',
+      'CashShift',
+      undefined,
+      { shiftId: true },
+    ),
+    '/edge/v1/cash-shifts/{shiftId}/close': staffOperation(
       'post',
-      'createLocalOrder',
-      'LocalOrder',
-      'CreateLocalOrder',
-      { status: 201, idempotent: true },
+      'closeCashShift',
+      'CashShift',
+      'CashShiftClose',
+      { idempotent: true, shiftId: true },
     ),
     '/edge/v1/orders/{orderId}': staffOperation('get', 'readLocalOrder', 'LocalOrder', undefined, {
       orderId: true,
@@ -274,9 +366,17 @@ const openapi = {
       MenuAck: jsonSchema(MenuAckSchema),
       AckReceipt: jsonSchema(AckReceiptSchema),
       StaffSession: jsonSchema(StaffSessionSchema),
+      StaffCredential: jsonSchema(StaffCredentialSchema),
+      StaffLogin: jsonSchema(StaffLoginSchema),
       Cart: jsonSchema(CartSchema),
       Quote: jsonSchema(QuoteSchema),
       LocalOrder: jsonSchema(LocalOrderSchema),
+      LocalOrderList: jsonSchema(LocalOrderListSchema),
+      CashShift: jsonSchema(CashShiftSchema),
+      CashShiftOpen: jsonSchema(CashShiftOpenSchema),
+      CashShiftClose: jsonSchema(CashShiftCloseSchema),
+      CashShiftCurrent: jsonSchema(CashShiftCurrentSchema),
+      CashShiftList: jsonSchema(CashShiftListSchema),
       CreateLocalOrder: jsonSchema(CreateLocalOrderSchema),
       CancelLocalOrder: jsonSchema(CancelLocalOrderSchema),
       OrderingCommand: jsonSchema(OrderingCommandSchema),
@@ -714,7 +814,7 @@ Object.assign(openapi.components.schemas, {
   FulfillmentTransportPullRequest: jsonSchema(PullRequestSchema),
   FulfillmentTransportPullResponse: jsonSchema(PullResponseSchema),
   FulfillmentTransportAck: jsonSchema(TransportAckSchema),
-  FulfillmentTransportEvent: jsonSchema(EdgeEventSchema),
+  FulfillmentTransportEvent: jsonSchema(TransportEdgeEventSchema),
   FulfillmentTransportReceipt: jsonSchema(TransportReceiptSchema),
 });
 for (const [path, operationId, input, result, description] of [
@@ -767,18 +867,26 @@ for (const [path, operationId, input, result, description] of [
 
 Object.assign(openapi.components.schemas, {
   PosOrderSyncEvent: jsonSchema(PosOrderEventSchema),
+  PosKitchenSyncEvent: jsonSchema(PosKitchenEventSchema),
   PosOrderSyncReceipt: jsonSchema(PosOrderReceiptSchema),
 });
 openapi.paths['/internal/v1/edge/pos-orders/events'] = {
   post: {
     operationId: 'observeEdgePosOrder',
     description:
-      'Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order create v1 then cancel v2. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.',
+      'Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order commercial create v1 then cancel v2, or kitchen version+1. Kitchen has a separate immutable inbox and requires the unpaid commercial snapshot/owner hash. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.',
     security: [{ deviceBearer: [], deviceId: [] }],
     requestBody: {
       required: true,
       content: {
-        'application/json': { schema: { $ref: '#/components/schemas/PosOrderSyncEvent' } },
+        'application/json': {
+          schema: {
+            oneOf: [
+              { $ref: '#/components/schemas/PosOrderSyncEvent' },
+              { $ref: '#/components/schemas/PosKitchenSyncEvent' },
+            ],
+          },
+        },
       },
     },
     responses: {
@@ -793,6 +901,74 @@ openapi.paths['/internal/v1/edge/pos-orders/events'] = {
     },
   },
 };
+
+// Branch-scoped operational API. Record payloads are validated by the command discriminator.
+openapi.components.schemas.BackofficeRequest = jsonSchema(BackofficeRequest);
+for (const [kind, schema] of Object.entries(BackofficeRecords))
+  openapi.components.schemas['BackofficeRecord_' + kind] = jsonSchema(schema);
+openapi.components.schemas.BackofficeSnapshot = {
+  type: 'object',
+  required: ['schema_version', 'branch_id', 'records', 'metrics'],
+  properties: {
+    schema_version: { const: 1 },
+    branch_id: { type: 'string', format: 'uuid' },
+    records: { type: 'array', items: { type: 'object' } },
+    metrics: { type: 'object' },
+  },
+  additionalProperties: true,
+};
+openapi.components.schemas.BackofficeResult = { type: 'object', additionalProperties: true };
+openapi.components.schemas.BackofficeContent = {
+  type: 'object',
+  required: ['schema_version', 'branch_id', 'promos', 'games'],
+  properties: {
+    schema_version: { const: 1 },
+    branch_id: { type: 'string', format: 'uuid' },
+    promos: { type: 'array', maxItems: 20, items: { type: 'object' } },
+    games: { type: 'array', maxItems: 3, items: { type: 'object' } },
+  },
+  additionalProperties: false,
+};
+function boOperation(id, result, input, publicRead = false) {
+  const op = catalogOperation(id, result, input, true, publicRead);
+  op.tags = ['Backoffice'];
+  op.description = publicRead
+    ? 'Explicitly published, scheduled public content. No guest/staff/order data.'
+    : 'Requires explicit manager or analyst grant for this branch. Writes require manager, durable request_id and reason; matching replay returns the previous result. Refunds remain pending until a trusted payment observation. Stock changes and audit commit atomically. HTTP commands are limited to 16 KiB.';
+  return op;
+}
+const boRead = boOperation('readBackoffice', 'BackofficeSnapshot');
+boRead.parameters.push({
+  name: 'period',
+  in: 'query',
+  schema: { type: 'string', enum: ['day', 'week', 'month', 'quarter'], default: 'day' },
+});
+const boOrder = boOperation('readBackofficeOrder', 'BackofficeResult');
+boOrder.parameters.push({
+  name: 'orderId',
+  in: 'path',
+  required: true,
+  schema: { type: 'string', format: 'uuid' },
+});
+const boContent = boOperation(
+  'readBackofficePublishedContent',
+  'BackofficeContent',
+  undefined,
+  true,
+);
+boContent.parameters.push({
+  name: 'channel',
+  in: 'query',
+  schema: { type: 'string', enum: ['mobile', 'kiosk', 'display'], default: 'mobile' },
+});
+Object.assign(openapi.paths, {
+  '/v1/admin/backoffice/branches/{branchId}': { get: boRead },
+  '/v1/admin/backoffice/branches/{branchId}/orders/{orderId}': { get: boOrder },
+  '/v1/admin/backoffice/branches/{branchId}/commands': {
+    post: boOperation('executeBackofficeCommand', 'BackofficeResult', 'BackofficeRequest'),
+  },
+  '/v1/content/branches/{branchId}': { get: boContent },
+});
 
 for (const [filename, value] of [
   ['openapi.json', openapi],

@@ -3,7 +3,13 @@ import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from '@pickchick/platform';
-import { posCloudOrigin, posRetryDelayMs, syncPosOrdersOnce, sendPosEvent } from '../dist/index.js';
+import {
+  posCloudOrigin,
+  posRetryDelayMs,
+  syncPosOrdersOnce,
+  syncPosKitchenOnce,
+  sendPosEvent,
+} from '../dist/index.js';
 
 const identity = {
   device_id: randomUUID(),
@@ -13,6 +19,7 @@ const identity = {
 };
 test('default-disabled worker never needs a database, identity or network', async () => {
   assert.deepEqual(await syncPosOrdersOnce(null, { enabled: false }), { state: 'disabled' });
+  assert.deepEqual(await syncPosKitchenOnce(null, { enabled: false }), { state: 'disabled' });
   const env = {
     APP_ENV: 'test',
     CLOUD_DATABASE_URL: 'postgresql://127.0.0.1/pickchick_cloud',

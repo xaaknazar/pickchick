@@ -8,6 +8,7 @@ import {
   Resources,
 } from '@pickchick/platform';
 import type { ServiceConfig } from '@pickchick/platform';
+import { StaffAuthController } from './staff-auth-controller.js';
 import { LocalOrdersController } from './orders-controller.js';
 import { FulfillmentController } from './fulfillment-controller.js';
 
@@ -38,6 +39,7 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
       HealthController,
       LocalMenuController,
       LocalOrdersController,
+      StaffAuthController,
       FulfillmentController,
     ],
     providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],

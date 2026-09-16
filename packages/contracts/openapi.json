@@ -219,6 +219,118 @@
         }
       }
     },
+    "/edge/v1/staff/login": {
+      "post": {
+        "operationId": "loginLocalStaff",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffLogin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffCredential"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid login, password, staff or terminal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Login body exceeds 2 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTH_RATE_LIMITED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Local service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/staff/logout": {
+      "post": {
+        "operationId": "logoutLocalStaff",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Current session revoked"
+          },
+          "401": {
+            "description": "Invalid or expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Local service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/edge/v1/session": {
       "get": {
         "operationId": "getLocalStaffSession",
@@ -418,6 +530,108 @@
       }
     },
     "/edge/v1/orders": {
+      "get": {
+        "operationId": "listLocalOrders",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shift_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalOrderList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "createLocalOrder",
         "security": [
@@ -454,6 +668,533 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LocalOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts": {
+      "get": {
+        "operationId": "listCashShifts",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "openCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashShiftOpen"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShift"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts/current": {
+      "get": {
+        "operationId": "currentCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShiftCurrent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts/{shiftId}": {
+      "get": {
+        "operationId": "readCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shiftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShift"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/v1/cash-shifts/{shiftId}/close": {
+      "post": {
+        "operationId": "closeCashShift",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shiftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashShiftClose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShift"
                 }
               }
             }
@@ -6193,7 +6934,7 @@
     "/internal/v1/edge/pos-orders/events": {
       "post": {
         "operationId": "observeEdgePosOrder",
-        "description": "Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order create v1 then cancel v2. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.",
+        "description": "Private, disabled-by-default unpaid POS lifecycle observation. Authenticated edge/branch/producer binding; immutable envelope hash, producer sequence identity and strict per-order commercial create v1 then cancel v2, or kitchen version+1. Kitchen has a separate immutable inbox and requires the unpaid commercial snapshot/owner hash. Sequence gaps across different orders are allowed. Never authorizes payment, fiscalization or kitchen admission. Not routed by the public gateway. Maximum accepted event 96 KiB; response 8 KiB.",
         "security": [
           {
             "deviceBearer": [],
@@ -6205,7 +6946,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PosOrderSyncEvent"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PosOrderSyncEvent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PosKitchenSyncEvent"
+                  }
+                ]
               }
             }
           }
@@ -6283,6 +7031,556 @@
           },
           "500": {
             "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/backoffice/branches/{branchId}": {
+      "get": {
+        "operationId": "readBackoffice",
+        "tags": [
+          "Backoffice"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Requires explicit manager or analyst grant for this branch. Writes require manager, durable request_id and reason; matching replay returns the previous result. Refunds remain pending until a trusted payment observation. Stock changes and audit commit atomically. HTTP commands are limited to 16 KiB.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "quarter"
+              ],
+              "default": "day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackofficeSnapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/backoffice/branches/{branchId}/orders/{orderId}": {
+      "get": {
+        "operationId": "readBackofficeOrder",
+        "tags": [
+          "Backoffice"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Requires explicit manager or analyst grant for this branch. Writes require manager, durable request_id and reason; matching replay returns the previous result. Refunds remain pending until a trusted payment observation. Stock changes and audit commit atomically. HTTP commands are limited to 16 KiB.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackofficeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/backoffice/branches/{branchId}/commands": {
+      "post": {
+        "operationId": "executeBackofficeCommand",
+        "tags": [
+          "Backoffice"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Requires explicit manager or analyst grant for this branch. Writes require manager, durable request_id and reason; matching replay returns the previous result. Refunds remain pending until a trusted payment observation. Stock changes and audit commit atomically. HTTP commands are limited to 16 KiB.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackofficeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackofficeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/content/branches/{branchId}": {
+      "get": {
+        "operationId": "readBackofficePublishedContent",
+        "tags": [
+          "Backoffice"
+        ],
+        "security": [],
+        "description": "Explicitly published, scheduled public content. No guest/staff/order data.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "kiosk",
+                "display"
+              ],
+              "default": "mobile"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackofficeContent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
             "content": {
               "application/json": {
                 "schema": {
@@ -6559,6 +7857,121 @@
                 "currency": {
                   "type": "string",
                   "const": "KZT"
+                },
+                "image_url": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^(?:https:\\/\\/[^\\s]+|\\/(?!\\/)[^\\s]*)$"
+                },
+                "modifier_groups": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "name": {
+                        "type": "object",
+                        "properties": {
+                          "ru": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "kk": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "required": [
+                          "ru",
+                          "kk"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "min_selected": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 99
+                      },
+                      "max_selected": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99
+                      },
+                      "options": {
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "object",
+                              "properties": {
+                                "ru": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                },
+                                "kk": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                }
+                              },
+                              "required": [
+                                "ru",
+                                "kk"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "price_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "max_quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "default_quantity": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 99
+                            },
+                            "available": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "price_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "min_selected",
+                      "max_selected",
+                      "options"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
@@ -6678,11 +8091,15 @@
               "MENU_CHANGED",
               "BRANCH_UNAVAILABLE",
               "ITEM_STOPPED",
+              "CASH_SHIFT_REQUIRED",
               "CONFLICT",
+              "INSUFFICIENT_STOCK",
+              "NOT_READY",
               "PAYLOAD_TOO_LARGE",
               "NOT_FOUND",
               "SERVICE_UNAVAILABLE",
               "RATE_LIMITED",
+              "AUTH_RATE_LIMITED",
               "INTERNAL_ERROR"
             ]
           },
@@ -6851,6 +8268,121 @@
                         "currency": {
                           "type": "string",
                           "const": "KZT"
+                        },
+                        "image_url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^(?:https:\\/\\/[^\\s]+|\\/(?!\\/)[^\\s]*)$"
+                        },
+                        "modifier_groups": {
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "object",
+                                "properties": {
+                                  "ru": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "kk": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "ru",
+                                  "kk"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "min_selected": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 99
+                              },
+                              "max_selected": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              },
+                              "options": {
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ru": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "kk": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "ru",
+                                        "kk"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "price_minor": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                                    },
+                                    "max_quantity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 99
+                                    },
+                                    "default_quantity": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 99
+                                    },
+                                    "available": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name",
+                                    "price_minor"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "min_selected",
+                              "max_selected",
+                              "options"
+                            ],
+                            "additionalProperties": false
+                          }
                         }
                       },
                       "required": [
@@ -7054,6 +8586,121 @@
                                 "currency": {
                                   "type": "string",
                                   "const": "KZT"
+                                },
+                                "image_url": {
+                                  "type": "string",
+                                  "maxLength": 2048,
+                                  "pattern": "^(?:https:\\/\\/[^\\s]+|\\/(?!\\/)[^\\s]*)$"
+                                },
+                                "modifier_groups": {
+                                  "maxItems": 20,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "name": {
+                                        "type": "object",
+                                        "properties": {
+                                          "ru": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 300
+                                          },
+                                          "kk": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 300
+                                          }
+                                        },
+                                        "required": [
+                                          "ru",
+                                          "kk"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "min_selected": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 99
+                                      },
+                                      "max_selected": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 99
+                                      },
+                                      "options": {
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "name": {
+                                              "type": "object",
+                                              "properties": {
+                                                "ru": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 300
+                                                },
+                                                "kk": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 300
+                                                }
+                                              },
+                                              "required": [
+                                                "ru",
+                                                "kk"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            "price_minor": {
+                                              "type": "string",
+                                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                                            },
+                                            "max_quantity": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 99
+                                            },
+                                            "default_quantity": {
+                                              "type": "integer",
+                                              "minimum": 0,
+                                              "maximum": 99
+                                            },
+                                            "available": {
+                                              "type": "boolean"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "price_minor"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "min_selected",
+                                      "max_selected",
+                                      "options"
+                                    ],
+                                    "additionalProperties": false
+                                  }
                                 }
                               },
                               "required": [
@@ -7229,6 +8876,85 @@
         ],
         "additionalProperties": false
       },
+      "StaffCredential": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "staff_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "terminal_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "branch_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "cashier",
+              "shift_manager",
+              "kitchen"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "token": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "session_id",
+          "staff_id",
+          "terminal_id",
+          "branch_id",
+          "role",
+          "expires_at",
+          "token"
+        ],
+        "additionalProperties": false
+      },
+      "StaffLogin": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128
+          },
+          "terminal_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "login",
+          "password",
+          "terminal_id"
+        ],
+        "additionalProperties": false
+      },
       "Cart": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -7261,6 +8987,35 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 99
+                },
+                "modifiers": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "group_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "option_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99
+                      }
+                    },
+                    "required": [
+                      "group_id",
+                      "option_id"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [
@@ -7320,6 +9075,82 @@
             "items": {
               "type": "object",
               "properties": {
+                "modifiers": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "group_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "option_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99
+                      },
+                      "group_name": {
+                        "type": "object",
+                        "properties": {
+                          "ru": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "kk": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "required": [
+                          "ru",
+                          "kk"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "name": {
+                        "type": "object",
+                        "properties": {
+                          "ru": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "kk": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "required": [
+                          "ru",
+                          "kk"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "price_minor": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,18})$"
+                      }
+                    },
+                    "required": [
+                      "group_id",
+                      "option_id",
+                      "group_name",
+                      "name",
+                      "price_minor"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
                 "product_id": {
                   "type": "string",
                   "format": "uuid",
@@ -7423,6 +9254,18 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "cash_shift_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "order_id": {
             "type": "string",
             "format": "uuid",
@@ -7459,8 +9302,58 @@
             "const": "not_requested"
           },
           "fulfillment_state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "blocked"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "accepted",
+                  "in_production",
+                  "ready",
+                  "handed_over",
+                  "cancel_requested",
+                  "cancelled"
+                ]
+              }
+            ]
+          },
+          "execution_mode": {
             "type": "string",
-            "const": "blocked"
+            "const": "unpaid_service"
+          },
+          "fulfillment": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              },
+              "display_number": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,18})$"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "accepted",
+                  "in_production",
+                  "ready",
+                  "handed_over",
+                  "cancel_requested",
+                  "cancelled"
+                ]
+              }
+            },
+            "required": [
+              "version",
+              "display_number",
+              "state"
+            ],
+            "additionalProperties": false
           },
           "next_action": {
             "type": "string",
@@ -7510,6 +9403,82 @@
                 "items": {
                   "type": "object",
                   "properties": {
+                    "modifiers": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "option_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 99
+                          },
+                          "group_name": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "kk": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "name": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "kk": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "price_minor": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9]\\d{0,18})$"
+                          }
+                        },
+                        "required": [
+                          "group_id",
+                          "option_id",
+                          "group_name",
+                          "name",
+                          "price_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "product_id": {
                       "type": "string",
                       "format": "uuid",
@@ -7637,6 +9606,984 @@
         ],
         "additionalProperties": false
       },
+      "LocalOrderList": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "orders": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cash_shift_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "order_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "branch_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "quote_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2147483647
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "awaiting_payment",
+                    "cancelled"
+                  ]
+                },
+                "payment_state": {
+                  "type": "string",
+                  "const": "not_started"
+                },
+                "fiscal_state": {
+                  "type": "string",
+                  "const": "not_requested"
+                },
+                "fulfillment_state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "blocked"
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "in_production",
+                        "ready",
+                        "handed_over",
+                        "cancel_requested",
+                        "cancelled"
+                      ]
+                    }
+                  ]
+                },
+                "execution_mode": {
+                  "type": "string",
+                  "const": "unpaid_service"
+                },
+                "fulfillment": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 2147483647
+                    },
+                    "display_number": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "in_production",
+                        "ready",
+                        "handed_over",
+                        "cancel_requested",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "display_number",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                },
+                "next_action": {
+                  "type": "string",
+                  "enum": [
+                    "payment_not_available",
+                    "none"
+                  ]
+                },
+                "snapshot": {
+                  "type": "object",
+                  "properties": {
+                    "quote_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "branch_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "release_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "menu_version": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 2147483647
+                    },
+                    "service_mode": {
+                      "type": "string",
+                      "enum": [
+                        "dine_in",
+                        "takeaway"
+                      ]
+                    },
+                    "channel": {
+                      "type": "string",
+                      "const": "pos"
+                    },
+                    "lines": {
+                      "minItems": 1,
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "modifiers": {
+                            "maxItems": 100,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "group_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "option_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 99
+                                },
+                                "group_name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "price_minor": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                                }
+                              },
+                              "required": [
+                                "group_id",
+                                "option_id",
+                                "group_name",
+                                "name",
+                                "price_minor"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "product_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "variant_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "kk": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 99
+                          },
+                          "unit_price_minor": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9]\\d{0,18})$"
+                          },
+                          "total_minor": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9]\\d{0,18})$"
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "variant_id",
+                          "name",
+                          "quantity",
+                          "unit_price_minor",
+                          "total_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "currency": {
+                      "type": "string",
+                      "const": "KZT"
+                    },
+                    "subtotal_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    "discount_minor": {
+                      "type": "string",
+                      "const": "0"
+                    },
+                    "total_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "quote_id",
+                    "branch_id",
+                    "release_id",
+                    "menu_version",
+                    "service_mode",
+                    "channel",
+                    "lines",
+                    "currency",
+                    "subtotal_minor",
+                    "discount_minor",
+                    "total_minor",
+                    "created_at",
+                    "expires_at"
+                  ],
+                  "additionalProperties": false
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "cancellation_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "order_id",
+                "branch_id",
+                "quote_id",
+                "version",
+                "state",
+                "payment_state",
+                "fiscal_state",
+                "fulfillment_state",
+                "next_action",
+                "snapshot",
+                "created_at",
+                "cancellation_reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "orders",
+          "server_time"
+        ],
+        "additionalProperties": false
+      },
+      "CashShift": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "shift_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "branch_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "terminal_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "staff_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 2147483647
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "closed_by_staff_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "opening_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "expected_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "counted_cash_minor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,18})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "discrepancy_minor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "closing_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "const": "KZT"
+          },
+          "order_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "awaiting_payment_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "cancelled_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "order_total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "unpaid_total_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "cash_received_minor": {
+            "type": "string",
+            "const": "0"
+          },
+          "cash_refunded_minor": {
+            "type": "string",
+            "const": "0"
+          },
+          "payment_processing_available": {
+            "type": "boolean",
+            "const": false
+          },
+          "report_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "shift_id",
+          "branch_id",
+          "terminal_id",
+          "staff_id",
+          "version",
+          "state",
+          "opened_at",
+          "closed_at",
+          "closed_by_staff_id",
+          "opening_cash_minor",
+          "expected_cash_minor",
+          "counted_cash_minor",
+          "discrepancy_minor",
+          "closing_reason",
+          "currency",
+          "order_count",
+          "awaiting_payment_count",
+          "cancelled_count",
+          "order_total_minor",
+          "unpaid_total_minor",
+          "cash_received_minor",
+          "cash_refunded_minor",
+          "payment_processing_available",
+          "report_at"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftOpen": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "opening_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          }
+        },
+        "required": [
+          "opening_cash_minor"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftClose": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 2147483647
+          },
+          "counted_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "expected_version",
+          "counted_cash_minor",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftCurrent": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "shift": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "shift_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "branch_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "terminal_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "staff_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  },
+                  "opened_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "closed_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "closed_by_staff_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "opening_cash_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "expected_cash_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "counted_cash_minor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,18})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discrepancy_minor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "closing_reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string",
+                    "const": "KZT"
+                  },
+                  "order_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "awaiting_payment_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cancelled_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "order_total_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "unpaid_total_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  },
+                  "cash_received_minor": {
+                    "type": "string",
+                    "const": "0"
+                  },
+                  "cash_refunded_minor": {
+                    "type": "string",
+                    "const": "0"
+                  },
+                  "payment_processing_available": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "report_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "shift_id",
+                  "branch_id",
+                  "terminal_id",
+                  "staff_id",
+                  "version",
+                  "state",
+                  "opened_at",
+                  "closed_at",
+                  "closed_by_staff_id",
+                  "opening_cash_minor",
+                  "expected_cash_minor",
+                  "counted_cash_minor",
+                  "discrepancy_minor",
+                  "closing_reason",
+                  "currency",
+                  "order_count",
+                  "awaiting_payment_count",
+                  "cancelled_count",
+                  "order_total_minor",
+                  "unpaid_total_minor",
+                  "cash_received_minor",
+                  "cash_refunded_minor",
+                  "payment_processing_available",
+                  "report_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "shift",
+          "server_time"
+        ],
+        "additionalProperties": false
+      },
+      "CashShiftList": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "shifts": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "shift_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "branch_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "terminal_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "staff_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2147483647
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "closed"
+                  ]
+                },
+                "opened_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "closed_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "closed_by_staff_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "opening_cash_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "expected_cash_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "counted_cash_minor": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "discrepancy_minor": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "closing_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "currency": {
+                  "type": "string",
+                  "const": "KZT"
+                },
+                "order_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "awaiting_payment_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "cancelled_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "order_total_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "unpaid_total_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "cash_received_minor": {
+                  "type": "string",
+                  "const": "0"
+                },
+                "cash_refunded_minor": {
+                  "type": "string",
+                  "const": "0"
+                },
+                "payment_processing_available": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "report_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "shift_id",
+                "branch_id",
+                "terminal_id",
+                "staff_id",
+                "version",
+                "state",
+                "opened_at",
+                "closed_at",
+                "closed_by_staff_id",
+                "opening_cash_minor",
+                "expected_cash_minor",
+                "counted_cash_minor",
+                "discrepancy_minor",
+                "closing_reason",
+                "currency",
+                "order_count",
+                "awaiting_payment_count",
+                "cancelled_count",
+                "order_total_minor",
+                "unpaid_total_minor",
+                "cash_received_minor",
+                "cash_refunded_minor",
+                "payment_processing_available",
+                "report_at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "shifts",
+          "server_time"
+        ],
+        "additionalProperties": false
+      },
       "CreateLocalOrder": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -7645,6 +10592,10 @@
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kitchen_admission": {
+            "type": "string",
+            "const": "unpaid"
           }
         },
         "required": [
@@ -7692,6 +10643,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "pos_service_mode": {
+            "type": "string",
+            "enum": [
+              "payment_required",
+              "unpaid_service"
+            ]
+          },
           "branch_id": {
             "type": "string",
             "format": "uuid",
@@ -14829,7 +17787,10 @@
           },
           "channel": {
             "type": "string",
-            "const": "mobile"
+            "enum": [
+              "mobile",
+              "pos"
+            ]
           },
           "serviceMode": {
             "type": "string",
@@ -14909,7 +17870,7 @@
                       "maximum": 1000000
                     },
                     "modifiers": {
-                      "maxItems": 40,
+                      "maxItems": 100,
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -15097,7 +18058,10 @@
           },
           "channel": {
             "type": "string",
-            "const": "mobile"
+            "enum": [
+              "mobile",
+              "pos"
+            ]
           },
           "serviceMode": {
             "type": "string",
@@ -15177,7 +18141,7 @@
                       "maximum": 1000000
                     },
                     "modifiers": {
-                      "maxItems": 40,
+                      "maxItems": 100,
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -15399,7 +18363,10 @@
                 },
                 "channel": {
                   "type": "string",
-                  "const": "mobile"
+                  "enum": [
+                    "mobile",
+                    "pos"
+                  ]
                 },
                 "serviceMode": {
                   "type": "string",
@@ -15479,7 +18446,7 @@
                             "maximum": 1000000
                           },
                           "modifiers": {
-                            "maxItems": 40,
+                            "maxItems": 100,
                             "type": "array",
                             "items": {
                               "type": "object",
@@ -15825,6 +18792,10 @@
             "type": "integer",
             "minimum": 15,
             "maximum": 120
+          },
+          "protocolVersion": {
+            "type": "number",
+            "const": 2
           }
         },
         "required": [
@@ -15985,7 +18956,7 @@
                                               ]
                                             },
                                             "modifiers": {
-                                              "maxItems": 40,
+                                              "maxItems": 100,
                                               "type": "array",
                                               "items": {
                                                 "type": "object",
@@ -16298,7 +19269,7 @@
                                               ]
                                             },
                                             "modifiers": {
-                                              "maxItems": 40,
+                                              "maxItems": 100,
                                               "type": "array",
                                               "items": {
                                                 "type": "object",
@@ -16497,6 +19468,74 @@
                           "payload"
                         ],
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "eventId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "const": "edge.admission_release_requested"
+                          },
+                          "payload": {
+                            "type": "object",
+                            "properties": {
+                              "orderId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "branchId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "reservationId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "quoteDigest": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                              },
+                              "owner": {
+                                "type": "string",
+                                "const": "cloud"
+                              },
+                              "expectedVersion": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "reason": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "orderId",
+                              "branchId",
+                              "reservationId",
+                              "quoteDigest",
+                              "owner",
+                              "expectedVersion",
+                              "reason"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "eventId",
+                          "type",
+                          "payload"
+                        ],
+                        "additionalProperties": false
                       }
                     ]
                   },
@@ -16553,214 +19592,414 @@
       },
       "FulfillmentTransportEvent": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "schemaVersion": {
-            "type": "number",
-            "const": 1
-          },
-          "eventId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "sequence": {
-            "type": "string",
-            "pattern": "^[1-9][0-9]{0,18}$"
-          },
-          "orderId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "aggregateVersion": {
-            "type": "integer",
-            "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "edge.admission_reserved",
-              "edge.fulfillment_accepted",
-              "edge.task_changed",
-              "edge.fulfillment_ready",
-              "edge.fulfillment_handed_over",
-              "edge.cancellation_requested",
-              "edge.fulfillment_cancelled",
-              "edge.admission_released"
-            ]
-          },
-          "payload": {
+        "anyOf": [
+          {
             "type": "object",
             "properties": {
+              "schemaVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "eventId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "sequence": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
               "orderId": {
                 "type": "string",
                 "format": "uuid",
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
               },
-              "branchId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "reservationId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "quoteId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "quoteDigest": {
-                "type": "string",
-                "pattern": "^[a-f0-9]{64}$"
-              },
-              "ownerHash": {
-                "type": "string",
-                "pattern": "^[a-f0-9]{64}$"
-              },
-              "commercialOwner": {
-                "type": "string",
-                "const": "cloud"
-              },
-              "fulfillmentOwner": {
-                "type": "string",
-                "const": "edge"
-              },
-              "deviceId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "version": {
+              "aggregateVersion": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
               },
-              "state": {
+              "type": {
                 "type": "string",
                 "enum": [
-                  "held",
-                  "accepted",
-                  "in_production",
-                  "ready",
-                  "handed_over",
-                  "cancel_requested",
-                  "cancelled",
-                  "released"
+                  "edge.admission_reserved",
+                  "edge.fulfillment_accepted",
+                  "edge.task_changed",
+                  "edge.fulfillment_ready",
+                  "edge.fulfillment_handed_over",
+                  "edge.cancellation_requested",
+                  "edge.fulfillment_cancelled",
+                  "edge.admission_released"
                 ]
               },
-              "displayNumber": {
-                "anyOf": [
-                  {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
                     "type": "string",
-                    "pattern": "^[1-9][0-9]{0,18}$"
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
-                  {
-                    "type": "null"
+                  "branchId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reservationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "quoteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "quoteDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "ownerHash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "commercialOwner": {
+                    "type": "string",
+                    "const": "cloud"
+                  },
+                  "fulfillmentOwner": {
+                    "type": "string",
+                    "const": "edge"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "held",
+                      "accepted",
+                      "in_production",
+                      "ready",
+                      "handed_over",
+                      "cancel_requested",
+                      "cancelled",
+                      "released"
+                    ]
+                  },
+                  "displayNumber": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]{0,18}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "routingVersion": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "assemblyStationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "taskId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "taskVersion": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "taskState": {
+                    "type": "string",
+                    "enum": [
+                      "queued",
+                      "in_progress",
+                      "done",
+                      "cancel_requested",
+                      "cancelled"
+                    ]
+                  },
+                  "stationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "staffId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "inventoryDisposition": {
+                    "type": "string",
+                    "enum": [
+                      "requires_inventory_review",
+                      "recorded_elsewhere"
+                    ]
+                  },
+                  "inventoryEffect": {
+                    "type": "string",
+                    "const": "none"
                   }
-                ]
-              },
-              "createdAt": {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-              },
-              "updatedAt": {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-              },
-              "routingVersion": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
-              },
-              "assemblyStationId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "taskId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "taskVersion": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
-              },
-              "taskState": {
-                "type": "string",
-                "enum": [
-                  "queued",
-                  "in_progress",
-                  "done",
-                  "cancel_requested",
-                  "cancelled"
-                ]
-              },
-              "stationId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "staffId": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "reason": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 500
-              },
-              "inventoryDisposition": {
-                "type": "string",
-                "enum": [
-                  "requires_inventory_review",
-                  "recorded_elsewhere"
-                ]
-              },
-              "inventoryEffect": {
-                "type": "string",
-                "const": "none"
+                },
+                "required": [
+                  "orderId",
+                  "branchId",
+                  "reservationId",
+                  "quoteId",
+                  "quoteDigest",
+                  "ownerHash",
+                  "commercialOwner",
+                  "fulfillmentOwner",
+                  "deviceId",
+                  "version",
+                  "state",
+                  "displayNumber",
+                  "createdAt",
+                  "updatedAt",
+                  "routingVersion"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
+              "schemaVersion",
+              "eventId",
+              "sequence",
               "orderId",
-              "branchId",
-              "reservationId",
-              "quoteId",
-              "quoteDigest",
-              "ownerHash",
-              "commercialOwner",
-              "fulfillmentOwner",
-              "deviceId",
-              "version",
-              "state",
-              "displayNumber",
-              "createdAt",
-              "updatedAt",
-              "routingVersion"
+              "aggregateVersion",
+              "type",
+              "payload"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "schemaVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "eventId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "sequence": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
+              "orderId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "aggregateVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "type": {
+                "type": "string",
+                "const": "edge.admission_release_result"
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "branchId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reservationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "quoteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "quoteDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "ownerHash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "commercialOwner": {
+                    "type": "string",
+                    "const": "cloud"
+                  },
+                  "fulfillmentOwner": {
+                    "type": "string",
+                    "const": "edge"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "held",
+                      "accepted",
+                      "in_production",
+                      "ready",
+                      "handed_over",
+                      "cancel_requested",
+                      "cancelled",
+                      "released"
+                    ]
+                  },
+                  "displayNumber": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]{0,18}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "routingVersion": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "assemblyStationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "requestEventId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "requestDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "applied",
+                      "rejected"
+                    ]
+                  },
+                  "rejectionCode": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "VERSION_CONFLICT",
+                          "NOT_HELD"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "orderId",
+                  "branchId",
+                  "reservationId",
+                  "quoteId",
+                  "quoteDigest",
+                  "ownerHash",
+                  "commercialOwner",
+                  "fulfillmentOwner",
+                  "deviceId",
+                  "version",
+                  "state",
+                  "displayNumber",
+                  "createdAt",
+                  "updatedAt",
+                  "routingVersion",
+                  "assemblyStationId",
+                  "requestEventId",
+                  "requestDigest",
+                  "outcome",
+                  "rejectionCode",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "eventId",
+              "sequence",
+              "orderId",
+              "aggregateVersion",
+              "type",
+              "payload"
             ],
             "additionalProperties": false
           }
-        },
-        "required": [
-          "schemaVersion",
-          "eventId",
-          "sequence",
-          "orderId",
-          "aggregateVersion",
-          "type",
-          "payload"
-        ],
-        "additionalProperties": false
+        ]
       },
       "FulfillmentTransportReceipt": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -16887,6 +20126,10 @@
                 "type": "string",
                 "const": "blocked"
               },
+              "execution_mode": {
+                "type": "string",
+                "const": "unpaid_service"
+              },
               "total_minor": {
                 "type": "string",
                 "pattern": "^(0|[1-9]\\d{0,18})$"
@@ -16947,6 +20190,82 @@
                     "items": {
                       "type": "object",
                       "properties": {
+                        "modifiers": {
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "group_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "option_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              },
+                              "group_name": {
+                                "type": "object",
+                                "properties": {
+                                  "ru": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "kk": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "ru",
+                                  "kk"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "name": {
+                                "type": "object",
+                                "properties": {
+                                  "ru": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "kk": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "ru",
+                                  "kk"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,18})$"
+                              }
+                            },
+                            "required": [
+                              "group_id",
+                              "option_id",
+                              "group_name",
+                              "name",
+                              "price_minor"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "product_id": {
                           "type": "string",
                           "format": "uuid",
@@ -17079,6 +20398,243 @@
         ],
         "additionalProperties": false
       },
+      "PosKitchenSyncEvent": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "producer_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "producer_sequence": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "aggregate_type": {
+            "type": "string",
+            "const": "order_fulfillment"
+          },
+          "aggregate_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "aggregate_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "edge.fulfillment_accepted",
+              "edge.task_changed",
+              "edge.fulfillment_ready",
+              "edge.fulfillment_handed_over",
+              "edge.fulfillment_cancelled"
+            ]
+          },
+          "schema_version": {
+            "type": "number",
+            "const": 1
+          },
+          "branch_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "causation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "orderId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "branchId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "reservationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "quoteId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "quoteDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "ownerHash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "commercialOwner": {
+                "type": "string",
+                "const": "edge_pos"
+              },
+              "fulfillmentOwner": {
+                "type": "string",
+                "const": "edge"
+              },
+              "deviceId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "accepted",
+                  "in_production",
+                  "ready",
+                  "handed_over",
+                  "cancelled"
+                ]
+              },
+              "displayNumber": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,18})$"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "routingVersion": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "assemblyStationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "executionMode": {
+                "type": "string",
+                "const": "unpaid_service"
+              },
+              "staffId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "taskId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "taskVersion": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "taskState": {
+                "type": "string",
+                "enum": [
+                  "in_progress",
+                  "done"
+                ]
+              },
+              "stationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "inventoryEffect": {
+                "type": "string",
+                "const": "none"
+              }
+            },
+            "required": [
+              "orderId",
+              "branchId",
+              "reservationId",
+              "quoteId",
+              "quoteDigest",
+              "ownerHash",
+              "commercialOwner",
+              "fulfillmentOwner",
+              "deviceId",
+              "version",
+              "state",
+              "displayNumber",
+              "createdAt",
+              "updatedAt",
+              "routingVersion",
+              "assemblyStationId",
+              "executionMode",
+              "staffId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "event_id",
+          "producer_id",
+          "producer_sequence",
+          "aggregate_type",
+          "aggregate_id",
+          "aggregate_version",
+          "event_type",
+          "schema_version",
+          "branch_id",
+          "occurred_at",
+          "correlation_id",
+          "causation_id",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
       "PosOrderSyncReceipt": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -17119,6 +20675,1048 @@
           "payloadHash",
           "acknowledged"
         ],
+        "additionalProperties": false
+      },
+      "BackofficeRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "command": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "save"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "ingredient",
+                      "recipe",
+                      "promo",
+                      "game",
+                      "campaign",
+                      "ticket",
+                      "review",
+                      "station",
+                      "employee",
+                      "shift"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483646
+                  },
+                  "payload": {}
+                },
+                "required": [
+                  "type",
+                  "kind",
+                  "id",
+                  "expected_revision",
+                  "payload"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "publish"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "promo",
+                      "game",
+                      "station"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483646
+                  }
+                },
+                "required": [
+                  "type",
+                  "kind",
+                  "id",
+                  "expected_revision"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "stock"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "receipt",
+                      "waste",
+                      "count"
+                    ]
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "lines": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "ingredient_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "quantity": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,14})$"
+                        },
+                        "value_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,14})$"
+                        },
+                        "expected_revision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2147483646
+                        }
+                      },
+                      "required": [
+                        "ingredient_id",
+                        "quantity",
+                        "value_minor",
+                        "expected_revision"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "kind",
+                  "reference",
+                  "lines"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "produce"
+                  },
+                  "recipe_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recipe_revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483646
+                  },
+                  "batches": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "expected_balances": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483646
+                    }
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "type",
+                  "recipe_id",
+                  "recipe_revision",
+                  "batches",
+                  "expected_balances",
+                  "reference"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "consume"
+                  },
+                  "order_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expected_balances": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483646
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "order_id",
+                  "expected_balances"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "revoke_device"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "cancel_order"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "expected_version"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "refund"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "capture_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "amount_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,14})$"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "capture_id",
+                  "amount_minor"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "request_id",
+          "reason",
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_ingredient": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "ml",
+              "pcs"
+            ]
+          },
+          "minimum": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,14})$"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "unit",
+          "minimum",
+          "active"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_recipe": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "product_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "output_ingredient_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "yield_quantity": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,14})$"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ingredient_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,14})$"
+                }
+              },
+              "required": [
+                "ingredient_id",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "name",
+          "product_id",
+          "output_ingredient_id",
+          "yield_quantity",
+          "lines"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_promo": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "title": {
+            "type": "object",
+            "properties": {
+              "ru": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "kk": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "ru",
+              "kk"
+            ],
+            "additionalProperties": false
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "ru": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "kk": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "ru",
+              "kk"
+            ],
+            "additionalProperties": false
+          },
+          "image_asset_key": {
+            "type": "string"
+          },
+          "channels": {
+            "minItems": 1,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "kiosk",
+                "display"
+              ]
+            }
+          },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "starts_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "ends_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "starts_at",
+              "ends_at"
+            ],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "archived"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "body",
+          "image_asset_key",
+          "channels",
+          "schedule",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_game": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "template": {
+            "type": "string",
+            "enum": [
+              "pick-run",
+              "pick-man",
+              "pick-blocks"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "daily_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "reward_chiki": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,14})$"
+          },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "starts_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "ends_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "starts_at",
+              "ends_at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "template",
+          "enabled",
+          "daily_attempts",
+          "reward_chiki",
+          "schedule"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_campaign": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "title": {
+            "type": "object",
+            "properties": {
+              "ru": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "kk": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "ru",
+              "kk"
+            ],
+            "additionalProperties": false
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "ru": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "kk": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "ru",
+              "kk"
+            ],
+            "additionalProperties": false
+          },
+          "segment": {
+            "type": "string",
+            "enum": [
+              "all_consented",
+              "repeat",
+              "inactive_30d"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "ready",
+              "archived"
+            ]
+          },
+          "daily_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "starts_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "ends_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "starts_at",
+              "ends_at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "body",
+          "segment",
+          "status",
+          "daily_limit",
+          "schedule"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_ticket": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "question",
+              "complaint"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "urgent"
+            ]
+          },
+          "assignee_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "in_progress",
+              "resolved",
+              "closed"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "resolution": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name",
+          "order_id",
+          "category",
+          "priority",
+          "assignee_id",
+          "due_at",
+          "status",
+          "description",
+          "resolution"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_review": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "order_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "stars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "source": {
+            "type": "string",
+            "const": "operator_recorded"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "reviewed"
+            ]
+          },
+          "internal_note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name",
+          "order_id",
+          "stars",
+          "text",
+          "source",
+          "status",
+          "internal_note"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_station": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "prep",
+              "assembly",
+              "drinks",
+              "handoff"
+            ]
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "product_ids": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "target_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600
+          }
+        },
+        "required": [
+          "name",
+          "role",
+          "device_id",
+          "active",
+          "product_ids",
+          "target_seconds"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_employee": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "cashier",
+              "cook",
+              "assembler"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name",
+          "role",
+          "active",
+          "note"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeRecord_shift": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "employee_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "opening_cash_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,14})$"
+          },
+          "closing_cash_minor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]{0,14})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name",
+          "employee_id",
+          "opened_at",
+          "closed_at",
+          "opening_cash_minor",
+          "closing_cash_minor",
+          "note"
+        ],
+        "additionalProperties": false
+      },
+      "BackofficeSnapshot": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "branch_id",
+          "records",
+          "metrics"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "branch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "metrics": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      },
+      "BackofficeResult": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "BackofficeContent": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "branch_id",
+          "promos",
+          "games"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "branch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "promos": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object"
+            }
+          },
+          "games": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "object"
+            }
+          }
+        },
         "additionalProperties": false
       }
     }

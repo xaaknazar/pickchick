@@ -1,3 +1,5 @@
+import { usePublishedContent } from '../backoffice/usePublishedContent';
+import { PromotionDialog } from '../backoffice/PromotionDialog';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
   runOnJS,
@@ -170,6 +172,9 @@ export function Branches(props: ScreenProps) {
   );
 }
 export function Menu(props: ScreenProps) {
+  const published = usePublishedContent(props.model.branch?.id);
+  const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
+  const [promotionOpen, setPromotionOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   // Owner screenshot: about twice the phone width, fitting short screens too.
@@ -319,6 +324,10 @@ export function Menu(props: ScreenProps) {
   );
   return (
     <View testID="screen-M06" style={[ui.page, { overflow: 'hidden' }]}>
+      <PromotionDialog
+        promotion={promotionOpen ? promotion : null}
+        onClose={() => setPromotionOpen(false)}
+      />
       <Animated.ScrollView
         ref={scroll}
         testID="scroll-M06"
@@ -343,15 +352,21 @@ export function Menu(props: ScreenProps) {
           <Pressable
             testID="hero-promotion"
             accessibilityRole="button"
-            accessibilityLabel="Комбо недели, подробнее"
+            accessibilityLabel={
+              promotion ? promotion.title.ru + ', подробнее' : 'Комбо недели, подробнее'
+            }
             onPress={() => {
+              if (promotion) {
+                setPromotionOpen(true);
+                return;
+              }
               const combo = props.model.products.find((item) => item.category === 'Комбо');
               if (combo) openProduct(combo);
               else props.navigate('M08');
             }}
             style={[s.heroCaption, { bottom: Math.round(heroHeight * 0.27) }]}
           >
-            <Heading style={s.heroTitle}>Комбо недели</Heading>
+            <Heading style={s.heroTitle}>{promotion?.title.ru ?? 'Комбо недели'}</Heading>
             <Body style={s.heroSubtitle}>подробнее</Body>
           </Pressable>
         </View>

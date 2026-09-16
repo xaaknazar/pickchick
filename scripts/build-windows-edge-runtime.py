@@ -19,11 +19,22 @@ ADMIN_FILES = (
     'scripts/edge-migrate.mjs',
     'scripts/edge-runtime-grants.mjs',
     'scripts/staff-setup.mjs',
+    'scripts/staff-password-setup.mjs',
+    'scripts/hidden-password.mjs',
+    'scripts/local-pos-service.mjs',
+    'scripts/local-pos-operator-plan.mjs',
+    'scripts/local-pos-catalog-upgrade.mjs',
+    'scripts/local-pos-draft.mjs',
+    'infra/windows/local-pos-draft-catalog.json',
+    'infra/windows/local-pos-draft-catalog-v2.json',
+    'infra/windows/local-pos-operator-plan.md',
     'scripts/staff-revoke.mjs',
     'scripts/staff-credential.mjs',
     'scripts/staff-file-permissions.mjs',
     'infra/windows/edge-runtime-grants.mjs',
     'infra/windows/README.md',
+    'infra/windows/native-staff-login.md',
+    'infra/windows/local-pos-service.md',
     'infra/windows/runtime-package.md',
     'infra/windows/PickChickEdge.xml.example',
 )
@@ -36,7 +47,8 @@ def build_package(source, output, commit):
         raise ValueError('Output directory and ZIP must not exist')
     root = (source / 'services/edge').resolve()
     graph = {}
-    queue = collections.deque([root])
+    # Operator sync services run separately but share the isolated package tree.
+    queue = collections.deque([root, (source / 'packages/pos-order-sync').resolve()])
 
     def resolve_package(start, name):
         for parent in [start, *start.parents]:

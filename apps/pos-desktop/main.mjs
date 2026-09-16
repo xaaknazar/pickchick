@@ -27,6 +27,27 @@ app.setPath('userData', testDataDir || join(app.getPath('appData'), 'PickChickPO
 app.setAppUserModelId('kz.pickchick.pos');
 const ownsInstance = app.requestSingleInstanceLock();
 let window;
+let fullscreenChange;
+function toggleFullscreen() {
+  if (fullscreenChange) return fullscreenChange;
+  const target = !window.isFullScreen();
+  const event = target ? 'enter-full-screen' : 'leave-full-screen';
+  fullscreenChange = new Promise((resolve, reject) => {
+    const done = () => {
+      clearTimeout(timeout);
+      resolve(window.isFullScreen());
+    };
+    const timeout = setTimeout(() => {
+      window.removeListener(event, done);
+      reject(new Error('WINDOW_CONTROL_UNAVAILABLE'));
+    }, 10000);
+    window.once(event, done);
+    window.setFullScreen(target);
+  }).finally(() => {
+    fullscreenChange = null;
+  });
+  return fullscreenChange;
+}
 if (!ownsInstance) app.quit();
 else {
   app.on('second-instance', () => {
@@ -57,6 +78,19 @@ else {
       }
       config = validateConfig(config);
       const journal = createJournalStore({ directory: join(profile, 'journal-v1') });
+      ipcMain.handle('pickchick-pos:window-v1', (event, operation) => {
+        if (
+          !window ||
+          window.isDestroyed() ||
+          event.sender !== window.webContents ||
+          event.senderFrame !== window.webContents.mainFrame ||
+          event.senderFrame.url !== APP_URL ||
+          !['state', 'toggle'].includes(operation)
+        )
+          throw new Error('WINDOW_CONTROL_UNAVAILABLE');
+        if (operation === 'toggle') return toggleFullscreen();
+        return window.isFullScreen();
+      });
       ipcMain.on('pickchick-pos:journal-v1', (event, message) => {
         try {
           if (
@@ -117,6 +151,8 @@ else {
         backgroundColor: '#0b1d42',
         show: false,
         autoHideMenuBar: true,
+        fullscreenable: true,
+        fullscreen: process.platform === 'win32',
         webPreferences: {
           session: isolatedSession,
           preload: fileURLToPath(new URL('./preload.cjs', import.meta.url)),
@@ -134,8 +170,19 @@ else {
         },
       });
       window.once('ready-to-show', () => {
-        window.maximize();
+        if (!window.isFullScreen()) window.maximize();
         window.show();
+      });
+      for (const event of ['enter-full-screen', 'leave-full-screen']) {
+        window.on(event, () => {
+          window.webContents.send('pickchick-pos:fullscreen-v1', window.isFullScreen());
+        });
+      }
+      window.webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown' && input.key === 'F11' && !input.isAutoRepeat) {
+          event.preventDefault();
+          void toggleFullscreen().catch(() => {});
+        }
       });
       window.webContents.on('did-navigate', () => journal.setSession(null));
       window.webContents.on('render-process-gone', () => journal.setSession(null));

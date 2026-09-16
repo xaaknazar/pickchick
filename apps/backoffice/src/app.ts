@@ -1,3 +1,5 @@
+import { OperationsModel } from './operations-model.js';
+import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message } from './api.js';
 import { money, copy } from './domain.js';
@@ -5,6 +7,27 @@ import { element as el, button, field, select, check, image } from './dom.js';
 import { openEditor, emptyProduct } from './editor.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
+let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
+const operations = new OperationsModel(
+  (path, request) => model.operations(path, request),
+  window.sessionStorage,
+  render,
+);
+const operationView = new OperationsView(operations, () => model.payload);
+function syncOperations() {
+  if (!model.actor) {
+    operations.clear();
+    document.querySelectorAll<HTMLDialogElement>('.op-dialog').forEach((d) => {
+      d.close();
+      d.remove();
+    });
+    return;
+  }
+  const branch = model.state?.branch.id;
+  if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
+    void operations.load(model.actor.id, branch);
+}
+
 let query = '',
   category = '',
   localError = '';
@@ -28,7 +51,7 @@ function login() {
   card.append(
     image('logo.png', 'PickChick'),
     el('p', 'eyebrow', 'PICKCHICK · БЭК-ОФИС'),
-    el('h1', '', 'Каталог под вашим управлением'),
+    el('h1', '', 'Управление рестораном'),
     el(
       'p',
       'muted',
@@ -77,31 +100,21 @@ function render() {
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
   brand.append(image('logo.png', ''), el('div', '', 'PickChick'), el('small', '', 'Бэк-офис'));
-  sidebar.append(brand, el('div', 'nav-caption', 'УПРАВЛЕНИЕ'));
-  for (const label of [
-    'Обзор',
-    'Заказы',
-    'Номенклатура',
-    'Склад',
-    'Персонал',
-    'Лояльность',
-    'Аналитика',
-  ]) {
-    const nav = button(label, () => {}, `nav-item ${label === 'Номенклатура' ? 'active' : ''}`);
-    if (label === 'Номенклатура') nav.setAttribute('aria-current', 'page');
-    else {
-      nav.disabled = true;
-      nav.title = 'Раздел ещё не подключён к рабочему сервису';
-    }
+  sidebar.append(brand);
+  for (const [id, label] of sections) {
+    const nav = button(
+      label,
+      () => {
+        page = id;
+        history.replaceState(null, '', '#' + id);
+        render();
+      },
+      `nav-item ${page === id ? 'active' : ''}`,
+      'nav-' + id,
+    );
+    if (page === id) nav.setAttribute('aria-current', 'page');
     sidebar.append(nav);
   }
-  sidebar.append(
-    el(
-      'p',
-      'sidebar-note',
-      'В этом этапе доступен редактор каталога. Другие разделы находятся в разработке.',
-    ),
-  );
   const user = el('div', 'user');
   user.append(
     el('strong', '', model.actor.name),
@@ -113,8 +126,8 @@ function render() {
     header = el('header', 'topbar'),
     titles = el('div');
   titles.append(
-    el('h1', '', 'Номенклатура'),
-    el('p', 'muted', 'Позиции, модификаторы и пищевая ценность'),
+    el('h1', '', sections.find((s) => s[0] === page)?.[1] ?? 'PickChick'),
+    el('p', 'muted', sections.find((s) => s[0] === page)?.[2] ?? ''),
   );
   header.append(titles);
   const branch = select(
@@ -130,13 +143,58 @@ function render() {
     },
     'branch-select',
   );
-  branch.querySelector('select')!.disabled = model.busy || Boolean(model.pending);
+  branch.querySelector('select')!.disabled =
+    model.busy || Boolean(model.pending) || operations.busy || Boolean(operations.pending);
   header.append(branch);
+  if (page !== 'items') {
+    const periods = el('div', 'op-periods');
+    for (const [id, label] of [
+      ['day', 'День'],
+      ['week', 'Неделя'],
+      ['month', 'Месяц'],
+      ['quarter', 'Квартал'],
+    ]) {
+      const b = button(
+        label!,
+        () => void operations.load(operations.actor, operations.branch, id),
+        operations.period === id ? 'selected' : '',
+        'period-' + id,
+      );
+      b.disabled = operations.busy || Boolean(operations.pending);
+      periods.append(b);
+    }
+    header.append(
+      periods,
+      button(
+        'Обновить',
+        () => void operations.load(operations.actor, operations.branch),
+        'button subtle',
+        'op-refresh',
+      ),
+    );
+    if (operations.data)
+      titles.append(
+        el(
+          'small',
+          'muted',
+          'Данные на ' +
+            new Date(operations.data.as_of).toLocaleTimeString('ru-RU', {
+              timeZone: 'Asia/Almaty',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+        ),
+      );
+  }
   main.append(header);
   const content = el('div', 'content');
   main.append(content);
   shell.append(sidebar, main);
   root.replaceChildren(shell);
+  if (page !== 'items') {
+    operationView.render(page, content);
+    return;
+  }
   if (model.error || localError)
     content.append(notice(localError || message(model.error), 'notice error'));
   if (model.pending) {
@@ -475,12 +533,28 @@ function publishDialog() {
   document.body.append(dialog);
   dialog.showModal();
 }
-model.subscribe(render);
+model.subscribe(() => {
+  syncOperations();
+  render();
+});
 window.addEventListener('beforeunload', (event) => {
-  if (model.dirty || model.pending) {
+  if (model.dirty || model.pending || operations.pending) {
     event.preventDefault();
     event.returnValue = '';
   }
 });
 render();
 void model.boot();
+
+setInterval(() => {
+  if (
+    page !== 'items' &&
+    model.actor &&
+    operations.branch &&
+    !operations.busy &&
+    !operations.pending &&
+    !document.querySelector('dialog[open]') &&
+    !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
+  )
+    void operations.load(operations.actor, operations.branch);
+}, 60000);

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { applyMenu, publishMenu } from '@pickchick/menu-sync';
-import { provisionStaff, setOrdering } from '@pickchick/local-orders';
+import { provisionStaff, setOrdering, openCashShift } from '@pickchick/local-orders';
 import { withSyncDatabases } from './sync.mjs';
 
 export const staffAuth = (credential) => ({
@@ -27,6 +27,9 @@ export async function withOrderDesk(run, open = true) {
     const cashierSetup = setup('cashier');
     const cashier = await provisionStaff(edge.pool, branch, cashierSetup);
     const manager = await provisionStaff(edge.pool, branch, setup('shift_manager'));
+    const shift = await openCashShift(edge.pool, branch, staffAuth(cashier), randomUUID(), {
+      opening_cash_minor: '0',
+    });
     if (open)
       await setOrdering(edge.pool, branch, staffAuth(manager), randomUUID(), true, {
         expected_version: 1,
@@ -36,6 +39,6 @@ export async function withOrderDesk(run, open = true) {
       service_mode: 'takeaway',
       items: [{ variant_id: release.items[0].variant_id, quantity: 2 }],
     };
-    await run({ ...context, release, cashier, cashierSetup, manager, cart, setup });
+    await run({ ...context, release, cashier, cashierSetup, manager, cart, setup, shift });
   });
 }

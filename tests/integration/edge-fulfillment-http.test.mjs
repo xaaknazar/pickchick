@@ -532,6 +532,13 @@ test('existing unpaid POS order cannot enter fulfillment through any LAN action'
         causation_id: null,
         payload: { menu, checksum: hashJson(menu) },
       });
+      const shiftResponse = await raw('/edge/v1/cash-shifts', {
+        method: 'POST',
+        headers: headers(ctx.cashier),
+        body: JSON.stringify({ opening_cash_minor: '0' }),
+      });
+      assert.equal(shiftResponse.status, 201, 'Legacy POS still requires an open cashier shift');
+      assert.equal((await shiftResponse.json()).state, 'open');
       const quoteResponse = await raw('/edge/v1/checkout/quotes', {
         method: 'POST',
         headers: headers(ctx.cashier),

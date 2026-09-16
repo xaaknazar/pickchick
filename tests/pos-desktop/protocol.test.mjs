@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer } from 'node:http';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -23,6 +23,8 @@ async function fixture(run, options = {}) {
     );
     await writeFile(join(directory, 'app.js'), 'globalThis.LOCAL_ASSET_FIXTURE = true;');
     await writeFile(join(directory, 'private.txt'), 'MUST_NOT_BE_PUBLIC');
+    await mkdir(join(directory, 'assets/menu'), { recursive: true });
+    await writeFile(join(directory, 'assets/menu/i0.jpg'), Buffer.from([255, 216, 255, 217]));
     const handler = createProtocolHandler({
       assetDir: pathToFileURL(directory + '/'),
       config: validateConfig({ edgePort: 3101, branchLabel: 'Synthetic desktop', categories: {} }),
@@ -93,7 +95,11 @@ test('foreign origins, unsupported edge operations and query tricks never reach 
     );
     for (const [method, path] of [
       ['GET', '/edge/v1/session?token=not-a-token'],
-      ['GET', '/edge/v1/orders'],
+      ['GET', '/edge/v1/orders?shift_id=invalid'],
+      ['GET', `/edge/v1/orders?shift_id=${ID}&shift_id=${ID}`],
+      ['GET', `/edge/v1/orders?shift_id=${ID}&all=true`],
+      ['GET', `/edge/v1/cash-shifts?shift_id=${ID}`],
+      ['POST', `/edge/v1/orders?shift_id=${ID}`],
       ['GET', '/edge/v1/http://127.0.0.1/'],
       ['POST', `/edge/v1/orders/${ID}/payments`],
       ['POST', '/edge/v1/fiscal/receipts'],
@@ -103,6 +109,49 @@ test('foreign origins, unsupported edge operations and query tricks never reach 
       assert.ok((await handler(request(path, { method }))).status >= 400, method + ' ' + path);
     }
     assert.equal(upstream.length, 0);
+  });
+});
+
+test('reviewed menu photos are local and shift/order routes preserve only the allowed filter', async () => {
+  await fixture(async (handler, upstream) => {
+    const photo = await handler(request('/assets/menu/i0.jpg'));
+    assert.equal(photo.status, 200);
+    assert.equal(photo.headers.get('content-type'), 'image/jpeg');
+    assert.equal((await photo.arrayBuffer()).byteLength, 4);
+    for (const path of [
+      '/assets/menu/unknown.jpg',
+      '/assets/menu/../../private.txt',
+      '/assets/menu/i0.jpg?x=1',
+    ])
+      assert.ok((await handler(request(path))).status >= 400);
+    assert.equal(upstream.length, 0);
+    for (const path of [
+      'orders',
+      `orders?shift_id=${ID}`,
+      'cash-shifts',
+      'cash-shifts/current',
+      `cash-shifts/${ID}`,
+    ]) {
+      const url = `/edge/v1/${path}`;
+      assert.equal(isAllowedRendererURL(new URL(url, APP_URL).href), true);
+      assert.equal((await handler(request(url))).status, 200);
+      assert.equal(upstream.at(-1).url, `http://127.0.0.1:3101${url}`);
+    }
+    for (const path of ['cash-shifts', `cash-shifts/${ID}/close`]) {
+      assert.equal(
+        (
+          await handler(
+            request(`/edge/v1/${path}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}',
+            }),
+          )
+        ).status,
+        200,
+      );
+      assert.equal(upstream.at(-1).options.method, 'POST');
+    }
   });
 });
 
@@ -253,5 +302,84 @@ test('an unresponsive local edge is bounded by the transport timeout', async () 
   } finally {
     idle.closeAllConnections();
     await new Promise((resolve) => idle.close(resolve));
+  }
+});
+
+test('password login has a small body, fixed terminal config and bounded retry hints; logout clears native authority', async () => {
+  const sessions = [];
+  await fixture(
+    async (handler, upstream) => {
+      assert.equal((await (await handler(request('/config.json'))).json()).terminalId, ID);
+      const body = JSON.stringify({
+        login: 'fixture.cashier',
+        password: 'synthetic-password-only',
+        terminal_id: ID,
+      });
+      const response = await handler(
+        request('/edge/v1/staff/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        }),
+      );
+      assert.equal(response.status, 429);
+      assert.equal(response.headers.get('retry-after'), '60');
+      assert.equal(response.headers.get('set-cookie'), null);
+      assert.deepEqual(sessions, [null]);
+      assert.equal(upstream.length, 0);
+      assert.equal(
+        (
+          await handler(
+            request('/edge/v1/staff/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: 'я'.repeat(1024) }),
+            }),
+          )
+        ).status,
+        413,
+      );
+    },
+    {
+      config: { terminalId: ID },
+      onSession: (value) => sessions.push(value),
+      fetchImpl: async () =>
+        new Response('{}', {
+          status: 429,
+          headers: { 'Retry-After': '60', 'Set-Cookie': 'fixture=value' },
+        }),
+    },
+  );
+  await fixture(
+    async (handler) => {
+      const response = await handler(
+        request('/edge/v1/staff/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        }),
+      );
+      assert.equal(response.status, 204);
+      assert.equal(await response.text(), '');
+    },
+    {
+      onSession: (value) => sessions.push(value),
+      fetchImpl: async () => new Response(null, { status: 204 }),
+    },
+  );
+  assert.ok(sessions.every((value) => value === null));
+  for (const terminalId of ['', 'invalid', null, 123])
+    assert.throws(() => validateConfig({ terminalId }));
+  for (const hint of ['0', '10000', 'soon', 'Wed, 21 Oct 2030 07:28:00 GMT']) {
+    await fixture(
+      async (handler) => {
+        const response = await handler(request('/edge/v1/session'));
+        assert.equal(response.headers.get('retry-after'), null);
+      },
+      {
+        fetchImpl: async () =>
+          new Response('{}', { status: 429, headers: { 'Retry-After': hint } }),
+      },
+    );
   }
 });

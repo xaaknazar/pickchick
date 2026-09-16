@@ -1,21 +1,23 @@
 import { readFile } from 'node:fs/promises';
+import { MENU_ASSETS } from './menu-assets.mjs';
 
 export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const readPath = new RegExp(
-  `^/edge/v1/(session|menu|ordering|orders/${UUID}|availability/stops/${UUID})$`,
+  `^/edge/v1/(session|menu|ordering|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops/${UUID})$`,
   'i',
 );
 const writePath = new RegExp(
-  `^/edge/v1/(checkout/quotes|orders|orders/${UUID}/cancel|ordering/(open|close)|availability/stops)$`,
+  `^/edge/v1/(staff/(login|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/close|ordering/(open|close)|availability/stops)$`,
   'i',
 );
 const assets = new Map([
+  ...MENU_ASSETS.map((name) => [`/assets/menu/${name}`, [`assets/menu/${name}`, 'image/jpeg']]),
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/logo.png', ['logo.png', 'image/png']],
-  ...['app', 'model', 'api', 'types'].map((name) => [
+  ...['app', 'model', 'api', 'types', 'auth-view', 'order-view'].map((name) => [
     `/${name}.js`,
     [`${name}.js`, 'text/javascript; charset=utf-8'],
   ]),
@@ -37,7 +39,9 @@ function localURL(value) {
       url.port ||
       url.username ||
       url.password ||
-      url.search ||
+      (url.search &&
+        (url.pathname !== '/edge/v1/orders' ||
+          !new RegExp(`^\\?shift_id=${UUID}$`, 'i').test(url.search))) ||
       url.hash
     )
       return null;
@@ -62,10 +66,12 @@ export function validateConfig(value = {}) {
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
-    Object.keys(value).some((key) => !['edgePort', 'branchLabel', 'categories'].includes(key))
+    Object.keys(value).some(
+      (key) => !['edgePort', 'branchLabel', 'categories', 'terminalId'].includes(key),
+    )
   )
     throw new Error('INVALID_POS_CONFIG');
-  const { edgePort = 3101, branchLabel = 'Локальная точка', categories = {} } = value;
+  const { edgePort = 3101, branchLabel = 'Локальная точка', categories = {}, terminalId } = value;
   if (
     !Number.isInteger(edgePort) ||
     edgePort < 1 ||
@@ -76,7 +82,9 @@ export function validateConfig(value = {}) {
     !categories ||
     typeof categories !== 'object' ||
     Array.isArray(categories) ||
-    Object.keys(categories).length > 200
+    Object.keys(categories).length > 200 ||
+    (terminalId !== undefined &&
+      (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId)))
   )
     throw new Error('INVALID_POS_CONFIG');
   for (const [id, label] of Object.entries(categories)) {
@@ -88,7 +96,12 @@ export function validateConfig(value = {}) {
     )
       throw new Error('INVALID_POS_CONFIG');
   }
-  return { edgePort, branchLabel, categories: { ...categories } };
+  return {
+    edgePort,
+    branchLabel,
+    categories: { ...categories },
+    ...(terminalId === undefined ? {} : { terminalId }),
+  };
 }
 
 async function readBounded(stream, limit) {
@@ -144,13 +157,15 @@ export function createProtocolHandler({
     const path = url.pathname;
     if (path.startsWith('/edge/')) {
       if (
-        !(request.method === 'GET' && readPath.test(path)) &&
-        !(request.method === 'POST' && writePath.test(path))
+        (request.method !== 'GET' && url.search) ||
+        (!(request.method === 'GET' && readPath.test(path)) &&
+          !(request.method === 'POST' && writePath.test(path)))
       )
         return json(404, { code: 'NOT_FOUND' });
       const headers = {};
       const authenticating = request.method === 'GET' && path === '/edge/v1/session';
-      if (authenticating) onSession(null);
+      if (authenticating || path === '/edge/v1/staff/login' || path === '/edge/v1/staff/logout')
+        onSession(null);
       for (const name of ['authorization', 'x-staff-session-id', 'idempotency-key']) {
         const value = request.headers.get(name);
         if (value && value.length < 200) headers[name] = value;
@@ -160,7 +175,9 @@ export function createProtocolHandler({
         if (request.headers.get('content-type') !== 'application/json')
           return json(415, { code: 'INVALID_REQUEST' });
         try {
-          body = Buffer.from(await readBounded(request.body, 64000)).toString('utf8');
+          body = Buffer.from(
+            await readBounded(request.body, path === '/edge/v1/staff/login' ? 2048 : 64000),
+          ).toString('utf8');
           JSON.parse(body);
         } catch (error) {
           return json(error instanceof RangeError ? 413 : 400, { code: 'INVALID_REQUEST' });
@@ -168,13 +185,16 @@ export function createProtocolHandler({
         headers['Content-Type'] = 'application/json';
       }
       try {
-        const response = await fetchImpl(`http://127.0.0.1:${settings.edgePort}${path}`, {
-          method: request.method,
-          headers,
-          redirect: 'error',
-          signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
-          ...(body === undefined ? {} : { body }),
-        });
+        const response = await fetchImpl(
+          `http://127.0.0.1:${settings.edgePort}${path}${url.search}`,
+          {
+            method: request.method,
+            headers,
+            redirect: 'error',
+            signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
+            ...(body === undefined ? {} : { body }),
+          },
+        );
         if (response.redirected || (response.status >= 300 && response.status < 400))
           return json(502, { code: 'INVALID_RESPONSE' });
         const payload = await readBounded(response.body, 4000000);
@@ -191,7 +211,14 @@ export function createProtocolHandler({
         }
         return new Response([204, 205, 304].includes(response.status) ? null : payload, {
           status: response.status,
-          headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
+          headers: {
+            ...SECURITY_HEADERS,
+            'Content-Type': 'application/json; charset=utf-8',
+            ...(response.status === 429 &&
+            /^[1-9][0-9]{0,3}$/.test(response.headers.get('retry-after') ?? '')
+              ? { 'Retry-After': response.headers.get('retry-after') }
+              : {}),
+          },
         });
       } catch (error) {
         return json(error instanceof RangeError ? 502 : 504, {
@@ -201,7 +228,11 @@ export function createProtocolHandler({
     }
     if (request.method !== 'GET') return json(405, { code: 'INVALID_REQUEST' });
     if (path === '/config.json')
-      return json(200, { branchLabel: settings.branchLabel, categories: settings.categories });
+      return json(200, {
+        branchLabel: settings.branchLabel,
+        categories: settings.categories,
+        ...(settings.terminalId ? { terminalId: settings.terminalId } : {}),
+      });
     const asset = assets.get(path);
     if (!asset) return json(404, { code: 'NOT_FOUND' });
     try {

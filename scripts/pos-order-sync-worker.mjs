@@ -1,7 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPool } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
-import { syncPosOrdersOnce, posCloudOrigin } from '@pickchick/pos-order-sync';
+import { syncPosOrdersOnce, syncPosKitchenOnce, posCloudOrigin } from '@pickchick/pos-order-sync';
 import { readIdentity } from './private-identity.mjs';
 
 const config = loadConfig('edge');
@@ -31,6 +31,16 @@ if (!config.posOrderSyncEnabled) {
         if (once || !['idle', 'busy'].includes(state))
           console.log(JSON.stringify({ event: 'pos_order_sync', ...result }));
         if (once && state === 'retry') process.exitCode = 1;
+        const kitchen = await syncPosKitchenOnce(pool, {
+          enabled: true,
+          branchId: config.branchId,
+          origin,
+          identity,
+        });
+        if (once || !['idle', 'busy', 'disabled'].includes(kitchen.state))
+          console.log(JSON.stringify({ event: 'pos_kitchen_sync', ...kitchen }));
+        if (once && ['retry', 'dead_letter'].includes(kitchen.state)) process.exitCode = 1;
+        if (kitchen.state === 'delivered') state = 'delivered';
       } catch {
         console.error(JSON.stringify({ event: 'pos_order_sync_failed', retrying: !once }));
         if (once) process.exitCode = 1;

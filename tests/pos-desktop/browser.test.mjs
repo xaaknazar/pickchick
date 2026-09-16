@@ -7,6 +7,7 @@ import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:f
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { createEdge } from '@pickchick/edge';
+import { setStaffPassword, provisionStaff } from '@pickchick/local-orders';
 import { withOrderDesk } from '../helpers/orders.mjs';
 import { running } from '../helpers/sync.mjs';
 import { desktopFile, eventually } from './support.mjs';
@@ -48,6 +49,9 @@ async function textIs(page, id, expected) {
 }
 async function login(page, credential, phase = () => {}) {
   phase('form');
+  const service = page.locator('details.login-service');
+  await service.waitFor({ state: 'visible' });
+  if ((await service.getAttribute('open')) === null) await service.locator('summary').click();
   await visible(page, 'pos-staff-file');
   phase('upload');
   await page.getByTestId('pos-staff-file').setInputFiles({
@@ -56,6 +60,12 @@ async function login(page, credential, phase = () => {}) {
     buffer: Buffer.from(JSON.stringify(credential)),
   });
   phase('response');
+}
+async function passwordLogin(page) {
+  await visible(page, 'pos-login');
+  await page.getByTestId('pos-login').fill('fixture.cashier');
+  await page.getByTestId('pos-password').fill('synthetic-password-only-123');
+  await page.getByTestId('pos-sign-in').click();
 }
 function environment(profile) {
   const env = { ...process.env, PICKCHICK_POS_TEST_USER_DATA: profile };
@@ -153,6 +163,7 @@ test(
             edgePort: proxy.address().port,
             branchLabel: 'Synthetic Electron acceptance',
             categories: {},
+            terminalId: ctx.cashier.terminal_id,
           }),
           { mode: 0o600 },
         );
@@ -216,6 +227,53 @@ test(
             await page.evaluate(() => Object.keys(globalThis.pickchickPosJournal).sort()),
             ['endSession', 'getItem', 'setItem'],
           );
+          stage = 'native fullscreen controls';
+          assert.deepEqual(
+            await page.evaluate(() => Object.keys(globalThis.pickchickPosWindow).sort()),
+            ['isFullscreen', 'onChange', 'toggleFullscreen'],
+          );
+          await app.evaluate(({ app, BrowserWindow }) => {
+            app.focus({ steal: true });
+            const w = BrowserWindow.getAllWindows()[0];
+            w.show();
+            w.focus();
+          });
+          stage = 'native fullscreen enter';
+          const nativeState = await app.evaluate(({ BrowserWindow }) => {
+            const w = BrowserWindow.getAllWindows()[0];
+            return {
+              fullscreenable: w.isFullScreenable(),
+              visible: w.isVisible(),
+              focused: w.isFocused(),
+              minimized: w.isMinimized(),
+              fullscreen: w.isFullScreen(),
+            };
+          });
+          assert.equal(nativeState.fullscreenable, true);
+          // macOS may still be animating a Space change after reporting focus.
+          if (process.platform === 'darwin')
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          const initialFullscreen = await page.evaluate(() =>
+            globalThis.pickchickPosWindow.isFullscreen(),
+          );
+          assert.equal(
+            await page.evaluate(() => globalThis.pickchickPosWindow.toggleFullscreen()),
+            !initialFullscreen,
+          );
+          await eventually(
+            () =>
+              app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()),
+            (value) => value === !initialFullscreen,
+            'Native fullscreen request must change the actual window',
+          );
+          stage = 'native fullscreen leave';
+          await page.evaluate(() => globalThis.pickchickPosWindow.toggleFullscreen());
+          await eventually(
+            () =>
+              app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()),
+            (value) => value === initialFullscreen,
+            'Fullscreen must be reversible',
+          );
           assert.equal(
             await page.evaluate((key) => {
               try {
@@ -271,15 +329,25 @@ test(
             } catch {
               privateBlocked = true;
             }
-            return { styles: (await fetch('/styles.css')).status, privateBlocked };
+            return {
+              styles: (await fetch('/styles.css')).status,
+              photo: (await fetch('/assets/menu/i0.jpg')).status,
+              privateBlocked,
+            };
           });
           assert.equal(localAssets.styles, 200);
+          assert.equal(localAssets.photo, 200);
           assert.equal(localAssets.privateBlocked, true);
 
           stage = 'valid real staff authentication';
-          await login(page, ctx.cashier, (phase) => {
-            stage = `valid real staff authentication: ${phase}`;
-          });
+          await setStaffPassword(
+            ctx.edge.pool,
+            ctx.branch,
+            { sessionId: ctx.cashier.session_id, token: ctx.cashier.token },
+            'fixture.cashier',
+            'synthetic-password-only-123',
+          );
+          await passwordLogin(page);
           const variant = ctx.release.items[0].variant_id;
           const add = page.getByTestId('pos-add-' + variant);
           await eventually(
@@ -329,7 +397,7 @@ test(
             Boolean,
             'The committed request must settle as an unknown response before crash recovery',
           );
-          assert.equal(await page.getByTestId('pos-create').isEnabled(), false);
+          await page.getByTestId('pos-create').waitFor({ state: 'detached' });
           assert.equal(creates.length, 1);
           assert.equal(
             await page.evaluate(
@@ -374,7 +442,7 @@ test(
           await exited;
           app = null;
           page = await launch();
-          await login(page, ctx.cashier);
+          await passwordLogin(page);
           await visible(page, 'pos-recovery');
           assert.equal(creates.length, 1, 'Restart must never automatically create another order');
           await page.getByTestId('pos-recover').click();
@@ -392,13 +460,16 @@ test(
           await app.close();
           app = null;
           page = await launch();
-          await login(page, ctx.cashier);
+          await passwordLogin(page);
+          stage = 'restored selected order after password login';
           await textIs(page, 'pos-order-id', before[0].id);
           assert.equal(creates.length, 2);
+          stage = 'cancel restored order';
           await page.getByTestId('pos-cancel').click();
           await page.getByTestId('pos-reason').fill('Synthetic desktop lifecycle acceptance');
           await page.getByTestId('pos-confirm').click();
-          await page.getByRole('heading', { name: 'Заказ отменён', exact: true }).waitFor();
+          stage = 'confirmed cancelled order status';
+          await textIs(page, 'pos-kitchen-state', 'Отменён');
 
           stage = 'native storage failure blocks a new create before HTTP';
           await page
@@ -421,7 +492,7 @@ test(
             await writeFile(nativeDirectory, 'SYNTHETIC_DISK_FAULT', { mode: 0o600 });
             await page.getByTestId('pos-create').click();
             await visible(page, 'pos-error');
-            assert.equal(await page.getByTestId('pos-create').isEnabled(), false);
+            await page.getByTestId('pos-create').waitFor({ state: 'detached' });
             assert.equal(creates.length, 2, 'A failed durable save must not reach the edge');
             assert.equal(
               (await ctx.edge.pool.query('SELECT count(*) FROM local_orders')).rows[0].count,
@@ -435,7 +506,7 @@ test(
           await app.close();
           app = null;
           page = await launch();
-          await login(page, ctx.cashier);
+          await passwordLogin(page);
           await textIs(page, 'pos-total', '3 490 ₸');
           assert.equal(creates.length, 2, 'Restart must not send the failed local command');
 
@@ -473,6 +544,7 @@ test(
             true,
             'Logout must revoke native journal access without deleting it',
           );
+          ctx.cashier = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.cashierSetup);
           await page.evaluate((credential) => {
             const input = globalThis.document.querySelector('[data-testid="pos-staff-file"]');
             const transfer = new globalThis.DataTransfer();
@@ -524,7 +596,7 @@ test(
           assert.deepEqual(errors, []);
           assert.deepEqual(
             requests
-              .filter(({ method }) => method !== 'GET')
+              .filter(({ method, path }) => method !== 'GET' && !path.startsWith('/edge/v1/staff/'))
               .map(({ method, path }) => ({ method, path })),
             [
               { method: 'POST', path: '/edge/v1/checkout/quotes' },

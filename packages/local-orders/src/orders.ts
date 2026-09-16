@@ -12,29 +12,36 @@ import {
   MenuSnapshotSchema,
   UuidSchema,
   EventEnvelopeSchema,
+  LocalOrderListSchema,
 } from '@pickchick/contracts';
-import type { StaffSession, LocalOrder } from '@pickchick/contracts';
+import type { StaffSession, LocalOrder, Quote } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
-import { hashJson } from '@pickchick/menu-sync';
 import { authenticateStaff, requirePermission, audit } from './staff.js';
 import type { StaffAuth } from './staff.js';
 import { OrderError } from './errors.js';
 import { priceCart } from './pricing.js';
+import { command, lockBranch } from './commands.js';
+import { requireOpenCashShift, loadCashShift } from './shifts.js';
 
-interface BranchState {
-  id: string;
-  ordering_enabled: boolean;
-  ordering_version: number;
+/** Trusted in-process kitchen port. It shares the order's PG transaction, never
+ * receives client-supplied prices or a paid flag, and must be wired by the host. */
+export interface LocalOrderExecutionPort {
+  admit(
+    client: DatabaseClient,
+    order: { orderId: string; branchId: string; quote: Quote },
+    actor: StaffSession,
+    commandId: string,
+  ): Promise<void>;
+  cancel(
+    client: DatabaseClient,
+    branchId: string,
+    orderId: string,
+    actor: StaffSession,
+    reason: string,
+  ): Promise<void>;
 }
-async function lockBranch(client: DatabaseClient, branchId: string): Promise<BranchState> {
-  const result = await client.query<BranchState>(
-    'SELECT id, ordering_enabled, ordering_version FROM branch_config WHERE id = $1 FOR UPDATE',
-    [branchId],
-  );
-  if (!result.rows[0]) throw new OrderError('BRANCH_UNAVAILABLE');
-  return result.rows[0];
-}
+
 async function activeMenu(client: DatabaseClient, branchId: string) {
   const result = await client.query(
     `SELECT s.payload FROM active_menu a JOIN menu_snapshots s
@@ -50,41 +57,6 @@ async function checkStops(client: DatabaseClient, branchId: string, variants: st
     [branchId, variants],
   );
   if (stopped.rowCount) throw new OrderError('ITEM_STOPPED');
-}
-
-async function command<T>(
-  pool: DatabasePool,
-  branchId: string,
-  auth: StaffAuth,
-  permission: 'checkout' | 'manage',
-  type: string,
-  key: string,
-  input: unknown,
-  run: (client: DatabaseClient, actor: StaffSession, branch: BranchState) => Promise<T>,
-): Promise<T> {
-  if (!UuidSchema.safeParse(key).success) throw new OrderError('INVALID_REQUEST');
-  return transaction(pool, async (client) => {
-    const actor = await authenticateStaff(client, branchId, auth);
-    requirePermission(actor, permission);
-    const branch = await lockBranch(client, branchId);
-    const scope = [branchId, actor.staff_id, actor.terminal_id, type, key];
-    const old = await client.query(
-      `SELECT request_hash, result FROM local_command_results
-      WHERE branch_id=$1 AND staff_id=$2 AND terminal_id=$3 AND command_type=$4 AND idempotency_key=$5`,
-      scope,
-    );
-    if (old.rows[0]) {
-      if (old.rows[0].request_hash !== hashJson(input)) throw new OrderError('CONFLICT');
-      return old.rows[0].result as T;
-    }
-    const result = await run(client, actor, branch);
-    await client.query(
-      `INSERT INTO local_command_results(branch_id,staff_id,terminal_id,command_type,idempotency_key,request_hash,result)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [...scope, hashJson(input), result],
-    );
-    return result;
-  });
 }
 
 export async function createQuote(
@@ -157,7 +129,19 @@ async function loadOrder(
       (row.staff_id !== actor.staff_id || row.terminal_id !== actor.terminal_id))
   )
     throw new OrderError('NOT_FOUND');
+  const execution =
+    row.execution_mode === 'unpaid_service'
+      ? (
+          await client.query(
+            "SELECT version,state,display_number FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2 AND commercial_owner='edge_pos'",
+            [id, branchId],
+          )
+        ).rows[0]
+      : undefined;
+  if (row.execution_mode === 'unpaid_service' && !execution)
+    throw new OrderError('KITCHEN_UNAVAILABLE');
   return LocalOrderSchema.parse({
+    ...(execution ? { execution_mode: 'unpaid_service', fulfillment: execution } : {}),
     order_id: row.id,
     branch_id: row.branch_id,
     quote_id: row.quote_id,
@@ -165,11 +149,12 @@ async function loadOrder(
     state: row.state,
     payment_state: row.payment_state,
     fiscal_state: row.fiscal_state,
-    fulfillment_state: row.fulfillment_state,
-    next_action: row.state === 'cancelled' ? 'none' : 'payment_not_available',
+    fulfillment_state: execution?.state ?? row.fulfillment_state,
+    next_action: row.state === 'cancelled' || execution ? 'none' : 'payment_not_available',
     snapshot: row.snapshot,
     created_at: row.created_at.toISOString(),
     cancellation_reason: row.cancellation_reason,
+    ...(row.cash_shift_id ? { cash_shift_id: row.cash_shift_id } : {}),
   });
 }
 
@@ -206,7 +191,10 @@ async function orderEvent(
       quote_id: order.quote_id,
       state: order.state,
       payment_state: order.payment_state,
-      fulfillment_state: order.fulfillment_state,
+      // Commercial sync preserves the legacy financial projection. The separate
+      // edge-owned fulfillment stream carries authoritative kitchen progress.
+      fulfillment_state: 'blocked',
+      ...(order.execution_mode ? { execution_mode: order.execution_mode } : {}),
       total_minor: order.snapshot.total_minor,
       currency: 'KZT',
       channel: 'pos',
@@ -240,6 +228,7 @@ export async function createLocalOrder(
   auth: StaffAuth,
   key: string,
   input: unknown,
+  execution?: LocalOrderExecutionPort,
 ) {
   const parsed = CreateLocalOrderSchema.safeParse(input);
   if (!parsed.success) throw new OrderError('INVALID_REQUEST');
@@ -252,6 +241,12 @@ export async function createLocalOrder(
     key,
     parsed.data,
     async (client, actor, branch) => {
+      const unpaid = parsed.data.kitchen_admission === 'unpaid';
+      if (
+        (unpaid && (branch.pos_service_mode !== 'unpaid_service' || !execution)) ||
+        (!unpaid && branch.pos_service_mode === 'unpaid_service')
+      )
+        throw new OrderError('SERVICE_MODE_DISABLED');
       const row = (
         await client.query(
           `SELECT *, expires_at > clock_timestamp() AS valid FROM checkout_quotes
@@ -272,11 +267,28 @@ export async function createLocalOrder(
         branchId,
         quote.lines.map((item) => item.variant_id),
       );
+      const shift = await requireOpenCashShift(client, branchId, actor);
+      const shiftTotal = (
+        await client.query(
+          'SELECT coalesce(sum(total_minor),0)::text AS total FROM local_orders WHERE cash_shift_id=$1 AND branch_id=$2',
+          [shift.id, branchId],
+        )
+      ).rows[0].total;
+      if (BigInt(shiftTotal) + BigInt(quote.total_minor) > 9223372036854775807n)
+        throw new OrderError('INVALID_REQUEST');
       const orderId = randomUUID();
       await client.query(
-        'INSERT INTO local_orders(id,branch_id,quote_id,total_minor) VALUES ($1,$2,$3,$4)',
-        [orderId, branchId, quote.quote_id, quote.total_minor],
+        'INSERT INTO local_orders(id,branch_id,quote_id,total_minor,cash_shift_id,execution_mode) VALUES ($1,$2,$3,$4,$5,$6)',
+        [
+          orderId,
+          branchId,
+          quote.quote_id,
+          quote.total_minor,
+          shift.id,
+          unpaid ? 'unpaid_service' : 'payment_required',
+        ],
       );
+      if (unpaid) await execution!.admit(client, { orderId, branchId, quote }, actor, key);
       const order = await loadOrder(client, branchId, actor, orderId);
       await orderEvent(client, order, 'order.created');
       await audit(client, branchId, actor.staff_id, 'order.created', orderId);
@@ -306,6 +318,7 @@ export function cancelLocalOrder(
   key: string,
   orderId: string,
   input: unknown,
+  execution?: LocalOrderExecutionPort,
 ) {
   const parsed = CancelLocalOrderSchema.safeParse(input);
   if (!parsed.success || !UuidSchema.safeParse(orderId).success)
@@ -322,6 +335,10 @@ export function cancelLocalOrder(
       const old = await loadOrder(client, branchId, actor, orderId);
       if (old.version !== parsed.data.expected_version || old.state !== 'awaiting_payment')
         throw new OrderError('CONFLICT');
+      if (old.execution_mode === 'unpaid_service') {
+        if (!execution) throw new OrderError('KITCHEN_UNAVAILABLE');
+        await execution.cancel(client, branchId, orderId, actor, parsed.data.reason);
+      }
       await client.query(
         "UPDATE local_orders SET state='cancelled',version=version+1,cancellation_reason=$2 WHERE id=$1",
         [orderId, parsed.data.reason],
@@ -358,7 +375,7 @@ export function setOrdering(
       if (enabled) await activeMenu(client, branchId);
       const result = await client.query(
         `UPDATE branch_config SET ordering_enabled=$2,ordering_version=ordering_version+1
-      WHERE id=$1 RETURNING id AS branch_id,ordering_enabled,ordering_version AS version`,
+      WHERE id=$1 RETURNING id AS branch_id,ordering_enabled,ordering_version AS version,pos_service_mode`,
         [branchId, enabled],
       );
       await audit(
@@ -378,7 +395,7 @@ export function readOrdering(pool: DatabasePool, branchId: string, auth: StaffAu
     requirePermission(actor, 'read');
     const row = (
       await client.query(
-        'SELECT id AS branch_id,ordering_enabled,ordering_version AS version FROM branch_config WHERE id=$1',
+        'SELECT id AS branch_id,ordering_enabled,ordering_version AS version,pos_service_mode FROM branch_config WHERE id=$1',
         [branchId],
       )
     ).rows[0];
@@ -441,5 +458,37 @@ export function readStop(pool: DatabasePool, branchId: string, auth: StaffAuth, 
     return StopStateSchema.parse(
       result.rows[0] ?? { variant_id: variantId, stopped: false, version: 0 },
     );
+  });
+}
+
+export function listLocalOrders(
+  pool: DatabasePool,
+  branchId: string,
+  auth: StaffAuth,
+  shiftId?: string,
+) {
+  if (shiftId !== undefined && !UuidSchema.safeParse(shiftId).success)
+    throw new OrderError('INVALID_REQUEST');
+  return transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+    await lockBranch(client, branchId);
+    if (shiftId) await loadCashShift(client, branchId, actor, shiftId);
+    const rows = await client.query(
+      `SELECT o.id FROM local_orders o JOIN checkout_quotes q ON q.id=o.quote_id
+      WHERE o.branch_id=$1 AND ($2::boolean OR (q.staff_id=$3 AND q.terminal_id=$4))
+      AND ($5::uuid IS NULL OR o.cash_shift_id=$5) ORDER BY o.created_at DESC,o.id DESC LIMIT 100`,
+      [
+        branchId,
+        actor.role === 'shift_manager',
+        actor.staff_id,
+        actor.terminal_id,
+        shiftId ?? null,
+      ],
+    );
+    const orders = [];
+    for (const row of rows.rows) orders.push(await loadOrder(client, branchId, actor, row.id));
+    const time = (await client.query('SELECT clock_timestamp() AS time')).rows[0].time;
+    return LocalOrderListSchema.parse({ orders, server_time: time.toISOString() });
   });
 }

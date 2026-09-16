@@ -27,6 +27,7 @@ export const PosOrderEventSchema = EventEnvelopeSchema.extend({
     state: z.enum(['awaiting_payment', 'cancelled']),
     payment_state: z.literal('not_started'),
     fulfillment_state: z.literal('blocked'),
+    execution_mode: z.literal('unpaid_service').optional(),
     total_minor: MoneyMinorSchema,
     currency: z.literal('KZT'),
     channel: z.literal('pos'),
@@ -63,9 +64,25 @@ export function parseEvent(input: unknown): PosOrderEvent {
     p.total_minor !== q.total_minor ||
     q.total_minor !== q.subtotal_minor ||
     p.service_mode !== q.service_mode ||
-    new Set(q.lines.map((l) => l.variant_id)).size !== q.lines.length ||
+    new Set(
+      q.lines.map((line) =>
+        JSON.stringify([
+          line.variant_id,
+          (line.modifiers ?? [])
+            .map((option) => [option.group_id, option.option_id, option.quantity ?? 1])
+            .sort((a, b) => String(a[0] + ':' + a[1]).localeCompare(String(b[0] + ':' + b[1]))),
+        ]),
+      ),
+    ).size !== q.lines.length ||
     q.lines.some(
-      (l) => BigInt(l.unit_price_minor) * BigInt(l.quantity) !== BigInt(l.total_minor),
+      (l) =>
+        BigInt(l.unit_price_minor) * BigInt(l.quantity) !== BigInt(l.total_minor) ||
+        new Set((l.modifiers ?? []).map((option) => option.group_id + option.option_id)).size !==
+          (l.modifiers ?? []).length ||
+        (l.modifiers ?? []).reduce(
+          (sum, option) => sum + BigInt(option.price_minor) * BigInt(option.quantity ?? 1),
+          0n,
+        ) > BigInt(l.unit_price_minor),
     ) ||
     q.lines.reduce((total, l) => total + BigInt(l.total_minor), 0n) !== BigInt(q.total_minor) ||
     Date.parse(q.expires_at) <= Date.parse(q.created_at)

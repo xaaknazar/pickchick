@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { MENU_ASSETS } from '../menu-assets.mjs';
 import ts from 'typescript';
 
 const base = new URL('../', import.meta.url);
@@ -27,12 +28,20 @@ if (process.argv.includes('--release') && (!sourceCommit || dirty)) {
 }
 const inputs = {};
 for (const path of [
-  ...['app.ts', 'api.ts', 'model.ts', 'types.ts', 'styles.css', 'index.html'].map(
-    (name) => `apps/pos/src/${name}`,
-  ),
+  ...[
+    'app.ts',
+    'api.ts',
+    'model.ts',
+    'types.ts',
+    'auth-view.ts',
+    'order-view.ts',
+    'styles.css',
+    'index.html',
+  ].map((name) => `apps/pos/src/${name}`),
   ...[
     'main.mjs',
     'protocol.mjs',
+    'menu-assets.mjs',
     'journal.mjs',
     'preload.cjs',
     'package.json',
@@ -47,6 +56,7 @@ for (const path of [
   'tsconfig.base.json',
   'packages/contracts/src/index.ts',
   'design/prototype/assets/mockup/logo.png',
+  ...MENU_ASSETS.map((name) => `design/prototype/assets/mockup/${name}`),
 ].sort()) {
   const data = await readFile(new URL(path, root));
   inputs[path] = {
@@ -84,7 +94,7 @@ await copyFile(
   new URL('resources/config.example.json', base),
   new URL('config.example.json', buildResources),
 );
-for (const name of ['app', 'model', 'api', 'types']) {
+for (const name of ['app', 'model', 'api', 'types', 'auth-view', 'order-view']) {
   const text = await readFile(new URL(`${name}.ts`, source), 'utf8');
   const compiled = ts.transpileModule(text, {
     compilerOptions: {
@@ -106,16 +116,26 @@ await copyFile(
   new URL('design/prototype/assets/mockup/logo.png', root),
   new URL('logo.png', output),
 );
+await mkdir(new URL('assets/menu/', output), { recursive: true });
+for (const name of MENU_ASSETS) {
+  await copyFile(
+    new URL(`design/prototype/assets/mockup/${name}`, root),
+    new URL(`assets/menu/${name}`, output),
+  );
+}
 const files = {};
 for (const name of [
   'api.js',
   'app.js',
+  'auth-view.js',
+  'order-view.js',
   'index.html',
   'logo.png',
   'model.js',
   'styles.css',
   'types.js',
-]) {
+  ...MENU_ASSETS.map((name) => `assets/menu/${name}`),
+].sort()) {
   const data = await readFile(new URL(name, output));
   files[name] = { bytes: data.byteLength, sha256: createHash('sha256').update(data).digest('hex') };
 }
@@ -127,4 +147,6 @@ await writeFile(
     2,
   ) + '\n',
 );
-console.log('Built packaged POS renderer: 7 local assets; no server or database bundled.');
+console.log(
+  `Built packaged POS renderer: ${Object.keys(files).length} local assets; no server or database bundled.`,
+);

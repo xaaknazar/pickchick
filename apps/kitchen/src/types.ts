@@ -52,7 +52,7 @@ export type Task = {
 };
 export type Order = Summary & {
   assemblyStationId: string;
-  channel: 'mobile';
+  channel: 'mobile' | 'pos';
   serviceMode: 'takeaway' | 'dine_in';
   tasks: Task[];
 };
@@ -182,7 +182,7 @@ export function order(v: unknown, branch: string): Order {
         parentTitle: str(d.parentTitle),
         description: str(d.description, 2000),
         quantity: int(d.quantity, 1000000),
-        modifiers: array(d.modifiers, 40, (v) => {
+        modifiers: array(d.modifiers, 100, (v) => {
           const m = record(v);
           return {
             groupId: str(m.groupId, 160, 1),
@@ -200,7 +200,7 @@ export function order(v: unknown, branch: string): Order {
   return {
     ...summary(o, branch),
     assemblyStationId: uuid(o.assemblyStationId),
-    channel: choice(o.channel, ['mobile']),
+    channel: choice(o.channel, ['mobile', 'pos']),
     serviceMode: choice(o.serviceMode, ['takeaway', 'dine_in']),
     tasks,
   };

@@ -61,6 +61,7 @@ async function eventually(read, expected) {
   throw new Error('Expected local fixture state was not reached');
 }
 async function login(page, credential) {
+  await page.locator('details.login-service').evaluate((node) => (node.open = true));
   await visible(page, '#credential');
   await page.locator('#credential').setInputFiles({
     name: 'synthetic-kitchen.json',
@@ -265,7 +266,7 @@ test(
       page = await app.firstWindow();
       page.on('pageerror', () => errors.push('Renderer exception'));
       await page.waitForURL(APP_URL);
-      await visible(page, '#credential');
+      await visible(page, '#staff-login');
     };
     let stage = 'launch';
     try {

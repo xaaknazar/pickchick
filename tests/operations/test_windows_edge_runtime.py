@@ -24,6 +24,13 @@ class WindowsEdgePackageTests(unittest.TestCase):
         (self.root / 'dist/index.js').write_text(
             "import foo from 'foo'; import bar from 'bar'; console.log(foo + ':' + bar);\n"
         )
+        sync = self.source / 'packages/pos-order-sync'
+        self.package(sync, '@pickchick/pos-order-sync', '0.1.0', {'bar': '1', 'sync-only': '1'})
+        (sync / 'dist').mkdir()
+        (sync / 'dist/index.js').write_text(
+            "import only from 'sync-only'; import bar from 'bar'; console.log(only + ':' + bar);\n"
+        )
+        self.package(self.source / 'node_modules/sync-only', 'sync-only', '1', value='sync-only')
         self.package(self.source / 'node_modules/bar', 'bar', '1', value='root-v1')
         foo = self.source / 'node_modules/foo'
         self.package(foo, 'foo', '1', {'bar': '2'})
@@ -61,6 +68,9 @@ class WindowsEdgePackageTests(unittest.TestCase):
         result = subprocess.run(['node', 'dist/index.js'], cwd=self.base / 'output',
                                 capture_output=True, text=True, check=True)
         self.assertEqual(result.stdout.strip(), 'nested-v2:root-v1')
+        worker = subprocess.run(['node', 'node_modules/@pickchick/pos-order-sync/dist/index.js'],
+                                cwd=self.base / 'output', capture_output=True, text=True, check=True)
+        self.assertEqual(worker.stdout.strip(), 'sync-only:root-v1')
         with zipfile.ZipFile(first['archive']) as archive:
             self.assertIsNone(archive.testzip())
             self.assertFalse(any('.local' in name for name in archive.namelist()))

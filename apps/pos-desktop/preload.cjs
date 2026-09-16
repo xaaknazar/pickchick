@@ -32,3 +32,16 @@ contextBridge.exposeInMainWorld('pickchickPosJournal', {
     call('endSession');
   },
 });
+
+contextBridge.exposeInMainWorld('pickchickPosWindow', {
+  isFullscreen: () => ipcRenderer.invoke('pickchick-pos:window-v1', 'state'),
+  toggleFullscreen: () => ipcRenderer.invoke('pickchick-pos:window-v1', 'toggle'),
+  onChange: (listener) => {
+    if (typeof listener !== 'function') throw new TypeError('Expected listener');
+    const receive = (_event, value) => {
+      if (typeof value === 'boolean') listener(value);
+    };
+    ipcRenderer.on('pickchick-pos:fullscreen-v1', receive);
+    return () => ipcRenderer.removeListener('pickchick-pos:fullscreen-v1', receive);
+  },
+});

@@ -3,19 +3,23 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { normalize } from 'node:path';
+import { MENU_ASSETS } from '../menu-assets.mjs';
 import { extractFile, listPackage } from '@electron/asar';
 import { getCurrentFuseWire, FuseV1Options, FuseState } from '@electron/fuses';
 
 const base = new URL('../', import.meta.url);
 const root = new URL('../../', base);
 const asar = fileURLToPath(new URL('release/win-unpacked/resources/app.asar', base));
+// ASAR 3 traverses directories using the host path separator. Manifest names stay POSIX.
+const readEntry = (name) => extractFile(asar, normalize(name));
 const hash = (data) => createHash('sha256').update(data).digest('hex');
 const git = (args) => {
   const result = spawnSync('git', args, { cwd: fileURLToPath(root), encoding: 'utf8' });
   assert.equal(result.status, 0, 'Git verification failed');
   return result.stdout.trim();
 };
-const manifest = JSON.parse(extractFile(asar, 'renderer/asset-manifest.json').toString('utf8'));
+const manifest = JSON.parse(readEntry('renderer/asset-manifest.json').toString('utf8'));
 assert.equal(manifest.schemaVersion, 1);
 assert.equal(manifest.source, 'apps/pos/src');
 assert.equal(manifest.sourceDirty, false, 'Only a clean-source package can be released');
@@ -32,20 +36,31 @@ assert.equal(
 const renderer = [
   'api.js',
   'app.js',
+  'auth-view.js',
+  'order-view.js',
   'index.html',
   'logo.png',
   'model.js',
   'styles.css',
   'types.js',
-];
+  ...MENU_ASSETS.map((name) => `assets/menu/${name}`),
+].sort();
 assert.deepEqual(Object.keys(manifest.files).sort(), renderer);
 const expectedInputs = [
-  ...['app.ts', 'api.ts', 'model.ts', 'types.ts', 'styles.css', 'index.html'].map(
-    (name) => `apps/pos/src/${name}`,
-  ),
+  ...[
+    'app.ts',
+    'api.ts',
+    'model.ts',
+    'types.ts',
+    'auth-view.ts',
+    'order-view.ts',
+    'styles.css',
+    'index.html',
+  ].map((name) => `apps/pos/src/${name}`),
   ...[
     'main.mjs',
     'protocol.mjs',
+    'menu-assets.mjs',
     'journal.mjs',
     'preload.cjs',
     'package.json',
@@ -60,6 +75,7 @@ const expectedInputs = [
   'tsconfig.base.json',
   'packages/contracts/src/index.ts',
   'design/prototype/assets/mockup/logo.png',
+  ...MENU_ASSETS.map((name) => `design/prototype/assets/mockup/${name}`),
 ].sort();
 assert.deepEqual(Object.keys(manifest.inputs).sort(), expectedInputs);
 for (const path of expectedInputs) {
@@ -75,32 +91,35 @@ assert.deepEqual(
   [
     '/main.mjs',
     '/protocol.mjs',
+    '/menu-assets.mjs',
     '/journal.mjs',
     '/preload.cjs',
     '/package.json',
     '/renderer',
     '/renderer/asset-manifest.json',
+    '/renderer/assets',
+    '/renderer/assets/menu',
     ...renderer.map((name) => `/renderer/${name}`),
   ].sort(),
   'Unexpected packaged file',
 );
 for (const name of renderer) {
-  const asset = extractFile(asar, `renderer/${name}`);
+  const asset = readEntry(`renderer/${name}`);
   assert.equal(hash(asset), manifest.files[name].sha256, `Renderer hash differs: ${name}`);
   assert.equal(asset.byteLength, manifest.files[name].bytes);
 }
-for (const name of ['main.mjs', 'protocol.mjs', 'journal.mjs', 'preload.cjs'])
+for (const name of ['main.mjs', 'protocol.mjs', 'menu-assets.mjs', 'journal.mjs', 'preload.cjs'])
   assert.equal(
-    hash(extractFile(asar, name)),
+    hash(readEntry(name)),
     manifest.inputs[`apps/pos-desktop/${name}`].sha256,
     `Main hash differs: ${name}`,
   );
 assert.match(
-  extractFile(asar, 'renderer/index.html').toString(),
+  readEntry('renderer/index.html').toString(),
   /name="pickchick-pos-storage" content="native-v1"/,
 );
 const pkg = JSON.parse(await readFile(new URL('package.json', base), 'utf8'));
-assert.equal(JSON.parse(extractFile(asar, 'package.json').toString()).version, pkg.version);
+assert.equal(JSON.parse(readEntry('package.json').toString()).version, pkg.version);
 const config = await readFile(new URL('release/win-unpacked/resources/config.example.json', base));
 assert.equal(
   hash(config),
