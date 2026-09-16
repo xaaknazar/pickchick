@@ -1198,6 +1198,8 @@ dialog::backdrop {
 .detail-top .eyebrow {
   font-size: 9px;
   letter-spacing: 1px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .icon-button {
   border: 1px solid var(--line);
@@ -1886,6 +1888,18 @@ dialog::backdrop {
     padding: 9px 11px;
     font-size: 11px;
     gap: 7px;
+  }
+}
+@media (max-width: 400px) {
+  .breadcrumb {
+    font-size: 0;
+    gap: 0;
+  }
+  .breadcrumb > span {
+    display: none;
+  }
+  .breadcrumb strong {
+    font-size: 11px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
