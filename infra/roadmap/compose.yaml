@@ -22,7 +22,7 @@ services:
       ROADMAP_KEY_FILE: /run/secrets/team-key
       ROADMAP_ORIGIN: ${ROADMAP_ORIGIN:?Set the public HTTPS origin}
       ROADMAP_HOST: 0.0.0.0
-      ROADMAP_PORT: '4190'
+      ROADMAP_PORT: '4192'
     volumes:
       - '${ROADMAP_APP_DIR:?Set immutable application directory}:/app:ro'
       - '${ROADMAP_STATE_ROOT:?Set protected state directory}/data:/data:rw'
@@ -36,7 +36,7 @@ services:
         - CMD
         - node
         - -e
-        - "fetch('http://127.0.0.1:4190/roadmap/health',{signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        - "fetch('http://127.0.0.1:4192/roadmap/health',{signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
       interval: 5s
       timeout: 3s
       retries: 12
