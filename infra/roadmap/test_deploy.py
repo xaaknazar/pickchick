@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -12,6 +13,39 @@ spec.loader.exec_module(deploy)
 
 
 class DeploymentGuards(unittest.TestCase):
+    def test_large_public_video_is_hashed_completely_in_bounded_chunks(self):
+        payload = b'x' * (9 * 1024 * 1024 + 123)
+        sizes = []
+
+        class Response(io.BytesIO):
+            status = 200
+
+            def read(self, size=-1):
+                sizes.append(size)
+                return super().read(size)
+
+        with patch.object(deploy.urllib.request, 'urlopen', return_value=Response(payload)):
+            deploy.verify_public_asset(('design/prototype/assets/hero.mp4', hashlib.sha256(payload).hexdigest()))
+        self.assertGreater(len(sizes), 8)
+        self.assertTrue(all(size == 1024 * 1024 for size in sizes))
+
+    def test_public_asset_mismatch_identifies_path_and_status(self):
+        class Response(io.BytesIO):
+            status = 200
+
+        with patch.object(deploy.urllib.request, 'urlopen', return_value=Response(b'changed')):
+            with self.assertRaisesRegex(RuntimeError, r'/assets/hero.mp4 \(status 200\)'):
+                deploy.verify_public_asset(('operations/assets/hero.mp4', 'a' * 64))
+
+    def test_bounded_api_response_rejects_oversize_instead_of_truncating(self):
+        class Response(io.BytesIO):
+            status = 200
+            headers = {}
+
+        with patch.object(deploy.urllib.request, 'urlopen', return_value=Response(b'x' * (8 * 1024 * 1024 + 1))):
+            with self.assertRaisesRegex(RuntimeError, 'exceeds 8 MiB'):
+                deploy.http('/roadmap/api/project')
+
     def test_runtime_port_is_allowed_by_fetch_and_matches_gateway(self):
         config = Path(__file__).with_name('compose.yaml').read_text()
         self.assertIn("ROADMAP_PORT: '4192'", config)

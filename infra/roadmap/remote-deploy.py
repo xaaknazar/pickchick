@@ -177,20 +177,35 @@ def http(path, *, method='GET', body=None, opener=None):
                                      data=None if body is None else json.dumps(body).encode())
     try:
         with (opener.open(request, timeout=15) if opener else urllib.request.urlopen(request, timeout=15)) as response:
-            return response.status, response.read(8 * 1024 * 1024), response.headers
+            maximum = 8 * 1024 * 1024
+            data = response.read(maximum + 1)
+            require(len(data) <= maximum, 'HTTP response exceeds 8 MiB: ' + path)
+            return response.status, data, response.headers
     except urllib.error.HTTPError as error:
         return error.code, b'', error.headers
 
 
+def verify_public_asset(item):
+    """Hash complete public files, including videos, without buffering their contents."""
+    name, expected = item
+    path = '/kiosk' if name == 'operations/index.html' else '/' + name.removeprefix('operations/')
+    request = urllib.request.Request(ORIGIN + path)
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            status = response.status
+            actual = hashlib.sha256()
+            while chunk := response.read(1024 * 1024):
+                actual.update(chunk)
+    except urllib.error.HTTPError as error:
+        raise RuntimeError('Existing public HTTP asset unavailable: ' + path +
+                           ' (status ' + str(error.code) + ')') from None
+    require(status == 200 and actual.hexdigest() == expected,
+            'Existing public HTTP asset changed: ' + path + ' (status ' + str(status) + ')')
+
+
 def verify_public(manifest, sha):
-    def asset(item):
-        name, expected = item
-        path = '/kiosk' if name == 'operations/index.html' else '/' + name.removeprefix('operations/')
-        status, data, _ = http(path)
-        require(status == 200 and hashlib.sha256(data).hexdigest() == expected,
-                'Existing public HTTP asset changed')
     with ThreadPoolExecutor(max_workers=4) as pool:
-        list(pool.map(asset, manifest['files'].items()))
+        list(pool.map(verify_public_asset, manifest['files'].items()))
     for path in ['/', '/.release.json', '/roadmap/.env', '/roadmap/server.mjs', '/roadmap/data/roadmap.sqlite']:
         require(http(path)[0] == 404, 'A private path is publicly accessible')
     status, body, _ = http('/roadmap/health')
