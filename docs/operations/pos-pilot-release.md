@@ -101,7 +101,7 @@ pilot (staging)». Старую TEST branch100…003 не переименовы
    inbox sequence пространства. fulfillment cloud producer - отдельный UUID.
 5. Для нового branch scope требуется operator grant прежнему manager actor:
    сначала catalog_manager_branches, затем `scripts/backoffice-setup.mjs --actor
-   <uuid> --branch <physical-uuid> --role manager|analyst`. Не выдавать общий
+<uuid> --branch <physical-uuid> --role manager|analyst`. Не выдавать общий
    пароль и не считать существующий TEST grant доступом к новой точке.
 6. После независимого согласования включить приём unpaid service на Windows,
    проверить один реальный заказ в кассе/кухне/BO и сохранение not_started/
