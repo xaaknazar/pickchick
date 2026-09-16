@@ -1,0 +1,2790 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-16T06:45:27Z",
+  "project": {
+    "name": "PickChick",
+    "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
+    "t0": null,
+    "deadlineMonths": 4
+  },
+  "sources": [
+    "docs/project-status.md",
+    "docs/04-roadmap.md",
+    "docs/01-technical-spec.md",
+    "docs/operations/customer-integration-request-2026-09-16.md",
+    "docs/operations/iiko-replacement-discovery.md",
+    "docs/operations/restaurant-pilot-2026-09-16.md",
+    "docs/operations/backoffice-operations.md",
+    "docs/operations/customer-identity.md",
+    "docs/operations/loyalty-core.md",
+    "docs/operations/commerce-core.md",
+    "docs/operations/catalog-pricing.md",
+    "docs/operations/catalog-admin.md",
+    "docs/operations/fulfillment-transport.md",
+    "docs/operations/pos-kitchen-sync.md",
+    "docs/operations/pos-cashier-upgrade-2026-09-15.md",
+    "docs/operations/lan-kitchen-client.md",
+    "docs/operations/two-windows-workstations.md",
+    "docs/operations/kiosk-testflight.md",
+    "docs/operations/ipad-kiosk-lockdown.md",
+    "docs/operations/mobile-testflight.md",
+    "docs/operations/mobile-live-review.md",
+    "docs/operations/mobile-payment-design.md",
+    "docs/operations/pick-blocks.md",
+    "docs/operations/pick-man.md",
+    "docs/operations/capacity-baseline.md",
+    "docs/operations/transport-capacity-baseline.md",
+    "docs/operations/capacity-runbook.md",
+    "docs/operations/staging-vps.md",
+    "docs/operations/deployments/2026-09-07-market-foundations.md",
+    "docs/operations/pos-pilot-release.md",
+    "docs/operations/deployments/2026-09-08-operations-display.md",
+    "docs/operations/restaurant-equipment.md",
+    "docs/operations/menu-sync.md",
+    "docs/03-offline-and-reliability.md",
+    "docs/operations/deployments/2026-09-07-mobizon-account.md"
+  ],
+  "workstreams": [
+    {
+      "id": "project",
+      "title": "План и решения",
+      "description": "Общий объём, владельцы решений, сроки и приёмка."
+    },
+    {
+      "id": "iiko",
+      "title": "Переход с iiko",
+      "description": "Обследование действующего ресторана, перенос данных и безопасное переключение."
+    },
+    {
+      "id": "platform",
+      "title": "Ядро и инфраструктура",
+      "description": "PostgreSQL, cloud/edge, устойчивый обмен, окружения и эксплуатация."
+    },
+    {
+      "id": "identity",
+      "title": "Вход и доступ",
+      "description": "Клиенты, постоянные сессии, SMS, права и защита данных."
+    },
+    {
+      "id": "mobile",
+      "title": "Мобильное приложение",
+      "description": "iOS/Android: меню, профиль, оформление, статусы и выпуск."
+    },
+    {
+      "id": "catalog",
+      "title": "Меню и цены",
+      "description": "Общий каталог, фото, модификаторы, комбо, публикации и стоп-листы."
+    },
+    {
+      "id": "pos",
+      "title": "Касса",
+      "description": "Рабочее место кассира, смены, приём заказов и оборудование Windows."
+    },
+    {
+      "id": "kitchen",
+      "title": "Кухня и сборка",
+      "description": "Приготовление по станциям, сборка, выдача и локальная работа."
+    },
+    {
+      "id": "display",
+      "title": "Табло заказов",
+      "description": "Гостевой экран номеров, готовности и подключения LED."
+    },
+    {
+      "id": "kiosk",
+      "title": "Киоск самообслуживания",
+      "description": "iPad, гостевой заказ, терминал и безопасный сброс сессии."
+    },
+    {
+      "id": "payments",
+      "title": "Оплата",
+      "description": "Kaspi на точке и в mobile, Apple Pay, банковские карты и сверка."
+    },
+    {
+      "id": "fiscal",
+      "title": "Чеки и ККМ",
+      "description": "Выбор зарегистрированного решения, чеки, возвраты и фискальные смены."
+    },
+    {
+      "id": "yandex",
+      "title": "Яндекс Еда",
+      "description": "Сохранение действующего канала, прямой адаптер и согласованный cutover."
+    },
+    {
+      "id": "backoffice",
+      "title": "Бэк-офис",
+      "description": "Управление сетью, реальные операции, аудит и доставка настроек."
+    },
+    {
+      "id": "inventory",
+      "title": "Склад и техкарты",
+      "description": "Ингредиенты, нормы, производство, движения и достоверные остатки."
+    },
+    {
+      "id": "team",
+      "title": "Сотрудники и смены",
+      "description": "Права, кассовая дисциплина и согласованный кадровый учёт."
+    },
+    {
+      "id": "analytics",
+      "title": "Отчёты и бухгалтерия",
+      "description": "Показатели, архив, выгрузки и подтверждённая сверка."
+    },
+    {
+      "id": "loyalty",
+      "title": "Чики и лояльность",
+      "description": "Правила программы, кошелёк, начисления, списания и возвраты."
+    },
+    {
+      "id": "games",
+      "title": "Игры и миссии",
+      "description": "Брендированные игры, события, серверная проверка и награды."
+    },
+    {
+      "id": "crm",
+      "title": "Гости и коммуникации",
+      "description": "Согласия, кампании, push, обращения и отзывы."
+    },
+    {
+      "id": "launch",
+      "title": "Приёмка и запуск",
+      "description": "Оборудование, аварийные проверки, магазины приложений, пилот и передача."
+    }
+  ],
+  "phases": [
+    {
+      "id": "discovery",
+      "title": "Обследование и решения",
+      "weeks": [1, 2],
+      "summary": "Подтвердить процессы, доступы, оборудование и возможности поставщиков. Gate A ещё открыт."
+    },
+    {
+      "id": "foundation",
+      "title": "Основа системы",
+      "weeks": [3, 4],
+      "summary": "Общий каталог, ядро заказа, права и первый сквозной путь. Gate B требует приёмки."
+    },
+    {
+      "id": "integration",
+      "title": "Интеграции и автономность",
+      "weeks": [5, 8],
+      "summary": "Оплаты, чеки, каналы заказов и работа точки без WAN. Gate C ещё открыт."
+    },
+    {
+      "id": "product",
+      "title": "Полный продукт",
+      "weeks": [9, 12],
+      "summary": "Бэк-офис, склад, Чики, игра, коммуникации и кандидат релиза. Gate D ещё открыт."
+    },
+    {
+      "id": "acceptance",
+      "title": "Проверка и обучение",
+      "weeks": [13, 14],
+      "summary": "Нагрузка, восстановление, приёмка сотрудниками и подготовка пилота. Gate E ещё открыт."
+    },
+    {
+      "id": "launch",
+      "title": "Пилот и внедрение",
+      "weeks": [15, 16],
+      "summary": "Контролируемое переключение, реальные смены и передача. Gate F ещё открыт."
+    },
+    {
+      "id": "growth",
+      "title": "После основного запуска",
+      "weeks": [17, 52],
+      "summary": "Предложенные дальнейшие итерации; состав и календарь согласуются отдельно."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "project-scope",
+      "workstream": "project",
+      "title": "Зафиксировать полный объём запуска",
+      "summary": "ТЗ и 16-недельный план включают шесть интерфейсов, собственное ядро, замену iiko и обязательные Apple Pay/карты. Дата T0 не назначена.",
+      "status": "done",
+      "owner": "joint",
+      "phase": "discovery",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Техническое задание",
+          "path": "docs/01-technical-spec.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["Объём и сценарии AC-01-41 записаны в репозитории."],
+      "nextAction": "Согласовать T0, принимающих лиц и актуальную оценку интеграций.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "project-provider-pack",
+      "workstream": "project",
+      "title": "Пакет запросов заказчику",
+      "summary": "Подготовлены список данных и шаблоны заявок; уже имеющиеся Apple Developer, WOFD и Mobizon учтены. Обращения поставщикам ещё не отправлены.",
+      "status": "done",
+      "owner": "development",
+      "phase": "discovery",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["У каждого внешнего канала указаны требуемые решения и официальный источник."],
+      "nextAction": "Заказчик назначает владельцев договоров и передаёт ответы поставщиков.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "project-start",
+      "workstream": "project",
+      "title": "Согласовать T0 и ответственных",
+      "summary": "Четыре календарных месяца включают испытания и внедрение. Относительные недели не показывают фактически истёкшее время.",
+      "status": "blocked",
+      "owner": "customer",
+      "phase": "discovery",
+      "dependsOn": ["project-scope"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "Согласованы дата T0, состав релиза и принимающие лица.",
+        "Зафиксированы окна внедрения и ответственный за эксплуатацию."
+      ],
+      "nextAction": "Записать дату старта и владельцев направлений.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Дата T0, ответственный за решения, кассир, управляющий и бухгалтер для приёмки."
+    },
+    {
+      "id": "iiko-access",
+      "workstream": "iiko",
+      "title": "Получить доступ для обследования iiko",
+      "summary": "Владелец выбрал веб-кабинет и отдельную учётную запись. Ссылка и действующий вход ещё не получены; данные не обследованы.",
+      "status": "blocked",
+      "owner": "customer",
+      "phase": "discovery",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["Доступны разрешённые разделы и известны ограничения прав/версии."],
+      "nextAction": "Получить ссылку и выполнить вход в отдельный кабинет.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Ссылка на кабинет, отдельный доступ и контакт обслуживающего партнёра; секреты передаются защищённым способом."
+    },
+    {
+      "id": "iiko-audit",
+      "workstream": "iiko",
+      "title": "Снять карту действующих процессов",
+      "summary": "Обследовать фактические точки, версии iiko, меню, кассу, кухню, учёт, оплаты, чеки и текущий маршрут Яндекса.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "discovery",
+      "dependsOn": ["iiko-access"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Для каждой используемой функции есть источник, ответственный и способ замены.",
+        "Недоступные в веб-кабинете данные запрошены отдельно."
+      ],
+      "nextAction": "Сопоставить разрешённые экспорты с наблюдением рабочей смены.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "iiko-data-transfer",
+      "workstream": "iiko",
+      "title": "Перенести справочники, остатки и историю",
+      "summary": "Импортировать согласованный состав в изолированную среду. Исторические продажи не запускают новые оплаты, чеки, приготовление или бонусы.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["iiko-audit", "catalog-unified", "inventory-norms"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "03 offline and reliability",
+          "path": "docs/03-offline-and-reliability.md"
+        }
+      ],
+      "acceptance": [
+        "Сверены ID, остатки, бонусные обязательства и контрольные итоги.",
+        "Утверждены границы импорта и доступного архива."
+      ],
+      "nextAction": "Подготовить обезличенную репетицию и сверку импорта.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Разрешённые экспорты и решение, какие три месяца истории импортируются либо остаются архивом."
+    },
+    {
+      "id": "iiko-cutover",
+      "workstream": "iiko",
+      "title": "Переключить ресторан на собственное ядро",
+      "summary": "До принятого переключения действующие продажи принадлежат iiko. Отключение выполняется по каналам с единственным владельцем каждой операции.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "launch",
+      "dependsOn": [
+        "iiko-data-transfer",
+        "yandex-cutover",
+        "launch-uat",
+        "fiscal-live",
+        "payments-reconcile"
+      ],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "03 offline and reliability",
+          "path": "docs/03-offline-and-reliability.md"
+        }
+      ],
+      "acceptance": [
+        "Нет двух обработчиков одного заказа, двух чеков или повторной готовки.",
+        "Проверен откат при сохранении состоявшихся финансовых документов."
+      ],
+      "nextAction": "Согласовать границу новых заказов, окно переключения и критерии остановки.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-foundation",
+      "workstream": "platform",
+      "title": "API, PostgreSQL и миграции",
+      "summary": "Исполняемые cloud/edge, contracts, роли, устройства и миграции реализованы. Частный VPS обслуживает TEST-контур.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "Частный staging",
+          "path": "docs/operations/staging-vps.md"
+        }
+      ],
+      "acceptance": ["Схемы и миграции проверяются, доступ ограничен точкой и ролью."],
+      "nextAction": "Развивать ядро через совместимые миграции и проверяемые релизы.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-durable-sync",
+      "workstream": "platform",
+      "title": "Долговечный cloud/edge обмен",
+      "summary": "Outbox/inbox, сохранение неизвестного результата и явное владение заказами проверены через реальные локальные PostgreSQL/HTTP.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["platform-foundation"],
+      "evidence": [
+        {
+          "label": "fulfillment transport",
+          "path": "docs/operations/fulfillment-transport.md"
+        },
+        {
+          "label": "pos kitchen sync",
+          "path": "docs/operations/pos-kitchen-sync.md"
+        }
+      ],
+      "acceptance": ["Повтор, потеря ACK и рестарт не дублируют заказ или кухонный эффект."],
+      "nextAction": "Установить проверенный transport на ресторанном оборудовании.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-backup",
+      "workstream": "platform",
+      "title": "Восстановить тестовые резервные копии",
+      "summary": "Для staging и кассового foundation выполнены отдельные проверки восстановления. Это ещё не полная приёмка эксплуатации ресторана.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["platform-foundation"],
+      "evidence": [
+        {
+          "label": "2026 09 07 market foundations",
+          "path": "docs/operations/deployments/2026-09-07-market-foundations.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "В протоколах зафиксированы версии и фактическое восстановление тестовых данных."
+      ],
+      "nextAction": "Повторить drill для итогового cloud/edge релиза с измерением RPO/RTO.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-load-baseline",
+      "workstream": "platform",
+      "title": "Проверить миллион профилей и 1000 заказов на стенде",
+      "summary": "Выполнены SQL/domain baseline и локальный HTTP transport на 10 синтетических точках. Это не подтверждение production-потока.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["platform-durable-sync"],
+      "evidence": [
+        {
+          "label": "Отчёт SQL/domain нагрузки",
+          "path": "docs/operations/capacity-baseline.md"
+        },
+        {
+          "label": "Отчёт нагрузки транспорта",
+          "path": "docs/operations/transport-capacity-baseline.md"
+        }
+      ],
+      "acceptance": [
+        "1000 заказов существуют одновременно и сверены между cloud/edge.",
+        "Данные, длительности и ограничения зафиксированы в отчётах."
+      ],
+      "nextAction": "Пройти полный нагрузочный и длительный gate на целевых устройствах.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-pilot-deploy",
+      "workstream": "platform",
+      "title": "Обновить VPS и Windows sync для пилота",
+      "summary": "Подготовлен guarded release cloud018/edge013, репетиции сохранения данных и отката. На VPS apply ещё не выполнен, Windows sync не установлен.",
+      "status": "paused",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["pos-design", "pos-upgrade", "platform-durable-sync"],
+      "evidence": [
+        {
+          "label": "Проверенный план обновления VPS",
+          "path": "docs/operations/pos-pilot-release.md"
+        },
+        {
+          "label": "Порядок локального пилота",
+          "path": "docs/operations/restaurant-pilot-2026-09-16.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Cloud/edge версии подтверждены, существующие данные и права сохранены.",
+        "Кухонный заказ Windows виден в бэк-офисе после восстановления WAN."
+      ],
+      "nextAction": "После согласования кассы выпустить проверенное обновление и установить sync.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-monitoring",
+      "workstream": "platform",
+      "title": "Наблюдаемость и ежедневная эксплуатация",
+      "summary": "Нужны оповещения по заказам, unknown-операциям, outbox, дискам, backup и свежести служебных заданий; роли on-call ещё не приняты.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["platform-pilot-deploy"],
+      "evidence": [
+        {
+          "label": "03 offline and reliability",
+          "path": "docs/03-offline-and-reliability.md"
+        },
+        {
+          "label": "Проверки входа и сессий",
+          "path": "docs/operations/customer-identity.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "Контрольная неисправность создаёт понятный сигнал ответственному.",
+        "Задокументированы SLO, секреты, ротация, восстановление и порядок эскалации."
+      ],
+      "nextAction": "Подключить метрики и проверить оповещения на выделенном стенде.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "identity-core",
+      "workstream": "identity",
+      "title": "OTP, профиль и постоянный вход",
+      "summary": "Серверный домен и Expo-клиент проверены на синтетических данных: refresh, потеря ответа, 400 дней без активности, отзыв и удаление.",
+      "status": "done",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["platform-foundation"],
+      "evidence": [
+        {
+          "label": "Проверки входа и сессий",
+          "path": "docs/operations/customer-identity.md"
+        }
+      ],
+      "acceptance": [
+        "AC-36-38: обычный рестарт/обновление и транспортный сбой не требуют нового SMS."
+      ],
+      "nextAction": "Подключить утверждённые условия и проверить настоящую доставку OTP.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "identity-sms-account",
+      "workstream": "identity",
+      "title": "Проверить доступ к Mobizon",
+      "summary": "API аккаунта проверен с VPS без отправки SMS. Этот факт подтверждает доступ, но не доставку кодов клиентам.",
+      "status": "done",
+      "owner": "development",
+      "phase": "discovery",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "2026 09 07 mobizon account",
+          "path": "docs/operations/deployments/2026-09-07-mobizon-account.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["Аккаунт доступен из серверного контура без раскрытия ключа."],
+      "nextAction": "Утвердить отправителя, шаблон и лимит, затем проверить доставку.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "identity-live-sms",
+      "workstream": "identity",
+      "title": "Включить реальный вход по SMS",
+      "summary": "До включения нужны утверждённые legal URL, версия согласий, отправитель, текст и дневной бюджет; полевые SMS ещё не приняты.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["identity-core", "identity-sms-account"],
+      "evidence": [
+        {
+          "label": "Проверки входа и сессий",
+          "path": "docs/operations/customer-identity.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "AC-01: новый/существующий номер, ошибки кода и лимиты пройдены.",
+        "Доставка проверена на согласованных реальных операторах."
+      ],
+      "nextAction": "Получить тексты/бюджет и провести ограниченную проверку OTP.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Утверждённые условия, privacy, отправитель, SMS-шаблон и бюджет."
+    },
+    {
+      "id": "identity-privacy",
+      "workstream": "identity",
+      "title": "Принять согласия и удаление аккаунта",
+      "summary": "Механизм отзыва сессий реализован в ядре. Требуется сквозная политика хранения, удаления и маркетинговых согласий для выпуска.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["identity-core"],
+      "evidence": [
+        {
+          "label": "Проверки входа и сессий",
+          "path": "docs/operations/customer-identity.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "AC-27/38: удаление отзывает устройства, финансовая история обрабатывается по утверждённой политике."
+      ],
+      "nextAction": "Утвердить документы и проверить сценарии mobile/CRM/поддержки.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Утверждённые тексты и сроки хранения данных."
+    },
+    {
+      "id": "mobile-design",
+      "workstream": "mobile",
+      "title": "Перенести мобильный дизайн и основные экраны",
+      "summary": "Меню, корзина, профиль, события и брендированные игры реализованы по исходным материалам. Есть browser-проверки и живой просмотр на iPhone.",
+      "status": "done",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "mobile live review",
+          "path": "docs/operations/mobile-live-review.md"
+        }
+      ],
+      "acceptance": [
+        "Основные экраны визуально сверены с оригиналом на малых ширинах.",
+        "Неизвестные функции не получают выдуманные данные."
+      ],
+      "nextAction": "Принять актуальные экраны владельцем и связать с production-сценариями.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-testflight",
+      "workstream": "mobile",
+      "title": "Доставить базовую сборку в TestFlight",
+      "summary": "Подтверждена доступность 0.1.0 (4). Сборка (5) загружена, обработка и доступность не подтверждены; последующие изменения видны в Dev.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "mobile testflight",
+          "path": "docs/operations/mobile-testflight.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["Базовая сборка доступна во внутреннем тестировании на iPhone."],
+      "nextAction": "Выпустить новый проверенный кандидат после подключения согласованных функций.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-live-checkout",
+      "workstream": "mobile",
+      "title": "Подключить оформление и реальные статусы заказа",
+      "summary": "Обычный экран оплаты готов визуально и не имитирует списание. Нужен полный путь customer quote, admission, банк, кухня, возврат и восстановление.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": [
+        "identity-live-sms",
+        "catalog-unified",
+        "payments-kaspi-mobile",
+        "payments-applepay",
+        "payments-cards",
+        "fiscal-adapter"
+      ],
+      "evidence": [
+        {
+          "label": "mobile payment design",
+          "path": "docs/operations/mobile-payment-design.md"
+        },
+        {
+          "label": "Коммерческое ядро и проверки",
+          "path": "docs/operations/commerce-core.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-02-08/18: цена и статусы получены с сервера, потерянный ответ восстанавливается.",
+        "Возврат из банковского приложения сам не подтверждает оплату."
+      ],
+      "nextAction": "Соединить защищённый клиент с доверенным коммерческим API.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-device-acceptance",
+      "workstream": "mobile",
+      "title": "Принять iOS/Android, RU/KZ и доступность",
+      "summary": "Локальные web/Expo проверки не заменяют физические iPhone/Android, длинные тексты, VoiceOver/TalkBack и полный checkout на малом экране.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["mobile-live-checkout"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Техническое задание",
+          "path": "docs/01-technical-spec.md"
+        }
+      ],
+      "acceptance": [
+        "AC-31: RU/KZ, критические суммы и действия доступны на согласованном наборе устройств."
+      ],
+      "nextAction": "Собрать release candidates и провести матрицу реальных устройств.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Утверждённые RU/KZ-тексты и согласованный набор устройств."
+    },
+    {
+      "id": "catalog-editor",
+      "workstream": "catalog",
+      "title": "Каталог, фото и серверные модификаторы",
+      "summary": "Есть редактор, версии и pricing; исходные 24 блюда, 23 фото и 31 группа модификаторов подготовлены для POS v2. Это ещё не утверждённое рабочее меню iiko.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "catalog admin",
+          "path": "docs/operations/catalog-admin.md"
+        },
+        {
+          "label": "catalog pricing",
+          "path": "docs/operations/catalog-pricing.md"
+        },
+        {
+          "label": "Состав и проверки кассы 0.3",
+          "path": "docs/operations/pos-cashier-upgrade-2026-09-15.md"
+        }
+      ],
+      "acceptance": ["Ограничения модификаторов и денежный расчёт проверены на сервере."],
+      "nextAction": "Сопоставить подготовленный каталог с действующим рестораном.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "catalog-approved-data",
+      "workstream": "catalog",
+      "title": "Утвердить рабочее меню и цены по каналам",
+      "summary": "Нужны фактические ID, комбо, упаковка, налоги, RU/KZ, составы и цены. Макет не заменяет данные работающего ресторана.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "discovery",
+      "dependsOn": ["iiko-audit"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "Контрольные корзины совпадают с утверждёнными правилами и действующими данными."
+      ],
+      "nextAction": "Сверить экспорт iiko и зафиксировать принятую версию меню.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Меню/цены/комбо, налоговые группы и подтверждение ответственного."
+    },
+    {
+      "id": "catalog-unified",
+      "workstream": "catalog",
+      "title": "Подключить единый каталог ко всем каналам",
+      "summary": "Cloud-публикации есть, но mobile/kiosk/POS ещё не все переведены на нейтральный каталог. Нужно подтверждение версии на edge.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["catalog-editor", "catalog-approved-data"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "menu sync",
+          "path": "docs/operations/menu-sync.md"
+        },
+        {
+          "label": "catalog pricing",
+          "path": "docs/operations/catalog-pricing.md"
+        }
+      ],
+      "acceptance": [
+        "AC-02/32: каждый канал использует совместимую опубликованную версию.",
+        "Offline/несовместимый клиент не ломает текущую смену."
+      ],
+      "nextAction": "Реализовать доставку, receipt и переключение клиентов.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "catalog-availability",
+      "workstream": "catalog",
+      "title": "Стоп-листы и последняя порция",
+      "summary": "Базовые стоп-лист и резервации есть. Требуется полный расчёт доступности с нормами, каналами и конкурентным mobile/POS checkout.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["catalog-unified", "inventory-norms"],
+      "evidence": [
+        {
+          "label": "catalog pricing",
+          "path": "docs/operations/catalog-pricing.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        }
+      ],
+      "acceptance": ["AC-03: последняя порция достаётся одному заказу до открытия оплаты."],
+      "nextAction": "Связать нормы, локальные ограничения и подтверждённый admission.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "pos-design",
+      "workstream": "pos",
+      "title": "Согласовать мокап с кассирами",
+      "summary": "Владелец выбрал сначала дизайн и согласование кассиров. Настройка двух моноблоков приостановлена до этого решения.",
+      "status": "active",
+      "owner": "joint",
+      "phase": "discovery",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "Порядок локального пилота",
+          "path": "docs/operations/restaurant-pilot-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "Кассиры проходят сборку заказа, модификаторы, отмену и смену по мокапу.",
+        "Владелец фиксирует принятые экраны и замечания."
+      ],
+      "nextAction": "Получить макет владельца и провести согласование типовых сценариев.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Мокап кассы и замечания кассиров."
+    },
+    {
+      "id": "pos-foundation-installed",
+      "workstream": "pos",
+      "title": "Установить базовую кассу и локальный сервер",
+      "summary": "На физическом Windows подтверждены POS 0.1.0, edge001-009 и службы PostgreSQL/edge. Принятие полного рабочего цикла ещё не выполнено.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "two windows workstations",
+          "path": "docs/operations/two-windows-workstations.md"
+        }
+      ],
+      "acceptance": [
+        "Меню открывается, службы перезапускаются, локальная БД доступна с ограниченными правами."
+      ],
+      "nextAction": "После согласования дизайна обновить до подготовленной версии.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "pos-client-upgrade",
+      "workstream": "pos",
+      "title": "Подготовить кассу 0.3: меню, смены и полный экран",
+      "summary": "Реализованы фото, поиск, постоянная корзина, модификаторы, часы Алматы, число заказов, открытие/закрытие и нативный полный экран.",
+      "status": "done",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Состав и проверки кассы 0.3",
+          "path": "docs/operations/pos-cashier-upgrade-2026-09-15.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Electron проверен на вход, fullscreen, потерю ответа и восстановление после аварии."
+      ],
+      "nextAction": "Принять UI с кассирами и установить проверенный выпуск.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "pos-unpaid-service",
+      "workstream": "pos",
+      "title": "Передавать тестовый заказ на кухню без оплаты",
+      "summary": "Атомарный операторский режим создаёт заказ и задания кухни. Он не ставит paid, не выпускает чек и не начисляет выручку/Чики.",
+      "status": "done",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["platform-durable-sync"],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "pos kitchen sync",
+          "path": "docs/operations/pos-kitchen-sync.md"
+        }
+      ],
+      "acceptance": [
+        "Один request ID даёт один заказ и один кухонный эффект.",
+        "Неоплаченная сумма не превращается в подтверждённую продажу."
+      ],
+      "nextAction": "Проверить сценарий на двух физических моноблоках после монтажа.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "pos-upgrade",
+      "workstream": "pos",
+      "title": "Обновить кассу и настроить прямой доступ",
+      "summary": "Подготовлены обновления edge009→013 и POS0.3 с сохранением базы/корзины. SSH ещё не включён; физическое обновление не принято.",
+      "status": "paused",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["pos-design", "pos-client-upgrade", "pos-foundation-installed"],
+      "evidence": [
+        {
+          "label": "Порядок локального пилота",
+          "path": "docs/operations/restaurant-pilot-2026-09-16.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "Состав и проверки кассы 0.3",
+          "path": "docs/operations/pos-cashier-upgrade-2026-09-15.md"
+        }
+      ],
+      "acceptance": [
+        "Сохранены существующие данные и неразрешённые команды.",
+        "Подтверждены версии, личный вход, автозапуск и удобный админ-доступ."
+      ],
+      "nextAction": "После приёмки макета завершить обновление кассового моноблока.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "pos-paid-sales",
+      "workstream": "pos",
+      "title": "Принять продажи, отмены и возвраты на кассе",
+      "summary": "После тестового сервиса подключаются настоящие способы расчёта, кассовые операции и фискальные документы.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": [
+        "pos-upgrade",
+        "payments-kaspi-terminal",
+        "fiscal-adapter",
+        "team-cash-discipline"
+      ],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Коммерческое ядро и проверки",
+          "path": "docs/operations/commerce-core.md"
+        },
+        {
+          "label": "Состав и проверки кассы 0.3",
+          "path": "docs/operations/pos-cashier-upgrade-2026-09-15.md"
+        }
+      ],
+      "acceptance": [
+        "Кассир выполняет продажу, отказ, неизвестный исход и возврат без дублей.",
+        "Каждая сумма объяснима банковским/кассовым и фискальным результатом."
+      ],
+      "nextAction": "Пройти сквозные сценарии на целевом оборудовании.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kitchen-routing",
+      "workstream": "kitchen",
+      "title": "Маршруты приготовления, сборки и выдачи",
+      "summary": "Реальные task states, station grants и HTTP-команды проверены в локальном PostgreSQL-контуре. Готовность заказа зависит от обязательных задач.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["platform-foundation"],
+      "evidence": [
+        {
+          "label": "Локальная кухня: протокол и проверки",
+          "path": "docs/operations/lan-kitchen-client.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["AC-12/13: повтор «Готово» и гонки переходов защищены версиями."],
+      "nextAction": "Подключить утверждённые маршруты действующего меню.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kitchen-client",
+      "workstream": "kitchen",
+      "title": "Подготовить Windows-клиент кухни 0.2",
+      "summary": "Есть парольный вход, переключатель назначенных станций и закреплённый LAN HTTPS-сертификат. Пакет ещё не установлен на кухонный моноблок.",
+      "status": "done",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["kitchen-routing"],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "Локальная кухня: протокол и проверки",
+          "path": "docs/operations/lan-kitchen-client.md"
+        },
+        {
+          "label": "two windows workstations",
+          "path": "docs/operations/two-windows-workstations.md"
+        }
+      ],
+      "acceptance": ["TLS/роли, переключение станций и настоящий logout проверены на стенде."],
+      "nextAction": "Установить клиент после завершения кассового узла.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kitchen-install",
+      "workstream": "kitchen",
+      "title": "Установить кухню и связать два моноблока",
+      "summary": "Нужен фактический LAN-маршрут Wi-Fi/Ethernet, pinned HTTPS и назначение сотрудников. Монтаж следует после согласованной кассы.",
+      "status": "paused",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["pos-upgrade", "kitchen-client"],
+      "evidence": [
+        {
+          "label": "Порядок локального пилота",
+          "path": "docs/operations/restaurant-pilot-2026-09-16.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Кассовый заказ проходит приготовление, сборку и выдачу на двух устройствах.",
+        "Потеря сети отображается без потери уже принятых команд."
+      ],
+      "nextAction": "Настроить LAN gateway, роли и пройти пилотный заказ.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kitchen-live-acceptance",
+      "workstream": "kitchen",
+      "title": "Проверить кухню в рабочем темпе",
+      "summary": "Полный цикл состава/комбо, приоритетов и отмен требуется принять с кухней на фактических станциях.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["kitchen-install", "catalog-availability"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Правильный состав каждой станции сверяется до выдачи.",
+        "Отмена готовящегося заказа не возвращает продукты автоматически на склад."
+      ],
+      "nextAction": "Провести сценарии кухни и сборки по данным рабочей смены.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "display-ui",
+      "workstream": "display",
+      "title": "Табло «Готовится / Готово»",
+      "summary": "Web-табло выпущено по исходному макету в TEST-контуре; LAN-клиент показывает реальные номера/статусы без персональных данных.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Выпуск табло по макету",
+          "path": "docs/operations/deployments/2026-09-08-operations-display.md"
+        },
+        {
+          "label": "Локальная кухня: протокол и проверки",
+          "path": "docs/operations/lan-kitchen-client.md"
+        }
+      ],
+      "acceptance": ["На гостевом экране только допустимые номера и статусы."],
+      "nextAction": "Подключить физический экран и проверить читаемость в зале.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "display-led",
+      "workstream": "display",
+      "title": "Подключить LED и принять экран в зале",
+      "summary": "Владелец подтвердил: LED пока не подключён. Нужно выбрать фактический выход/устройство, полноэкранный запуск и восстановление.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["kitchen-install", "display-ui"],
+      "evidence": [
+        {
+          "label": "Порядок локального пилота",
+          "path": "docs/operations/restaurant-pilot-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "Номера читаемы с рабочих расстояний, готовый заказ появляется после сборки.",
+        "После перезапуска экран возвращается к актуальной очереди."
+      ],
+      "nextAction": "Уточнить модель и подключение LED, затем установить вывод.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Доступный LED/телевизор, способ подключения и место установки."
+    },
+    {
+      "id": "kiosk-client",
+      "workstream": "kiosk",
+      "title": "Собрать отдельный iPad-киоск",
+      "summary": "Каталог, модификаторы, корзина и восстановление гостевого TEST-заказа реализованы. TestFlight 0.1.0 (1) обработан, группа пока только владельца.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "kiosk testflight",
+          "path": "docs/operations/kiosk-testflight.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["Внутренняя сборка доступна для проверки на iPad."],
+      "nextAction": "Связать киоск с реальным локальным checkout и терминалом.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-terminal",
+      "workstream": "kiosk",
+      "title": "Связать киоск с выделенным терминалом",
+      "summary": "Совместимость выбранного устройства/SDK с iPadOS и схема суммы/заказа требуют подтверждения банка. Статический QR не заменяет это.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["payments-provider-approval", "kiosk-client"],
+      "evidence": [
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-22: терминал занят одним заказом, сумма и результат не переходят другому клиенту."
+      ],
+      "nextAction": "Получить одобренную схему ресторанного киоска и реализовать адаптер.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Модель терминала, ответ банка о поддержке киоска/iPadOS и тестовый доступ."
+    },
+    {
+      "id": "kiosk-privacy",
+      "workstream": "kiosk",
+      "title": "Гостевой checkout и безопасный idle reset",
+      "summary": "Нужен сквозной локальный заказ с реальным расчётом; после ухода гостя скрываются данные, но не теряется неопределённая оплата.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["kiosk-terminal", "catalog-unified", "fiscal-adapter"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "ipad kiosk lockdown",
+          "path": "docs/operations/ipad-kiosk-lockdown.md"
+        }
+      ],
+      "acceptance": ["AC-20/21: чужой телефон не раскрывает кошелёк, idle не теряет платёж."],
+      "nextAction": "Проверить гостевой цикл, claims и сброс на настоящем iPad.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-lockdown",
+      "workstream": "kiosk",
+      "title": "Закрепить ресторанный iPad в режиме киоска",
+      "summary": "Инструкция supervised/MDM AppLock подготовлена. Полноэкранный интерфейс не запрещает выход; ресторанное применение ещё не выполнено.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["kiosk-privacy"],
+      "evidence": [
+        {
+          "label": "ipad kiosk lockdown",
+          "path": "docs/operations/ipad-kiosk-lockdown.md"
+        },
+        {
+          "label": "kiosk testflight",
+          "path": "docs/operations/kiosk-testflight.md"
+        }
+      ],
+      "acceptance": [
+        "Из киоска нельзя выйти обычному гостю; есть контролируемое восстановление администратором."
+      ],
+      "nextAction": "Настроить supervision/MDM и проверить перезагрузку.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Ресторанный iPad, решение по MDM и ответственный за управление устройствами."
+    },
+    {
+      "id": "payments-core",
+      "workstream": "payments",
+      "title": "Ядро платежей, возвратов и неизвестных исходов",
+      "summary": "Денежные состояния, частичные возвраты и durable outbox проверены PostgreSQL. Реальные банковские адаптеры этим не подтверждены.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["platform-foundation"],
+      "evidence": [
+        {
+          "label": "Коммерческое ядро и проверки",
+          "path": "docs/operations/commerce-core.md"
+        }
+      ],
+      "acceptance": [
+        "AC-04-10: повтор не добавляет финансовый эффект, unknown блокирует слепую новую попытку."
+      ],
+      "nextAction": "Подключить согласованные банковские протоколы к доверенным портам.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "payments-provider-approval",
+      "workstream": "payments",
+      "title": "Получить банковские решения и тестовые доступы",
+      "summary": "Kaspi на точке, мобильный Kaspi и карточный/Apple Pay эквайринг согласуются по отдельным каналам. Провайдер mobile ещё не выбран.",
+      "status": "blocked",
+      "owner": "customer",
+      "phase": "discovery",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Получены действующие договоры, поддерживаемые сценарии, модели и sandbox/API-документы."
+      ],
+      "nextAction": "Передать подготовленные заявки банкам и выбрать эквайера.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Контакты банка, действующие договоры/терминалы, решение по эквайеру и ответы на заявки."
+    },
+    {
+      "id": "payments-kaspi-terminal",
+      "workstream": "payments",
+      "title": "Kaspi Smart POS на кассе",
+      "summary": "Нужно реализовать подтверждённый LAN-протокол реального терминала: create/status/cancel/refund и восстановление неизвестного результата.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["payments-core", "payments-provider-approval"],
+      "evidence": [
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "Сумма/заказ подтверждаются доверенным адаптером, не кнопкой кассира.",
+        "Одновременные клиенты не получают один терминальный сеанс."
+      ],
+      "nextAction": "Проверить конкретную модель на стенде, затем встроить в POS.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "payments-kaspi-mobile",
+      "workstream": "payments",
+      "title": "Kaspi.kz в мобильном приложении",
+      "summary": "Требуется банковский канал с привязкой суммы и заказа, переходом в Kaspi и серверным подтверждением. Возможность ещё не подтверждена договором.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["payments-core", "payments-provider-approval"],
+      "evidence": [
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "mobile payment design",
+          "path": "docs/operations/mobile-payment-design.md"
+        }
+      ],
+      "acceptance": [
+        "Возврат/закрытие приложения не теряет исходный заказ.",
+        "Callback/poll/retry приводят к единственному подтверждённому результату."
+      ],
+      "nextAction": "Получить разрешённый remote API и реализовать сквозной адаптер.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "payments-applepay",
+      "workstream": "payments",
+      "title": "Apple Pay на iPhone",
+      "summary": "Обязательная часть mobile по решению владельца 16 сентября. Нужны выбранный эквайер, отдельная активация и безопасная серверная инициализация.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["payments-core", "payments-provider-approval"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-39: оплата, отмена, закрытие приложения и повтор банковского события дают один результат."
+      ],
+      "nextAction": "Активировать Apple Pay у выбранного эквайера и интегрировать поддерживаемый SDK.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "payments-cards",
+      "workstream": "payments",
+      "title": "Visa/Mastercard: ввод и сохранение карты",
+      "summary": "Обязателен ручной ввод поддерживаемых карт через форму/SDK эквайера с 3-D Secure. Сохранение - по согласию и только провайдерским токеном.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["payments-core", "payments-provider-approval"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-40: успех, отказ, 3-D Secure, timeout и возврат связаны с правильным заказом.",
+        "AC-41: PAN/CVV не сохраняются у нас; токен принадлежит одному клиенту и удаляется."
+      ],
+      "nextAction": "Выбрать защищённый SDK и проверить карточные сценарии.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "payments-reconcile",
+      "workstream": "payments",
+      "title": "Ежедневная сверка всех способов оплаты",
+      "summary": "Нужно сопоставлять факты банка, заказа, возврата, ККМ и Чиков. Наличие внутренних сумм не равно банковской выписке.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": [
+        "payments-kaspi-terminal",
+        "payments-kaspi-mobile",
+        "payments-applepay",
+        "payments-cards",
+        "fiscal-adapter"
+      ],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Коммерческое ядро и проверки",
+          "path": "docs/operations/commerce-core.md"
+        },
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        }
+      ],
+      "acceptance": [
+        "AC-35: у каждой суммы есть объяснение; необработанные расхождения видны и назначены ответственному."
+      ],
+      "nextAction": "Утвердить формы сверки с бухгалтером и проверить двойные/поздние операции.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "fiscal-choice",
+      "workstream": "fiscal",
+      "title": "Выбрать ККМ и подтвердить действующую схему",
+      "summary": "WOFD и сведения о существующих кассах получены. Конкретные Webkassa/reKassa/API, налоговые настройки и исполнитель чека ещё не подтверждены.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "discovery",
+      "dependsOn": ["iiko-audit"],
+      "evidence": [
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "restaurant equipment",
+          "path": "docs/operations/restaurant-equipment.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Бухгалтер и поставщик подтвердили зарегистрированное решение, налоги и допустимые режимы."
+      ],
+      "nextAction": "Сверить действующие привязки и выбрать поддерживаемый адаптер.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Модель/сервис ККМ, договорный контакт, налоговые группы и доступ к тестовому контуру."
+    },
+    {
+      "id": "fiscal-adapter",
+      "workstream": "fiscal",
+      "title": "Реализовать чек, возврат и повторную печать",
+      "summary": "В ядре есть отдельный fiscal intent. Нужен реальный формат поставщика, проверка статуса исходного документа и товарных частичных возвратов.",
+      "status": "blocked",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["fiscal-choice", "payments-core"],
+      "evidence": [
+        {
+          "label": "Коммерческое ядро и проверки",
+          "path": "docs/operations/commerce-core.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "AC-08/09/10: unknown ККМ не вызывает повтор оплаты или второй чек.",
+        "Без бумаги повторяется печать уже выпущенного документа."
+      ],
+      "nextAction": "Реализовать адаптер по выданной документации и пройти sandbox.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "fiscal-offline",
+      "workstream": "fiscal",
+      "title": "Принять фискальные смены и работу без WAN",
+      "summary": "Законный режим при недоступности банка/ККМ/ОФД проверяется отдельно от работоспособности локальной кухни.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["fiscal-adapter"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "03 offline and reliability",
+          "path": "docs/03-offline-and-reliability.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "Зафиксированы допустимые действия кассира, лимиты и восстановление связи.",
+        "Открытие/закрытие фискальной смены подтверждено устройством или сервисом."
+      ],
+      "nextAction": "Провести аппаратные проверки с поставщиком и бухгалтером.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "fiscal-live",
+      "workstream": "fiscal",
+      "title": "Принять чеки и возвраты на рабочей точке",
+      "summary": "Production-фискализация не включена и не подтверждена. Нужен согласованный контрольный цикл с правильными регистрационными привязками.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "launch",
+      "dependsOn": ["fiscal-offline", "pos-paid-sales"],
+      "evidence": [
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "Продажа, полный/частичный возврат и сверка приняты бухгалтером.",
+        "Для каждой операции один исполнитель фискализации."
+      ],
+      "nextAction": "Провести согласованные контрольные операции перед переключением ресторана.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "backoffice-ui-core",
+      "workstream": "backoffice",
+      "title": "15 разделов бэк-офиса по макету",
+      "summary": "UI и scoped PostgreSQL-операции реализованы: заказы, каталог, документы, контент, устройства и аудит. Последний BO-02 пока не развёрнут на VPS.",
+      "status": "done",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": ["Реальные browser/HTTP/DB проверки покрывают права, повторы и все разделы."],
+      "nextAction": "Развернуть принятый выпуск и закрыть оставшиеся функции §4.6.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "backoffice-config-delivery",
+      "workstream": "backoffice",
+      "title": "Доставлять планы станций на edge",
+      "summary": "Cloud сохраняет версии/намерение публикации, но worker/lease/receipt плана станций ещё не реализованы.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["backoffice-ui-core", "catalog-unified"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        }
+      ],
+      "acceptance": [
+        "Бэк-офис показывает подтверждённую edge-версию, а не только публикацию в cloud."
+      ],
+      "nextAction": "Реализовать доставку конфигурации и обработку несовместимости.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "backoffice-release",
+      "workstream": "backoffice",
+      "title": "Развернуть и принять управление рестораном",
+      "summary": "Нужны реальные назначенные роли, доступ управляющего, актуальный поток заказов и проверка всех разрешённых операций после обновления VPS.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["backoffice-ui-core", "backoffice-config-delivery", "platform-pilot-deploy"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Проверенный план обновления VPS",
+          "path": "docs/operations/pos-pilot-release.md"
+        }
+      ],
+      "acceptance": [
+        "Менеджер видит фактические заказы/статусы своей точки.",
+        "Чужая точка, отозванное устройство и повтор неизвестной команды обработаны безопасно."
+      ],
+      "nextAction": "Проверить сценарии управляющего на отдельной среде, затем принять выпуск.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "inventory-documents",
+      "workstream": "inventory",
+      "title": "Реализовать базовые складские документы",
+      "summary": "Ингредиенты, техкарты, приёмка, списание, инвентаризация и производство полуфабрикатов имеют реальные PostgreSQL-команды.",
+      "status": "done",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Повтор/конфликт/ошибка аудита не создают двойного движения.",
+        "История документа и закреплённая норма заказа не переписываются."
+      ],
+      "nextAction": "Сверить правила и реальные нормы ресторана.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "inventory-norms",
+      "workstream": "inventory",
+      "title": "Утвердить нормы, комбо и производственный учёт",
+      "summary": "Точные нормы вариантов/комбо и масштаб дробных единиц требуют данных и доработки. Без норм списание должно оставаться заблокированным.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["inventory-documents", "iiko-audit"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "AC-29: поступление, производство, продажа, потери и инвентаризация трассируются до документов."
+      ],
+      "nextAction": "Импортировать техкарты и сверить контрольные блюда с технологом.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Техкарты, полуфабрикаты, выходы/потери, единицы и принятие технологом."
+    },
+    {
+      "id": "inventory-procurement",
+      "workstream": "inventory",
+      "title": "Закупки, поставщики и перемещения",
+      "summary": "Закрыть используемые рестораном функции закупок и движения запасов. Полная автоматизация и межточечный объём уточняются по iiko.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["inventory-norms", "iiko-audit"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Утверждённый набор закупочных/складских документов заменяет используемый процесс iiko.",
+        "Начальные и конечные остатки сверены."
+      ],
+      "nextAction": "Зафиксировать матрицу нужных документов и реализовать отсутствующие операции.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "team-passwords",
+      "workstream": "team",
+      "title": "Личные пароли, роли и станции сотрудников",
+      "summary": "Scrypt, лимиты, отзыв и локальные роли проверены PostgreSQL/HTTP. Пароли на физическом Windows ещё не заданы.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "two windows workstations",
+          "path": "docs/operations/two-windows-workstations.md"
+        }
+      ],
+      "acceptance": [
+        "AC-25: сотрудник не получает чужую точку/станцию; logout и reset отзывают доступ."
+      ],
+      "nextAction": "Назначить реальных сотрудников после согласования макета.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "team-cash-discipline",
+      "workstream": "team",
+      "title": "Кассовая дисциплина и кадровые процессы",
+      "summary": "Обычные POS-смены и управленческий журнал существуют. Внесение/выемка, расхождения наличных и используемый кадровый учёт требуют завершения.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["team-passwords", "iiko-audit", "pos-client-upgrade"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "AC-30: закрытие не скрывает незавершённый заказ или расхождение.",
+        "Матрица прав и требуемые кадровые/расчётные операции приняты."
+      ],
+      "nextAction": "Утвердить кассовые правила и реализовать отсутствующие операции.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "analytics-core",
+      "workstream": "analytics",
+      "title": "Реальные операционные показатели и CSV",
+      "summary": "Бэк-офис считает подтверждённые суммы и периоды Алматы. Списки ограничены, CSV не заменяет полный архив или банковскую выписку.",
+      "status": "done",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        }
+      ],
+      "acceptance": [
+        "Итоги периода не считаются по обрезанному списку и не выдают оборот за прибыль."
+      ],
+      "nextAction": "Добавить полноценный архив и требуемые бухгалтерские отчёты.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "analytics-full",
+      "workstream": "analytics",
+      "title": "Архив, аналитика и бухгалтерская выгрузка",
+      "summary": "Нужны серверная пагинация, фоновые выгрузки, длительности кухни и согласованный 1С/бухгалтерский формат.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["analytics-core", "payments-reconcile", "inventory-norms"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Бухгалтер принимает контрольную выгрузку.",
+        "Архив полон, метрики кухни и каналов сверяются с исходными событиями."
+      ],
+      "nextAction": "Утвердить образцы отчётов и реализовать недостающий расчёт/экспорт.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Используемая бухгалтерская система, формат обмена и контрольные отчёты."
+    },
+    {
+      "id": "loyalty-ledger",
+      "workstream": "loyalty",
+      "title": "Реализовать серверный кошелёк Чиков",
+      "summary": "PostgreSQL-ядро содержит ledger, резервы, списания, возвраты, долг и истечение. Программа не активируется автоматически.",
+      "status": "done",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Ядро и границы программы Чиков",
+          "path": "docs/operations/loyalty-core.md"
+        }
+      ],
+      "acceptance": [
+        "22 PostgreSQL и 3 unit сценария покрыли двойную трату, повторы, возвраты и expiry."
+      ],
+      "nextAction": "Утвердить экономику и соединить финансовые события с кошельком.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "loyalty-rules",
+      "workstream": "loyalty",
+      "title": "Утвердить экономику Чиков и уровни",
+      "summary": "Дизайн шести алматинских вершин есть; проценты, подарки и пороги из макетов не являются действующими правилами.",
+      "status": "blocked",
+      "owner": "customer",
+      "phase": "discovery",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Ядро и границы программы Чиков",
+          "path": "docs/operations/loyalty-core.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Версия правил задаёт начисление, стоимость Чика, списание, срок, возвраты и бюджет наград."
+      ],
+      "nextAction": "Принять таблицу правил с владельцем и бухгалтером.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Правила Чиков, уровни, подарки, лимиты и бюджет программы."
+    },
+    {
+      "id": "loyalty-integration",
+      "workstream": "loyalty",
+      "title": "Подключить Чики к оплате, выдаче и возвратам",
+      "summary": "HTTP кошелька, история, durable worker финансовых событий и backoffice-активация/коррекции ещё не подключены к реальным клиентам.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": [
+        "loyalty-ledger",
+        "loyalty-rules",
+        "identity-core",
+        "payments-core",
+        "kitchen-routing"
+      ],
+      "evidence": [
+        {
+          "label": "Ядро и границы программы Чиков",
+          "path": "docs/operations/loyalty-core.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-11/14/19: одна выдача даёт одно начисление, клиент не подделывает handoff, конкурирующие резервы не перерасходуют баланс."
+      ],
+      "nextAction": "Реализовать доверенный inbox, серверный eligible amount и customer API.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "loyalty-program-acceptance",
+      "workstream": "loyalty",
+      "title": "Принять Чики во всех каналах",
+      "summary": "Нужны подтверждение владельца киоскового кошелька, общий баланс сети и полная сверка с возвратами/удалением клиента.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["loyalty-integration", "kiosk-privacy", "mobile-live-checkout"],
+      "evidence": [
+        {
+          "label": "Ядро и границы программы Чиков",
+          "path": "docs/operations/loyalty-core.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "Нельзя получить чужую историю или списать бонусы по одному введённому телефону.",
+        "Баланс, резервы и ledger объяснимы после выдачи/частичных возвратов."
+      ],
+      "nextAction": "Провести пользовательские сценарии и активировать только принятую версию правил.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "games-local",
+      "workstream": "games",
+      "title": "PICK RUN, PICK MAN и PICK BLOCKS",
+      "summary": "Локальные брендированные игры и обложки реализованы. PICK MAN использует персонажа/еду, BLOCKS управляется пальцами; серверные награды не включены.",
+      "status": "done",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        },
+        {
+          "label": "pick blocks",
+          "path": "docs/operations/pick-blocks.md"
+        },
+        {
+          "label": "pick man",
+          "path": "docs/operations/pick-man.md"
+        }
+      ],
+      "acceptance": [
+        "Вход, управление, пауза, сохранение/восстановление и малые экраны проверены в browser."
+      ],
+      "nextAction": "Принять плавность/дизайн на физическом iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "games-server",
+      "workstream": "games",
+      "title": "Серверные игровые сессии и защита наград",
+      "summary": "Расписание доступности есть; лимиты попыток и reward validator ещё не действуют. Готовый score клиента не может выдавать деньги или Чики.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["games-local", "loyalty-integration"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-26: повтор завершения, завышенный score и несколько устройств не дают лишнюю награду."
+      ],
+      "nextAction": "Реализовать сессии, проверяемые результаты, лимиты и журнал наград.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "games-missions",
+      "workstream": "games",
+      "title": "Миссии, события и принятая игра релиза",
+      "summary": "События оформлены, миссии пока «Скоро». В основной релиз входит минимум одна проверенная игра и базовые миссии с согласованной экономикой.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["games-server", "loyalty-rules"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Техническое задание",
+          "path": "docs/01-technical-spec.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Каждая миссия имеет серверный факт выполнения, бюджет и однократную награду.",
+        "Владелец принял игру на целевом устройстве."
+      ],
+      "nextAction": "Выбрать игру релиза и утвердить базовый набор миссий.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "crm-content",
+      "workstream": "crm",
+      "title": "Публикации, гости, обращения и подготовка кампаний",
+      "summary": "Бэк-офис хранит реальные промо, обращения и операторские отзывы; mobile читает опубликованный контент. Кампания не имитирует отправку push.",
+      "status": "done",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Подтверждённое состояние проекта",
+          "path": "docs/project-status.md"
+        }
+      ],
+      "acceptance": [
+        "Контент ограничен каналом/расписанием; источник отзыва и согласие гостя видны."
+      ],
+      "nextAction": "Подключить провайдер доставки и принятые коммуникационные правила.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "crm-push",
+      "workstream": "crm",
+      "title": "Отправлять push с согласиями и лимитами",
+      "summary": "APNs/FCM, lifecycle токенов, дедупликация, частотные лимиты и исключение opt-out ещё требуют интеграции.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["crm-content", "identity-privacy"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "Тестовая кампания доходит до разрешённых устройств один раз.",
+        "Отзыв согласия исключает гостя из новых кампаний."
+      ],
+      "nextAction": "Подключить provider tokens, worker и ограниченную тестовую кампанию.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "crm-service",
+      "workstream": "crm",
+      "title": "Довести поддержку гостей и внешние отзывы",
+      "summary": "Для полного процесса требуются уведомления, вложения, SLA и разрешённые подключения внешних источников; доступов к ним пока нет.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["crm-content", "iiko-audit"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "Обращение проходит от гостя до принятой резолюции с ответственным.",
+        "Внешний отзыв появляется только из разрешённого источника."
+      ],
+      "nextAction": "Согласовать каналы, сроки ответа и фактический объём внешних интеграций.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "yandex-discovery",
+      "workstream": "yandex",
+      "title": "Выяснить действующий маршрут Яндекс Еды",
+      "summary": "Заказы Яндекса уже поступают в iiko. Нужны внешний restaurant ID, модуль/партнёр, текущие меню/стопы/статусы и условия переключения.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "discovery",
+      "dependsOn": ["iiko-access"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": ["Текущий владелец заказа и контрактные ограничения документированы."],
+      "nextAction": "Обследовать iiko и получить ответ действующего менеджера Яндекса.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Контакт менеджера Яндекс Еды, действующий договор и доступные настройки интеграции."
+    },
+    {
+      "id": "yandex-adapter",
+      "workstream": "yandex",
+      "title": "Прямой адаптер Яндекс Еды в PickChick",
+      "summary": "Нужно сопоставление меню/модификаторов, внешних ID, стоп-листов, подтверждений, отмен и статусов по выданному контракту.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["yandex-discovery", "catalog-unified", "payments-core", "kitchen-routing"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": ["AC-23: new/duplicate/cancel/change/status retry дают один внешний заказ."],
+      "nextAction": "Реализовать контрактные проверки и воспроизведение обезличенных заказов.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "yandex-cutover",
+      "workstream": "yandex",
+      "title": "Переключить Яндекс с iiko без дублей",
+      "summary": "Действующая связка сохраняется до согласованной замены. Регистрация ресторанов заново не требуется по умолчанию.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "launch",
+      "dependsOn": ["yandex-adapter", "launch-uat"],
+      "evidence": [
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-24: активные заказы сохраняют владельца, новых получает один обработчик.",
+        "Нет двойного приготовления или фискального документа."
+      ],
+      "nextAction": "Согласовать окно, контрольный заказ и порядок отката с партнёром.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "launch-offline",
+      "workstream": "launch",
+      "title": "Пройти 8 часов без WAN и восстановление",
+      "summary": "Локальные отказные тесты уже есть, но ресторанный цикл на двух моноблоках при длительной потере WAN ещё не принят.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["platform-pilot-deploy", "kitchen-install", "kiosk-privacy", "fiscal-offline"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "03 offline and reliability",
+          "path": "docs/03-offline-and-reliability.md"
+        },
+        {
+          "label": "Порядок локального пилота",
+          "path": "docs/operations/restaurant-pilot-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "AC-15-18: все разрешённые операции сохранены, 10000 событий сходятся без дублей.",
+        "Потеря WAN и самой LAN различимы персоналу."
+      ],
+      "nextAction": "Провести контролируемые сетевые/процессные аварии на выделенном стенде.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "launch-load-security",
+      "workstream": "launch",
+      "title": "Закрыть нагрузку, безопасность и backup gate",
+      "summary": "Полный gate включает 20 точек, длительный поток, reconnect, RBAC, Redis/DB/edge отказы и измеренные SLO/RPO/RTO.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "acceptance",
+      "dependsOn": [
+        "platform-load-baseline",
+        "platform-monitoring",
+        "backoffice-release",
+        "mobile-live-checkout"
+      ],
+      "evidence": [
+        {
+          "label": "Полная нагрузочная приёмка",
+          "path": "docs/operations/capacity-runbook.md"
+        },
+        {
+          "label": "03 offline and reliability",
+          "path": "docs/03-offline-and-reliability.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        }
+      ],
+      "acceptance": [
+        "AC-25/28/33/34: подтверждены изоляция, пиковый поток, восстановление и вторая точка.",
+        "Нет неустранённых blocker/critical defects."
+      ],
+      "nextAction": "Собрать release candidate и выполнить полную матрицу испытаний.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "launch-stores",
+      "workstream": "launch",
+      "title": "Опубликовать приложение для клиентов",
+      "summary": "TestFlight подтверждает только внутреннюю доставку. Для публичного запуска нужны актуальные iOS/Android релизы, store metadata/privacy и review.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["mobile-device-acceptance", "identity-privacy"],
+      "evidence": [
+        {
+          "label": "mobile testflight",
+          "path": "docs/operations/mobile-testflight.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Что требуется от заказчика",
+          "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        }
+      ],
+      "acceptance": [
+        "Приложение доступно клиентам в App Store и Google Play в согласованном регионе."
+      ],
+      "nextAction": "Подготовить карточки магазинов, review-доступ и отправить принятые сборки.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Материалы магазинов, контакт поддержки и утверждённые документы."
+    },
+    {
+      "id": "launch-uat",
+      "workstream": "launch",
+      "title": "Обучить сотрудников и принять сценарии",
+      "summary": "Кассиры, кухня, управляющий и бухгалтер должны пройти сценарии без разработчика. Один показ интерфейса не закрывает UAT.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": [
+        "pos-paid-sales",
+        "kitchen-live-acceptance",
+        "display-led",
+        "backoffice-release",
+        "analytics-full",
+        "loyalty-program-acceptance",
+        "games-missions",
+        "launch-offline",
+        "launch-load-security"
+      ],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Сотрудники выполняют согласованные рабочие и аварийные сценарии.",
+        "У каждого дефекта есть приоритет, ответственный и проверка исправления."
+      ],
+      "nextAction": "Согласовать расписание UAT и провести приёмку кандидата релиза.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "launch-pilot",
+      "workstream": "launch",
+      "title": "Пройти 7-10 реальных смен и ежедневную сверку",
+      "summary": "После переключения нужен контролируемый пилот с наблюдением, понятным правом остановки и объяснимыми деньгами/остатками/Чиками.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "launch",
+      "dependsOn": ["iiko-cutover", "launch-stores", "crm-push"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Нет необработанных финансовых расхождений и потерь заказов.",
+        "Пилотные смены и устранение дефектов подтверждены протоколами."
+      ],
+      "nextAction": "Назначить календарь пилота и ответственных за каждую смену.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "launch-handover",
+      "workstream": "launch",
+      "title": "Передать систему и закрыть запуск",
+      "summary": "Итог - стабильная работа принятых функций без скрытой зависимости от iiko, переданные доступы/исходники и работающая поддержка.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "launch",
+      "dependsOn": ["launch-pilot"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "План обследования и перехода с iiko",
+          "path": "docs/operations/iiko-replacement-discovery.md"
+        }
+      ],
+      "acceptance": [
+        "Gate F: акт приёмки, инструкции, резервное восстановление и on-call приняты.",
+        "Границы оставшегося архива iiko и дальнейшего развития описаны."
+      ],
+      "nextAction": "Завершить повторную приёмку и передать эксплуатационный комплект.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "growth-next",
+      "workstream": "project",
+      "title": "Планировать развитие после запуска",
+      "summary": "Новые точки, дополнительные игры, рефералы, расширенная CRM и полная складская автоматизация - предложенные дальнейшие итерации.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "growth",
+      "dependsOn": ["launch-handover"],
+      "evidence": [
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Техническое задание",
+          "path": "docs/01-technical-spec.md"
+        }
+      ],
+      "acceptance": ["Приоритеты опираются на метрики и отдельное согласование ресурсов/сроков."],
+      "nextAction": "После стабильного пилота принять следующий квартальный план.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    }
+  ]
+}
