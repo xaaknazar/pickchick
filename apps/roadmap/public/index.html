@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#171918" />
+    <title>Пульт проекта · PickChick</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Перейти к содержимому</a>
+    <div id="app" aria-busy="true">
+      <div class="boot">
+        <span class="brand-mark">P<span>C</span></span>
+        <p>Открываем пульт проекта…</p>
+      </div>
+    </div>
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <dialog id="task-dialog" aria-labelledby="task-title"></dialog>
+    <noscript>Для интерактивного пульта проекта нужно включить JavaScript.</noscript>
+  </body>
+</html>
