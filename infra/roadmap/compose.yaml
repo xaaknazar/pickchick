@@ -1,0 +1,47 @@
+name: pickchick-roadmap
+
+services:
+  roadmap:
+    image: node:24.16.0-bookworm-slim@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203
+    container_name: pickchick-roadmap
+    user: '1000:1000'
+    working_dir: /app
+    command: ['node', 'server.mjs']
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    pids_limit: 64
+    mem_limit: 192m
+    cpus: 0.5
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    environment:
+      NODE_ENV: production
+      ROADMAP_DATA_DIR: /data
+      ROADMAP_KEY_FILE: /run/secrets/team-key
+      ROADMAP_ORIGIN: ${ROADMAP_ORIGIN:?Set the public HTTPS origin}
+      ROADMAP_HOST: 0.0.0.0
+      ROADMAP_PORT: '4190'
+    volumes:
+      - '${ROADMAP_APP_DIR:?Set immutable application directory}:/app:ro'
+      - '${ROADMAP_STATE_ROOT:?Set protected state directory}/data:/data:rw'
+      - '${ROADMAP_STATE_ROOT:?Set protected state directory}/secrets/team-key:/run/secrets/team-key:ro'
+    networks: [roadmap_ingress]
+    logging:
+      driver: json-file
+      options: { max-size: '5m', max-file: '2' }
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4190/roadmap/health',{signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+networks:
+  roadmap_ingress:
+    name: pickchick-roadmap_ingress
+    internal: true
