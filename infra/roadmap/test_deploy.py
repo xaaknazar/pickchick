@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('roadmap_deploy', Path(__file__).with_name('remote-deploy.py'))
 deploy = importlib.util.module_from_spec(spec)
@@ -11,6 +12,37 @@ spec.loader.exec_module(deploy)
 
 
 class DeploymentGuards(unittest.TestCase):
+    def test_runtime_port_is_allowed_by_fetch_and_matches_gateway(self):
+        config = Path(__file__).with_name('compose.yaml').read_text()
+        self.assertIn("ROADMAP_PORT: '4192'", config)
+        self.assertIn('127.0.0.1:4192/roadmap/health', config)
+        self.assertIn('pickchick-roadmap:4192', deploy.ROUTE)
+        self.assertNotIn('4190', config + deploy.ROUTE)
+
+    def test_first_install_cleanup_removes_only_stopped_owned_container(self):
+        release = Path('/opt/pickchick-staging/roadmap/releases/' + 'a' * 40)
+        mounts = [{'Destination': '/app', 'Source': str(release / 'apps/roadmap')}]
+        with patch.object(deploy, 'run', side_effect=['container-id', json.dumps(mounts), 'false', 'removed']) as run:
+            deploy.remove_failed_first_container(release)
+            self.assertEqual(run.call_args.args[0], ['docker', 'rm', deploy.SERVICE])
+
+    def test_first_install_cleanup_rejects_unowned_or_running_container(self):
+        release = Path('/opt/pickchick-staging/roadmap/releases/' + 'a' * 40)
+        cases = [
+            ['container-id', json.dumps([{'Destination': '/app', 'Source': '/another-release'}])],
+            ['container-id', json.dumps([{'Destination': '/app', 'Source': str(release / 'apps/roadmap')}]), 'true'],
+        ]
+        for answers in cases:
+            with patch.object(deploy, 'run', side_effect=answers) as run:
+                with self.assertRaises(RuntimeError):
+                    deploy.remove_failed_first_container(release)
+                self.assertFalse(any(call.args[0][:2] == ['docker', 'rm'] for call in run.call_args_list))
+
+    def test_first_install_cleanup_accepts_absent_container(self):
+        with patch.object(deploy, 'run', return_value='') as run:
+            deploy.remove_failed_first_container(Path('/unused'))
+            self.assertEqual(run.call_count, 1)
+
     def test_gateway_extension_preserves_existing_routes(self):
         source = '{\n admin off\n}\n:8080 {\n handle /business { respond unchanged }\n\thandle { respond 404 }\n}\n'
         updated = deploy.add_route(source)

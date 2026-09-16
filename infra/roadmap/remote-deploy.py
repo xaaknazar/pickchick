@@ -34,7 +34,7 @@ ROUTE = MARKER_START + '''\t@roadmap {
 \t}
 \thandle @roadmap {
 \t\theader X-PickChick-Data project
-\t\treverse_proxy pickchick-roadmap:4190 {
+\t\treverse_proxy pickchick-roadmap:4192 {
 \t\t\theader_up -Authorization
 \t\t\theader_up -X-Device-Id
 \t\t\ttransport http {
@@ -91,6 +91,22 @@ def compose(path, env=None):
 
 def sidecar(release):
     return compose(release / 'infra/roadmap/compose.yaml', release / 'roadmap-release.env')
+
+
+def remove_failed_first_container(release):
+    """Remove only this stopped first-install container; retain all files and volumes."""
+    found = run(['docker', 'ps', '-aq', '--filter', 'name=^/' + SERVICE + '$'])
+    if not found:
+        return
+    mounts = json.loads(run(['docker', 'inspect', '--format', '{{json .Mounts}}', SERVICE]))
+    require(any(m.get('Destination') == '/app' and m.get('Source') ==
+                str(release / 'apps/roadmap') for m in mounts),
+            'First-install cleanup refuses a container from another release')
+    require(run(['docker', 'inspect', '--format', '{{.State.Running}}', SERVICE]) == 'false',
+            'First-install cleanup requires a stopped container')
+    # No --force: if something restarted it concurrently, Docker must refuse removal.
+    # No --volumes: review metadata and the team key must survive this rollback.
+    run(['docker', 'rm', SERVICE])
 
 
 def containers():
@@ -314,7 +330,7 @@ def apply(args, package_manifest):
             touched_sidecar = True
             run(sidecar(release) + ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'roadmap'], timeout=180)
             raw = run(['docker', 'exec', SERVICE, 'node', '-e',
-                       "fetch('http://127.0.0.1:4190/roadmap/health').then(async r=>{if(!r.ok)process.exit(1);console.log(await r.text())})"])
+                       "fetch('http://127.0.0.1:4192/roadmap/health').then(async r=>{if(!r.ok)process.exit(1);console.log(await r.text())})"])
             require(json.loads(raw).get('sourceSha') == source_sha, 'Container source SHA mismatch')
             outcome['phase'] = 'switch_gateway'
             switched_gateway = True
@@ -348,6 +364,7 @@ def apply(args, package_manifest):
                         run(sidecar(old_roadmap) + ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'roadmap'], timeout=120)
                     else:
                         run(sidecar(release) + ['stop', '--timeout', '15', 'roadmap'])
+                        remove_failed_first_container(release)
                 if (STATE / 'current').is_symlink() and pointer(STATE / 'current') == release:
                     if old_roadmap:
                         switch(STATE / 'current', old_roadmap)
