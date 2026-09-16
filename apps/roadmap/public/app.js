@@ -15,6 +15,9 @@ const OWNERS = {
   provider: 'Поставщик',
 };
 const RESULTS = { pending: 'Не проверено', passed: 'Пройдено', failed: 'Есть замечания' };
+const pluralRules = new Intl.PluralRules('ru');
+const countLabel = (count, one, few, many) =>
+  `${count} ${{ one, few, many }[pluralRules.select(count)] || many}`;
 const FACTS = {
   implemented: 'Реализовано',
   verified: 'Проверено',
@@ -54,6 +57,11 @@ let deepTaskId;
 let lastTaskTrigger;
 const filters = { search: '', status: '', owner: '', workstream: '', phase: '' };
 
+const visibleChildren = (children) =>
+  children.flat(Infinity).filter((child) => child != null && typeof child !== 'boolean');
+function renderInto(node, ...children) {
+  node.replaceChildren(...visibleChildren(children));
+}
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
@@ -64,9 +72,8 @@ function el(tag, props = {}, ...children) {
     else if (key === 'value') node.value = value;
     else node.setAttribute(key, value);
   }
-  for (const child of children.flat(Infinity))
-    if (child != null && child !== false)
-      node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  for (const child of visibleChildren(children))
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
   return node;
 }
 function icon(name, size = 17) {
@@ -281,7 +288,8 @@ function renderAuth(errorText = '') {
     submit,
     message,
   );
-  app.replaceChildren(
+  renderInto(
+    app,
     el(
       'div',
       { class: 'auth-screen' },
@@ -293,7 +301,7 @@ function renderAuth(errorText = '') {
         el(
           'p',
           {},
-          'От первой строки кода до первого заказа. Видим весь проект и понимаем, какой шаг делать дальше.',
+          'От разработки до запуска собственной системы. Видим весь проект и понимаем, какой шаг делать дальше.',
         ),
       ),
       el('div', { class: 'auth-form-wrap' }, form),
@@ -340,7 +348,8 @@ function renderShell() {
       'text-button',
     ),
   );
-  app.replaceChildren(
+  renderInto(
+    app,
     el(
       'div',
       { class: 'app-shell' },
@@ -392,7 +401,8 @@ function updateSync() {
   const container = $('#sync-status');
   if (!container || !data) return;
   container.className = `connection${online ? '' : ' offline'}`;
-  container.replaceChildren(
+  renderInto(
+    container,
     el('i', { 'aria-hidden': 'true' }),
     el(
       'span',
@@ -424,9 +434,13 @@ async function refresh(initial = false) {
     }
   } catch (error) {
     online = false;
-    if (error.status === 401) renderAuth();
+    if (error.status === 401 && dialog.open) {
+      showSessionRenewal();
+      updateSync();
+    } else if (error.status === 401) renderAuth();
     else if (!data) {
-      app.replaceChildren(
+      renderInto(
+        app,
         el(
           'div',
           { class: 'fatal' },
@@ -552,7 +566,8 @@ function renderPage() {
       'Здесь собраны решения и входные данные, от которых зависят следующие шаги разработки и запуска.',
     ],
   };
-  $('#main').replaceChildren(
+  renderInto(
+    $('#main'),
     view === 'overview' ? hero() : pageHeading(...headings[view]),
     !['overview', 'plan'].includes(view) && filterBar(),
     el('div', { id: 'view-content' }),
@@ -588,7 +603,8 @@ function renderContent() {
   const target = $('#view-content');
   if (!target || !data) return;
   const renderer = { overview: overview, directions, plan, checks, customer }[view];
-  target.replaceChildren(
+  renderInto(
+    target,
     ...renderer()
       .flat(Infinity)
       .filter((item) => item != null && item !== false),
@@ -601,7 +617,7 @@ function hero() {
     el(
       'div',
       {},
-      el('div', { class: 'eyebrow' }, 'PickChick / от идеи до первого заказа'),
+      el('div', { class: 'eyebrow' }, 'PickChick / от разработки до запуска системы'),
       el('h1', {}, 'Большой проект.', el('br'), 'Понятный ', el('span', {}, 'следующий шаг.')),
       el(
         'p',
@@ -617,7 +633,11 @@ function hero() {
           { class: 'pill' },
           data.project?.t0 ? `T0: ${date(data.project.t0)}` : 'T0 пока не назначена',
         ),
-        el('span', { class: 'pill' }, `${data.workstreams.length} направлений`),
+        el(
+          'span',
+          { class: 'pill' },
+          countLabel(data.workstreams.length, 'направление', 'направления', 'направлений'),
+        ),
       ),
     ),
     el(
@@ -720,7 +740,10 @@ function overview() {
   const asks = el(
     'div',
     {},
-    sectionHead('Двигаем вместе', `${waiting.length} открытых запросов`),
+    sectionHead(
+      'Двигаем вместе',
+      countLabel(waiting.length, 'открытый запрос', 'открытых запроса', 'открытых запросов'),
+    ),
     el(
       'div',
       { class: 'panel ask-panel' },
@@ -776,7 +799,11 @@ function overview() {
           el(
             'div',
             { class: 'stream-foot' },
-            el('span', {}, `${tasks.length} задач${active ? ` · ${active} в работе` : ''}`),
+            el(
+              'span',
+              {},
+              `${countLabel(tasks.length, 'задача', 'задачи', 'задач')}${active ? ` · ${active} в работе` : ''}`,
+            ),
             el(
               'span',
               { class: 'status-bar', 'aria-hidden': 'true' },
@@ -940,7 +967,12 @@ function plan() {
               el(
                 'small',
                 {},
-                `${data.tasks.filter((task) => task.phase === phase.id).length} задач`,
+                countLabel(
+                  data.tasks.filter((task) => task.phase === phase.id).length,
+                  'задача',
+                  'задачи',
+                  'задач',
+                ),
               ),
             ),
             el('div', { class: 'phase-track' }, bar),
@@ -995,9 +1027,11 @@ function checks() {
             el(
               'span',
               { class: 'eyebrow' },
-              { design: 'Макет / демонстрация', test: 'Тестовая среда', live: 'Рабочая среда' }[
-                preview.kind
-              ] || 'Среда проверки',
+              {
+                design: 'Макет / демонстрация',
+                test: 'Тестовая среда',
+                live: 'Установленный интерфейс',
+              }[preview.kind] || 'Среда проверки',
             ),
             el('h3', {}, preview.title),
             el('p', {}, preview.description || ''),
@@ -1007,7 +1041,7 @@ function checks() {
       ),
     sectionHead(
       'Журнал проверок',
-      `${tasks.length} задач · результат сохраняется для всей команды`,
+      `${countLabel(tasks.length, 'задача', 'задачи', 'задач')} · результат сохраняется для всей команды`,
     ),
     tasks.length
       ? el(
@@ -1031,7 +1065,7 @@ function checks() {
                   {},
                   result.updatedAt
                     ? `${result.author || 'Автор не указан'} · ${date(result.updatedAt)}${result.note ? ` · ${result.note.slice(0, 100)}` : ''}`
-                    : `${stream(task.workstream)?.title || task.workstream} · ${task.acceptance?.length || 0} критериев приёмки`,
+                    : `${stream(task.workstream)?.title || task.workstream} · ${countLabel(task.acceptance?.length || 0, 'критерий', 'критерия', 'критериев')} приёмки`,
                 ),
               ),
               badge(result.result || 'pending', 'result'),
@@ -1076,6 +1110,95 @@ function customer() {
         )
       : empty(),
   ];
+}
+function showSessionRenewal() {
+  if (!dialog.open || $('#session-renewal', dialog)) return;
+  const key = el('input', {
+    type: 'password',
+    name: 'key',
+    id: 'renew-key',
+    required: '',
+    autocomplete: 'current-password',
+    placeholder: 'Ключ команды',
+  });
+  const message = el(
+    'p',
+    { role: 'status' },
+    'Сессия закончилась. Черновик остаётся в форме. Введите ключ команды, чтобы продолжить.',
+  );
+  const submit = el('button', { type: 'submit', class: 'primary-button' }, 'Войти заново');
+  const copy = button(
+    'Скопировать заметку',
+    async () => {
+      const note = $('[name="note"]', dialog);
+      try {
+        await navigator.clipboard.writeText(note?.value || '');
+        copy.textContent = 'Заметка скопирована';
+      } catch {
+        note?.focus();
+        note?.select();
+      }
+    },
+    'text-button',
+  );
+  const form = el(
+    'form',
+    {
+      id: 'session-renewal',
+      class: 'conflict-box session-renewal',
+      onsubmit: async (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        try {
+          await api('session', { method: 'POST', body: JSON.stringify({ key: key.value }) });
+          key.value = '';
+          form.remove();
+          await refresh();
+          announce('Сессия восстановлена. Черновик сохранён в форме.');
+        } catch {
+          message.textContent =
+            'Не удалось войти. Проверьте ключ и соединение. Черновик остался в форме.';
+          submit.disabled = false;
+        }
+      },
+    },
+    message,
+    el('label', { class: 'field', for: 'renew-key' }, 'Ключ доступа', key),
+    el('div', { class: 'session-actions' }, submit, copy),
+  );
+  $('.detail-body', dialog)?.prepend(form);
+}
+function taskHistory(task) {
+  const entries = (data.state?.history || [])
+    .filter((entry) => entry.taskId === task.id)
+    .sort((a, b) => (b.revision || 0) - (a.revision || 0));
+  return el(
+    'details',
+    { class: 'task-history', id: 'task-history', hidden: entries.length ? null : '' },
+    el('summary', {}, `История отметок (${entries.length})`),
+    el(
+      'div',
+      { class: 'history-list' },
+      entries
+        .slice(0, 20)
+        .map((entry) =>
+          el(
+            'article',
+            {},
+            el('strong', {}, `${entry.author || '-'} · ${date(entry.updatedAt)}`),
+            el(
+              'div',
+              { class: 'detail-meta' },
+              entry.status && badge(entry.status),
+              entry.result && badge(entry.result, 'result'),
+            ),
+            el('p', {}, entry.note || 'Без заметки'),
+          ),
+        ),
+    ),
+    entries.length > 20 &&
+      el('p', { class: 'detail-caption' }, 'Показаны последние 20 отметок по этой задаче.'),
+  );
 }
 function openTask(id, trigger, focusReview = false) {
   const task = taskById(id);
@@ -1180,6 +1303,7 @@ function openTask(id, trigger, focusReview = false) {
         ? el('div', { class: 'evidence-list' }, evidence)
         : el('p', { class: 'detail-summary' }, 'Подтверждающие материалы ещё не добавлены.'),
     ),
+    taskHistory(task),
     reviewForm(task),
   );
   const copy = button(
@@ -1330,6 +1454,13 @@ function reviewForm(task) {
           data.state.reviews ||= {};
           data.state.reviews[task.id] = saved.review;
           data.state.revision = saved.revision;
+          data.state.history ||= [];
+          if (!data.state.history.some((entry) => entry.revision === saved.revision))
+            data.state.history.push({ ...saved.review, taskId: task.id, revision: saved.revision });
+          const oldHistory = $('#task-history', dialog);
+          const newHistory = taskHistory(task);
+          newHistory.open = oldHistory?.open || false;
+          oldHistory?.replaceWith(newHistory);
           expectedVersion = saved.review.version;
           rememberName(payload.author);
           online = true;
@@ -1370,11 +1501,13 @@ function reviewForm(task) {
             conflict.replaceChildren(
               el('div', { class: 'conflict-box', role: 'alert' }, explanation, compare),
             );
-          } else
+          } else {
+            if (error.status === 401) showSessionRenewal();
             message.textContent =
               error.status === 401
-                ? 'Сессия закончилась. Скопируйте свою заметку, затем обновите страницу и войдите снова.'
+                ? 'Сессия закончилась. Черновик сохранён в форме. Войдите заново в блоке в начале карточки.'
                 : 'Не удалось сохранить. Ваши изменения остались в форме. Проверьте связь и повторите попытку.';
+          }
         } finally {
           if (!conflicted) submit.disabled = false;
         }

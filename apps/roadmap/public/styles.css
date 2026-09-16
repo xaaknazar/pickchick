@@ -417,19 +417,19 @@ small {
   background: #94a579;
   margin-right: 6px;
 }
-.map-node:nth-of-type(2) {
+.map-node:nth-child(2) {
   top: 10px;
   left: 1%;
 }
-.map-node:nth-of-type(3) {
+.map-node:nth-child(3) {
   top: 30px;
   right: 0;
 }
-.map-node:nth-of-type(4) {
+.map-node:nth-child(4) {
   bottom: 20px;
   left: 1%;
 }
-.map-node:nth-of-type(5) {
+.map-node:nth-child(5) {
   bottom: 0;
   right: 7%;
 }
@@ -1438,6 +1438,48 @@ dialog::backdrop {
   margin-bottom: 14px;
   font: inherit;
   font-size: 11px;
+}
+.task-history {
+  margin: 23px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffefa;
+  padding: 15px;
+}
+.task-history summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+.history-list article {
+  padding-top: 15px;
+  margin-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.history-list strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+.history-list p {
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.history-list .detail-meta {
+  margin: 10px 0;
+}
+.session-renewal {
+  margin: 0 0 22px;
+}
+.session-renewal .field {
+  margin-top: 14px;
+}
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex-wrap: wrap;
 }
 @media (min-width: 1500px) {
   .main {
