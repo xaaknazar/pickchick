@@ -55,6 +55,7 @@ let lastFetched;
 let loading = false;
 let deepTaskId;
 let lastTaskTrigger;
+let lastTaskTriggerId;
 const filters = { search: '', status: '', owner: '', workstream: '', phase: '' };
 
 const visibleChildren = (children) =>
@@ -673,6 +674,7 @@ function taskLine(task, index) {
     {
       type: 'button',
       class: 'task-line',
+      'data-task-id': task.id,
       onclick: (event) => openTask(task.id, event.currentTarget),
     },
     index != null && el('span', { class: 'task-number' }, String(index + 1).padStart(2, '0')),
@@ -847,6 +849,7 @@ function taskRow(task) {
     {
       type: 'button',
       class: 'task-row',
+      'data-task-id': task.id,
       onclick: (event) => openTask(task.id, event.currentTarget),
     },
     el('span', { class: 'task-row-title' }, task.title, el('small', {}, task.id)),
@@ -1054,6 +1057,7 @@ function checks() {
               {
                 type: 'button',
                 class: 'check-row',
+                'data-task-id': task.id,
                 onclick: (event) => openTask(task.id, event.currentTarget, true),
               },
               el(
@@ -1204,7 +1208,10 @@ function openTask(id, trigger, focusReview = false) {
   const task = taskById(id);
   if (!task) return;
   deepTaskId = id;
-  if (trigger) lastTaskTrigger = trigger;
+  if (trigger) {
+    lastTaskTrigger = trigger;
+    lastTaskTriggerId = id;
+  }
   const [route, query] = location.hash.slice(1).split('?');
   const params = new URLSearchParams(query);
   params.set('task', id);
@@ -1539,7 +1546,10 @@ dialog.addEventListener('close', () => {
   const params = new URLSearchParams(query);
   params.delete('task');
   history.replaceState(null, '', `#${route || view}${params.size ? `?${params}` : ''}`);
-  if (lastTaskTrigger?.isConnected) lastTaskTrigger.focus();
+  const focusTarget = lastTaskTrigger?.isConnected
+    ? lastTaskTrigger
+    : $$('[data-task-id]').find((node) => node.dataset.taskId === lastTaskTriggerId) || $('#main');
+  focusTarget?.focus();
 });
 dialog.addEventListener('click', (event) => {
   if (event.target === dialog) {
