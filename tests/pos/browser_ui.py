@@ -72,6 +72,18 @@ with sync_playwright() as pw:
         assert page.evaluate('window.pinNodes.every(node => node.isConnected)'), 'Clock update recreated PIN screen'
         page.evaluate('Date.now = window.realDateNow')
         pin(page, '2468')
+        for width,height in ((1366,768),(1366,705),(1024,600),(390,844)):
+            page.set_viewport_size({'width':width,'height':height})
+            card=page.locator('.shift-open-card')
+            expect(card).to_be_visible()
+            bounded(page.get_by_role('button',name='Открыть смену',exact=True),width,height)
+            assert card.evaluate('(e)=>e.scrollHeight<=e.clientHeight+1'), 'Opening float form requires scrolling'
+            assert card.bounding_box()['width'] <= 520
+            for key in page.locator('.shift-open-keys [role=button]').all():
+                box=key.bounding_box()
+                assert box['height'] >= 44 and box['width'] >= 44
+            capture(page,f'opening-cash-{width}-{height}.png')
+        page.set_viewport_size({'width':1920,'height':1080})
         page.get_by_role('button', name='Открыть смену', exact=True).click()
         expect(page.get_by_text('КОМБО', exact=True)).to_be_visible()
         for width, height in ((1920,1080),(1366,768),(1280,800),(1024,768),(768,1024),(390,844)):

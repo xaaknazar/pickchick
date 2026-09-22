@@ -164,6 +164,7 @@
         {{ clock }}
       </div>
       <div
+        class="shift-open-card"
         style="
           width: 720px;
           background: #fff;
@@ -172,13 +173,20 @@
           box-shadow: 0 24px 60px rgba(14, 21, 36, 0.1);
         "
       >
-        <div style="font-family: Montserrat, sans-serif; font-weight: 800; font-size: 38px">
+        <div
+          class="shift-open-title"
+          style="font-family: Montserrat, sans-serif; font-weight: 800; font-size: 38px"
+        >
           Открытие кассовой смены
         </div>
-        <div style="margin-top: 6px; font-size: 18px; color: var(--n600)">
+        <div
+          class="shift-open-subtitle"
+          style="margin-top: 6px; font-size: 18px; color: var(--n600)"
+        >
           {{ branchLabel }} · Касса 1 · {{ dateLabel }} · открывает {{ userName }} ({{ userRole }})
         </div>
         <div
+          class="shift-open-label"
           style="
             margin-top: 32px;
             font-size: 15px;
@@ -190,6 +198,7 @@
           НАЛИЧНЫЕ В ЯЩИКЕ НА НАЧАЛО
         </div>
         <div
+          class="shift-open-amount"
           style="
             margin-top: 10px;
             height: 84px;
@@ -207,6 +216,7 @@
           {{ openCashLabel }}
         </div>
         <div
+          class="shift-open-quick"
           style="margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px"
         >
           <sc-for list="{{ openQuick }}" as="q" hint-placeholder-count="4">
@@ -231,6 +241,7 @@
           </sc-for>
         </div>
         <div
+          class="shift-open-keys"
           style="margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px"
         >
           <sc-for list="{{ openKeys }}" as="k" hint-placeholder-count="12">
@@ -243,6 +254,7 @@
           </sc-for>
         </div>
         <div
+          class="shift-open-notice"
           style="margin-top:22px;display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:14px;background:{{ kkmBg }}"
         >
           <div style="width:10px;height:10px;border-radius:5px;background:{{ kkmDot }}"></div>
@@ -250,6 +262,7 @@
         </div>
         <div
           onClick="{{ openShift }}"
+          class="shift-open-submit"
           style="
             margin-top: 22px;
             height: 80px;
