@@ -59,8 +59,18 @@ with sync_playwright() as pw:
             assert footer['y'] >= keypad['y']+keypad['height'], 'PIN footer overlaps keypad'
             capture(page,f'pin-{width}-{height}.png')
         page.set_viewport_size({'width':1920, 'height':1080})
+        page.evaluate("window.pinNodes = [document.querySelector('[data-screen-label=\"A Блокировка\"]'), document.querySelector('.pin-logo img'), document.querySelector('.pin-key')]")
         pin(page, '9999')
         expect(page.get_by_text('Неверный PIN или рабочее место недоступно', exact=True).first).to_be_visible()
+        assert page.evaluate('window.pinNodes.every(node => node.isConnected)'), 'PIN changes recreated the screen or keypad'
+        next_clock = page.evaluate("""() => {
+          window.realDateNow = Date.now;
+          Date.now = () => window.realDateNow() + 60000;
+          return new Date(Date.now()).toLocaleTimeString('ru-RU',{timeZone:'Asia/Almaty',hour:'2-digit',minute:'2-digit'});
+        }""")
+        expect(page.get_by_text('Касса 1 · '+next_clock, exact=True)).to_be_visible()
+        assert page.evaluate('window.pinNodes.every(node => node.isConnected)'), 'Clock update recreated PIN screen'
+        page.evaluate('Date.now = window.realDateNow')
         pin(page, '2468')
         page.get_by_role('button', name='Открыть смену', exact=True).click()
         expect(page.get_by_text('КОМБО', exact=True)).to_be_visible()

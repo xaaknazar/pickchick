@@ -1,17 +1,16 @@
-// Small, inert renderer for the designer's sc-if/sc-for template. No eval, scripts,
-// HTML event attributes, or network runtime. Dynamic text always uses textContent.
+// Inert designer template renderer. Dynamic text is never parsed as HTML.
+// Retain mounted nodes so PIN entry and clock ticks do not restart animations.
 export class TemplateView {
   constructor(template, target) {
     this.template = document.createElement('template');
     this.template.innerHTML = template;
     this.target = target;
+    this.actions = new WeakMap();
   }
   render(values) {
     const focusKey = document.activeElement?.getAttribute('data-focus-key');
-    let focusIndex = 0;
-    const scrolls = [...this.target.querySelectorAll('*')]
-      .filter((e) => e.scrollTop || e.scrollLeft)
-      .map((e) => [e.getAttribute('data-scroll-key'), e.scrollTop, e.scrollLeft]);
+    let focusIndex = 0,
+      scrollIndex = 0;
     const read = (path, scope) =>
       path
         .trim()
@@ -23,75 +22,115 @@ export class TemplateView {
         ? read(match[1], scope)
         : text.replace(/{{\s*([\w.]+)\s*}}/g, (_, p) => String(read(p, scope) ?? ''));
     };
-    let index = 0;
-    const render = (node, scope) => {
+    const children = (node, scope) =>
+      [...node.childNodes].flatMap((child) => describe(child, scope));
+    const describe = (node, scope) => {
       if (node.nodeType === Node.TEXT_NODE)
-        return document.createTextNode(String(val(node.textContent, scope) ?? ''));
-      if (node.nodeType !== Node.ELEMENT_NODE) return document.createDocumentFragment();
+        return [{ text: String(val(node.textContent, scope) ?? '') }];
+      if (node.nodeType !== Node.ELEMENT_NODE) return [];
       const tag = node.tagName.toLowerCase();
-      if (tag === 'script' || tag === 'helmet') return document.createDocumentFragment();
-      if (tag === 'sc-if') {
-        const fragment = document.createDocumentFragment();
-        if (val(node.getAttribute('value') ?? '', scope))
-          for (const c of node.childNodes) fragment.append(render(c, scope));
-        return fragment;
-      }
+      if (tag === 'script' || tag === 'helmet') return [];
+      if (tag === 'sc-if')
+        return val(node.getAttribute('value') ?? '', scope) ? children(node, scope) : [];
       if (tag === 'sc-for') {
-        const fragment = document.createDocumentFragment(),
-          list = val(node.getAttribute('list') ?? '', scope);
-        if (Array.isArray(list))
-          for (const row of list)
-            for (const c of node.childNodes)
-              fragment.append(render(c, { ...scope, [node.getAttribute('as')]: row }));
-        return fragment;
+        const list = val(node.getAttribute('list') ?? '', scope);
+        return Array.isArray(list)
+          ? list.flatMap((row) => children(node, { ...scope, [node.getAttribute('as')]: row }))
+          : [];
       }
-      const element =
-        tag === 'image-slot'
-          ? document.createElement('div')
-          : node.namespaceURI?.includes('svg')
-            ? document.createElementNS('http://www.w3.org/2000/svg', tag)
-            : document.createElement(tag);
+      const attrs = {};
+      let action;
       for (const attr of node.attributes) {
         if (attr.name.startsWith('hint-')) continue;
         const value = val(attr.value, scope);
         if (attr.name.toLowerCase().startsWith('on')) {
           if (attr.name.toLowerCase() === 'onclick' && typeof value === 'function') {
-            element.setAttribute('role', 'button');
-            element.tabIndex = 0;
-            element.setAttribute('data-focus-key', String(focusIndex++));
-            element.addEventListener('click', (event) => {
-              event.stopPropagation();
-              value(event);
-            });
-            element.addEventListener('keydown', (event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                event.stopPropagation();
-                value(event);
-              }
-            });
+            action = value;
+            attrs.role = 'button';
+            attrs.tabindex = '0';
+            attrs['data-focus-key'] = String(focusIndex++);
           }
           continue;
         }
         if (value !== false && value !== undefined && value !== null)
-          element.setAttribute(attr.name, String(value));
+          attrs[attr.name] = String(value);
       }
-      if (element.getAttribute('style')?.includes('overflow'))
-        element.setAttribute('data-scroll-key', String(index++));
-      for (const child of node.childNodes) element.append(render(child, scope));
-      return element;
+      if (attrs.style?.includes('overflow')) attrs['data-scroll-key'] = String(scrollIndex++);
+      return [
+        {
+          tag: tag === 'image-slot' ? 'div' : tag,
+          svg: tag !== 'image-slot' && node.namespaceURI?.includes('svg'),
+          attrs,
+          action,
+          children: children(node, scope),
+        },
+      ];
     };
-    const fragment = document.createDocumentFragment();
-    for (const node of this.template.content.childNodes) fragment.append(render(node, values));
-    this.target.replaceChildren(fragment);
-    if (focusKey)
-      this.target.querySelector(`[data-focus-key="${focusKey}"]`)?.focus({ preventScroll: true });
-    for (const [key, top, left] of scrolls) {
-      const el = this.target.querySelector(`[data-scroll-key="${key}"]`);
-      if (el) {
-        el.scrollTop = top;
-        el.scrollLeft = left;
+    this.patchChildren(this.target, children(this.template.content, values));
+    if (focusKey && !this.target.contains(document.activeElement))
+      this.target
+        .querySelector('[data-focus-key="' + focusKey + '"]')
+        ?.focus({ preventScroll: true });
+  }
+  matches(node, value) {
+    if ('text' in value) return node?.nodeType === Node.TEXT_NODE;
+    return (
+      node?.nodeType === Node.ELEMENT_NODE &&
+      node.tagName.toLowerCase() === value.tag &&
+      Boolean(node.namespaceURI?.includes('svg')) === Boolean(value.svg) &&
+      node.getAttribute('data-screen-label') === (value.attrs['data-screen-label'] ?? null)
+    );
+  }
+  patchChildren(parent, values) {
+    let cursor = parent.firstChild;
+    for (const value of values) {
+      let node = cursor;
+      if (!this.matches(node, value)) {
+        node =
+          'text' in value
+            ? document.createTextNode(value.text)
+            : value.svg
+              ? document.createElementNS('http://www.w3.org/2000/svg', value.tag)
+              : document.createElement(value.tag);
+        if (cursor) {
+          parent.replaceChild(node, cursor);
+        } else parent.append(node);
       }
+      if ('text' in value) {
+        if (node.nodeValue !== value.text) node.nodeValue = value.text;
+      } else {
+        for (const attr of [...node.attributes])
+          if (!(attr.name in value.attrs)) node.removeAttribute(attr.name);
+        for (const [name, text] of Object.entries(value.attrs))
+          if (node.getAttribute(name) !== text) node.setAttribute(name, text);
+        if (value.action) {
+          if (!this.actions.has(node)) {
+            node.onclick = (event) => {
+              event.stopPropagation();
+              this.actions.get(node)?.(event);
+            };
+            node.onkeydown = (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                this.actions.get(node)?.(event);
+              }
+            };
+          }
+          this.actions.set(node, value.action);
+        } else if (this.actions.has(node)) {
+          this.actions.delete(node);
+          node.onclick = null;
+          node.onkeydown = null;
+        }
+        this.patchChildren(node, value.children);
+      }
+      cursor = node.nextSibling;
+    }
+    while (cursor) {
+      const next = cursor.nextSibling;
+      parent.removeChild(cursor);
+      cursor = next;
     }
   }
 }

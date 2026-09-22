@@ -404,8 +404,11 @@ function draw() {
     closePinKeys: pinKeys('closePin', true),
     pinError: signing ? 'Проверяем PIN...' : s.pinErr,
     staffHint: 'Личный PIN выдаёт управляющий. Проверка на локальном сервере.',
-    connLabel:
-      m.operationsAvailable && !m.operationsError ? 'Локальная сеть' : 'Нет связи с кассой',
+    connLabel: !m.actor
+      ? 'Вход по личному PIN'
+      : m.operationsAvailable && !m.operationsError
+        ? 'Локальная сеть'
+        : 'Нет связи с кассой',
     connDot: m.operationsAvailable && !m.operationsError ? 'var(--green)' : 'var(--red)',
     kkmLine: 'ТЕСТ · Оплата и фискальный чек отключены',
     kkmDot: '#F0C240',
