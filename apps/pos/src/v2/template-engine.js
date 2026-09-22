@@ -4,6 +4,10 @@ export class TemplateView {
   constructor(template, target) {
     this.template = document.createElement('template');
     this.template.innerHTML = template;
+    // Responsive rules also support the formatted designer HTML. Whitespace
+    // after declaration separators must not change which breakpoint matches.
+    for (const node of this.template.content.querySelectorAll('[style]'))
+      node.setAttribute('style', node.getAttribute('style').replace(/([:;,])\s+/g, '$1'));
     this.target = target;
     this.actions = new WeakMap();
   }
@@ -47,6 +51,7 @@ export class TemplateView {
           if (attr.name.toLowerCase() === 'onclick' && typeof value === 'function') {
             action = value;
             attrs.role = 'button';
+            if (values.interactionBusy) attrs['aria-disabled'] = 'true';
             attrs.tabindex = '0';
             attrs['data-focus-key'] = String(focusIndex++);
           }

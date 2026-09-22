@@ -728,3 +728,95 @@ button:focus-visible {
 .order-dialog .cash-actions {
   flex-wrap: wrap;
 }
+
+/* Keep the work surface stable during navigation and reserve motion for dialogs. */
+[data-screen-label] {
+  animation: none !important;
+}
+[data-pos] [role='button'] {
+  min-height: 44px;
+  min-width: 44px;
+}
+.modifier-choice {
+  height: auto !important;
+  min-height: 64px !important;
+  padding: 10px 12px;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.modifier-choice > span {
+  flex-shrink: 0;
+}
+.pos-toast {
+  top: 8px;
+  bottom: auto !important;
+  max-width: min(560px, calc(100vw - 32px));
+  min-height: 56px;
+  padding: 8px 16px !important;
+  animation: none !important;
+  pointer-events: none;
+}
+.pos-toast [role='button'] {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+}
+.fullscreen-toggle {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border: 1px solid #ffffff66;
+  border-radius: 12px;
+  background: #ffffff1a;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+.test-mode {
+  pointer-events: none;
+  cursor: default;
+}
+
+.orders-toolbar {
+  flex-wrap: wrap;
+}
+.orders-date {
+  flex: none;
+  white-space: nowrap;
+}
+.orders-empty {
+  padding: 48px 24px;
+  color: #5a6478;
+  text-align: center;
+  font-size: 20px;
+}
+@media (min-width: 1200px) and (max-width: 1500px) {
+  [data-pos] .product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 1500px) {
+  [data-pos] .product-card {
+    min-height: 290px !important;
+  }
+  [data-pos] .product-visual {
+    height: 180px !important;
+  }
+  .product-photo {
+    background-size: cover !important;
+    background-repeat: no-repeat;
+    background-color: #f6f6f6;
+  }
+  [data-pos] .order-table-row {
+    grid-template-columns: 64px 60px 96px 104px minmax(108px, 1fr) 96px 122px 116px 240px !important;
+    min-width: 1202px !important;
+    gap: 8px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+[data-pos] [aria-disabled='true'] {
+  cursor: progress;
+}

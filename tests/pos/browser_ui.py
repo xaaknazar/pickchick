@@ -77,9 +77,22 @@ with sync_playwright() as pw:
         for width, height in ((1920,1080),(1366,768),(1280,800),(1024,768),(768,1024),(390,844)):
             page.set_viewport_size({'width':width, 'height':height})
             bounded(page.get_by_role('button',name='ПЕРЕДАТЬ НА КУХНЮ',exact=True),width,height)
+            if width == 1366:
+                bounded(page.get_by_role('button',name='Полный экран',exact=True),width,height)
+                assert page.locator('.product-grid').evaluate('(e)=>getComputedStyle(e).gridTemplateColumns.split(" ").length') == 4
+                assert page.locator('.product-photo').first.evaluate('(e)=>getComputedStyle(e).backgroundSize') == 'cover'
+                for tile in page.locator('.product-card').all(): bounded(tile,width,height)
             capture(page,f'order-{width}.png')
             page.get_by_role('button',name='Pick Combo').first.click()
             bounded(page.get_by_role('button',name='В заказ · 4 190 ₸',exact=True),width,height)
+            if width == 1366:
+                choices=page.locator('.modifier-choice')
+                assert choices.first.evaluate('(e)=>getComputedStyle(e.parentElement).gridTemplateColumns.split(" ").length') == 3
+                assert choices.first.evaluate('(e)=>parseFloat(getComputedStyle(e).paddingLeft)') >= 10
+                scroll=page.locator('.product-modal > div').nth(1)
+                scroll.evaluate('(e)=>{e.scrollTop=120;window.modifierScroll=e;}')
+                page.locator('.modifier-choice').first.click()
+                assert page.evaluate('window.modifierScroll.isConnected'), 'Modifier tap replaced scroll surface'
             capture(page,f'modifiers-{width}.png')
             page.get_by_role('button',name='✕',exact=True).last.click()
         page.set_viewport_size({'width':1920,'height':1080})
@@ -154,6 +167,17 @@ with sync_playwright() as pw:
         # Close the same shared register shift with a recorded cash discrepancy.
         next_order=page.get_by_role('button',name='Следующий заказ · 8',exact=True)
         if next_order.is_visible():next_order.click()
+        page.set_viewport_size({'width':1366,'height':768})
+        page.get_by_role('button',name='ЗАКАЗЫ',exact=True).click()
+        bounded(page.get_by_role('button',name='Открыть',exact=True).first,1366,768)
+        bounded(page.get_by_role('button',name='Чек',exact=True).first,1366,768)
+        capture(page,'orders-1366.png')
+        page.get_by_role('button',name='СТОП-ЛИСТ',exact=True).click()
+        assert page.locator('[data-screen-label="H Стоп-лист"]').evaluate('(e)=>getComputedStyle(e).animationName') == 'none'
+        for toggle in page.locator('[aria-label^="Доступность"]').all():
+            box=toggle.bounding_box()
+            assert box['width'] >= 44 and box['height'] >= 44
+        page.set_viewport_size({'width':1920,'height':1080})
         page.get_by_role('button',name='Блокировать',exact=True).click()
         pin(page,'2468')
         page.get_by_role('button',name='СМЕНА',exact=True).click()

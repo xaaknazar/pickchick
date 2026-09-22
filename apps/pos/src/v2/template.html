@@ -794,6 +794,7 @@
               <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 20px 20px">
                 <sc-if value="{{ menuReady }}" hint-placeholder-val="{{ false }}">
                   <div
+                    class="product-grid"
                     style="
                       display: grid;
                       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -803,9 +804,11 @@
                     <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="0">
                       <div
                         onClick="{{ t.tap }}"
+                        class="product-card"
                         style="position:relative;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 4px rgba(14,21,36,.05),0 8px 20px rgba(14,21,36,.06);cursor:pointer;opacity:{{ t.opacity }};min-height:300px;display:flex;flex-direction:column"
                       >
                         <div
+                          class="product-visual"
                           style="
                             position: relative;
                             height: 190px;
@@ -823,6 +826,7 @@
                           ></sc-if>
                           <sc-if value="{{ t.img }}" hint-placeholder-val="{{ false }}"
                             ><div
+                              class="product-photo"
                               style="position:absolute;inset:0;background-image:url({{ t.img }});background-size:128% auto;background-position:center"
                             ></div
                           ></sc-if>
@@ -1278,6 +1282,7 @@
                         <sc-for list="{{ drinkOpts }}" as="o" hint-placeholder-count="8">
                           <div
                             onClick="{{ o.pick }}"
+                            class="modifier-choice"
                             style="height:64px;border-radius:12px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};display:flex;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:600;cursor:pointer;opacity:{{ o.opacity }};text-decoration:{{ o.deco }}"
                           >
                             {{ o.label }}<span style="font-size: 14px; opacity: 0.7"
@@ -1335,6 +1340,7 @@
                         <sc-for list="{{ sauceOpts }}" as="o" hint-placeholder-count="4">
                           <div
                             onClick="{{ o.pick }}"
+                            class="modifier-choice"
                             style="height:64px;border-radius:12px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;cursor:pointer;opacity:{{ o.opacity }};text-decoration:{{ o.deco }}"
                           >
                             {{ o.label }}<sc-if value="{{ o.multi }}"
@@ -2100,11 +2106,12 @@
               animation: posFade 0.2s ease both;
             "
           >
-            <div style="display: flex; align-items: center; gap: 12px">
+            <div class="orders-toolbar" style="display: flex; align-items: center; gap: 12px">
               <div style="font-family: Montserrat, sans-serif; font-weight: 800; font-size: 32px">
                 Последние заказы
               </div>
               <div
+                class="orders-date"
                 style="
                   display: flex;
                   align-items: center;
@@ -2216,7 +2223,7 @@
                           color: var(--n600);
                         "
                       >
-                        ВЫРУЧКА · СР. ЧЕК {{ k.avg }}
+                        СУММА · СР. ЗАКАЗ {{ k.avg }}
                       </div>
                     </div>
                   </div>
@@ -2246,6 +2253,7 @@
               "
             >
               <div
+                class="order-table-row"
                 style="
                   position: sticky;
                   top: 0;
@@ -2274,8 +2282,12 @@
                 <div>СТАТУС</div>
                 <div style="text-align: right">ДЕЙСТВИЯ</div>
               </div>
+              <sc-if value="{{ dayEmpty }}"
+                ><div class="orders-empty">Заказов за эту дату пока нет</div></sc-if
+              >
               <sc-for list="{{ dayRows }}" as="r" hint-placeholder-count="8">
                 <div
+                  class="order-table-row"
                   style="display:grid;grid-template-columns:88px 76px 132px 152px minmax(140px,1fr) 124px 148px 136px 318px;gap:12px;padding:14px 22px;border-bottom:1px solid var(--n100);align-items:center;min-height:76px;background:{{ r.rowBg }}"
                 >
                   <div
@@ -2506,7 +2518,7 @@
               </div>
               <div style="flex: 1"></div>
               <div style="font-size: 16px; color: var(--n600)">
-                Изменение видно на всех каналах в течение 3 секунд
+                Изменения действуют на этой точке
               </div>
             </div>
             <div
@@ -5180,6 +5192,9 @@
   <!-- ТОСТ -->
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
     <div
+      class="pos-toast"
+      role="status"
+      aria-live="polite"
       style="
         position: absolute;
         left: 50%;

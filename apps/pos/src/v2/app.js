@@ -371,6 +371,7 @@ function draw() {
     : null;
   if (!m.actor && s.screen !== 'lock') s.screen = 'lock';
   const v = reference.renderVals();
+  v.interactionBusy = Boolean(m.busy || m.pending || m.storageBlocked);
   // The designer module supplies appearance and local view transitions only.
   // All business handlers below use the durable model or explicitly report unavailable integration.
   for (const key of [
@@ -607,7 +608,7 @@ function draw() {
     })(),
     collectLabel: '0 ₸',
     carryLabel: money(String(s.counted * 100)),
-    shiftByLabel: m.shift?.staff_id.slice(0, 8) ?? '-',
+    shiftByLabel: 'управляющим',
     syncLabel: 'Локальный сервер · внешние каналы ещё не подключены',
   });
   v.tiles = (groups[s.cat] ?? []).map((p) => {
@@ -852,7 +853,7 @@ function draw() {
     note: 'Тест без оплаты',
     color: 'var(--blue)',
     orders: String(list.length),
-    revenue: '0 ₸',
+    revenue: money(list.reduce((n, o) => n + BigInt(o.snapshot.total_minor), 0n).toString()),
     avg: list.length
       ? money(
           (
@@ -863,6 +864,7 @@ function draw() {
     share: 'Сумма тестовых заказов',
   }));
   v.dayTotal = rows.length + ' заказов · последние 100';
+  v.dayEmpty = rows.length === 0;
   v.fiscalLegend = [{ color: 'var(--n300)', label: 'Тест · без оплаты и чека' }];
   const stopRows = (m.menu?.items ?? [])
     .flatMap((p) => [
@@ -936,17 +938,23 @@ function draw() {
   lastRender = visual;
   renderer.render(v);
   // Honest permanent test label, operation recovery, fullscreen and local status.
-  const badge = document.createElement('button');
+  const badge = document.createElement('span');
   badge.className = 'test-mode';
   badge.textContent = 'ТЕСТ · без оплаты и чека';
-  badge.title = 'Переключить полноэкранный режим';
-  badge.onclick = () => {
+  badge.setAttribute('role', 'status');
+  const fullscreen = document.createElement('button');
+  fullscreen.className = 'fullscreen-toggle';
+  fullscreen.textContent = '⛶';
+  fullscreen.title = 'Переключить полноэкранный режим';
+  fullscreen.setAttribute('aria-label', 'Полный экран');
+  fullscreen.onclick = () => {
     const b = globalThis.pickchickPosWindow;
     if (b) void b.toggleFullscreen();
     else if (document.fullscreenElement) void document.exitFullscreen();
     else void document.documentElement.requestFullscreen();
   };
   root.append(badge);
+  root.querySelector('.topbar')?.append(fullscreen);
   if (m.pending) {
     const box = document.createElement('div');
     box.className = 'recovery';
