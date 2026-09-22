@@ -206,6 +206,7 @@ export const StaffSessionSchema = z.strictObject({
   terminal_id: UuidSchema,
   branch_id: UuidSchema,
   role: StaffRoleSchema,
+  name: z.string().min(1).max(100).optional(),
   expires_at: z.iso.datetime(),
 });
 export const StaffCredentialSchema = StaffSessionSchema.extend({
@@ -217,6 +218,10 @@ export const StaffLoginNameSchema = z
   .trim()
   .toLowerCase()
   .regex(/^[a-z0-9][a-z0-9._-]{2,63}$/);
+export const StaffPinLoginSchema = z.strictObject({
+  pin: z.string().regex(/^[0-9]{4}$/),
+  terminal_id: UuidSchema,
+});
 export const StaffPasswordSchema = z.string().min(12).max(128);
 export const StaffLoginSchema = z.strictObject({
   login: StaffLoginNameSchema,
@@ -235,7 +240,12 @@ export const QuoteModifierSchema = ModifierSelectionSchema.extend({
   name: LocalizedTextSchema,
   price_minor: MoneyMinorSchema,
 });
+export const PosOrderDetailsSchema = z.strictObject({
+  display_name: z.string().trim().max(14),
+  kitchen_comment: z.string().trim().max(60),
+});
 export const CartSchema = z.strictObject({
+  details: PosOrderDetailsSchema.optional(),
   release_id: UuidSchema,
   service_mode: z.enum(['dine_in', 'takeaway']),
   items: z
@@ -259,6 +269,7 @@ export const QuoteLineSchema = z.strictObject({
   total_minor: MoneyMinorSchema,
 });
 export const QuoteSchema = z.strictObject({
+  details: PosOrderDetailsSchema.optional(),
   quote_id: UuidSchema,
   branch_id: UuidSchema,
   release_id: UuidSchema,
@@ -321,6 +332,7 @@ export const OrderingStateSchema = z.strictObject({
   version: z.number().int().positive().max(2147483647),
 });
 export const StopCommandSchema = z.strictObject({
+  duration: z.enum(['manual', 'hour', 'shift']).optional(),
   variant_id: UuidSchema,
   stopped: z.boolean(),
   expected_version: z.number().int().nonnegative().max(2147483647),
@@ -331,6 +343,7 @@ export const StopStateSchema = z.strictObject({
   stopped: z.boolean(),
   version: z.number().int().nonnegative().max(2147483647),
 });
+export const StopListSchema = z.strictObject({ stops: z.array(StopStateSchema).max(10000) });
 export type StaffSession = z.infer<typeof StaffSessionSchema>;
 export type StaffCredential = z.infer<typeof StaffCredentialSchema>;
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
@@ -344,6 +357,16 @@ export const CashShiftCloseSchema = z.strictObject({
   counted_cash_minor: MoneyMinorSchema,
   reason: z.string().trim().min(1).max(300),
 });
+export const CashMovementInputSchema = z.strictObject({
+  direction: z.enum(['in', 'out']),
+  amount_minor: MoneyMinorSchema.refine((v) => BigInt(v) > 0n),
+  reason: z.string().trim().min(1).max(300),
+});
+export const CashMovementSchema = CashMovementInputSchema.extend({
+  id: UuidSchema,
+  staff_id: UuidSchema,
+  created_at: z.iso.datetime(),
+});
 export const CashShiftSchema = z.strictObject({
   shift_id: UuidSchema,
   branch_id: UuidSchema,
@@ -356,6 +379,7 @@ export const CashShiftSchema = z.strictObject({
   closed_by_staff_id: UuidSchema.nullable(),
   opening_cash_minor: MoneyMinorSchema,
   expected_cash_minor: MoneyMinorSchema,
+  cash_movements: z.array(CashMovementSchema).max(1000).optional(),
   counted_cash_minor: MoneyMinorSchema.nullable(),
   discrepancy_minor: z
     .string()

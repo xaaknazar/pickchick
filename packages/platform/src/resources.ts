@@ -218,6 +218,9 @@ export class Resources implements OnApplicationShutdown {
           await this.pool.query('SELECT branch_id FROM active_menu LIMIT 1');
           await this.pool.query('SELECT id,cash_shift_id FROM local_orders LIMIT 0');
           await this.pool.query('SELECT id FROM local_cash_shifts LIMIT 0');
+          await this.pool.query('SELECT id FROM local_cash_movements LIMIT 0');
+          await this.pool.query('SELECT staff_id FROM local_staff_pins LIMIT 0');
+          await this.pool.query('SELECT branch_id FROM local_pin_lookup_keys LIMIT 0');
           await this.pool.query(
             'SELECT staff_id,salt,verifier,failed_attempts,locked_until FROM local_staff_passwords LIMIT 0',
           );

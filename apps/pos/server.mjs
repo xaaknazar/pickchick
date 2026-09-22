@@ -1,3 +1,4 @@
+import { V2_ASSETS } from '../pos-desktop/v2-assets.mjs';
 import { createServer } from 'node:http';
 import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
 import { readFile } from 'node:fs/promises';
@@ -7,15 +8,16 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|ordering|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops/${UUID})$`,
+        `^/edge/v1/(session|menu|ordering|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
         'i',
       ).test(path)
     : method === 'POST' &&
       new RegExp(
-        `^/edge/v1/(staff/(login|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/close|ordering/(open|close)|availability/stops)$`,
+        `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops)$`,
         'i',
       ).test(path);
 const assets = new Map([
+  ...V2_ASSETS.map(([name, type]) => ['/' + name, [name, type]]),
   ...MENU_ASSETS.map((name) => [`/assets/menu/${name}`, [`assets/menu/${name}`, 'image/jpeg']]),
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
@@ -31,7 +33,7 @@ const security = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Content-Security-Policy':
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 };
 /** Loopback-only staff client. The upstream is configured by the operator, never by a request. */
 export function createPosServer({
@@ -96,7 +98,9 @@ export function createPosServer({
         try {
           for await (const chunk of req) {
             size += chunk.length;
-            if (size > (path === '/edge/v1/staff/login' ? 2048 : 64000)) {
+            if (
+              size > (['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ? 2048 : 64000)
+            ) {
               send(413, { code: 'INVALID_REQUEST' });
               return;
             }

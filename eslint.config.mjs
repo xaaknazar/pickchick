@@ -37,10 +37,13 @@ export default [
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
-    files: ['design/prototype/*.js', 'apps/roadmap/public/*.js'],
+    files: ['design/prototype/*.js', 'apps/roadmap/public/*.js', 'apps/pos/src/v2/*.js'],
     languageOptions: {
       globals: {
         document: 'readonly',
+        crypto: 'readonly',
+        AbortSignal: 'readonly',
+        queueMicrotask: 'readonly',
         Node: 'readonly',
         URL: 'readonly',
         history: 'readonly',

@@ -228,3 +228,40 @@ test('atomic unpaid kitchen admission survives restart and rejects altered mode 
     );
   });
 });
+
+test('v2 held details, timed stops and cash movement survive native restart without expanding authority', async () => {
+  await fixture(async ({ options }) => {
+    const value = JSON.parse(snapshot());
+    value.draft.details = { display_name: 'Әлия', kitchen_comment: 'Соус отдельно' };
+    value.held = [globalThis.structuredClone(value.draft)];
+    const store = createJournalStore(options);
+    store.setSession({ ...session, name: 'Synthetic cashier' }, session.session_id);
+    for (const pending of [
+      {
+        kind: 'stop',
+        path: 'availability/stops',
+        body: {
+          variant_id: id(21),
+          stopped: true,
+          expected_version: 0,
+          reason: 'Test stop',
+          duration: 'hour',
+        },
+      },
+      {
+        kind: 'shift_move',
+        path: `cash-shifts/${id(30)}/movements`,
+        body: { direction: 'in', amount_minor: '100000', reason: 'Test float' },
+      },
+    ]) {
+      value.pending = { ...pending, key: id(31), at: '2030-01-01T00:00:00.000Z' };
+      store.setItem(key, JSON.stringify(value));
+      const restarted = createJournalStore(options);
+      authorize(restarted);
+      assert.deepEqual(JSON.parse(restarted.getItem(key)), value);
+    }
+    const tampered = globalThis.structuredClone(value);
+    tampered.held[0].details.token = 'must not persist';
+    assert.throws(() => store.setItem(key, JSON.stringify(tampered)), /STORAGE_UNAVAILABLE/);
+  });
+});

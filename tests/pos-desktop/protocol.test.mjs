@@ -53,7 +53,9 @@ test('packaged origin exposes only local assets/config with restrictive document
       "object-src 'none'",
     ])
       assert.ok(csp?.includes(directive), `Missing ${directive}`);
-    assert.ok(!csp.includes('unsafe-eval') && !csp.includes('unsafe-inline'));
+    assert.ok(!csp.includes('unsafe-eval'));
+    assert.match(csp, /script-src 'self';/);
+    assert.match(csp, /style-src 'self' 'unsafe-inline';/); // Designer inline styles; inline scripts stay prohibited.
     assert.equal((await handler(request('/app.js'))).status, 200);
     const config = await handler(request('/config.json'));
     assert.equal(config.status, 200);

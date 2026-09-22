@@ -37,8 +37,8 @@ $helper=Join-Path $PSScriptRoot '../../infra/windows/native-service-upgrade-db.m
 if(-not $ast.Extent.Text.Contains("`$databaseHelperSha='$hash'")) {throw 'Database helper pin is stale.'}
 
 $script:branch=$branch;$script:state=[pscustomobject]@{before=[pscustomobject]@{fingerprints=[pscustomobject]@{branch_config='same'}}}
-foreach($version in 9..13) {$valid=[pscustomobject]@{branchId=$branch;migrations=$version;serviceMode='payment_required';orderingEnabled=$false;fingerprints=[pscustomobject]@{branch_config='same'}};Assert-PreservedData $valid -Partial;if($version -eq 13) {Assert-PreservedData $valid} else {Rejected {Assert-PreservedData $valid}}}
+foreach($version in 9..14) {$valid=[pscustomobject]@{branchId=$branch;migrations=$version;serviceMode='payment_required';orderingEnabled=$false;fingerprints=[pscustomobject]@{branch_config='same'}};Assert-PreservedData $valid -Partial;if($version -eq 14) {Assert-PreservedData $valid} else {Rejected {Assert-PreservedData $valid}}}
 foreach($field in @('branchId','serviceMode')) {$bad=$valid | ConvertTo-Json -Depth 4 | ConvertFrom-Json;$bad.$field='wrong';Rejected {Assert-PreservedData $bad -Partial}}
 $bad=$valid | ConvertTo-Json -Depth 4 | ConvertFrom-Json;$bad.fingerprints.branch_config='changed';Rejected {Assert-PreservedData $bad -Partial}
 if(-not $ast.Extent.Text.Contains("Read-UpdateDatabase 'progress'")) {throw 'Missing interrupted migration checkpoint verification.'}
-[pscustomobject]@{migrationCheckpoints=5;parser='pass';backupRejections=7;argumentRejections=3;xmlRejections=4;extractionTuples='pass';helperPin='pass';windowsScmAndNtfs='not tested'} | ConvertTo-Json
+[pscustomobject]@{migrationCheckpoints=6;parser='pass';backupRejections=7;argumentRejections=3;xmlRejections=4;extractionTuples='pass';helperPin='pass';windowsScmAndNtfs='not tested'} | ConvertTo-Json

@@ -11,6 +11,8 @@ files:
   - main.mjs
   - protocol.mjs
   - menu-assets.mjs
+  - v2-assets.mjs
+  - renderer/v2/**/*
   - journal.mjs
   - preload.cjs
   - renderer/index.html

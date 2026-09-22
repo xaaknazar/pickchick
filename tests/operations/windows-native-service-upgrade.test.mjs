@@ -15,7 +15,7 @@ import {
 import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 
-test('009 to 013 verifies every recoverable migration checkpoint and rejects data, scope, mode or new-table changes', async () => {
+test('009 to 014 verifies every recoverable migration checkpoint and rejects data, scope, mode or new-table changes', async () => {
   const directory = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
   const checkpoints = await mkdtemp(join(tmpdir(), 'pickchick-service-upgrade-'));
   try {
@@ -31,7 +31,7 @@ test('009 to 013 verifies every recoverable migration checkpoint and rejects dat
       });
       if (name < '010') await copyFile(join(directory, name), join(checkpoints, name));
     }
-    assert.equal(migrations.length, 13, 'This verifier is pinned to the reviewed 013 release');
+    assert.equal(migrations.length, 14, 'This verifier is pinned to the reviewed 014 release');
     await withSyncDatabases(
       async (ctx) => {
         await applyMenu(ctx.edge.pool, ctx.branch, await publishMenu(ctx.cloud.pool, ctx.menu()));
@@ -56,7 +56,7 @@ test('009 to 013 verifies every recoverable migration checkpoint and rejects dat
           { schema: 'public;drop schema public' },
         ])
           await assert.rejects(inspectServiceUpgrade(ctx.edge.pool, { ...options, ...bad }));
-        for (let target = 10; target <= 13; target++) {
+        for (let target = 10; target <= 14; target++) {
           const migration = migrations[target - 1];
           await copyFile(join(directory, migration.name), join(checkpoints, migration.name));
           assert.deepEqual(await migrate(ctx.edge.pool, checkpoints, 'edge'), [migration.name]);

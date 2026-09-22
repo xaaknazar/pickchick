@@ -1,3 +1,4 @@
+import { V2_ASSETS } from './v2-assets.mjs';
 import { readFile } from 'node:fs/promises';
 import { MENU_ASSETS } from './menu-assets.mjs';
 
@@ -5,14 +6,15 @@ export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const readPath = new RegExp(
-  `^/edge/v1/(session|menu|ordering|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops/${UUID})$`,
+  `^/edge/v1/(session|menu|ordering|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
   'i',
 );
 const writePath = new RegExp(
-  `^/edge/v1/(staff/(login|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/close|ordering/(open|close)|availability/stops)$`,
+  `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops)$`,
   'i',
 );
 const assets = new Map([
+  ...V2_ASSETS.map(([name, type]) => ['/' + name, [name, type]]),
   ...MENU_ASSETS.map((name) => [`/assets/menu/${name}`, [`assets/menu/${name}`, 'image/jpeg']]),
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
@@ -27,7 +29,7 @@ export const SECURITY_HEADERS = {
   'Referrer-Policy': 'no-referrer',
   'X-Content-Type-Options': 'nosniff',
   'Content-Security-Policy':
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'",
 };
 
 function localURL(value) {
@@ -164,7 +166,11 @@ export function createProtocolHandler({
         return json(404, { code: 'NOT_FOUND' });
       const headers = {};
       const authenticating = request.method === 'GET' && path === '/edge/v1/session';
-      if (authenticating || path === '/edge/v1/staff/login' || path === '/edge/v1/staff/logout')
+      if (
+        authenticating ||
+        ['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ||
+        path === '/edge/v1/staff/logout'
+      )
         onSession(null);
       for (const name of ['authorization', 'x-staff-session-id', 'idempotency-key']) {
         const value = request.headers.get(name);
@@ -176,7 +182,10 @@ export function createProtocolHandler({
           return json(415, { code: 'INVALID_REQUEST' });
         try {
           body = Buffer.from(
-            await readBounded(request.body, path === '/edge/v1/staff/login' ? 2048 : 64000),
+            await readBounded(
+              request.body,
+              ['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ? 2048 : 64000,
+            ),
           ).toString('utf8');
           JSON.parse(body);
         } catch (error) {

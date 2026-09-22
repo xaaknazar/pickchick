@@ -172,14 +172,14 @@ function render() {
       board.preparing
         .map(
           (o) =>
-            `<article><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong></article>`,
+            `<article><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong>${o.name ? `<span class="guest-display-name">${escape(o.name)}</span>` : ''}</article>`,
         )
         .join('') || '<p>Новых заказов пока нет</p>'
     }</div></section><section class="ready"><h2>✓ ГОТОВО</h2><div class="numbers">${
       board.ready
         .map(
           (o) =>
-            `<article><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong></article>`,
+            `<article><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong>${o.name ? `<span class="guest-display-name">${escape(o.name)}</span>` : ''}</article>`,
         )
         .join('') || '<p>Готовые заказы появятся здесь</p>'
     }</div><p class="take-hint">Подойдите к стойке выдачи и назовите номер заказа</p></section></main>`;

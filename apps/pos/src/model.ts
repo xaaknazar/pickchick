@@ -17,7 +17,7 @@ export type Pending = {
   key: string;
   path: string;
   body: Record<string, unknown>;
-  kind: 'create' | 'cancel' | 'ordering' | 'stop' | 'shift_open' | 'shift_close';
+  kind: 'create' | 'cancel' | 'ordering' | 'stop' | 'shift_open' | 'shift_close' | 'shift_move';
   at: string;
 };
 type Journal = {
@@ -27,6 +27,7 @@ type Journal = {
   pending: Pending | null;
   known: string[];
   selected: string | null;
+  held?: Cart[];
 };
 export type State = {
   actor: StaffSession | null;
@@ -173,6 +174,14 @@ export class PosController {
       return {
         version: 1,
         scope,
+        ...(j.held === undefined
+          ? {}
+          : {
+              held: (() => {
+                if (!Array.isArray(j.held) || j.held.length > 10) throw new Error();
+                return j.held.map(parse.cart);
+              })(),
+            }),
         draft: j.draft === null ? null : parse.cart(j.draft),
         pending,
         known: j.known.map(parse.uuid),
@@ -207,7 +216,9 @@ export class PosController {
     } else if (p.kind === 'stop') {
       if (
         path !== 'availability/stops' ||
-        Object.keys(body).length !== 4 ||
+        ![4, 5].includes(Object.keys(body).length) ||
+        (body.duration !== undefined &&
+          !['manual', 'hour', 'shift'].includes(String(body.duration))) ||
         typeof body.stopped !== 'boolean'
       )
         throw new Error();
@@ -217,6 +228,16 @@ export class PosController {
     } else if (p.kind === 'shift_open') {
       if (path !== 'cash-shifts' || Object.keys(body).length !== 1) throw new Error();
       parse.minor(body.opening_cash_minor);
+    } else if (p.kind === 'shift_move') {
+      if (
+        !/^cash-shifts\/[0-9a-f-]+\/movements$/.test(path) ||
+        Object.keys(body).length !== 3 ||
+        !['in', 'out'].includes(String(body.direction))
+      )
+        throw new Error();
+      parse.uuid(path.split('/')[1]);
+      parse.minor(body.amount_minor);
+      parse.text(body.reason);
     } else if (p.kind === 'shift_close') {
       if (!/^cash-shifts\/[0-9a-f-]+\/close$/.test(path) || Object.keys(body).length !== 3)
         throw new Error();
@@ -418,14 +439,10 @@ export class PosController {
       if (epoch !== this.generation || read !== this.operationsRead) return;
       const own = (value: CashShift) =>
         value.branch_id === actor.branch_id &&
-        (actor.role === 'shift_manager' ||
-          (value.staff_id === actor.staff_id && value.terminal_id === actor.terminal_id));
+        (actor.role === 'shift_manager' || value.terminal_id === actor.terminal_id);
       if (
         (shift &&
-          (shift.state !== 'open' ||
-            !own(shift) ||
-            shift.staff_id !== actor.staff_id ||
-            shift.terminal_id !== actor.terminal_id)) ||
+          (shift.state !== 'open' || !own(shift) || shift.terminal_id !== actor.terminal_id)) ||
         shifts.some((s) => !own(s)) ||
         orders.some((o) => o.branch_id !== actor.branch_id) ||
         (selectedOrder &&
@@ -450,6 +467,20 @@ export class PosController {
   async refreshOperations() {
     if (this.state.busy || this.state.pending || !this.state.actor) return;
     await this.readOperations();
+  }
+  async refreshStops() {
+    const epoch = this.generation;
+    try {
+      const value = parse.record(await this.request('availability/stops'));
+      if (!Array.isArray(value.stops) || value.stops.length > 10000)
+        throw new Error('INVALID_RESPONSE');
+      const stops = value.stops.map(parse.stop);
+      if (epoch !== this.generation) return;
+      this.state.stops = new Map(stops.map((s) => [s.variant_id, s]));
+      this.emit();
+    } catch (error) {
+      if (epoch === this.generation) this.fail(error);
+    }
   }
   async loadStops(ids: string[]) {
     const epoch = this.generation;
@@ -557,6 +588,50 @@ export class PosController {
       this.fail(error);
     }
   }
+  replaceDraft(value: Cart) {
+    if (!this.editable() || !this.journal) return;
+    try {
+      const draft = parse.cart(value);
+      if (draft.release_id !== this.state.menu?.release_id) throw new Error('MENU_CHANGED');
+      this.save({ ...this.journal, draft });
+      this.state.quote = null;
+      this.emit();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+  get heldDrafts() {
+    return this.journal?.held ?? [];
+  }
+  holdDraft() {
+    if (!this.editable() || !this.journal?.draft?.items.length) return;
+    try {
+      if (this.heldDrafts.length >= 10) throw new Error('LIMIT');
+      this.save({
+        ...this.journal,
+        held: [...this.heldDrafts, this.journal.draft],
+        draft: { release_id: this.journal.draft.release_id, service_mode: 'takeaway', items: [] },
+      });
+      this.state.quote = null;
+      this.emit();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+  restoreDraft(index = 0) {
+    if (!this.editable() || !this.journal) return;
+    try {
+      const held = [...this.heldDrafts],
+        draft = held.splice(index, 1)[0];
+      if (!draft) throw new Error('NOT_FOUND');
+      if (this.journal.draft?.items.length) held.push(this.journal.draft);
+      this.save({ ...this.journal, held, draft });
+      this.state.quote = null;
+      this.emit();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
   async calculate() {
     if (!this.editable()) return;
     await this.run(async () => {
@@ -600,7 +675,6 @@ export class PosController {
       !operationsError &&
       shift?.state === 'open' &&
       shift.branch_id === actor.branch_id &&
-      shift.staff_id === actor.staff_id &&
       shift.terminal_id === actor.terminal_id,
     );
   }
@@ -648,7 +722,7 @@ export class PosController {
         error instanceof ApiError &&
         error.code === 'CONFLICT' &&
         error.status === 409 &&
-        (p.kind === 'shift_open' || p.kind === 'shift_close');
+        (p.kind === 'shift_open' || p.kind === 'shift_close' || p.kind === 'shift_move');
       if (shiftConflict) {
         // The server rejected this command. A committed same-key replay returns success instead.
         // Persist resolution before reading the new state; uncertain responses remain pending.
@@ -707,6 +781,19 @@ export class PosController {
       if (p.kind === 'stop') {
         const s = parse.stop(value);
         this.state.stops.set(s.variant_id, s);
+      }
+      if (p.kind === 'shift_move') {
+        const shift = parse.cashShift(value),
+          move = shift.cash_movements?.find((m) => m.id === p.key);
+        if (
+          shift.branch_id !== this.state.actor?.branch_id ||
+          p.path !== `cash-shifts/${shift.shift_id}/movements` ||
+          !move ||
+          move.amount_minor !== p.body.amount_minor ||
+          move.direction !== p.body.direction ||
+          move.reason !== p.body.reason
+        )
+          throw new Error('INVALID_RESPONSE');
       }
       if (p.kind === 'shift_open' || p.kind === 'shift_close') {
         const shift = parse.cashShift(value),
@@ -789,6 +876,17 @@ export class PosController {
       });
     });
   }
+  async moveCash(direction: 'in' | 'out', amountMinor: string, reason: string) {
+    await this.run(async () => {
+      if (!this.state.shift || this.state.actor?.role !== 'shift_manager')
+        throw new Error('FORBIDDEN');
+      await this.begin('shift_move', `cash-shifts/${this.state.shift.shift_id}/movements`, {
+        direction,
+        amount_minor: parse.minor(amountMinor),
+        reason: parse.text(reason.trim()),
+      });
+    });
+  }
   async openShift(openingCashMinor: string) {
     await this.run(async () => {
       parse.minor(openingCashMinor);
@@ -809,13 +907,20 @@ export class PosController {
       });
     });
   }
-  async setStop(id: string, stopped: boolean, reason: string) {
+  async setStop(
+    id: string,
+    stopped: boolean,
+    reason: string,
+    duration?: 'manual' | 'hour' | 'shift',
+  ) {
     await this.run(async () => {
-      if (this.state.actor?.role !== 'shift_manager') throw new ApiError('FORBIDDEN', 403);
+      if (!this.state.actor || !['cashier', 'shift_manager'].includes(this.state.actor.role))
+        throw new ApiError('FORBIDDEN', 403);
       const s = parse.stop(await this.request(`availability/stops/${parse.uuid(id)}`));
       if (!reason.trim() || reason.trim().length > 300) throw new Error('INVALID_REQUEST');
       await this.begin('stop', 'availability/stops', {
         variant_id: id,
+        ...(duration ? { duration } : {}),
         stopped,
         expected_version: s.version,
         reason: reason.trim(),

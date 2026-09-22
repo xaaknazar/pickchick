@@ -12,6 +12,7 @@ import {
   openCashShift,
   closeCashShift,
   readCashShift,
+  provisionStaff,
 } from '@pickchick/local-orders';
 import { EdgeFulfillment } from '@pickchick/edge-fulfillment';
 import { applyMenu, hashJson } from '@pickchick/menu-sync';
@@ -66,10 +67,17 @@ test('real edge runtime executes POS, row locks and kitchen lifecycle without se
       causation_id: null,
     });
     const accepted = await ctx.accepted(); // Trusted synthetic setup in this temporary schema only.
+    const registerManager = await provisionStaff(ctx.pool, ctx.scope.branchId, {
+      staff_id: randomUUID(),
+      terminal_id: ctx.cashier.terminal_id,
+      name: 'Synthetic register manager',
+      role: 'shift_manager',
+    });
+    const managerAuth = { sessionId: registerManager.session_id, token: registerManager.token };
     await runtime(ctx, async (pool) => {
       const branch = ctx.scope.branchId;
       assert.equal((await readSession(pool, branch, ctx.cashier.auth)).role, 'cashier');
-      const shift = await openCashShift(pool, branch, ctx.cashier.auth, randomUUID(), {
+      const shift = await openCashShift(pool, branch, managerAuth, randomUUID(), {
         opening_cash_minor: '500000',
       });
       const quote = await createQuote(pool, branch, ctx.cashier.auth, {
@@ -100,14 +108,11 @@ test('real edge runtime executes POS, row locks and kitchen lifecycle without se
         (await readCashShift(pool, branch, ctx.cashier.auth, shift.shift_id)).order_count,
         1,
       );
-      const closed = await closeCashShift(
-        pool,
-        branch,
-        ctx.cashier.auth,
-        randomUUID(),
-        shift.shift_id,
-        { expected_version: 1, counted_cash_minor: '499900', reason: 'Synthetic cash count' },
-      );
+      const closed = await closeCashShift(pool, branch, managerAuth, randomUUID(), shift.shift_id, {
+        expected_version: 1,
+        counted_cash_minor: '499900',
+        reason: 'Synthetic cash count',
+      });
       assert.equal(closed.discrepancy_minor, '-100');
       await assert.rejects(pool.query('UPDATE local_cash_shifts SET opening_cash_minor=1'), denied);
       await assert.rejects(pool.query('DELETE FROM local_cash_shifts'), denied);

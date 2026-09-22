@@ -26,8 +26,11 @@ export async function withOrderDesk(run, open = true) {
     });
     const cashierSetup = setup('cashier');
     const cashier = await provisionStaff(edge.pool, branch, cashierSetup);
-    const manager = await provisionStaff(edge.pool, branch, setup('shift_manager'));
-    const shift = await openCashShift(edge.pool, branch, staffAuth(cashier), randomUUID(), {
+    const manager = await provisionStaff(edge.pool, branch, {
+      ...setup('shift_manager'),
+      terminal_id: cashier.terminal_id,
+    });
+    const shift = await openCashShift(edge.pool, branch, staffAuth(manager), randomUUID(), {
       opening_cash_minor: '0',
     });
     if (open)

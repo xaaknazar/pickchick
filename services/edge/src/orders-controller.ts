@@ -21,8 +21,10 @@ import {
   readOrdering,
   setStop,
   readStop,
+  readStops,
   openCashShift,
   closeCashShift,
+  moveCash,
   currentCashShift,
   readCashShift,
   listCashShifts,
@@ -64,6 +66,11 @@ export class LocalOrdersController {
   }
   private get pool() {
     return this.resources.pool;
+  }
+
+  @Get('availability/stops')
+  allStops(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, (auth) => readStops(this.pool, this.branchId, auth));
   }
 
   @Get('availability/stops/:variantId')
@@ -128,6 +135,18 @@ export class LocalOrdersController {
   openShift(@Headers() headers: Record<string, string | undefined>, @Body() body: unknown) {
     return this.run(headers, (auth) =>
       openCashShift(this.pool, this.branchId, auth, headers['idempotency-key'] ?? '', body),
+    );
+  }
+
+  @Post('cash-shifts/:shiftId/movements')
+  @HttpCode(200)
+  move(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('shiftId') shiftId: string,
+    @Body() body: unknown,
+  ) {
+    return this.run(headers, (auth) =>
+      moveCash(this.pool, this.branchId, auth, headers['idempotency-key'] ?? '', shiftId, body),
     );
   }
 

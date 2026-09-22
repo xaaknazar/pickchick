@@ -53,7 +53,7 @@ async function activeMenu(client: DatabaseClient, branchId: string) {
 }
 async function checkStops(client: DatabaseClient, branchId: string, variants: string[]) {
   const stopped = await client.query(
-    'SELECT 1 FROM local_stops WHERE branch_id = $1 AND variant_id = ANY($2::uuid[]) AND stopped LIMIT 1',
+    `SELECT 1 FROM local_stops WHERE branch_id = $1 AND variant_id = ANY($2::uuid[]) AND stopped AND (expires_at IS NULL OR expires_at > clock_timestamp()) AND (expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=expires_shift_id AND c.state='open')) LIMIT 1`,
     [branchId, variants],
   );
   if (stopped.rowCount) throw new OrderError('ITEM_STOPPED');
@@ -78,7 +78,10 @@ export async function createQuote(
     await checkStops(
       client,
       branchId,
-      cart.items.map((item) => item.variant_id),
+      cart.items.flatMap((item) => [
+        item.variant_id,
+        ...(item.modifiers ?? []).map((m) => m.option_id),
+      ]),
     );
     const time = (await client.query('SELECT clock_timestamp() AS time')).rows[0].time as Date;
     const quote = QuoteSchema.parse({
@@ -88,6 +91,7 @@ export async function createQuote(
       menu_version: menu.version,
       service_mode: cart.service_mode,
       channel: 'pos',
+      ...(cart.details ? { details: cart.details } : {}),
       ...pricing,
       created_at: time.toISOString(),
       expires_at: new Date(time.getTime() + 300000).toISOString(),
@@ -123,11 +127,7 @@ async function loadOrder(
     [id, branchId],
   );
   const row = result.rows[0];
-  if (
-    !row ||
-    (actor.role !== 'shift_manager' &&
-      (row.staff_id !== actor.staff_id || row.terminal_id !== actor.terminal_id))
-  )
+  if (!row || (actor.role !== 'shift_manager' && row.terminal_id !== actor.terminal_id))
     throw new OrderError('NOT_FOUND');
   const execution =
     row.execution_mode === 'unpaid_service'
@@ -265,7 +265,10 @@ export async function createLocalOrder(
       await checkStops(
         client,
         branchId,
-        quote.lines.map((item) => item.variant_id),
+        quote.lines.flatMap((item) => [
+          item.variant_id,
+          ...(item.modifiers ?? []).map((m) => m.option_id),
+        ]),
       );
       const shift = await requireOpenCashShift(client, branchId, actor);
       const shiftTotal = (
@@ -416,13 +419,19 @@ export function setStop(
     pool,
     branchId,
     auth,
-    'manage',
+    'checkout',
     'availability.stop',
     key,
     stop,
     async (client, actor) => {
       const menu = await activeMenu(client, branchId);
-      if (!menu.items.some((item) => item.variant_id === stop.variant_id))
+      if (
+        !menu.items.some(
+          (item) =>
+            item.variant_id === stop.variant_id ||
+            item.modifier_groups?.some((g) => g.options.some((o) => o.id === stop.variant_id)),
+        )
+      )
         throw new OrderError('NOT_FOUND');
       const old = (
         await client.query('SELECT version FROM local_stops WHERE branch_id=$1 AND variant_id=$2', [
@@ -431,11 +440,23 @@ export function setStop(
         ])
       ).rows[0];
       if ((old?.version ?? 0) !== stop.expected_version) throw new OrderError('CONFLICT');
+      const shift =
+        stop.duration === 'shift' && stop.stopped
+          ? await requireOpenCashShift(client, branchId, actor)
+          : null;
       const result = await client.query(
-        `INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason) VALUES ($1,$2,$3,1,$4)
-      ON CONFLICT(branch_id,variant_id) DO UPDATE SET stopped=EXCLUDED.stopped,version=local_stops.version+1,reason=EXCLUDED.reason
+        `INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason,expires_at,expires_shift_id,updated_by) VALUES ($1,$2,$3,1,$4,CASE WHEN $5 THEN clock_timestamp()+interval '1 hour' ELSE NULL END,$6,$7)
+      ON CONFLICT(branch_id,variant_id) DO UPDATE SET stopped=EXCLUDED.stopped,version=local_stops.version+1,reason=EXCLUDED.reason,expires_at=EXCLUDED.expires_at,expires_shift_id=EXCLUDED.expires_shift_id,updated_by=EXCLUDED.updated_by,updated_at=clock_timestamp()
       RETURNING variant_id,stopped,version`,
-        [branchId, stop.variant_id, stop.stopped, stop.reason],
+        [
+          branchId,
+          stop.variant_id,
+          stop.stopped,
+          stop.reason,
+          stop.stopped && stop.duration === 'hour',
+          shift?.id ?? null,
+          actor.staff_id,
+        ],
       );
       await audit(client, branchId, actor.staff_id, 'availability.changed', stop.variant_id);
       return StopStateSchema.parse(result.rows[0]);
@@ -449,10 +470,16 @@ export function readStop(pool: DatabasePool, branchId: string, auth: StaffAuth, 
     const actor = await authenticateStaff(client, branchId, auth);
     requirePermission(actor, 'read');
     const menu = await activeMenu(client, branchId);
-    if (!menu.items.some((item) => item.variant_id === variantId))
+    if (
+      !menu.items.some(
+        (item) =>
+          item.variant_id === variantId ||
+          item.modifier_groups?.some((g) => g.options.some((o) => o.id === variantId)),
+      )
+    )
       throw new OrderError('NOT_FOUND');
     const result = await client.query(
-      'SELECT variant_id, stopped, version FROM local_stops WHERE branch_id=$1 AND variant_id=$2',
+      `SELECT variant_id, (stopped AND (expires_at IS NULL OR expires_at>clock_timestamp()) AND (expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=expires_shift_id AND c.state='open'))) AS stopped, version FROM local_stops WHERE branch_id=$1 AND variant_id=$2`,
       [branchId, variantId],
     );
     return StopStateSchema.parse(
@@ -476,7 +503,7 @@ export function listLocalOrders(
     if (shiftId) await loadCashShift(client, branchId, actor, shiftId);
     const rows = await client.query(
       `SELECT o.id FROM local_orders o JOIN checkout_quotes q ON q.id=o.quote_id
-      WHERE o.branch_id=$1 AND ($2::boolean OR (q.staff_id=$3 AND q.terminal_id=$4))
+      WHERE o.branch_id=$1 AND ($2::boolean OR ($3::uuid IS NOT NULL AND q.terminal_id=$4))
       AND ($5::uuid IS NULL OR o.cash_shift_id=$5) ORDER BY o.created_at DESC,o.id DESC LIMIT 100`,
       [
         branchId,
@@ -490,5 +517,33 @@ export function listLocalOrders(
     for (const row of rows.rows) orders.push(await loadOrder(client, branchId, actor, row.id));
     const time = (await client.query('SELECT clock_timestamp() AS time')).rows[0].time;
     return LocalOrderListSchema.parse({ orders, server_time: time.toISOString() });
+  });
+}
+
+export async function readStops(pool: DatabasePool, branchId: string, auth: StaffAuth) {
+  return transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+    const menu = await activeMenu(client, branchId);
+    const ids = [
+      ...new Set(
+        menu.items.flatMap((i) => [
+          i.variant_id,
+          ...(i.modifier_groups ?? []).flatMap((g) => g.options.map((o) => o.id)),
+        ]),
+      ),
+    ];
+    const rows = (
+      await client.query(
+        `SELECT variant_id, version, (stopped AND (expires_at IS NULL OR expires_at>clock_timestamp()) AND (expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=expires_shift_id AND c.state='open'))) AS stopped FROM local_stops WHERE branch_id=$1`,
+        [branchId],
+      )
+    ).rows;
+    const saved = new Map(rows.map((r) => [r.variant_id, r]));
+    return {
+      stops: ids.map((id) =>
+        StopStateSchema.parse(saved.get(id) ?? { variant_id: id, stopped: false, version: 0 }),
+      ),
+    };
   });
 }

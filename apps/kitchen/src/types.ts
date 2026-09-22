@@ -56,7 +56,7 @@ export type Order = Summary & {
   serviceMode: 'takeaway' | 'dine_in';
   tasks: Task[];
 };
-export type DisplayItem = { number: string; state: 'preparing' | 'ready' };
+export type DisplayItem = { number: string; name?: string; state: 'preparing' | 'ready' };
 export type Action =
   | {
       action: 'start_task' | 'complete_task' | 'confirm_stop';
@@ -215,9 +215,13 @@ export function displayPage(v: unknown) {
   const o = record(v);
   const items = array(o.items, 100, (x) => {
     const i = record(x);
-    if (Object.keys(i).some((k) => !['number', 'state'].includes(k)))
+    if (Object.keys(i).some((k) => !['number', 'state', 'name'].includes(k)))
       throw new Error('INVALID_RESPONSE');
-    return { number: number(i.number), state: choice(i.state, ['preparing', 'ready']) };
+    return {
+      number: number(i.number),
+      ...(i.name === undefined ? {} : { name: str(i.name, 14) }),
+      state: choice(i.state, ['preparing', 'ready']),
+    };
   });
   unique(items.map((i) => i.number));
   return { items, next: o.nextAfterNumber === null ? null : number(o.nextAfterNumber) };

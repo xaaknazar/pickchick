@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { normalize } from 'node:path';
+import { V2_ASSETS } from '../v2-assets.mjs';
 import { MENU_ASSETS } from '../menu-assets.mjs';
 import { extractFile, listPackage } from '@electron/asar';
 import { getCurrentFuseWire, FuseV1Options, FuseState } from '@electron/fuses';
@@ -34,6 +35,7 @@ assert.equal(
   'Checkout must remain clean',
 );
 const renderer = [
+  ...V2_ASSETS.map(([name]) => name),
   'api.js',
   'app.js',
   'auth-view.js',
@@ -72,6 +74,8 @@ const expectedInputs = [
     'resources/config.example.json',
   ].map((name) => `apps/pos-desktop/${name}`),
   'apps/pos/tsconfig.json',
+  'apps/pos-desktop/v2-assets.mjs',
+  ...V2_ASSETS.map(([name]) => 'apps/pos/src/' + name),
   'tsconfig.base.json',
   'packages/contracts/src/index.ts',
   'design/prototype/assets/mockup/logo.png',
@@ -92,6 +96,10 @@ assert.deepEqual(
     '/main.mjs',
     '/protocol.mjs',
     '/menu-assets.mjs',
+    '/v2-assets.mjs',
+    '/renderer/v2',
+    '/renderer/v2/assets',
+    '/renderer/v2/fonts',
     '/journal.mjs',
     '/preload.cjs',
     '/package.json',
@@ -108,7 +116,14 @@ for (const name of renderer) {
   assert.equal(hash(asset), manifest.files[name].sha256, `Renderer hash differs: ${name}`);
   assert.equal(asset.byteLength, manifest.files[name].bytes);
 }
-for (const name of ['main.mjs', 'protocol.mjs', 'menu-assets.mjs', 'journal.mjs', 'preload.cjs'])
+for (const name of [
+  'main.mjs',
+  'protocol.mjs',
+  'menu-assets.mjs',
+  'v2-assets.mjs',
+  'journal.mjs',
+  'preload.cjs',
+])
   assert.equal(
     hash(readEntry(name)),
     manifest.inputs[`apps/pos-desktop/${name}`].sha256,

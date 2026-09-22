@@ -14,7 +14,10 @@ const posRead = [
   'local_command_results',
   'local_order_streams',
   'local_cash_shifts',
+  'local_cash_movements',
   'local_staff_passwords',
+  'local_staff_pins',
+  'local_pin_lookup_keys',
   'local_staff_login_limits',
 ];
 const kitchenRead = [
@@ -47,7 +50,7 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
     grant('SELECT', posRead),
     grant('UPDATE(access_expires_at)', ['local_staff']),
     grant('UPDATE(revoked)', ['staff_sessions']),
-    grant('UPDATE(failed_attempts, locked_until)', ['local_staff_passwords']),
+    grant('UPDATE(failed_attempts, locked_until)', ['local_staff_passwords', 'local_staff_pins']),
     grant('INSERT', ['staff_sessions', 'local_staff_login_limits']),
     grant('UPDATE(window_started_at, attempts)', ['local_staff_login_limits']),
     grant('UPDATE(lock_anchor)', ['local_staff', 'local_terminals', 'staff_sessions']),
@@ -60,6 +63,7 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
       'outbox_events',
       'local_audit',
       'local_cash_shifts',
+      'local_cash_movements',
     ]),
     grant('UPDATE(state, version, cancellation_reason)', ['local_orders']),
     grant(
@@ -68,7 +72,10 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
     ),
     grant('UPDATE(last_sequence)', ['local_order_streams']),
     grant('INSERT', ['local_stops']),
-    grant('UPDATE(stopped, version, reason)', ['local_stops']),
+    grant(
+      'UPDATE(stopped, version, reason, expires_at, expires_shift_id, updated_at, updated_by)',
+      ['local_stops'],
+    ),
     ...(fulfillment
       ? [
           grant('SELECT', kitchenRead),

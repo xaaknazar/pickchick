@@ -37,6 +37,10 @@ export type Stop = { variant_id: string; stopped: boolean; version: number };
 export const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function array(value: unknown, max: number): unknown[] {
+  if (!Array.isArray(value) || value.length > max) throw new Error('INVALID_RESPONSE');
+  return value;
+}
 export function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('INVALID_RESPONSE');
@@ -177,6 +181,7 @@ export function session(value: unknown): StaffSession {
     terminal_id: uuid(s.terminal_id),
     branch_id: uuid(s.branch_id),
     role: s.role as StaffSession['role'],
+    ...(s.name === undefined ? {} : { name: text(s.name, 100) }),
     expires_at: date(s.expires_at),
   };
 }
@@ -226,6 +231,17 @@ export function menu(value: unknown): MenuSnapshot {
     items,
   };
 }
+function details(value: unknown) {
+  const d = record(value);
+  if (
+    typeof d.display_name !== 'string' ||
+    [...d.display_name].length > 14 ||
+    typeof d.kitchen_comment !== 'string' ||
+    d.kitchen_comment.length > 60
+  )
+    throw new Error('INVALID_RESPONSE');
+  return { display_name: d.display_name.trim(), kitchen_comment: d.kitchen_comment.trim() };
+}
 export function cart(value: unknown): Cart {
   const c = record(value);
   if (
@@ -244,6 +260,7 @@ export function cart(value: unknown): Cart {
   });
   if (new Set(items.map(lineKey)).size !== items.length) throw new Error('INVALID_RESPONSE');
   return {
+    ...(c.details === undefined ? {} : { details: details(c.details) }),
     release_id: uuid(c.release_id),
     service_mode: c.service_mode as Cart['service_mode'],
     items,
@@ -302,6 +319,7 @@ export function quote(value: unknown): Quote {
   )
     throw new Error('INVALID_RESPONSE');
   return {
+    ...(q.details === undefined ? {} : { details: details(q.details) }),
     quote_id: uuid(q.quote_id),
     branch_id: uuid(q.branch_id),
     release_id: uuid(q.release_id),
@@ -423,6 +441,22 @@ export function cashShift(value: unknown): CashShift {
     closed_by_staff_id: s.closed_by_staff_id === null ? null : uuid(s.closed_by_staff_id),
     opening_cash_minor: minor(s.opening_cash_minor),
     expected_cash_minor: minor(s.expected_cash_minor),
+    ...(s.cash_movements === undefined
+      ? {}
+      : {
+          cash_movements: array(s.cash_movements, 1000).map((v) => {
+            const m = record(v);
+            if (!['in', 'out'].includes(String(m.direction))) throw new Error('INVALID_RESPONSE');
+            return {
+              id: uuid(m.id),
+              staff_id: uuid(m.staff_id),
+              direction: m.direction as 'in' | 'out',
+              amount_minor: minor(m.amount_minor),
+              reason: text(m.reason),
+              created_at: date(m.created_at),
+            };
+          }),
+        }),
     counted_cash_minor: s.counted_cash_minor === null ? null : minor(s.counted_cash_minor),
     discrepancy_minor: discrepancy,
     closing_reason: s.closing_reason === null ? null : text(s.closing_reason),

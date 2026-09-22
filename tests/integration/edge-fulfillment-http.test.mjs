@@ -11,7 +11,7 @@ import {
   FulfillmentSummarySchema,
   FulfillmentStationsSchema,
 } from '@pickchick/contracts';
-import { revokeStaff } from '@pickchick/local-orders';
+import { revokeStaff, provisionStaff } from '@pickchick/local-orders';
 import { applyMenu, hashJson } from '@pickchick/menu-sync';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { fixture } from '../../packages/edge-fulfillment/tests/fixture.mjs';
@@ -532,9 +532,15 @@ test('existing unpaid POS order cannot enter fulfillment through any LAN action'
         causation_id: null,
         payload: { menu, checksum: hashJson(menu) },
       });
+      const shiftManager = await provisionStaff(ctx.pool, ctx.scope.branchId, {
+        staff_id: randomUUID(),
+        terminal_id: ctx.cashier.terminal_id,
+        name: 'Synthetic shift manager',
+        role: 'shift_manager',
+      });
       const shiftResponse = await raw('/edge/v1/cash-shifts', {
         method: 'POST',
-        headers: headers(ctx.cashier),
+        headers: headers(shiftManager),
         body: JSON.stringify({ opening_cash_minor: '0' }),
       });
       assert.equal(shiftResponse.status, 201, 'Legacy POS still requires an open cashier shift');
