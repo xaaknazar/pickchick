@@ -870,6 +870,8 @@ function draw() {
         cat: p.stopCategory ?? config.categories?.[p.category_id] ?? 'Блюдо',
         on,
         fg: on ? 'var(--red)' : 'var(--n900)',
+        available: on ? 'false' : 'true',
+        availabilityLabel: on ? 'В стоп-листе' : 'Доступно к заказу',
         trackBg: on ? 'var(--red)' : 'var(--green)',
         knob: on ? 'flex-start' : 'flex-end',
         bg: on ? 'rgba(196,48,43,.06)' : '#fff',

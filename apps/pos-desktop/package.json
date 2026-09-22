@@ -1,6 +1,6 @@
 {
   "name": "@pickchick/pos-desktop",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": true,
   "description": "Installed PickChick local POS pre-release client",
   "author": "PickChick",
