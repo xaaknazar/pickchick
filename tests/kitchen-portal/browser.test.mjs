@@ -79,8 +79,7 @@ test(
       );
       try {
         const child = spawn(
-          process.env.PICKCHICK_BROWSER_PYTHON ??
-            '/Users/xaknazar/Documents/ChatGPT/PickChick/.local/design-venv/bin/python',
+          process.env.PICKCHICK_BROWSER_PYTHON ?? resolve('.local/design-venv/bin/python'),
           ['tests/kitchen-portal/browser_ui.py', path],
           { stdio: ['ignore', 'pipe', 'pipe'] },
         );
