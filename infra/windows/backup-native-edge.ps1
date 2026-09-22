@@ -42,8 +42,8 @@ $script:privateRoot = Join-Path $backupsRoot ([DateTime]::UtcNow.ToString('yyyyM
 Set-KnownDirectoryAcl $privateRoot -Create
 $script:secrets = @()
 $pins = @{
-    'backup-native-edge.mjs' = '10f98e3b67897a4bf0ec51f099df7a5936b3343f6734d7afba636597edb89a33'
-    'native-foundation-db.mjs' = '4e32e1156754643200bd4f53ecdc1ad5851c23dcdef37f3a4cd5e0c0038fe0a2'
+    'backup-native-edge.mjs' = 'b0a92104101d3d8176fffac0079659a1c1c9debea21d6f6189af89929bf4a92a'
+    'native-foundation-db.mjs' = '01a376ee8848cbd53cb62b125d706039dd103205acfabeef0e20bdfed91e433e'
 }
 foreach ($name in $pins.Keys) {
     $source = Join-Path $PSScriptRoot $name

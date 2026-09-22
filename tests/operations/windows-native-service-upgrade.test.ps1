@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $path=Join-Path $PSScriptRoot '../../infra/windows/update-native-service.ps1'
 $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
 if($errors.Count) {throw ($errors | Out-String)}
-foreach($name in @('Assert-BackupRecord','Quote-UpdateArgument','Read-UpdateXml','Assert-PreservedData')) {
+foreach($name in @('Assert-BackupRecord','Quote-UpdateArgument','Read-UpdateXml','New-UpdateServiceXml','Assert-PreservedData')) {
     $func=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$false)
     . ([scriptblock]::Create($func.Extent.Text))
 }
@@ -27,6 +27,10 @@ $xml=@"
 "@
 $doc=Read-UpdateXml $xml $node $envFile $app $logs
 if($doc.service.id -ne 'PickChickEdge') {throw 'XML return binding differs.'}
+$newApp=Join-Path ([IO.Path]::GetTempPath()) 'new app & release'
+$newText=New-UpdateServiceXml $doc $envFile $newApp
+$updated=Read-UpdateXml $newText $node $envFile $newApp $logs
+if($updated.service.workingdirectory -cne [string]$newApp) {throw 'Provider-produced path did not survive service XML roundtrip.'}
 foreach($badXml in @($xml.Replace('LocalService','LocalSystem'),$xml.Replace('delay="5 sec"','delay="0 sec"'),$xml.Replace('</service>','<env name="NODE_OPTIONS" value="bad"/></service>'),('<!DOCTYPE service [<!ENTITY bad "bad">]>'+$xml))) {Rejected {Read-UpdateXml $badXml $node $envFile $app $logs}}
 # Catch accidental PowerShell tuple flattening before physical extraction.
 $appPlan=[Collections.Generic.List[object]]::new();$appPlan.Add([pscustomobject]@{Target='a'});$appPlan.Add([pscustomobject]@{Target='b'})
@@ -37,8 +41,8 @@ $helper=Join-Path $PSScriptRoot '../../infra/windows/native-service-upgrade-db.m
 if(-not $ast.Extent.Text.Contains("`$databaseHelperSha='$hash'")) {throw 'Database helper pin is stale.'}
 
 $script:branch=$branch;$script:state=[pscustomobject]@{before=[pscustomobject]@{fingerprints=[pscustomobject]@{branch_config='same'}}}
-foreach($version in 9..13) {$valid=[pscustomobject]@{branchId=$branch;migrations=$version;serviceMode='payment_required';orderingEnabled=$false;fingerprints=[pscustomobject]@{branch_config='same'}};Assert-PreservedData $valid -Partial;if($version -eq 13) {Assert-PreservedData $valid} else {Rejected {Assert-PreservedData $valid}}}
+foreach($version in 9..14) {$valid=[pscustomobject]@{branchId=$branch;migrations=$version;serviceMode='payment_required';orderingEnabled=$false;fingerprints=[pscustomobject]@{branch_config='same'}};Assert-PreservedData $valid -Partial;if($version -eq 14) {Assert-PreservedData $valid} else {Rejected {Assert-PreservedData $valid}}}
 foreach($field in @('branchId','serviceMode')) {$bad=$valid | ConvertTo-Json -Depth 4 | ConvertFrom-Json;$bad.$field='wrong';Rejected {Assert-PreservedData $bad -Partial}}
 $bad=$valid | ConvertTo-Json -Depth 4 | ConvertFrom-Json;$bad.fingerprints.branch_config='changed';Rejected {Assert-PreservedData $bad -Partial}
 if(-not $ast.Extent.Text.Contains("Read-UpdateDatabase 'progress'")) {throw 'Missing interrupted migration checkpoint verification.'}
-[pscustomobject]@{migrationCheckpoints=5;parser='pass';backupRejections=7;argumentRejections=3;xmlRejections=4;extractionTuples='pass';helperPin='pass';windowsScmAndNtfs='not tested'} | ConvertTo-Json
+[pscustomobject]@{migrationCheckpoints=6;parser='pass';backupRejections=7;argumentRejections=3;xmlRejections=4;extractionTuples='pass';helperPin='pass';windowsScmAndNtfs='not tested'} | ConvertTo-Json

@@ -20,6 +20,7 @@ ADMIN_FILES = (
     'scripts/edge-runtime-grants.mjs',
     'scripts/staff-setup.mjs',
     'scripts/staff-password-setup.mjs',
+    'scripts/staff-pin-setup.mjs',
     'scripts/hidden-password.mjs',
     'scripts/local-pos-service.mjs',
     'scripts/local-pos-operator-plan.mjs',

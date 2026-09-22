@@ -295,6 +295,82 @@
         }
       }
     },
+    "/edge/v1/staff/pin": {
+      "post": {
+        "operationId": "loginLocalStaffPin",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffPinLogin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffCredential"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid PIN, staff or terminal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Login body exceeds 2 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTH_RATE_LIMITED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Local service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/edge/v1/staff/logout": {
       "post": {
         "operationId": "logoutLocalStaff",
@@ -1272,6 +1348,129 @@
         }
       }
     },
+    "/edge/v1/cash-shifts/{shiftId}/movements": {
+      "post": {
+        "operationId": "moveLocalCash",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shiftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashMovementInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashShift"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/edge/v1/orders/{orderId}": {
       "get": {
         "operationId": "readLocalOrder",
@@ -1926,6 +2125,98 @@
       }
     },
     "/edge/v1/availability/stops": {
+      "get": {
+        "operationId": "listLocalStops",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "setLocalStop",
         "security": [
@@ -8860,6 +9151,11 @@
               "kitchen"
             ]
           },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
           "expires_at": {
             "type": "string",
             "format": "date-time",
@@ -8908,6 +9204,11 @@
               "kitchen"
             ]
           },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
           "expires_at": {
             "type": "string",
             "format": "date-time",
@@ -8955,10 +9256,114 @@
         ],
         "additionalProperties": false
       },
+      "StaffPinLogin": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "pin": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          },
+          "terminal_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "pin",
+          "terminal_id"
+        ],
+        "additionalProperties": false
+      },
+      "CashMovementInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "amount_minor": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,18})$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "direction",
+          "amount_minor",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "StopList": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "stops": {
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "variant_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "stopped": {
+                  "type": "boolean"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                }
+              },
+              "required": [
+                "variant_id",
+                "stopped",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "stops"
+        ],
+        "additionalProperties": false
+      },
       "Cart": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "details": {
+            "type": "object",
+            "properties": {
+              "display_name": {
+                "type": "string",
+                "maxLength": 14
+              },
+              "kitchen_comment": {
+                "type": "string",
+                "maxLength": 60
+              }
+            },
+            "required": [
+              "display_name",
+              "kitchen_comment"
+            ],
+            "additionalProperties": false
+          },
           "release_id": {
             "type": "string",
             "format": "uuid",
@@ -9037,6 +9442,24 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "details": {
+            "type": "object",
+            "properties": {
+              "display_name": {
+                "type": "string",
+                "maxLength": 14
+              },
+              "kitchen_comment": {
+                "type": "string",
+                "maxLength": 60
+              }
+            },
+            "required": [
+              "display_name",
+              "kitchen_comment"
+            ],
+            "additionalProperties": false
+          },
           "quote_id": {
             "type": "string",
             "format": "uuid",
@@ -9365,6 +9788,24 @@
           "snapshot": {
             "type": "object",
             "properties": {
+              "details": {
+                "type": "object",
+                "properties": {
+                  "display_name": {
+                    "type": "string",
+                    "maxLength": 14
+                  },
+                  "kitchen_comment": {
+                    "type": "string",
+                    "maxLength": 60
+                  }
+                },
+                "required": [
+                  "display_name",
+                  "kitchen_comment"
+                ],
+                "additionalProperties": false
+              },
               "quote_id": {
                 "type": "string",
                 "format": "uuid",
@@ -9727,6 +10168,24 @@
                 "snapshot": {
                   "type": "object",
                   "properties": {
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "display_name": {
+                          "type": "string",
+                          "maxLength": 14
+                        },
+                        "kitchen_comment": {
+                          "type": "string",
+                          "maxLength": 60
+                        }
+                      },
+                      "required": [
+                        "display_name",
+                        "kitchen_comment"
+                      ],
+                      "additionalProperties": false
+                    },
                     "quote_id": {
                       "type": "string",
                       "format": "uuid",
@@ -10054,6 +10513,55 @@
             "type": "string",
             "pattern": "^(0|[1-9]\\d{0,18})$"
           },
+          "cash_movements": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "in",
+                    "out"
+                  ]
+                },
+                "amount_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "staff_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "direction",
+                "amount_minor",
+                "reason",
+                "id",
+                "staff_id",
+                "created_at"
+              ],
+              "additionalProperties": false
+            }
+          },
           "counted_cash_minor": {
             "anyOf": [
               {
@@ -10273,6 +10781,55 @@
                     "type": "string",
                     "pattern": "^(0|[1-9]\\d{0,18})$"
                   },
+                  "cash_movements": {
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "in",
+                            "out"
+                          ]
+                        },
+                        "amount_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,18})$"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "staff_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "direction",
+                        "amount_minor",
+                        "reason",
+                        "id",
+                        "staff_id",
+                        "created_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
                   "counted_cash_minor": {
                     "anyOf": [
                       {
@@ -10469,6 +11026,55 @@
                 "expected_cash_minor": {
                   "type": "string",
                   "pattern": "^(0|[1-9]\\d{0,18})$"
+                },
+                "cash_movements": {
+                  "maxItems": 1000,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "in",
+                          "out"
+                        ]
+                      },
+                      "amount_minor": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,18})$"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "staff_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      }
+                    },
+                    "required": [
+                      "direction",
+                      "amount_minor",
+                      "reason",
+                      "id",
+                      "staff_id",
+                      "created_at"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "counted_cash_minor": {
                   "anyOf": [
@@ -10675,6 +11281,14 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "duration": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "hour",
+              "shift"
+            ]
+          },
           "variant_id": {
             "type": "string",
             "format": "uuid",
@@ -18651,6 +19265,10 @@
                   "type": "string",
                   "pattern": "^[1-9][0-9]{0,18}$"
                 },
+                "name": {
+                  "type": "string",
+                  "maxLength": 14
+                },
                 "state": {
                   "type": "string",
                   "enum": [
@@ -18904,6 +19522,14 @@
                                       "takeaway",
                                       "dine_in"
                                     ]
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "maxLength": 14
+                                  },
+                                  "kitchenComment": {
+                                    "type": "string",
+                                    "maxLength": 60
                                   },
                                   "currency": {
                                     "type": "string",
@@ -19217,6 +19843,14 @@
                                       "takeaway",
                                       "dine_in"
                                     ]
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "maxLength": 14
+                                  },
+                                  "kitchenComment": {
+                                    "type": "string",
+                                    "maxLength": 60
                                   },
                                   "currency": {
                                     "type": "string",
@@ -20152,6 +20786,24 @@
               "snapshot": {
                 "type": "object",
                 "properties": {
+                  "details": {
+                    "type": "object",
+                    "properties": {
+                      "display_name": {
+                        "type": "string",
+                        "maxLength": 14
+                      },
+                      "kitchen_comment": {
+                        "type": "string",
+                        "maxLength": 60
+                      }
+                    },
+                    "required": [
+                      "display_name",
+                      "kitchen_comment"
+                    ],
+                    "additionalProperties": false
+                  },
                   "quote_id": {
                     "type": "string",
                     "format": "uuid",

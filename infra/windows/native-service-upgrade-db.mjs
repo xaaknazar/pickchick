@@ -48,10 +48,14 @@ const newTables = [
   [11, 'local_staff_login_limits'],
   [12, 'local_pos_service_setup'],
   [13, 'pos_kitchen_sync_state'],
+  [14, 'local_staff_pins'],
+  [14, 'local_pin_lookup_keys'],
+  [14, 'local_cash_movements'],
 ];
 const excludedColumns = {
   branch_config: ['pos_service_mode'],
   local_orders: ['cash_shift_id', 'execution_mode'],
+  local_stops: ['expires_at', 'expires_shift_id', 'updated_at', 'updated_by'],
   fulfillment_reservations: ['admission_kind', 'local_order_id', 'authorized_by_staff_id'],
 };
 
@@ -65,7 +69,7 @@ export async function inspectServiceUpgrade(
   if (
     user !== role ||
     !/^[a-f0-9-]{36}$/i.test(branchId) ||
-    !(migrations.length >= 9 && migrations.length <= 13)
+    !(migrations.length >= 9 && migrations.length <= 14)
   )
     throw new Error('Upgrade scope mismatch');
   const ledger = (
@@ -267,10 +271,10 @@ async function main() {
       const dir = join(toolsRoot, 'db', 'edge', 'migrations');
       const names = (await readdir(dir)).filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name)).sort();
       if (
-        names.length !== 13 ||
+        names.length !== 14 ||
         names.some((name, index) => !name.startsWith(String(index + 1).padStart(3, '0') + '_'))
       )
-        throw new Error('Expected reviewed edge migrations 001-013');
+        throw new Error('Expected reviewed edge migrations 001-014');
       const count =
         phase === 'progress'
           ? Number(
@@ -282,8 +286,8 @@ async function main() {
             )
           : phase === 'before'
             ? 9
-            : 13;
-      if (count < 9 || count > 13) throw new Error('Unexpected partial upgrade ledger');
+            : 14;
+      if (count < 9 || count > 14) throw new Error('Unexpected partial upgrade ledger');
       const migrations = [];
       for (const name of names.slice(0, count))
         migrations.push({

@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-<# One guarded upgrade from unused edge-0186902/schema009 preview to schema013.
+<# One guarded upgrade from unused edge-0186902/schema009 preview to schema014.
 Keeps PostgreSQL data, credentials, Node and both SCM identities. No auto rollback. #>
 [CmdletBinding()]
 param(
@@ -17,7 +17,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $foundationSha='6addec134f3c5aa548406286ccf061722360cc968dee1d34743365ad61d62af5'
-$databaseHelperSha='e1ce7fb57d88d5f913af8c871a5f1c86003c6e25ae05a938bd74c765e2a0edda'
+$databaseHelperSha='8fa8a829371b34daaf8df9167bc10d1db3915477e9bb23f41a095089efc012ef'
 
 function Assert-BackupRecord($Record,[string]$Branch,[string]$SystemId) {
     if ($Record.format -ne 'pickchick-native-backup-v1' -or $Record.branchId -ne $Branch -or $Record.systemIdentifier -ne $SystemId -or
@@ -48,6 +48,12 @@ function Read-UpdateXml([string]$Text,[string]$Node,[string]$EnvFile,[string]$Ap
     if ($service.log.mode -cne 'roll-by-size' -or $service.log.sizeThreshold -ne '10240' -or $service.log.keepFiles -ne '5') { throw 'Unexpected WinSW logging.' }
     if (@($service.ChildNodes).Count -ne ($expected.Count+5)) { throw 'Unexpected WinSW extension.' }
     return ,$doc
+}
+
+function New-UpdateServiceXml([Xml.XmlDocument]$Document,[string]$EnvFile,[string]$App) {
+    $Document.SelectSingleNode('/service/arguments').InnerText='--env-file="'+$EnvFile+'" "'+(Join-Path $App 'dist\main.js')+'"'
+    $Document.SelectSingleNode('/service/workingdirectory').InnerText=$App
+    return $Document.OuterXml
 }
 
 function Assert-UpdateAcl([string]$Path,[string]$ServiceRights='',[switch]$Protected) {
@@ -123,7 +129,7 @@ function Read-UpdateHttp([string]$Path) {
     try {if([int]$response.StatusCode -ne 200) {throw 'Expected HTTP200.'};$reader=[IO.StreamReader]::new($response.GetResponseStream());try {return ($reader.ReadToEnd() | ConvertFrom-Json)} finally {$reader.Dispose()}} finally {$response.Dispose()}
 }
 function Assert-PreservedData($Actual,[switch]$Partial) {
-    $versionValid=if($Partial) {$Actual.migrations -ge 9 -and $Actual.migrations -le 13} else {$Actual.migrations -eq 13}
+    $versionValid=if($Partial) {$Actual.migrations -ge 9 -and $Actual.migrations -le 14} else {$Actual.migrations -eq 14}
     if($Actual.branchId -ne $script:branch -or -not $versionValid -or $Actual.serviceMode -ne 'payment_required' -or $Actual.orderingEnabled -ne $false -or
         ($Actual.fingerprints | ConvertTo-Json -Compress -Depth 4) -cne ($script:state.before.fingerprints | ConvertTo-Json -Compress -Depth 4)) {throw 'Existing preview data changed across upgrade.'}
 }
@@ -189,7 +195,7 @@ try {
     if($files.Count+1 -ne $appPlan.Count) {throw 'Manifest file set differs from archive.'}
     foreach($item in $appPlan) {if($item.Relative -match '^(private|\.local)/' -or ($item.Relative -ne 'runtime-manifest.json' -and (-not $files.ContainsKey($item.Relative) -or $files[$item.Relative].bytes -ne $item.Entry.Length))) {throw 'Manifest file size/set differs.'}}
     $migrationNames=@($files.Keys | Where-Object {$_ -match '^db/edge/migrations/\d{3}_[a-z_]+\.sql$'} | Sort-Object)
-    if($migrationNames.Count -ne 13 -or (($migrationNames | ForEach-Object {$_.Substring(19,3)}) -join ',') -ne '001,002,003,004,005,006,007,008,009,010,011,012,013') {throw 'Expected schema001-013 archive.'}
+    if($migrationNames.Count -ne 14 -or (($migrationNames | ForEach-Object {$_.Substring(19,3)}) -join ',') -ne '001,002,003,004,005,006,007,008,009,010,011,012,013,014') {throw 'Expected schema001-014 archive.'}
     if(Test-Path -LiteralPath $statePath) {
         if(-not $Resume -and -not $VerifyOnly) {throw 'Upgrade state exists. Use explicit -Resume or -VerifyOnly.'}
         Assert-UpdateAcl $privateRoot -Protected;Assert-UpdateAcl $statePath
@@ -232,7 +238,7 @@ try {
     if(-not $state.before) {$state.before=Read-UpdateDatabase 'before';Save-UpdateState}
     $original=Join-Path $privateRoot 'original-edge.xml';Assert-UpdateAcl $original
     $newXml=Read-UpdateXml ([IO.File]::ReadAllText($original)) $nodeExe $runtimeEnv (Join-Path $oldRoot 'app') $logs
-    $newXml.service.arguments='--env-file="'+$runtimeEnv+'" "'+(Join-Path $appRoot 'dist\main.js')+'"';$newXml.service.workingdirectory=$appRoot;$newText=$newXml.OuterXml
+    $newText=New-UpdateServiceXml $newXml $runtimeEnv $appRoot
     $actualXml=[IO.File]::ReadAllText($xmlPath)
     if($actualXml -cne [IO.File]::ReadAllText($original) -and $actualXml -cne $newText) {throw 'Existing WinSW XML was changed by another operation.'}
     if($VerifyOnly -and ($actualXml -cne $newText -or -not $state.migrated -or -not $state.switched)) {throw 'Recorded upgraded service is not selected.'}
@@ -241,8 +247,8 @@ try {
         if(@(Get-NetTCPConnection -State Listen -LocalPort 3101 -ErrorAction SilentlyContinue).Count) {throw 'Edge listener did not stop.'}
         if(-not $state.migrated) {
             $progress=Read-UpdateDatabase 'progress';Assert-PreservedData $progress -Partial
-            $needsMigration=$progress.migrations -lt 13
-            if($needsMigration) {$null=Invoke-UpdateProcess $nodeExe @(('--env-file='+$ownerEnv),(Join-Path $toolsRoot 'scripts\edge-migrate.mjs')) 'migrate-013'}
+            $needsMigration=$progress.migrations -lt 14
+            if($needsMigration) {$null=Invoke-UpdateProcess $nodeExe @(('--env-file='+$ownerEnv),(Join-Path $toolsRoot 'scripts\edge-migrate.mjs')) 'migrate-014'}
             Assert-PreservedData (Read-UpdateDatabase 'after');$state.migrated=$true;Save-UpdateState
         }
         # A resumed completed migration still verifies data before any grants/XML switch.
@@ -266,6 +272,6 @@ try {
     Assert-PreservedData (Read-UpdateDatabase 'after');$null=Read-UpdateDatabase 'runtime'
     if((Get-FileHash -LiteralPath $ownerEnv -Algorithm SHA256).Hash -ne $state.ownerEnvSha256 -or (Get-FileHash -LiteralPath $runtimeEnv -Algorithm SHA256).Hash -ne $state.runtimeEnvSha256) {throw 'Protected environment changed.'}
     if(-not $VerifyOnly) {$state.complete=$true;Save-UpdateState}
-    [pscustomobject]@{stage='native_service_upgrade_verified';releaseName=$ReleaseName;sourceCommit=$SourceCommit;migrations=13;serviceMode='payment_required';dataPreserved=$true;credentialsChanged=$false;postgresRestartRequested=$false;orderingEnabled=$false;fulfillmentEnabled=$false;rebootVerified=$false} | ConvertTo-Json
+    [pscustomobject]@{stage='native_service_upgrade_verified';releaseName=$ReleaseName;sourceCommit=$SourceCommit;migrations=14;serviceMode='payment_required';dataPreserved=$true;credentialsChanged=$false;postgresRestartRequested=$false;orderingEnabled=$false;fulfillmentEnabled=$false;rebootVerified=$false} | ConvertTo-Json
 } catch {Write-Warning 'Upgrade incomplete. Existing data and protected recovery state are preserved. Inspect before explicit -Resume; do not rerun the old foundation installer.';throw}
 finally {$zip.Dispose();$archiveFile.Dispose()}

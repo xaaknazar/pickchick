@@ -1,4 +1,4 @@
-# Native unused-preview upgrade from schema 009 to 013
+# Native unused-preview upgrade from schema 009 to 014
 
 Use `update-native-service.ps1` for the installed `edge-0186902` foundation.
 The historical `update-native-preview.ps1` remains a separate schema 010 helper;
@@ -23,7 +23,7 @@ completed 30-table schema 009 backup/restore proof and actual dump bytes. It onl
 accepts the unused local preview: no orders, quotes, kitchen reservations/config,
 POS sync binding or cash shifts. The original menu, staff and sessions are kept.
 
-The runtime archive must contain exactly migrations 001-013. Both new app and
+The runtime archive must contain exactly migrations 001-014. Both new app and
 operator copies are checked against their manifest, protected NTFS paths and
 allowed service access. The original Node, PostgreSQL data and binaries,
 credentials and both SCM service identities stay in place. PostgreSQL stays up;
@@ -31,11 +31,11 @@ only Edge stops. The old WinSW wrapper remains registered, and only its app entr
 point/working directory change atomically to the new release.
 
 Before switching the app, the owner runs migrations and restricted POS/auth
-grants. The verifier checks each recoverable ledger 009/010/011/012/013 against
-the reviewed SQL checksums and exact table names: 30/31/33/34/35 tables.
+grants. The verifier checks each recoverable ledger 009/010/011/012/013/014 against
+the reviewed SQL checksums and exact table names: 30/31/33/34/35/38 tables.
 New tables must stay empty. Fingerprints retain every original field except
 these explicit additive columns: `local_orders.cash_shift_id/execution_mode`,
-`branch_config.pos_service_mode`, and reservation admission-origin fields.
+`branch_config.pos_service_mode`, reservation admission-origin fields, and `local_stops.expires_at/expires_shift_id/updated_at/updated_by`.
 The new branch mode is checked separately as `payment_required`.
 
 An interruption after any complete migration can resume with the same pinned
@@ -59,7 +59,7 @@ later operations. They are not mutations hidden inside this upgrade helper.
 
 `-VerifyOnly` is for the completed upgrade before those later catalog/auth/service
 changes. Portable PowerShell tests validate parsing, backup/XML refusal, quoting,
-source pins and five interrupted-migration checkpoints. An isolated PostgreSQL
+source pins and six interrupted-migration checkpoints. An isolated PostgreSQL
 test migrates through every checkpoint, compares old fingerprints, rejects changed
 data/mode/table sets and validates a real restricted LOGIN. Windows NTFS/SCM,
 reboot, two-device and WAN-loss acceptance remain separate physical checks.

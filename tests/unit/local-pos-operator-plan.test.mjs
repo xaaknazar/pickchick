@@ -126,7 +126,7 @@ test('operator plan reconstructs all source routes, preserves cashier and distin
   const { input, sources, draft, upgrade } = fixture();
   const plan = prepareLocalPosOperatorPlan(input, sources);
   assert.equal(plan.state, 'plan_only_no_database_changes');
-  assert.equal(plan.required_migration, '013_pos_kitchen_sync.sql');
+  assert.equal(plan.required_migration, '014_pos_workspace.sql');
   assert.deepEqual(plan.artifacts['staff-cashier.json'], draft.staff);
   assert.equal(plan.artifacts['staff-manager.json'].terminal_id, draft.staff.terminal_id);
   assert.equal(plan.artifacts['staff-manager.json'].role, 'shift_manager');

@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHmac } from 'node:crypto';
 import {
   StaffCredentialSchema,
   StaffLoginNameSchema,
@@ -54,7 +54,9 @@ export async function setStaffPassword(
   loginInput: unknown,
   password: unknown,
   replace = false,
+  pinMode = false,
 ) {
+  const table = pinMode ? 'local_staff_pins' : 'local_staff_passwords';
   const login = StaffLoginNameSchema.safeParse(loginInput);
   if (!login.success || !UuidSchema.safeParse(branchId).success || typeof replace !== 'boolean')
     throw new OrderError('INVALID_REQUEST');
@@ -70,17 +72,17 @@ export async function setStaffPassword(
       identity.rows[0].staff_id,
     ]);
     const session = await authenticateStaff(client, branchId, bootstrap);
-    const existing = await client.query('SELECT 1 FROM local_staff_passwords WHERE staff_id=$1', [
+    const existing = await client.query(`SELECT 1 FROM ${table} WHERE staff_id=$1`, [
       session.staff_id,
     ]);
     if (!!existing.rowCount !== replace) throw new OrderError('CONFLICT');
     const duplicate = await client.query(
-      'SELECT 1 FROM local_staff_passwords WHERE branch_id=$1 AND login=$2 AND staff_id<>$3',
+      `SELECT 1 FROM ${table} WHERE branch_id=$1 AND login=$2 AND staff_id<>$3`,
       [branchId, login.data, session.staff_id],
     );
     if (duplicate.rowCount) throw new OrderError('CONFLICT');
     await client.query(
-      `INSERT INTO local_staff_passwords(staff_id,branch_id,login,algorithm,salt,verifier)
+      `INSERT INTO ${table}(staff_id,branch_id,login,algorithm,salt,verifier)
        VALUES($1,$2,$3,$4,$5,$6)
        ON CONFLICT(staff_id) DO UPDATE SET login=EXCLUDED.login,algorithm=EXCLUDED.algorithm,
          salt=EXCLUDED.salt,verifier=EXCLUDED.verifier,failed_attempts=0,locked_until=NULL,
@@ -138,7 +140,9 @@ export async function loginStaff(
   pool: DatabasePool,
   branchId: string,
   input: unknown,
+  pinMode = false,
 ): Promise<StaffCredential> {
+  const table = pinMode ? 'local_staff_pins' : 'local_staff_passwords';
   const parsed = StaffLoginSchema.safeParse(input);
   if (!parsed.success || !UuidSchema.safeParse(branchId).success)
     throw new OrderError('UNAUTHORIZED');
@@ -150,7 +154,7 @@ export async function loginStaff(
   try {
     const result = await transaction(pool, async (client) => {
       const found = await client.query(
-        `SELECT s.id FROM local_staff s JOIN local_staff_passwords p ON p.staff_id=s.id AND p.branch_id=s.branch_id
+        `SELECT s.id FROM local_staff s JOIN ${table} p ON p.staff_id=s.id AND p.branch_id=s.branch_id
          WHERE s.branch_id=$1 AND p.login=$2`,
         [branchId, login],
       );
@@ -158,7 +162,7 @@ export async function loginStaff(
       // Locking the parent serializes password resets, revocations and session renewal.
       const staff = staffId
         ? await client.query(
-            'SELECT id,role,active FROM local_staff WHERE id=$1 AND branch_id=$2 FOR UPDATE',
+            'SELECT id,name,role,active FROM local_staff WHERE id=$1 AND branch_id=$2 FOR UPDATE',
             [staffId, branchId],
           )
         : undefined;
@@ -170,7 +174,7 @@ export async function loginStaff(
         ? await client.query(
             `SELECT *, (locked_until > clock_timestamp()) AS locked,
           (locked_until IS NOT NULL AND locked_until <= clock_timestamp()) AS lock_expired
-         FROM local_staff_passwords WHERE staff_id=$1 AND branch_id=$2 AND login=$3 FOR UPDATE`,
+         FROM ${table} WHERE staff_id=$1 AND branch_id=$2 AND login=$3 FOR UPDATE`,
             [staffId, branchId, login],
           )
         : undefined;
@@ -185,7 +189,7 @@ export async function loginStaff(
       if (!record || !staff?.rows[0]?.active || !terminal.rowCount || record.locked) return null;
       if (!matches) {
         await client.query(
-          `UPDATE local_staff_passwords SET
+          `UPDATE ${table} SET
            failed_attempts=LEAST(5,CASE WHEN $2 THEN 1 ELSE failed_attempts+1 END),
            locked_until=CASE WHEN (CASE WHEN $2 THEN 1 ELSE failed_attempts+1 END)>=5
              THEN clock_timestamp()+interval '15 minutes' ELSE NULL END
@@ -195,7 +199,7 @@ export async function loginStaff(
         return null; // Must commit the failed-attempt count before reporting generic failure.
       }
       await client.query(
-        'UPDATE local_staff_passwords SET failed_attempts=0,locked_until=NULL WHERE staff_id=$1',
+        `UPDATE ${table} SET failed_attempts=0,locked_until=NULL WHERE staff_id=$1`,
         [staffId],
       );
       const expiry = await client.query(
@@ -221,13 +225,20 @@ export async function loginStaff(
           expiry.rows[0].access_expires_at,
         ],
       );
-      await audit(client, branchId, staffId!, 'staff.password_login', sessionId);
+      await audit(
+        client,
+        branchId,
+        staffId!,
+        pinMode ? 'staff.pin_login' : 'staff.password_login',
+        sessionId,
+      );
       return StaffCredentialSchema.parse({
         session_id: sessionId,
         staff_id: staffId,
         terminal_id: terminalId,
         branch_id: branchId,
         role: staff.rows[0].role,
+        name: staff.rows[0].name,
         expires_at: expiry.rows[0].access_expires_at.toISOString(),
         token,
       });
@@ -255,4 +266,55 @@ export async function logoutStaff(pool: DatabasePool, branchId: string, auth: St
     await client.query('UPDATE staff_sessions SET revoked=true WHERE id=$1', [session.session_id]);
     await audit(client, branchId, session.staff_id, 'staff.session_logout', session.session_id);
   });
+}
+
+async function pinLoginName(pool: DatabasePool, branchId: string, pin: string) {
+  const key = (
+    await pool.query('SELECT secret FROM local_pin_lookup_keys WHERE branch_id=$1', [branchId])
+  ).rows[0]?.secret;
+  if (!key) throw new OrderError('UNAUTHORIZED');
+  return createHmac('sha256', key).update(pin).digest('hex');
+}
+/** Owner-only enrollment, separate from password login. Never ships demo PINs. */
+export async function setStaffPin(
+  pool: DatabasePool,
+  branchId: string,
+  bootstrap: StaffAuth,
+  pin: string,
+  replace = false,
+) {
+  if (!/^[0-9]{4}$/.test(pin)) throw new OrderError('INVALID_REQUEST');
+  await pool.query(
+    'INSERT INTO local_pin_lookup_keys(branch_id,secret) VALUES($1,$2) ON CONFLICT DO NOTHING',
+    [branchId, randomBytes(32).toString('hex')],
+  );
+  const login = await pinLoginName(pool, branchId, pin);
+  const result = await setStaffPassword(
+    pool,
+    branchId,
+    bootstrap,
+    login,
+    'PickChick-PIN:' + pin,
+    replace,
+    true,
+  );
+  return { staff_id: result.staff_id, role: result.role, terminal_id: result.terminal_id };
+}
+export async function loginStaffPin(pool: DatabasePool, branchId: string, input: unknown) {
+  const value = input as { pin?: unknown; terminal_id?: unknown };
+  if (
+    !value ||
+    Object.keys(value).some((k) => !['pin', 'terminal_id'].includes(k)) ||
+    typeof value.pin !== 'string' ||
+    !/^[0-9]{4}$/.test(value.pin) ||
+    !UuidSchema.safeParse(value.terminal_id).success
+  )
+    throw new OrderError('UNAUTHORIZED');
+  const login = await pinLoginName(pool, branchId, value.pin);
+  return loginStaff(
+    pool,
+    branchId,
+    { login, password: 'PickChick-PIN:' + value.pin, terminal_id: value.terminal_id },
+    true,
+  );
 }

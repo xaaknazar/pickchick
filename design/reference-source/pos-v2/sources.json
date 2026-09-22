@@ -1,0 +1,148 @@
+{
+  "received": "2026-09-22",
+  "files": {
+    "Pick Chick Касса.dc.html": "8807efa9bb5694eec3547705866246673bff472d841742a0d83a456499345c65",
+    "pos-menu.js": "923d4cbbcaa688b53e085840566b968efed982283c968d7dffbd811583f1eebc"
+  },
+  "spec_sha256": "97b3788e3360be5205814a4301a02c1d4a18cb119b4ff5e4724a92ead7a9e8f7",
+  "photos": [
+    {
+      "name": "Pick Combo",
+      "source": "uploads/pasted-1788081398753-0.png",
+      "target": "v2/assets/menu-00.png",
+      "sha256": "16c0c99031c5055af67d3694a27296cb67df04b34ecc13fc9ea0cf1e26a43445"
+    },
+    {
+      "name": "Master Combo",
+      "source": "assets/master-combo.png",
+      "target": "v2/assets/menu-01.png",
+      "sha256": "05ab3817726ba01a08006b54fc4f76e364fcdd29513396058221d4818b6111a0"
+    },
+    {
+      "name": "Burger Combo",
+      "source": "uploads/pasted-1788081439639-0.png",
+      "target": "v2/assets/menu-02.png",
+      "sha256": "7ad01746be307482ac5479da2452178483e1ea23abebcd5673a36101480db5ac"
+    },
+    {
+      "name": "Solo Combo",
+      "source": "uploads/pasted-1788081598727-0.png",
+      "target": "v2/assets/menu-03.png",
+      "sha256": "703e789c6afa850b4f666d749a835c0c11f540643ebe505384ae2cd0bfb121e4"
+    },
+    {
+      "name": "Фингер Дуо",
+      "source": "uploads/pasted-1788081650065-0.png",
+      "target": "v2/assets/menu-04.png",
+      "sha256": "dd8c92f517c2646d0c71cc928b1754dc6f094ec62aefffd798bf586d1e2e6a5d"
+    },
+    {
+      "name": "Бургер Дуо",
+      "source": "uploads/pasted-1788081713846-0.png",
+      "target": "v2/assets/menu-05.png",
+      "sha256": "2bc8e7932e435ecafff5bfaa2e5cc3b81bae1d0c6c94cecd197f23fdc7be53c0"
+    },
+    {
+      "name": "Микс Дуо",
+      "source": "uploads/pasted-1788081765827-0.png",
+      "target": "v2/assets/menu-06.png",
+      "sha256": "e44c2c9f152732bfac263f8c242dbbcaed0f3fc5870fd74f26c90480c7a1d619"
+    },
+    {
+      "name": "25 фингерсов",
+      "source": "uploads/pasted-1788081813772-0.png",
+      "target": "v2/assets/menu-07.png",
+      "sha256": "26943a4987bb9922a9b5193074dfe04317ab05876b8b132392ae86d99eeb1c4f"
+    },
+    {
+      "name": "50 фингерсов",
+      "source": "uploads/pasted-1788081853307-0.png",
+      "target": "v2/assets/menu-08.png",
+      "sha256": "3990eb663e0b2de4d7140da116d680a5b547344681c6bddbcc80728b428d614a"
+    },
+    {
+      "name": "75 фингерсов",
+      "source": "uploads/pasted-1788082483136-0.png",
+      "target": "v2/assets/menu-09.png",
+      "sha256": "6f524a8881596a5d577504b6fb97e75462b768ce30683824551caa0f666bda0b"
+    },
+    {
+      "name": "100 фингерсов",
+      "source": "uploads/pasted-1788082510204-0.png",
+      "target": "v2/assets/menu-10.png",
+      "sha256": "87792b0d66ad23dbaa68b7a1e0ce0ccdd1eaad4c5aeea578e5fd7ee480d3b533"
+    },
+    {
+      "name": "Фингерс, 1 шт",
+      "source": "uploads/pasted-1788082949387-0.png",
+      "target": "v2/assets/menu-11.png",
+      "sha256": "682339859f8623d59f10c3c508f0ef0ce32c52e81f1cb3ef11ee64fade555ad7"
+    },
+    {
+      "name": "Соус фирменный",
+      "source": "uploads/pasted-1788083107705-0.png",
+      "target": "v2/assets/menu-12.png",
+      "sha256": "b064f8f2bebebad6bce339badd5b9c53f0fc6e0485fe9baf10aec8d2d1fe63a8"
+    },
+    {
+      "name": "Соус острый",
+      "source": "assets/sauce-hot.jpg",
+      "target": "v2/assets/menu-13.jpg",
+      "sha256": "db57db74e78c0fb1a58d7cc38b3e9f10ff12cba6bdd614bed30745d6f34f1332"
+    },
+    {
+      "name": "Тост, 1 шт",
+      "source": "uploads/pasted-1788083057888-0.png",
+      "target": "v2/assets/menu-14.png",
+      "sha256": "d72202de6deb93a2a34f4ea164bed02735cf5eabed7125a51f9d20cfc6f14c2d"
+    },
+    {
+      "name": "Коулслоу, 90 г",
+      "source": "uploads/pasted-1788083009816-0.png",
+      "target": "v2/assets/menu-15.png",
+      "sha256": "4d108a0ec147c7def6bc0e83ebbde0f62b6b0cc90b90e9299d78cf2df7aa0456"
+    },
+    {
+      "name": "Картофельные дольки, 90 г",
+      "source": "assets/wedges.png",
+      "target": "v2/assets/menu-16.png",
+      "sha256": "dbab366eebb6feca3be37c813abf4f0ed3377fa1bce54ac83a131258a556641d"
+    },
+    {
+      "name": "Бургер, 1 шт",
+      "source": "uploads/Снимок экрана - 2026-08-25 в 18.37.41.png",
+      "target": "v2/assets/menu-17.png",
+      "sha256": "74d1b1524023017b5301329648c95a76ff5c1bce11a39a4ed3f2e9de0e61a35b"
+    },
+    {
+      "name": "Фирменный лимонад 0.5 л",
+      "source": "uploads/pasted-1788083417994-0.png",
+      "target": "v2/assets/menu-18.png",
+      "sha256": "fc4ac8ed453aad71504bffc17028f85c49e8a63c841ac633a4b7d065936b828c"
+    },
+    {
+      "name": "Coca-Cola 0.5 л, банка",
+      "source": "uploads/pasted-1788083158951-0.png",
+      "target": "v2/assets/menu-19.png",
+      "sha256": "6fc2f64beff3b26c0181b5ebec6e5c8e97413a4e55a064b49eec9802aa587d70"
+    },
+    {
+      "name": "Fuse Tea Персик 0.5 л",
+      "source": "uploads/pasted-1788083191946-0.png",
+      "target": "v2/assets/menu-20.png",
+      "sha256": "258b4bb5799d0c6cb11cb5c2b2fe09ddc9db9036e2f020f4bc1993b1601d3dc7"
+    },
+    {
+      "name": "Холодный чай 0.5 л",
+      "source": "uploads/pasted-1788082021860-0.png",
+      "target": "v2/assets/menu-21.png",
+      "sha256": "ac3667daa951b12dc624e56fc2bcce0c2314c5b30e2e0fffd430134269aee832"
+    },
+    {
+      "name": "Bonaqua негаз. 0.5 л",
+      "source": "uploads/pasted-1788083238910-0.png",
+      "target": "v2/assets/menu-22.png",
+      "sha256": "ae67698a58c8a366d42cab0036de203ba27c35e99f7f6dd1017b034dbbd63ed4"
+    }
+  ]
+}

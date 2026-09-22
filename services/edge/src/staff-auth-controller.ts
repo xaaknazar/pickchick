@@ -12,6 +12,7 @@ import {
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
   loginStaff,
+  loginStaffPin,
   logoutStaff,
   OrderError,
   StaffRateLimitError,
@@ -39,6 +40,26 @@ export class StaffAuthController {
       if (error instanceof OrderError)
         throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
       // Login input/driver errors must never become exception logs with a password/token.
+      throw new HttpException({ code: 'SERVICE_UNAVAILABLE' }, 503);
+    }
+  }
+
+  @Post('pin')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  async pin(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: { setHeader(name: string, value: string): void },
+  ) {
+    try {
+      return await loginStaffPin(this.resources.pool, this.resources.config.branchId!, body);
+    } catch (error) {
+      if (error instanceof StaffRateLimitError) {
+        response.setHeader('Retry-After', '60');
+        throw new HttpException({ code: 'AUTH_RATE_LIMITED' }, 429);
+      }
+      if (error instanceof OrderError)
+        throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
       throw new HttpException({ code: 'SERVICE_UNAVAILABLE' }, 503);
     }
   }

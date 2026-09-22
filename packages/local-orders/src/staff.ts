@@ -77,6 +77,7 @@ export async function provisionStaff(pool: DatabasePool, branchId: string, input
       terminal_id: setup.terminal_id,
       branch_id: branchId,
       role: setup.role,
+      name: staff.name,
       token,
       expires_at: result.rows[0].expires_at.toISOString(),
     });
@@ -119,7 +120,7 @@ export async function authenticateStaff(
     branchId,
   ]);
   const result = await client.query(
-    `SELECT s.id AS session_id, s.staff_id, s.terminal_id, s.branch_id, g.role,
+    `SELECT s.id AS session_id, s.staff_id, s.terminal_id, s.branch_id, g.role, g.name,
     least(s.expires_at,g.access_expires_at) AS expires_at FROM staff_sessions s
     JOIN local_staff g ON g.id = s.staff_id AND g.branch_id = s.branch_id
     JOIN local_terminals t ON t.id = s.terminal_id AND t.branch_id = s.branch_id

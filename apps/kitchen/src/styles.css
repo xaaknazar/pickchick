@@ -781,3 +781,13 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
     margin-top: 18px;
   }
 }
+
+.guest-display-name {
+  display: block;
+  font-size: clamp(18px, 2vw, 32px);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}

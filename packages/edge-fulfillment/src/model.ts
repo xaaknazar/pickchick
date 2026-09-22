@@ -108,6 +108,8 @@ export const SnapshotSchema = z
     branchId: uuid,
     channel: z.enum(['mobile', 'pos']),
     serviceMode: z.enum(['takeaway', 'dine_in']),
+    displayName: z.string().max(14).optional(),
+    kitchenComment: z.string().max(60).optional(),
     currency: z.literal('KZT'),
     totalMinor: z.string().regex(/^[1-9][0-9]{0,15}$/),
     lines: z

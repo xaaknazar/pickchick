@@ -76,13 +76,37 @@ export function validateJournal(key, raw, scope) {
     Buffer.byteLength(raw, 'utf8') > JOURNAL_LIMIT
   )
     fail();
-  const j = exact(JSON.parse(raw), ['version', 'scope', 'draft', 'pending', 'known', 'selected']);
+  const j = exact(JSON.parse(raw), [
+    'version',
+    'scope',
+    'draft',
+    'pending',
+    'known',
+    'selected',
+    ...(Object.hasOwn(JSON.parse(raw), 'held') ? ['held'] : []),
+  ]);
   if (j.version !== 1 || j.scope !== scope || !Array.isArray(j.known) || j.known.length > 100)
     fail();
   j.known.forEach(id);
   if (j.selected !== null) id(j.selected);
-  if (j.draft !== null) {
-    const d = exact(j.draft, ['release_id', 'service_mode', 'items']);
+  if (j.held !== undefined && (!Array.isArray(j.held) || j.held.length > 10)) fail();
+  for (const draft of [j.draft, ...(j.held ?? [])].filter((d) => d !== null)) {
+    const d = exact(draft, [
+      'release_id',
+      'service_mode',
+      'items',
+      ...(Object.hasOwn(draft, 'details') ? ['details'] : []),
+    ]);
+    if (d.details !== undefined) {
+      exact(d.details, ['display_name', 'kitchen_comment']);
+      if (
+        typeof d.details.display_name !== 'string' ||
+        [...d.details.display_name].length > 14 ||
+        typeof d.details.kitchen_comment !== 'string' ||
+        d.details.kitchen_comment.length > 60
+      )
+        fail();
+    }
     id(d.release_id);
     if (
       !['takeaway', 'dine_in'].includes(d.service_mode) ||
@@ -118,6 +142,16 @@ export function validateJournal(key, raw, scope) {
       if (p.path !== 'cash-shifts') fail();
       exact(p.body, ['opening_cash_minor']);
       money(p.body.opening_cash_minor);
+    } else if (p.kind === 'shift_move') {
+      text(p.path, 160);
+      const parts = p.path.split('/');
+      if (parts.length !== 3 || parts[0] !== 'cash-shifts' || parts[2] !== 'movements') fail();
+      id(parts[1]);
+      exact(p.body, ['direction', 'amount_minor', 'reason']);
+      if (!['in', 'out'].includes(p.body.direction)) fail();
+      money(p.body.amount_minor);
+      text(p.body.reason);
+      if (!p.body.reason.trim()) fail();
     } else if (p.kind === 'shift_close') {
       text(p.path, 160);
       const parts = p.path.split('/');
@@ -134,7 +168,15 @@ export function validateJournal(key, raw, scope) {
       integer(p.body.expected_version);
     } else if (p.kind === 'stop') {
       if (p.path !== 'availability/stops') fail();
-      exact(p.body, ['variant_id', 'expected_version', 'reason', 'stopped']);
+      exact(p.body, [
+        'variant_id',
+        'expected_version',
+        'reason',
+        'stopped',
+        ...(p.body.duration === undefined ? [] : ['duration']),
+      ]);
+      if (p.body.duration !== undefined && !['manual', 'hour', 'shift'].includes(p.body.duration))
+        fail();
       id(p.body.variant_id);
       integer(p.body.expected_version, 0);
       text(p.body.reason);
@@ -185,7 +227,9 @@ export function createJournalStore({
           'branch_id',
           'role',
           'expires_at',
+          ...(value?.name === undefined ? [] : ['name']),
         ]);
+        if (s.name !== undefined) text(s.name, 100);
         for (const field of ['session_id', 'staff_id', 'terminal_id', 'branch_id']) id(s[field]);
         if (s.session_id !== expectedSessionId || !['cashier', 'shift_manager'].includes(s.role))
           return;

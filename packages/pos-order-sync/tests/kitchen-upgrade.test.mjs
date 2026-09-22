@@ -6,19 +6,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrate } from '@pickchick/database';
+import { QuoteSchema } from '@pickchick/contracts';
 import { applyMenu, publishMenu, hashJson, provisionDevice } from '@pickchick/menu-sync';
-import {
-  provisionStaff,
-  openCashShift,
-  setOrdering,
-  createQuote,
-  createLocalOrder,
-} from '@pickchick/local-orders';
+import { provisionStaff, setOrdering, priceCart } from '@pickchick/local-orders';
 import { provisionCloudPosSync, parseEvent } from '../dist/index.js';
 import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
 import { staffAuth } from '../../../tests/helpers/orders.mjs';
 
-test('013/018 preserve old unacknowledged commercial bytes and observed totals without enabling kitchen', async () => {
+test('013-014/018 preserve old unacknowledged commercial bytes and observed totals without enabling kitchen', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pickchick-kitchen-upgrade-')),
     cloudOld = join(directory, 'cloud'),
     edgeOld = join(directory, 'edge');
@@ -48,38 +43,94 @@ test('013/018 preserve old unacknowledged commercial bytes and observed totals w
           role: 'shift_manager',
         });
         const auth = staffAuth(actor);
-        await openCashShift(ctx.edge.pool, ctx.branch, auth, randomUUID(), {
-          opening_cash_minor: '0',
-        });
+        // Seed historical rows with schema012 SQL, never newer shift/stop APIs.
+        const shiftId = randomUUID();
+        await ctx.edge.pool.query(
+          'INSERT INTO local_cash_shifts(id,branch_id,terminal_id,staff_id,opening_cash_minor) VALUES($1,$2,$3,$4,0)',
+          [shiftId, ctx.branch, actor.terminal_id, actor.staff_id],
+        );
         await setOrdering(ctx.edge.pool, ctx.branch, auth, randomUUID(), true, {
           expected_version: 1,
         });
-        const q = await createQuote(ctx.edge.pool, ctx.branch, auth, {
+        const cart = {
           release_id: menu.release_id,
           service_mode: 'takeaway',
           items: [{ variant_id: menu.items[0].variant_id, quantity: 1 }],
+        };
+        const time = new Date();
+        const q = QuoteSchema.parse({
+          quote_id: randomUUID(),
+          branch_id: ctx.branch,
+          release_id: menu.release_id,
+          menu_version: menu.version,
+          service_mode: 'takeaway',
+          channel: 'pos',
+          ...priceCart(menu, cart),
+          created_at: time.toISOString(),
+          expires_at: new Date(time.getTime() + 300000).toISOString(),
         });
-        const order = await createLocalOrder(ctx.edge.pool, ctx.branch, auth, randomUUID(), {
-          quote_id: q.quote_id,
-        });
-        const r = (
-          await ctx.edge.pool.query("SELECT * FROM outbox_events WHERE event_type='order.created'")
-        ).rows[0];
+        await ctx.edge.pool.query(
+          'INSERT INTO checkout_quotes(id,branch_id,staff_id,terminal_id,release_id,total_minor,snapshot,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+          [
+            q.quote_id,
+            ctx.branch,
+            actor.staff_id,
+            actor.terminal_id,
+            menu.release_id,
+            q.total_minor,
+            q,
+            q.created_at,
+            q.expires_at,
+          ],
+        );
+        const order = { order_id: randomUUID() };
+        await ctx.edge.pool.query(
+          'INSERT INTO local_orders(id,branch_id,quote_id,total_minor,cash_shift_id) VALUES($1,$2,$3,$4,$5)',
+          [order.order_id, ctx.branch, q.quote_id, q.total_minor, shiftId],
+        );
         const event = parseEvent({
-          event_id: r.event_id,
-          producer_id: r.producer_id,
-          producer_sequence: r.producer_sequence,
-          aggregate_type: r.aggregate_type,
-          aggregate_id: r.aggregate_id,
-          aggregate_version: Number(r.aggregate_version),
-          event_type: r.event_type,
-          schema_version: r.schema_version,
-          branch_id: r.branch_id,
-          occurred_at: r.occurred_at.toISOString(),
-          correlation_id: r.correlation_id,
-          causation_id: r.causation_id,
-          payload: r.payload,
+          event_id: randomUUID(),
+          producer_id: randomUUID(),
+          producer_sequence: '1',
+          aggregate_type: 'order_commercial',
+          aggregate_id: order.order_id,
+          aggregate_version: 1,
+          event_type: 'order.created',
+          schema_version: 1,
+          branch_id: ctx.branch,
+          occurred_at: time.toISOString(),
+          correlation_id: order.order_id,
+          causation_id: null,
+          payload: {
+            order_id: order.order_id,
+            quote_id: q.quote_id,
+            state: 'awaiting_payment',
+            payment_state: 'not_started',
+            fulfillment_state: 'blocked',
+            total_minor: q.total_minor,
+            currency: 'KZT',
+            channel: 'pos',
+            service_mode: 'takeaway',
+            snapshot: q,
+          },
         });
+        await ctx.edge.pool.query(
+          'INSERT INTO local_order_streams(branch_id,producer_id,last_sequence) VALUES($1,$2,1)',
+          [ctx.branch, event.producer_id],
+        );
+        await ctx.edge.pool.query(
+          'INSERT INTO outbox_events(event_id,producer_id,producer_sequence,branch_id,aggregate_type,aggregate_id,aggregate_version,schema_version,event_type,payload,occurred_at,correlation_id) VALUES($1,$2,1,$3,$4,$5,1,1,$6,$7,$8,$5)',
+          [
+            event.event_id,
+            event.producer_id,
+            ctx.branch,
+            event.aggregate_type,
+            order.order_id,
+            event.event_type,
+            event.payload,
+            event.occurred_at,
+          ],
+        );
         assert.equal(Object.hasOwn(event.payload, 'execution_mode'), false);
         const scope = {
           organizationId: ctx.org,
@@ -148,7 +199,12 @@ test('013/018 preserve old unacknowledged commercial bytes and observed totals w
             );
         for (const side of ['edge', 'cloud']) {
           const changed = await migrate(ctx[side].pool, paths[side], side);
-          assert.equal(changed.length, 1);
+          assert.deepEqual(
+            changed,
+            side === 'edge'
+              ? ['013_pos_kitchen_sync.sql', '014_pos_workspace.sql']
+              : ['018_pos_kitchen_sync.sql'],
+          );
           assert.deepEqual(await migrate(ctx[side].pool, paths[side], side), []);
         }
         for (const side of ['edge', 'cloud'])

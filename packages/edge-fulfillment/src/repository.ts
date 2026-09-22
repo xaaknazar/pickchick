@@ -546,8 +546,8 @@ export class EdgeFulfillment {
       input,
     );
     const rows = (
-      await this.pool.query<{ display_number: string; state: State }>(
-        `SELECT display_number,state FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
+      await this.pool.query<{ display_number: string; state: State; display_name: string }>(
+        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
         [branchId, q.afterNumber, q.limit + 1],
       )
     ).rows;
@@ -555,6 +555,7 @@ export class EdgeFulfillment {
     return {
       items: page.map((r) => ({
         number: r.display_number,
+        ...(r.display_name ? { name: r.display_name } : {}),
         state: r.state === 'ready' ? 'ready' : 'preparing',
       })),
       nextAfterNumber: rows.length > q.limit ? page.at(-1)!.display_number : null,

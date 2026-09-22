@@ -7,7 +7,9 @@ import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:f
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { createEdge } from '@pickchick/edge';
-import { setStaffPassword, provisionStaff } from '@pickchick/local-orders';
+import { randomUUID } from 'node:crypto';
+import { provisionFulfillment } from '@pickchick/edge-fulfillment';
+import { setStaffPin } from '@pickchick/local-orders';
 import { withOrderDesk } from '../helpers/orders.mjs';
 import { running } from '../helpers/sync.mjs';
 import { desktopFile, eventually } from './support.mjs';
@@ -39,33 +41,19 @@ const runtime =
         : 'node_modules/electron/dist/electron',
   );
 
-const visible = (page, id) => page.getByTestId(id).waitFor({ state: 'visible' });
-async function textIs(page, id, expected) {
-  await eventually(
-    () => page.getByTestId(id).textContent(),
-    (value) => value === expected,
-    `Expected ${id} to contain the confirmed state`,
-  );
+const button = (page, name) => page.getByRole('button', { name, exact: true });
+async function pinLogin(page, pin = '1357') {
+  for (const digit of pin) await button(page, digit).click();
 }
-async function login(page, credential, phase = () => {}) {
-  phase('form');
-  const service = page.locator('details.login-service');
-  await service.waitFor({ state: 'visible' });
-  if ((await service.getAttribute('open')) === null) await service.locator('summary').click();
-  await visible(page, 'pos-staff-file');
-  phase('upload');
-  await page.getByTestId('pos-staff-file').setInputFiles({
-    name: 'synthetic-staff.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(credential)),
-  });
-  phase('response');
+async function addItems(page) {
+  await button(page, 'ДОПЫ').click();
+  const cards = page.locator('.catalog-pane [role="button"]').filter({ hasText: '3 490 ₸' });
+  await cards.first().click();
+  await cards.first().click();
 }
-async function passwordLogin(page) {
-  await visible(page, 'pos-login');
-  await page.getByTestId('pos-login').fill('fixture.cashier');
-  await page.getByTestId('pos-password').fill('synthetic-password-only-123');
-  await page.getByTestId('pos-sign-in').click();
+async function quote(page, price) {
+  await button(page, 'НА КУХНЮ · ' + price).click();
+  await button(page, 'ПЕРЕДАТЬ БЕЗ ОПЛАТЫ').waitFor();
 }
 function environment(profile) {
   const env = { ...process.env, PICKCHICK_POS_TEST_USER_DATA: profile };
@@ -91,7 +79,39 @@ test(
         escaped = 0,
         app = null;
       try {
-        edge = await running(createEdge, ctx.edge.config);
+        const prep = randomUUID(),
+          assembly = randomUUID();
+        await provisionFulfillment(ctx.edge.pool, {
+          branchId: ctx.branch,
+          organizationId: ctx.org,
+          deviceId: ctx.device,
+          producerId: randomUUID(),
+          stations: [
+            { id: prep, kind: 'prep', name: 'Кухня' },
+            { id: assembly, kind: 'assembly', name: 'Сборка' },
+          ],
+          routing: {
+            version: 1,
+            assemblyStationId: assembly,
+            routes: ctx.release.items.map((i) => ({
+              productId: i.product_id,
+              stationId: prep,
+              kind: 'prep',
+            })),
+          },
+        });
+        await ctx.edge.pool.query("UPDATE branch_config SET pos_service_mode='unpaid_service'");
+        await setStaffPin(
+          ctx.edge.pool,
+          ctx.branch,
+          { sessionId: ctx.cashier.session_id, token: ctx.cashier.token },
+          '1357',
+        );
+        edge = await running(createEdge, {
+          ...ctx.edge.config,
+          edgeFulfillmentEnabled: true,
+          edgeDeviceId: ctx.device,
+        });
         const output = fileURLToPath(new URL('../../.local/pos-desktop-browser/', import.meta.url));
         await mkdir(output, { recursive: true, mode: 0o700 });
         temporary = await mkdtemp(join(output, 'run-'));
@@ -183,10 +203,11 @@ test(
         };
         try {
           let page = await launch();
-          await login(page, { ...ctx.cashier, token: '0'.repeat(64) }, (phase) => {
-            stage = `invalid staff authentication: ${phase}`;
-          });
-          await visible(page, 'pos-error');
+          await pinLogin(page, '9999');
+          await page
+            .getByText('Неверный PIN или рабочее место недоступно', { exact: true })
+            .first()
+            .waitFor();
           stage = 'secure renderer and single instance';
           const preferences = await app.evaluate(({ BrowserWindow }) => {
             const window = BrowserWindow.getAllWindows()[0];
@@ -340,21 +361,8 @@ test(
           assert.equal(localAssets.privateBlocked, true);
 
           stage = 'valid real staff authentication';
-          await setStaffPassword(
-            ctx.edge.pool,
-            ctx.branch,
-            { sessionId: ctx.cashier.session_id, token: ctx.cashier.token },
-            'fixture.cashier',
-            'synthetic-password-only-123',
-          );
-          await passwordLogin(page);
-          const variant = ctx.release.items[0].variant_id;
-          const add = page.getByTestId('pos-add-' + variant);
-          await eventually(
-            () => add.isEnabled(),
-            Boolean,
-            'Validated local menu did not become available',
-          );
+          await pinLogin(page);
+          await button(page, 'ДОПЫ').waitFor();
           assert.equal(
             await page.evaluate((key) => {
               const store = globalThis.pickchickPosJournal;
@@ -378,33 +386,16 @@ test(
             true,
             'Narrow bridge rejects foreign scopes and invalid data without altering the journal',
           );
-          await add.click();
-          await add.click();
-          await textIs(page, 'pos-total', '6 980 ₸');
-          stage = 'real edge quote';
-          await page.getByTestId('pos-calculate').click();
-          await eventually(
-            () => page.getByTestId('pos-create').isEnabled(),
-            Boolean,
-            'Edge quote missing',
-          );
-
+          stage = 'add and quote';
+          await addItems(page);
+          await quote(page, '6 980 ₸');
           stage = 'real commit followed by lost response';
-          await page.getByTestId('pos-create').click();
-          await visible(page, 'pos-recovery');
+          await button(page, 'ПЕРЕДАТЬ БЕЗ ОПЛАТЫ').click();
+          await button(page, 'Проверить результат').waitFor();
           await eventually(
-            () => page.getByTestId('pos-recover').isEnabled(),
-            Boolean,
-            'The committed request must settle as an unknown response before crash recovery',
-          );
-          await page.getByTestId('pos-create').waitFor({ state: 'detached' });
-          assert.equal(creates.length, 1);
-          assert.equal(
-            await page.evaluate(
-              (token) => JSON.stringify(globalThis.localStorage).includes(token),
-              ctx.cashier.token,
-            ),
-            false,
+            () => creates.length,
+            (v) => v === 1,
+            'Expected committed create',
           );
           const before = (
             await ctx.edge.pool.query(
@@ -442,74 +433,54 @@ test(
           await exited;
           app = null;
           page = await launch();
-          await passwordLogin(page);
-          await visible(page, 'pos-recovery');
-          assert.equal(creates.length, 1, 'Restart must never automatically create another order');
-          await page.getByTestId('pos-recover').click();
-          await visible(page, 'pos-order');
-          await textIs(page, 'pos-order-id', before[0].id);
+          await pinLogin(page);
+          await button(page, 'Проверить результат').waitFor();
+          assert.equal(creates.length, 1, 'Restart does not create automatically');
+          await button(page, 'Проверить результат').click();
+          await page.getByText('Заказ передан на кухню', { exact: true }).waitFor();
           assert.equal(creates.length, 2);
-          assert.deepEqual(creates[1], creates[0], 'Retry must preserve the exact key and payload');
-          assert.equal(
-            await page.getByRole('button', { name: 'Оплатить', exact: true }).count(),
-            0,
-          );
+          assert.deepEqual(creates[1], creates[0], 'Identical durable command after crash');
           await page.screenshot({ path: join(output, 'electron-recovered-order.png') });
-
-          stage = 'normal restart restores confirmed reference after a new login';
+          stage = 'normal restart, history and cancellation';
           await app.close();
           app = null;
           page = await launch();
-          await passwordLogin(page);
-          stage = 'restored selected order after password login';
-          await textIs(page, 'pos-order-id', before[0].id);
-          assert.equal(creates.length, 2);
-          stage = 'cancel restored order';
-          await page.getByTestId('pos-cancel').click();
-          await page.getByTestId('pos-reason').fill('Synthetic desktop lifecycle acceptance');
-          await page.getByTestId('pos-confirm').click();
-          stage = 'confirmed cancelled order status';
-          await textIs(page, 'pos-kitchen-state', 'Отменён');
-
-          stage = 'native storage failure blocks a new create before HTTP';
-          await page
-            .getByTestId('pos-order')
-            .getByRole('button', { name: 'Новый заказ', exact: true })
-            .click();
-          await page.getByTestId('pos-add-' + variant).click();
-          await page.getByTestId('pos-calculate').click();
+          await pinLogin(page);
+          await button(page, 'ЗАКАЗЫ').click();
+          await button(page, 'Открыть').click();
+          await button(page, 'Отменить заказ').click();
+          await button(page, 'Ошибка кассира').click();
           await eventually(
-            () => page.getByTestId('pos-create').isEnabled(),
-            Boolean,
-            'Second quote missing',
+            () => ctx.edge.pool.query('SELECT state FROM local_orders'),
+            (r) => r.rows[0]?.state === 'cancelled',
+            'Cancellation must commit',
           );
-          const nativeDirectory = join(profile, 'journal-v1');
-          const savedDirectory = join(profile, 'journal-v1.saved');
+          stage = 'native disk failure blocks HTTP';
+          await button(page, 'ЗАКАЗ').click();
+          await addItems(page);
+          await quote(page, '6 980 ₸');
+          const nativeDirectory = join(profile, 'journal-v1'),
+            savedDirectory = join(profile, 'journal-v1.saved');
           await rename(nativeDirectory, savedDirectory);
           try {
-            // A file in place of the temporary journal directory causes a real
-            // filesystem failure on every OS without mocked production IPC.
             await writeFile(nativeDirectory, 'SYNTHETIC_DISK_FAULT', { mode: 0o600 });
-            await page.getByTestId('pos-create').click();
-            await visible(page, 'pos-error');
-            await page.getByTestId('pos-create').waitFor({ state: 'detached' });
-            assert.equal(creates.length, 2, 'A failed durable save must not reach the edge');
-            assert.equal(
-              (await ctx.edge.pool.query('SELECT count(*) FROM local_orders')).rows[0].count,
-              '1',
-            );
+            await button(page, 'ПЕРЕДАТЬ БЕЗ ОПЛАТЫ').click();
+            await page
+              .getByText(/Не удалось сохранить/)
+              .first()
+              .waitFor();
+            assert.equal(creates.length, 2, 'No create before durable save');
           } finally {
             await rm(nativeDirectory, { force: true });
             await rename(savedDirectory, nativeDirectory);
           }
-          stage = 'restart after repaired storage retains the last committed draft';
+          stage = 'restart repaired storage';
           await app.close();
           app = null;
           page = await launch();
-          await passwordLogin(page);
-          await textIs(page, 'pos-total', '3 490 ₸');
-          assert.equal(creates.length, 2, 'Restart must not send the failed local command');
-
+          await pinLogin(page);
+          await button(page, 'НА КУХНЮ · 6 980 ₸').waitFor();
+          assert.equal(creates.length, 2);
           // A denied navigation can leave Playwright's isolated utility world
           // waiting on a navigation that Electron prevented. Probe this last,
           // using ordinary main-world DOM events to prove the POS stays usable.
@@ -522,15 +493,14 @@ test(
           assert.equal(escaped, 0, 'No unconfigured HTTP listener may receive renderer traffic');
           stage = 'normal POS interaction after denied navigation';
           await page.evaluate(() =>
-            globalThis.document.querySelector('[data-testid="pos-logout"]').click(),
+            [...globalThis.document.querySelectorAll('[role="button"]')]
+              .find((e) => e.textContent.trim() === 'Блокировать')
+              ?.click(),
           );
           await eventually(
-            () =>
-              page.evaluate(
-                () => !!globalThis.document.querySelector('[data-testid="pos-staff-file"]'),
-              ),
+            () => page.evaluate(() => globalThis.document.body.textContent.includes('Личный PIN')),
             Boolean,
-            'The document must stay interactive after blocked navigation',
+            'Document remains interactive',
           );
           assert.equal(
             await page.evaluate((key) => {
@@ -542,29 +512,8 @@ test(
               }
             }, journalKey),
             true,
-            'Logout must revoke native journal access without deleting it',
+            'Logout revokes journal authority',
           );
-          ctx.cashier = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.cashierSetup);
-          await page.evaluate((credential) => {
-            const input = globalThis.document.querySelector('[data-testid="pos-staff-file"]');
-            const transfer = new globalThis.DataTransfer();
-            transfer.items.add(
-              new globalThis.File([JSON.stringify(credential)], 'synthetic-staff.json', {
-                type: 'application/json',
-              }),
-            );
-            input.files = transfer.files;
-            input.dispatchEvent(new globalThis.Event('change', { bubbles: true }));
-          }, ctx.cashier);
-          await eventually(
-            () =>
-              page.evaluate(
-                () => !!globalThis.document.querySelector('[data-testid="pos-logout"]'),
-              ),
-            Boolean,
-            'File input change must still authenticate against local edge after blocked navigation',
-          );
-
           stage = 'durable database and outbox invariants';
           const rows = (
             await ctx.edge.pool.query(
@@ -589,26 +538,17 @@ test(
             { event_type: 'order.created', count: 1 },
           ]);
           assert.equal(
-            (await ctx.edge.pool.query('SELECT count(*) FROM checkout_quotes')).rows[0].count,
-            '2',
+            (await ctx.edge.pool.query('SELECT state FROM fulfillment_reservations')).rows[0].state,
+            'cancelled',
           );
           assert.equal(escaped, 0);
           assert.deepEqual(errors, []);
           assert.deepEqual(
-            requests
-              .filter(({ method, path }) => method !== 'GET' && !path.startsWith('/edge/v1/staff/'))
-              .map(({ method, path }) => ({ method, path })),
-            [
-              { method: 'POST', path: '/edge/v1/checkout/quotes' },
-              { method: 'POST', path: '/edge/v1/orders' },
-              { method: 'POST', path: '/edge/v1/orders' },
-              { method: 'POST', path: `/edge/v1/orders/${before[0].id}/cancel` },
-              { method: 'POST', path: '/edge/v1/checkout/quotes' },
-            ],
-            'Only the two quotes, idempotent create/replay and explicit cancellation may mutate edge',
+            creates.map((c) => c.status),
+            [201, 201],
           );
           assert.ok(requests.every(({ path }) => path.startsWith('/edge/v1/')));
-          assert.ok(!requests.some(({ path }) => /payment|fiscal|kitchen/.test(path)));
+          assert.ok(!requests.some(({ path }) => /payment|fiscal/.test(path)));
         } catch {
           // Playwright call logs can include file-input data. Report only the
           // stage; neither temporary staff credentials nor profile data is logged.

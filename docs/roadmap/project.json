@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-16T07:20:20.629670Z",
+  "updatedAt": "2026-09-22T11:32:42.198561+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -42,7 +42,8 @@
     "docs/operations/restaurant-equipment.md",
     "docs/operations/menu-sync.md",
     "docs/03-offline-and-reliability.md",
-    "docs/operations/deployments/2026-09-07-mobizon-account.md"
+    "docs/operations/deployments/2026-09-07-mobizon-account.md",
+    "docs/operations/pos-design-v2-pilot.md"
   ],
   "workstreams": [
     {
@@ -1023,12 +1024,16 @@
       "id": "pos-design",
       "workstream": "pos",
       "title": "Согласовать мокап с кассирами",
-      "summary": "Владелец выбрал сначала дизайн и согласование кассиров. Настройка двух моноблоков приостановлена до этого решения.",
+      "summary": "Макет и PDF получены. Интерфейс перенесён в POS0.4; состав, ограничения тестового режима и визуальные проверки зафиксированы. Приёмка кассирами ещё нужна.",
       "status": "active",
       "owner": "joint",
       "phase": "discovery",
       "dependsOn": [],
       "evidence": [
+        {
+          "label": "Касса по макету и локальный пилот",
+          "path": "docs/operations/pos-design-v2-pilot.md"
+        },
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
@@ -1042,20 +1047,20 @@
         "Кассиры проходят сборку заказа, модификаторы, отмену и смену по мокапу.",
         "Владелец фиксирует принятые экраны и замечания."
       ],
-      "nextAction": "Получить макет владельца и провести согласование типовых сценариев.",
+      "nextAction": "Пройти кассирские сценарии на моноблоке и записать замечания.",
       "checks": {
-        "implemented": false,
-        "verified": false,
-        "deployed": false,
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       },
-      "customerInput": "Мокап кассы и замечания кассиров."
+      "customerInput": "Замечания кассиров к установленному выпуску."
     },
     {
       "id": "pos-foundation-installed",
       "workstream": "pos",
       "title": "Установить базовую кассу и локальный сервер",
-      "summary": "На физическом Windows подтверждены POS 0.1.0, edge001-009 и службы PostgreSQL/edge. Принятие полного рабочего цикла ещё не выполнено.",
+      "summary": "На физическом Windows подтверждены POS0.4.3, edge001-014 и службы PostgreSQL/edge. Персональные PIN и вход приняты владельцем; полный двухэкранный цикл ещё требует проверки.",
       "status": "done",
       "owner": "development",
       "phase": "foundation",
@@ -1073,7 +1078,7 @@
       "acceptance": [
         "Меню открывается, службы перезапускаются, локальная БД доступна с ограниченными правами."
       ],
-      "nextAction": "После согласования дизайна обновить до подготовленной версии.",
+      "nextAction": "Подключить кухню по LAN после завершения проверки кассы.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -1084,13 +1089,21 @@
     {
       "id": "pos-client-upgrade",
       "workstream": "pos",
-      "title": "Подготовить кассу 0.3: меню, смены и полный экран",
-      "summary": "Реализованы фото, поиск, постоянная корзина, модификаторы, часы Алматы, число заказов, открытие/закрытие и нативный полный экран.",
+      "title": "Подготовить кассу 0.4 по макету владельца",
+      "summary": "Касса по исходному дизайну установлена как POS0.4.3. Владелец подтвердил устранение вспышек в 0.4.2; 0.4.3 добавляет адаптацию сенсорных элементов, модификаторов и списка заказов. В POS0.4.4 по замечанию владельца уменьшена форма начальной суммы; обновление установлено. В 0.4.5 убраны лишние подписи по решению владельца; браузерный и Electron-сценарии прошли, обновление установлено на кассе. В POS0.4.6 проверены 20 экранов на 16 размерах; исправлены кнопки и прокрутка. Браузерный и Electron-сценарии прошли, обновление установлено на кассе.",
       "status": "done",
       "owner": "development",
       "phase": "integration",
       "dependsOn": [],
       "evidence": [
+        {
+          "label": "Физическая установка POS0.4.3 и edge014",
+          "path": "docs/operations/deployments/2026-09-22-windows-pos-v2.md"
+        },
+        {
+          "label": "Касса по макету и локальный пилот",
+          "path": "docs/operations/pos-design-v2-pilot.md"
+        },
         {
           "label": "Состав и проверки кассы 0.3",
           "path": "docs/operations/pos-cashier-upgrade-2026-09-15.md"
@@ -1103,11 +1116,11 @@
       "acceptance": [
         "Electron проверен на вход, fullscreen, потерю ответа и восстановление после аварии."
       ],
-      "nextAction": "Принять UI с кассирами и установить проверенный выпуск.",
+      "nextAction": "Пройти кассирские сценарии на установленном моноблоке.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -1115,7 +1128,7 @@
       "id": "pos-unpaid-service",
       "workstream": "pos",
       "title": "Передавать тестовый заказ на кухню без оплаты",
-      "summary": "Атомарный операторский режим создаёт заказ и задания кухни. Он не ставит paid, не выпускает чек и не начисляет выручку/Чики.",
+      "summary": "Режим установлен на кассе с edge014. Реальный локальный HTTP-заказ прошёл две станции, готовность, выдачу и повтор без дубликата. Оплата/чек не создавались; второй моноблок ещё не подключён.",
       "status": "done",
       "owner": "development",
       "phase": "integration",
@@ -1138,7 +1151,7 @@
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -1146,12 +1159,20 @@
       "id": "pos-upgrade",
       "workstream": "pos",
       "title": "Обновить кассу и настроить прямой доступ",
-      "summary": "Подготовлены обновления edge009→013 и POS0.3 с сохранением базы/корзины. SSH ещё не включён; физическое обновление не принято.",
-      "status": "paused",
+      "summary": "SSH по ключу работает. После проверки резервной копии и восстановления 30 таблиц установлен edge014 и POS0.4.3. Личные PIN заданы владельцем; вход и устранение мигания подтверждены. Тестовый заказ прошёл локальный HTTP-цикл и сохранился после перезапуска службы.",
+      "status": "active",
       "owner": "development",
       "phase": "integration",
       "dependsOn": ["pos-design", "pos-client-upgrade", "pos-foundation-installed"],
       "evidence": [
+        {
+          "label": "Физическая установка POS0.4.3 и edge014",
+          "path": "docs/operations/deployments/2026-09-22-windows-pos-v2.md"
+        },
+        {
+          "label": "Касса по макету и локальный пилот",
+          "path": "docs/operations/pos-design-v2-pilot.md"
+        },
         {
           "label": "Порядок локального пилота",
           "path": "docs/operations/restaurant-pilot-2026-09-16.md"
@@ -1169,11 +1190,11 @@
         "Сохранены существующие данные и неразрешённые команды.",
         "Подтверждены версии, личный вход, автозапуск и удобный админ-доступ."
       ],
-      "nextAction": "После приёмки макета завершить обновление кассового моноблока.",
+      "nextAction": "Принять сенсорный UI/UX, проверить перезагрузку Windows и затем подключить отдельную кухню.",
       "checks": {
-        "implemented": false,
-        "verified": false,
-        "deployed": false,
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -1248,13 +1269,17 @@
     {
       "id": "kitchen-client",
       "workstream": "kitchen",
-      "title": "Подготовить Windows-клиент кухни 0.2",
-      "summary": "Есть парольный вход, переключатель назначенных станций и закреплённый LAN HTTPS-сертификат. Пакет ещё не установлен на кухонный моноблок.",
+      "title": "Подготовить Windows-клиент кухни 0.3",
+      "summary": "Сохранены парольный вход, станции и закреплённый HTTPS; табло получает имя гостя из заказа. На кухонный моноблок ещё не установлен.",
       "status": "done",
       "owner": "development",
       "phase": "integration",
       "dependsOn": ["kitchen-routing"],
       "evidence": [
+        {
+          "label": "Касса по макету и локальный пилот",
+          "path": "docs/operations/pos-design-v2-pilot.md"
+        },
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
@@ -1281,8 +1306,8 @@
       "id": "kitchen-install",
       "workstream": "kitchen",
       "title": "Установить кухню и связать два моноблока",
-      "summary": "Нужен фактический LAN-маршрут Wi-Fi/Ethernet, pinned HTTPS и назначение сотрудников. Монтаж следует после согласованной кассы.",
-      "status": "paused",
+      "summary": "Монтаж следует после обновления кассы. Требуются фактический LAN-маршрут, pinned HTTPS и приёмка на двух устройствах.",
+      "status": "planned",
       "owner": "development",
       "phase": "integration",
       "dependsOn": ["pos-upgrade", "kitchen-client"],

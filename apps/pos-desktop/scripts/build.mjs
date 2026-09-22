@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile, rm, cp } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { MENU_ASSETS } from '../menu-assets.mjs';
 import ts from 'typescript';
+import { V2_ASSETS } from '../v2-assets.mjs';
 
 const base = new URL('../', import.meta.url);
 const root = new URL('../../', base);
@@ -53,6 +54,8 @@ for (const path of [
     'resources/config.example.json',
   ].map((name) => `apps/pos-desktop/${name}`),
   'apps/pos/tsconfig.json',
+  'apps/pos-desktop/v2-assets.mjs',
+  ...V2_ASSETS.map(([name]) => 'apps/pos/src/' + name),
   'tsconfig.base.json',
   'packages/contracts/src/index.ts',
   'design/prototype/assets/mockup/logo.png',
@@ -123,8 +126,10 @@ for (const name of MENU_ASSETS) {
     new URL(`assets/menu/${name}`, output),
   );
 }
+await cp(new URL('v2/', source), new URL('v2/', output), { recursive: true });
 const files = {};
 for (const name of [
+  ...V2_ASSETS.map(([name]) => name),
   'api.js',
   'app.js',
   'auth-view.js',

@@ -38,11 +38,17 @@ export function localUnpaidExecution(host: {
         serviceMode: order.quote.service_mode,
         currency: 'KZT',
         totalMinor: order.quote.total_minor,
+        ...(order.quote.details
+          ? {
+              displayName: order.quote.details.display_name,
+              kitchenComment: order.quote.details.kitchen_comment,
+            }
+          : {}),
         lines: order.quote.lines.map((line) => ({
           lineId: randomUUID(),
           productId: line.product_id,
           title: line.name.ru,
-          description: '',
+          description: order.quote.details?.kitchen_comment ?? '',
           quantity: line.quantity,
           selectedDetails: {
             kind: 'item',

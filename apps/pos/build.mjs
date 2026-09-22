@@ -1,4 +1,4 @@
-import { mkdir, copyFile } from 'node:fs/promises';
+import { mkdir, copyFile, cp } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
@@ -24,3 +24,7 @@ for (const name of MENU_ASSETS) {
     new URL(`dist/assets/menu/${name}`, import.meta.url),
   );
 }
+
+await cp(new URL('src/v2/', import.meta.url), new URL('dist/v2/', import.meta.url), {
+  recursive: true,
+});

@@ -204,7 +204,7 @@ export function prepareLocalPosOperatorPlan(input, sources, identity = {}) {
     branch_id: input.branch_id,
     cashier_staff_id: input.cashier_staff_id,
     cashier_terminal_id: input.cashier_terminal_id,
-    required_migration: '013_pos_kitchen_sync.sql',
+    required_migration: '014_pos_workspace.sql',
     ids,
     routing,
     artifacts: {

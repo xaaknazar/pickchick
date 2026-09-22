@@ -18,6 +18,9 @@ import {
   StaffSessionSchema,
   StaffCredentialSchema,
   StaffLoginSchema,
+  StaffPinLoginSchema,
+  CashMovementInputSchema,
+  StopListSchema,
   CartSchema,
   QuoteSchema,
   LocalOrderSchema,
@@ -216,6 +219,28 @@ const openapi = {
         },
       },
     },
+    '/edge/v1/staff/pin': {
+      post: {
+        operationId: 'loginLocalStaffPin',
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/StaffPinLogin' } },
+          },
+        },
+        responses: {
+          200: response('StaffCredential'),
+          401: response('Error', 'Invalid PIN, staff or terminal'),
+          413: response('Error', 'Login body exceeds 2 KiB'),
+          429: {
+            ...response('Error', 'AUTH_RATE_LIMITED'),
+            headers: { 'Retry-After': { schema: { type: 'string', const: '60' } } },
+          },
+          503: response('Error', 'Local service unavailable'),
+        },
+      },
+    },
     '/edge/v1/staff/logout': {
       post: {
         operationId: 'logoutLocalStaff',
@@ -262,6 +287,13 @@ const openapi = {
       'CashShiftClose',
       { idempotent: true, shiftId: true },
     ),
+    '/edge/v1/cash-shifts/{shiftId}/movements': staffOperation(
+      'post',
+      'moveLocalCash',
+      'CashShift',
+      'CashMovementInput',
+      { idempotent: true, shiftId: true },
+    ),
     '/edge/v1/orders/{orderId}': staffOperation('get', 'readLocalOrder', 'LocalOrder', undefined, {
       orderId: true,
     }),
@@ -294,13 +326,10 @@ const openapi = {
       'OrderingCommand',
       { idempotent: true },
     ),
-    '/edge/v1/availability/stops': staffOperation(
-      'post',
-      'setLocalStop',
-      'StopState',
-      'StopCommand',
-      { idempotent: true },
-    ),
+    '/edge/v1/availability/stops': {
+      ...staffOperation('get', 'listLocalStops', 'StopList'),
+      ...staffOperation('post', 'setLocalStop', 'StopState', 'StopCommand', { idempotent: true }),
+    },
     '/internal/v1/edge/sync/pull': {
       get: {
         ...get('pullPendingMenu', 'MenuPull', {
@@ -368,6 +397,9 @@ const openapi = {
       StaffSession: jsonSchema(StaffSessionSchema),
       StaffCredential: jsonSchema(StaffCredentialSchema),
       StaffLogin: jsonSchema(StaffLoginSchema),
+      StaffPinLogin: jsonSchema(StaffPinLoginSchema),
+      CashMovementInput: jsonSchema(CashMovementInputSchema),
+      StopList: jsonSchema(StopListSchema),
       Cart: jsonSchema(CartSchema),
       Quote: jsonSchema(QuoteSchema),
       LocalOrder: jsonSchema(LocalOrderSchema),

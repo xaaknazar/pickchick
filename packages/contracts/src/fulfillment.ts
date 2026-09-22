@@ -79,7 +79,15 @@ export const FulfillmentStationsSchema = z.strictObject({
     .max(100),
 });
 export const FulfillmentDisplaySchema = z.strictObject({
-  items: z.array(z.strictObject({ number, state: z.enum(['preparing', 'ready']) })).max(100),
+  items: z
+    .array(
+      z.strictObject({
+        number,
+        name: z.string().max(14).optional(),
+        state: z.enum(['preparing', 'ready']),
+      }),
+    )
+    .max(100),
   nextAfterNumber: number.nullable(),
 });
 const taskAction = z.strictObject({

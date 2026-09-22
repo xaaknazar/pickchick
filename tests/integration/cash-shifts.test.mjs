@@ -22,7 +22,7 @@ import { running, request } from '../helpers/sync.mjs';
 const code = (expected) => (error) => error.code === expected;
 const auth = (ctx) => staffAuth(ctx.cashier);
 const close = (ctx, input = {}, key = randomUUID()) =>
-  closeCashShift(ctx.edge.pool, ctx.branch, auth(ctx), key, ctx.shift.shift_id, {
+  closeCashShift(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), key, ctx.shift.shift_id, {
     expected_version: 1,
     counted_cash_minor: '0',
     reason: 'Synthetic close',
@@ -42,16 +42,18 @@ test('opening and closing shift never enables preview ordering; duplicate open/c
     await close(ctx);
     const key = randomUUID(),
       body = { opening_cash_minor: '9007199254740993' };
-    const run = () => openCashShift(ctx.edge.pool, ctx.branch, auth(ctx), key, body);
+    const run = () => openCashShift(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), key, body);
     const [a, b] = await Promise.all([run(), run()]);
     assert.deepEqual(a, b);
     assert.equal(a.opening_cash_minor, body.opening_cash_minor);
     await assert.rejects(
-      openCashShift(ctx.edge.pool, ctx.branch, auth(ctx), key, { opening_cash_minor: '1' }),
+      openCashShift(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), key, {
+        opening_cash_minor: '1',
+      }),
       code('CONFLICT'),
     );
     await assert.rejects(
-      openCashShift(ctx.edge.pool, ctx.branch, auth(ctx), randomUUID(), body),
+      openCashShift(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), body),
       code('CONFLICT'),
     );
     const closing = {
@@ -63,7 +65,7 @@ test('opening and closing shift never enables preview ordering; duplicate open/c
     const first = await closeCashShift(
       ctx.edge.pool,
       ctx.branch,
-      auth(ctx),
+      staffAuth(ctx.manager),
       closeKey,
       a.shift_id,
       closing,
@@ -71,7 +73,14 @@ test('opening and closing shift never enables preview ordering; duplicate open/c
     assert.equal(first.discrepancy_minor, '-1');
     assert.equal(first.expected_cash_minor, body.opening_cash_minor);
     assert.deepEqual(
-      await closeCashShift(ctx.edge.pool, ctx.branch, auth(ctx), closeKey, a.shift_id, closing),
+      await closeCashShift(
+        ctx.edge.pool,
+        ctx.branch,
+        staffAuth(ctx.manager),
+        closeKey,
+        a.shift_id,
+        closing,
+      ),
       first,
     );
     assert.deepEqual(await run(), a); // Historical open replay does not reopen closed shift.
@@ -150,21 +159,35 @@ test('orders associate with shift; close freezes counts and leaves unpaid orders
   });
 });
 
-test('cashiers are isolated by staff and terminal; manager can read/close within branch; kitchen forbidden', async () => {
+test('register shift is shared across cashiers on its terminal; opening and closing require manager', async () => {
   await withOrderDesk(async (ctx) => {
     const other = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.setup('cashier'));
-    const sameTerminal = await provisionStaff(ctx.edge.pool, ctx.branch, {
+    const same = await provisionStaff(ctx.edge.pool, ctx.branch, {
       ...ctx.setup('cashier'),
       terminal_id: ctx.cashier.terminal_id,
     });
-    for (const actor of [other, sameTerminal]) {
-      assert.equal(
-        (await listCashShifts(ctx.edge.pool, ctx.branch, staffAuth(actor))).shifts.length,
-        0,
-      );
+    assert.equal(
+      (await currentCashShift(ctx.edge.pool, ctx.branch, staffAuth(same))).shift.shift_id,
+      ctx.shift.shift_id,
+    );
+    assert.equal(
+      (await listCashShifts(ctx.edge.pool, ctx.branch, staffAuth(same))).shifts.length,
+      1,
+    );
+    assert.equal(
+      (await listCashShifts(ctx.edge.pool, ctx.branch, staffAuth(other))).shifts.length,
+      0,
+    );
+    await assert.rejects(
+      readCashShift(ctx.edge.pool, ctx.branch, staffAuth(other), ctx.shift.shift_id),
+      code('NOT_FOUND'),
+    );
+    for (const actor of [same, other]) {
       await assert.rejects(
-        readCashShift(ctx.edge.pool, ctx.branch, staffAuth(actor), ctx.shift.shift_id),
-        code('NOT_FOUND'),
+        openCashShift(ctx.edge.pool, ctx.branch, staffAuth(actor), randomUUID(), {
+          opening_cash_minor: '0',
+        }),
+        code('FORBIDDEN'),
       );
       await assert.rejects(
         closeCashShift(
@@ -173,35 +196,22 @@ test('cashiers are isolated by staff and terminal; manager can read/close within
           staffAuth(actor),
           randomUUID(),
           ctx.shift.shift_id,
-          { expected_version: 1, counted_cash_minor: '0', reason: 'Not my shift' },
+          { expected_version: 1, counted_cash_minor: '0', reason: 'Denied cashier close' },
         ),
-        code('NOT_FOUND'),
+        code('FORBIDDEN'),
       );
     }
-    await assert.rejects(
-      openCashShift(ctx.edge.pool, ctx.branch, staffAuth(sameTerminal), randomUUID(), {
-        opening_cash_minor: '0',
-      }),
-      code('CONFLICT'),
-    );
     const kitchen = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.setup('kitchen'));
     await assert.rejects(
       currentCashShift(ctx.edge.pool, ctx.branch, staffAuth(kitchen)),
       code('FORBIDDEN'),
     );
-    assert.equal(
-      (await listCashShifts(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager))).shifts.length,
-      1,
-    );
-    const closed = await closeCashShift(
-      ctx.edge.pool,
-      ctx.branch,
-      staffAuth(ctx.manager),
-      randomUUID(),
-      ctx.shift.shift_id,
-      { expected_version: 1, counted_cash_minor: '0', reason: 'Manager verified count' },
-    );
-    assert.equal(closed.closed_by_staff_id, ctx.manager.staff_id);
+    const q = await createQuote(ctx.edge.pool, ctx.branch, staffAuth(same), ctx.cart);
+    const order = await createLocalOrder(ctx.edge.pool, ctx.branch, staffAuth(same), randomUUID(), {
+      quote_id: q.quote_id,
+    });
+    assert.equal(order.cash_shift_id, ctx.shift.shift_id);
+    assert.equal((await close(ctx)).closed_by_staff_id, ctx.manager.staff_id);
   });
 });
 
@@ -280,7 +290,7 @@ test('HTTP shift state survives edge restart; malformed requests denied; feed is
       const key = randomUUID(),
         closeOptions = {
           method: 'POST',
-          headers: staffHeaders(ctx.cashier, key),
+          headers: staffHeaders(ctx.manager, key),
           body: JSON.stringify({
             expected_version: 1,
             counted_cash_minor: '0',
