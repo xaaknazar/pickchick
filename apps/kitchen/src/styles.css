@@ -791,3 +791,29 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
   white-space: nowrap;
   max-width: 100%;
 }
+
+.demo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #fff4d7;
+  color: #493710;
+  flex: none;
+}
+.demo-controls > div {
+  flex: 1 1 280px;
+  display: grid;
+  gap: 4px;
+}
+.demo-controls strong {
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+.demo-controls span {
+  font-size: 13px;
+}
+.demo-controls button {
+  font-size: 14px;
+}
