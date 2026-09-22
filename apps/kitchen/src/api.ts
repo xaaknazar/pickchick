@@ -1,5 +1,7 @@
 import { UUID } from './types.js';
 import type { Credential } from './types.js';
+export const demoMode =
+  typeof location !== 'undefined' && location.pathname.startsWith('/kitchen-demo/');
 export const portalMode =
   typeof location === 'undefined'
     ? undefined
@@ -11,7 +13,7 @@ export const portalMode =
         } as Record<string, string>
       )[location.pathname];
 export const apiPrefix = portalMode ? '/kitchen-live/' + portalMode : '';
-export const assetPrefix = portalMode ? '/kitchen-live/assets' : '';
+export const assetPrefix = demoMode ? '/kitchen-demo' : portalMode ? '/kitchen-live/assets' : '';
 export class ApiError extends Error {
   constructor(
     public code: string,

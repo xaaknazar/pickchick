@@ -1,9 +1,14 @@
 import { KitchenModel, allowedActions, displayWindow } from './model.js';
-import { request, apiPrefix, assetPrefix, portalMode } from './api.js';
+import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js';
+import { createDemo, memoryStorage } from './demo.js';
 import { startRuntime } from './runtime.js';
 import { UUID, type Action } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
-let branch = 'Локальная точка';
+const demo = demoMode ? createDemo() : null;
+let autoOrders = true;
+let demoNotice = '';
+let renderedView = '';
+let branch = demo ? 'Демонстрационная точка' : 'Локальная точка';
 let boardPage = 0;
 let terminalId: string | undefined;
 let loginName = '';
@@ -75,10 +80,11 @@ async function selectInitialScreen() {
   }
 }
 const model = new KitchenModel(
-  request,
-  scopedStorage(sessionStorage),
-  scopedStorage(localStorage),
+  demo?.transport ?? request,
+  demo ? memoryStorage() : scopedStorage(sessionStorage),
+  demo ? memoryStorage() : scopedStorage(localStorage),
   async (name) => {
+    if (demo) return () => {};
     if (!navigator.locks) return null;
     return new Promise((resolve) => {
       void navigator.locks.request(
@@ -102,7 +108,10 @@ function button(text: string, attrs: string, disabled = false) {
 function render() {
   const s = model.state;
   const focus = document.activeElement instanceof HTMLElement ? document.activeElement.id : '';
-  const scroll = document.querySelector('.workspace')?.scrollTop ?? 0;
+  const viewKey = `${s.mode}:${s.stationId ?? ''}`;
+  const scroll =
+    renderedView === viewKey ? (document.querySelector('.workspace')?.scrollTop ?? 0) : 0;
+  renderedView = viewKey;
   const blocked = s.busy || !!s.pending || s.storageBlocked || !s.lease || !!s.error;
   const clock = new Intl.DateTimeFormat('ru-RU', {
     timeZone: 'Asia/Almaty',
@@ -170,7 +179,7 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const error = s.error
     ? `<aside class="error" role="alert">${escape(errors[s.error] ?? 'Операция не завершена. Проверьте локальный узел и доступ.')} ${s.lastSync ? 'Показаны последние полученные данные.' : ''}</aside>`
     : '';
@@ -229,7 +238,25 @@ function render() {
       '<div class="empty"><span>✓</span><h2>Очередь пуста</h2><p>Новые допущенные заказы появятся здесь автоматически</p></div>'
     }</div></main>`;
   }
-  root.innerHTML = header + nav + error + recovery + content + pagination;
+  const demoControls = demo
+    ? `<aside class="demo-controls" aria-label="Управление демо"><div><strong>ДЕМО · ПРОВЕРКА ДИЗАЙНА</strong><span>Вымышленные заказы. Касса не нужна. Обновление страницы начинает сценарий заново.</span></div>${button('+ Новый заказ', 'id="demo-add"', blocked)}${button(autoOrders ? 'Поток: каждые 25 с · пауза' : 'Продолжить поток заказов', 'id="demo-auto" aria-pressed="' + autoOrders + '"')}${button('Сбросить демо', 'id="demo-reset"', blocked)}<span role="status">${escape(demoNotice)}</span></aside>`
+    : '';
+  root.innerHTML = header + demoControls + nav + error + recovery + content + pagination;
+  document.getElementById('demo-add')?.addEventListener('click', () => {
+    if (demo) {
+      demoNotice = demo.add() ? 'Добавлен новый заказ' : 'Очередь заполнена. Сбросьте демо.';
+      void model.refresh();
+    }
+  });
+  document.getElementById('demo-auto')?.addEventListener('click', () => {
+    autoOrders = !autoOrders;
+    render();
+  });
+  document.getElementById('demo-reset')?.addEventListener('click', () => {
+    demo?.reset();
+    demoNotice = 'Начальный сценарий восстановлен';
+    void model.refresh();
+  });
   document.querySelector('.workspace')?.scrollTo({ top: scroll });
   for (const [id, fn] of Object.entries({
     'mode-kitchen': () => model.selectMode('kitchen'),
@@ -273,18 +300,20 @@ function updateLoginWait() {
   }
 }
 render();
-try {
-  const response = await fetch(apiPrefix + '/config.json', {
-    credentials: 'omit',
-    redirect: 'error',
-    signal: AbortSignal.timeout(10000),
-  });
-  const config = (await response.json()) as { branchLabel?: unknown; terminalId?: unknown };
-  if (typeof config.branchLabel === 'string') branch = config.branchLabel.slice(0, 120);
-  if (typeof config.terminalId === 'string' && UUID.test(config.terminalId))
-    terminalId = config.terminalId;
-} catch {
-  /* local default */
+if (!demo) {
+  try {
+    const response = await fetch(apiPrefix + '/config.json', {
+      credentials: 'omit',
+      redirect: 'error',
+      signal: AbortSignal.timeout(10000),
+    });
+    const config = (await response.json()) as { branchLabel?: unknown; terminalId?: unknown };
+    if (typeof config.branchLabel === 'string') branch = config.branchLabel.slice(0, 120);
+    if (typeof config.terminalId === 'string' && UUID.test(config.terminalId))
+      terminalId = config.terminalId;
+  } catch {
+    /* local default */
+  }
 }
 configLoaded = true;
 render();
@@ -298,8 +327,23 @@ window.setInterval(() => {
       minute: '2-digit',
     }).format(new Date());
 }, 1000);
-await model.restore();
-await selectInitialScreen();
+if (demo) {
+  await model.importCredential(JSON.stringify(demo.credential));
+  const view = new URLSearchParams(location.search).get('view');
+  if (view === 'display') await model.selectMode('display');
+  if (view === 'assembly') await model.selectStation(demo.stations[1].id);
+  window.setInterval(() => {
+    if (!autoOrders || document.hidden || model.state.busy || model.state.pending) return;
+    if (!demo.add()) {
+      autoOrders = false;
+      demoNotice = 'Очередь заполнена. Сбросьте демо.';
+    }
+    void model.refresh();
+  }, 25000);
+} else {
+  await model.restore();
+  await selectInitialScreen();
+}
 startRuntime(model, () => {
   boardPage++;
   render();
