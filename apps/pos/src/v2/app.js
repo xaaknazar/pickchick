@@ -2,7 +2,7 @@ import { photos } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
-import { money, lineKey, linePrice, validateSelections } from '../types.js';
+import { money, lineKey, linePrice } from '../types.js';
 import { transport, errorMessage } from '../api.js';
 import { kitchenLabel, orderNumber } from '../order-view.js';
 const root = document.getElementById('app');
@@ -132,20 +132,6 @@ function openWizard(product) {
   portions = 1;
   previousKey = null;
   reference.setState({ mod: null, wiz: { name: product.name.ru }, wizStep: 1 });
-}
-function defaultAdd(product) {
-  const selected = (product.modifier_groups ?? []).flatMap((g) =>
-    g.options
-      .filter((o) => o.default_quantity && o.available !== false)
-      .map((o) => ({ group_id: g.id, option_id: o.id, quantity: o.default_quantity })),
-  );
-  try {
-    validateSelections(product, selected);
-    model.configure(product.variant_id, selected, 1);
-    say(product.name.ru + ' - в заказе');
-  } catch {
-    openModifier(product);
-  }
 }
 function changeOption(group, option, count) {
   if (option.available === false || model.state.stops.get(option.id)?.stopped) return;
@@ -411,7 +397,7 @@ function draw() {
         ? 'Локальная сеть'
         : 'Нет связи с кассой',
     connDot: m.operationsAvailable && !m.operationsError ? 'var(--green)' : 'var(--red)',
-    kkmLine: 'ТЕСТ · Оплата и фискальный чек отключены',
+    kkmLine: 'Оплата и фискальный чек не подключены',
     kkmDot: '#F0C240',
     kkmBg: '#FFF3C4',
     orderNoLabel: 'новый',
@@ -623,9 +609,7 @@ function draw() {
       tag: p.name === 'Pick Combo' ? 'ХИТ' : p.name === 'Solo Combo' ? 'НОВИНКА' : false,
       out,
       opacity: 1,
-      quick: p.combo && !out ? 'По умолчанию' : false,
       canStop: false,
-      quickTap: safe(() => defaultAdd(p.product)),
       tap: safe(() => {
         if (out) {
           say('Позиция в стоп-листе или доступность ещё не подтверждена');
@@ -865,7 +849,7 @@ function draw() {
   }));
   v.dayTotal = rows.length + ' заказов · последние 100';
   v.dayEmpty = rows.length === 0;
-  v.fiscalLegend = [{ color: 'var(--n300)', label: 'Тест · без оплаты и чека' }];
+  v.fiscalLegend = [];
   const stopRows = (m.menu?.items ?? [])
     .flatMap((p) => [
       p,
@@ -937,11 +921,7 @@ function draw() {
   if (visual === lastRender) return;
   lastRender = visual;
   renderer.render(v);
-  // Honest permanent test label, operation recovery, fullscreen and local status.
-  const badge = document.createElement('span');
-  badge.className = 'test-mode';
-  badge.textContent = 'ТЕСТ · без оплаты и чека';
-  badge.setAttribute('role', 'status');
+  // Operation recovery, fullscreen and local status.
   const fullscreen = document.createElement('button');
   fullscreen.className = 'fullscreen-toggle';
   fullscreen.textContent = '⛶';
@@ -953,7 +933,6 @@ function draw() {
     else if (document.fullscreenElement) void document.exitFullscreen();
     else void document.documentElement.requestFullscreen();
   };
-  root.append(badge);
   root.querySelector('.topbar')?.append(fullscreen);
   if (m.pending) {
     const box = document.createElement('div');
@@ -1004,7 +983,7 @@ async function orderDialog(id) {
   const title = document.createElement('h2');
   title.textContent = 'Заказ № ' + orderNumber(o);
   const state = document.createElement('p');
-  state.textContent = kitchenLabel(o) + ' · без оплаты и чека';
+  state.textContent = kitchenLabel(o) + ' · без оплаты';
   state.dataset.testid = 'order-status';
   const list = document.createElement('div');
   for (const line of o.snapshot.lines) {
@@ -1068,8 +1047,6 @@ function cashDialog(direction) {
   let amount = '';
   const title = document.createElement('h2');
   title.textContent = direction === 'in' ? 'Внесение в ящик' : 'Изъятие из ящика';
-  const note = document.createElement('p');
-  note.textContent = 'Тестовая смена - без платежа и фискального документа';
   const output = document.createElement('output');
   output.textContent = '0 ₸';
   const reasons = document.createElement('div');
@@ -1120,7 +1097,7 @@ function cashDialog(direction) {
     if (!model.state.error) say('Движение сохранено в журнале смены');
   };
   actions.append(cancel, submit);
-  dialog.append(title, note, output, reasons, keys, actions);
+  dialog.append(title, output, reasons, keys, actions);
   dialog.onclose = () => dialog.remove();
   document.body.append(dialog);
   dialog.showModal();

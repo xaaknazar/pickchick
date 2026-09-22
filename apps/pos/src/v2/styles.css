@@ -102,19 +102,6 @@ button:focus-visible {
     transform: translateX(10px);
   }
 }
-.test-mode {
-  position: fixed;
-  right: 12px;
-  bottom: 76px;
-  z-index: 50;
-  background: #fff3c4;
-  border: 1px solid #e3c660;
-  border-radius: 8px;
-  padding: 6px 10px;
-  color: #604900;
-  font-size: 13px;
-  cursor: pointer;
-}
 .recovery {
   position: fixed;
   z-index: 100;
@@ -364,9 +351,6 @@ button:focus-visible {
 .cart-pane > div {
   min-height: 0;
 }
-.test-mode {
-  pointer-events: auto;
-}
 .category-tabs {
   scrollbar-width: thin;
 }
@@ -476,11 +460,6 @@ button:focus-visible {
   .bottom-nav > [role='button'] {
     width: 100px !important;
     font-size: 13px !important;
-  }
-  .test-mode {
-    bottom: 67px;
-    font-size: 11px;
-    padding: 4px 6px;
   }
   [data-screen-label='C Заказ'] {
     position: relative !important;
@@ -768,10 +747,6 @@ button:focus-visible {
   font-size: 28px;
   cursor: pointer;
 }
-.test-mode {
-  pointer-events: none;
-  cursor: default;
-}
 
 .orders-toolbar {
   flex-wrap: wrap;
@@ -865,14 +840,6 @@ button:focus-visible {
   font-size: 24px !important;
   border-radius: 10px !important;
   border: 1px solid var(--n300);
-}
-[data-pos] .shift-open-notice {
-  margin-top: 10px !important;
-  padding: 8px 10px !important;
-}
-[data-pos] .shift-open-notice > div:last-child {
-  font-size: 13px !important;
-  line-height: 1.25;
 }
 [data-pos] .shift-open-submit {
   height: 52px !important;

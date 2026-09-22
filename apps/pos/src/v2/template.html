@@ -254,13 +254,6 @@
           </sc-for>
         </div>
         <div
-          class="shift-open-notice"
-          style="margin-top:22px;display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:14px;background:{{ kkmBg }}"
-        >
-          <div style="width:10px;height:10px;border-radius:5px;background:{{ kkmDot }}"></div>
-          <div style="flex: 1; font-size: 17px; font-weight: 600">{{ kkmLine }}</div>
-        </div>
-        <div
           onClick="{{ openShift }}"
           class="shift-open-submit"
           style="
@@ -932,26 +925,6 @@
                             >
                               {{ t.price }}
                             </div>
-                            <sc-if value="{{ t.quick }}" hint-placeholder-val="{{ false }}"
-                              ><div
-                                data-stop="1"
-                                onClick="{{ t.quickTap }}"
-                                style="
-                                  min-width: 0;
-                                  padding: 7px 11px;
-                                  border-radius: 9px;
-                                  background: var(--n100);
-                                  font-size: 13px;
-                                  font-weight: 600;
-                                  color: var(--n600);
-                                  line-height: 1.2;
-                                  cursor: pointer;
-                                  text-align: right;
-                                "
-                              >
-                                ⚡ {{ t.quick }}
-                              </div></sc-if
-                            >
                           </div>
                         </div>
                       </div>
