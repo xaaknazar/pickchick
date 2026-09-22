@@ -17,6 +17,8 @@ READS={
  '/v1/branches':{'branches':[{'id':BRANCH,'code':'TEST','name':'ТЦ Abay Plaza','timezone':'Asia/Almaty','ordering_enabled':False}]},
  '/v1/branches/'+BRANCH+'/menu':{'schema_version':1,'branch_id':BRANCH,'release_id':'10000000-0000-4000-8000-000000000008','version':1,'published_at':'2026-09-07T00:00:00Z','items':[]},
  '/v1/test/catalog':CATALOG,
+ # Screens with games/promotions read the public branch content, even without checkout.
+ '/v1/content/branches/'+BRANCH:{'schema_version':1,'branch_id':BRANCH,'promos':[],'games':[]},
 }
 PREFERENCES='pickchick.mobile.preferences.v1'
 # Legacy QA recovery data must survive the customer UI change unchanged.
