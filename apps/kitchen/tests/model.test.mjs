@@ -324,10 +324,18 @@ test('foreign-station actions and premature assembly-ready unavailable; cancel s
     'confirm_stop',
   );
 });
-test('LED accepts only number/state projection and never fetches kitchen in display mode', async () => {
+test('LED accepts number, state and optional short guest name, never private fields or kitchen fetches', async () => {
+  const named = { items: [{ number: '1', state: 'ready', name: 'Әлия' }], nextAfterNumber: null };
+  assert.deepEqual(displayPage(named), { items: named.items, next: null });
   assert.throws(() =>
     displayPage({
-      items: [{ number: '1', state: 'ready', name: 'PRIVATE' }],
+      items: [{ number: '1', state: 'ready', name: 'x'.repeat(15) }],
+      nextAfterNumber: null,
+    }),
+  );
+  assert.throws(() =>
+    displayPage({
+      items: [{ number: '1', state: 'ready', phone: 'PRIVATE' }],
       nextAfterNumber: null,
     }),
   );

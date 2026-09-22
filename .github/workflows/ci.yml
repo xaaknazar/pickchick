@@ -157,6 +157,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+          # Release guard tests inspect the pinned historical deployment tree.
+          fetch-depth: 0
       - name: Check deployment guards and operator maintenance installer
         run: |
           python3 -m unittest discover -s tests/operations -p 'test_*.py'
