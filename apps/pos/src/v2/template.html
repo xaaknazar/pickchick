@@ -742,7 +742,7 @@
                   flex: none;
                   padding: 0 18px 16px;
                   display: grid;
-                  grid-template-columns: 1fr 1fr;
+                  grid-template-columns: 1fr;
                   gap: 8px;
                 "
               >
@@ -751,22 +751,6 @@
                   style="min-height:64px;border-radius:14px;background:{{ commentBg }};border:2px solid {{ commentBorder }};display:flex;align-items:center;justify-content:center;padding:0 16px;font-size:19px;font-weight:700;cursor:pointer;text-align:center;color:{{ commentFg }}"
                 >
                   {{ commentLabel }}
-                </div>
-                <div
-                  onClick="{{ holdOrder }}"
-                  style="
-                    min-height: 64px;
-                    border-radius: 14px;
-                    border: 2px solid var(--n300);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 18px;
-                    font-weight: 700;
-                    cursor: pointer;
-                  "
-                >
-                  Отложить заказ
                 </div>
               </div>
             </div>

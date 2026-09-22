@@ -154,9 +154,8 @@ with sync_playwright() as pw:
         audit_touch_layout(page,output,'guest','.guest-modal')
         for k in 'ӘЛИЯ':page.get_by_role('button',name=k,exact=True).click()
         page.get_by_role('button',name='Готово',exact=True).click()
-        page.get_by_role('button',name='Отложить заказ',exact=True).click()
+        expect(page.get_by_role('button',name='Отложить заказ',exact=True)).to_have_count(0)
         page.reload()
-        page.get_by_role('button',name='Отложенные (1) · вернуть',exact=True).click()
         expect(page.get_by_role('button',name='✎ Без лука',exact=True)).to_be_visible()
         page.get_by_role('button',name='НА КУХНЮ · 4 190 ₸',exact=True).click()
         audit_touch_layout(page,output,'checkout','.payment-modal')
@@ -244,4 +243,4 @@ with sync_playwright() as pw:
         print(page.locator('body').inner_text()[-1800:])
         raise
     context.close();browser.close()
-print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, held draft, lost ACK, kitchen and named display passed; WAN blocked.')
+print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, restored draft, lost ACK, kitchen and named display passed; WAN blocked.')

@@ -418,10 +418,6 @@ function draw() {
       model.restoreDraft();
       say('Отложенный заказ восстановлен');
     }),
-    holdOrder: safe(() => {
-      model.holdDraft();
-      say('Заказ отложен и сохранён на кассе');
-    }),
     modeOpts: v.modeOpts.map((o, i) => ({
       ...o,
       pick: safe(() => model.mode(i ? 'dine_in' : 'takeaway')),

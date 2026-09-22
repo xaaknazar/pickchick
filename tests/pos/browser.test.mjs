@@ -11,7 +11,7 @@ import { provisionFulfillment, grantStation } from '@pickchick/edge-fulfillment'
 import { createEdge } from '@pickchick/edge';
 import { createPosServer } from '../../apps/pos/server.mjs';
 const auth = (c) => ({ sessionId: c.session_id, token: c.token });
-test('designer POS: real PIN, shared shifts, held order, WAN isolation, lost response recovery, kitchen and display', async () => {
+test('designer POS: real PIN, shared shifts, draft recovery, WAN isolation, lost response recovery, kitchen and display', async () => {
   await withSyncDatabases(async (ctx) => {
     const categories = {};
     const categoryIds = new Map();
