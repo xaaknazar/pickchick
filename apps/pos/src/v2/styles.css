@@ -978,3 +978,63 @@ button:focus-visible {
 .wizard-options [role='button'] {
   flex: none;
 }
+
+/* Keep the visual switch centered inside a larger touch target. */
+.stop-toggle {
+  width: 76px;
+  height: 48px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.stop-toggle-track {
+  width: 64px;
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 999px;
+}
+.stop-toggle-knob {
+  display: block;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px #0e152433;
+}
+.bottom-nav > .nav-tab[role='button'] {
+  min-width: 180px;
+  gap: 8px !important;
+  padding: 0 12px;
+  letter-spacing: 0.02em !important;
+}
+.nav-tab-label {
+  flex: none;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.nav-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+  font-family: 'Golos Text', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}

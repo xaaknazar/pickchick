@@ -2628,19 +2628,19 @@
                         <div style="font-size: 15px; color: var(--n600)">{{ s.cat }}</div>
                       </div>
                       <div
+                        class="stop-toggle"
                         onClick="{{ s.toggle }}"
                         aria-label="Доступность {{ s.name }}"
-                        style="width:64px;height:36px;border-radius:18px;background:{{ s.trackBg }};padding:3px;display:flex;justify-content:{{ s.knob }};cursor:pointer;flex:none"
+                        aria-pressed="{{ s.available }}"
+                        title="{{ s.availabilityLabel }}"
                       >
-                        <div
-                          style="
-                            width: 30px;
-                            height: 30px;
-                            border-radius: 15px;
-                            background: #fff;
-                            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-                          "
-                        ></div>
+                        <span
+                          class="stop-toggle-track"
+                          style="background:{{ s.trackBg }};justify-content:{{ s.knob }}"
+                          aria-hidden="true"
+                        >
+                          <span class="stop-toggle-knob"></span>
+                        </span>
                       </div>
                     </div>
                   </sc-for>
@@ -2683,19 +2683,19 @@
                       <div style="font-size: 15px; color: var(--n600)">{{ s.cat }}</div>
                     </div>
                     <div
+                      class="stop-toggle"
                       onClick="{{ s.toggle }}"
                       aria-label="Доступность {{ s.name }}"
-                      style="width:64px;height:36px;border-radius:18px;background:{{ s.trackBg }};padding:3px;display:flex;justify-content:{{ s.knob }};cursor:pointer;flex:none"
+                      aria-pressed="{{ s.available }}"
+                      title="{{ s.availabilityLabel }}"
                     >
-                      <div
-                        style="
-                          width: 30px;
-                          height: 30px;
-                          border-radius: 15px;
-                          background: #fff;
-                          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-                        "
-                      ></div>
+                      <span
+                        class="stop-toggle-track"
+                        style="background:{{ s.trackBg }};justify-content:{{ s.knob }}"
+                        aria-hidden="true"
+                      >
+                        <span class="stop-toggle-knob"></span>
+                      </span>
                     </div>
                   </div>
                 </sc-for>
@@ -3367,13 +3367,13 @@
       >
         <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
           <div
+            class="nav-tab"
             onClick="{{ n.go }}"
             style="width:220px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Montserrat,sans-serif;font-weight:800;font-size:17px;letter-spacing:.06em;cursor:pointer;background:{{ n.bg }};color:{{ n.fg }};border-right:1.5px solid var(--n300)"
           >
-            {{ n.label }}
+            <span class="nav-tab-label">{{ n.label }}</span>
             <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"
-              ><span
-                style="min-width:28px;height:28px;padding:0 8px;border-radius:14px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;animation:{{ n.pulse }}"
+              ><span class="nav-tab-count" style="animation:{{ n.pulse }}"
                 >{{ n.badge }}</span
               ></sc-if
             >
