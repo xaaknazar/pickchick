@@ -1,5 +1,17 @@
 import { UUID } from './types.js';
 import type { Credential } from './types.js';
+export const portalMode =
+  typeof location === 'undefined'
+    ? undefined
+    : (
+        {
+          '/kitchen/prep': 'prep',
+          '/kitchen/assembly': 'assembly',
+          '/display': 'display',
+        } as Record<string, string>
+      )[location.pathname];
+export const apiPrefix = portalMode ? '/kitchen-live/' + portalMode : '';
+export const assetPrefix = portalMode ? '/kitchen-live/assets' : '';
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -27,7 +39,7 @@ export const request: Transport = async (path, actor, body, key) => {
   if (key) headers['Idempotency-Key'] = key;
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await fetch(apiPrefix + path, {
       method: body === undefined && path !== '/edge/v1/staff/logout' ? 'GET' : 'POST',
       headers,
       credentials: 'omit',

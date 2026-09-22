@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-22T11:32:42.198561+00:00",
+  "updatedAt": "2026-09-22T13:07:35.481801+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -43,7 +43,8 @@
     "docs/operations/menu-sync.md",
     "docs/03-offline-and-reliability.md",
     "docs/operations/deployments/2026-09-07-mobizon-account.md",
-    "docs/operations/pos-design-v2-pilot.md"
+    "docs/operations/pos-design-v2-pilot.md",
+    "docs/operations/kitchen-live-link.md"
   ],
   "workstreams": [
     {
@@ -1306,7 +1307,7 @@
       "id": "kitchen-install",
       "workstream": "kitchen",
       "title": "Установить кухню и связать два моноблока",
-      "summary": "Монтаж следует после обновления кассы. Требуются фактический LAN-маршрут, pinned HTTPS и приёмка на двух устройствах.",
+      "summary": "Реализован исходящий защищённый канал Windows -> веб-кухня, отдельные терминалы и табло без команд. Локальный сценарий на PostgreSQL прошёл; установка на устройства и реальный LAN ещё не подтверждены.",
       "status": "planned",
       "owner": "development",
       "phase": "integration",
@@ -1325,7 +1326,7 @@
         "Кассовый заказ проходит приготовление, сборку и выдачу на двух устройствах.",
         "Потеря сети отображается без потери уже принятых команд."
       ],
-      "nextAction": "Настроить LAN gateway, роли и пройти пилотный заказ.",
+      "nextAction": "Установить канал на VPS/кассу, пройти реальный заказ; получить текущий IPv4 кухни и настроить LAN.",
       "checks": {
         "implemented": false,
         "verified": false,

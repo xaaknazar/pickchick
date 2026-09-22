@@ -1,5 +1,5 @@
 import { KitchenModel, allowedActions, displayWindow } from './model.js';
-import { request } from './api.js';
+import { request, apiPrefix, assetPrefix, portalMode } from './api.js';
 import { startRuntime } from './runtime.js';
 import { UUID, type Action } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
@@ -58,10 +58,26 @@ const errors: Record<string, string> = {
     'Очередь превысила безопасный предел загрузки. Обратитесь к администратору; частичный список не опубликован.',
   SCOPE_MISMATCH: 'Ответ относится к другой точке. Действия заблокированы.',
 };
+function scopedStorage(storage: Storage) {
+  const prefix = portalMode ? 'portal.' + portalMode + '.' : '';
+  return {
+    getItem: (key: string) => storage.getItem(prefix + key),
+    setItem: (key: string, value: string) => storage.setItem(prefix + key, value),
+    removeItem: (key: string) => storage.removeItem(prefix + key),
+  };
+}
+async function selectInitialScreen() {
+  if (!model.state.actor || model.state.pending) return;
+  if (portalMode === 'display') await model.selectMode('display');
+  else if (portalMode) {
+    const station = model.state.stations.find((s) => s.kind === portalMode);
+    if (station) await model.selectStation(station.id);
+  }
+}
 const model = new KitchenModel(
   request,
-  sessionStorage,
-  localStorage,
+  scopedStorage(sessionStorage),
+  scopedStorage(localStorage),
   async (name) => {
     if (!navigator.locks) return null;
     return new Promise((resolve) => {
@@ -93,7 +109,7 @@ function render() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
-  const header = `<header><div class="brand"><img src="/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${s.actor && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${s.orders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
+  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${s.actor && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${s.orders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
   if (!s.actor) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';
@@ -129,7 +145,8 @@ function render() {
       const input = document.querySelector<HTMLInputElement>('#staff-password')!;
       const password = input.value;
       input.value = '';
-      void model.signInWithPassword(loginName, password, terminalId).then(() => {
+      void model.signInWithPassword(loginName, password, terminalId).then(async () => {
+        await selectInitialScreen();
         if (!model.state.actor) document.getElementById('staff-password')?.focus();
       });
     });
@@ -145,6 +162,7 @@ function render() {
             return;
           }
           await model.importCredential(await file.text());
+          await selectInitialScreen();
         }
       });
     return;
@@ -152,7 +170,7 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const error = s.error
     ? `<aside class="error" role="alert">${escape(errors[s.error] ?? 'Операция не завершена. Проверьте локальный узел и доступ.')} ${s.lastSync ? 'Показаны последние полученные данные.' : ''}</aside>`
     : '';
@@ -256,7 +274,7 @@ function updateLoginWait() {
 }
 render();
 try {
-  const response = await fetch('/config.json', {
+  const response = await fetch(apiPrefix + '/config.json', {
     credentials: 'omit',
     redirect: 'error',
     signal: AbortSignal.timeout(10000),
@@ -281,6 +299,7 @@ window.setInterval(() => {
     }).format(new Date());
 }, 1000);
 await model.restore();
+await selectInitialScreen();
 startRuntime(model, () => {
   boardPage++;
   render();
