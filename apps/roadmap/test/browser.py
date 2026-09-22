@@ -10,6 +10,9 @@ key_file = Path(os.environ['ROADMAP_TEST_KEY_FILE'])
 output = Path(os.environ.get('ROADMAP_SCREENSHOTS', '.local/roadmap-browser'))
 output.mkdir(parents=True, exist_ok=True)
 report = []
+source = json.loads((Path(__file__).resolve().parents[3] / 'docs/roadmap/project.json').read_text())
+pos_design = next(task for task in source['tasks'] if task['id'] == 'pos-design')
+source_fact_count = sum(value is True for value in pos_design['checks'].values())
 
 
 def login(page):
@@ -59,8 +62,8 @@ with sync_playwright() as p:
 
     goto(page, 'directions?task=pos-design')
     expect(page.locator('#task-dialog')).to_be_visible()
-    expect(page.locator('#task-title')).to_have_text('Согласовать мокап с кассирами')
-    expect(page.locator('.facts-grid .fact-chip.yes')).to_have_count(0)
+    expect(page.locator('#task-title')).to_have_text(pos_design['title'])
+    expect(page.locator('.facts-grid .fact-chip.yes')).to_have_count(source_fact_count)
     # Two separate browsers edit the same initial version.
     other_context = browser.new_context(viewport={'width': 1280, 'height': 900})
     other = other_context.new_page()
@@ -70,7 +73,7 @@ with sync_playwright() as p:
     page.locator('#review-note').fill('Проверен только пульт. <img src=x onerror=alert(1)>')
     page.get_by_role('button', name='Сохранить для команды').click()
     expect(page.locator('#task-dialog .form-message.success')).to_be_visible()
-    expect(page.locator('.facts-grid .fact-chip.yes')).to_have_count(0)
+    expect(page.locator('.facts-grid .fact-chip.yes')).to_have_count(source_fact_count)
     other.locator('#review-note').fill('Мой текст должен сохраниться при конфликте.')
     other.get_by_role('button', name='Сохранить для команды').click()
     expect(other.get_by_role('button', name='Показать последнюю запись')).to_be_visible()
