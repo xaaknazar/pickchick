@@ -50,6 +50,12 @@ function Read-UpdateXml([string]$Text,[string]$Node,[string]$EnvFile,[string]$Ap
     return ,$doc
 }
 
+function New-UpdateServiceXml([Xml.XmlDocument]$Document,[string]$EnvFile,[string]$App) {
+    $Document.SelectSingleNode('/service/arguments').InnerText='--env-file="'+$EnvFile+'" "'+(Join-Path $App 'dist\main.js')+'"'
+    $Document.SelectSingleNode('/service/workingdirectory').InnerText=$App
+    return $Document.OuterXml
+}
+
 function Assert-UpdateAcl([string]$Path,[string]$ServiceRights='',[switch]$Protected) {
     $null=Assert-LocalNtfsPath $Path
     $acl=Get-Acl -LiteralPath $Path
@@ -232,7 +238,7 @@ try {
     if(-not $state.before) {$state.before=Read-UpdateDatabase 'before';Save-UpdateState}
     $original=Join-Path $privateRoot 'original-edge.xml';Assert-UpdateAcl $original
     $newXml=Read-UpdateXml ([IO.File]::ReadAllText($original)) $nodeExe $runtimeEnv (Join-Path $oldRoot 'app') $logs
-    $newXml.service.arguments='--env-file="'+$runtimeEnv+'" "'+(Join-Path $appRoot 'dist\main.js')+'"';$newXml.service.workingdirectory=$appRoot;$newText=$newXml.OuterXml
+    $newText=New-UpdateServiceXml $newXml $runtimeEnv $appRoot
     $actualXml=[IO.File]::ReadAllText($xmlPath)
     if($actualXml -cne [IO.File]::ReadAllText($original) -and $actualXml -cne $newText) {throw 'Existing WinSW XML was changed by another operation.'}
     if($VerifyOnly -and ($actualXml -cne $newText -or -not $state.migrated -or -not $state.switched)) {throw 'Recorded upgraded service is not selected.'}

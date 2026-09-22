@@ -187,20 +187,43 @@ button:focus-visible {
   [data-pos] [data-screen-label='A Блокировка'] {
     gap: 0;
   }
-  [data-pos] [data-screen-label='A Блокировка'] > [style*='width:110px'] {
+  [data-pos] .pin-logo {
     width: 76px !important;
     height: 76px !important;
+    flex-shrink: 0;
   }
-  [data-pos] [data-screen-label='A Блокировка'] > [style*='margin-top:44px'] {
+  [data-pos] .pin-title {
+    margin-top: 14px !important;
+    font-size: 30px !important;
+    max-width: 94%;
+    text-align: center;
+  }
+  [data-pos] .pin-dots {
     margin-top: 18px !important;
+    flex-shrink: 0;
   }
-  [data-pos] [data-screen-label='A Блокировка'] [style*='96px'] {
+  [data-pos] .pin-key {
     width: 72px !important;
     height: 64px !important;
     border-radius: 16px !important;
   }
-  [data-pos] [data-screen-label='A Блокировка'] > [style*='grid-template-columns'] {
+  [data-pos] .pin-keypad {
     grid-template-columns: repeat(3, 72px) !important;
+    gap: 10px !important;
+    flex-shrink: 0;
+  }
+  [data-pos] .pin-error {
+    height: auto !important;
+    min-height: 22px;
+    margin-top: 8px !important;
+    text-align: center;
+  }
+  [data-pos] .pin-connection {
+    margin-top: 18px !important;
+  }
+  [data-pos] .pin-hint {
+    max-width: 94%;
+    text-align: center;
   }
   [data-pos] [data-screen-label='B Открытие смены'] > div[style*='width:720px'] {
     max-height: calc(100vh - 32px);
@@ -610,7 +633,7 @@ button:focus-visible {
     padding: 16px;
     text-align: center;
   }
-  [data-screen-label='A Блокировка'] > [style*='font-size:40px'] {
+  [data-pos] .pin-title {
     font-size: 26px !important;
   }
   [data-screen-label='B Открытие смены'] > div {

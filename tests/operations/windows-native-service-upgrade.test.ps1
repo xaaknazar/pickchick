@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $path=Join-Path $PSScriptRoot '../../infra/windows/update-native-service.ps1'
 $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
 if($errors.Count) {throw ($errors | Out-String)}
-foreach($name in @('Assert-BackupRecord','Quote-UpdateArgument','Read-UpdateXml','Assert-PreservedData')) {
+foreach($name in @('Assert-BackupRecord','Quote-UpdateArgument','Read-UpdateXml','New-UpdateServiceXml','Assert-PreservedData')) {
     $func=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$false)
     . ([scriptblock]::Create($func.Extent.Text))
 }
@@ -27,6 +27,10 @@ $xml=@"
 "@
 $doc=Read-UpdateXml $xml $node $envFile $app $logs
 if($doc.service.id -ne 'PickChickEdge') {throw 'XML return binding differs.'}
+$newApp=Join-Path ([IO.Path]::GetTempPath()) 'new app & release'
+$newText=New-UpdateServiceXml $doc $envFile $newApp
+$updated=Read-UpdateXml $newText $node $envFile $newApp $logs
+if($updated.service.workingdirectory -cne [string]$newApp) {throw 'Provider-produced path did not survive service XML roundtrip.'}
 foreach($badXml in @($xml.Replace('LocalService','LocalSystem'),$xml.Replace('delay="5 sec"','delay="0 sec"'),$xml.Replace('</service>','<env name="NODE_OPTIONS" value="bad"/></service>'),('<!DOCTYPE service [<!ENTITY bad "bad">]>'+$xml))) {Rejected {Read-UpdateXml $badXml $node $envFile $app $logs}}
 # Catch accidental PowerShell tuple flattening before physical extraction.
 $appPlan=[Collections.Generic.List[object]]::new();$appPlan.Add([pscustomobject]@{Target='a'});$appPlan.Add([pscustomobject]@{Target='b'})

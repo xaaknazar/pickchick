@@ -1,5 +1,6 @@
 """End-to-end cashier source design against isolated PostgreSQL, including a real lost ACK."""
 import json
+import re
 import sys
 import uuid
 from pathlib import Path
@@ -49,6 +50,15 @@ with sync_playwright() as pw:
     page.on('pageerror', lambda e: errors.append(str(e)))
     try:
         page.goto(url)
+        for width, height in ((1920,1080),(1366,768),(1366,705),(1024,600),(390,844)):
+            page.set_viewport_size({'width':width, 'height':height})
+            for key in ('1','5','0','⌫'):
+                bounded(page.locator('.pin-key').filter(has_text=re.compile('^'+re.escape(key)+'$')),width,height)
+            keypad=page.locator('.pin-keypad').bounding_box()
+            footer=page.locator('.pin-connection').bounding_box()
+            assert footer['y'] >= keypad['y']+keypad['height'], 'PIN footer overlaps keypad'
+            capture(page,f'pin-{width}-{height}.png')
+        page.set_viewport_size({'width':1920, 'height':1080})
         pin(page, '9999')
         expect(page.get_by_text('Неверный PIN или рабочее место недоступно', exact=True).first).to_be_visible()
         pin(page, '2468')

@@ -63,6 +63,7 @@
         </div>
       </sc-if>
       <div
+        class="pin-logo"
         style="
           width: 110px;
           height: 110px;
@@ -79,6 +80,7 @@
         />
       </div>
       <div
+        class="pin-title"
         style="
           margin-top: 22px;
           font-family: Montserrat, sans-serif;
@@ -92,7 +94,7 @@
       <div style="margin-top: 6px; font-size: 20px; color: rgba(255, 255, 255, 0.72)">
         Касса 1 · {{ clock }}
       </div>
-      <div style="margin-top:44px;display:flex;gap:18px;animation:{{ pinShake }}">
+      <div class="pin-dots" style="margin-top:44px;display:flex;gap:18px;animation:{{ pinShake }}">
         <sc-for list="{{ pinDots }}" as="d" hint-placeholder-count="4">
           <div
             style="width:22px;height:22px;border-radius:11px;border:2.5px solid rgba(255,255,255,.7);background:{{ d.bg }}"
@@ -100,15 +102,18 @@
         </sc-for>
       </div>
       <div
+        class="pin-error"
         style="margin-top: 14px; height: 28px; font-size: 18px; font-weight: 600; color: #ffb4a8"
       >
         {{ pinError }}
       </div>
       <div
+        class="pin-keypad"
         style="margin-top: 10px; display: grid; grid-template-columns: repeat(3, 96px); gap: 14px"
       >
         <sc-for list="{{ pinKeys }}" as="k" hint-placeholder-count="12">
           <div
+            class="pin-key"
             onClick="{{ k.tap }}"
             style="width:96px;height:96px;border-radius:24px;background:{{ k.bg }};display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:{{ k.size }};color:#fff;cursor:pointer"
           >
@@ -116,10 +121,16 @@
           </div>
         </sc-for>
       </div>
-      <div style="margin-top: 36px; font-size: 15px; color: rgba(255, 255, 255, 0.55)">
+      <div
+        class="pin-connection"
+        style="margin-top: 36px; font-size: 15px; color: rgba(255, 255, 255, 0.55)"
+      >
         {{ connLabel }} · Pick Chick POS 0.4 · TEST
       </div>
-      <div style="margin-top: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.45)">
+      <div
+        class="pin-hint"
+        style="margin-top: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.45)"
+      >
         {{ staffHint }}
       </div>
     </div>

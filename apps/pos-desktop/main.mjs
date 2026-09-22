@@ -170,8 +170,10 @@ else {
         },
       });
       window.once('ready-to-show', () => {
-        if (!window.isFullScreen()) window.maximize();
+        if (process.platform !== 'win32' && !window.isFullScreen()) window.maximize();
         window.show();
+        // Apply after showing as well: older Windows may defer the initial window state.
+        if (process.platform === 'win32') window.setFullScreen(true);
       });
       for (const event of ['enter-full-screen', 'leave-full-screen']) {
         window.on(event, () => {
