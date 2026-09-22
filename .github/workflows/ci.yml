@@ -230,6 +230,8 @@ jobs:
         run: |
           pnpm test:kitchen
           node --env-file=.env --test --test-concurrency=1 tests/operations/kitchen-lan.test.mjs tests/operations/kitchen-lan-chain.test.mjs
+          node --env-file=.env --test --test-concurrency=1 tests/kitchen-portal/*.test.mjs
+          python3 -m unittest discover -s tests/kitchen-portal -p 'test_*.py'
       - name: Stop isolated local infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
