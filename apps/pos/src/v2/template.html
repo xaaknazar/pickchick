@@ -708,7 +708,10 @@
                   </div></sc-if
                 >
               </div>
-              <div style="flex: none; padding: 0 18px 10px; display: flex; gap: 8px">
+              <div
+                class="cart-tools"
+                style="flex: none; padding: 0 18px 10px; display: flex; gap: 8px"
+              >
                 <div
                   onClick="{{ decSel }}"
                   style="width:64px;height:64px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;cursor:pointer;color:{{ selFg }}"
@@ -1659,6 +1662,7 @@
                       >
                     </div>
                     <div
+                      class="wizard-options"
                       style="
                         margin-top: 18px;
                         display: grid;
@@ -2132,6 +2136,7 @@
               </div>
             </div>
             <div
+              class="orders-stats"
               style="
                 flex: none;
                 margin-top: 14px;
@@ -2228,6 +2233,7 @@
               </sc-for>
             </div>
             <div
+              class="orders-table"
               style="
                 flex: 1;
                 min-height: 0;
@@ -3054,6 +3060,7 @@
                 "
               >
                 <div
+                  class="close-shift-modal"
                   style="
                     width: 820px;
                     max-height: 92%;
@@ -3345,6 +3352,7 @@
 
       <!-- НИЖНЯЯ НАВИГАЦИЯ -->
       <div
+        class="bottom-nav"
         style="
           flex: none;
           height: 72px;
@@ -3373,6 +3381,7 @@
         </sc-for>
         <div style="flex: 1"></div>
         <div
+          class="nav-info"
           style="
             display: flex;
             align-items: center;
@@ -3382,8 +3391,12 @@
             color: var(--n600);
           "
         >
-          <div style="width:10px;height:10px;border-radius:5px;background:{{ connDot }}"></div>
-          {{ connLabel }} · {{ clock }}
+          <span class="nav-connection"
+            ><span
+              style="width:10px;height:10px;border-radius:5px;background:{{ connDot }};display:inline-block"
+            ></span>
+            {{ connLabel }} · {{ clock }}</span
+          >
           <div
             style="
               display: flex;
@@ -3419,6 +3432,7 @@
             </div>
           </div>
           <div
+            class="lock-action"
             onClick="{{ lock }}"
             style="
               margin-left: 10px;
@@ -3517,6 +3531,7 @@
       "
     >
       <div
+        class="comment-modal modal-card"
         style="
           width: 1080px;
           flex: none;
@@ -3553,37 +3568,78 @@
             ✕
           </div>
         </div>
-        <div
-          style="margin-top:20px;min-height:82px;border-radius:16px;border:2px solid var(--blue);display:flex;align-items:center;padding:0 22px;font-size:26px;font-weight:600;color:{{ draftFg }}"
-        >
-          {{ draftShown }}
-        </div>
-        <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px">
-          <sc-for list="{{ commentQuick }}" as="q" hint-placeholder-count="6">
+        <div class="comment-body">
+          <div
+            style="margin-top:20px;min-height:82px;border-radius:16px;border:2px solid var(--blue);display:flex;align-items:center;padding:0 22px;font-size:26px;font-weight:600;color:{{ draftFg }}"
+          >
+            {{ draftShown }}
+          </div>
+          <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px">
+            <sc-for list="{{ commentQuick }}" as="q" hint-placeholder-count="6">
+              <div
+                onClick="{{ q.tap }}"
+                style="
+                  height: 56px;
+                  padding: 0 20px;
+                  border-radius: 14px;
+                  background: var(--n100);
+                  display: flex;
+                  align-items: center;
+                  font-size: 19px;
+                  font-weight: 600;
+                  cursor: pointer;
+                "
+              >
+                {{ q.label }}
+              </div>
+            </sc-for>
+          </div>
+          <div
+            class="comment-keyboard"
+            style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px"
+          >
+            <sc-for list="{{ commentKeys }}" as="k" hint-placeholder-count="32">
+              <div
+                onClick="{{ k.tap }}"
+                style="
+                  width: 88px;
+                  height: 72px;
+                  border-radius: 12px;
+                  background: var(--n100);
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 26px;
+                  font-weight: 600;
+                  cursor: pointer;
+                "
+              >
+                {{ k.label }}
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: 10px; display: flex; gap: 8px">
             <div
-              onClick="{{ q.tap }}"
+              onClick="{{ commentSpace }}"
               style="
-                height: 56px;
-                padding: 0 20px;
-                border-radius: 14px;
+                flex: 1;
+                height: 72px;
+                border-radius: 12px;
                 background: var(--n100);
                 display: flex;
                 align-items: center;
+                justify-content: center;
                 font-size: 19px;
                 font-weight: 600;
                 cursor: pointer;
               "
             >
-              {{ q.label }}
+              Пробел
             </div>
-          </sc-for>
-        </div>
-        <div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px">
-          <sc-for list="{{ commentKeys }}" as="k" hint-placeholder-count="32">
             <div
-              onClick="{{ k.tap }}"
+              onClick="{{ commentBack }}"
               style="
-                width: 88px;
+                width: 150px;
                 height: 72px;
                 border-radius: 12px;
                 background: var(--n100);
@@ -3591,66 +3647,30 @@
                 align-items: center;
                 justify-content: center;
                 font-size: 26px;
-                font-weight: 600;
                 cursor: pointer;
+                color: var(--red);
               "
             >
-              {{ k.label }}
+              ⌫
             </div>
-          </sc-for>
-        </div>
-        <div style="margin-top: 10px; display: flex; gap: 8px">
-          <div
-            onClick="{{ commentSpace }}"
-            style="
-              flex: 1;
-              height: 72px;
-              border-radius: 12px;
-              background: var(--n100);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 19px;
-              font-weight: 600;
-              cursor: pointer;
-            "
-          >
-            Пробел
-          </div>
-          <div
-            onClick="{{ commentBack }}"
-            style="
-              width: 150px;
-              height: 72px;
-              border-radius: 12px;
-              background: var(--n100);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 26px;
-              cursor: pointer;
-              color: var(--red);
-            "
-          >
-            ⌫
-          </div>
-          <div
-            onClick="{{ commentClear }}"
-            style="
-              width: 150px;
-              height: 72px;
-              border-radius: 12px;
-              background: var(--n100);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 19px;
-              font-weight: 700;
-              cursor: pointer;
-              color: var(--red);
-            "
-          >
-            Стереть
+            <div
+              onClick="{{ commentClear }}"
+              style="
+                width: 150px;
+                height: 72px;
+                border-radius: 12px;
+                background: var(--n100);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 19px;
+                font-weight: 700;
+                cursor: pointer;
+                color: var(--red);
+              "
+            >
+              Стереть
+            </div>
           </div>
         </div>
         <div style="margin-top: 18px; display: flex; gap: 10px">

@@ -847,3 +847,134 @@ button:focus-visible {
   font-size: 20px !important;
   border-radius: 12px !important;
 }
+
+/* Touch controls retain their size when Windows scaling reduces the viewport. */
+.bottom-nav .nav-info {
+  min-width: 0;
+  gap: 10px !important;
+  padding: 0 12px !important;
+}
+.lock-action {
+  flex: none !important;
+  min-width: 132px !important;
+  white-space: nowrap;
+}
+.close-shift-modal {
+  max-width: calc(100vw - 32px);
+}
+.comment-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.comment-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+.comment-modal > div:first-child,
+.comment-modal > div:last-child {
+  flex: none;
+}
+.comment-modal > div:last-child {
+  padding-top: 8px;
+  background: white;
+}
+@media (max-width: 1100px) {
+  .nav-connection {
+    display: none;
+  }
+  .bottom-nav .nav-info {
+    flex-shrink: 1;
+  }
+  .cart-tools {
+    display: grid !important;
+    grid-template-columns: repeat(3, 48px) minmax(0, 1fr);
+  }
+  .cart-tools > [role='button'] {
+    width: auto !important;
+    padding-inline: 4px !important;
+    font-size: 18px !important;
+  }
+}
+@media (max-height: 900px), (max-width: 1100px) {
+  .comment-modal {
+    padding: 16px !important;
+  }
+  .comment-keyboard {
+    display: grid !important;
+    grid-template-columns: repeat(10, minmax(48px, 1fr));
+    gap: 6px !important;
+  }
+  .comment-keyboard > [role='button'] {
+    width: auto !important;
+    height: 56px !important;
+  }
+  .comment-modal > div:last-child > [role='button'] {
+    min-width: 0;
+    height: 56px !important;
+    font-size: 18px !important;
+    padding-inline: 8px;
+    text-align: center;
+  }
+}
+@media (max-width: 700px) {
+  .comment-keyboard {
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
+  }
+}
+
+@media (min-width: 701px) and (max-height: 700px) {
+  .topbar {
+    height: 64px !important;
+  }
+  .bottom-nav {
+    height: 64px !important;
+    min-height: 64px !important;
+  }
+  .category-tabs > [role='button'] {
+    height: 56px !important;
+    font-size: 18px !important;
+  }
+  [data-pos] .product-card {
+    min-height: 196px !important;
+    height: auto !important;
+  }
+  [data-pos] .product-visual {
+    height: 108px !important;
+  }
+  .product-card > div:last-child {
+    padding: 10px 12px !important;
+  }
+  .checkout-action {
+    height: 64px !important;
+    font-size: 22px !important;
+  }
+}
+
+@media (min-width: 701px) and (max-height: 700px) {
+  [data-screen-label='F Заказы дня'] {
+    overflow-y: auto;
+    padding-bottom: 16px !important;
+  }
+  .orders-toolbar {
+    flex: none;
+  }
+  .orders-table {
+    flex: 1 0 200px !important;
+    min-height: 200px !important;
+  }
+  .orders-stats {
+    order: 3;
+  }
+}
+
+[data-pos] .wizard-options {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)) !important;
+}
+.wizard-options > div > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wizard-options [role='button'] {
+  flex: none;
+}
