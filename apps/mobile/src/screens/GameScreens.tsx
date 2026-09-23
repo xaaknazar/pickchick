@@ -1,3 +1,4 @@
+import { ComboRewardCard } from '../components/ComboRewardCard';
 import { MotionPressable as Pressable } from '../components/Motion';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { Image } from 'expo-image';
@@ -47,47 +48,8 @@ export function Events(props: ScreenProps) {
           Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.
         </Body>
 
-        <View testID="events-streak" style={s.streakCard}>
-          <Image source={assets.skyline} style={s.skyline} contentFit="cover" />
-          <Row style={{ alignItems: 'flex-start' }}>
-            <View style={ui.flex}>
-              <Caption style={s.streakLabel}>СТРИК ЗАКАЗОВ · АЛМАТЫ</Caption>
-              <Row style={s.streakCountRow}>
-                <Text style={s.streakCount}>{props.preview ? '5' : '-'}</Text>
-                <Text style={s.streakWeeks}>недели подряд</Text>
-              </Row>
-            </View>
-            <View style={s.freezeChip}>
-              <Icon name="snow-outline" size={13} color={colors.muted} />
-              <Text style={s.freezeLabel}>{props.preview ? 'Пример' : 'Скоро'}</Text>
-            </View>
-          </Row>
-          <View style={s.streakTrack}>
-            {props.preview ? <View style={s.streakFill} /> : null}
-            {['Соус', 'Лимонад', '−30%', 'Комбо'].map((label, index) => (
-              <View
-                key={label}
-                style={[
-                  s.streakFlag,
-                  { left: `${(index + 1) * 25}%`, marginLeft: index === 3 ? -45 : -36 },
-                ]}
-              >
-                <View style={[s.streakMarker, props.preview && index < 2 && s.streakMarkerDone]}>
-                  <Text
-                    style={[s.streakWeekNumber, props.preview && index < 2 && { color: '#C2410C' }]}
-                  >
-                    {(index + 1) * 2}
-                  </Text>
-                </View>
-                <Text style={s.streakReward}>{props.preview ? label : 'Неделя'}</Text>
-              </View>
-            ))}
-          </View>
-          {!props.preview ? (
-            <Caption style={s.streakHint}>
-              Программа готовится · прогресс ещё не начисляется
-            </Caption>
-          ) : null}
+        <View style={{ marginTop: 20 }}>
+          <ComboRewardCard testID="events-combo-reward" onMenu={() => props.navigate('M06')} />
         </View>
 
         <Heading testID="events-games" style={s.eventSection}>
@@ -165,54 +127,9 @@ export { PickRunScreen as Game } from '../games/pick-run/PickRunScreen';
 export { PickRunResult as GameResult } from '../games/pick-run/PickRunScreen';
 const s = StyleSheet.create({
   eventsPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
-  eventsContent: { paddingHorizontal: 18 },
+  eventsContent: { paddingHorizontal: 18, width: '100%', maxWidth: 680, alignSelf: 'center' },
   eventsTitle: { fontFamily: font.display, fontSize: 34, lineHeight: 41, letterSpacing: -0.68 },
   eventsSubtitle: { fontSize: 14, lineHeight: 21, marginTop: 6 },
-  streakCard: {
-    marginTop: 18,
-    padding: 18,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
-  skyline: { position: 'absolute', left: 0, right: 0, top: 0, height: 118, opacity: 0.4 },
-  streakLabel: { fontFamily: font.bold, fontSize: 10.5, letterSpacing: 1.26, lineHeight: 15 },
-  streakCountRow: { alignItems: 'baseline', gap: 7, marginTop: 5 },
-  streakCount: { fontFamily: font.display, color: colors.accent, fontSize: 38, lineHeight: 42 },
-  streakWeeks: { fontFamily: font.heading, color: colors.text, fontSize: 17 },
-  freezeChip: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-  },
-  freezeLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.muted },
-  streakTrack: {
-    marginTop: 40,
-    marginBottom: 38,
-    height: 10,
-    borderRadius: 6,
-    backgroundColor: colors.raised,
-  },
-  streakFill: { width: '62%', height: 10, borderRadius: 6, backgroundColor: colors.accent },
-  streakFlag: { position: 'absolute', top: -12, width: 72, alignItems: 'center' },
-  streakMarker: {
-    width: 24,
-    height: 34,
-    borderRadius: 7,
-    backgroundColor: colors.raised,
-    borderWidth: 2,
-    borderColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streakMarkerDone: { backgroundColor: '#FFFFFF', borderColor: colors.accent },
-  streakWeekNumber: { fontFamily: font.display, fontSize: 11.5, color: colors.muted },
-  streakReward: { marginTop: 8, fontFamily: font.medium, fontSize: 11, color: colors.muted },
-  streakHint: { fontSize: 11, lineHeight: 16 },
   eventSection: {
     fontFamily: font.display,
     fontSize: 20,

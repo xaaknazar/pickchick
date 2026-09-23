@@ -50,7 +50,7 @@ with sync_playwright() as p:
     page=open_page(b,'/events',guest=True)
     expect(page.get_by_test_id('events-games')).to_be_visible(timeout=20000)
     def y(test):return page.get_by_test_id(test).bounding_box()['y']
-    assert y('events-streak')<y('events-games')<y('pick-blocks-open')<y('pick-man-open')<y('pickrun-open')
+    assert y('events-combo-reward')<y('events-games')<y('pick-blocks-open')<y('pick-man-open')<y('pickrun-open')
     assert page.get_by_text('Полёт на паутине над городом').count()==0
     page.screenshot(path=str(OUTPUT/'events-top.png'))
     page.get_by_test_id('pick-man-open').scroll_into_view_if_needed()

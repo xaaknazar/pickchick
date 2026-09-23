@@ -125,7 +125,7 @@ with sync_playwright() as p:
     page.screenshot(path=str(output / 'cart.png'))
     page.goto(url + '/profile')
     expect(page.get_by_text('QR для кассы', exact=True)).to_be_visible()
-    expect(page.get_by_text('БАЛАНС', exact=True)).to_be_visible()
+    expect(page.get_by_test_id('profile-combo-reward')).to_be_visible()
     page.screenshot(path=str(output / 'profile.png'))
     page.get_by_text('Мои Чики и уровни', exact=True).click()
     expect(page.get_by_test_id('screen-M23')).to_be_visible()
