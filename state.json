@@ -62,11 +62,13 @@
       "scopes": [
         "docs/operations/iiko-web-audit-2026-09-23.md",
         "docs/operations/iiko-replacement-discovery.md",
-        "@iiko"
+        "@iiko",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
-      "head": "bfb52f865e92d52b2d91db2eee5875f9352194e4",
-      "updatedAt": "2026-09-23T13:47:38.161Z"
+      "head": "bb26397c02d3fcf387072f15b3b1a7d7d9287831",
+      "updatedAt": "2026-09-23T13:57:13.098Z"
     }
   ]
 }
