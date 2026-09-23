@@ -1,5 +1,7 @@
 import tokens from '../../../packages/design-tokens/tokens.json';
 
+export const brandColors = tokens.color;
+
 export const colors = {
   ...tokens.theme.mobile,
   raised: tokens.theme.mobile.surfaceRaised,

@@ -1,14 +1,15 @@
 import { MotionPressable as Pressable } from '../components/Motion';
 import type { ReactNode } from 'react';
-import { Image } from 'expo-image';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ComboRewardCard } from '../components/ComboRewardCard';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Icon, Loading, ReviewBadge, type IconName } from '../components/UI';
 import { ProfileRestoreNotice } from '../components/ProfileRestoreNotice';
 import { formatDemoPhone } from '../demo-account';
 import { formatBirthDate } from '../profile-details';
 import type { ScreenProps } from '../model';
-import { colors, font } from '../theme';
+import { brandColors, colors, font } from '../theme';
 import { useAccount } from '../useAccount';
 
 function ProfileRow({
@@ -64,6 +65,8 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 export function Profile(props: ScreenProps) {
   const account = useAccount();
+  const router = useRouter();
+  const { fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const savedNickname =
     account.account?.profile.completedAt != null
@@ -105,7 +108,7 @@ export function Profile(props: ScreenProps) {
                   {account.account ? (
                     <Text style={s.initial}>{Array.from(name)[0]?.toUpperCase()}</Text>
                   ) : (
-                    <Icon name="person-outline" size={28} color={colors.accent} />
+                    <Icon name="person-outline" size={28} color={colors.orangeInk} />
                   )}
                 </View>
                 <View style={s.flex}>
@@ -157,7 +160,7 @@ export function Profile(props: ScreenProps) {
           ) : null}
         </View>
 
-        <View style={s.shortcuts}>
+        <View style={[s.shortcuts, fontScale > 1.4 && { flexDirection: 'column' }]}>
           {(
             [
               {
@@ -190,35 +193,22 @@ export function Profile(props: ScreenProps) {
           ))}
         </View>
 
+        <ComboRewardCard testID="profile-combo-reward" onMenu={() => props.navigate('M06')} />
+
         <Pressable
           testID="profile-loyalty"
           accessibilityRole="button"
-          accessibilityLabel="Мои Чики и уровни. Баланс пока недоступен"
           onPress={() => props.navigate('M23')}
-          style={({ pressed }) => [s.loyalty, pressed && s.pressed]}
+          style={s.loyalty}
         >
-          <Image
-            source={require('../../assets/loyalty/almaty-ascent.svg')}
-            style={s.mountains}
-            contentFit="cover"
-            pointerEvents="none"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          />
-          <View style={s.loyaltyTop}>
-            <Text style={s.loyaltyTitle}>Чики за любимый вкус</Text>
-            <Text style={s.loyaltySoon}>Скоро</Text>
+          <View style={s.loyaltyIcon}>
+            <Icon name="sparkles-outline" size={24} color={colors.accent} />
           </View>
-          <Text style={s.balanceLabel}>БАЛАНС</Text>
-          <View style={s.balance}>
-            <Text style={s.amount}>-</Text>
-            <Text style={s.currency}>Чиков</Text>
+          <View style={s.flex}>
+            <Text style={s.loyaltyTitle}>Мои Чики и уровни</Text>
+            <Text style={s.loyaltyCopy}>Твой путь к вершинам Алматы</Text>
           </View>
-          <Text style={s.loyaltyCopy}>6 вершин Алматы.{`\n`}Программа готовится к запуску.</Text>
-          <View style={s.loyaltyLink}>
-            <Text style={s.loyaltyLinkText}>Мои Чики и уровни</Text>
-            <Icon name="arrow-forward" size={21} />
-          </View>
+          <Icon name="chevron-forward" size={20} color={colors.muted} />
         </Pressable>
 
         <Group title="Программа Чиков">
@@ -256,8 +246,9 @@ export function Profile(props: ScreenProps) {
           <ProfileRow
             title="Уведомления"
             icon="notifications-outline"
-            value="Настройки уведомлений"
-            onPress={() => props.navigate('M34')}
+            value="Заказы и предложения для вас"
+            testID="profile-notifications"
+            onPress={() => router.push('/notifications')}
           />
           <ProfileRow
             title="Язык"
@@ -321,7 +312,7 @@ export function Profile(props: ScreenProps) {
 
 const s = StyleSheet.create({
   screen: { flex: 1, minHeight: 0, backgroundColor: colors.background },
-  content: { paddingHorizontal: 18, gap: 16 },
+  content: { paddingHorizontal: 18, gap: 20, width: '100%', maxWidth: 680, alignSelf: 'center' },
   flex: { flex: 1, minWidth: 0 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   title: { fontFamily: font.display, fontSize: 32, lineHeight: 42, color: colors.white },
@@ -338,26 +329,26 @@ const s = StyleSheet.create({
   identity: {
     padding: 20,
     borderRadius: 24,
-    backgroundColor: '#10264D',
+    backgroundColor: '#0B2454',
     borderWidth: 1,
-    borderColor: '#FFFFFF12',
+    borderColor: '#254578',
     gap: 16,
   },
   identityRow: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   avatar: {
     flexShrink: 0,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 64,
+    height: 64,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF7A3D1A',
+    backgroundColor: brandColors.brandOrange,
     borderWidth: 1,
-    borderColor: '#FF7A3D59',
+    borderColor: brandColors.brandOrange,
   },
-  initial: { fontFamily: font.display, fontSize: 25, lineHeight: 32, color: colors.accent },
-  name: { fontFamily: font.heading, fontSize: 23, lineHeight: 28, color: colors.white },
-  subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 13, lineHeight: 20, color: '#B6C4DD' },
+  initial: { fontFamily: font.display, fontSize: 30, lineHeight: 38, color: colors.orangeInk },
+  name: { fontFamily: font.heading, fontSize: 26, lineHeight: 34, color: colors.white },
+  subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 14, lineHeight: 20, color: '#B6C4DD' },
   demoLabel: {
     marginTop: 4,
     fontFamily: font.medium,
@@ -390,7 +381,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF09',
+    backgroundColor: '#173666',
     paddingHorizontal: 8,
   },
   editLabel: {
@@ -411,81 +402,33 @@ const s = StyleSheet.create({
     borderColor: '#FFFFFF0D',
   },
   shortcutTitle: { fontFamily: font.bold, fontSize: 15, lineHeight: 21, color: colors.white },
-  shortcutDetail: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: '#B6C4DD' },
+  shortcutDetail: { fontFamily: font.body, fontSize: 13, lineHeight: 20, color: '#B6C4DD' },
   loyalty: {
-    padding: 20,
-    borderRadius: 24,
-    backgroundColor: '#0B3E91',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#638ED747',
-  },
-  mountains: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    right: 0,
-    bottom: 0,
-    opacity: 0.26,
-  },
-  loyaltyTop: {
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    minHeight: 88,
+    borderWidth: 1,
+    borderColor: '#FFFFFF12',
   },
-  loyaltyTitle: {
-    flex: 1,
-    fontFamily: font.heading,
-    fontSize: 21,
-    lineHeight: 26,
-    color: colors.white,
+  loyaltyIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#173666',
   },
-  loyaltySoon: {
-    fontFamily: font.bold,
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#FFD0B6',
-    backgroundColor: '#173A68',
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  balanceLabel: {
-    marginTop: 18,
-    fontFamily: font.bold,
-    fontSize: 11,
-    lineHeight: 16,
-    letterSpacing: 1,
-    color: '#B8CFFF',
-  },
-  balance: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  amount: { fontFamily: font.display, fontSize: 34, lineHeight: 40, color: colors.accent },
-  currency: { fontFamily: font.medium, fontSize: 14, lineHeight: 22, color: colors.white },
+  loyaltyTitle: { fontFamily: font.heading, fontSize: 18, lineHeight: 25, color: colors.white },
   loyaltyCopy: {
-    marginTop: 4,
     fontFamily: font.body,
     fontSize: 13,
     lineHeight: 20,
-    color: '#D0DFFF',
-  },
-  loyaltyLink: {
-    minHeight: 48,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#FFFFFF24',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loyaltyLinkText: {
-    flex: 1,
-    fontFamily: font.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.white,
+    marginTop: 4,
+    color: colors.muted,
   },
   section: { gap: 10, marginTop: 6 },
   sectionTitle: {
