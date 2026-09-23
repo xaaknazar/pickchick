@@ -74,7 +74,7 @@ with sync_playwright() as p:
     before=saved(page);page.wait_for_timeout(700);assert saved(page)==before
     assert saved(page)['game']['desired'] == 'up'
     expect(page.get_by_test_id('pick-man-progress')).to_have_attribute('aria-valuenow', str(163-len(before['game']['remaining'])))
-    expect(page.get_by_test_id('maze-direction-left')).to_be_visible()
+    expect(page.locator('[data-testid^="maze-direction-"]')).to_have_count(0)
     page.screenshot(path=str(OUTPUT/'paused.png'))
     page.get_by_test_id('pick-man-rules').click()
     expect(page.get_by_test_id('pick-man-help-close')).to_be_visible()
@@ -82,12 +82,14 @@ with sync_playwright() as p:
     expect(page.get_by_test_id('pick-man-resume')).to_be_visible()
     page.reload();expect(page.get_by_test_id('pick-man-resume')).to_be_visible(timeout=20000)
     assert saved(page)['game']['score']==before['game']['score']
-    for width,height in [(393,852),(320,568),(852,393)]:
+    for width,height in [(393,852),(320,568),(430,932),(768,1024),(852,393)]:
         page.set_viewport_size({'width':width,'height':height});page.wait_for_timeout(300)
         board=page.get_by_test_id('pick-man-board').bounding_box()
         assert board['x']>=0 and board['x']+board['width']<=width+1,board
         assert board['y']>=0 and board['y']+board['height']<=height+1,board
         assert board['height'] >= 285, board
+        if width <= 430: assert board['width'] >= width - 14, board
+        if width == 768: assert board['width'] > 650, board
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (width, height)
         back=page.get_by_test_id('pick-man-exit').bounding_box()
         assert back['width']>=44 and back['height']>=44,back
@@ -135,4 +137,4 @@ with sync_playwright() as p:
     page.context.close()
     assert not errors,errors
     b.close()
-print('PASS: Events order and artwork, guest gate, movement, four touch swipe directions, touch direction controls, pause/help/reload, three sizes, progress and power indicators, large score, restart, victory and defeat; local-only.')
+print('PASS: Events order and artwork, guest gate, movement, four touch swipe directions, swipe-only controls, pause/help/reload, five sizes, progress and power indicators, large score, restart, victory and defeat; local-only.')
