@@ -30,9 +30,11 @@
       "scopes": [
         "@workstations/mac2"
       ],
-      "status": "active",
+      "status": "done",
       "head": "bfb52f865e92d52b2d91db2eee5875f9352194e4",
-      "updatedAt": "2026-09-23T13:43:32.231Z"
+      "updatedAt": "2026-09-23T13:44:15.484Z",
+      "summary": "Второй физический Mac подключён к совместному Git-процессу. Прочитаны AGENTS.md, collaboration README/handoff и актуальный project-status. sync/status/check выполнены на bfb52f865e92d52b2d91db2eee5875f9352194e4; дерево чистое. Создана собственная идентичность рабочего места, claim прошёл без пересечений. 10 тестов project-sync прошли на Node 24.16.0. Ветка codex/mac2-ready опубликована, удалённый SHA совпадает с общей версией. Исходники не менялись, PR без diff не создавался. Ранее сохранённые ветка аудита и локальный отчёт сохранены. Docker, зависимости проекта, Xcode/подписи, SSH VPS/Windows и отдельные секреты ещё не настроены; общая CI не объявляется зелёной.",
+      "nextAction": "Перед следующей задачей sync/status, новая ветка и claim нужных путей. Следующий этап: исправить старое ожидание RUN в content_browser, выдачу demo.js и ticket-view.js сервером кухни (локально 404), healthcheck портала (Node 24.16.0 fetch не передаёт требуемый Host, локально 403; node:http с правильным Host даёт 200). Сначала изолированная среда и полноценные PostgreSQL/browser проверки, затем PR и общая ветка. VPS unhealthy окончательно подтвердить по Docker health logs после получения разрешённого SSH-доступа. Публичный edgeConnected=true сам по себе не доказывает полный цикл заказа."
     },
     {
       "id": "mobile-ux-guidance",
