@@ -22,6 +22,17 @@
       "updatedAt": "2026-09-23T13:24:29.969Z",
       "summary": "Опубликованы общая ветка, безопасное обновление, журнал занятых областей и передача задач: PR https://github.com/xaaknazar/pickchick/pull/73, коммит bfb52f865e92d52b2d91db2eee5875f9352194e4. 94 unit-теста (10 sync), 7 roadmap-тестов, targeted lint/format прошли. Этот Mac синхронизирован; roadmap опубликован, health подтвердил SHA. GitHub CI 35866683720 и 35866683712 завершилась failure с пустыми steps; причина не установлена, annotations API недоступен (403). Это не зелёный релиз.",
       "nextAction": "На втором Mac получить codex/shared-development, прочитать AGENTS.md и docs/collaboration, выполнить sync/status и занять новую задачу. Отдельно разобраться с запуском GitHub CI, известными browser-проверками и unhealthy kitchen portal; второй физический Mac пока не подключён."
+    },
+    {
+      "id": "mac2-ready",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/mac2-ready",
+      "scopes": [
+        "@workstations/mac2"
+      ],
+      "status": "active",
+      "head": "bfb52f865e92d52b2d91db2eee5875f9352194e4",
+      "updatedAt": "2026-09-23T13:43:32.231Z"
     }
   ]
 }
