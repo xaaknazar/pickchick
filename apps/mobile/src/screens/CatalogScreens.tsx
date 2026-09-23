@@ -707,7 +707,6 @@ export function Cart(props: ScreenProps) {
                 >
                   <Row style={s.stepper}>
                     <IconButton
-                      style={{ width: 44, height: 44 }}
                       name={line.quantity === 1 ? 'trash-outline' : 'remove'}
                       label={
                         line.quantity === 1
@@ -724,7 +723,6 @@ export function Cart(props: ScreenProps) {
                       {line.quantity}
                     </Body>
                     <IconButton
-                      style={{ width: 44, height: 44 }}
                       name="add"
                       label={`Добавить ещё ${line.product.name}`}
                       testID={`cart-plus-${line.product.id}`}
@@ -1042,7 +1040,7 @@ const s = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: colors.accent,
   },
-  hitText: { color: colors.white, fontFamily: font.bold, fontSize: 10, lineHeight: 13 },
+  hitText: { color: colors.orangeInk, fontFamily: font.bold, fontSize: 12, lineHeight: 16 },
   compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   compactProduct: { flexDirection: 'column', padding: 10, borderRadius: 20, gap: 9 },
   compactPhoto: { width: '100%', height: 'auto', aspectRatio: 1, borderRadius: 14 },
@@ -1066,7 +1064,7 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  cartHeaderButton: { width: 44, height: 44, backgroundColor: colors.raised },
+  cartHeaderButton: { backgroundColor: colors.raised },
   cartFulfilment: {
     backgroundColor: colors.surface,
     borderRadius: 22,
