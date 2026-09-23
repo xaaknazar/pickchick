@@ -33,6 +33,23 @@
       "status": "active",
       "head": "bfb52f865e92d52b2d91db2eee5875f9352194e4",
       "updatedAt": "2026-09-23T13:43:32.231Z"
+    },
+    {
+      "id": "mobile-ux-guidance",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-ux-guidance",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "docs/operations/mobile-ux-guidance.md",
+        "docs/operations/images/mobile-ux-guidance",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "bfb52f865e92d52b2d91db2eee5875f9352194e4",
+      "updatedAt": "2026-09-23T13:43:41.300Z"
     }
   ]
 }
