@@ -30,7 +30,9 @@ ROUTE = START + '''\t@kitchen_demo {
 '''
 
 def add_route(source):
-    b.require(START not in source, 'Demo already installed; inspect before updating')
+    if START in source:
+        b.require(source.count(ROUTE) == 1, 'Existing demo route changed; inspect before updating')
+        return source
     b.require(source.count('\t@operations {') == 1, 'Operations anchor changed')
     return source.replace('\t@operations {', ROUTE + '\n\t@operations {', 1)
 
@@ -66,13 +68,14 @@ def main():
             target.mkdir(parents=True)
             web = target / 'public-web'
             shutil.copytree(old / 'infra/public-staging/public-web', web)
-            shutil.copytree(dist, web / 'kitchen-demo')
+            shutil.copytree(dist, web / 'kitchen-demo', dirs_exist_ok=True)
             for f in (web / 'kitchen-demo').rglob('*'):
                 f.chmod(0o755 if f.is_dir() else 0o644)
             (web / 'kitchen-demo').chmod(0o755)
             result = json.loads(json.dumps(old_manifest))
             result.setdefault('component_sources', {})['kitchen-demo'] = a.expected_source_sha
             additions = {str(f.relative_to(web)): b.digest(f) for f in (web / 'kitchen-demo').rglob('*') if f.is_file()}
+            b.require(all(b.digest(web / name) == sha for name, sha in old_manifest['files'].items() if not name.startswith('kitchen-demo/')), 'Unrelated public file changed')
             result['files'].update(additions)
             (web / '.release.json').write_text(json.dumps(result, indent=2) + '\n')
             gateway_config = target / 'gateway.Caddyfile'
@@ -94,7 +97,7 @@ def main():
             b.unchanged(before)
             b.require(b.pointer(b.ROOT / 'current') == api, 'Business API changed')
             b.switch(b.ROOT / 'public-https/current', new)
-            outcome.update(status='deployed', public_release=str(new), previous_public_release=str(old), preserved_files=len(old_manifest['files']), demo_files=len(additions))
+            outcome.update(status='deployed', public_release=str(new), previous_public_release=str(old), preserved_files=sum(not name.startswith('kitchen-demo/') for name in old_manifest['files']), demo_files=len(additions))
         except b.Uncertain:
             b.save(b.ROOT / 'kitchen-demo/uncertain.json', outcome); raise
         except BaseException as error:

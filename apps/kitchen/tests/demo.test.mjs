@@ -1,45 +1,43 @@
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { createDemo, memoryStorage } from '../dist/demo.js';
-import { KitchenModel, allowedActions } from '../dist/model.js';
+import { createDemo, memoryStorage, demoTicketAction } from '../dist/demo.js';
+import { KitchenModel } from '../dist/model.js';
 import { prefix } from '../dist/types.js';
+import { demoTicket } from '../dist/ticket-view.js';
 
-test('demo uses the real kitchen model: preparation, assembly, ready board, handoff and reset', async () => {
+test('one receipt confirmation at prep, one at assembly: readiness and comments persist through handoff', async () => {
   const d = createDemo();
   const m = new KitchenModel(d.transport, memoryStorage(), memoryStorage(), async () => () => {});
   await m.importCredential(JSON.stringify(d.credential));
   assert.equal(m.state.error, null);
-  assert.equal(m.state.orders.length, 4);
-  const target = m.state.orders.find((o) => o.state === 'accepted');
-  const number = target.displayNumber;
-  for (const station of d.stations) {
-    await m.selectStation(station.id);
-    while (true) {
-      const order = m.state.orders.find((o) => o.orderId === target.orderId);
-      const action = order && allowedActions(order, station.id).find((a) => 'taskId' in a);
-      if (!action) break;
-      await m.command(order, action);
-      assert.equal(m.state.error, null);
-      assert.equal(m.state.pending, null);
-    }
-  }
-  let o = m.state.orders.find((o) => o.orderId === target.orderId);
-  await m.command(
-    o,
-    allowedActions(o, d.stations[1].id).find((a) => a.action === 'ready'),
+  const target = m.state.orders.find((o) => o.displayNumber === '101');
+  const originalComment = d.details(target.orderId).customerComment;
+  assert.equal(d.completeTicket(target.orderId, d.stations[1].id, target.version), false);
+  await m.selectStation(d.stations[1].id);
+  assert.equal(
+    m.state.orders.some((o) => o.orderId === target.orderId),
+    false,
   );
+  assert.equal(d.completeTicket(target.orderId, d.stations[0].id, target.version), true);
+  assert.equal(d.completeTicket(target.orderId, d.stations[0].id, target.version), false);
+  await m.refresh();
+  const assembly = m.state.orders.find((o) => o.orderId === target.orderId);
+  assert.equal(
+    assembly.tasks.filter((t) => t.kind === 'prep').every((t) => t.state === 'done'),
+    true,
+  );
+  assert.equal(demoTicketAction(assembly, d.stations[1].id), 'assembly');
+  assert.equal(d.details(assembly.orderId).customerComment, originalComment);
+  assert.equal(d.completeTicket(assembly.orderId, d.stations[1].id, assembly.version), true);
   await m.selectMode('display');
-  assert.equal(m.state.display.find((o) => o.number === number).state, 'ready');
+  assert.equal(m.state.display.find((o) => o.number === '101').state, 'ready');
   await m.selectMode('kitchen');
-  o = m.state.orders.find((o) => o.orderId === target.orderId);
-  await m.command(
-    o,
-    allowedActions(o, d.stations[1].id).find((a) => a.action === 'handoff'),
-  );
+  const ready = m.state.orders.find((o) => o.orderId === target.orderId);
+  assert.equal(d.completeTicket(ready.orderId, d.stations[1].id, ready.version), true);
   await m.selectMode('display');
   assert.equal(
-    m.state.display.some((o) => o.number === number),
+    m.state.display.some((o) => o.number === '101'),
     false,
   );
   d.reset();
@@ -50,7 +48,33 @@ test('demo uses the real kitchen model: preparation, assembly, ready board, hand
   assert.equal(m.state.display.length, 7);
 });
 
-test('demo is isolated, bounded, rejects unsupported routes and cannot mark unfinished orders ready', async () => {
+test('receipt UI has one action, numbered quantities, escaped customer notes and distinct source/delivery labels', async () => {
+  const d = createDemo();
+  const page = await d.transport(prefix + '/kitchen?stationId=' + d.stations[1].id, null);
+  const o = page.items.find((o) => o.displayNumber === '103');
+  const html = demoTicket(
+    o,
+    d.stations,
+    d.stations[1].id,
+    { ...d.details(o.orderId), customerComment: '<script>bad</script>' },
+    false,
+  );
+  assert.equal((html.match(/<button /g) ?? []).length, 1);
+  for (const text of [
+    'Яндекс Еда',
+    'ДОСТАВКА',
+    '✓ Готово',
+    'Добавить при сборке',
+    'Позиция 1',
+    'Приборы на 2 персоны',
+  ])
+    assert.ok(html.includes(text), text);
+  assert.ok(html.includes('&lt;script&gt;bad&lt;/script&gt;'));
+  assert.ok(!html.includes('<script>'));
+  assert.ok(!html.includes('data-command='));
+});
+
+test('demo remains bounded and isolated; wrong station, premature ready and unsupported routes fail closed', async () => {
   const a = createDemo(),
     b = createDemo();
   a.add();
@@ -59,6 +83,7 @@ test('demo is isolated, bounded, rejects unsupported routes and cannot mark unfi
   assert.equal((await list(b)).items.length, 6);
   const page = await a.transport(prefix + '/kitchen?stationId=' + a.stations[0].id, null);
   const o = page.items[0];
+  assert.equal(a.completeTicket(o.orderId, randomUUID(), o.version), false);
   await assert.rejects(
     a.transport(
       prefix + '/orders/' + o.orderId + '/actions',

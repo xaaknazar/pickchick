@@ -1,10 +1,12 @@
 import { KitchenModel, allowedActions, displayWindow } from './model.js';
 import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js';
 import { createDemo, memoryStorage } from './demo.js';
+import { demoTicket } from './ticket-view.js';
 import { startRuntime } from './runtime.js';
 import { UUID, type Action } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
 const demo = demoMode ? createDemo() : null;
+if (demo) document.body.classList.add('ticket-demo');
 let autoOrders = true;
 let demoNotice = '';
 let renderedView = '';
@@ -214,6 +216,8 @@ function render() {
     content = `<main class="workspace"><div class="tickets" data-testid="queue">${
       s.orders
         .map((o) => {
+          if (demo)
+            return demoTicket(o, s.stations, s.stationId ?? '', demo.details(o.orderId), blocked);
           const actions = allowedActions(o, s.stationId ?? '');
           return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : 'Приложение'}</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div><div class="lines">${o.tasks
             .map((t) => {
@@ -257,6 +261,15 @@ function render() {
     demoNotice = 'Начальный сценарий восстановлен';
     void model.refresh();
   });
+  document.querySelectorAll<HTMLButtonElement>('[data-demo-order]').forEach((b) =>
+    b.addEventListener('click', () => {
+      if (!demo || blocked || !s.stationId) return;
+      demoNotice = demo.completeTicket(b.dataset.demoOrder!, s.stationId, Number(b.dataset.version))
+        ? 'Чек подтверждён'
+        : 'Заказ уже изменился. Проверьте очередь.';
+      void model.refresh();
+    }),
+  );
   document.querySelector('.workspace')?.scrollTo({ top: scroll });
   for (const [id, fn] of Object.entries({
     'mode-kitchen': () => model.selectMode('kitchen'),
