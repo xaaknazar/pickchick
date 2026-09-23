@@ -57,6 +57,21 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
   const full = !existing && props.model.cart.length >= 11;
   const valid =
     validSelections(product, selections) && !full && (existing?.quantity ?? 0) + quantity <= 20;
+  const incompleteGroup = product.modifierGroups?.find((group) => {
+    const total = selections
+      .filter((selection) => selection.group_id === group.id)
+      .reduce((sum, selection) => sum + selection.quantity, 0);
+    return total < group.min || total > group.max;
+  });
+  const blockedReason = full
+    ? 'В корзине уже 11 разных позиций. Удалите одну, чтобы добавить новую.'
+    : (existing?.quantity ?? 0) + quantity > 20
+      ? 'В одном заказе можно до 20 одинаковых наборов.'
+      : incompleteGroup
+        ? `Завершите выбор: ${incompleteGroup.title.toLowerCase()}.`
+        : !valid
+          ? 'Проверьте выбранные добавки: часть вариантов недоступна.'
+          : null;
   const select = (group: ModifierGroup, optionId: string, value: number) => {
     const rest = selections.filter((s) =>
       group.max === 1
@@ -182,6 +197,15 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
               .filter((s) => s.group_id === group.id)
               .reduce((n, s) => n + s.quantity, 0);
             const radio = group.max === 1;
+            const groupSelections = selections.filter(
+              (selection) => selection.group_id === group.id,
+            );
+            const selectedLabels = groupSelections
+              .map(
+                (selection) =>
+                  group.options.find((option) => option.id === selection.option_id)?.label,
+              )
+              .filter(Boolean);
             const visible =
               group.id !== 'drink' || expanded[group.id] || group.options.length <= 5
                 ? group.options
@@ -198,8 +222,43 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                       : `Выберите ${group.min === group.max ? group.min : `${group.min}-${group.max}`}`}{' '}
                     {!radio ? `· выбрано ${total}` : ''}
                   </Caption>
+                  {radio && total > 0 ? (
+                    <Caption
+                      testID={`modifier-selection-${group.id}`}
+                      style={s.selectionSummary}
+                      accessibilityLiveRegion="polite"
+                    >
+                      Выбрано: {selectedLabels.join(', ')}
+                    </Caption>
+                  ) : null}
                 </View>
                 <View style={s.options}>
+                  {radio && group.min === 0 ? (
+                    <Pressable
+                      testID={`modifier-none-${group.id}`}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${group.title}: не добавлять`}
+                      aria-checked={total === 0}
+                      accessibilityState={{ checked: total === 0 }}
+                      onPress={() =>
+                        setSelections(
+                          selections.filter((selection) => selection.group_id !== group.id),
+                        )
+                      }
+                      style={({ pressed }) => [
+                        s.option,
+                        total === 0 && s.selected,
+                        pressed && ui.pressed,
+                      ]}
+                    >
+                      <Icon
+                        name={total === 0 ? 'radio-button-on' : 'radio-button-off'}
+                        color={total === 0 ? colors.accent : colors.muted}
+                        size={23}
+                      />
+                      <Body style={s.optionName}>Не добавлять</Body>
+                    </Pressable>
+                  ) : null}
                   {visible.map((option) => {
                     const selected =
                       selections.find((s) => s.group_id === group.id && s.option_id === option.id)
@@ -222,7 +281,9 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                         key={option.id}
                         testID={`modifier-${group.id}-${option.id}`}
                         accessibilityRole="radio"
-                        accessibilityState={{ selected: !!selected, disabled: unavailable }}
+                        accessibilityLabel={`${group.title}: ${option.label}, ${unavailable ? 'временно нет' : option.price_delta_minor === '0' ? 'входит в стоимость' : '+' + MinorMoney(option.price_delta_minor)}`}
+                        aria-checked={!!selected}
+                        accessibilityState={{ checked: !!selected, disabled: unavailable }}
                         disabled={unavailable}
                         onPress={() => select(group, option.id, 1)}
                         style={({ pressed }) => [
@@ -242,7 +303,11 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                         <Caption
                           style={{ maxWidth: fontScale > 1.3 ? '100%' : 100, textAlign: 'right' }}
                         >
-                          {unavailable ? 'Нет' : `+${MinorMoney(option.price_delta_minor)}`}
+                          {unavailable
+                            ? 'Нет'
+                            : option.price_delta_minor === '0'
+                              ? 'Включено'
+                              : `+${MinorMoney(option.price_delta_minor)}`}
                         </Caption>
                       </Pressable>
                     ) : (
@@ -296,15 +361,18 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
               </View>
             );
           })}
-          {full ? (
-            <Caption>В корзине уже 11 разных позиций. Удалите одну, чтобы добавить новую.</Caption>
-          ) : null}
-          {(existing?.quantity ?? 0) + quantity > 20 ? (
-            <Caption>В одном заказе можно до 20 одинаковых наборов.</Caption>
-          ) : null}
         </View>
       </ScrollView>
       <BottomActions safeArea={!props.inTabLayout}>
+        {blockedReason ? (
+          <Caption
+            testID="product-add-reason"
+            accessibilityLiveRegion="polite"
+            style={{ color: colors.warning }}
+          >
+            {blockedReason}
+          </Caption>
+        ) : null}
         <Row style={{ gap: 10, flexWrap: fontScale > 1.4 || width < 360 ? 'wrap' : 'nowrap' }}>
           <Row style={s.stepper}>
             <IconButton
@@ -339,7 +407,7 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
   );
 }
 const s = StyleSheet.create({
-  close: { position: 'absolute', right: 16, backgroundColor: '#FFFFFFE6', width: 44, height: 44 },
+  close: { position: 'absolute', right: 16, backgroundColor: '#FFFFFFE6', width: 48, height: 48 },
   body: { paddingHorizontal: 18, paddingVertical: 20, gap: 16 },
   title: { fontFamily: font.display, fontSize: 30, lineHeight: 38 },
   description: { fontSize: 14.5, lineHeight: 23 },
@@ -366,7 +434,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  selected: { backgroundColor: colors.surface },
+  selected: { backgroundColor: colors.raised },
+  selectionSummary: { color: colors.success, fontFamily: font.medium },
   optionName: { fontFamily: font.body, fontSize: 15, lineHeight: 22 },
   stepper: { gap: 0, borderRadius: 22, backgroundColor: colors.raised },
   quantity: {
