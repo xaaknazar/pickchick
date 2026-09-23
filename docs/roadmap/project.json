@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-23T10:34:46.557626+00:00",
+  "updatedAt": "2026-09-23T10:42:49.880595+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -50,7 +50,8 @@
     "docs/operations/arcade-polish.md",
     "docs/proposals/loyalty-approval-2026-09-23.md",
     "docs/design/ai-design-workflow.md",
-    "docs/design/mobile-skills-review-2026-09-23.md"
+    "docs/design/mobile-skills-review-2026-09-23.md",
+    "docs/operations/mobile-touch-contrast.md"
   ],
   "workstreams": [
     {
@@ -806,13 +807,17 @@
         {
           "label": "Первый аудит mobile и очередь улучшений",
           "path": "docs/design/mobile-skills-review-2026-09-23.md"
+        },
+        {
+          "label": "Кнопки корзины 48×48 и читаемый ХИТ",
+          "path": "docs/operations/mobile-touch-contrast.md"
         }
       ],
       "acceptance": [
         "Основные экраны визуально сверены с оригиналом на малых ширинах.",
         "Неизвестные функции не получают выдуманные данные."
       ],
-      "nextAction": "Исправить размеры касаний корзины и контраст «ХИТ» по аудиту; затем проверить compact-вариант акции и нативные крупный шрифт/FPS. Установка скиллов не является выпуском редизайна.",
+      "nextAction": "Проверить компактный вариант акции в профиле и доступ к играм/меню; провести нативную проверку крупного шрифта, VoiceOver/TalkBack и FPS. Первые два P1 аудита исправлены.",
       "checks": {
         "implemented": true,
         "verified": true,
