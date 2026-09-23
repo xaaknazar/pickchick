@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { advanceMotion, createMotion, queueMotion } from './motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Icon, Logo } from '../../components/UI';
+import { Icon, Logo } from '../../components/UI';
 import { font } from '../../theme';
 import {
   COLS,
@@ -33,8 +33,16 @@ import {
   type Direction,
   type MazeGame,
 } from './engine';
-import { Chick, FoodIcon, MazeWalls, PickManHero, Rival } from './visuals';
+import { Chick, FoodIcon, MazeWalls, Rival } from './visuals';
 import { usePickMan } from './usePickMan';
+import { assets } from '../../assets';
+import {
+  ArcadeButton as Button,
+  ArcadeBackdrop,
+  ArcadeFeedback,
+  ArcadeIntro,
+  arcade,
+} from '../ArcadeExperience';
 
 function useReducedMotion() {
   const [reduced, setReduced] = useState(true);
@@ -259,7 +267,11 @@ function MazeBoard({
           <View style={s.statusDot} />
           <Text style={s.boardTitle}>СОБЕРИ СВОЙ ВКУС</Text>
         </View>
-        <Text style={s.boardMeta}>{game.remaining.length} осталось</Text>
+        <Text style={s.boardMeta}>
+          {game.power > 0
+            ? `Соус: ${Math.ceil((game.power * stepDuration(game.level)) / 1000)} с`
+            : `${game.remaining.length} осталось`}
+        </Text>
       </View>
       <View
         testID="pick-man-board"
@@ -316,6 +328,29 @@ export function PickManScreen() {
     [restart, setRestart] = useState(false);
   const { game, status, best } = controller;
   const playing = status === 'playing';
+  const last = useRef({ score: 0, lives: 3, power: 0, level: 1 });
+  const [feedback, setFeedback] = useState({ event: 0, text: '', danger: false });
+  useEffect(() => {
+    if (!game || status !== 'playing') return;
+    const before = last.current;
+    if (
+      game.lives < before.lives ||
+      (game.power > before.power && game.power === 42) ||
+      (game.level === before.level && game.score - before.score >= 200)
+    ) {
+      const danger = game.lives < before.lives;
+      setFeedback({
+        event: game.ticks,
+        danger,
+        text: danger
+          ? 'Ты под защитой. Продолжай!'
+          : game.power > before.power
+            ? 'Острый режим! +50'
+            : 'Пойман! +200',
+      });
+    }
+    last.current = { score: game.score, lives: game.lives, power: game.power, level: game.level };
+  }, [game, status]);
   const cell = Math.floor(Math.min(25, region.width / COLS, (region.height - 48) / ROWS));
   const compact = height < 680;
   const collected = game ? FOOD_IDS.length - game.remaining.length : 0;
@@ -384,6 +419,7 @@ export function PickManScreen() {
   const overlay = help || restart || status === 'paused' || status === 'over' || status === 'won';
   return (
     <SafeAreaView testID="pick-man-screen" style={s.page}>
+      <ArcadeBackdrop />
       <View style={[s.header, compact && { height: 58 }]}>
         <Pressable
           testID="pick-man-exit"
@@ -413,37 +449,20 @@ export function PickManScreen() {
           <Text style={s.body}>Готовим вкусный маршрут…</Text>
         </View>
       ) : status === 'ready' ? (
-        <>
-          <ScrollView contentContainerStyle={s.intro} showsVerticalScrollIndicator={false}>
-            <Text style={s.eyebrow}>ПОЙМАЙ СВОЙ ВКУС</Text>
-            <PickManHero size={Math.min(width - 80, 260)} />
-            <Text style={s.introTitle}>Весь вкус.{`\n`}Твой маршрут.</Text>
-            <Text style={[s.body, s.centerText]}>
-              Веди Чика по лабиринту. Собирай{`\n`}любимые блюда и обходи соперников.
-            </Text>
-            <View style={s.legend}>
-              {(['burger', 'fingers', 'cola'] as const).map((kind, i) => (
-                <View key={kind} style={s.legendItem}>
-                  <FoodIcon kind={kind} size={34} />
-                  <Text style={s.small}>{[30, 20, 10][i]} очков</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={s.caption}>Три жизни · управляй свайпами</Text>
-            {best > 0 ? (
-              <Text style={s.best}>Твой рекорд - {best.toLocaleString('ru-RU')}</Text>
-            ) : null}
-          </ScrollView>
-          <View style={s.footer}>
-            <Button
-              testID="pick-man-start"
-              title="Начать игру"
-              disabled={controller.storageError}
-              onPress={controller.start}
-            />
-            <Text style={[s.caption, s.centerText]}>Игровые очки не переводятся в Чики.</Text>
-          </View>
-        </>
+        <ArcadeIntro
+          cover={assets.pickManCover}
+          title="Охота за вкусом."
+          subtitle="Твой Чик. Любимое меню. Целый лабиринт приключений."
+          best={best}
+          testID="pick-man-start"
+          onStart={controller.start}
+          disabled={controller.storageError}
+          steps={[
+            ['move-outline', 'Задай направление', 'Свайпай по полю или используй стрелки.'],
+            ['fast-food-outline', 'Собери всё меню', 'Бургер +30 · фингерсы +20 · кола +10.'],
+            ['flash-outline', 'Добавь остроты', 'Фирменный соус даёт защиту от соперников.'],
+          ]}
+        />
       ) : game ? (
         <View style={[s.gameLayout, wide && s.gameLayoutWide]}>
           <View style={[s.stats, compact && s.statsCompact, wide && s.statsWide]}>
@@ -514,6 +533,12 @@ export function PickManScreen() {
                 !wide && { maxHeight: Math.min(25, (width - 32) / COLS) * ROWS + 48 },
               ]}
             >
+              <ArcadeFeedback
+                event={feedback.event}
+                text={feedback.text}
+                danger={feedback.danger}
+                reduced={reduced}
+              />
               {cell >= 10 ? (
                 <MazeBoard
                   game={game}
@@ -529,44 +554,108 @@ export function PickManScreen() {
               ) : null}
             </View>
             <View style={[s.controls, compact && s.controlsCompact, wide && s.controlsWide]}>
+              {!compact && (
+                <View
+                  style={[
+                    s.gestureHint,
+                    compact && { padding: 10 },
+                    game.power > 0 && s.gesturePower,
+                  ]}
+                >
+                  <View style={[s.gestureIcon, compact && { width: 34, height: 34 }]}>
+                    <Icon
+                      name={game.power > 0 ? 'flash' : 'move-outline'}
+                      size={23}
+                      color="#FFB878"
+                    />
+                  </View>
+                  <View style={s.controlCopy}>
+                    <Text style={s.hint}>
+                      {game.power > 0
+                        ? 'Острый режим!'
+                        : game.shield > 0
+                          ? 'Чик под защитой'
+                          : 'Веди Чика свайпами'}
+                    </Text>
+                    <Text style={s.caption}>
+                      {game.power > 0
+                        ? 'Лови соперников, пока действует соус'
+                        : 'Можно заранее задать следующий поворот'}
+                    </Text>
+                    {game.power > 0 ? (
+                      <View
+                        testID="pick-man-power"
+                        accessibilityRole="progressbar"
+                        accessibilityLabel="Защита фирменного соуса"
+                        accessible
+                        aria-valuemin={0}
+                        aria-valuemax={42}
+                        aria-valuenow={game.power}
+                        style={s.powerTrack}
+                      >
+                        <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              )}
+              {compact && game.power > 0 ? (
+                <View style={{ gap: 4 }}>
+                  <Text style={[s.hint, { textAlign: 'center' }]}>Острый режим!</Text>
+                  <View
+                    testID="pick-man-power"
+                    accessibilityRole="progressbar"
+                    accessible
+                    aria-valuemin={0}
+                    aria-valuemax={42}
+                    aria-valuenow={game.power}
+                    accessibilityLabel="Защита фирменного соуса"
+                    style={s.powerTrack}
+                  >
+                    <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
+                  </View>
+                </View>
+              ) : null}
               <View
-                style={[
-                  s.gestureHint,
-                  compact && { padding: 10 },
-                  game.power > 0 && s.gesturePower,
-                ]}
+                style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}
               >
-                <View style={[s.gestureIcon, compact && { width: 34, height: 34 }]}>
-                  <Icon
-                    name={game.power > 0 ? 'flash' : 'move-outline'}
-                    size={23}
-                    color="#FFB878"
-                  />
-                </View>
-                <View style={s.controlCopy}>
-                  <Text style={s.hint}>
-                    {game.power > 0 ? 'Острый режим!' : 'Веди Чика свайпами'}
-                  </Text>
-                  <Text style={s.caption}>
-                    {game.power > 0
-                      ? 'Лови соперников, пока действует соус'
-                      : 'Вверх, вниз, влево или вправо'}
-                  </Text>
-                  {game.power > 0 ? (
-                    <View
-                      testID="pick-man-power"
-                      accessibilityRole="progressbar"
-                      accessibilityLabel="Защита фирменного соуса"
-                      accessible
-                      aria-valuemin={0}
-                      aria-valuemax={42}
-                      aria-valuenow={game.power}
-                      style={s.powerTrack}
-                    >
-                      <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
-                    </View>
-                  ) : null}
-                </View>
+                {(['left', 'up', 'down', 'right'] as const).map((direction) => (
+                  <Pressable
+                    key={direction}
+                    testID={`maze-direction-${direction}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      { left: 'Влево', right: 'Вправо', up: 'Вверх', down: 'Вниз' }[direction]
+                    }
+                    disabled={!playing || overlay}
+                    onPressIn={() => controller.steer(direction)}
+                    style={({ pressed }) => [
+                      {
+                        width: 50,
+                        height: 48,
+                        borderRadius: 15,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: pressed ? '#285077' : '#182C49',
+                        borderWidth: 1,
+                        borderColor: '#375275',
+                      },
+                    ]}
+                  >
+                    <Icon
+                      name={
+                        {
+                          left: 'arrow-back',
+                          right: 'arrow-forward',
+                          up: 'arrow-up',
+                          down: 'arrow-down',
+                        }[direction] as 'arrow-back'
+                      }
+                      size={22}
+                      color="#E6EEFF"
+                    />
+                  </Pressable>
+                ))}
               </View>
               {!compact && !wide ? (
                 <View style={s.recordLine}>
@@ -734,7 +823,7 @@ export function PickManScreen() {
   );
 }
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#060F22', paddingHorizontal: 16 },
+  page: { flex: 1, backgroundColor: arcade.ink, paddingHorizontal: 16 },
   header: {
     height: 66,
     flexDirection: 'row',
@@ -742,8 +831,8 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
   },
   icon: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 16,
     backgroundColor: '#10213D',
     borderWidth: 1,
@@ -753,7 +842,13 @@ const s = StyleSheet.create({
   },
   iconPressed: { backgroundColor: '#213F66', transform: [{ scale: 0.96 }] },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  name: { fontFamily: font.display, fontSize: 19, color: '#FFF', letterSpacing: 0.4 },
+  name: {
+    fontFamily: font.display,
+    fontSize: 18,
+    lineHeight: 28,
+    color: '#FFF',
+    letterSpacing: 0.4,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { fontFamily: font.body, fontSize: 14, lineHeight: 21, color: '#CDDAF1' },
   centerText: { textAlign: 'center' },
@@ -832,7 +927,7 @@ const s = StyleSheet.create({
   statusDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFB878' },
   boardTitle: {
     fontFamily: font.bold,
-    fontSize: 9,
+    fontSize: 10,
     lineHeight: 14,
     color: '#B9CDE8',
     letterSpacing: 1,
@@ -900,9 +995,9 @@ const s = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
   },
-  leave: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  leave: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   storage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  retry: { minHeight: 44, justifyContent: 'center' },
+  retry: { minHeight: 48, justifyContent: 'center' },
   readyHelp: {
     position: 'absolute',
     left: 20,

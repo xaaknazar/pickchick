@@ -139,7 +139,7 @@ function wallContours() {
 }
 const wallsSource = {
   uri: `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${COLS} ${ROWS}"><defs><linearGradient id="walls" x2="0" y2="1"><stop stop-color="#16477E"/><stop offset="1" stop-color="#102C56"/></linearGradient></defs><path d="${wallContours()}" fill="url(#walls)" fill-rule="evenodd" stroke="#4583CC" stroke-width=".065" stroke-linejoin="round"/></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${COLS} ${ROWS}"><defs><linearGradient id="walls" x2="0" y2="1"><stop stop-color="#183765"/><stop offset="1" stop-color="#0A1833"/></linearGradient></defs><path d="${wallContours()}" fill="url(#walls)" fill-rule="evenodd" stroke="#4B8FCE" stroke-width=".075" stroke-linejoin="round"/></svg>`,
   )}`,
 };
 export const MazeWalls = memo(function MazeWalls({ cell }: { cell: number }) {
