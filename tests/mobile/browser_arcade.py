@@ -34,9 +34,14 @@ with sync_playwright() as p:
     before=page.get_by_test_id('run-score').inner_text();page.wait_for_timeout(200);assert page.get_by_test_id('run-score').inner_text()==before
     page.get_by_test_id('game-resume').click();page.wait_for_timeout(2100)
    elif name=='man':
-    for d in ['left','up','down','right']:
-     bounds(page,page.get_by_test_id('maze-direction-'+d),width,height)
-    page.get_by_test_id('maze-direction-up').tap()
+    expect(page.locator('[data-testid^="maze-direction-"]')).to_have_count(0)
+    area=page.get_by_test_id('pick-man-board').bounding_box()
+    x,y=area['x']+area['width']/2,area['y']+area['height']/2
+    touch=c.new_cdp_session(page)
+    touch.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':x,'y':y}]})
+    touch.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':x,'y':y-50}]})
+    touch.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+    touch.detach()
    page.screenshot(path=str(OUT/f'{name}-play-{width}.png'))
    c.close()
  # Runner gameover, replay and a persisted personal best.

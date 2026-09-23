@@ -314,6 +314,27 @@ function MazeBoard({
           shield={game.shield > 0}
         />
       </View>
+      <View style={[s.gestureStatus, { width: COLS * cell }]} pointerEvents="none">
+        <Text style={s.gestureText} numberOfLines={1}>
+          {game.power > 0
+            ? 'Острый режим!'
+            : game.shield > 0
+              ? 'Чик под защитой'
+              : 'Управляй свайпами по полю'}
+        </Text>
+        <View
+          testID="pick-man-power"
+          accessibilityRole="progressbar"
+          accessibilityLabel="Защита фирменного соуса"
+          accessible
+          aria-valuemin={0}
+          aria-valuemax={42}
+          aria-valuenow={game.power}
+          style={[s.powerTrack, { opacity: game.power > 0 ? 1 : 0 }]}
+        >
+          <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -351,7 +372,7 @@ export function PickManScreen() {
     }
     last.current = { score: game.score, lives: game.lives, power: game.power, level: game.level };
   }, [game, status]);
-  const cell = Math.floor(Math.min(25, region.width / COLS, (region.height - 48) / ROWS));
+  const cell = Math.min(region.width / COLS, (region.height - 56) / ROWS);
   const compact = height < 680;
   const collected = game ? FOOD_IDS.length - game.remaining.length : 0;
   const tooSmall = region.width > 0 && cell < 10;
@@ -420,7 +441,7 @@ export function PickManScreen() {
   return (
     <SafeAreaView testID="pick-man-screen" style={s.page}>
       <ArcadeBackdrop />
-      <View style={[s.header, compact && { height: 58 }]}>
+      <View style={[s.header, compact && { height: wide ? 48 : 58 }]}>
         <Pressable
           testID="pick-man-exit"
           accessibilityRole="button"
@@ -458,7 +479,7 @@ export function PickManScreen() {
           onStart={controller.start}
           disabled={controller.storageError}
           steps={[
-            ['move-outline', 'Задай направление', 'Свайпай по полю или используй стрелки.'],
+            ['move-outline', 'Задай направление', 'Свайпай по полю в нужную сторону.'],
             ['fast-food-outline', 'Собери всё меню', 'Бургер +30 · фингерсы +20 · кола +10.'],
             ['flash-outline', 'Добавь остроты', 'Фирменный соус даёт защиту от соперников.'],
           ]}
@@ -524,14 +545,11 @@ export function PickManScreen() {
               </Text>
             </View>
           </View>
-          <View style={[s.main, wide && s.mainWide]}>
+          <View style={[s.main, wide && { paddingBottom: 0 }]}>
             <View
               testID="pick-man-stage"
               onLayout={(e) => setRegion(e.nativeEvent.layout)}
-              style={[
-                s.stage,
-                !wide && { maxHeight: Math.min(25, (width - 32) / COLS) * ROWS + 48 },
-              ]}
+              style={s.stage}
             >
               <ArcadeFeedback
                 event={feedback.event}
@@ -551,120 +569,6 @@ export function PickManScreen() {
                 <Text style={[s.body, s.centerText]}>
                   Поверните телефон, чтобы поместился лабиринт.
                 </Text>
-              ) : null}
-            </View>
-            <View style={[s.controls, compact && s.controlsCompact, wide && s.controlsWide]}>
-              {!compact && (
-                <View
-                  style={[
-                    s.gestureHint,
-                    compact && { padding: 10 },
-                    game.power > 0 && s.gesturePower,
-                  ]}
-                >
-                  <View style={[s.gestureIcon, compact && { width: 34, height: 34 }]}>
-                    <Icon
-                      name={game.power > 0 ? 'flash' : 'move-outline'}
-                      size={23}
-                      color="#FFB878"
-                    />
-                  </View>
-                  <View style={s.controlCopy}>
-                    <Text style={s.hint}>
-                      {game.power > 0
-                        ? 'Острый режим!'
-                        : game.shield > 0
-                          ? 'Чик под защитой'
-                          : 'Веди Чика свайпами'}
-                    </Text>
-                    <Text style={s.caption}>
-                      {game.power > 0
-                        ? 'Лови соперников, пока действует соус'
-                        : 'Можно заранее задать следующий поворот'}
-                    </Text>
-                    {game.power > 0 ? (
-                      <View
-                        testID="pick-man-power"
-                        accessibilityRole="progressbar"
-                        accessibilityLabel="Защита фирменного соуса"
-                        accessible
-                        aria-valuemin={0}
-                        aria-valuemax={42}
-                        aria-valuenow={game.power}
-                        style={s.powerTrack}
-                      >
-                        <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              )}
-              {compact && game.power > 0 ? (
-                <View style={{ gap: 4 }}>
-                  <Text style={[s.hint, { textAlign: 'center' }]}>Острый режим!</Text>
-                  <View
-                    testID="pick-man-power"
-                    accessibilityRole="progressbar"
-                    accessible
-                    aria-valuemin={0}
-                    aria-valuemax={42}
-                    aria-valuenow={game.power}
-                    accessibilityLabel="Защита фирменного соуса"
-                    style={s.powerTrack}
-                  >
-                    <View style={[s.powerFill, { width: `${(game.power / 42) * 100}%` }]} />
-                  </View>
-                </View>
-              ) : null}
-              <View
-                style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}
-              >
-                {(['left', 'up', 'down', 'right'] as const).map((direction) => (
-                  <Pressable
-                    key={direction}
-                    testID={`maze-direction-${direction}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      { left: 'Влево', right: 'Вправо', up: 'Вверх', down: 'Вниз' }[direction]
-                    }
-                    disabled={!playing || overlay}
-                    onPressIn={() => controller.steer(direction)}
-                    style={({ pressed }) => [
-                      {
-                        width: 50,
-                        height: 48,
-                        borderRadius: 15,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: pressed ? '#285077' : '#182C49',
-                        borderWidth: 1,
-                        borderColor: '#375275',
-                      },
-                    ]}
-                  >
-                    <Icon
-                      name={
-                        {
-                          left: 'arrow-back',
-                          right: 'arrow-forward',
-                          up: 'arrow-up',
-                          down: 'arrow-down',
-                        }[direction] as 'arrow-back'
-                      }
-                      size={22}
-                      color="#E6EEFF"
-                    />
-                  </Pressable>
-                ))}
-              </View>
-              {!compact && !wide ? (
-                <View style={s.recordLine}>
-                  <Icon name="trophy-outline" size={14} color="#8FA9CB" />
-                  <Text style={s.caption}>Личный рекорд</Text>
-                  <Text style={s.recordValue}>
-                    {Math.max(best, game.score).toLocaleString('ru-RU')}
-                  </Text>
-                </View>
               ) : null}
             </View>
             {overlay ? (
@@ -823,8 +727,9 @@ export function PickManScreen() {
   );
 }
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: arcade.ink, paddingHorizontal: 16 },
+  page: { flex: 1, backgroundColor: arcade.ink, paddingHorizontal: 6 },
   header: {
+    marginHorizontal: 10,
     height: 66,
     flexDirection: 'row',
     alignItems: 'center',
@@ -882,7 +787,7 @@ const s = StyleSheet.create({
   caption: { fontFamily: font.medium, fontSize: 10, lineHeight: 16, color: '#9FB6DA' },
   best: { fontFamily: font.display, fontSize: 17, color: '#FFB38A' },
   footer: { paddingTop: 12, paddingBottom: 12, gap: 10 },
-  stats: { flexDirection: 'row', gap: 8, paddingTop: 10, paddingBottom: 14 },
+  stats: { flexDirection: 'row', gap: 8, marginHorizontal: 6, paddingTop: 4, paddingBottom: 6 },
   gameLayout: { flex: 1, minHeight: 0 },
   gameLayoutWide: { flexDirection: 'row', gap: 12 },
   statsWide: { width: 132, flexDirection: 'column', paddingTop: 8, paddingBottom: 8 },
@@ -900,7 +805,6 @@ const s = StyleSheet.create({
     gap: 2,
   },
   statCompact: { paddingVertical: 6 },
-  controlsCompact: { paddingTop: 8, paddingBottom: 0 },
   scoreCard: { backgroundColor: '#30251F', borderColor: '#65452F' },
   score: { fontFamily: font.display, fontSize: 25, color: '#FFC388', lineHeight: 34 },
   count: { fontFamily: font.bold, fontSize: 15, lineHeight: 23, color: '#E4EDFC' },
@@ -914,10 +818,9 @@ const s = StyleSheet.create({
   },
   progressFill: { height: '100%', backgroundColor: '#FFAA70' },
   main: { flex: 1, minHeight: 0, justifyContent: 'center', paddingBottom: 10 },
-  mainWide: { flexDirection: 'row', gap: 14, paddingBottom: 0 },
   stage: { flex: 1, minWidth: 0, minHeight: 0, alignItems: 'center', justifyContent: 'center' },
   boardHeading: {
-    height: 40,
+    height: 32,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -933,37 +836,20 @@ const s = StyleSheet.create({
     letterSpacing: 1,
   },
   boardMeta: { fontFamily: font.medium, fontSize: 10, lineHeight: 16, color: '#8FA9CB' },
-  controls: { gap: 14, paddingTop: 14, paddingBottom: 8 },
-  controlsWide: { width: 175, justifyContent: 'center', paddingTop: 0 },
-  gestureHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: '#10213D',
-    borderWidth: 1,
-    borderColor: '#203655',
+  gestureStatus: { height: 24, justifyContent: 'center' },
+  gestureText: {
+    fontFamily: font.medium,
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#9FB6DA',
+    textAlign: 'center',
   },
-  gesturePower: { backgroundColor: '#30251F', borderColor: '#775033' },
-  gestureIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFB87812',
-  },
-  controlCopy: { gap: 3, flex: 1 },
-  hint: { fontFamily: font.bold, fontSize: 13, lineHeight: 19, color: '#F2F6FF' },
-  recordLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  recordValue: { fontFamily: font.bold, fontSize: 12, lineHeight: 18, color: '#C8D8EE' },
   powerTrack: {
     height: 4,
     borderRadius: 3,
     backgroundColor: '#233B64',
     overflow: 'hidden',
-    marginTop: 5,
+    marginTop: 1,
   },
   powerFill: { height: 4, backgroundColor: '#FF7A3D' },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: '#020919DB', borderRadius: 24 },
