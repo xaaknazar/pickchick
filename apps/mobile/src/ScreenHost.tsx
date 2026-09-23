@@ -60,7 +60,9 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       ) : (
         screen
       )}
-      {activeTab ? <CartShortcut model={model} onPress={() => navigate('M09')} /> : null}
+      {activeTab ? (
+        <CartShortcut model={model} onPress={() => navigate('M09')} floating={id === 'M06'} />
+      ) : null}
       {preview ? (
         <Pressable
           testID="open-design-review"

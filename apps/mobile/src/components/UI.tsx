@@ -303,16 +303,19 @@ export function Page({
 // dynamic text and safe-area insets, without an absolute overlay hiding content.
 export function BottomActions({
   children,
+  pointerEvents = 'auto',
   safeArea = true,
   style,
 }: {
   children: ReactNode;
   safeArea?: boolean;
+  pointerEvents?: 'auto' | 'box-none';
   style?: StyleProp<ViewStyle>;
 }) {
   const insets = useSafeAreaInsets();
   return (
     <View
+      pointerEvents={pointerEvents}
       testID="bottom-actions"
       style={[styles.footer, { paddingBottom: Math.max(16, safeArea ? insets.bottom : 0) }, style]}
     >
