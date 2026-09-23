@@ -99,6 +99,9 @@ with sync_playwright() as p:
     profile.click()
     expect(page.get_by_test_id('screen-M30')).to_be_visible()
     page.goto(url + '/menu')
+    # Wait for the fixture catalog after navigation; before it arrives the hero
+    # intentionally opens the fallback combo route instead of a selected product.
+    expect(page.locator('[data-testid^="product-"][role="button"]').first).to_be_visible()
     page.get_by_test_id('hero-promotion').click()
     expect(page.get_by_test_id('screen-M07')).to_be_visible()
     page.get_by_role('button', name='Закрыть блюдо', exact=True).click()

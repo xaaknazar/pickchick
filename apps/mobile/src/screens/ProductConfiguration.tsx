@@ -1,6 +1,7 @@
+import { MotionPressable as Pressable } from '../components/Motion';
 import { useState } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ModifierGroup, Product, ScreenProps, Selection } from '../model';
 import { cartLineKey, defaultSelections, lineUnitPrice, validSelections } from '../domain';
@@ -45,7 +46,7 @@ export function ProductConfiguration(props: ScreenProps) {
 function ConfiguredProduct(props: ScreenProps & { product: Product }) {
   const { product } = props;
   const insets = useSafeAreaInsets();
-  const { fontScale, width } = useWindowDimensions();
+  const { fontScale, width, height } = useWindowDimensions();
   const [selections, setSelections] = useState<Selection[]>(() => defaultSelections(product));
   const [quantity, setQuantity] = useState(1);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -88,9 +89,15 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ aspectRatio: 1, backgroundColor: '#E9EFF6' }}>
+        <View
+          testID="product-media"
+          style={{
+            height: Math.min(width, height * 0.55, 560),
+            backgroundColor: colors.background,
+          }}
+        >
           {product.id === 'pick-combo' ? (
-            <HeroVideo shaded={false} />
+            <HeroVideo shaded={false} blendBottom />
           ) : (
             <Image source={product.image} style={StyleSheet.absoluteFill} contentFit="cover" />
           )}
@@ -103,7 +110,7 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
             style={[s.close, { top: insets.top + 8 }]}
           />
         </View>
-        <View style={s.body}>
+        <View testID="product-content" style={s.body}>
           <Heading style={s.title}>{product.name}</Heading>
           <Body muted style={s.description}>
             {product.description}
@@ -220,6 +227,7 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                         onPress={() => select(group, option.id, 1)}
                         style={({ pressed }) => [
                           s.option,
+                          fontScale > 1.3 && { flexWrap: 'wrap' },
                           selected > 0 && s.selected,
                           unavailable && { opacity: 0.45 },
                           pressed && ui.pressed,
@@ -231,7 +239,9 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
                           size={23}
                         />
                         <Body style={[s.optionName, { flex: 1, minWidth: 0 }]}>{option.label}</Body>
-                        <Caption style={{ maxWidth: 76, textAlign: 'right' }}>
+                        <Caption
+                          style={{ maxWidth: fontScale > 1.3 ? '100%' : 100, textAlign: 'right' }}
+                        >
                           {unavailable ? 'Нет' : `+${MinorMoney(option.price_delta_minor)}`}
                         </Caption>
                       </Pressable>

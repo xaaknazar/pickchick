@@ -1,5 +1,13 @@
+import { MotionPressable as Pressable } from '../components/Motion';
 import { Image } from 'expo-image';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import { PeakWallet, PeakRewards } from '../loyalty/PeakScreens';
@@ -192,6 +200,8 @@ export function Tracker(props: ScreenProps) {
 }
 export function Ready(props: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const numberSize = Math.min(160, (width - 48) / (2.1 * fontScale));
   if (!props.preview) return OrderUnavailable(props, 'Выдача заказа');
   return (
     <View
@@ -214,7 +224,8 @@ export function Ready(props: ScreenProps) {
         </Row>
         <Text
           accessibilityLabel="Пример, заказ номер 083"
-          style={s.readyNumber}
+          testID="ready-order-number"
+          style={[s.readyNumber, { fontSize: numberSize, lineHeight: numberSize * 1.16 }]}
           adjustsFontSizeToFit
           numberOfLines={1}
         >

@@ -1,5 +1,6 @@
+import { MotionPressable as Pressable } from '../components/Motion';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   AuthButton,
   AuthLayout,

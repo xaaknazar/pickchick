@@ -1,7 +1,8 @@
+import { ScreenTransition } from './components/Motion';
 import { GameAvailability } from './backoffice/GameAvailability';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { accountDestination } from './account-access';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import type { ScreenId } from './model';
 import { useMobile } from './store';
 import { CartShortcut } from './components/CartShortcut';
@@ -53,7 +54,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     />
   );
   return (
-    <View style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
+    <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
       {!preview && (id === 'M27' || id === 'M28') ? (
         <GameAvailability template="pick-run">{screen}</GameAvailability>
       ) : (
@@ -81,6 +82,6 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
           </Text>
         </Pressable>
       ) : null}
-    </View>
+    </ScreenTransition>
   );
 }

@@ -1,3 +1,4 @@
+import { MediaPoster, useReducedMotion } from './Motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Asset } from 'expo-asset';
@@ -9,25 +10,24 @@ import { assets } from '../assets';
 // promise here: navigation can pause a still-pending play request (AbortError).
 export function WebHeroVideo({ gradient }: { gradient?: string }) {
   const video = useRef<HTMLVideoElement>(null);
-  const [reduced, setReduced] = useState(true);
+  const reduced = useReducedMotion();
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
   const [firstFrame, setFirstFrame] = useState(false);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
-    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const sync = () => {
-      setReduced(motion.matches);
       setVisible(!document.hidden);
     };
     sync();
-    motion.addEventListener('change', sync);
     document.addEventListener('visibilitychange', sync);
     return () => {
-      motion.removeEventListener('change', sync);
       document.removeEventListener('visibilitychange', sync);
     };
   }, []);
+  useEffect(() => {
+    if (reduced) setFirstFrame(false);
+  }, [reduced]);
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
@@ -87,7 +87,7 @@ export function WebHeroVideo({ gradient }: { gradient?: string }) {
           }}
         />
       ) : null}
-      {!firstFrame || failed ? poster : null}
+      <MediaPoster hidden={firstFrame && !failed && !reduced}>{poster}</MediaPoster>
       {gradient ? (
         <View
           pointerEvents="none"

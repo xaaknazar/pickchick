@@ -1,6 +1,7 @@
+import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
 import { Image } from 'expo-image';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, Button, Heading, Icon, NavRow, Page, Row, type IconName } from '../components/UI';
 import type { ScreenProps } from '../model';

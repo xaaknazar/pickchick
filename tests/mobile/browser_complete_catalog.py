@@ -53,6 +53,7 @@ READS = {
                                       'release_id': '10000000-0000-4000-8000-000000000008',
                                       'version': 1, 'published_at': '2026-09-07T00:00:00Z', 'items': []},
     '/v1/test/catalog': CATALOG,
+    '/v1/content/branches/' + BRANCH: {'schema_version': 1, 'branch_id': BRANCH, 'promos': [], 'games': []},
     '/v1/test/orders': {**META, 'orders': []},
 }
 

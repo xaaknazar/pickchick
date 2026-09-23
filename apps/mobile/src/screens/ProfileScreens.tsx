@@ -1,15 +1,7 @@
+import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
 import * as Linking from 'expo-linking';
-import {
-  Alert,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Switch,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Platform, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';

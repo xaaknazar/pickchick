@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { MotionPressable as Pressable } from './Motion';
+import { StyleSheet } from 'react-native';
 import { cartTotal } from '../domain';
 import type { MobileModel } from '../model';
 import { colors, font } from '../theme';

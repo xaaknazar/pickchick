@@ -1,5 +1,6 @@
+import { MotionPressable as Pressable } from '../components/Motion';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { formatDemoPhone } from '../demo-account';

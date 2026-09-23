@@ -1,4 +1,5 @@
-import { Modal, ScrollView, View } from 'react-native';
+import { MotionModal as Modal } from '../components/Motion';
+import { ScrollView, View } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '../api';
