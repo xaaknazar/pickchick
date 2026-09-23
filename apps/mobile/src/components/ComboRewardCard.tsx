@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brandColors, colors, font } from '../theme';
 import { MotionModal, MotionPressable } from './Motion';
@@ -9,60 +9,32 @@ import { Body, Button, Heading, Icon, IconButton } from './UI';
 export function ComboRewardCard({ testID, onMenu }: { testID: string; onMenu(): void }) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const { fontScale } = useWindowDimensions();
   return (
     <View testID={testID} style={s.card}>
-      <View style={s.top}>
-        <Text style={s.eyebrow}>КОМБО-БОНУС</Text>
-        <View style={s.badge}>
-          <Icon name="gift-outline" size={16} color={colors.orangeInk} />
-          <Text style={s.badgeText}>7 + 1</Text>
-        </View>
-      </View>
-      <Text accessibilityRole="header" style={s.title}>
-        Купи 7 комбо.{`\n`}8-е - в подарок!
-      </Text>
-      <Text style={s.subtitle}>Любимый вкус. Ещё один повод вернуться.</Text>
-      <View style={s.ticket}>
-        <View
-          accessible
-          accessibilityLabel="Схема акции: семь комбо и восьмое в подарок. Это не личный счётчик покупок."
-          style={s.stamps}
-        >
-          {Array.from({ length: 8 }, (_, i) => (
-            <View
-              key={i}
-              style={[s.stamp, fontScale > 1.5 && { minHeight: 64 }, i === 7 && s.gift]}
-            >
-              {i === 7 ? (
-                <Icon name="gift-outline" size={25} color={colors.orangeInk} />
-              ) : (
-                <Text allowFontScaling={false} style={s.number}>
-                  {i + 1}
-                </Text>
-              )}
-            </View>
-          ))}
-        </View>
-        <View style={s.ticketLegend}>
-          <Text style={s.legend}>7 комбо</Text>
-          <Text style={s.legend}>1 подарок</Text>
-        </View>
-      </View>
-      <View style={s.status}>
-        <Icon name="storefront-outline" size={18} color="#FFFFFF" />
-        <Text style={s.statusText}>
-          Участвуйте на кассе.{`\n`}Отметки в приложении появятся позже.
-        </Text>
-      </View>
       <MotionPressable
         testID={`${testID}-details`}
         accessibilityRole="button"
+        accessibilityLabel="Комбо-бонус. Купи 7 комбо, 8-е в подарок. Как получить подарок"
         onPress={() => setOpen(true)}
-        style={s.details}
+        style={s.ticket}
       >
-        <Text style={s.detailsText}>Как получить подарок</Text>
-        <Icon name="arrow-forward" size={21} color={colors.orangeInk} />
+        <View style={s.offer}>
+          <Text style={s.label}>Комбо-бонус</Text>
+          <Text accessibilityRole="header" style={s.title}>
+            Купи 7 комбо.{`\n`}8-е - в подарок!
+          </Text>
+          <View style={s.details}>
+            <Text style={s.detailsText}>Условия акции</Text>
+            <Icon name="arrow-forward" size={18} color={colors.white} />
+          </View>
+        </View>
+        <View style={s.reward} accessible={false} importantForAccessibility="no-hide-descendants">
+          <Icon name="gift-outline" size={28} color={colors.orangeInk} />
+          <Text style={s.rewardNumber}>7 + 1</Text>
+          <Text style={s.rewardCaption}>На кассе</Text>
+        </View>
+        <View pointerEvents="none" style={[s.notch, { top: -7 }]} />
+        <View pointerEvents="none" style={[s.notch, { bottom: -7 }]} />
       </MotionPressable>
       <MotionModal
         visible={open}
@@ -138,86 +110,52 @@ export function ComboRewardCard({ testID, onMenu }: { testID: string; onMenu(): 
 }
 
 const s = StyleSheet.create({
-  card: {
-    backgroundColor: brandColors.brandBlue,
-    borderRadius: 28,
-    padding: 20,
-    gap: 16,
-    overflow: 'hidden',
+  card: { borderRadius: 24, overflow: 'hidden', backgroundColor: brandColors.brandBlue },
+  ticket: { flexDirection: 'row', minHeight: 174 },
+  notch: {
+    position: 'absolute',
+    right: 83,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.background,
   },
-  top: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  eyebrow: {
-    fontFamily: font.bold,
-    color: '#FFFFFF',
-    fontSize: 11,
-    lineHeight: 17,
-    letterSpacing: 1.4,
-  },
-  badge: {
-    backgroundColor: brandColors.brandOrange,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  badgeText: { color: colors.orangeInk, fontFamily: font.display, fontSize: 15, lineHeight: 20 },
+  offer: { flex: 1, minWidth: 0, padding: 18, gap: 8 },
+  label: { fontFamily: font.medium, color: '#DBE8FF', fontSize: 13, lineHeight: 20 },
   title: {
     fontFamily: font.display,
-    fontSize: 30,
-    lineHeight: 36,
-    letterSpacing: -0.5,
-    color: '#FFFFFF',
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.3,
+    color: colors.white,
   },
-  subtitle: {
-    fontFamily: font.body,
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#DBE8FF',
-    marginTop: -6,
-  },
-  ticket: { padding: 12, borderRadius: 18, backgroundColor: '#FFFFFF', gap: 10 },
-  stamps: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stamp: {
-    width: '22%',
-    flexGrow: 1,
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: '#EDF3FD',
+  details: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
+  detailsText: { fontFamily: font.medium, fontSize: 13, lineHeight: 20, color: colors.white },
+  reward: {
+    width: 90,
+    paddingHorizontal: 8,
+    paddingVertical: 18,
+    gap: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D3E2FA',
-  },
-  number: { fontFamily: font.display, fontSize: 23, lineHeight: 30, color: brandColors.brandBlue },
-  gift: { backgroundColor: brandColors.brandOrange, borderColor: brandColors.brandOrange },
-  ticketLegend: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
-  legend: { fontFamily: font.bold, fontSize: 12, lineHeight: 18, color: brandColors.brandBlue },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statusText: { flex: 1, fontFamily: font.body, fontSize: 12, lineHeight: 18, color: '#FFFFFF' },
-  details: {
-    minHeight: 50,
     backgroundColor: brandColors.brandOrange,
-    borderRadius: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: '#25160944',
+    borderStyle: 'dashed',
   },
-  detailsText: {
-    flex: 1,
-    fontFamily: font.bold,
-    fontSize: 14,
-    lineHeight: 21,
+  rewardNumber: {
+    fontFamily: font.display,
     color: colors.orangeInk,
+    fontSize: 25,
+    lineHeight: 32,
+    textAlign: 'center',
+  },
+  rewardCaption: {
+    fontFamily: font.medium,
+    color: colors.orangeInk,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
   sheet: {

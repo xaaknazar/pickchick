@@ -51,7 +51,7 @@ def login(page):
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    for destination, target in [('/games/pick-man', 'pick-man-start'), ('/games/pick-blocks', 'blocks-start'), ('/screen/M27', 'game-start'),
+    for destination, target in [('/games/pick-man', 'pick-man-start'), ('/games/pick-blocks', 'blocks-start'),
                                 ('/screen/M12', 'test-checkout-create')]:
         context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
         context.route('**/v1/**', route_api)
@@ -88,11 +88,16 @@ with sync_playwright() as p:
     context.route('**/v1/**', route_api)
     page = context.new_page()
     page.on('pageerror', lambda error: errors.append(str(error)))
-    for path in ['/screen/M27?preview=1', '/screen/M28', '/screen/M13', '/orders']:
+    for path in ['/screen/M13', '/orders']:
         page.goto(URL + path)
         expect(visible(page, 'account-required-login')).to_be_visible(timeout=20000)
         assert page.get_by_test_id('game-field').count() == 0
         assert page.get_by_test_id('test-payment-approve').count() == 0
+    for path in ['/screen/M27', '/screen/M28', '/screen/M27?preview=1', '/screen/M28?preview=1']:
+        page.goto(URL + path)
+        expect(page.get_by_test_id('events-games')).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('pickrun-open')).to_have_count(0)
+        expect(page.get_by_test_id('game-start')).to_have_count(0)
     context.close()
     # Unreadable persisted login must fail closed, with a retry instead of a game.
     context = browser.new_context()

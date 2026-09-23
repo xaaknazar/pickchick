@@ -1,6 +1,5 @@
 import { ScreenTransition } from './components/Motion';
-import { GameAvailability } from './backoffice/GameAvailability';
-import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { accountDestination } from './account-access';
 import { Pressable, Text } from 'react-native';
 import type { ScreenId } from './model';
@@ -42,6 +41,8 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
         },
       });
   };
+  // Temporarily removed from the customer arcade by the owner. Old links return to events.
+  if (id === 'M27' || id === 'M28') return <Redirect href="/(tabs)/events" />;
   const screen = (
     <MobileScreen
       screenId={id}
@@ -55,11 +56,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   );
   return (
     <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
-      {!preview && (id === 'M27' || id === 'M28') ? (
-        <GameAvailability template="pick-run">{screen}</GameAvailability>
-      ) : (
-        screen
-      )}
+      {screen}
       {activeTab ? (
         <CartShortcut model={model} onPress={() => navigate('M09')} floating={id === 'M06'} />
       ) : null}

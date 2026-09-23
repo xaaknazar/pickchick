@@ -26,11 +26,11 @@ export default function Review() {
             lineHeight: 24,
           }}
         >
-          35 нативных страниц по ТЗ. Заказы, платежи и Чики здесь - примеры дизайна. Действия не
-          отправляются в ресторан или банк.
+          33 страницы для проверки дизайна. Заказы, платежи и Чики здесь - примеры дизайна. Действия
+          не отправляются в ресторан или банк.
         </Text>
         {screens
-          .filter((screen) => screen.surface === 'mobile')
+          .filter((screen) => screen.surface === 'mobile' && !['M27', 'M28'].includes(screen.id))
           .map((screen) => (
             <Pressable
               key={screen.id}

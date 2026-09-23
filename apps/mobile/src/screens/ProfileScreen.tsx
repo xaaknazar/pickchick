@@ -103,7 +103,7 @@ export function Profile(props: ScreenProps) {
             <Loading title="Восстанавливаем профиль…" />
           ) : (
             <>
-              <View style={s.identityRow}>
+              <View style={[s.identityRow, fontScale > 1.4 && { flexWrap: 'wrap' }]}>
                 <View style={s.avatar}>
                   {account.account ? (
                     <Text style={s.initial}>{Array.from(name)[0]?.toUpperCase()}</Text>
@@ -122,19 +122,19 @@ export function Profile(props: ScreenProps) {
                     <Text style={s.demoLabel}>Тестовый профиль</Text>
                   ) : null}
                 </View>
+                {account.account ? (
+                  <Pressable
+                    testID="profile-edit"
+                    accessibilityRole="button"
+                    accessibilityLabel="Редактировать профиль"
+                    onPress={() => props.navigate('M04')}
+                    style={({ pressed }) => [s.edit, pressed && s.pressed]}
+                  >
+                    <Icon name="create-outline" size={18} color="#BDD3FF" />
+                  </Pressable>
+                ) : null}
               </View>
-              {account.account ? (
-                <Pressable
-                  testID="profile-edit"
-                  accessibilityRole="button"
-                  onPress={() => props.navigate('M04')}
-                  style={({ pressed }) => [s.edit, pressed && s.pressed]}
-                >
-                  <Icon name="create-outline" size={18} color="#BDD3FF" />
-                  <Text style={s.editLabel}>Редактировать профиль</Text>
-                  <Icon name="chevron-forward" size={15} color="#BDD3FF" />
-                </Pressable>
-              ) : (
+              {!account.account ? (
                 <>
                   <Text style={s.intro}>
                     Войдите, чтобы оформить заказ и сохранить свои данные.
@@ -151,7 +151,7 @@ export function Profile(props: ScreenProps) {
                     <Icon name="arrow-forward" size={20} color={colors.orangeInk} />
                   </Pressable>
                 </>
-              )}
+              ) : null}
             </>
           )}
           <ProfileRestoreNotice />
@@ -327,19 +327,19 @@ const s = StyleSheet.create({
     borderColor: '#FFFFFF40',
   },
   identity: {
-    padding: 20,
+    padding: 16,
     borderRadius: 24,
     backgroundColor: '#0B2454',
     borderWidth: 1,
-    borderColor: '#254578',
+    borderColor: '#FFFFFF14',
     gap: 16,
   },
-  identityRow: { flexDirection: 'row', gap: 14, alignItems: 'center' },
+  identityRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   avatar: {
     flexShrink: 0,
-    width: 64,
-    height: 64,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: brandColors.brandOrange,
@@ -347,13 +347,13 @@ const s = StyleSheet.create({
     borderColor: brandColors.brandOrange,
   },
   initial: { fontFamily: font.display, fontSize: 30, lineHeight: 38, color: colors.orangeInk },
-  name: { fontFamily: font.heading, fontSize: 26, lineHeight: 34, color: colors.white },
+  name: { fontFamily: font.heading, fontSize: 22, lineHeight: 30, color: colors.white },
   subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 14, lineHeight: 20, color: '#B6C4DD' },
   demoLabel: {
     marginTop: 4,
     fontFamily: font.medium,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 18,
     color: '#B6C4DD',
   },
   intro: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: '#C0CDE3' },
@@ -375,6 +375,8 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   edit: {
+    width: 48,
+    flexShrink: 0,
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
@@ -383,13 +385,6 @@ const s = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#173666',
     paddingHorizontal: 8,
-  },
-  editLabel: {
-    fontFamily: font.medium,
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#BDD3FF',
-    flexShrink: 1,
   },
   shortcuts: { flexDirection: 'row', gap: 12 },
   shortcut: {

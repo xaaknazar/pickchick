@@ -150,6 +150,8 @@ export function PaymentStatus(props: ScreenProps) {
   );
 }
 export function Tracker(props: ScreenProps) {
+  const { width, fontScale } = useWindowDimensions();
+  const numberSize = Math.min(120, (width - 48) / (2.1 * fontScale));
   if (!props.preview) return OrderUnavailable(props, 'Ваш заказ');
   return (
     <Page props={props} title="Ваш заказ">
@@ -158,7 +160,12 @@ export function Tracker(props: ScreenProps) {
         <Pill>С собой</Pill>
       </Row>
       <Heading style={s.trackerHeading}>Готовим{`\n`}для вас</Heading>
-      <Text accessibilityLabel="Пример, заказ номер 083" style={s.trackerNumber}>
+      <Text
+        accessibilityLabel="Пример, заказ номер 083"
+        style={[s.trackerNumber, { fontSize: numberSize, lineHeight: numberSize * 1.16 }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         083
       </Text>
       <Body muted>Ориентировочно ещё 6-9 минут · пример</Body>
@@ -179,7 +186,9 @@ export function Tracker(props: ScreenProps) {
               name={active ? 'checkmark-circle' : 'ellipse-outline'}
               color={active ? colors.accent : colors.muted}
             />
-            <Body muted={!active}>{label}</Body>
+            <Body muted={!active} style={ui.flex}>
+              {label}
+            </Body>
           </Row>
         ))}
       </View>
@@ -250,20 +259,17 @@ export function History(props: ScreenProps) {
   if (!props.preview)
     return (
       <Page props={props} title="Мои заказы" noBack>
-        <Heading>Хорошие моменты{`\n`}стоит повторять</Heading>
         <Empty
           icon="receipt-outline"
           title="Пока без заказов"
           detail="Здесь появятся ваши заказы. Выбирайте любимые блюда в меню."
-          action={
-            <Button title="Выбрать что-нибудь вкусное" onPress={() => props.navigate('M06')} />
-          }
+          action={<Button title="Открыть меню" onPress={() => props.navigate('M06')} />}
         />
       </Page>
     );
   return (
     <Page props={props} title="Мои заказы" noBack>
-      <Heading>Ваши любимые{`\n`}моменты</Heading>
+      <Heading small>История заказов</Heading>
       <Caption>Демонстрационная история</Caption>
       {[
         { number: '083', state: 'Готовим', date: 'Сегодня · 14:32' },

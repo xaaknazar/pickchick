@@ -9,7 +9,7 @@ URL=os.environ.get('MOBILE_RECOVERY_URL','http://127.0.0.1:4182').rstrip('/')
 assert urlparse(URL).hostname in ('127.0.0.1','localhost')
 OUT=Path(__file__).resolve().parents[2]/'.local/arcade/acceptance'; OUT.mkdir(parents=True,exist_ok=True)
 errors=[]
-ROUTES=[('run','/screen/M27','game-start','game-field'),('man','/games/pick-man','pick-man-start','pick-man-board'),('blocks','/games/pick-blocks','blocks-start','blocks-board')]
+ROUTES=[('man','/games/pick-man','pick-man-start','pick-man-board'),('blocks','/games/pick-blocks','blocks-start','blocks-board')]
 
 def bounds(page, locator, width, height):
  box=locator.bounding_box(); assert box and box['width'] > 0 and box['height'] > 0,box
@@ -25,15 +25,9 @@ with sync_playwright() as p:
    page.goto(URL+route);page.get_by_test_id(start).wait_for(timeout=20000)
    bounds(page,page.get_by_test_id(start),width,height)
    page.screenshot(path=str(OUT/f'{name}-intro-{width}.png'))
-   page.get_by_test_id(start).click(); page.wait_for_timeout(2100 if name=='run' else 200)
+   page.get_by_test_id(start).click(); page.wait_for_timeout(200)
    bounds(page,page.get_by_test_id(board),width,height)
-   if name=='run':
-    bounds(page,page.get_by_test_id('game-jump'),width,height)
-    page.get_by_test_id('game-jump').tap();page.wait_for_timeout(100)
-    page.get_by_test_id('game-pause').click();expect(page.get_by_test_id('game-resume')).to_be_visible()
-    before=page.get_by_test_id('run-score').inner_text();page.wait_for_timeout(200);assert page.get_by_test_id('run-score').inner_text()==before
-    page.get_by_test_id('game-resume').click();page.wait_for_timeout(2100)
-   elif name=='man':
+   if name=='man':
     expect(page.locator('[data-testid^="maze-direction-"]')).to_have_count(0)
     area=page.get_by_test_id('pick-man-board').bounding_box()
     x,y=area['x']+area['width']/2,area['y']+area['height']/2
@@ -44,21 +38,10 @@ with sync_playwright() as p:
     touch.detach()
    page.screenshot(path=str(OUT/f'{name}-play-{width}.png'))
    c.close()
- # Runner gameover, replay and a persisted personal best.
- c=b.new_context(viewport={'width':393,'height':852},has_touch=True)
- signed_in(c);c.route('**/v1/**',lambda r:r.abort());page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
- page.goto(URL+'/screen/M27');page.get_by_test_id('game-start').click()
- expect(page.get_by_test_id('game-replay')).to_be_visible(timeout=20000)
- expect(page.get_by_text('Ещё один забег?',exact=True)).to_be_visible()
- page.wait_for_function("localStorage.getItem('pickchick.pick-run.best.v2') !== null")
- page.screenshot(path=str(OUT/'run-result.png'))
- page.get_by_test_id('game-replay').click();expect(page.get_by_test_id('game-replay')).to_have_count(0)
- page.get_by_test_id('game-pause').click();expect(page.get_by_test_id('game-resume')).to_be_visible()
- c.close()
  # Direct routes remain guarded for guests.
  for _,route,_,_ in ROUTES:
   c=b.new_context();c.route('**/v1/**',lambda r:r.abort());page=c.new_page();page.goto(URL+route)
   expect(page.get_by_test_id('account-required-login')).to_be_visible(timeout=20000);c.close()
  assert not errors,errors
  b.close()
- print(json.dumps({'result':'passed','viewports':4,'games':3,'runtime_errors':errors,'screenshots':str(OUT)}))
+ print(json.dumps({'result':'passed','viewports':4,'games':2,'runtime_errors':errors,'screenshots':str(OUT)}))
