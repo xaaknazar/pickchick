@@ -15,6 +15,30 @@ export function memoryStorage() {
     },
   };
 }
+export type DemoDetails = {
+  mode: 'takeaway' | 'dine_in' | 'delivery';
+  source: 'pos' | 'mobile' | 'kiosk' | 'yandex';
+  customerComment: string;
+  orderComment: string;
+};
+export function demoTicketAction(
+  o: Order,
+  station: string,
+): 'prep' | 'assembly' | 'handoff' | null {
+  if (o.assemblyStationId === station) {
+    if (o.state === 'ready') return 'handoff';
+    if (
+      ['accepted', 'in_production'].includes(o.state) &&
+      o.tasks.filter((t) => t.kind === 'prep').every((t) => t.state === 'done')
+    )
+      return 'assembly';
+  } else if (
+    ['accepted', 'in_production'].includes(o.state) &&
+    o.tasks.some((t) => t.stationId === station && t.state !== 'done')
+  )
+    return 'prep';
+  return null;
+}
 export function createDemo() {
   const id = () => crypto.randomUUID();
   const branchId = id();
@@ -33,6 +57,7 @@ export function createDemo() {
   };
   let orders: Order[] = [];
   let next = 101;
+  const notes = new Map<string, DemoDetails>();
   const replies = new Map<string, { body: string; result: Order }>();
   const menu = [
     ['Бургер с курицей', 'Картофель фри', 'Кола 0,5 л'],
@@ -55,7 +80,7 @@ export function createDemo() {
         productId: 'demo-' + i,
         title,
         parentTitle: '',
-        description: i === 0 && number % 2 ? 'Без лука. Соус отдельно.' : '',
+        description: '',
         quantity: number % 3 === 0 && i === 0 ? 2 : 1,
         modifiers:
           i === 0
@@ -72,8 +97,17 @@ export function createDemo() {
             : [],
       },
     }));
+    const orderId = id();
+    const source = (['pos', 'mobile', 'yandex', 'kiosk'] as const)[(number - 101) % 4]!;
+    notes.set(orderId, {
+      mode: source === 'yandex' ? 'delivery' : number % 3 ? 'takeaway' : 'dine_in',
+      source,
+      customerComment: number % 2 ? 'Без лука. Соус отдельно.' : '',
+      orderComment:
+        source === 'yandex' || number % 3 === 0 ? 'Приборы на 2 персоны. Проверить упаковку.' : '',
+    });
     orders.push({
-      orderId: id(),
+      orderId,
       branchId,
       version: 1,
       state,
@@ -92,9 +126,15 @@ export function createDemo() {
     orders = [];
     next = 101;
     replies.clear();
+    notes.clear();
     add('in_production', 12);
     add('accepted', 8);
     add('in_production', 5);
+    orders[2]!.tasks
+      .filter((t) => t.kind === 'prep')
+      .forEach((t) => {
+        t.state = 'done';
+      });
     add('accepted', 2);
     add('ready', 7);
     add('ready', 4);
@@ -113,8 +153,9 @@ export function createDemo() {
           orders.filter(
             (o) =>
               !['handed_over', 'cancelled'].includes(o.state) &&
-              (station === stations[1].id ||
-                o.tasks.some((t) => t.stationId === station && t.state !== 'done')),
+              (station === stations[1].id
+                ? o.tasks.filter((t) => t.kind === 'prep').every((t) => t.state === 'done')
+                : o.tasks.some((t) => t.stationId === station && t.state !== 'done')),
           ),
         ),
         nextAfterOrderId: null,
@@ -162,5 +203,32 @@ export function createDemo() {
     }
     throw new Error('DEMO_ROUTE_NOT_SUPPORTED');
   };
-  return { credential, stations, transport, add, reset };
+  function completeTicket(orderId: string, stationId: string, version: number) {
+    const o = orders.find((o) => o.orderId === orderId);
+    if (!o || o.version !== version) return false;
+    const action = demoTicketAction(o, stationId);
+    if (!action) return false;
+    if (action === 'handoff') o.state = 'handed_over';
+    else {
+      o.tasks
+        .filter((t) => t.stationId === stationId)
+        .forEach((t) => {
+          t.state = 'done';
+          t.version++;
+        });
+      o.state = action === 'assembly' ? 'ready' : 'in_production';
+    }
+    o.version++;
+    o.updatedAt = new Date().toISOString();
+    return true;
+  }
+  return {
+    credential,
+    stations,
+    transport,
+    add,
+    reset,
+    completeTicket,
+    details: (id: string) => notes.get(id)!,
+  };
 }
