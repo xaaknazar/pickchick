@@ -10,16 +10,31 @@ export function CartShortcut({
   model,
   onPress,
   safeArea = false,
+  floating = false,
 }: {
   model: MobileModel;
   onPress: () => void;
   safeArea?: boolean;
+  floating?: boolean;
 }) {
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   if (!count) return null;
   const total = cartTotal(model.cart);
   return (
-    <BottomActions safeArea={safeArea} style={{ paddingTop: 10, borderTopWidth: 0 }}>
+    <BottomActions
+      safeArea={safeArea}
+      pointerEvents={floating ? 'box-none' : 'auto'}
+      style={[
+        { paddingTop: 10, borderTopWidth: 0 },
+        floating && {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'transparent',
+        },
+      ]}
+    >
       <Pressable
         testID="open-cart"
         accessibilityRole="button"

@@ -427,7 +427,11 @@ export function Menu(props: ScreenProps) {
         style={ui.scroll}
         showsVerticalScrollIndicator={false}
         directionalLockEnabled
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{
+          paddingBottom: props.model.cart.length
+            ? 100 + (props.inTabLayout ? 0 : insets.bottom)
+            : 24,
+        }}
         onContentSizeChange={(_, height) => {
           contentHeight.value = height;
         }}
@@ -600,7 +604,7 @@ export function Menu(props: ScreenProps) {
         {categoryBar}
       </Animated.View>
       {!props.inTabLayout ? (
-        <CartShortcut model={props.model} onPress={() => props.navigate('M09')} safeArea />
+        <CartShortcut model={props.model} onPress={() => props.navigate('M09')} safeArea floating />
       ) : null}
     </View>
   );
