@@ -83,7 +83,9 @@ export function Checkout(props: ScreenProps) {
             <DiningSelector value={model.diningMode} onChange={model.setDiningMode} />
           </View>
           <Row style={s.sectionHeading}>
-            <Heading small>Ваш заказ</Heading>
+            <Heading small style={ui.flex}>
+              Ваш заказ
+            </Heading>
             <Pressable
               accessibilityRole="button"
               testID="checkout-edit-cart"
@@ -133,17 +135,17 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eyebrow: { fontSize: 10, lineHeight: 15, letterSpacing: 1.1 },
+  eyebrow: { fontSize: 12, lineHeight: 18, letterSpacing: 1.1 },
   restaurantName: { fontSize: 20, lineHeight: 30 },
   sectionHeading: { justifyContent: 'space-between', gap: 12, marginTop: 4 },
-  edit: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  edit: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4 },
   editText: { fontFamily: font.medium, fontSize: 13, color: '#A8C8FF' },
   order: { backgroundColor: colors.surface, borderRadius: 24, paddingHorizontal: 16 },
   line: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, gap: 12 },
   lineBorder: { borderTopWidth: 1, borderTopColor: colors.border },
   foodImage: { width: 60, height: 60, borderRadius: 16, backgroundColor: colors.raised },
-  productName: { fontFamily: font.bold, fontSize: 15, lineHeight: 22 },
-  selections: { fontSize: 11, lineHeight: 16 },
+  productName: { fontFamily: font.bold, fontSize: 16, lineHeight: 24 },
+  selections: { fontSize: 13, lineHeight: 19 },
   lineBottom: { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
   linePrice: { fontFamily: font.bold, fontSize: 14, lineHeight: 21 },
   summary: { backgroundColor: colors.surface, borderRadius: 22, padding: 18, gap: 7 },
@@ -152,5 +154,5 @@ const s = StyleSheet.create({
   payable: { alignItems: 'flex-end', flexShrink: 1 },
   total: { fontSize: 25, lineHeight: 36 },
   availability: { justifyContent: 'center', gap: 6 },
-  availabilityText: { fontSize: 11, lineHeight: 17 },
+  availabilityText: { fontSize: 12, lineHeight: 18 },
 });

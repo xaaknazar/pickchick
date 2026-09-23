@@ -1,7 +1,7 @@
 import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
 import * as Linking from 'expo-linking';
-import { Alert, Platform, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
@@ -140,7 +140,7 @@ export function DeleteAccount(props: ScreenProps) {
         animationType="none"
         onRequestClose={() => setDeleteConfirmVisible(false)}
       >
-        <View style={s.confirmBackdrop}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.confirmBackdrop}>
           <View testID="server-delete-confirmation" accessibilityViewIsModal style={s.confirmCard}>
             <Heading small>Удалить аккаунт Pick Chick?</Heading>
             <Body>
@@ -168,7 +168,7 @@ export function DeleteAccount(props: ScreenProps) {
             />
             {demo.error ? <Body style={s.authError}>{demo.error}</Body> : null}
           </View>
-        </View>
+        </ScrollView>
       </Modal>
       {Platform.OS === 'web' ? (
         <Modal
@@ -177,7 +177,7 @@ export function DeleteAccount(props: ScreenProps) {
           animationType="none"
           onRequestClose={() => setConfirmVisible(false)}
         >
-          <View style={s.confirmBackdrop}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={s.confirmBackdrop}>
             <View testID="local-clear-confirmation" accessibilityViewIsModal style={s.confirmCard}>
               <Heading small>Очистить данные устройства?</Heading>
               <Body>{clearDescription}</Body>
@@ -188,7 +188,7 @@ export function DeleteAccount(props: ScreenProps) {
                 onPress={clearPreferences}
               />
             </View>
-          </View>
+          </ScrollView>
         </Modal>
       ) : null}
       <Heading>Всё под вашим{`\n`}контролем</Heading>
@@ -457,8 +457,9 @@ export function UnknownScreen(props: ScreenProps) {
 }
 const s = StyleSheet.create({
   confirmBackdrop: {
-    flex: 1,
-    padding: 24,
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 48,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#000000AA',

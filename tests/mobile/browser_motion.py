@@ -34,6 +34,7 @@ with sync_playwright() as p:
   c=b.new_context(viewport={'width':width,'height':height},has_touch=True,reduced_motion='no-preference');signed_in(c);c.route('**/v1/**',fixture)
   page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
   for n in range(1,36):
+   if n in (27,28): continue  # PICK RUN is temporarily removed by the owner.
    screen=f'M{n:02}'
    page.goto(URL+f'/screen/{screen}?preview=1');page.get_by_test_id('open-design-review').wait_for(timeout=20000)
    page.wait_for_timeout(240);bounded(page)
@@ -63,7 +64,7 @@ with sync_playwright() as p:
   # Changing the system preference live restores the poster and disables movement.
   page.emulate_media(reduced_motion='reduce');page.wait_for_timeout(250);assert page.locator('video').count()==0
   button.click();expect(page.get_by_test_id('screen-M09')).to_be_visible();bounded(page)
-  page.screenshot(path=str(OUT/f'cart-{width}.png'));results.append({'size':f'{width}x{height}','screens':35,'combo_blend':True,'header_stable':True,'press_cancel':True,'live_reduced_motion':True})
+  page.screenshot(path=str(OUT/f'cart-{width}.png'));results.append({'size':f'{width}x{height}','screens':33,'combo_blend':True,'header_stable':True,'press_cancel':True,'live_reduced_motion':True})
   c.close()
  b.close()
 assert not errors,errors

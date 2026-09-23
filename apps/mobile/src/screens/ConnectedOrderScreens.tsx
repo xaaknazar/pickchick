@@ -1,3 +1,4 @@
+import { MotionPressable } from '../components/Motion';
 import { useState } from 'react';
 import { ScrollView, Text, TextInput, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
@@ -251,20 +252,31 @@ export function ConnectedHistory(props: ScreenProps) {
         />
       ) : (
         flow.orders.map((order) => (
-          <Card key={order.order_id}>
-            <NavRow
-              title={order.number}
-              subtitle={`${statusNames[order.state]} · ${money(order.snapshot.total_minor)}`}
-              onPress={() => {
-                flow.select(order.order_id);
-                props.navigate('M20');
-              }}
-            />
-            <Caption>
-              {new Date(order.created_at).toLocaleString('ru-RU')} ·{' '}
-              {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
-            </Caption>
-          </Card>
+          <MotionPressable
+            key={order.order_id}
+            accessibilityRole="button"
+            accessibilityLabel={`${order.number}, ${statusNames[order.state]}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
+            onPress={() => {
+              flow.select(order.order_id);
+              props.navigate('M20');
+            }}
+          >
+            <Card>
+              <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <Heading small>{order.number}</Heading>
+                <Pill>{statusNames[order.state]}</Pill>
+              </Row>
+              <Caption>{new Date(order.created_at).toLocaleString('ru-RU')}</Caption>
+              <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <Caption>
+                  {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
+                </Caption>
+                <Body style={{ fontFamily: font.bold, fontVariant: ['tabular-nums'] }}>
+                  {money(order.snapshot.total_minor)}
+                </Body>
+              </Row>
+            </Card>
+          </MotionPressable>
         ))
       )}
     </Page>

@@ -234,7 +234,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
           </Body>
           <View style={compact ? s.productPlus : s.productChoose}>
             {compact ? (
-              <Icon name="add" color={colors.white} size={20} />
+              <Icon name="add" color={colors.orangeInk} size={20} />
             ) : (
               <Body style={s.productChooseText}>Выбрать</Body>
             )}
@@ -992,19 +992,22 @@ const s = StyleSheet.create({
   productList: { gap: 12 },
   product: {
     flexDirection: 'row',
-    gap: 14,
-    borderRadius: 22,
+    gap: 12,
+    borderRadius: 24,
     padding: 12,
+    borderWidth: 1,
+    borderColor: '#FFFFFF12',
     backgroundColor: colors.surface,
   },
   productPhotoWrap: {
     width: 112,
-    height: 112,
+    height: 132,
+    flexShrink: 0,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#EAF0F8',
   },
-  productInfo: { flex: 1, minWidth: 0, gap: 5 },
+  productInfo: { flex: 1, minWidth: 0, gap: 6 },
   productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 25, letterSpacing: -0.19 },
   productDescription: { fontSize: 14, lineHeight: 20 },
   productPriceRow: {
@@ -1014,20 +1017,32 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  productPrice: { fontFamily: font.display, fontSize: 19, color: colors.text },
+  productPrice: {
+    fontFamily: font.display,
+    fontSize: 20,
+    lineHeight: 28,
+    fontVariant: ['tabular-nums'],
+    color: colors.text,
+  },
   productChoose: {
-    minHeight: 36,
+    minHeight: 44,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: colors.action,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
     justifyContent: 'center',
   },
-  productChooseText: { fontFamily: font.medium, fontSize: 14, color: colors.white },
+  productChooseText: {
+    fontFamily: font.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.orangeInk,
+  },
   productPlus: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.action,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1042,9 +1057,9 @@ const s = StyleSheet.create({
   },
   hitText: { color: colors.orangeInk, fontFamily: font.bold, fontSize: 12, lineHeight: 16 },
   compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  compactProduct: { flexDirection: 'column', padding: 10, borderRadius: 20, gap: 9 },
+  compactProduct: { flexDirection: 'column', padding: 10, borderRadius: 24, gap: 12 },
   compactPhoto: { width: '100%', height: 'auto', aspectRatio: 1, borderRadius: 14 },
-  compactTitle: { fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
+  compactTitle: { fontFamily: font.heading, fontSize: 17, lineHeight: 24 },
   productClose: {
     position: 'absolute',
     right: 16,

@@ -1,6 +1,6 @@
 import { MotionPressable as Pressable } from '../components/Motion';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { formatDemoPhone } from '../demo-account';
@@ -32,6 +32,7 @@ function partsOf(value: string | null | undefined) {
 /** Registration and subsequent editing share the original mockup's form. */
 export function Onboarding(props: ScreenProps) {
   const demo = useAccount();
+  const { fontScale } = useWindowDimensions();
   const profile = demo.account?.profile;
   const savedNickname =
     profile && profile.completedAt !== null
@@ -244,7 +245,7 @@ export function Onboarding(props: ScreenProps) {
 
       <View style={s.field}>
         <Caption style={s.label}>ПОЛ · НЕОБЯЗАТЕЛЬНО</Caption>
-        <View style={s.genderRow}>
+        <View style={[s.genderRow, fontScale > 1.3 && { flexDirection: 'column' }]}>
           {(
             [
               { value: 'female', label: 'Женский' },
@@ -310,6 +311,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 28,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   nicknameBox: {
     flexDirection: 'row',
@@ -360,10 +363,8 @@ const s = StyleSheet.create({
   selectedBorder: { borderColor: '#2E6FE8' },
   placeholder: { color: '#93A6C9' },
   clear: {
-    position: 'absolute',
-    top: -8,
-    right: 0,
-    minHeight: 44,
+    minHeight: 48,
+    flexShrink: 0,
     justifyContent: 'center',
     paddingLeft: 12,
   },
@@ -383,7 +384,13 @@ const s = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#0A2050',
   },
-  genderText: { fontFamily: font.medium, fontSize: 15.5, lineHeight: 24, color: '#F2F6FF' },
+  genderText: {
+    flexShrink: 1,
+    fontFamily: font.medium,
+    fontSize: 15.5,
+    lineHeight: 24,
+    color: '#F2F6FF',
+  },
   rewardNote: {
     marginTop: 16,
     backgroundColor: '#3A1A0B',

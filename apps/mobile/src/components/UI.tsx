@@ -170,7 +170,7 @@ export function Button({
         style,
       ]}
     >
-      {icon ? <Icon name={icon} color={secondary ? colors.text : colors.white} /> : null}
+      {icon ? <Icon name={icon} color={secondary ? colors.text : colors.orangeInk} /> : null}
       <Text style={[styles.buttonText, secondary && styles.secondaryButtonText]}>{title}</Text>
     </Pressable>
   );
@@ -319,7 +319,9 @@ export function BottomActions({
       testID="bottom-actions"
       style={[styles.footer, { paddingBottom: Math.max(16, safeArea ? insets.bottom : 0) }, style]}
     >
-      {children}
+      <View pointerEvents={pointerEvents} style={styles.footerContent}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -370,10 +372,12 @@ export function Empty({
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Icon name={icon} size={40} color={colors.accent} />
+        <Icon name={icon} size={32} color={colors.accent} />
       </View>
-      <Heading style={{ textAlign: 'center' }}>{title}</Heading>
-      <Body muted style={{ textAlign: 'center' }}>
+      <Heading small style={{ textAlign: 'center' }}>
+        {title}
+      </Heading>
+      <Body muted style={{ textAlign: 'center', maxWidth: 360, fontSize: 15, lineHeight: 23 }}>
         {detail}
       </Body>
       {action}
@@ -409,7 +413,14 @@ export function SummaryRow({
       <Body muted={!strong} style={styles.flex}>
         {label}
       </Body>
-      <Body style={strong ? { fontFamily: font.bold, fontSize: 22 } : undefined}>{value}</Body>
+      <Body
+        style={[
+          styles.summaryValue,
+          strong && { fontFamily: font.bold, fontSize: 22, lineHeight: 30 },
+        ]}
+      >
+        {value}
+      </Body>
     </Row>
   );
 }
@@ -423,7 +434,16 @@ export function MinorMoney(value: string | bigint): string {
 export const styles = StyleSheet.create({
   page: { flex: 1, minHeight: 0, backgroundColor: colors.background },
   scroll: { flex: 1, minHeight: 0 },
-  pageHeader: { flexShrink: 0, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, gap: 8 },
+  pageHeader: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 8,
+  },
   pageContent: {
     paddingHorizontal: 18,
     gap: 20,
@@ -466,7 +486,7 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   buttonText: {
-    color: colors.white,
+    color: colors.orangeInk,
     fontFamily: font.heading,
     fontSize: 18,
     lineHeight: 25,
@@ -521,11 +541,18 @@ export const styles = StyleSheet.create({
     borderTopColor: colors.border,
     gap: 10,
   },
-  empty: { flex: 1, paddingVertical: 40, alignItems: 'center', justifyContent: 'center', gap: 20 },
+  footerContent: { width: '100%', maxWidth: 724, alignSelf: 'center', gap: 10 },
+  summaryValue: {
+    flexShrink: 1,
+    maxWidth: '60%',
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  empty: { flex: 1, paddingVertical: 28, alignItems: 'center', justifyContent: 'center', gap: 16 },
   emptyIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 24,
     backgroundColor: colors.raised,
     alignItems: 'center',
     justifyContent: 'center',
