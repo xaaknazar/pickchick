@@ -1,5 +1,10 @@
 # PickChick — технический план экосистемы
 
+**Работа с двух Mac:** общая ветка разработки `codex/shared-development`.
+Перед задачей выполнить `pnpm project:check` и `pnpm project:tasks`.
+[Синхронизация и передача задач](docs/collaboration/README.md) ·
+[Контекст для нового компьютера](docs/collaboration/handoff.md).
+
 [Пульт проекта](https://pickchick.185.129.51.103.nip.io/roadmap/) - направления,
 задачи, зависимости и совместные проверки. Нужен отдельный доступ команды.
 [Источники статусов и обновление](docs/operations/project-roadmap.md).
