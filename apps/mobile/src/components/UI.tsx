@@ -12,6 +12,7 @@ import {
   View,
   type StyleProp,
   type TextStyle,
+  type TextProps,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -116,14 +117,12 @@ export function Heading({
     </Text>
   );
 }
-export function Caption({
-  children,
-  style,
-}: {
-  children: ReactNode;
-  style?: StyleProp<TextStyle>;
-}) {
-  return <Text style={[styles.caption, style]}>{children}</Text>;
+export function Caption({ children, style, ...props }: TextProps) {
+  return (
+    <Text {...props} style={[styles.caption, style]}>
+      {children}
+    </Text>
+  );
 }
 export function Logo({ size = 40 }: { size?: number }) {
   return (

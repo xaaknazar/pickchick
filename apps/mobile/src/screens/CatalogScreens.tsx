@@ -1,5 +1,5 @@
 import { useReducedMotion } from '../components/Motion';
-import { MotionPressable as Pressable } from '../components/Motion';
+import { MotionPressable as Pressable, MotionModal } from '../components/Motion';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -400,7 +400,7 @@ export function Menu(props: ScreenProps) {
             );
             requestedY.value = targetY;
             // Native shared-value writes are scheduled; use the local target for this command.
-            scroll.current?.scrollTo({ y: targetY, animated: true });
+            scroll.current?.scrollTo({ y: targetY, animated: !reduced });
           }}
           style={({ pressed }) => [s.category, pressed && ui.pressed]}
         >
@@ -616,6 +616,10 @@ export {
   ProductConfiguration as Combo,
 } from './ProductConfiguration';
 export function Cart(props: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const [clearSnapshot, setClearSnapshot] = useState<{ id: string; quantity: number }[] | null>(
+    null,
+  );
   const total = cartTotal(props.model.cart);
   return (
     <Page
@@ -644,7 +648,16 @@ export function Cart(props: ScreenProps) {
           <IconButton
             name="trash-outline"
             label="Очистить корзину"
-            onPress={() => props.model.clearCart()}
+            testID="cart-clear"
+            disabled={!props.model.cart.length}
+            onPress={() =>
+              setClearSnapshot(
+                props.model.cart.map((line) => ({
+                  id: cartLineKey(line),
+                  quantity: line.quantity,
+                })),
+              )
+            }
             style={s.cartHeaderButton}
             color="#FF6B6E"
           />
@@ -669,6 +682,37 @@ export function Cart(props: ScreenProps) {
         ) : null
       }
     >
+      <MotionModal
+        visible={clearSnapshot !== null}
+        transparent
+        onRequestClose={() => setClearSnapshot(null)}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            s.clearBackdrop,
+            { paddingTop: Math.max(24, insets.top), paddingBottom: Math.max(24, insets.bottom) },
+          ]}
+        >
+          <View testID="cart-clear-dialog" accessibilityViewIsModal style={s.clearCard}>
+            <Heading small>Очистить корзину?</Heading>
+            <Body muted>Все выбранные блюда и добавки будут удалены из корзины.</Body>
+            <Button
+              title="Оставить заказ"
+              testID="cart-clear-cancel"
+              onPress={() => setClearSnapshot(null)}
+            />
+            <Button
+              title="Очистить корзину"
+              secondary
+              testID="cart-clear-confirm"
+              onPress={() => {
+                if (clearSnapshot) props.model.clearCart(clearSnapshot);
+                setClearSnapshot(null);
+              }}
+            />
+          </View>
+        </ScrollView>
+      </MotionModal>
       {!props.model.cart.length ? (
         <Empty
           title="Здесь пока тихо"
@@ -893,6 +937,21 @@ export function Unavailable(props: ScreenProps) {
 }
 export { Checkout } from './CheckoutScreen';
 const s = StyleSheet.create({
+  clearBackdrop: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#00000099',
+  },
+  clearCard: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    borderRadius: 24,
+    padding: 24,
+    gap: 16,
+    backgroundColor: colors.surface,
+  },
   welcome: { flexGrow: 1, paddingHorizontal: 26, gap: 14 },
   welcomeHeading: {
     fontFamily: font.display,
