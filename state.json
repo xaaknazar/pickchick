@@ -49,9 +49,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "bfb52f865e92d52b2d91db2eee5875f9352194e4",
-      "updatedAt": "2026-09-23T13:43:41.300Z"
+      "status": "done",
+      "head": "bb26397c02d3fcf387072f15b3b1a7d7d9287831",
+      "updatedAt": "2026-09-23T13:53:35.378Z",
+      "summary": "Применены UX-рекомендации: подтверждение очистки корзины со снимком строк, видимый выбор модификаторов, необязательный вариант без добавки, причины disabled, семантика checked, закрытие 48×48 и reduced motion категорий. PR https://github.com/xaaknazar/pickchick/pull/74; bb26397c02d3fcf387072f15b3b1a7d7d9287831 включён в shared-development. Прошли 162 JS + 30 Python mobile-проверок, 7 roadmap, typecheck/lint/format, новый браузерный сценарий на 4 размерах, Dev bundles iOS/Android. Roadmap health подтвердил SHA. GitHub CI ещё выполняется; релиз в main/TestFlight не заявлен.",
+      "nextAction": "Получить актуальный shared-development на другом Mac. Приёмка на физических iPhone/Android: крупный шрифт, дикторы, жесты/FPS. Проверить финальную CI и отдельно устранить известные прежние ошибки browser-проверок. Доказательства: docs/operations/mobile-ux-guidance.md."
     },
     {
       "id": "iiko-web-audit",
