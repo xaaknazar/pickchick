@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-23T05:57:39.615Z",
+  "updatedAt": "2026-09-23T06:47:25.042Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -46,7 +46,8 @@
     "docs/operations/pos-design-v2-pilot.md",
     "docs/operations/kitchen-live-link.md",
     "docs/operations/deployments/2026-09-22-kitchen-live-link.md",
-    "docs/operations/deployments/2026-09-22-pos-stop-controls.md"
+    "docs/operations/deployments/2026-09-22-pos-stop-controls.md",
+    "docs/operations/arcade-polish.md"
   ],
   "workstreams": [
     {
@@ -2358,7 +2359,7 @@
       "id": "games-local",
       "workstream": "games",
       "title": "PICK RUN, PICK MAN и PICK BLOCKS",
-      "summary": "Локальные брендированные игры и обложки реализованы. PICK MAN использует персонажа/еду, BLOCKS управляется пальцами; серверные награды не включены.",
+      "summary": "Обновлены три игры: физика и серии RUN, сенсорные стрелки и статусы MAN, точные жесты и объёмные блоки BLOCKS. Общие игровые экраны проверены; очки локальные, серверные награды выключены.",
       "status": "done",
       "owner": "development",
       "phase": "product",
@@ -2375,12 +2376,17 @@
         {
           "label": "pick man",
           "path": "docs/operations/pick-man.md"
+        },
+        {
+          "label": "Обновление аркады и проверки",
+          "path": "docs/operations/arcade-polish.md"
         }
       ],
       "acceptance": [
-        "Вход, управление, пауза, сохранение/восстановление и малые экраны проверены в browser."
+        "162 mobile unit-теста, экспорт iOS/Android/web и браузерные проверки трёх игр на четырёх размерах прошли.",
+        "Пауза, повтор, гостевой доступ, жесты и восстановление MAN/BLOCKS проверены; RUN сохраняет личный рекорд."
       ],
-      "nextAction": "Принять плавность/дизайн на физическом iPhone.",
+      "nextAction": "Проверить ощущения и FPS на физических iPhone/Android, принять дизайн с владельцем и затем выпустить TestFlight.",
       "checks": {
         "implemented": true,
         "verified": true,

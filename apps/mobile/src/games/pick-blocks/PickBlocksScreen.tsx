@@ -29,7 +29,10 @@ import {
   type PieceKind,
 } from './engine';
 import { usePickBlocks } from './usePickBlocks';
-import { BlockArt, Tile } from './visuals';
+import { blockDrag, isBlockDrop } from './gestures';
+import { Tile } from './visuals';
+import { assets } from '../../assets';
+import { ArcadeButton, ArcadeBackdrop, ArcadeIntro, arcade } from '../ArcadeExperience';
 
 function useGentleMotion() {
   const [reduced, setReduced] = useState(true);
@@ -65,21 +68,9 @@ function SolidButton({
   secondary?: boolean;
   testID?: string;
 }) {
-  return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.button,
-        secondary && s.buttonSecondary,
-        pressed && { opacity: 0.82 },
-      ]}
-    >
-      <Text style={[s.buttonText, secondary && { color: '#EAF1FF' }]}>{title}</Text>
-    </Pressable>
-  );
+  return <ArcadeButton title={title} onPress={onPress} secondary={secondary} testID={testID} />;
 }
+
 function Stats({ game, best }: { game: GameState; best: number }) {
   return (
     <View style={s.stats}>
@@ -293,9 +284,11 @@ function Board({
         )
           return;
         if (Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8) drag.current.moved = true;
-        const step = Math.max(12, live.current.cell * 0.85);
-        const x = Math.trunc(gesture.dx / step),
-          y = Math.max(0, Math.trunc(gesture.dy / step));
+        const displacement = blockDrag(gesture.dx, gesture.dy, live.current.cell);
+        // Keep the inactive axis at its last value rather than undoing a prior move.
+        const x =
+          Math.abs(gesture.dx) >= Math.abs(gesture.dy) * 0.8 ? displacement.x : drag.current.x;
+        const y = Math.max(drag.current.y, displacement.y);
         const delta = x - drag.current.x;
         for (let i = 0; i < Math.min(BOARD_WIDTH, Math.abs(delta)); i++)
           live.current.controller.move(delta < 0 ? -1 : 1);
@@ -313,9 +306,7 @@ function Board({
           return;
         if (!drag.current.moved) live.current.controller.rotate();
         else if (
-          gesture.dy >= Math.max(36, live.current.cell * 2) &&
-          gesture.dy > Math.abs(gesture.dx) * 1.5 &&
-          Date.now() - drag.current.started < 240
+          isBlockDrop(gesture.dx, gesture.dy, live.current.cell, Date.now() - drag.current.started)
         )
           live.current.controller.hardDrop();
       },
@@ -339,12 +330,14 @@ function Board({
     return () => effect.stop();
   }, [clearId, reduced, glow]); // The engine increments the event id once per clear.
   const ghost = ghostPiece(game);
+  const danger = game.board.slice(0, 5).some((row) => row.some(Boolean));
   return (
     <View
       testID="blocks-board"
       {...pan.panHandlers}
       style={[
         s.board,
+        danger && { borderColor: '#F4A37C' },
         {
           width: BOARD_WIDTH * cell + 2,
           height: BOARD_HEIGHT * cell + 2,
@@ -404,6 +397,23 @@ function Board({
             kind ? <Tile key={`${x}-${y}`} x={x} y={y} size={cell} kind={kind} /> : null,
           ),
         )}
+        {ghost && game.active
+          ? cells(ghost)
+              .filter((p, i, all) => all.findIndex((q) => q.x === p.x) === i)
+              .map((p, i) => (
+                <View
+                  key={`lane${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: p.x * cell,
+                    top: Math.max(0, game.active!.y + 2) * cell,
+                    width: cell,
+                    height: Math.max(0, ghost.y - game.active!.y - 1) * cell,
+                    backgroundColor: '#8BADFF08',
+                  }}
+                />
+              ))
+          : null}
         {ghost
           ? cells(ghost)
               .filter((p) => p.y >= 0)
@@ -445,7 +455,7 @@ function Board({
             <View
               style={{
                 backgroundColor: '#FFBB83',
-                borderRadius: 13,
+                borderRadius: 16,
                 paddingHorizontal: 15,
                 paddingVertical: 10,
               }}
@@ -458,7 +468,9 @@ function Board({
                   lineHeight: 26,
                 }}
               >
-                {game.lastClear.count} {lineLabel(game.lastClear.count).toUpperCase()}!
+                {game.lastClear.count === 4
+                  ? 'ИДЕАЛЬНО! 4 РЯДА'
+                  : `${game.lastClear.count} ${lineLabel(game.lastClear.count).toUpperCase()}!`}
               </Text>
             </View>
           </Animated.View>
@@ -542,6 +554,7 @@ export function PickBlocksScreen() {
         },
       ]}
     >
+      <ArcadeBackdrop />
       <View style={s.header}>
         <Pressable
           testID="blocks-exit"
@@ -585,36 +598,27 @@ export function PickBlocksScreen() {
           <Text style={s.body}>Собираем игровое поле…</Text>
         </View>
       ) : status === 'ready' ? (
-        <>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.intro}>
-            <View style={s.introArt}>
-              <View style={s.halo} />
-              <View style={{ transform: [{ rotate: '-10deg' }] }}>
-                <BlockArt size={Math.min(34, (width - 90) / 7)} />
-              </View>
-              <View style={s.introBadge}>
-                <Icon name="flash" size={14} color="#FFBD86" />
-                <Text style={s.introBadgeText}>ТВОЙ ПИК. ТВОЙ РЕКОРД.</Text>
-              </View>
-            </View>
-            <Text style={s.introTitle}>Всё сложится.</Text>
-            <Text style={[s.body, { textAlign: 'center', maxWidth: 300 }]}>
-              Заполняй ряды, находи место{`\n`}для новых фигур и набирай очки.
-            </Text>
-            <View style={s.introFeatures}>
-              <Text style={s.feature}>Одним пальцем</Text>
-              <View style={s.featureDot} />
-              <Text style={s.feature}>Без интернета</Text>
-            </View>
-            {best > 0 ? <Text style={s.introBest}>Твой рекорд - {number(best)}</Text> : null}
-          </ScrollView>
-          <View style={s.introFooter}>
-            <SolidButton title="Начать игру" testID="blocks-start" onPress={start} />
-            <Pressable onPress={openHelp} accessibilityRole="button" style={s.helpLink}>
-              <Text style={s.helpLinkText}>Первый раз? Покажем, как играть</Text>
-            </Pressable>
-          </View>
-        </>
+        <ArcadeIntro
+          cover={assets.pickBlocksCover}
+          title="Всё сложится."
+          subtitle="Найди идеальное место. Собери ряд. Поймай свой ритм."
+          best={best}
+          onStart={start}
+          testID="blocks-start"
+          steps={[
+            ['swap-horizontal-outline', 'Веди пальцем', 'Свайп в сторону перемещает фигуру.'],
+            ['refresh', 'Коснись - поверни', 'Светлый контур покажет место посадки.'],
+            [
+              'arrow-down',
+              'Собери красивую комбинацию',
+              'Вниз - ускорение. Быстрый свайп - сброс.',
+            ],
+          ]}
+        >
+          <Pressable onPress={openHelp} accessibilityRole="button" style={s.helpLink}>
+            <Text style={s.helpLinkText}>Правила и управление</Text>
+          </Pressable>
+        </ArcadeIntro>
       ) : game ? (
         <View style={[s.playArea, wide && s.playAreaWide]}>
           {!wide ? <Stats game={game} best={best} /> : null}
@@ -639,7 +643,7 @@ export function PickBlocksScreen() {
             {wide ? <Stats game={game} best={best} /> : null}
             <View style={s.controlHint}>
               <View style={s.hintLine} />
-              <Text style={s.hintText}>СОБИРАЙ СВОЙ ПИК</Text>
+              <Text style={s.hintText}>ДО СЛЕДУЮЩЕГО УРОВНЯ: {10 - (game.lines % 10)}</Text>
               <View style={s.hintLine} />
             </View>
             <Text testID="blocks-gesture-hint" style={s.gestureHint}>
@@ -829,7 +833,7 @@ export function PickBlocksScreen() {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, minHeight: 0, backgroundColor: '#04143A' },
+  page: { flex: 1, minHeight: 0, backgroundColor: arcade.ink },
   header: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 2 },
   iconButton: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   headerBrand: {
@@ -843,7 +847,7 @@ const s = StyleSheet.create({
     fontFamily: font.display,
     color: '#F3F6FF',
     fontSize: 16,
-    lineHeight: 21,
+    lineHeight: 28,
     letterSpacing: -0.3,
   },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },

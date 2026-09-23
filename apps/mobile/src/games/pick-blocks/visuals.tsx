@@ -42,7 +42,9 @@ export const Tile = memo(function Tile({
         backgroundColor: ghost ? `${color}10` : color,
         borderWidth: ghost ? 1.5 : 1,
         borderColor: ghost ? `${color}88` : '#FFFFFF55',
-        borderBottomColor: ghost ? `${color}88` : '#00000035',
+        borderBottomColor: ghost ? `${color}88` : '#00000050',
+        borderBottomWidth: ghost ? 1.5 : Math.max(2, size * 0.12),
+        borderTopColor: ghost ? `${color}88` : '#FFFFFFA0',
       }}
     >
       {!ghost && size >= 17 ? (

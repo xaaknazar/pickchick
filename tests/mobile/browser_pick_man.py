@@ -74,7 +74,7 @@ with sync_playwright() as p:
     before=saved(page);page.wait_for_timeout(700);assert saved(page)==before
     assert saved(page)['game']['desired'] == 'up'
     expect(page.get_by_test_id('pick-man-progress')).to_have_attribute('aria-valuenow', str(163-len(before['game']['remaining'])))
-    expect(page.get_by_test_id('pick-man-left')).to_have_count(0)
+    expect(page.get_by_test_id('maze-direction-left')).to_be_visible()
     page.screenshot(path=str(OUTPUT/'paused.png'))
     page.get_by_test_id('pick-man-rules').click()
     expect(page.get_by_test_id('pick-man-help-close')).to_be_visible()
@@ -135,4 +135,4 @@ with sync_playwright() as p:
     page.context.close()
     assert not errors,errors
     b.close()
-print('PASS: Events order and artwork, guest gate, movement, four touch swipe directions, no direction buttons, pause/help/reload, three sizes, progress and power indicators, large score, restart, victory and defeat; local-only.')
+print('PASS: Events order and artwork, guest gate, movement, four touch swipe directions, touch direction controls, pause/help/reload, three sizes, progress and power indicators, large score, restart, victory and defeat; local-only.')
