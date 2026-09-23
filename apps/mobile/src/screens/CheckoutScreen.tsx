@@ -1,5 +1,6 @@
+import { MotionPressable as Pressable } from '../components/Motion';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import { restaurantLocation } from '../restaurant-location';

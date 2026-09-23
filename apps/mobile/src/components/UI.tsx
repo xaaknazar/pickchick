@@ -1,3 +1,4 @@
+import { MotionPressable as Pressable } from './Motion';
 import type { ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
@@ -5,7 +6,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -156,6 +156,7 @@ export function Button({
 }) {
   return (
     <Pressable
+      feedback="scale"
       testID={testID}
       onPress={onPress}
       disabled={disabled}
@@ -336,6 +337,7 @@ export function NavRow({
 }) {
   return (
     <Pressable
+      feedback="scale"
       testID={testID}
       onPress={onPress}
       disabled={disabled}
@@ -419,17 +421,24 @@ export const styles = StyleSheet.create({
   page: { flex: 1, minHeight: 0, backgroundColor: colors.background },
   scroll: { flex: 1, minHeight: 0 },
   pageHeader: { flexShrink: 0, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, gap: 8 },
-  pageContent: { paddingHorizontal: 18, gap: 20, flexGrow: 1 },
+  pageContent: {
+    paddingHorizontal: 18,
+    gap: 20,
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
   body: { fontFamily: font.body, color: colors.text, fontSize: 16, lineHeight: 24 },
   muted: { color: colors.muted },
   heading: {
     fontFamily: font.display,
     color: colors.text,
     fontSize: 34,
-    lineHeight: 39,
+    lineHeight: 44,
     letterSpacing: -0.6,
   },
-  headingSmall: { fontSize: 24, lineHeight: 29 },
+  headingSmall: { fontSize: 24, lineHeight: 32 },
   caption: { fontFamily: font.body, color: colors.muted, fontSize: 13, lineHeight: 19 },
   logo: { overflow: 'hidden', borderRadius: 12, backgroundColor: '#0047BB' },
   flex: { flex: 1, minWidth: 0 },

@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { MotionProvider, useReducedMotion } from '../components/Motion';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Jost_600SemiBold } from '@expo-google-fonts/jost/600SemiBold';
@@ -11,6 +12,14 @@ import { MobileProvider } from '../store';
 import { AccountProvider } from '../useAccount';
 
 export default function Layout() {
+  return (
+    <MotionProvider>
+      <AppLayout />
+    </MotionProvider>
+  );
+}
+function AppLayout() {
+  const reduced = useReducedMotion();
   const [loaded, error] = useFonts({
     Jost_600SemiBold,
     Jost_700Bold,
@@ -44,7 +53,11 @@ export default function Layout() {
       <MobileProvider>
         <StatusBar style="light" />
         <Stack
-          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#04143A' } }}
+          screenOptions={{
+            headerShown: false,
+            animation: reduced ? 'none' : 'default',
+            contentStyle: { backgroundColor: '#04143A' },
+          }}
         />
       </MobileProvider>
     </AccountProvider>

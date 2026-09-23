@@ -1,8 +1,13 @@
+import { useReducedMotion } from '../components/Motion';
+import { MotionPressable as Pressable } from '../components/Motion';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
   runOnJS,
+  interpolate,
+  interpolateColor,
+  Extrapolation,
   useAnimatedReaction,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -10,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Product, ScreenProps } from '../model';
 import { assets } from '../assets';
@@ -171,12 +176,80 @@ export function Branches(props: ScreenProps) {
     </Page>
   );
 }
+const ProductMenuCard = memo(function ProductMenuCard({
+  product,
+  compact,
+  singleColumn,
+  width,
+  fontScale,
+  openProduct,
+  hit,
+}: {
+  product: Product;
+  compact: boolean;
+  singleColumn: boolean;
+  width: number;
+  fontScale: number;
+  openProduct(product: Product): void;
+  hit: boolean;
+}) {
+  return (
+    <Pressable
+      testID={`product-${product.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`${product.name}, ${MinorMoney(product.priceMinor)}, выбрать`}
+      onPress={() => openProduct(product)}
+      style={({ pressed }) => [
+        s.product,
+        compact && [s.compactProduct, { width: singleColumn ? '100%' : (width - 48) / 2 }],
+        !compact && fontScale > 1.3 && { flexDirection: 'column' },
+        pressed && ui.pressed,
+      ]}
+    >
+      <View
+        testID={`product-photo-${product.id}`}
+        style={[s.productPhotoWrap, compact && s.compactPhoto]}
+      >
+        <Image
+          source={product.image}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+        {hit ? (
+          <View style={s.hit}>
+            <Caption style={s.hitText}>ХИТ</Caption>
+          </View>
+        ) : null}
+      </View>
+      <View style={s.productInfo}>
+        <Heading small style={compact ? s.compactTitle : s.productTitle}>
+          {product.name}
+        </Heading>
+        {!compact ? <Caption style={s.productDescription}>{product.description}</Caption> : null}
+        <Row style={s.productPriceRow}>
+          <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
+            {MinorMoney(product.priceMinor)}
+          </Body>
+          <View style={compact ? s.productPlus : s.productChoose}>
+            {compact ? (
+              <Icon name="add" color={colors.white} size={20} />
+            ) : (
+              <Body style={s.productChooseText}>Выбрать</Body>
+            )}
+          </View>
+        </Row>
+      </View>
+    </Pressable>
+  );
+});
 export function Menu(props: ScreenProps) {
+  const reduced = useReducedMotion();
   const published = usePublishedContent(props.model.branch?.id);
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
   const [promotionOpen, setPromotionOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   // Owner screenshot: about twice the phone width, fitting short screens too.
   const heroHeight = Math.round(Math.min(width * 2, height * 0.93, 900));
   const location = restaurantLocation(props.model.branch?.id);
@@ -219,7 +292,7 @@ export function Menu(props: ScreenProps) {
     if (name) setCategory(name);
   };
   useAnimatedReaction(
-    () => scrollY.value > 100,
+    () => scrollY.value >= 120,
     (value, previous) => {
       if (value !== previous) runOnJS(setCollapsed)(value);
     },
@@ -256,6 +329,23 @@ export function Menu(props: ScreenProps) {
       requestedCategory.value = -1;
     },
   });
+  const headerStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', '#04143AF5']),
+  }));
+  const diningStyle = useAnimatedStyle(() => ({
+    opacity: reduced
+      ? scrollY.value >= 120
+        ? 0
+        : 1
+      : interpolate(scrollY.value, [32, 120], [1, 0], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: reduced
+          ? 0
+          : interpolate(scrollY.value, [32, 120], [0, -10], Extrapolation.CLAMP),
+      },
+    ],
+  }));
   const stickyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
     opacity: categoryTop ? 1 : 0,
@@ -267,13 +357,16 @@ export function Menu(props: ScreenProps) {
     if (layout)
       chips.current?.scrollTo({
         x: Math.max(0, layout.x - (width - layout.width) / 2),
-        animated: true,
+        animated: !reduced,
       });
-  }, [category, width]);
-  function openProduct(product: Product) {
-    props.model.selectProduct(product.id);
-    props.navigate('M07');
-  }
+  }, [category, width, reduced]);
+  const openProduct = useCallback(
+    (product: Product) => {
+      props.model.selectProduct(product.id);
+      props.navigate('M07');
+    },
+    [props.model.selectProduct, props.navigate],
+  );
   const categoryBar = (
     <ScrollView
       ref={chips}
@@ -408,6 +501,7 @@ export function Menu(props: ScreenProps) {
         <View style={s.catalogSections} onLayout={(e) => setCatalogTop(e.nativeEvent.layout.y)}>
           {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
+            const singleColumn = fontScale > 1.3;
             return (
               <View
                 key={item}
@@ -421,54 +515,16 @@ export function Menu(props: ScreenProps) {
                 </Heading>
                 <View style={compact ? s.compactGrid : s.productList}>
                   {products.map((product, index) => (
-                    <Pressable
+                    <ProductMenuCard
                       key={product.id}
-                      testID={`product-${product.id}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${product.name}, ${MinorMoney(product.priceMinor)}, выбрать`}
-                      onPress={() => openProduct(product)}
-                      style={({ pressed }) => [
-                        s.product,
-                        compact && [s.compactProduct, { width: (width - 48) / 2 }],
-                        pressed && ui.pressed,
-                      ]}
-                    >
-                      <View
-                        testID={`product-photo-${product.id}`}
-                        style={[s.productPhotoWrap, compact && s.compactPhoto]}
-                      >
-                        <Image
-                          source={product.image}
-                          style={StyleSheet.absoluteFill}
-                          contentFit="cover"
-                        />
-                        {index === 0 && item === 'Комбо' && props.model.catalogMode === 'design' ? (
-                          <View style={s.hit}>
-                            <Caption style={s.hitText}>ХИТ</Caption>
-                          </View>
-                        ) : null}
-                      </View>
-                      <View style={s.productInfo}>
-                        <Heading small style={compact ? s.compactTitle : s.productTitle}>
-                          {product.name}
-                        </Heading>
-                        {!compact ? (
-                          <Caption style={s.productDescription}>{product.description}</Caption>
-                        ) : null}
-                        <Row style={s.productPriceRow}>
-                          <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
-                            {MinorMoney(product.priceMinor)}
-                          </Body>
-                          <View style={compact ? s.productPlus : s.productChoose}>
-                            {compact ? (
-                              <Icon name="add" color={colors.white} size={20} />
-                            ) : (
-                              <Body style={s.productChooseText}>Выбрать</Body>
-                            )}
-                          </View>
-                        </Row>
-                      </View>
-                    </Pressable>
+                      product={product}
+                      compact={compact}
+                      singleColumn={singleColumn}
+                      width={width}
+                      fontScale={fontScale}
+                      openProduct={openProduct}
+                      hit={index === 0 && item === 'Комбо' && props.model.catalogMode === 'design'}
+                    />
                   ))}
                 </View>
               </View>
@@ -483,10 +539,10 @@ export function Menu(props: ScreenProps) {
           ) : null}
         </View>
       </Animated.ScrollView>
-      <View
+      <Animated.View
         testID="storefront-header"
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-        style={[s.heroHeader, { paddingTop: insets.top + 8 }, collapsed && s.heroHeaderCollapsed]}
+        style={[s.heroHeader, { paddingTop: insets.top + 8 }, headerStyle]}
       >
         <View
           onLayout={(e) =>
@@ -525,10 +581,18 @@ export function Menu(props: ScreenProps) {
             </Pressable>
           </Row>
         </View>
-        {!collapsed ? (
+        <Animated.View
+          pointerEvents={collapsed ? 'none' : 'auto'}
+          accessibilityElementsHidden={collapsed}
+          importantForAccessibility={collapsed ? 'no-hide-descendants' : 'auto'}
+          style={[
+            { position: 'absolute', top: headerHeight + 2, left: 18, right: 18 },
+            diningStyle,
+          ]}
+        >
           <DiningSelector value={props.model.diningMode} onChange={props.model.setDiningMode} />
-        ) : null}
-      </View>
+        </Animated.View>
+      </Animated.View>
       <Animated.View
         onLayout={(e) => setCategoryHeight(e.nativeEvent.layout.height)}
         style={[s.stickyCategories, stickyStyle]}
@@ -938,7 +1002,7 @@ const s = StyleSheet.create({
   },
   productInfo: { flex: 1, minWidth: 0, gap: 5 },
   productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 25, letterSpacing: -0.19 },
-  productDescription: { fontSize: 12.5, lineHeight: 18 },
+  productDescription: { fontSize: 14, lineHeight: 20 },
   productPriceRow: {
     marginTop: 'auto',
     paddingTop: 8,
@@ -976,7 +1040,7 @@ const s = StyleSheet.create({
   compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   compactProduct: { flexDirection: 'column', padding: 10, borderRadius: 20, gap: 9 },
   compactPhoto: { width: '100%', height: 'auto', aspectRatio: 1, borderRadius: 14 },
-  compactTitle: { fontFamily: font.medium, fontSize: 13.5, lineHeight: 18 },
+  compactTitle: { fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
   productClose: {
     position: 'absolute',
     right: 16,

@@ -1,6 +1,7 @@
+import { MotionPressable as Pressable } from '../components/Motion';
 import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Icon, Loading, ReviewBadge, type IconName } from '../components/UI';
 import { ProfileRestoreNotice } from '../components/ProfileRestoreNotice';

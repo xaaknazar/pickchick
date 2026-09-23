@@ -1,9 +1,9 @@
+import { MotionPressable as Pressable } from './Motion';
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,

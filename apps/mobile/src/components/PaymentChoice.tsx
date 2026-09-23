@@ -1,8 +1,9 @@
+import { MotionPressable as Pressable, MotionModal as Modal } from './Motion';
 import { Image } from 'expo-image';
 import { assets } from '../assets';
 import { orderSimulatorEnabled } from '../order-simulator';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MobileModel, PaymentMethod } from '../model';
 import { Body, Caption, Heading, Icon, IconButton, Row, styles as ui } from './UI';

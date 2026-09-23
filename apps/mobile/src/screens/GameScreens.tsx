@@ -1,14 +1,7 @@
+import { MotionPressable as Pressable } from '../components/Motion';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { Image } from 'expo-image';
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import { colors, font } from '../theme';

@@ -1,30 +1,30 @@
+import { MediaPoster, MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import {
-  AccessibilityInfo,
-  AppState,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { AppState, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { assets } from '../assets';
 import { WebHeroVideo } from './WebHeroVideo';
 import { colors, font } from '../theme';
 import { Body, Caption, Heading, Icon, Row, styles as ui } from './UI';
 
-export function HeroVideo({ shaded = true }: { shaded?: boolean }) {
+export function HeroVideo({
+  shaded = true,
+  blendBottom = false,
+}: {
+  shaded?: boolean;
+  blendBottom?: boolean;
+}) {
+  const overlay = blendBottom ? productGradient : shaded ? gradient : undefined;
   return Platform.OS === 'web' ? (
-    <WebHeroVideo gradient={shaded ? gradient : undefined} />
+    <WebHeroVideo gradient={overlay} />
   ) : (
-    <NativeHeroVideo shaded={shaded} />
+    <NativeHeroVideo gradient={overlay} />
   );
 }
-function NativeHeroVideo({ shaded = true }: { shaded?: boolean }) {
-  const [reduced, setReduced] = useState(true);
+function NativeHeroVideo({ gradient }: { gradient?: string }) {
+  const reduced = useReducedMotion();
   const [firstFrame, setFirstFrame] = useState(false);
   const [failed, setFailed] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -34,18 +34,12 @@ function NativeHeroVideo({ shaded = true }: { shaded?: boolean }) {
     video.muted = true;
   });
   useEffect(() => {
-    let mounted = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((value) => {
-      if (mounted) setReduced(value);
-    });
     const appState = AppState.addEventListener('change', (state) => setActive(state === 'active'));
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    return () => {
-      mounted = false;
-      subscription.remove();
-      appState.remove();
-    };
+    return () => appState.remove();
   }, []);
+  useEffect(() => {
+    if (reduced) setFirstFrame(false);
+  }, [reduced]);
   useEffect(() => {
     const status = player.addListener('statusChange', ({ status }) => {
       if (status === 'error') setFailed(true);
@@ -83,7 +77,7 @@ function NativeHeroVideo({ shaded = true }: { shaded?: boolean }) {
           accessible={false}
         />
       ) : null}
-      {!firstFrame || failed ? (
+      <MediaPoster hidden={firstFrame && !failed && !reduced}>
         <Image
           source={assets.poster}
           style={StyleSheet.absoluteFill}
@@ -92,9 +86,12 @@ function NativeHeroVideo({ shaded = true }: { shaded?: boolean }) {
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         />
-      ) : null}
-      {shaded ? (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, heroGradient]} />
+      </MediaPoster>
+      {gradient ? (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { experimental_backgroundImage: gradient } as ViewStyle]}
+        />
       ) : null}
     </>
   );
@@ -217,9 +214,8 @@ export function DiningSelector({
 // then fade broadly behind the first card into the exact page color at the edge.
 const gradient =
   'linear-gradient(180deg, rgba(4,20,58,0.45) 0%, rgba(4,20,58,0.05) 26%, rgba(4,20,58,0) 40%, rgba(4,20,58,0.07) 50%, rgba(4,20,58,0.19) 60%, rgba(4,20,58,0.40) 70%, rgba(4,20,58,0.66) 80%, rgba(4,20,58,0.86) 88%, rgba(4,20,58,0.965) 94%, #04143A 99%, #04143A 100%)';
-const heroGradient = (
-  Platform.OS === 'web' ? { backgroundImage: gradient } : { experimental_backgroundImage: gradient }
-) as ViewStyle;
+const productGradient =
+  'linear-gradient(180deg, rgba(4,20,58,0) 38%, rgba(4,20,58,0.08) 55%, rgba(4,20,58,0.28) 68%, rgba(4,20,58,0.62) 82%, rgba(4,20,58,0.90) 93%, #04143A 100%)';
 const brand = StyleSheet.create({
   loyalty: {
     minHeight: 84,
@@ -266,7 +262,7 @@ const brand = StyleSheet.create({
   },
   segment: { backgroundColor: '#FFFFFF33', padding: 2, borderRadius: 11, gap: 0 },
   segmentItem: {
-    minHeight: 36,
+    minHeight: 44,
     borderRadius: 9,
     flex: 1,
     alignItems: 'center',

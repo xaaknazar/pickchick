@@ -1,3 +1,4 @@
+import { useReducedMotion } from '../../components/Motion';
 import { Tabs } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,11 +8,13 @@ const activeColor = '#4A85F0';
 const inactiveColor = '#93A6C9';
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: reduced ? 'none' : 'fade',
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: activeColor,
         tabBarInactiveTintColor: inactiveColor,
