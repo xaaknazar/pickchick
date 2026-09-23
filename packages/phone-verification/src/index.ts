@@ -1,4 +1,6 @@
 import { MobizonCodeDelivery } from './mobizon.js';
+export { WhatsAppCodeDelivery } from './whatsapp.js';
+export type { WhatsAppCodeDeliveryConfiguration } from './whatsapp.js';
 
 /** A transport input, not an OTP challenge or proof of phone ownership. */
 export interface PhoneCodeDeliveryInput {
@@ -14,11 +16,17 @@ export type PhoneCodeDeliveryResult =
       messageId: string;
       campaignId: string;
     }
+  | {
+      kind: 'submitted';
+      provider: 'whatsapp_cloud';
+      submission: 'accepted';
+      messageId: string;
+    }
   | { kind: 'rejected'; reason: 'invalid_input' }
   | { kind: 'rejected'; reason: 'provider_rejected'; providerCode: number }
   | { kind: 'unknown'; reason: 'network' | 'timeout' | 'response' };
 export interface PhoneCodeDelivery {
-  readonly provider: 'disabled' | 'mobizon';
+  readonly provider: 'disabled' | 'mobizon' | 'whatsapp_cloud';
   /** Exactly one submission attempt. Unknown outcomes must never trigger blind retries. */
   sendCode(input: PhoneCodeDeliveryInput): Promise<PhoneCodeDeliveryResult>;
 }

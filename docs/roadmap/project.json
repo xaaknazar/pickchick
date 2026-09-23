@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-23T05:30:14.045Z",
+  "updatedAt": "2026-09-23T05:57:39.615Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -2871,6 +2871,90 @@
       ],
       "acceptance": ["Приоритеты опираются на метрики и отдельное согласование ресурсов/сроков."],
       "nextAction": "После стабильного пилота принять следующий квартальный план.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "identity-whatsapp-transport",
+      "workstream": "identity",
+      "title": "Подготовить официальный транспорт WhatsApp OTP",
+      "summary": "Cloud API Authentication/Copy Code реализован и проверен локально. Не выбирается публичной фабрикой до регистрации аккаунта и подготовки UX/каналов.",
+      "status": "done",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["identity-core"],
+      "evidence": [
+        {
+          "label": "WhatsApp: подключение, границы и проверки",
+          "path": "docs/operations/whatsapp-login.md"
+        }
+      ],
+      "acceptance": [
+        "Шаблонный запрос ограничен Meta; ошибки и timeout не создают повторных отправок или авторизации."
+      ],
+      "nextAction": "Подключить транспорт после готовности аккаунта и единого сценария каналов.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "identity-whatsapp-account",
+      "workstream": "identity",
+      "title": "Зарегистрировать WhatsApp Business Platform",
+      "summary": "23 сентября владелец подтвердил отсутствие бизнес-аккаунта. Нужны Meta Portfolio/WABA, номер, одобренный Authentication-шаблон и оплата.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "WhatsApp: подключение, границы и проверки",
+          "path": "docs/operations/whatsapp-login.md"
+        }
+      ],
+      "acceptance": [
+        "В кабинете подтверждены пригодность аккаунта, номер, шаблон, права и бюджет."
+      ],
+      "nextAction": "Создать кабинет Meta и выбрать корпоративный номер.",
+      "customerInput": "Доступ к бизнес-кабинету, корпоративный номер, данные компании и бюджет сообщений; секреты только в защищённое хранилище.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "identity-whatsapp-login",
+      "workstream": "identity",
+      "title": "Включить вход через WhatsApp с резервом SMS",
+      "summary": "Предложен явный выбор WhatsApp; нужны channel в API/mobile, общие лимиты, webhook доставки и безопасная смена канала. Реальная доставка ещё не проверена.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": [
+        "identity-whatsapp-transport",
+        "identity-whatsapp-account",
+        "identity-live-sms"
+      ],
+      "evidence": [
+        {
+          "label": "WhatsApp: подключение, границы и проверки",
+          "path": "docs/operations/whatsapp-login.md"
+        }
+      ],
+      "acceptance": [
+        "AC-01: один аккаунт/действующий challenge между каналами, неверный и просроченный код не дают вход.",
+        "Поздняя доставка, дубли, timeout и SMS-резерв проверены на iOS/Android; новый вход сохраняется."
+      ],
+      "nextAction": "Завершить channel-контракт и мобильный сценарий, затем проверить зарегистрированного отправителя на согласованных номерах.",
       "checks": {
         "implemented": false,
         "verified": false,
