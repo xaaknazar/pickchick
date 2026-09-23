@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "id": "mac-sync",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mac-sync",
+      "scopes": [
+        "scripts/project-sync.mjs",
+        "tests/unit/project-sync.test.mjs",
+        "AGENTS.md",
+        "docs/collaboration",
+        "docs/05-github-and-ai.md",
+        "package.json",
+        "README.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "bd72865c56d1a79d73e915371350d5f3d9f15c33",
+      "updatedAt": "2026-09-23T13:10:01.237Z"
+    }
+  ]
+}
