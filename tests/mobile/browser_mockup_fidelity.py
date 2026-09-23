@@ -79,10 +79,10 @@ with sync_playwright() as p:
     # Owner's new source puts text categories between promotion and loyalty.
     header = page.get_by_test_id('storefront-header')
     branch = header.get_by_role('button', name='Выбрать ресторан', exact=True)
-    profile = page.get_by_test_id('storefront-profile')
+    notifications = page.get_by_test_id('storefront-notifications')
     assert branch.evaluate('(e)=>getComputedStyle(e).alignItems') == 'flex-start'
-    assert profile.bounding_box()['x'] > branch.bounding_box()['x'] + branch.bounding_box()['width']
-    assert profile.bounding_box()['width'] >= 44 and profile.bounding_box()['height'] >= 44
+    assert notifications.bounding_box()['x'] > branch.bounding_box()['x'] + branch.bounding_box()['width']
+    assert notifications.bounding_box()['width'] >= 44 and notifications.bounding_box()['height'] >= 44
     category = page.get_by_test_id('category-Комбо')
     expect(category).to_have_text('Комбо на одного')
     promo = page.get_by_test_id('hero-promotion').bounding_box()
@@ -96,8 +96,10 @@ with sync_playwright() as p:
     expect(page.get_by_test_id('dining-dine_in')).to_have_css('background-color', 'rgb(255, 255, 255)')
     page.get_by_test_id('dining-takeaway').click()
     expect(selected).to_have_css('background-color', 'rgb(255, 255, 255)')
-    profile.click()
-    expect(page.get_by_test_id('screen-M30')).to_be_visible()
+    notifications.click()
+    expect(page.get_by_test_id('notifications-screen')).to_be_visible()
+    page.get_by_test_id('notifications-back').click()
+    expect(page.get_by_test_id('screen-M06')).to_be_visible()
     page.goto(url + '/menu')
     # Wait for the fixture catalog after navigation; before it arrives the hero
     # intentionally opens the fallback combo route instead of a selected product.

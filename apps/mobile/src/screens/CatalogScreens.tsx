@@ -14,6 +14,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -244,6 +245,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
   );
 });
 export function Menu(props: ScreenProps) {
+  const router = useRouter();
   const reduced = useReducedMotion();
   const published = usePublishedContent(props.model.branch?.id);
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
@@ -576,12 +578,12 @@ export function Menu(props: ScreenProps) {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Профиль"
-              testID="storefront-profile"
-              onPress={() => props.navigate('M30')}
+              accessibilityLabel="Уведомления"
+              testID="storefront-notifications"
+              onPress={() => router.push('/notifications')}
               style={({ pressed }) => [s.heroProfile, pressed && s.heroProfilePressed]}
             >
-              <Icon name="person-outline" size={26} color={colors.white} />
+              <Icon name="notifications-outline" size={26} color={colors.white} />
             </Pressable>
           </Row>
         </View>
