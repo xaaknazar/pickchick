@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-23T06:47:25.042Z",
+  "updatedAt": "2026-09-23T07:09:59.335Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -47,7 +47,8 @@
     "docs/operations/kitchen-live-link.md",
     "docs/operations/deployments/2026-09-22-kitchen-live-link.md",
     "docs/operations/deployments/2026-09-22-pos-stop-controls.md",
-    "docs/operations/arcade-polish.md"
+    "docs/operations/arcade-polish.md",
+    "docs/proposals/loyalty-approval-2026-09-23.md"
   ],
   "workstreams": [
     {
@@ -2257,7 +2258,7 @@
       "id": "loyalty-rules",
       "workstream": "loyalty",
       "title": "Утвердить экономику Чиков и уровни",
-      "summary": "Дизайн шести алматинских вершин есть; проценты, подарки и пороги из макетов не являются действующими правилами.",
+      "summary": "Подготовлен документ для утверждения: Чики, вершины, промокоды, 7 + 1, розыгрыши, мировой опыт и экономика. Условия и бюджет не утверждены; реальные награды не активированы.",
       "status": "blocked",
       "owner": "customer",
       "phase": "discovery",
@@ -2274,19 +2275,23 @@
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
+        },
+        {
+          "label": "Предложение программы и лист решений",
+          "path": "docs/proposals/loyalty-approval-2026-09-23.md"
         }
       ],
       "acceptance": [
         "Версия правил задаёт начисление, стоимость Чика, списание, срок, возвраты и бюджет наград."
       ],
-      "nextAction": "Принять таблицу правил с владельцем и бухгалтером.",
+      "nextAction": "Заполнить решения в разделах 16-17 с владельцем и бухгалтером; передать точные условия офлайн-акций и себестоимости.",
       "checks": {
         "implemented": false,
         "verified": false,
         "deployed": false,
         "accepted": false
       },
-      "customerInput": "Правила Чиков, уровни, подарки, лимиты и бюджет программы."
+      "customerInput": "Правила действующих 7 + 1 и розыгрышей, себестоимости подарков, данные продаж, решение по совмещению и общему бюджету."
     },
     {
       "id": "loyalty-integration",
@@ -2961,6 +2966,87 @@
         "Поздняя доставка, дубли, timeout и SMS-резерв проверены на iOS/Android; новый вход сохраняется."
       ],
       "nextAction": "Завершить channel-контракт и мобильный сценарий, затем проверить зарегистрированного отправителя на согласованных номерах.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "loyalty-combo-card",
+      "workstream": "loyalty",
+      "title": "Оцифровать действующую акцию 7 + 1",
+      "summary": "Владелец подтвердил акцию на точке. Предложены правила карточки, однократный перенос бумажных прав, возвраты и купон; цифровая механика ещё не реализована.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["loyalty-rules"],
+      "evidence": [
+        {
+          "label": "Предложение для утверждения",
+          "path": "docs/proposals/loyalty-approval-2026-09-23.md"
+        }
+      ],
+      "acceptance": [
+        "Семь допустимых единиц создают один купон, остаток переносится.",
+        "Импорт и погашение не повторяются; прежние обещанные условия сохраняются."
+      ],
+      "nextAction": "Утвердить действующий и будущий список комбо, сроки, совместимость и способ переноса.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "loyalty-promo-engine",
+      "workstream": "loyalty",
+      "title": "Реализовать применение промокодов и бюджет акций",
+      "summary": "Публикация баннеров есть; серверное право на скидку, резерв бюджета и погашение ещё требуются. Документ содержит варианты кампаний.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["loyalty-rules"],
+      "evidence": [
+        {
+          "label": "Предложение для утверждения",
+          "path": "docs/proposals/loyalty-approval-2026-09-23.md"
+        }
+      ],
+      "acceptance": [
+        "Один купон нельзя потратить в параллельных заказах.",
+        "Сумма скидки, возврат, лимиты и совместимость считаются сервером."
+      ],
+      "nextAction": "Утвердить первую кампанию и матрицу сочетаний.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "loyalty-receipt-draw",
+      "workstream": "loyalty",
+      "title": "Подготовить цифровой розыгрыш по чекам",
+      "summary": "Сбор чеков для розыгрыша подтверждён владельцем. Предложены проверка покупки, реестр, протокол выбора и учёт выдачи; призы и условия ещё не утверждены.",
+      "status": "planned",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["loyalty-rules"],
+      "evidence": [
+        {
+          "label": "Предложение для утверждения",
+          "path": "docs/proposals/loyalty-approval-2026-09-23.md"
+        }
+      ],
+      "acceptance": [
+        "Чек регистрируется один раз; тестовые и недопустимые заказы исключены.",
+        "Правила, бюджет, состав участников и результат выбора сохранены; приз погашается однократно."
+      ],
+      "nextAction": "Подтвердить призы и периодичность, согласовать условия с юристом и бухгалтером.",
       "checks": {
         "implemented": false,
         "verified": false,
