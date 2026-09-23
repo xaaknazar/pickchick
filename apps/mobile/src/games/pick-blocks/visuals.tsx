@@ -1,19 +1,18 @@
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { View } from 'react-native';
 import { assets } from '../../assets';
 import { GamePosterCard } from '../GamePosterCard';
 import type { PieceKind } from './engine';
 
 export const blockColors: Record<PieceKind, string> = {
-  I: '#EAF1FF',
-  O: '#FF8A45',
-  T: '#5D91FF',
-  S: '#86B5FF',
-  Z: '#E86629',
-  J: '#1D64DE',
-  L: '#FFBC8D',
+  I: '#20DFFF',
+  O: '#FFE033',
+  T: '#BE57FF',
+  S: '#45E66B',
+  Z: '#FF4D64',
+  J: '#4384FF',
+  L: '#FF992E',
 };
 export const Tile = memo(function Tile({
   x,
@@ -47,20 +46,6 @@ export const Tile = memo(function Tile({
         borderTopColor: ghost ? `${color}88` : '#FFFFFFA0',
       }}
     >
-      {!ghost && size >= 17 ? (
-        <Image
-          source={assets.logo}
-          contentFit="cover"
-          style={{
-            position: 'absolute',
-            width: size * 0.72,
-            height: size * 0.72,
-            left: size * 0.09,
-            top: size * 0.09,
-            opacity: 0.3,
-          }}
-        />
-      ) : null}
       {!ghost && size >= 14 ? (
         <View
           style={{
