@@ -47,7 +47,10 @@
     "test:fulfillment-transport": "pnpm --filter @pickchick/fulfillment-transport test && pnpm --filter @pickchick/fulfillment-transport test:integration",
     "test:pos-order-sync": "pnpm --filter @pickchick/pos-order-sync test && pnpm --filter @pickchick/pos-order-sync test:integration",
     "pos:sync": "node --env-file=.env scripts/pos-order-sync-worker.mjs",
-    "pos:sync:setup": "node --env-file=.env scripts/pos-order-sync-setup.mjs"
+    "pos:sync:setup": "node --env-file=.env scripts/pos-order-sync-setup.mjs",
+    "project:check": "node scripts/project-sync.mjs check",
+    "project:sync": "node scripts/project-sync.mjs sync",
+    "project:tasks": "node scripts/project-sync.mjs status"
   },
   "dependencies": {
     "@pickchick/catalog-admin": "workspace:*",
