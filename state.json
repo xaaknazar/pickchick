@@ -97,11 +97,14 @@
       "branch": "codex/second-iphone-dev",
       "scopes": [
         "@ios/second-iphone",
-        "docs/operations/mobile-live-review.md"
+        "docs/operations/mobile-live-review.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "3899ae4421df9fa79d1f294cae2d844c082b8d40",
-      "updatedAt": "2026-09-24T06:11:30.593Z"
+      "updatedAt": "2026-09-24T06:16:56.381Z"
     }
   ]
 }
