@@ -122,9 +122,11 @@
         "@vps/roadmap",
         "apps/mobile"
       ],
-      "status": "active",
-      "head": "34ee2bb8d16fccfefd3d882af3eeeaac2f12145c",
-      "updatedAt": "2026-09-24T06:25:34.715Z"
+      "status": "done",
+      "head": "1ed98b3ddcf72e50f56a07f23ee5983c9a63d264",
+      "updatedAt": "2026-09-24T06:33:32.841Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/78; 1ed98b3ddcf72e50f56a07f23ee5983c9a63d264 опубликован и включён в shared-development. Корзина без подложки на четырёх вкладках, измеренная высота прокрутки, фирменный персонаж и короткая прерываемая анимация с Reduce Motion. Прошли typecheck/lint/format, 162 JS+30 Python, 7 roadmap, 4 вкладки на 4 размерах browser и движение/Reduce Motion, Dev bundles iOS/Android HTTP 200. Roadmap опубликован с guards. CI отдельно, TestFlight не выпускался.",
+      "nextAction": "Принять на физическом iPhone плавность, VoiceOver и Dynamic Type. Симулятор не сохранил boot-состояние, нативные скриншоты не подтверждены. Документ: docs/operations/cart-shortcut-delight.md."
     }
   ]
 }
