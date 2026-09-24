@@ -102,9 +102,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "3899ae4421df9fa79d1f294cae2d844c082b8d40",
-      "updatedAt": "2026-09-24T06:16:56.381Z"
+      "status": "done",
+      "head": "34ee2bb8d16fccfefd3d882af3eeeaac2f12145c",
+      "updatedAt": "2026-09-24T06:21:06.828Z",
+      "summary": "На второй iPhone установлен Dev 0.1.0 (6), Developer Mode/DDI и provisioning подтверждены; build/codesign/install/launch успешны, Metro iOS manifest/bundle HTTP 200. PR https://github.com/xaaknazar/pickchick/pull/77; 34ee2bb8d16fccfefd3d882af3eeeaac2f12145c опубликован в shared-development. 7 roadmap-тестов прошли, roadmap успешно опубликован с guards. TestFlight не выпускался.",
+      "nextAction": "Владелец подтверждает видимое меню и живое обновление на втором телефоне; оставить Mac и оба iPhone в доступной LAN. Нативная оболочка прежняя, новый системный splash отдельно пересобрать из актуальной версии."
     }
   ]
 }
