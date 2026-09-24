@@ -27,7 +27,10 @@ export function Events(props: ScreenProps) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           s.eventsContent,
-          { paddingTop: insets.top + 6, paddingBottom: Math.max(28, insets.bottom + 16) },
+          {
+            paddingTop: insets.top + 6,
+            paddingBottom: Math.max(28, insets.bottom + 16, (props.cartBottomInset ?? 0) + 16),
+          },
         ]}
       >
         {props.preview ? <ReviewBadge /> : null}

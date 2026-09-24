@@ -245,6 +245,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
   );
 });
 export function Menu(props: ScreenProps) {
+  const [cartHeight, setCartHeight] = useState(100);
   const router = useRouter();
   const reduced = useReducedMotion();
   const published = usePublishedContent(props.model.branch?.id);
@@ -432,9 +433,7 @@ export function Menu(props: ScreenProps) {
         showsVerticalScrollIndicator={false}
         directionalLockEnabled
         contentContainerStyle={{
-          paddingBottom: props.model.cart.length
-            ? 100 + (props.inTabLayout ? 0 : insets.bottom)
-            : 24,
+          paddingBottom: props.model.cart.length ? (props.cartBottomInset || cartHeight) + 16 : 24,
         }}
         onContentSizeChange={(_, height) => {
           contentHeight.value = height;
@@ -610,7 +609,13 @@ export function Menu(props: ScreenProps) {
         {categoryBar}
       </Animated.View>
       {!props.inTabLayout ? (
-        <CartShortcut model={props.model} onPress={() => props.navigate('M09')} safeArea floating />
+        <CartShortcut
+          model={props.model}
+          onPress={() => props.navigate('M09')}
+          safeArea
+          floating
+          onHeightChange={setCartHeight}
+        />
       ) : null}
     </View>
   );
