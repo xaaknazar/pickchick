@@ -252,8 +252,10 @@ export function Menu(props: ScreenProps) {
   const [promotionOpen, setPromotionOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
-  // Owner screenshot: about twice the phone width, fitting short screens too.
-  const heroHeight = Math.round(Math.min(width * 2, height * 0.93, 900));
+  // Owner update: lift the storefront; shorter phones still reveal the first dish.
+  const heroHeight = Math.round(
+    Math.max(260, Math.min(width * 2 - 48, height < 700 ? height * 0.55 : height * 0.93 - 48, 852)),
+  );
   const location = restaurantLocation(props.model.branch?.id);
   const scroll = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
@@ -469,13 +471,15 @@ export function Menu(props: ScreenProps) {
             <Body style={s.heroSubtitle}>подробнее</Body>
           </Pressable>
         </View>
+        <View style={[s.loyaltyLead, { marginTop: -Math.round(heroHeight * 0.26) }]}>
+          <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
+        </View>
         <View
           testID="storefront-category-anchor"
           onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
-          style={{ height: categoryHeight, marginTop: -Math.round(heroHeight * 0.26) }}
+          style={{ height: categoryHeight }}
         />
         <View style={s.menuBody}>
-          <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
           {props.preview ? <ReviewBadge /> : null}
           {props.model.testFlow.available && props.model.testFlow.current ? (
             <NavRow
@@ -1022,7 +1026,8 @@ const s = StyleSheet.create({
     textShadowRadius: 18,
   },
   heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
-  menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 28, gap: 16 },
+  loyaltyLead: { paddingHorizontal: 24, paddingBottom: 8 },
+  menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 12, gap: 16 },
   stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
   categoryList: {
     gap: 24,
