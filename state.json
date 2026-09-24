@@ -85,9 +85,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "daef7e87013fb23b6f346b88fa8c8d40d6041abf",
-      "updatedAt": "2026-09-24T05:33:33.814Z"
+      "status": "done",
+      "head": "3899ae4421df9fa79d1f294cae2d844c082b8d40",
+      "updatedAt": "2026-09-24T05:45:42.402Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/76, 3899ae4421df9fa79d1f294cae2d844c082b8d40 включён в shared-development. Один launch zoom 860ms с supplied logo, tagline, reduced motion и прерыванием; Чики перед категориями, hero выше и первое блюдо видно. Прошли типизация/lint/format, 162 JS+30 Python, 7 roadmap, browser launch/menu на 4 размерах и fidelity/video, web export и Dev bundles iOS/Android. Roadmap опубликован, health подтвердил SHA; включены ранее полученные изменения iiko со второго Mac. CI выполняется; новый TestFlight не выпускался.",
+      "nextAction": "На другом Mac получить shared-development. Следующая приёмка: физические iPhone/Android и release-бинарник для изменённого системного splash background/imageWidth, VoiceOver/TalkBack/FPS; результат CI проверить отдельно. Доказательства: docs/operations/splash-menu-flow.md."
     }
   ]
 }
