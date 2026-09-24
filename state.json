@@ -119,11 +119,12 @@
         "docs/operations/images/cart-shortcut",
         "docs/project-status.md",
         "docs/roadmap/project.json",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "apps/mobile"
       ],
       "status": "active",
       "head": "34ee2bb8d16fccfefd3d882af3eeeaac2f12145c",
-      "updatedAt": "2026-09-24T06:23:49.625Z"
+      "updatedAt": "2026-09-24T06:25:34.715Z"
     }
   ]
 }
