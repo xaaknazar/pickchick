@@ -100,5 +100,6 @@ export interface ScreenProps {
   goBack(): void;
   openReview?(): void;
   inTabLayout?: boolean;
+  cartBottomInset?: number;
   preview: boolean;
 }

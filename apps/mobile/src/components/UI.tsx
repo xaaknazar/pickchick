@@ -14,6 +14,7 @@ import {
   type TextStyle,
   type TextProps,
   type ViewStyle,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
@@ -286,7 +287,11 @@ export function Page({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.pageContent,
-          { paddingBottom: footer ? 24 : Math.max(28, insets.bottom + 16) },
+          {
+            paddingBottom: footer
+              ? 24
+              : Math.max(28, insets.bottom + 16, (props.cartBottomInset ?? 0) + 16),
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -304,10 +309,12 @@ export function BottomActions({
   children,
   pointerEvents = 'auto',
   safeArea = true,
+  onLayout,
   style,
 }: {
   children: ReactNode;
   safeArea?: boolean;
+  onLayout?: (event: LayoutChangeEvent) => void;
   pointerEvents?: 'auto' | 'box-none';
   style?: StyleProp<ViewStyle>;
 }) {
@@ -316,6 +323,7 @@ export function BottomActions({
     <View
       pointerEvents={pointerEvents}
       testID="bottom-actions"
+      onLayout={onLayout}
       style={[styles.footer, { paddingBottom: Math.max(16, safeArea ? insets.bottom : 0) }, style]}
     >
       <View pointerEvents={pointerEvents} style={styles.footerContent}>

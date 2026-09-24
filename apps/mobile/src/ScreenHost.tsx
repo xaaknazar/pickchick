@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ScreenTransition } from './components/Motion';
 import { Redirect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { accountDestination } from './account-access';
@@ -14,6 +15,7 @@ const tabRoutes = {
   M30: '/(tabs)/profile',
 } as const;
 export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: boolean }) {
+  const [cartHeight, setCartHeight] = useState(100);
   const router = useRouter();
   const segments = useSegments();
   const params = useLocalSearchParams();
@@ -50,6 +52,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       navigate={navigate}
       goBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu'))}
       preview={preview}
+      cartBottomInset={activeTab && model.cart.length ? cartHeight : 0}
       inTabLayout={segments[0] === '(tabs)'}
       openReview={() => router.push('/review')}
     />
@@ -58,7 +61,12 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
       {screen}
       {activeTab ? (
-        <CartShortcut model={model} onPress={() => navigate('M09')} floating={id === 'M06'} />
+        <CartShortcut
+          model={model}
+          onPress={() => navigate('M09')}
+          floating
+          onHeightChange={setCartHeight}
+        />
       ) : null}
       {preview ? (
         <Pressable
