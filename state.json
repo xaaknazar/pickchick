@@ -107,6 +107,23 @@
       "updatedAt": "2026-09-24T06:21:06.828Z",
       "summary": "На второй iPhone установлен Dev 0.1.0 (6), Developer Mode/DDI и provisioning подтверждены; build/codesign/install/launch успешны, Metro iOS manifest/bundle HTTP 200. PR https://github.com/xaaknazar/pickchick/pull/77; 34ee2bb8d16fccfefd3d882af3eeeaac2f12145c опубликован в shared-development. 7 roadmap-тестов прошли, roadmap успешно опубликован с guards. TestFlight не выпускался.",
       "nextAction": "Владелец подтверждает видимое меню и живое обновление на втором телефоне; оставить Mac и оба iPhone в доступной LAN. Нативная оболочка прежняя, новый системный splash отдельно пересобрать из актуальной версии."
+    },
+    {
+      "id": "cart-shortcut-delight",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-shortcut-delight",
+      "scopes": [
+        "apps/mobile/src/components/CartShortcut.tsx",
+        "tests/mobile/browser_cart_shortcut.py",
+        "docs/operations/cart-shortcut-delight.md",
+        "docs/operations/images/cart-shortcut",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "34ee2bb8d16fccfefd3d882af3eeeaac2f12145c",
+      "updatedAt": "2026-09-24T06:23:49.625Z"
     }
   ]
 }
