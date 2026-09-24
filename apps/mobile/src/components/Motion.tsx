@@ -22,31 +22,47 @@ import {
 
 // One live preference for the whole application; no listener per card or button.
 const MotionContext = createContext(true);
+const MotionReadyContext = createContext(false);
 export const motion = { pressIn: 80, pressOut: 150, reveal: 180, media: 240 };
 export function MotionProvider({ children }: { children: ReactNode }) {
   const [reduced, setReduced] = useState(true);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     if (Platform.OS === 'web') {
       const query = window.matchMedia('(prefers-reduced-motion: reduce)');
       const update = () => setReduced(query.matches);
       update();
+      setReady(true);
       query.addEventListener('change', update);
       return () => query.removeEventListener('change', update);
     }
     let mounted = true;
+    // Unknown preference stays conservative, but cannot block launch indefinitely.
+    const timeout = setTimeout(() => {
+      if (mounted) setReady(true);
+    }, 1000);
     void AccessibilityInfo.isReduceMotionEnabled()
       .then((value) => {
         if (mounted) setReduced(value);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setReady(true);
+      });
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       subscription.remove();
     };
   }, []);
-  return <MotionContext.Provider value={reduced}>{children}</MotionContext.Provider>;
+  return (
+    <MotionReadyContext.Provider value={ready}>
+      <MotionContext.Provider value={reduced}>{children}</MotionContext.Provider>
+    </MotionReadyContext.Provider>
+  );
 }
+export const useMotionReady = () => useContext(MotionReadyContext);
 export const useReducedMotion = () => useContext(MotionContext);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function MotionPressable({

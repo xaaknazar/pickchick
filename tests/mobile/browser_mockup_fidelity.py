@@ -66,17 +66,18 @@ with sync_playwright() as p:
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(url + '/menu')
     expect(page.get_by_test_id('hero-promotion')).to_be_visible(timeout=20000)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=5000)
     assert page.get_by_test_id('hero-video-toggle').count() == 0
     assert page.locator('video').count() == 1
     assert page.locator('video').evaluate('(v)=>!v.controls && v.muted && v.loop')
     hero = page.get_by_test_id('storefront-hero').bounding_box()
     title = page.get_by_text('Комбо недели', exact=True).bounding_box()
-    # Owner screenshot update: the hero is twice the phone width, capped on tablets.
-    assert abs(hero['height'] - 804) < 1
+    # Owner update, 24 September: lift the storefront by 48px at this size.
+    assert abs(hero['height'] - 756) < 1
     assert abs(title['x'] + title['width']/2 - 201) < 1, title
     selected = page.get_by_test_id('dining-takeaway')
     assert selected.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(255, 255, 255)'
-    # Owner's new source puts text categories between promotion and loyalty.
+    # Owner update: loyalty precedes categories, which still pin below the header.
     header = page.get_by_test_id('storefront-header')
     branch = header.get_by_role('button', name='Выбрать ресторан', exact=True)
     notifications = page.get_by_test_id('storefront-notifications')
@@ -89,7 +90,7 @@ with sync_playwright() as p:
     tab = category.bounding_box()
     loyalty = page.get_by_test_id('loyalty-card').bounding_box()
     assert promo['y'] + promo['height'] <= tab['y'], (promo, tab)
-    assert tab['y'] + tab['height'] < loyalty['y'], (tab, loyalty)
+    assert loyalty['y'] + loyalty['height'] < tab['y'], (tab, loyalty)
     assert category.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgba(0, 0, 0, 0)'
     page.screenshot(path=str(output / 'menu.png'))
     page.get_by_test_id('dining-dine_in').click()
