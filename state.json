@@ -237,11 +237,12 @@
         "docs/collaboration/handoff.md",
         "tests",
         "docs",
-        "@vps/public-https"
+        "@vps/public-https",
+        "infra/staging/release-order-events.py"
       ],
       "status": "active",
       "head": "da9d6662df098d6970bf1a2f8e7c9772f4f8809d",
-      "updatedAt": "2026-09-25T08:33:15.809Z",
+      "updatedAt": "2026-09-25T08:49:19.991Z",
       "summary": "PR84 merged; shared-development and both local checkouts at da9d6662df098d6970bf1a2f8e7c9772f4f8809d. API/operations c5715e7 deployed with six green Foundation jobs36109661923, schema019, encrypted backup verified by isolated restore, existing data/ACL preserved plus exactly two required recipe trigger grants. Corrected immutable public mounts, all3 TEST aliases HTTP200. Real public mobile browser order T-000039 passed modifiers/reload/whole prep/assembly/display/handoff/live status, payment not_started and no receipt. Native Dev bundles iOS/Android available; physical phone acceptance pending. 54 operations tests+7 roadmap passed; roadmap/public da9d666 deployed, health SHA verified, edge kitchen connected, other services unchanged. Runtime CI green; subsequent helper/docs Foundation36112885617 still running, roadmap CI green. See docs/operations/mobile-unpaid-test.md and updated collaboration/handoff.md. Credentials private in Downloads/PickChick-Test-Kitchen on first Mac; no keys in Git. Windows unchanged.",
       "nextAction": "Owner: reload PickChick Dev, submit unpaid TEST order and confirm through /test/kitchen/prep then /test/kitchen/assembly; test display /test/display. Requires internet, separate queue from ordinary cashier edge kitchen. Record physical phone acceptance. Next Mac sync/claim real-menu; inspect latest helper/docs CI separately from deployed runtime. Continue guarded app-only Windows5a96ea1/schema014 upgrade preserving5 handed-over orders/3 shifts, then physical kitchen/LED/WAN-loss. Continue iiko web/official exports: AILILLU pickup/POS/kiosk, delivery separate, modifiers/prices/recipes and isolated import; API registration is optional. Kaspi answer/real payments/fiscal/OTP and approved loyalty economics still absent. Never rerun old schema014 release over current019 or unused Windows009 upgrade. Read current pointers/owned locks before deployment; old failed immutable candidates retained for audit."
     }
