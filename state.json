@@ -240,9 +240,9 @@
         "@vps/public-https",
         "infra/staging/release-order-events.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "bd03c604410a51124e09e8b58a30265501d3aeb5",
-      "updatedAt": "2026-09-25T11:59:06.151Z",
+      "updatedAt": "2026-09-25T12:00:14.590Z",
       "summary": "PR86 merged; shared and both local checkouts bd03c604410a51124e09e8b58a30265501d3aeb5. Runtime API/operations 4ee0b801a8ceefa5aad339bdeecc1d4974f40538 installed with schema020 after all6 Foundation jobs36129627398 succeeded. Daily branch numbers reset at midnight Asia/Almaty; legacy clients compatible. Public order3 passed unpaid mobile/prep/assembly/display/fulfillment, event heartbeat and network recovery; all39 previous orders unchanged. Encrypted backup restored separately, old API compatible, only2 SELECT grants added. Four earlier candidate preparations were not applied (74/041/e3/2a; final4e applied); kiosk fixture and command-notice race fixed with regression evidence. Local10 additional browser scenarios and13 roadmap deploy guards passed. Roadmap/public bd03c60 published and health verified; edgeConnected true. Docs-only Foundation36132086285 still running; roadmap CI green. Windows unchanged.",
       "nextAction": "Owner reload PickChick Dev and kitchen/display pages; physically accept iPhone/LED separately. Next Mac sync shared then claim real-menu. Read docs/operations/daily-order-numbers.md and handoff. API/operations4ee0b80 schema020, public/roadmapbd03c60, gateway hash ab475f11786d391cbc3b45836ab52993b9f6deb74acba8d282dad31e4e0a7a19. Do not repeat019-to020 apply over current020; inspect pointers and owned locks. Continue guarded Windows5a96ea1/schema014 upgrade preserving5 fulfilled orders/3 shifts, physical kitchen/LED/offline acceptance, and real iiko catalog AILILLU pickup versus delivery. Kaspi/OTP/fiscal and loyalty economics remain pending; no commercial launch claim."
     }
