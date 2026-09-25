@@ -21,7 +21,22 @@ T0 ещё не согласована. Работающую iiko не отклю
 outbox/inbox, владение cloud/edge и финансовые инварианты AGENTS.md.
 Синтетический TEST, неоплаченная касса и коммерческое оформление различаются.
 
-## Последний установленный этап: мобильный заказ без оплаты
+## Последний установленный этап: ежедневные номера
+
+API/operations `4ee0b801a8ceefa5aad339bdeecc1d4974f40538` установлен со schema020 после зелёной CI36129627398.
+Mobile/kiosk/operations выбирают `number_format=daily`: короткий номер, с 1
+каждый день в 00:00 Asia/Almaty. UUID, outbox и прежние результаты команд
+сохранены; без параметра остаётся совместимый глобальный номер. Вчерашний
+номер не меняется, на табло добавляется дата. Публичный заказ №3 прошёл
+весь неоплаченный цикл и event watch; 39 прежних заказов не изменились.
+Дельта прав только SELECT двух новых таблиц. Backup восстановлен отдельно,
+старый API совместим. Внешний/внутренний gateway сохранены. Не повторять
+старые 014→019 или 019→020 apply поверх текущего020. Точные public/roadmap
+pointers читать на сервере и в журнале real-menu после публикации roadmap.
+Протокол: `docs/operations/daily-order-numbers.md`. Владелец ещё принимает
+физический iPhone/LED; Windows этим не обновлялся.
+
+## Предыдущий этап: мобильный заказ без оплаты
 
 По поручению владельца включён отдельный Dev TEST-сценарий. `pnpm --filter @pickchick/mobile dev` включает `EXPO_PUBLIC_UNPAID_TEST_ORDERS=1`; обычный
 export по умолчанию выключен. Нужна server capability `unpaid_test_orders`.
@@ -44,8 +59,8 @@ maintenance; writer запускается от UID владельца толь�
 исправлены ACL-delta и абсолютные gateway mounts. Runtime не пересобирали при
 исправлении mounts; public release получил отдельный суффикс `-web-mounts`.
 
-Текущий API VPS: `a0e198e5e682c7997c39a6e2be2b2387bb98fad7`; operations по-прежнему
-`c5715e7dbca924a04b3c52988b84f257d2826cfd`; cloud schema019.
+Текущие API/operations VPS: `4ee0b801a8ceefa5aad339bdeecc1d4974f40538`; cloud schema020.
+Предшествующие проверки schema019 ниже сохранены для истории.
 Ниже - проверки предшествующего выпуска без оплаты:
 [Foundation CI, 6 заданий](https://github.com/xaaknazar/pickchick/actions/runs/36109661923) зелёная. Выпуск проверил encrypted backup/restore
 в отдельную БД, прежние строки/права/sequences, повторное provisioning и
