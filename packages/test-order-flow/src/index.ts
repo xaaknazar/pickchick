@@ -558,7 +558,9 @@ export class TestOrderFlow {
         throw new TestFlowError('RATE_LIMITED');
       const orderId = randomUUID();
       await client.query(
-        'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor,execution_mode) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        body.execution_mode
+          ? 'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor,execution_mode) VALUES ($1,$2,$3,$4,$5,$6,$7)'
+          : 'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor) VALUES ($1,$2,$3,$4,$5,$6)',
         [
           orderId,
           actor.id,
@@ -566,7 +568,7 @@ export class TestOrderFlow {
           q.id,
           q.snapshot,
           q.total_minor,
-          body.execution_mode ?? 'simulated_payment',
+          ...(body.execution_mode ? [body.execution_mode] : []),
         ],
       );
       const order = await loadOrder(client, actor, orderId);

@@ -296,6 +296,8 @@ test('migration upgrades all unrevoked legacy credentials and preserves tokens, 
               assert.deepEqual(after[field], before[field], field);
           }
         }
+        // 019 adds only an inert default; all pre-existing values remain identical.
+        for (const row of dataBefore.test_orders) row.data.execution_mode = 'simulated_payment';
         assert.deepEqual(await persistedData(ctx.cloud.pool), dataBefore);
         assert.equal((await ctx.flow.continueSession(ctx.customer.token, {})).expires_at, marker);
         assert.equal((await ctx.flow.ownOrders(expiredCustomer.token)).orders.length, 1);
