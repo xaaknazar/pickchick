@@ -558,7 +558,7 @@ test('HTTP adapter only targets kiosk TEST v3, guards redirects and performs no 
   assert.equal(calls.length, 1);
   assert.equal(
     calls[0].url,
-    'https://pickchick.185.129.51.103.nip.io/v1/test/sessions?catalog_version=mockup-v0.3',
+    'https://pickchick.185.129.51.103.nip.io/v1/test/sessions?catalog_version=mockup-v0.3&number_format=daily',
   );
   assert.equal(calls[0].options.redirect, 'error');
   assert.equal(calls[0].options.credentials, 'omit');
