@@ -240,9 +240,9 @@
         "@vps/public-https",
         "infra/staging/release-order-events.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "5910e66d0798a19912af2749e03acfe83c242f79",
-      "updatedAt": "2026-09-25T12:40:05.570Z",
+      "updatedAt": "2026-09-25T13:38:09.709Z",
       "summary": "PR88: cloud order numbers reset on explicit shift reopening, not midnight. 41 DB/HTTP, 105 unit, 164+30 mobile, 6 display/staff, 1280/1920 shift UX and migration preservation passed. CI36136004177 not started due billing/spending limit. VPS remains020, Windows and online roadmap unchanged.",
       "nextAction": "Restore CI; prepare guarded020-to021 release with backup/restore and runtime ACL/rollback acceptance. Cloud manager shift is implemented; linking Windows cash shift and a common edge-owned operational shift remains separate. Continue real-menu work."
     }
