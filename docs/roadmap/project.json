@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-24T06:31:46.452373+00:00",
+  "updatedAt": "2026-09-25T05:00:48.064952+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -496,6 +496,38 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-ci-recovery",
+      "workstream": "platform",
+      "title": "Восстановить общую CI и кухонные браузерные сценарии",
+      "summary": "На 1ed98b3 Foundation CI падает в старом RUN-сценарии и кухонном входе; часть следующих проверок пропущена. Ближайший этап перед объединением реального каталога.",
+      "status": "planned",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["platform-foundation"],
+      "evidence": [
+        {
+          "label": "Обзор, сообщение владельца и порядок продолжения - 25 сентября",
+          "path": "docs/operations/project-review-2026-09-25.md"
+        },
+        {
+          "label": "Foundation CI исходного среза",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/35965003332"
+        }
+      ],
+      "acceptance": [
+        "RUN остаётся удалённым; контроль доступности MAN/BLOCKS сохранён.",
+        "Кухонные модули загружаются, вход/команды/восстановление/табло проходят браузерные проверки.",
+        "Полная Foundation CI итогового коммита зелёная; пропущенные POS/backoffice/account проверки выполнены."
+      ],
+      "nextAction": "В отдельной claim-ветке воспроизвести две регрессии, исправить и прогнать CI. VPS portal диагностировать отдельно при разрешённом SSH-доступе.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
         "accepted": false
       }
     },
@@ -1004,12 +1036,16 @@
         {
           "label": "Что требуется от заказчика",
           "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "Обзор, сообщение владельца и порядок продолжения - 25 сентября",
+          "path": "docs/operations/project-review-2026-09-25.md"
         }
       ],
       "acceptance": [
         "Контрольные корзины совпадают с утверждёнными правилами и действующими данными."
       ],
-      "nextAction": "Сверить экспорт iiko и зафиксировать принятую версию меню.",
+      "nextAction": "После восстановления CI сделать read-only экспорт iiko, импорт в изолированный каталог и согласовать контрольные корзины/цены/налоги.",
       "checks": {
         "implemented": false,
         "verified": false,
@@ -1039,13 +1075,17 @@
         {
           "label": "catalog pricing",
           "path": "docs/operations/catalog-pricing.md"
+        },
+        {
+          "label": "Обзор, сообщение владельца и порядок продолжения - 25 сентября",
+          "path": "docs/operations/project-review-2026-09-25.md"
         }
       ],
       "acceptance": [
         "AC-02/32: каждый канал использует совместимую опубликованную версию.",
         "Offline/несовместимый клиент не ломает текущую смену."
       ],
-      "nextAction": "Реализовать доставку, receipt и переключение клиентов.",
+      "nextAction": "На утверждённом меню связать существующие catalog-admin/pricing/menu-sync с mobile/POS/kiosk/edge; проверить receipt версии и offline recovery.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -1657,8 +1697,8 @@
       "id": "payments-provider-approval",
       "workstream": "payments",
       "title": "Получить банковские решения и тестовые доступы",
-      "summary": "Kaspi на точке, мобильный Kaspi и карточный/Apple Pay эквайринг согласуются по отдельным каналам. Провайдер mobile ещё не выбран.",
-      "status": "blocked",
+      "summary": "По сообщению владельца 25 сентября, обращение менеджеру Kaspi Pay отправлено 24 сентября; ожидается ответ по mobile и существующему терминалу. API/доступы ещё не подтверждены; Apple Pay и карточный эквайринг требуют отдельного решения.",
+      "status": "active",
       "owner": "customer",
       "phase": "discovery",
       "dependsOn": [],
@@ -1670,12 +1710,16 @@
         {
           "label": "План обследования и перехода с iiko",
           "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Обзор, сообщение владельца и порядок продолжения - 25 сентября",
+          "path": "docs/operations/project-review-2026-09-25.md"
         }
       ],
       "acceptance": [
         "Получены действующие договоры, поддерживаемые сценарии, модели и sandbox/API-документы."
       ],
-      "nextAction": "Передать подготовленные заявки банкам и выбрать эквайера.",
+      "nextAction": "Получить ответ Kaspi по двум сценариям, документацию и тестовые доступы; отдельно подтвердить эквайера Apple Pay/карт. Существующий терминал сохраняем, iiko пока не отключаем.",
       "checks": {
         "implemented": false,
         "verified": false,
