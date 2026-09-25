@@ -270,8 +270,26 @@ export const TestKitchenSchema = TestOrdersSchema.extend({
 export const TestDisplaySchema = z.strictObject({
   ...Synthetic,
   branch_id: z.literal(TEST_BRANCH_ID),
-  preparing: z.array(z.strictObject({ number: z.string(), channel: TestChannelSchema })).max(2000),
-  ready: z.array(z.strictObject({ number: z.string(), channel: TestChannelSchema })).max(2000),
+  preparing: z
+    .array(
+      z.strictObject({
+        number: z.string(),
+        channel: TestChannelSchema,
+        order_id: Uuid.optional(),
+        business_date: z.iso.date().optional(),
+      }),
+    )
+    .max(2000),
+  ready: z
+    .array(
+      z.strictObject({
+        number: z.string(),
+        channel: TestChannelSchema,
+        order_id: Uuid.optional(),
+        business_date: z.iso.date().optional(),
+      }),
+    )
+    .max(2000),
   observed_at: z.iso.datetime(),
 });
 export const TestActorSchema = z.strictObject({

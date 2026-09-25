@@ -1150,6 +1150,25 @@ test('daily numbers survive midnight, concurrency, rollback, retention and legac
       ctx.flow.dailyNumbers(await ctx.flow.readOrder(ctx.customer.token, id));
     assert.equal((await read(before)).number, '1');
     assert.equal((await read(after)).number, '1');
+    for (const id of [before, after]) {
+      await ctx.flow.simulatePayment(ctx.customer.token, randomUUID(), id, {
+        expected_version: 1,
+        outcome: 'approved',
+      });
+    }
+    const oldDisplay = await ctx.flow.display(ctx.actors.display.token);
+    const newDisplay = await ctx.flow.dailyNumbers(oldDisplay);
+    assert.equal(newDisplay.preparing.length, 2);
+    assert.ok(newDisplay.preparing.every((item) => item.number === '1'));
+    assert.deepEqual(newDisplay.preparing.map((item) => item.business_date).sort(), [
+      '2026-09-24',
+      '2026-09-25',
+    ]);
+    assert.equal(new Set(newDisplay.preparing.map((item) => item.order_id)).size, 2);
+    assert.ok(
+      oldDisplay.preparing.every((item) => !('business_date' in item) && /^T-/.test(item.number)),
+    );
+
     const concurrent = await Promise.all(
       Array.from({ length: 6 }, () => insertAt('2026-09-24T19:01:00.000Z')),
     );

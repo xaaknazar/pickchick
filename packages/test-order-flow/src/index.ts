@@ -335,34 +335,50 @@ export class TestOrderFlow {
   // outbox keep their original global references, including during an API rollback.
   async dailyNumbers<T>(result: T): Promise<T> {
     const references = new Set<string>();
-    const visit = (value: unknown, replace?: Map<string, string>): unknown => {
+    type NumberIdentity = { number: string; order_id: string; business_date: string };
+    const visit = (value: unknown, replace?: Map<string, NumberIdentity>): unknown => {
       if (Array.isArray(value)) return value.map((item) => visit(item, replace));
       if (!value || typeof value !== 'object') return value;
-      return Object.fromEntries(
+      const output = Object.fromEntries(
         Object.entries(value).map(([key, item]) => {
           if (key === 'number' && typeof item === 'string' && /^T-\d{6,}$/.test(item)) {
             references.add(item);
             if (replace) {
               const number = replace.get(item);
               if (!number) throw new Error('Missing persistent daily order number');
-              return [key, number];
+              return [key, number.number];
             }
           }
           return [key, visit(item, replace)];
         }),
       );
+      if (
+        replace &&
+        'number' in value &&
+        typeof value.number === 'string' &&
+        'channel' in value &&
+        !('order_id' in value)
+      ) {
+        const identity = replace.get(value.number);
+        if (identity)
+          Object.assign(output, {
+            order_id: identity.order_id,
+            business_date: identity.business_date,
+          });
+      }
+      return output;
     };
     visit(result);
     if (!references.size) return result;
     const rows = (
-      await this.pool.query<{ reference: string; number: string }>(
+      await this.pool.query<NumberIdentity & { reference: string }>(
         `SELECT 'T-' || lpad(o.sequence::text,GREATEST(length(o.sequence::text),6),'0') AS reference,
-       n.number::text AS number FROM test_orders o JOIN test_order_numbers n ON n.order_id=o.id
+       n.number::text AS number, n.order_id, n.business_date::text AS business_date FROM test_orders o JOIN test_order_numbers n ON n.order_id=o.id
        WHERE o.branch_id=$1 AND o.sequence=ANY($2::bigint[])`,
         [TEST_BRANCH_ID, [...references].map((reference) => reference.slice(2))],
       )
     ).rows;
-    return visit(result, new Map(rows.map((row) => [row.reference, row.number]))) as T;
+    return visit(result, new Map(rows.map((row) => [row.reference, row]))) as T;
   }
   catalog(requestedVersion: unknown = TEST_CATALOG_VERSION) {
     enabled(this.config);

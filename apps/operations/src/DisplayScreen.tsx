@@ -45,7 +45,7 @@ function OrderColumn({
         {visible.map((item, index) => (
           <article
             className="display-order"
-            key={`${item.number}-${index}`}
+            key={item.order_id ?? `${item.number}-${index}`}
             data-order-number={item.number}
           >
             <div
@@ -56,6 +56,11 @@ function OrderColumn({
             </div>
             <p className="display-order-caption">
               {ready ? 'Можно забирать' : 'Ваш заказ на кухне'}
+              {item.business_date &&
+              item.business_date !==
+                new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date())
+                ? ` · ${item.business_date.split('-').reverse().join('.')}`
+                : ''}
             </p>
             {!ready ? <div className="display-order-divider" aria-hidden="true" /> : null}
             {!ready ? <span className="display-order-status">Готовим для вас</span> : null}
