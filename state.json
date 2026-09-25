@@ -240,9 +240,9 @@
         "@vps/public-https",
         "infra/staging/release-order-events.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "56d9342bf60584c549e9667829c2c29804347602",
-      "updatedAt": "2026-09-25T12:15:44.994Z",
+      "updatedAt": "2026-09-25T12:16:26.766Z",
       "summary": "PR87: ordinary restaurant/order labels, Abay Plaza by branch_id, payments/receipts pending; local checks and Dev iOS/Android passed. GitHub CI could not start due billing/spending limit. VPS and online roadmap unchanged.",
       "nextAction": "Restore Actions eligibility; rerun exact-source CI, release operations overlay and publish roadmap. Physical Dev acceptance and remaining real-menu migration continue; no API/DB release needed for copy."
     }
