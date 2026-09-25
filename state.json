@@ -240,11 +240,11 @@
         "@vps/public-https",
         "infra/staging/release-order-events.py"
       ],
-      "status": "active",
-      "head": "56d9342bf60584c549e9667829c2c29804347602",
-      "updatedAt": "2026-09-25T12:16:26.766Z",
-      "summary": "PR87: ordinary restaurant/order labels, Abay Plaza by branch_id, payments/receipts pending; local checks and Dev iOS/Android passed. GitHub CI could not start due billing/spending limit. VPS and online roadmap unchanged.",
-      "nextAction": "Restore Actions eligibility; rerun exact-source CI, release operations overlay and publish roadmap. Physical Dev acceptance and remaining real-menu migration continue; no API/DB release needed for copy."
+      "status": "available",
+      "head": "5910e66d0798a19912af2749e03acfe83c242f79",
+      "updatedAt": "2026-09-25T12:40:05.570Z",
+      "summary": "PR88: cloud order numbers reset on explicit shift reopening, not midnight. 41 DB/HTTP, 105 unit, 164+30 mobile, 6 display/staff, 1280/1920 shift UX and migration preservation passed. CI36136004177 not started due billing/spending limit. VPS remains020, Windows and online roadmap unchanged.",
+      "nextAction": "Restore CI; prepare guarded020-to021 release with backup/restore and runtime ACL/rollback acceptance. Cloud manager shift is implemented; linking Windows cash shift and a common edge-owned operational shift remains separate. Continue real-menu work."
     }
   ]
 }
