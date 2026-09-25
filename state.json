@@ -171,6 +171,18 @@
       "updatedAt": "2026-09-25T05:27:38.198Z",
       "summary": "Незавершённый этап реального меню: checkpoint 5cfaeb2fcc9bf5c81149524d2e2bc323c1dddaf1, PR https://github.com/xaaknazar/pickchick/pull/80, включён в shared-development. Проверены через UI 47/52/54 цены трёх меню и обязательные группы Pick Meal. API старый auth 403 требует v2; нужны appId/clientSecret. Реальные меню через API НЕ выгружены, БД/клиенты НЕ переключены. Экспортёр v2/v3 с приватными снимками и review подготовлен. Frozen pnpm11.19/Node24.16, полная сборка, 105 unit (11 новых), 7 roadmap, lint/format/diff прошли. Новая CI выполняется; старые RUN/kitchen failures не исправлены. Онлайн-roadmap не обновлён без SSH.",
       "nextAction": "Продолжить эту задачу через claim real-menu после ответа владельца: 1) зарегистрированное приложение iiko и appId/clientSecret безопасно в приватный env, не в чат/Git; 2) выбор цен (AILILLU вероятно зал, доставка дороже, это не утверждено). На этом Mac файл .local/iiko-import/credentials.env 0600 подготовлен, app-поля пустые. Запустить --discover и экспорт по реальному organizationId, проверить правила/ID/налоги/изображения/RU-KZ, совместимость контрактов, импорт на изолированной БД, согласование корзин, подключение mobile/POS/kiosk/edge с receipt версии. Подробности docs/operations/real-menu.md. Секреты/локальные файлы не переносятся автоматически."
+    },
+    {
+      "id": "cart-option-one-decision",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-option-one",
+      "scopes": [
+        "docs/proposals/cart-option-one-2026-09-25.md",
+        "docs/proposals/cart-option-one-2026-09-25.patch"
+      ],
+      "status": "active",
+      "head": "5cfaeb2fcc9bf5c81149524d2e2bc323c1dddaf1",
+      "updatedAt": "2026-09-25T05:27:42.571Z"
     }
   ]
 }
