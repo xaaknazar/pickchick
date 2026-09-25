@@ -180,9 +180,11 @@
         "docs/proposals/cart-option-one-2026-09-25.md",
         "docs/proposals/cart-option-one-2026-09-25.patch"
       ],
-      "status": "active",
-      "head": "5cfaeb2fcc9bf5c81149524d2e2bc323c1dddaf1",
-      "updatedAt": "2026-09-25T05:27:42.571Z"
+      "status": "done",
+      "head": "8375e4af3d5310d0ca4d7ffdd2d5a0c77f6efa64",
+      "updatedAt": "2026-09-25T05:29:02.422Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/81; временный выбор варианта 1 и подготовленный патч сохранены, исходники приложения не изменены из-за резервации real-menu. Патч применим; typecheck/lint/web export подготовленного кода прошли; browser/native не проведены. Общий CI не исправлен, онлайн-roadmap не обновлён.",
+      "nextAction": "После согласования с real-menu зарезервировать CartShortcut/тест/общие документы, применить сохранённый патч, выполнить browser/native приёмку и опубликовать. Не считать выбор уже установленным дизайном."
     }
   ]
 }
