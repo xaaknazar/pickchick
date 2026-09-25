@@ -89,6 +89,7 @@ export const Campaign = z.strictObject({
   schedule: window,
 });
 export const Ticket = z.strictObject({
+  source: z.enum(['operator_recorded', 'mobile_test']).optional(),
   name: text,
   order_id: id.nullable(),
   category: z.enum(['question', 'complaint']),
@@ -104,7 +105,7 @@ export const Review = z.strictObject({
   order_id: id,
   stars: z.number().int().min(1).max(5),
   text: note,
-  source: z.literal('operator_recorded'),
+  source: z.enum(['operator_recorded', 'mobile_test']),
   status: z.enum(['new', 'reviewed']),
   internal_note: note,
 });

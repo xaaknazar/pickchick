@@ -1,3 +1,4 @@
+import { ConnectedFeedback } from './ConnectedFeedback';
 import { connectedTestOrdersEnabled } from '../order-simulator';
 import type { ScreenProps } from '../model';
 import { requiresAccount } from '../account-access';
@@ -54,6 +55,15 @@ export function MobileScreen(props: ScreenProps) {
 
 function ScreenContent(props: ScreenProps) {
   if (!props.preview && connectedTestOrdersEnabled) {
+    if (['M31', 'M35'].includes(props.screenId) && props.model.testFlow.current)
+      return (
+        <AccountGate destination={props.screenId}>
+          <ConnectedFeedback
+            {...props}
+            key={`${props.screenId}:${props.model.testFlow.current.order_id}`}
+          />
+        </AccountGate>
+      );
     if (props.screenId === 'M12') return <ConnectedCheckout {...props} />;
     if (props.screenId === 'M19') return <ConnectedHistory {...props} />;
     if (['M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M20', 'M21', 'M22'].includes(props.screenId))

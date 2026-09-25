@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { Backoffice, grantBackoffice } from '../../packages/backoffice-core/dist/index.js';
+import { provisionCatalogManager } from '../../packages/catalog-admin/dist/index.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import test from 'node:test';
@@ -1351,5 +1353,161 @@ test('shift numbers ignore midnight, concurrency, rollback, retention and legacy
     await ctx.cloud.pool.query('DELETE FROM test_orders WHERE id=$1', [after]);
     const next = await read(await insertAt('2026-09-24T19:04:00.000Z'));
     assert.ok(Number(next.number) > 8);
+  });
+});
+
+test('customer feedback is owned, durable, issued-only and visible to backoffice without leaking notes', async () => {
+  await withDesk(async (ctx) => {
+    let { order } = await ctx.make();
+    const foreign = await ctx.flow.issueSession({ channel: 'mobile' });
+    const review = { kind: 'review', stars: 4, text: 'Вкусно, спасибо!' };
+    await assert.rejects(
+      ctx.flow.submitFeedback(ctx.customer.token, randomUUID(), order.order_id, review),
+      code('CONFLICT'),
+    );
+    await assert.rejects(ctx.flow.feedback(foreign.token, order.order_id), code('NOT_FOUND'));
+    await assert.rejects(
+      ctx.flow.submitFeedback(foreign.token, randomUUID(), order.order_id, {
+        kind: 'ticket',
+        text: 'Чужой заказ',
+      }),
+      code('NOT_FOUND'),
+    );
+    const key = randomUUID();
+    const ticket = { kind: 'ticket', text: 'Где можно забрать заказ?' };
+    const first = await ctx.flow.submitFeedback(ctx.customer.token, key, order.order_id, ticket);
+    assert.equal(first.tickets.length, 1);
+    assert.deepEqual(
+      await ctx.flow.submitFeedback(ctx.customer.token, key, order.order_id, ticket),
+      first,
+    );
+    await assert.rejects(
+      ctx.flow.submitFeedback(ctx.customer.token, key, order.order_id, {
+        ...ticket,
+        text: 'Другой вопрос',
+      }),
+      code('CONFLICT'),
+    );
+    const record = (
+      await ctx.cloud.pool.query('SELECT * FROM bo_records WHERE id=$1', [first.tickets[0].id])
+    ).rows[0];
+    assert.equal(record.branch_id, TEST_BRANCH_ID);
+    assert.equal(record.organization_id, ctx.org);
+    assert.equal(record.payload.order_id, order.order_id);
+    order = await approve(ctx, order);
+    order = await complete(ctx, order, 'prep');
+    order = await complete(ctx, order, 'assembly');
+    order = await ctx.flow.handoff(ctx.actors.assembly.token, randomUUID(), order.order_id, {
+      expected_version: order.version,
+    });
+    const reviewKey = randomUUID();
+    const result = await ctx.flow.submitFeedback(
+      ctx.customer.token,
+      reviewKey,
+      order.order_id,
+      review,
+    );
+    assert.equal(result.review.stars, 4);
+    assert.deepEqual(
+      await ctx.flow.submitFeedback(ctx.customer.token, reviewKey, order.order_id, review),
+      result,
+    );
+    await assert.rejects(
+      ctx.flow.submitFeedback(ctx.customer.token, randomUUID(), order.order_id, review),
+      code('CONFLICT'),
+    );
+    const manager = await provisionCatalogManager(ctx.cloud.pool, {
+      organization_id: ctx.org,
+      name: 'Fixture manager',
+      branch_ids: [TEST_BRANCH_ID],
+    });
+    await grantBackoffice(ctx.cloud.pool, manager.actor_id, TEST_BRANCH_ID, 'manager');
+    const backoffice = new Backoffice(ctx.cloud.pool, true);
+    const state = await backoffice.read(manager.token, TEST_BRANCH_ID);
+    assert.ok(state.records.some((row) => row.id === first.tickets[0].id));
+    const save = (row, payload) =>
+      backoffice.command(manager.token, TEST_BRANCH_ID, {
+        request_id: randomUUID(),
+        reason: 'Fixture response',
+        command: {
+          type: 'save',
+          kind: row.kind,
+          id: row.id,
+          expected_revision: row.revision,
+          payload,
+        },
+      });
+    await save(record, { ...record.payload, status: 'in_progress', resolution: 'staff-only' });
+    const reviewRecord = state.records.find((row) => row.id === result.review.id);
+    await assert.rejects(
+      save(reviewRecord, { ...reviewRecord.payload, stars: 1 }),
+      (error) => error.code === 'CONFLICT',
+    );
+    await save(reviewRecord, {
+      ...reviewRecord.payload,
+      status: 'reviewed',
+      internal_note: 'staff-only',
+    });
+    const observed = await new TestOrderFlow(ctx.cloud.pool, config).feedback(
+      ctx.customer.token,
+      order.order_id,
+    );
+    assert.equal(observed.tickets[0].status, 'in_progress');
+    assert.equal(JSON.stringify(observed).includes('staff-only'), false);
+    for (let i = 1; i < 5; i++)
+      await ctx.flow.submitFeedback(ctx.customer.token, randomUUID(), order.order_id, {
+        kind: 'ticket',
+        text: `Вопрос ${i}`,
+      });
+    await assert.rejects(
+      ctx.flow.submitFeedback(ctx.customer.token, randomUUID(), order.order_id, ticket),
+      code('RATE_LIMITED'),
+    );
+    assert.equal(
+      (await ctx.flow.readOrder(ctx.customer.token, order.order_id)).fiscal_state,
+      'not_applicable',
+    );
+  });
+});
+
+test('customer history pages every finished order without crossing customer ownership', async () => {
+  await withDesk(async (ctx) => {
+    const { order } = await ctx.make();
+    await ctx.flow.cancel(ctx.customer.token, randomUUID(), order.order_id, {
+      expected_version: order.version,
+      reason: 'История для проверки',
+    });
+    // Seed older cancelled rows through normal quote snapshots in the isolated test schema.
+    for (let i = 1; i <= 25; i++) {
+      const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);
+      const seededId = randomUUID();
+      await ctx.cloud.pool.query(
+        `INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor,created_at)
+        VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()-$7*interval '1 day')`,
+        [
+          seededId,
+          ctx.customer.session_id,
+          TEST_BRANCH_ID,
+          quote.quote_id,
+          quote,
+          quote.total_minor,
+          i,
+        ],
+      );
+      await ctx.flow.cancel(ctx.customer.token, randomUUID(), seededId, {
+        expected_version: 1,
+        reason: 'History fixture',
+      });
+    }
+    const first = await ctx.flow.history(ctx.customer.token);
+    assert.equal(first.orders.length, 20);
+    assert.equal(first.has_more, true);
+    const second = await ctx.flow.history(ctx.customer.token, first.orders.at(-1).order_id);
+    assert.equal(second.orders.length, 6);
+    assert.equal(second.has_more, false);
+    assert.equal(new Set([...first.orders, ...second.orders].map((o) => o.order_id)).size, 26);
+    const foreign = await ctx.flow.issueSession({ channel: 'mobile' });
+    assert.equal((await ctx.flow.history(foreign.token)).orders.length, 0);
+    await assert.rejects(ctx.flow.history(foreign.token, order.order_id), code('NOT_FOUND'));
   });
 });

@@ -199,7 +199,7 @@
 		method OPTIONS
 		header Origin *
 		header Access-Control-Request-Method GET
-		path_regexp test_get_preflight ^/v1/test/(catalog|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|kitchen|display|manager/orders|shift)$
+		path_regexp test_get_preflight ^/v1/test/(catalog|history|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/feedback)?|kitchen|display|manager/orders|shift)$
 	}
 	handle @test_get_preflight {
 		header {
@@ -213,7 +213,7 @@
 
 	@test_get {
 		method GET
-		path_regexp test_get ^/v1/test/(catalog|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|kitchen|display|manager/orders|shift)$
+		path_regexp test_get ^/v1/test/(catalog|history|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/feedback)?|kitchen|display|manager/orders|shift)$
 	}
 	handle @test_get {
 		header Access-Control-Allow-Origin *
@@ -232,7 +232,7 @@
 		method OPTIONS
 		header Origin *
 		header Access-Control-Request-Method POST
-		path_regexp test_post_preflight ^/v1/test/(sessions|sessions/continue|shift/open|shift/close|quotes|orders/watch|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
+		path_regexp test_post_preflight ^/v1/test/(sessions|sessions/continue|shift/open|shift/close|quotes|orders/watch|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment|feedback)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
 	}
 	handle @test_post_preflight {
 		header {
@@ -263,7 +263,7 @@
 
 	@test_post {
 		method POST
-		path_regexp test_post ^/v1/test/(sessions|sessions/continue|shift/open|shift/close|quotes|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
+		path_regexp test_post ^/v1/test/(sessions|sessions/continue|shift/open|shift/close|quotes|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment|feedback)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
 	}
 	handle @test_post {
 		header Access-Control-Allow-Origin *

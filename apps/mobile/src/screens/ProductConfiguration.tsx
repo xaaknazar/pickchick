@@ -414,7 +414,7 @@ export function ConfiguredProduct(
                 return;
               }
               props.model.addToCart(product.id, selections, quantity);
-              props.navigate('M09');
+              props.goBack();
             }}
           />
         </Row>

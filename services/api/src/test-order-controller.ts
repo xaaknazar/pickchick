@@ -202,6 +202,32 @@ export class TestOrderController {
   ) {
     return this.execute((flow) => flow.ownOrders(this.token(auth)), representation, numberFormat);
   }
+  @Get('history') history(
+    @Headers('authorization') auth?: string,
+    @Query('before') before?: string,
+    @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
+  ) {
+    return this.execute(
+      (flow) => flow.history(this.token(auth), before),
+      representation,
+      numberFormat,
+    );
+  }
+  @Get('orders/:id/feedback') feedback(
+    @Param('id') id: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute((flow) => flow.feedback(this.token(auth), id));
+  }
+  @Post('orders/:id/feedback') @HttpCode(200) submitFeedback(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.execute((flow) => flow.submitFeedback(this.token(auth), key ?? '', id, body));
+  }
   @Get('orders/:id') read(
     @Param('id') orderId: string,
     @Headers('authorization') auth?: string,

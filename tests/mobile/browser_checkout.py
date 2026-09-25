@@ -35,6 +35,8 @@ with sync_playwright() as p:
   context.add_init_script('Object.entries('+json.dumps(LEGACY)+').forEach(([key,value])=>localStorage.setItem(key,value))')
   page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
   page.get_by_test_id('product-pick-combo').click(timeout=20000);page.get_by_test_id('product-add').click()
+  expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+  page.get_by_test_id('open-cart').click()
   page.get_by_test_id('cart-checkout').click()
   checkout=page.get_by_test_id('screen-M12');expect(checkout).to_be_visible()
   pay=page.get_by_test_id('checkout-pay-disabled');expect(pay).to_be_disabled()

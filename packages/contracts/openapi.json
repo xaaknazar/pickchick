@@ -3380,6 +3380,473 @@
         }
       }
     },
+    "/v1/test/history": {
+      "get": {
+        "operationId": "listOwnTestHistory",
+        "tags": [
+          "Synthetic TEST"
+        ],
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Customer only. Finished orders, newest first, twenty per page. Optional before UUID must belong to this customer.",
+        "security": [
+          {
+            "testBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
+            "name": "number_format",
+            "in": "query",
+            "required": false,
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired TEST credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong station role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TEST gate disabled or resource outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, expired quote, idempotency conflict or unresolved simulation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable synthetic quota reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Synthetic branch unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/test/orders/{orderId}/feedback": {
+      "get": {
+        "operationId": "readOwnTestFeedback",
+        "tags": [
+          "Synthetic TEST"
+        ],
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Synthetic customer data only.",
+        "security": [
+          {
+            "testBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
+            "name": "number_format",
+            "in": "query",
+            "required": false,
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestFeedback"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired TEST credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong station role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TEST gate disabled or resource outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, expired quote, idempotency conflict or unresolved simulation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable synthetic quota reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Synthetic branch unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitOwnTestFeedback",
+        "tags": [
+          "Synthetic TEST"
+        ],
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Synthetic customer data only.",
+        "security": [
+          {
+            "testBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
+            "name": "number_format",
+            "in": "query",
+            "required": false,
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily"
+              ]
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestFeedbackInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestFeedback"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired TEST credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong station role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TEST gate disabled or resource outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, expired quote, idempotency conflict or unresolved simulation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable synthetic quota reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Synthetic branch unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/test/orders/watch": {
       "post": {
         "operationId": "watchOwnTestOrders",
@@ -13802,6 +14269,694 @@
         ],
         "additionalProperties": false
       },
+      "TestFeedbackInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "review"
+              },
+              "stars": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "kind",
+              "stars",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "ticket"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "kind",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TestFeedback": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "review": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "stars": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "id",
+                  "stars",
+                  "text"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tickets": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "new",
+                    "in_progress",
+                    "resolved",
+                    "closed"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "text",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "review",
+          "tickets"
+        ],
+        "additionalProperties": false
+      },
+      "TestHistory": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "synthetic": {
+            "type": "boolean",
+            "const": true
+          },
+          "namespace": {
+            "type": "string",
+            "const": "pickchick-test"
+          },
+          "orders": {
+            "maxItems": 2000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "synthetic": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "namespace": {
+                  "type": "string",
+                  "const": "pickchick-test"
+                },
+                "order_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "number": {
+                  "type": "string",
+                  "pattern": "^(?:T-\\d{6,}|[1-9]\\d*)$"
+                },
+                "branch_id": {
+                  "type": "string",
+                  "const": "10000000-0000-4000-8000-000000000003"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "awaiting_test_payment",
+                    "preparing",
+                    "ready",
+                    "fulfilled",
+                    "cancelled"
+                  ]
+                },
+                "payment_state": {
+                  "type": "string",
+                  "enum": [
+                    "not_started",
+                    "simulated_unknown",
+                    "simulated_approved",
+                    "simulated_declined"
+                  ]
+                },
+                "payment_attempt_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "fiscal_state": {
+                  "type": "string",
+                  "const": "not_applicable"
+                },
+                "snapshot": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "synthetic": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "const": "pickchick-test"
+                        },
+                        "quote_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "branch_id": {
+                          "type": "string",
+                          "const": "10000000-0000-4000-8000-000000000003"
+                        },
+                        "catalog_version": {
+                          "type": "string",
+                          "const": "mockup-v0.2"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "mobile",
+                            "kiosk"
+                          ]
+                        },
+                        "service_mode": {
+                          "type": "string",
+                          "enum": [
+                            "takeaway",
+                            "dine_in"
+                          ]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "KZT"
+                        },
+                        "total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "lines": {
+                          "minItems": 1,
+                          "maxItems": 11,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "image_id": {
+                                "type": "string"
+                              },
+                              "prep_required": {
+                                "type": "boolean"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "description",
+                              "category",
+                              "price_minor",
+                              "image_id",
+                              "prep_required",
+                              "quantity",
+                              "line_total_minor"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "synthetic",
+                        "namespace",
+                        "quote_id",
+                        "branch_id",
+                        "catalog_version",
+                        "channel",
+                        "service_mode",
+                        "currency",
+                        "total_minor",
+                        "lines",
+                        "created_at",
+                        "expires_at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "synthetic": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "const": "pickchick-test"
+                        },
+                        "quote_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "branch_id": {
+                          "type": "string",
+                          "const": "10000000-0000-4000-8000-000000000003"
+                        },
+                        "catalog_version": {
+                          "type": "string",
+                          "const": "mockup-v0.3"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "mobile",
+                            "kiosk"
+                          ]
+                        },
+                        "service_mode": {
+                          "type": "string",
+                          "enum": [
+                            "takeaway",
+                            "dine_in"
+                          ]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "KZT"
+                        },
+                        "total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,15})$"
+                        },
+                        "lines": {
+                          "minItems": 1,
+                          "maxItems": 11,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "image_id": {
+                                "type": "string"
+                              },
+                              "prep_required": {
+                                "type": "boolean"
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "line_total_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "serving_label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "nutrition": {
+                                "type": "object",
+                                "properties": {
+                                  "basis": {
+                                    "type": "string",
+                                    "enum": [
+                                      "per_100_g",
+                                      "per_serving"
+                                    ]
+                                  },
+                                  "energy_kcal": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  "protein_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "fat_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "carbs_g": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  }
+                                },
+                                "required": [
+                                  "basis",
+                                  "energy_kcal",
+                                  "protein_g",
+                                  "fat_g",
+                                  "carbs_g"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "nutrition_provenance": {
+                                "type": "string",
+                                "enum": [
+                                  "source_mockup",
+                                  "demo_fixture"
+                                ]
+                              },
+                              "line_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4000
+                              },
+                              "base_price_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,15})$"
+                              },
+                              "selections": {
+                                "maxItems": 40,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "group_id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    "option_id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    "quantity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 40
+                                    },
+                                    "group_label": {
+                                      "type": "string"
+                                    },
+                                    "option_label": {
+                                      "type": "string"
+                                    },
+                                    "price_delta_minor": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,15})$"
+                                    }
+                                  },
+                                  "required": [
+                                    "group_id",
+                                    "option_id",
+                                    "quantity",
+                                    "group_label",
+                                    "option_label",
+                                    "price_delta_minor"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "description",
+                              "category",
+                              "price_minor",
+                              "image_id",
+                              "prep_required",
+                              "quantity",
+                              "line_total_minor",
+                              "serving_label",
+                              "nutrition",
+                              "nutrition_provenance",
+                              "line_id",
+                              "base_price_minor",
+                              "selections"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "payment_method": {
+                          "type": "string",
+                          "enum": [
+                            "kaspi",
+                            "card"
+                          ]
+                        },
+                        "estimated_minutes": {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            },
+                            "max": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 120
+                            }
+                          },
+                          "required": [
+                            "min",
+                            "max"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "synthetic",
+                        "namespace",
+                        "quote_id",
+                        "branch_id",
+                        "catalog_version",
+                        "channel",
+                        "service_mode",
+                        "currency",
+                        "total_minor",
+                        "lines",
+                        "created_at",
+                        "expires_at",
+                        "payment_method",
+                        "estimated_minutes"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "tasks": {
+                  "maxItems": 12,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "task_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "station": {
+                        "type": "string",
+                        "enum": [
+                          "prep",
+                          "assembly"
+                        ]
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "done"
+                        ]
+                      },
+                      "mandatory": {
+                        "type": "boolean",
+                        "const": true
+                      }
+                    },
+                    "required": [
+                      "task_id",
+                      "station",
+                      "title",
+                      "state",
+                      "mandatory"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "cancellation_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "synthetic",
+                "namespace",
+                "order_id",
+                "number",
+                "branch_id",
+                "version",
+                "state",
+                "payment_state",
+                "payment_attempt_id",
+                "fiscal_state",
+                "snapshot",
+                "tasks",
+                "created_at",
+                "updated_at",
+                "cancellation_reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "synthetic",
+          "namespace",
+          "orders",
+          "has_more"
+        ],
+        "additionalProperties": false
+      },
       "TestKitchen": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -23116,6 +24271,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "operator_recorded",
+              "mobile_test"
+            ]
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -23227,7 +24389,10 @@
           },
           "source": {
             "type": "string",
-            "const": "operator_recorded"
+            "enum": [
+              "operator_recorded",
+              "mobile_test"
+            ]
           },
           "status": {
             "type": "string",

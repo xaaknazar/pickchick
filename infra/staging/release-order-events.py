@@ -27,8 +27,8 @@ def extend_gateway(text, source):
     start = text.index('\t@test_post_preflight {')
     end = text.index('\t@test_post {', start)
     preflight = text[start:end]
-    require(preflight.count('sessions/continue|quotes|orders|') == 1, 'Unexpected POST preflight')
-    patched = preflight.replace('sessions/continue|quotes|orders|', 'sessions/continue|quotes|orders/watch|orders|')
+    require(preflight.count('quotes|orders|') == 1, 'Unexpected POST preflight')
+    patched = preflight.replace('quotes|orders|', 'quotes|orders/watch|orders|')
     return text[:start].replace('write 10s', 'write 40s') + patched + block + text[end:]
 
 

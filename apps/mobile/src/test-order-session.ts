@@ -6,6 +6,10 @@ import {
   TestQuoteSchema,
   TestOrderSchema,
   TestOrdersSchema,
+  TestHistorySchema,
+  TestFeedbackSchema,
+  TestFeedbackInputSchema,
+  type TestFeedbackInput,
   TestPaymentSchema,
   TestCancellationSchema,
 } from '@pickchick/test-order-flow/contracts';
@@ -344,6 +348,49 @@ export class TestCustomerCore {
     ).orders;
     if (!signal.aborted) await this.reconcile(orders, session);
     return orders;
+  }
+  async history(before?: string) {
+    if (before && !isUuid(before)) throw new TestApiError(400, 'INVALID_ORDER');
+    const session = await this.authenticate();
+    return TestHistorySchema.parse(
+      await this.io.request(`/history${before ? `?before=${before}` : ''}`, session.token),
+    );
+  }
+  async feedback(orderId: string) {
+    if (!isUuid(orderId)) throw new TestApiError(400, 'INVALID_ORDER');
+    const session = await this.authenticate();
+    return TestFeedbackSchema.parse(
+      await this.io.request(`/orders/${orderId}/feedback`, session.token),
+    );
+  }
+  private async feedbackStorage(orderId: string, kind: TestFeedbackInput['kind']) {
+    if (!isUuid(orderId)) throw new TestApiError(400, 'INVALID_ORDER');
+    const session = await this.authenticate();
+    return { session, storage: `pickchick.feedback.${session.session_id}.${orderId}.${kind}` };
+  }
+  async feedbackDraft(orderId: string, kind: TestFeedbackInput['kind']) {
+    const { storage } = await this.feedbackStorage(orderId, kind);
+    const raw = await this.io.read(storage);
+    if (!raw) return null;
+    const value = object(raw);
+    if (!isUuid(value.key)) throw new TestApiError(409, 'RECOVERY_DATA_INVALID');
+    const body = TestFeedbackInputSchema.parse(value.body);
+    if (body.kind !== kind) throw new TestApiError(409, 'RECOVERY_DATA_INVALID');
+    return { key: value.key, body };
+  }
+  async sendFeedback(orderId: string, input: TestFeedbackInput) {
+    const body = TestFeedbackInputSchema.parse(input);
+    const { storage, session } = await this.feedbackStorage(orderId, body.kind);
+    const pending = await this.feedbackDraft(orderId, body.kind);
+    if (pending && JSON.stringify(pending.body) !== JSON.stringify(body))
+      throw new TestApiError(409, 'PREVIOUS_COMMAND_PENDING');
+    const intent = pending ?? { key: this.io.uuid(), body };
+    await this.io.write(storage, JSON.stringify(intent));
+    const result = TestFeedbackSchema.parse(
+      await this.io.request(`/orders/${orderId}/feedback`, session.token, intent.body, intent.key),
+    );
+    await this.io.remove(storage);
+    return result;
   }
   async order(orderId: string): Promise<TestOrder> {
     if (!isUuid(orderId)) throw new TestApiError(400, 'INVALID_ORDER');

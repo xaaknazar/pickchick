@@ -531,12 +531,22 @@ export class Backoffice {
       if (p.assignee_id && !(await exists('employee', p.assignee_id))) fail('INVALID_REQUEST');
     }
     if (kind === 'ticket' || kind === 'review') {
+      if (old?.payload.source === 'mobile_test') {
+        for (const field of [
+          'source',
+          'order_id',
+          ...(kind === 'review' ? ['stars', 'text'] : ['description']),
+        ]) {
+          if (payload[field] !== old.payload[field]) fail('CONFLICT');
+        }
+      }
+
       const p = kind === 'ticket' ? parse(Schemas.ticket, payload) : parse(Schemas.review, payload);
       if (
         p.order_id &&
         !(
           await db.query(
-            'SELECT 1 FROM commerce_orders WHERE id=$1 AND branch_id=$2 UNION ALL SELECT 1 FROM pos_order_sync_projection WHERE order_id=$1 AND branch_id=$2',
+            'SELECT 1 FROM commerce_orders WHERE id=$1 AND branch_id=$2 UNION ALL SELECT 1 FROM pos_order_sync_projection WHERE order_id=$1 AND branch_id=$2 UNION ALL SELECT 1 FROM test_orders WHERE id=$1 AND branch_id=$2',
             [p.order_id, branch],
           )
         ).rowCount

@@ -18,6 +18,9 @@ export interface TestFlowModel {
   error: string | null;
   observedAt: string | null;
   orders: TestOrder[];
+  historyBusy: boolean;
+  moreHistory: boolean;
+  loadHistory(): Promise<void>;
   current: TestOrder | null;
   recoveryAvailable: boolean;
   recoverPending(): Promise<TestOrder | null>;
@@ -61,6 +64,11 @@ export function useTestOrders(
   access.current = account;
   const client = useMemo(() => new TestCustomerClient(), []);
   const [orders, setOrders] = useState<TestOrder[]>([]);
+  const [history, setHistory] = useState<TestOrder[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const historyLock = useRef(false);
+  const [moreHistory, setMoreHistory] = useState(true);
+  const historyCursor = useRef<string | undefined>(undefined);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -73,7 +81,11 @@ export function useTestOrders(
   const [sessionExpired, setSessionExpired] = useState(false);
   const polling = useRef(false);
   const failures = useRef(0);
-  const current = orders.find((order) => order.order_id === currentId) ?? null;
+  const allOrders = [
+    ...orders,
+    ...history.filter((old) => !orders.some((order) => order.order_id === old.order_id)),
+  ];
+  const current = allOrders.find((order) => order.order_id === currentId) ?? null;
   const generation = useRef(0);
 
   const apply = useCallback((order: TestOrder) => {
@@ -100,7 +112,7 @@ export function useTestOrders(
       setOrders((previous) => mergeObservedOrders(previous, next));
       setCurrentId(
         (previous) =>
-          (previous && next.some((order) => order.order_id === previous) ? previous : null) ??
+          previous ??
           next.find((order) => !['fulfilled', 'cancelled'].includes(order.state))?.order_id ??
           next[0]?.order_id ??
           null,
@@ -293,7 +305,31 @@ export function useTestOrders(
     busy: busy || !restored,
     error: commandError ?? error,
     observedAt,
-    orders,
+    orders: allOrders,
+    historyBusy,
+    moreHistory,
+    loadHistory: async () => {
+      if (historyLock.current || !moreHistory || !hasSavedSession) return;
+      historyLock.current = true;
+      setHistoryBusy(true);
+      try {
+        const page = await client.history(historyCursor.current);
+        historyCursor.current = page.orders.at(-1)?.order_id ?? historyCursor.current;
+        setHistory((previous) => [
+          ...previous,
+          ...page.orders.filter(
+            (order) => !previous.some((old) => old.order_id === order.order_id),
+          ),
+        ]);
+        setMoreHistory(page.has_more);
+        setError(null);
+      } catch (failure) {
+        setError(errorMessage(failure));
+      } finally {
+        historyLock.current = false;
+        setHistoryBusy(false);
+      }
+    },
     current,
     recoveryAvailable,
     recoverPending: () => run(() => client.recoverPending()),

@@ -63,7 +63,7 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('product-add')).to_be_visible();assert float(button.evaluate('(e)=>getComputedStyle(e).opacity'))>.99
   # Changing the system preference live restores the poster and disables movement.
   page.emulate_media(reduced_motion='reduce');page.wait_for_timeout(250);assert page.locator('video').count()==0
-  button.click();expect(page.get_by_test_id('screen-M09')).to_be_visible();bounded(page)
+  button.click();page.get_by_test_id('open-cart').click();expect(page.get_by_test_id('screen-M09')).to_be_visible();bounded(page)
   page.screenshot(path=str(OUT/f'cart-{width}.png'));results.append({'size':f'{width}x{height}','screens':33,'combo_blend':True,'header_stable':True,'press_cancel':True,'live_reduced_motion':True})
   c.close()
  b.close()

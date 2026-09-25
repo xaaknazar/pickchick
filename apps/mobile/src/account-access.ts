@@ -25,6 +25,8 @@ export function accountDestination(value: unknown): AccountDestination | null {
       value === 'pick-blocks' ||
       value === 'M27' ||
       value === 'M28' ||
+      value === 'M31' ||
+      value === 'M35' ||
       orderScreens.includes(value))
     ? (value as AccountDestination)
     : null;

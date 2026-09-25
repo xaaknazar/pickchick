@@ -331,3 +331,30 @@ export type TestSession = z.infer<typeof TestSessionSchema>;
 export type TestDisplay = z.infer<typeof TestDisplaySchema>;
 export type TestKitchen = z.infer<typeof TestKitchenSchema>;
 export type TestOrders = z.infer<typeof TestOrdersSchema>;
+
+// Customer feedback is separate from financial and fulfillment state.
+export const TestFeedbackInputSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('review'),
+    stars: z.int().min(1).max(5),
+    text: z.string().trim().max(2000),
+  }),
+  z.strictObject({ kind: z.literal('ticket'), text: z.string().trim().min(3).max(2000) }),
+]);
+export const TestFeedbackSchema = z.strictObject({
+  review: z
+    .strictObject({ id: Uuid, stars: z.int().min(1).max(5), text: z.string().max(2000) })
+    .nullable(),
+  tickets: z
+    .array(
+      z.strictObject({
+        id: Uuid,
+        text: z.string().max(2000),
+        status: z.enum(['new', 'in_progress', 'resolved', 'closed']),
+      }),
+    )
+    .max(5),
+});
+export type TestFeedback = z.infer<typeof TestFeedbackSchema>;
+export type TestFeedbackInput = z.infer<typeof TestFeedbackInputSchema>;
+export const TestHistorySchema = TestOrdersSchema.extend({ has_more: z.boolean() });

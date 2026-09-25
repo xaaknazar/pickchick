@@ -22,6 +22,9 @@ import {
   TestKitchenSchema,
   TestOrderSchema,
   TestOrdersSchema,
+  TestFeedbackInputSchema,
+  TestFeedbackSchema,
+  TestHistorySchema,
   TestPaymentSchema,
   TestQuoteSchema,
   TestResolvePaymentSchema,
@@ -327,6 +330,25 @@ async function dispatch(client: DatabaseClient, order: TestOrder) {
 }
 function version(order: TestOrder, expected: number) {
   if (order.version !== expected) throw new TestFlowError('CONFLICT');
+}
+
+async function readFeedback(client: DatabaseClient, branch: string, orderId: string) {
+  const rows = (
+    await client.query<{ id: string; kind: string; payload: Record<string, unknown> }>(
+      "SELECT id,kind,payload FROM bo_records WHERE branch_id=$1 AND kind IN ('review','ticket') AND payload->>'order_id'=$2 AND payload->>'source'='mobile_test' ORDER BY updated_at,id LIMIT 6",
+      [branch, orderId],
+    )
+  ).rows;
+  const review = rows.find((row) => row.kind === 'review');
+  // Never expose assignee details, internal notes, or staff-only resolutions.
+  return TestFeedbackSchema.parse({
+    review: review
+      ? { id: review.id, stars: review.payload.stars, text: review.payload.text }
+      : null,
+    tickets: rows
+      .filter((row) => row.kind === 'ticket')
+      .map((row) => ({ id: row.id, text: row.payload.description, status: row.payload.status })),
+  });
 }
 
 export class TestOrderFlow {
@@ -702,6 +724,90 @@ export class TestOrderFlow {
     return this.read(token, ['customer', 'prep', 'assembly', 'manager'], (client, actor) =>
       loadOrder(client, actor, orderId),
     );
+  }
+  feedback(token: string, orderId: string) {
+    id(orderId);
+    return this.read(token, ['customer'], async (client, actor) => {
+      await loadOrder(client, actor, orderId);
+      return readFeedback(client, actor.branch_id, orderId);
+    });
+  }
+  submitFeedback(token: string, key: string, orderId: string, input: unknown) {
+    id(orderId);
+    const body = parse(TestFeedbackInputSchema, input);
+    return this.command(
+      token,
+      ['customer'],
+      key,
+      'customer.feedback',
+      { orderId, ...body },
+      async (client, actor) => {
+        const order = await loadOrder(client, actor, orderId, true);
+        const existing = await readFeedback(client, actor.branch_id, orderId);
+        if (body.kind === 'review' && (order.state !== 'fulfilled' || existing.review))
+          throw new TestFlowError('CONFLICT');
+        if (body.kind === 'ticket' && existing.tickets.length >= 5)
+          throw new TestFlowError('RATE_LIMITED');
+        const publicNumber =
+          (
+            await client.query<{ number: number }>(
+              'SELECT number FROM test_order_numbers WHERE order_id=$1',
+              [orderId],
+            )
+          ).rows[0]?.number ?? order.number;
+        const payload =
+          body.kind === 'review'
+            ? {
+                name: `Отзыв из приложения · заказ №${publicNumber}`,
+                order_id: orderId,
+                stars: body.stars,
+                text: body.text,
+                source: 'mobile_test',
+                status: 'new',
+                internal_note: '',
+              }
+            : {
+                name: `Из приложения · заказ №${publicNumber}`,
+                order_id: orderId,
+                category: 'question',
+                priority: 'normal',
+                assignee_id: null,
+                due_at: null,
+                status: 'new',
+                description: body.text,
+                resolution: '',
+                source: 'mobile_test',
+              };
+        // Atomic with the durable customer command result. BO staff still use their own RBAC/audit.
+        await client.query(
+          `INSERT INTO bo_records(id,branch_id,organization_id,kind,revision,payload)
+        SELECT $1,id,organization_id,$2,1,$3 FROM branches WHERE id=$4`,
+          [randomUUID(), body.kind, payload, actor.branch_id],
+        );
+        return readFeedback(client, actor.branch_id, orderId);
+      },
+    );
+  }
+  history(token: string, before?: string) {
+    if (before !== undefined) id(before);
+    return this.read(token, ['customer'], async (client, actor) => {
+      const cursor = before ? await loadOrder(client, actor, before) : null;
+      const rows = (
+        await client.query<Record<string, unknown>>(
+          `${orderSelect} WHERE o.branch_id=$1 AND o.actor_id=$2 AND o.state IN ('fulfilled','cancelled')
+         ${cursor ? 'AND (o.created_at,o.id)<($3::timestamptz,$4::uuid)' : ''}
+         ORDER BY o.created_at DESC,o.id DESC LIMIT 21`,
+          cursor
+            ? [actor.branch_id, actor.id, cursor.created_at, cursor.order_id]
+            : [actor.branch_id, actor.id],
+        )
+      ).rows;
+      return TestHistorySchema.parse({
+        ...synthetic,
+        orders: rows.slice(0, 20).map(projectOrder),
+        has_more: rows.length > 20,
+      });
+    });
   }
   ownOrders(token: string) {
     return this.listOrders(token, ['customer']);

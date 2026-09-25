@@ -532,6 +532,16 @@ export class OperationsView {
     for (const f of fields) {
       const v = get(p, f.key);
       const testId = 'op-' + f.key.replaceAll('.', '-');
+      if (
+        p['source'] === 'mobile_test' &&
+        ['order_id', 'stars', 'text', 'description'].includes(f.key)
+      ) {
+        const readOnly = el('div', 'field');
+        readOnly.append(el('label', '', f.label), el('p', '', String(v ?? '-')));
+        form.append(readOnly);
+        continue;
+      }
+
       if (f.type === 'boolean') {
         form.append(check(f.label, Boolean(v), (n) => put(p, f.key, n), testId));
         continue;

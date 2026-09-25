@@ -528,6 +528,19 @@ Object.assign(openapi.paths, {
       status: 201,
     }),
   },
+  '/v1/test/history': testOperation('get', 'listOwnTestHistory', 'TestHistory', undefined, {
+    roles:
+      'Customer only. Finished orders, newest first, twenty per page. Optional before UUID must belong to this customer.',
+  }),
+  '/v1/test/orders/{orderId}/feedback': {
+    ...testOperation('get', 'readOwnTestFeedback', 'TestFeedback', undefined, {
+      path: ['orderId'],
+    }),
+    ...testOperation('post', 'submitOwnTestFeedback', 'TestFeedback', 'TestFeedbackInput', {
+      path: ['orderId'],
+      idempotent: true,
+    }),
+  },
   '/v1/test/orders/watch': testOperation(
     'post',
     'watchOwnTestOrders',

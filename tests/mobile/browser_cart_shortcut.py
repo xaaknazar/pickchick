@@ -51,6 +51,8 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('open-cart')).to_have_count(0)
         page.get_by_test_id('product-pick-combo').click()
         page.get_by_test_id('product-add').click()
+        expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+        page.get_by_test_id('open-cart').click()
         expect(page.get_by_test_id('cart-checkout')).to_be_visible()
         for route, screen in [('menu', 'M06'), ('events', 'M26'), ('orders', 'M19'), ('profile', 'M30')]:
             page.goto(URL + '/' + route)
@@ -91,6 +93,8 @@ with sync_playwright() as p:
     expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
     page.get_by_test_id('product-pick-combo').click()
     page.get_by_test_id('product-add').click()
+    expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+    page.get_by_test_id('open-cart').click()
     expect(page.get_by_test_id('cart-checkout')).to_be_visible()
     page.goto(URL + "/menu")
     expect(page.get_by_test_id("launch-reveal")).to_have_count(0)

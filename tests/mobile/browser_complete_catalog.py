@@ -46,7 +46,7 @@ SESSION = {**META, 'session_id': '30000000-0000-4000-8000-000000000001',
            'token': 'a' * 64, 'channel': 'mobile', 'expires_at': '2099-01-01T00:00:00.000Z'}
 READS = {
     '/v1/capabilities': {'schema_version': 1, 'environment': 'staging', 'data_mode': 'synthetic',
-                         'ordering_enabled': False, 'features': {'test_order_flow': True,
+                         'ordering_enabled': False, 'features': {'test_order_flow': True, 'unpaid_test_orders': True,
                          **{key: False for key in ['phone_auth', 'payments', 'fiscal', 'checkout', 'loyalty']}}},
     '/v1/branches': {'branches': [{'id': BRANCH, 'code': 'TEST', 'name': 'Локальная проверка UI',
                      'timezone': 'Asia/Almaty', 'ordering_enabled': False}]},
@@ -234,6 +234,8 @@ with sync_playwright() as p:
         page.get_by_test_id('product-pick-combo').click()
         expect(page.get_by_test_id('product-add')).to_have_text('Добавить · 4 190 ₸')
         page.get_by_test_id('product-add').click()
+        expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+        page.get_by_test_id('open-cart').click()
         cart = page.get_by_test_id('screen-M09')
         expect(cart.get_by_test_id('cart-quantity-pick-combo')).to_have_count(2)
         wait_saved_lines(page, 2)
@@ -246,26 +248,9 @@ with sync_playwright() as p:
         assert [line['quantity'] for line in saved(page)['lines']] == [2, 1]
         cart.get_by_test_id('cart-minus-pick-combo').first.click()
         page.wait_for_function('(key) => JSON.parse(localStorage.getItem(key)).lines[0].quantity === 1', arg=PREFERENCES)
-        expect(cart.get_by_text('Всегда кстати', exact=True)).to_be_visible()
-        cart.get_by_test_id('upsell-toast').click()
-        wait_saved_lines(page, 3)
-        assert [line for line in saved(page)['lines'] if line['id'] == 'toast'][0]['quantity'] == 1
-        expect(cart.get_by_text('Приготовим за', exact=False)).to_be_visible()
+        expect(cart.get_by_text('Акции', exact=True)).to_be_visible()
+        expect(cart.get_by_test_id('cart-promo-open')).to_be_visible()
         assert cart.get_by_text('Тестовый контур', exact=False).count() == 0
-        cart.get_by_test_id('payment-method').click()
-        expect(page.get_by_test_id('payment-method-card')).to_be_visible()
-        page.wait_for_function('''() => {
-            const option = document.querySelector('[data-testid="payment-method-card"]');
-            if (!option) return false;
-            for (let e = option; e; e = e.parentElement)
-                if (Number(getComputedStyle(e).opacity) < 0.999) return false;
-            return true;
-        }''')
-        page.screenshot(path=str(OUTPUT / f'payment-{width}.png'))
-        page.get_by_test_id('payment-method-card').click()
-        expect(page.get_by_test_id('payment-method-card')).not_to_be_visible()
-        expect(cart.get_by_test_id('payment-method')).to_contain_text('Банковская карта')
-        page.wait_for_function('(key) => JSON.parse(localStorage.getItem(key)).paymentMethod === "card"', arg=PREFERENCES)
         page.get_by_test_id('scroll-M09').evaluate('(e) => { e.scrollTop = 0; }')
         page.screenshot(path=str(OUTPUT / f'cart-{width}.png'))
         fixed_footer(page, 'cart-checkout', 'scroll-M09', height)
@@ -273,24 +258,26 @@ with sync_playwright() as p:
         preferences = saved(page)
         page.reload()
         expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_count(2)
-        expect(page.get_by_test_id('payment-method')).to_contain_text('Банковская карта')
-        wait_saved_lines(page, 3)
+        wait_saved_lines(page, 2)
         assert saved(page) == preferences
         page.get_by_test_id('cart-checkout').click()
         checkout = page.get_by_test_id('screen-M12')
+        expect(checkout.get_by_test_id('checkout-apple-pay')).to_contain_text('Подключается')
+        checkout.get_by_test_id('checkout-add-card').click()
+        expect(checkout.get_by_test_id('checkout-card-info')).to_be_visible()
         expect(checkout.get_by_test_id('test-checkout-create')).to_be_enabled()
         with page.expect_response(lambda response: urlparse(response.url).path == '/v1/test/quotes'):
             checkout.get_by_test_id('test-checkout-create').click()
         page.wait_for_function('(key) => !!localStorage.getItem(key)', arg=DRAFT)
         expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_be_visible()
         # A successful background order read must not erase the failed quote notice.
-        expect(checkout.get_by_text(re.compile('^Статус проверен в '))).to_be_visible()
+        expect(checkout.get_by_text(re.compile('^Статус проверен в '))).to_have_count(0)
         expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_be_visible()
         assert len(fixture.quotes) == 1
         quote = fixture.quotes[0]
         payload = node_module('contracts.js', 'module.TestCompleteCartSchema.parse(input)', quote['payload'])
-        assert payload['catalog_version'] == 'mockup-v0.3' and payload['payment_method'] == 'card'
-        assert len(payload['items']) == 3
+        assert payload['catalog_version'] == 'mockup-v0.3' and payload['payment_method'] == 'kaspi'
+        assert len(payload['items']) == 2
         variants = [line for line in payload['items'] if line['product_id'] == 'pick-combo']
         assert {frozenset(selected_set(line)) for line in variants} == {
             frozenset(BASE_SELECTIONS), frozenset(CUSTOM_SELECTIONS)}

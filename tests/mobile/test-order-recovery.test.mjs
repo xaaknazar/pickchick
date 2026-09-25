@@ -132,6 +132,11 @@ function harness() {
         cancellation_reason: null,
       };
       h.orders.set(result.order_id, result);
+    } else if (path.endsWith('/feedback')) {
+      result =
+        body?.kind === 'review'
+          ? { review: { id: randomUUID(), stars: body.stars, text: body.text }, tickets: [] }
+          : { review: null, tickets: [{ id: randomUUID(), text: body.text, status: 'new' }] };
     } else if (path === '/orders' || path === '/orders/watch') {
       result = { ...synthetic, orders: [...h.orders.values()] };
     } else {
@@ -714,4 +719,28 @@ test('event observation sends only order versions with cancellable wait and reco
   assert.equal(watch.options.timeoutMs, 35000);
   assert.equal(watch.key, undefined, 'read-only subscription does not create command intent');
   assert.equal(h.orders.size, 1);
+});
+
+test('feedback survives lost response and app restart with the exact idempotent intent', async () => {
+  const h = harness();
+  h.persistSession();
+  const orderId = randomUUID();
+  const body = { kind: 'ticket', text: 'Вопрос по заказу' };
+  h.after = async ({ path }) => {
+    if (path.endsWith('/feedback')) throw new Error('response lost');
+  };
+  await assert.rejects(h.client().sendFeedback(orderId, body));
+  const draft = await h.client().feedbackDraft(orderId, 'ticket');
+  assert.deepEqual(draft.body, body);
+  await assert.rejects(
+    h.client().sendFeedback(orderId, { ...body, text: 'changed' }),
+    failure('PREVIOUS_COMMAND_PENDING'),
+  );
+  h.after = async () => {};
+  const result = await h.client().sendFeedback(orderId, body);
+  assert.equal(result.tickets.length, 1);
+  assert.equal(await h.client().feedbackDraft(orderId, 'ticket'), null);
+  const sends = h.requests.filter((r) => r.path.endsWith('/feedback'));
+  assert.equal(sends.length, 2);
+  assert.equal(sends[0].key, sends[1].key);
 });

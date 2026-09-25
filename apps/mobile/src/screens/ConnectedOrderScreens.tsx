@@ -15,14 +15,13 @@ import {
   Card,
   Empty,
   Heading,
+  Icon,
   Logo,
   Loading,
   NavRow,
   Notice,
   Page,
-  Pill,
   Row,
-  SummaryRow,
   styles as ui,
 } from '../components/UI';
 import { colors, font } from '../theme';
@@ -66,7 +65,7 @@ function FlowNotice({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
   return (
     <>
-      {!flow.available ? (
+      {!flow.available && props.screenId === 'M12' ? (
         <Notice warning title="Новое оформление недоступно">
           Пока не удалось загрузить меню и проверить возможность заказа. Сохранённый сеанс и его
           незавершённые запросы остаются на устройстве; их статус проверяется отдельно.
@@ -91,32 +90,94 @@ function FlowNotice({ props }: { props: ScreenProps }) {
           }}
         />
       ) : null}
-      {flow.observedAt ? (
-        <Caption>
-          Статус проверен в{' '}
-          {new Date(flow.observedAt).toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })}
-        </Caption>
-      ) : null}
     </>
   );
 }
 function OrderLines({ order }: { order: TestOrder }) {
   return (
-    <Card>
-      <Heading small>Состав заказа</Heading>
+    <View style={s.section}>
+      <Heading small style={orderUI.section}>
+        Состав заказа
+      </Heading>
       {order.snapshot.lines.map((line) => (
-        <SummaryRow
-          key={'line_id' in line ? line.line_id : line.id}
-          label={`${line.quantity} × ${line.name}${'selections' in line && line.selections.length ? ` · ${line.selections.map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : '')).join(' · ')}` : ''}`}
-          value={money(line.line_total_minor)}
-        />
+        <View key={'line_id' in line ? line.line_id : line.id} style={s.line}>
+          <Row style={{ alignItems: 'flex-start' }}>
+            <Body style={[orderUI.label, ui.flex]}>{line.name}</Body>
+            <Body style={orderUI.label}>{line.quantity} шт.</Body>
+          </Row>
+          {'selections' in line && line.selections.length ? (
+            <Caption style={orderUI.detail}>
+              {line.selections
+                .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
+                .join(' · ')}
+            </Caption>
+          ) : null}
+          <Body style={[orderUI.label, { fontFamily: font.bold }]}>
+            {money(line.line_total_minor)}
+          </Body>
+        </View>
       ))}
-      <SummaryRow label="Итого по серверу" value={money(order.snapshot.total_minor)} strong />
-    </Card>
+      <OrderTotal value={money(order.snapshot.total_minor)} />
+    </View>
+  );
+}
+
+const completed = (order: TestOrder) => ['fulfilled', 'cancelled'].includes(order.state);
+const orderDate = (value: string) =>
+  new Date(value).toLocaleString('ru-RU', {
+    timeZone: 'Asia/Almaty',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+function StageTrack({ order }: { order: TestOrder }) {
+  if (order.state === 'cancelled' || order.state === 'awaiting_test_payment') return null;
+  const current =
+    order.state === 'fulfilled'
+      ? 3
+      : order.state === 'ready'
+        ? 2
+        : orderStage(order) === 'На сборке'
+          ? 1
+          : 0;
+  return (
+    <View style={s.section} accessibilityLabel={`Этап заказа: ${orderStage(order)}`}>
+      {['Готовим на кухне', 'Собираем заказ', 'Можно забирать', 'Заказ выдан'].map(
+        (label, index) => (
+          <Row key={label} style={{ minHeight: 36 }}>
+            <View style={[s.step, index <= current && { backgroundColor: colors.accent }]}>
+              <Icon
+                name={
+                  index < current || order.state === 'fulfilled'
+                    ? 'checkmark'
+                    : index === current
+                      ? 'ellipse'
+                      : 'ellipse-outline'
+                }
+                size={16}
+                color={index <= current ? colors.orangeInk : colors.muted}
+              />
+            </View>
+            <Body
+              style={[
+                orderUI.label,
+                ui.flex,
+                {
+                  color: index === current ? colors.text : colors.muted,
+                  fontFamily: index === current ? font.bold : font.body,
+                },
+              ]}
+            >
+              {label}
+            </Body>
+            {index === current && order.state !== 'fulfilled' ? (
+              <Caption style={{ color: colors.accent }}>Сейчас</Caption>
+            ) : null}
+          </Row>
+        ),
+      )}
+    </View>
   );
 }
 
@@ -222,53 +283,112 @@ export function ConnectedCheckout(props: ScreenProps) {
 
 export function ConnectedHistory(props: ScreenProps) {
   const flow = props.model.testFlow;
+  const sorted = [...flow.orders].sort(
+    (a, b) => b.created_at.localeCompare(a.created_at) || b.order_id.localeCompare(a.order_id),
+  );
+  const groups = [
+    { title: 'Сейчас', orders: sorted.filter((order) => !completed(order)) },
+    { title: 'История', orders: sorted.filter(completed) },
+  ];
   return (
     <Page props={props} title="Мои заказы" noBack>
       <FlowNotice props={props} />
       {!flow.restored ? (
-        <Loading title="Восстанавливаем заказ" />
-      ) : !flow.orders.length && (flow.error || flow.recoveryAvailable) ? (
-        <Empty
-          title={
-            flow.error ? 'Историю пока не удалось проверить' : 'Сохранена незавершённая проверка'
-          }
-          detail="Неизвестный результат не означает отсутствие заказов. Используйте восстановление или обновите статус; сохранённая проверка не удаляется."
-        />
+        <Loading title="Загружаем заказы" />
       ) : !flow.orders.length ? (
         <Empty
-          title="Заказов пока нет"
-          detail="Выберите блюда в меню и отправьте заказ на кухню."
-          action={<Button title="Открыть меню" onPress={() => props.navigate('M06')} />}
+          title={
+            flow.error || flow.recoveryAvailable
+              ? 'Не удалось загрузить заказы'
+              : 'Здесь будут ваши заказы'
+          }
+          detail={
+            flow.error || flow.recoveryAvailable
+              ? 'Обновите страницу, когда появится связь. Сохранённые заказы остаются в системе.'
+              : 'Выбирайте любимые блюда. Здесь можно следить за приготовлением и смотреть историю.'
+          }
+          action={
+            <Button
+              title={flow.error ? 'Повторить' : 'Открыть меню'}
+              onPress={flow.error ? flow.refresh : () => props.navigate('M06')}
+            />
+          }
         />
       ) : (
-        flow.orders.map((order) => (
-          <MotionPressable
-            key={order.order_id}
-            accessibilityRole="button"
-            accessibilityLabel={`Заказ номер ${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
-            onPress={() => {
-              flow.select(order.order_id);
-              props.navigate('M20');
-            }}
-          >
-            <Card>
-              <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                <Heading small>{order.number}</Heading>
-                <Pill>{orderStage(order)}</Pill>
-              </Row>
-              <Caption>{new Date(order.created_at).toLocaleString('ru-RU')}</Caption>
-              <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                <Caption>
-                  {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
-                </Caption>
-                <Body style={{ fontFamily: font.bold, fontVariant: ['tabular-nums'] }}>
-                  {money(order.snapshot.total_minor)}
-                </Body>
-              </Row>
-            </Card>
-          </MotionPressable>
-        ))
+        groups.map((group) =>
+          group.orders.length ? (
+            <View key={group.title} style={{ gap: 12 }}>
+              <Heading small style={orderUI.section}>
+                {group.title}
+              </Heading>
+              {group.orders.map((order) => (
+                <MotionPressable
+                  key={order.order_id}
+                  testID={`history-order-${order.order_id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Заказ номер ${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
+                  onPress={() => {
+                    flow.select(order.order_id);
+                    props.navigate('M20');
+                  }}
+                  style={s.orderCard}
+                >
+                  <Row>
+                    <View style={ui.flex}>
+                      <Heading small style={orderUI.title}>
+                        Заказ №{order.number}
+                      </Heading>
+                      <Caption style={orderUI.detail}>{orderDate(order.created_at)}</Caption>
+                    </View>
+                    <Icon name="chevron-forward" size={20} color={colors.muted} />
+                  </Row>
+                  <Row>
+                    <Icon
+                      name={
+                        order.state === 'ready' || order.state === 'fulfilled'
+                          ? 'checkmark-circle-outline'
+                          : order.state === 'cancelled'
+                            ? 'close-circle-outline'
+                            : 'time-outline'
+                      }
+                      color={order.state === 'ready' ? colors.success : colors.accent}
+                      size={20}
+                    />
+                    <Body style={[orderUI.label, { fontFamily: font.bold }]}>
+                      {orderStage(order)}
+                    </Body>
+                  </Row>
+                  <Body style={[orderUI.detail, { color: colors.muted }]}>
+                    {order.snapshot.lines
+                      .map((line) => `${line.name}${line.quantity > 1 ? ` ×${line.quantity}` : ''}`)
+                      .join(' · ')}
+                  </Body>
+                  <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <Caption style={orderUI.detail}>
+                      {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
+                    </Caption>
+                    <Body style={orderUI.amount}>{money(order.snapshot.total_minor)}</Body>
+                  </Row>
+                </MotionPressable>
+              ))}
+            </View>
+          ) : null,
+        )
       )}
+      {flow.orders.length >= 20 && flow.moreHistory ? (
+        <Button
+          title={flow.historyBusy ? 'Загружаем…' : 'Показать предыдущие заказы'}
+          testID="orders-load-history"
+          secondary
+          disabled={flow.historyBusy}
+          onPress={() => {
+            void flow.loadHistory();
+          }}
+        />
+      ) : null}
+      {flow.orders.length ? (
+        <Button title="Обновить заказы" secondary onPress={flow.refresh} />
+      ) : null}
     </Page>
   );
 }
@@ -344,40 +464,61 @@ export function ConnectedOrder(props: ScreenProps) {
       }
     >
       <FlowNotice props={props} />
-      <View accessibilityLiveRegion="polite" style={[s.status, ready && s.ready]}>
-        <Pill>{restaurantLocation(order.branch_id)?.name ?? 'Заказ'}</Pill>
-        <Heading testID="connected-order-state" style={ready ? { color: '#241208' } : undefined}>
-          {unknown ? 'Уточняем результат' : orderStage(order)}
-        </Heading>
-        <Text
-          testID="connected-order-number"
-          accessibilityLabel={`Заказ номер ${order.number}`}
-          style={[s.number, ready && { color: '#241208' }]}
-          adjustsFontSizeToFit
-          numberOfLines={1}
-        >
-          {order.number}
-        </Text>
-        <Body style={ready ? { color: '#241208' } : undefined}>
+      <View accessibilityLiveRegion="polite" style={s.status}>
+        <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Heading testID="connected-order-state" style={orderUI.title}>
+            {unknown ? 'Уточняем результат' : orderStage(order)}
+          </Heading>
+          <Text
+            testID="connected-order-number"
+            accessibilityLabel={`Заказ номер ${order.number}`}
+            style={s.number}
+          >
+            {order.number}
+          </Text>
+        </Row>
+        <Body style={orderUI.label}>
           {unknown
-            ? 'Повторная попытка заблокирована. Результат проверит сотрудник ресторана.'
+            ? 'Результат уточнит сотрудник ресторана. Повторять оплату не нужно.'
             : order.state === 'preparing'
               ? orderStage(order) === 'На сборке'
-                ? 'Кухня закончила приготовление. Собираем ваш заказ.'
-                : 'Заказ на кухне. Статус обновится после приготовления.'
+                ? 'Всё приготовили. Проверяем состав и собираем ваш заказ.'
+                : 'Ваши блюда уже на кухне. Здесь появится следующий этап приготовления.'
               : order.state === 'ready'
-                ? 'Заказ собран и готов к выдаче.'
+                ? 'Подходите к стойке выдачи и назовите номер заказа.'
                 : order.state === 'fulfilled'
-                  ? 'Выдача подтверждена на кухне. Заказ убран с табло.'
+                  ? 'Приятного аппетита! Расскажите, как вам заказ.'
                   : order.state === 'cancelled'
                     ? (order.cancellation_reason ?? 'Заказ отменён.')
                     : 'Подтвердите передачу заказа на кухню без оплаты.'}
         </Body>
       </View>
+      <View style={s.section}>
+        <Row>
+          <Icon name="location-outline" color={colors.muted} />
+          <Body style={[orderUI.label, ui.flex]}>
+            {restaurantLocation(order.branch_id)?.name ?? 'Ресторан PickChick'}
+          </Body>
+        </Row>
+        <Caption style={orderUI.detail}>
+          {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'} ·{' '}
+          {orderDate(order.created_at)}
+        </Caption>
+      </View>
       {receipt ? (
-        <Notice title="Оплата и чеки - в процессе подключения">
-          Оплата не списывалась. Здесь сохранён состав вашего заказа.
-        </Notice>
+        <View style={s.section}>
+          <Row>
+            <Icon name="receipt-outline" color={colors.accent} />
+            <Heading small style={orderUI.section}>
+              Официальный чек
+            </Heading>
+          </Row>
+          <Body style={orderUI.label}>Оплата и чеки - в процессе подключения.</Body>
+          <Caption style={orderUI.detail}>
+            По этому заказу деньги не списывались, фискальный чек не выпускался. Состав заказа ниже
+            не является чеком.
+          </Caption>
+        </View>
       ) : null}
       {canPay && !receipt && !cancel ? (
         <Card>
@@ -419,39 +560,7 @@ export function ConnectedOrder(props: ScreenProps) {
           />
         </Card>
       ) : null}
-      {order.tasks.length ? (
-        <Card>
-          <Heading small>Этапы заказа</Heading>
-          <SummaryRow
-            label="Кухня"
-            value={
-              order.tasks.some((task) => task.station === 'prep' && task.state !== 'done')
-                ? 'Готовится'
-                : 'Готово'
-            }
-          />
-          <SummaryRow
-            label="Сборка"
-            value={
-              order.tasks.some((task) => task.station === 'assembly' && task.state === 'done')
-                ? 'Готово'
-                : orderStage(order) === 'На сборке'
-                  ? 'Собирается'
-                  : 'Ожидает кухню'
-            }
-          />
-          <SummaryRow
-            label="Выдача"
-            value={
-              order.state === 'fulfilled'
-                ? 'Выдан'
-                : order.state === 'ready'
-                  ? 'Можно забирать'
-                  : 'Ожидает сборку'
-            }
-          />
-        </Card>
-      ) : null}
+      {!receipt && !cancel ? <StageTrack order={order} /> : null}
       <OrderLines order={order} />
       {cancel ? (
         <Card>
@@ -477,7 +586,30 @@ export function ConnectedOrder(props: ScreenProps) {
         secondary
         onPress={flow.refresh}
       />
-      {!receipt ? <NavRow title="Информация о чеке" onPress={() => props.navigate('M21')} /> : null}
+      {!receipt && !cancel && order.state === 'fulfilled' ? (
+        <Button
+          title="Оценить заказ"
+          testID="order-rate"
+          style={orderUI.action}
+          textStyle={orderUI.actionText}
+          onPress={() => props.navigate('M35')}
+        />
+      ) : null}
+      {!cancel ? (
+        <NavRow
+          title="Написать в поддержку"
+          subtitle="Помощь по этому заказу"
+          testID="order-support"
+          onPress={() => props.navigate('M31')}
+        />
+      ) : null}
+      {!receipt ? (
+        <NavRow
+          title="Официальный чек"
+          subtitle="Оплата и чеки - в процессе подключения"
+          onPress={() => props.navigate('M21')}
+        />
+      ) : null}
       {!cancel && !unknown && !['fulfilled', 'cancelled'].includes(order.state) ? (
         <NavRow
           title="Отменить заказ"
@@ -575,9 +707,20 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
   );
 }
 const s = StyleSheet.create({
-  status: { gap: 16, padding: 22, borderRadius: 28, backgroundColor: colors.raised },
+  section: { gap: 12 },
+  line: { gap: 6, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  orderCard: { padding: 18, gap: 12, backgroundColor: colors.surface, borderRadius: 16 },
+  step: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.raised,
+  },
+  status: { gap: 12, padding: 20, borderRadius: 16, backgroundColor: colors.raised },
   ready: { backgroundColor: colors.accent },
-  number: { color: colors.text, fontFamily: font.display, fontSize: 56 },
+  number: { color: colors.accent, fontFamily: font.heading, fontSize: 28, lineHeight: 36 },
   readyPage: { flex: 1, backgroundColor: colors.accent },
   readyContent: { paddingHorizontal: 24, gap: 24, flexGrow: 1 },
   readyTitle: { color: colors.orangeInk, fontSize: 46, lineHeight: 52 },

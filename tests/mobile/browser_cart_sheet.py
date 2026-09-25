@@ -36,6 +36,8 @@ with sync_playwright() as p:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce');signed_in(context);context.route('**/v1/**',route)
   page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
   page.get_by_test_id('product-pick-combo').click(timeout=20000);page.get_by_test_id('product-add').click()
+  expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+  page.get_by_test_id('open-cart').click()
   cart=page.get_by_test_id('screen-M09');expect(cart).to_be_visible()
   sheet=page.get_by_test_id('order-sheet').last
   box=sheet.bounding_box(); assert box['y'] > 10 and box['y'] + box['height'] <= height+1, box
@@ -78,6 +80,8 @@ with sync_playwright() as p:
  context=browser.new_context(viewport={'width':393,'height':852},reduced_motion='no-preference');signed_in(context);context.route('**/v1/**',route)
  page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
  page.get_by_test_id('product-pick-combo').click(timeout=20000);page.get_by_test_id('product-add').click()
+ expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+ page.get_by_test_id('open-cart').click()
  page.get_by_test_id('cart-close').click();page.goto(URL+'/menu')
  page.evaluate("""() => { window.sheetFrames=[];const until=performance.now()+1500;function tick(){ const el=document.querySelector('[data-testid="order-sheet"]');if(el)window.sheetFrames.push(el.getBoundingClientRect().y);if(performance.now()<until)requestAnimationFrame(tick); }requestAnimationFrame(tick); }""")
  page.get_by_test_id('open-cart').click();page.wait_for_timeout(500)
