@@ -203,7 +203,7 @@ test('013-014/018 preserve old unacknowledged commercial bytes and observed tota
             changed,
             side === 'edge'
               ? ['013_pos_kitchen_sync.sql', '014_pos_workspace.sql']
-              : ['018_pos_kitchen_sync.sql'],
+              : ['018_pos_kitchen_sync.sql', '019_cloud_unpaid_test_orders.sql'],
           );
           assert.deepEqual(await migrate(ctx[side].pool, paths[side], side), []);
         }
