@@ -232,11 +232,12 @@
         "@vps/public",
         "db/cloud/migrations",
         "tests/operations",
-        "docs/operations/staging-test-flow.md"
+        "docs/operations/staging-test-flow.md",
+        "packages/pos-order-sync/tests/kitchen-upgrade.test.mjs"
       ],
       "status": "active",
-      "head": "5f64f7f735788d248d3702e665081506fc80158b",
-      "updatedAt": "2026-09-25T07:03:26.560Z",
+      "head": "451cfeb4a0147a02e7264b41f4de7e98de417198",
+      "updatedAt": "2026-09-25T07:26:06.806Z",
       "summary": "PR82 merged into shared-development at 5f64f7f; remote SHA verified. Runtime b8821d5 passed all six Foundation CI jobs (36102505595). Compact blue cart applied and available in Dev. Whole-station kitchen commands, comments and item numbers implemented; 41 kitchen unit, 4 atomic PG, 11 browser/portal plus mobile/POS/backoffice checks passed. VPS portal b8821d5 deployed, Docker healthy and edgeConnected=true; roadmap5f64f7f deployed with backups/guards, roadmap CI passed. Windows SSH works at192.168.2.184 with existing pinned credentials; schema014,5 orders all handed_over,3 shifts. Windows runtime remains5a96ea1, no new installation/order/PIN change. New edge archive built locally. Final docs-only Foundation rerun remains separate from green runtime CI. iiko audit fa599e3 integrated; AILILLU pickup/POS/kiosk approved, delivery separate; API registration is optional for continuing web/export discovery.",
       "nextAction": "First read docs/operations/platform-ci-recovery.md and current project-status. Implement/test a guarded app-only Windows upgrade preserving active schema014/data/sessions; do not run unused-preview upgrade. Then enable whole-ticket commands on cashier and verify through portal. Physical kitchen/LED and WAN-loss/reboot need connected equipment. Continue real menu from web/official exports: full modifiers/numeric surcharges/recipes, missing delivery prices, isolated import/control baskets and unified catalog receipt. Do not fabricate absent data or enable paid checkout. Kaspi response and bank/fiscal/OTP setup still missing; loyalty economics require approval. Artifacts/private keys/local iiko XLSX do not synchronize automatically; second Mac has exports. Shared and working tree clean; next Mac claim this task after sync."
     }
