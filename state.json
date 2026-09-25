@@ -240,9 +240,9 @@
         "@vps/public-https",
         "infra/staging/release-order-events.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "b34ed9b6058d7a8332bc8813f4fae78ac5604431",
-      "updatedAt": "2026-09-25T10:17:50.126Z",
+      "updatedAt": "2026-09-25T10:18:35.939Z",
       "summary": "PR85 merged; shared and both local checkouts b34ed9b6058d7a8332bc8813f4fae78ac5604431. API a0e198e installed after all 6 Foundation jobs36119864030 succeeded. PostgreSQL event watch replaces 3s mobile polling. Public order T-000040 passed modifiers/reload/prep/assembly/display/handoff, full20s heartbeat, network recovery; browser status after kitchen response29/8ms. All38 existing orders preserved. Schema019/ACL unchanged, encrypted backup restore verified. Outer PickChick-only overlay updated via owned-lock continuation after backup-path permission failure, other sites/container preserved. Release helper corrected; 56 operations+7 roadmap passed. Roadmap/public b34ed9b published and health verified; edge connected. Subsequent helper/docs Foundation36123056153 still running, roadmap CI green; deployed runtime CI is separately green. No Windows changes.",
       "nextAction": "Owner reload PickChick Dev and accept event-driven status on physical iPhone; physical LED remains untested. Read docs/operations/mobile-order-events.md and handoff before next task. API a0e198e, public/roadmap b34ed9b, assets c5715e7; gateway hash ab475f11786d391cbc3b45836ab52993b9f6deb74acba8d282dad31e4e0a7a19. Do not rerun apply over current019; inspect pointers/owned locks first. Next Mac sync then claim real-menu. Continue Windows5a96ea1/schema014 guarded upgrade preserving5 fulfilled orders/3 shifts, physical kitchen/LED/offline acceptance and real iiko catalog import AILILLU pickup vs delivery. Kaspi/API credentials/OTP/fiscal and approved loyalty economics pending; never mark commercial launch ready."
     }
