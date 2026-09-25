@@ -240,11 +240,12 @@
         "@vps/public-https",
         "infra/staging/release-order-events.py",
         "apps/mobile/src/screens/CatalogScreens.tsx",
-        "packages/backoffice-core"
+        "packages/backoffice-core",
+        "apps/backoffice"
       ],
       "status": "active",
       "head": "35a742c9d3ec489dc7cbf1f8ba03d82c837eab51",
-      "updatedAt": "2026-09-25T14:49:36.253Z",
+      "updatedAt": "2026-09-25T15:05:44.505Z",
       "summary": "35a742c / PR92: UI/UX Pro Max + Impeccable polish корзины и оформления. Единая типографика, фото/количество/цены, compact 7+1, ресторан/время, строки Apple Pay/карты. TypeScript/lint/format, 3 cart-edit, 7 roadmap; browser cart4 размера, ещё6 viewport/text150% комбинаций; release checkout3 размера без записей; Dev iOS/Android HTTP200. Снимки в docs. Включено в shared-development, новая CI ещё не подтверждена.",
       "nextAction": "Проверить дизайн/клавиатуру/Dynamic Type/VoiceOver на iPhone. Перед выпуском устранить staging POST preflight-блокер и пройти полную CI. Онлайн-пульт/TestFlight/VPS/Windows этим этапом не обновлены. Сохранить блокеры API iiko, банка, кухни/LED и смены021."
     }
