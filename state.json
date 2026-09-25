@@ -144,8 +144,22 @@
       "nextAction": "Следующий этап: отдельная ветка/claim для исправления RUN-теста и загрузки kitchen demo.js/ticket-view.js, полный прогон CI. Затем read-only экспорт iiko, утверждение меню/контрольных корзин и единый catalog в mobile/POS/kiosk/edge. Kaspi: дождаться ответа по mobile и существующему терминалу. Обновить онлайн-roadmap с разрешённого Mac по runbook; portal диагностировать отдельно. На этом Mac сначала закреплённые pnpm/зависимости и изолированные БД."
     },
     {
+      "id": "cart-option-one-decision",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-option-one",
+      "scopes": [
+        "docs/proposals/cart-option-one-2026-09-25.md",
+        "docs/proposals/cart-option-one-2026-09-25.patch"
+      ],
+      "status": "done",
+      "head": "8375e4af3d5310d0ca4d7ffdd2d5a0c77f6efa64",
+      "updatedAt": "2026-09-25T05:29:02.422Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/81; временный выбор варианта 1 и подготовленный патч сохранены, исходники приложения не изменены из-за резервации real-menu. Патч применим; typecheck/lint/web export подготовленного кода прошли; browser/native не проведены. Общий CI не исправлен, онлайн-roadmap не обновлён.",
+      "nextAction": "После согласования с real-menu зарезервировать CartShortcut/тест/общие документы, применить сохранённый патч, выполнить browser/native приёмку и опубликовать. Не считать выбор уже установленным дизайном."
+    },
+    {
       "id": "real-menu",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/real-menu",
       "scopes": [
         "packages/catalog-import",
@@ -164,27 +178,23 @@
         "docs/operations/real-menu.md",
         "docs/project-status.md",
         "docs/roadmap/project.json",
-        "tests/unit/iiko-menu-export.test.mjs"
+        "tests/unit/iiko-menu-export.test.mjs",
+        "apps/kitchen",
+        "tests/kitchen",
+        "tests/backoffice/content_browser.py",
+        "infra/kitchen-portal",
+        "tests/kitchen-portal",
+        "docs/operations/platform-ci-recovery.md",
+        "docs/operations/cart-shortcut-delight.md",
+        "tests/mobile/browser_cart_shortcut.py",
+        "@vps/kitchen",
+        "@vps/roadmap"
       ],
-      "status": "available",
-      "head": "5cfaeb2fcc9bf5c81149524d2e2bc323c1dddaf1",
-      "updatedAt": "2026-09-25T05:27:38.198Z",
+      "status": "active",
+      "head": "8375e4af3d5310d0ca4d7ffdd2d5a0c77f6efa64",
+      "updatedAt": "2026-09-25T05:40:44.012Z",
       "summary": "Незавершённый этап реального меню: checkpoint 5cfaeb2fcc9bf5c81149524d2e2bc323c1dddaf1, PR https://github.com/xaaknazar/pickchick/pull/80, включён в shared-development. Проверены через UI 47/52/54 цены трёх меню и обязательные группы Pick Meal. API старый auth 403 требует v2; нужны appId/clientSecret. Реальные меню через API НЕ выгружены, БД/клиенты НЕ переключены. Экспортёр v2/v3 с приватными снимками и review подготовлен. Frozen pnpm11.19/Node24.16, полная сборка, 105 unit (11 новых), 7 roadmap, lint/format/diff прошли. Новая CI выполняется; старые RUN/kitchen failures не исправлены. Онлайн-roadmap не обновлён без SSH.",
       "nextAction": "Продолжить эту задачу через claim real-menu после ответа владельца: 1) зарегистрированное приложение iiko и appId/clientSecret безопасно в приватный env, не в чат/Git; 2) выбор цен (AILILLU вероятно зал, доставка дороже, это не утверждено). На этом Mac файл .local/iiko-import/credentials.env 0600 подготовлен, app-поля пустые. Запустить --discover и экспорт по реальному organizationId, проверить правила/ID/налоги/изображения/RU-KZ, совместимость контрактов, импорт на изолированной БД, согласование корзин, подключение mobile/POS/kiosk/edge с receipt версии. Подробности docs/operations/real-menu.md. Секреты/локальные файлы не переносятся автоматически."
-    },
-    {
-      "id": "cart-option-one-decision",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cart-option-one",
-      "scopes": [
-        "docs/proposals/cart-option-one-2026-09-25.md",
-        "docs/proposals/cart-option-one-2026-09-25.patch"
-      ],
-      "status": "done",
-      "head": "8375e4af3d5310d0ca4d7ffdd2d5a0c77f6efa64",
-      "updatedAt": "2026-09-25T05:29:02.422Z",
-      "summary": "PR https://github.com/xaaknazar/pickchick/pull/81; временный выбор варианта 1 и подготовленный патч сохранены, исходники приложения не изменены из-за резервации real-menu. Патч применим; typecheck/lint/web export подготовленного кода прошли; browser/native не проведены. Общий CI не исправлен, онлайн-roadmap не обновлён.",
-      "nextAction": "После согласования с real-menu зарезервировать CartShortcut/тест/общие документы, применить сохранённый патч, выполнить browser/native приёмку и опубликовать. Не считать выбор уже установленным дизайном."
     }
   ]
 }
