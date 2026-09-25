@@ -178,11 +178,13 @@ export const StaffCommandSchema = z.strictObject({
   action: z.enum([
     'start_task',
     'complete_task',
+    'complete_station',
     'confirm_stop',
     'ready',
     'handoff',
     'confirm_cancel',
   ]),
+  stationId: uuid.optional(),
   taskId: uuid.optional(),
   expectedTaskVersion: z.int().positive().optional(),
   reason: z.string().min(1).max(500).optional(),

@@ -356,7 +356,60 @@ export class EdgeFulfillment {
       }
       let row = await order(client, branchId, command.orderId);
       if (row.version !== command.expectedVersion) fail('CONFLICT');
-      if (['start_task', 'complete_task', 'confirm_stop'].includes(command.action)) {
+      if (command.action !== 'complete_station' && command.stationId) fail('INVALID');
+      if (command.action === 'complete_station') {
+        const stationId = command.stationId ?? fail('INVALID');
+        if (
+          !command.stationId ||
+          command.taskId ||
+          command.expectedTaskVersion ||
+          command.reason ||
+          command.inventoryDisposition
+        )
+          fail('INVALID');
+        await stationPermission(client, branchId, staff, stationId);
+        if (!['accepted', 'in_production'].includes(row.state)) fail('NOT_READY');
+        // The aggregate row is locked. All task changes, events, audit and the
+        // one command receipt commit together; no HTTP loop or partial ticket.
+        const all = await tasks(client, row);
+        const own = all.filter((task) => task.station_id === command.stationId);
+        const assembly = command.stationId === row.assembly_station_id;
+        if (!assembly && !own.length) fail('FORBIDDEN');
+        if (
+          assembly &&
+          (!all.length ||
+            all.some((task) => task.station_id !== command.stationId && task.state !== 'done'))
+        )
+          fail('NOT_READY');
+        if (own.some((task) => !['queued', 'in_progress', 'done'].includes(task.state)))
+          fail('NOT_READY');
+        if (!assembly && own.every((task) => task.state === 'done')) fail('NOT_READY');
+        for (const task of own) {
+          if (task.state === 'done') continue;
+          // Preserve DB transition guards and the existing event contract.
+          const states =
+            task.state === 'queued' ? (['in_progress', 'done'] as const) : (['done'] as const);
+          let taskVersion = task.version;
+          for (const state of states) {
+            await client.query(
+              'UPDATE fulfillment_tasks SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE id=$1',
+              [task.id, state],
+            );
+            taskVersion++;
+            row = await advance(client, row, 'in_production', 'edge.task_changed', {
+              taskId: task.id,
+              taskVersion,
+              taskState: state,
+              stationId: task.station_id,
+              staffId: staff.staff_id,
+            });
+          }
+        }
+        if (assembly)
+          row = await advance(client, row, 'ready', 'edge.fulfillment_ready', {
+            staffId: staff.staff_id,
+          });
+      } else if (['start_task', 'complete_task', 'confirm_stop'].includes(command.action)) {
         if (!command.taskId || !command.expectedTaskVersion) fail('INVALID');
         const task =
           (
@@ -475,6 +528,7 @@ export class EdgeFulfillment {
         ...view(row),
         channel: row.snapshot.channel,
         serviceMode: row.snapshot.serviceMode,
+        ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
         tasks: allTasks,
         cancellationReason: row.cancellation_reason,
         inventoryDisposition: row.inventory_disposition,
@@ -518,6 +572,7 @@ export class EdgeFulfillment {
           ...view(row),
           channel: row.snapshot.channel,
           serviceMode: row.snapshot.serviceMode,
+          ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
           tasks: await tasks(client, row),
         };
         const size = Buffer.byteLength(JSON.stringify(item));

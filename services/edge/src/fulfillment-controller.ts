@@ -78,12 +78,15 @@ function summary(row: Summary) {
     updatedAt: row.updatedAt,
   });
 }
-function kitchenOrder(row: Pick<Order, keyof Summary | 'channel' | 'serviceMode' | 'tasks'>) {
+function kitchenOrder(
+  row: Pick<Order, keyof Summary | 'channel' | 'serviceMode' | 'tasks' | 'kitchenComment'>,
+) {
   return output(FulfillmentKitchenOrderSchema, {
     ...summary(row),
     assemblyStationId: row.assemblyStationId,
     channel: row.channel,
     serviceMode: row.serviceMode,
+    ...(row.kitchenComment ? { kitchenComment: row.kitchenComment } : {}),
     tasks: row.tasks.map((task) => ({
       taskId: task.id,
       stationId: task.station_id,
@@ -177,6 +180,7 @@ export class FulfillmentController {
   config() {
     return output(FulfillmentConfigSchema, {
       enabled: this.resources.config.edgeFulfillmentEnabled === true,
+      ...(this.resources.config.edgeFulfillmentEnabled ? { wholeTicketActions: true } : {}),
     });
   }
   @Get('stations')

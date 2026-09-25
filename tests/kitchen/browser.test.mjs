@@ -112,7 +112,11 @@ for (const [width, height, mode] of [
         if (first) {
           const row = await ctx.read(first.order.orderId);
           assert.equal(row.state, 'handed_over');
-          assert.ok((await ctx.count('fulfillment_commands')) >= 8);
+          assert.equal(
+            await ctx.count('fulfillment_commands'),
+            3,
+            'one prep, one assembly, one handoff receipt',
+          );
         } else assert.equal(await ctx.count('fulfillment_commands'), 0);
       } finally {
         await rm(fixturePath, { force: true });

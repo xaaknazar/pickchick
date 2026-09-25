@@ -36,6 +36,7 @@ const labels: Record<string, string> = {
 const actionLabel: Record<Action['action'], string> = {
   start_task: 'Начать',
   complete_task: 'Готово',
+  complete_station: 'Готово - на сборку',
   ready: 'Заказ собран',
   handoff: 'Подтвердить выдачу',
   confirm_stop: 'Приготовление остановлено',
@@ -109,6 +110,14 @@ function button(text: string, attrs: string, disabled = false) {
 }
 function render() {
   const s = model.state;
+  const visibleOrders = s.orders.filter((o) => {
+    if (!s.wholeTicketActions || o.state === 'cancel_requested') return true;
+    if (o.assemblyStationId === s.stationId)
+      return o.tasks.every((t) => t.stationId === s.stationId || t.state === 'done');
+    return o.tasks.some(
+      (t) => t.stationId === s.stationId && ['queued', 'in_progress'].includes(t.state),
+    );
+  });
   const focus = document.activeElement instanceof HTMLElement ? document.activeElement.id : '';
   const viewKey = `${s.mode}:${s.stationId ?? ''}`;
   const scroll =
@@ -120,7 +129,7 @@ function render() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
-  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${s.actor && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${s.orders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
+  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${s.actor && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
   if (!s.actor) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';
@@ -214,22 +223,32 @@ function render() {
     }</div><p class="take-hint">Подойдите к стойке выдачи и назовите номер заказа</p></section></main>`;
   } else {
     content = `<main class="workspace"><div class="tickets" data-testid="queue">${
-      s.orders
+      visibleOrders
         .map((o) => {
           if (demo)
             return demoTicket(o, s.stations, s.stationId ?? '', demo.details(o.orderId), blocked);
-          const actions = allowedActions(o, s.stationId ?? '');
-          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : 'Приложение'}</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div><div class="lines">${o.tasks
+          const actions = allowedActions(o, s.stationId ?? '', s.wholeTicketActions);
+          const prepTicket = s.wholeTicketActions && s.stationId !== o.assemblyStationId;
+          const visibleTasks = prepTicket
+            ? o.tasks.filter((t) => t.stationId === s.stationId)
+            : o.tasks;
+          const extras = prepTicket ? o.tasks.filter((t) => t.stationId !== s.stationId) : [];
+          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : 'Приложение'}</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
             .map((t) => {
+              const index = o.tasks.indexOf(t);
               const own = t.stationId === s.stationId;
               const a = actions.find((a) => 'taskId' in a && a.taskId === t.taskId);
-              return `<section class="line ${own ? '' : 'other-station'}"><span class="quantity">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, blocked) : ''}</div></section>`;
+              return `<section class="line ${own ? '' : 'other-station'}"><span class="line-number" aria-label="Позиция ${index + 1}">${index + 1}</span><span class="quantity">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description && t.details.description !== o.kitchenComment ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, blocked) : ''}</div></section>`;
             })
-            .join('')}</div><div class="ticket-actions">${actions
+            .join(
+              '',
+            )}</div>${extras.length ? `<p class="assembly-extras">На других станциях: ${extras.map((t) => `${escape(t.details.title)} ×${t.details.quantity}`).join(' · ')}</p>` : ''}<div class="ticket-actions">${actions
             .filter((a) => !('taskId' in a))
             .map((a) =>
               button(
-                actionLabel[a.action],
+                a.action === 'complete_station' && s.stationId === o.assemblyStationId
+                  ? 'Заказ собран'
+                  : actionLabel[a.action],
                 `id="order-${o.orderId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`,
                 blocked,
               ),

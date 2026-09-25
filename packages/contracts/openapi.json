@@ -18258,6 +18258,9 @@
         "properties": {
           "enabled": {
             "type": "boolean"
+          },
+          "wholeTicketActions": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -18412,6 +18415,10 @@
               "takeaway",
               "dine_in"
             ]
+          },
+          "kitchenComment": {
+            "type": "string",
+            "maxLength": 60
           },
           "tasks": {
             "maxItems": 2000,
@@ -18683,6 +18690,10 @@
               "takeaway",
               "dine_in"
             ]
+          },
+          "kitchenComment": {
+            "type": "string",
+            "maxLength": 60
           },
           "tasks": {
             "maxItems": 2000,
@@ -18988,6 +18999,10 @@
                     "takeaway",
                     "dine_in"
                   ]
+                },
+                "kitchenComment": {
+                  "type": "string",
+                  "maxLength": 60
                 },
                 "tasks": {
                   "maxItems": 2000,
@@ -19337,6 +19352,31 @@
               "expectedVersion",
               "taskId",
               "expectedTaskVersion"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "const": "complete_station"
+              },
+              "expectedVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              },
+              "stationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": [
+              "action",
+              "expectedVersion",
+              "stationId"
             ],
             "additionalProperties": false
           },

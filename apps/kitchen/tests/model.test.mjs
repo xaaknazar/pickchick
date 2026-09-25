@@ -481,3 +481,32 @@ test('failed mode switch and logout clear snapshot cursor without clearing pendi
   assert.deepEqual(m.state.orders, []);
   assert.equal(f.durable.getItem(journalKey(f.c)), saved);
 });
+
+test('whole-ticket capability offers one station action, gates assembly and leaves legacy nodes unchanged', () => {
+  const f = fixture();
+  const current = globalThis.structuredClone(f.o);
+  assert.equal(allowedActions(current, f.station)[0].action, 'start_task');
+  assert.deepEqual(allowedActions(current, f.station, true), [
+    { action: 'complete_station', expectedVersion: current.version, stationId: f.station },
+  ]);
+  assert.deepEqual(allowedActions(current, f.other, true), []);
+  current.state = 'in_production';
+  current.tasks[0].state = 'done';
+  assert.deepEqual(allowedActions(current, f.station, true), []);
+  assert.deepEqual(allowedActions(current, f.other, true), [
+    { action: 'complete_station', expectedVersion: current.version, stationId: f.other },
+  ]);
+});
+
+test('fresh multi-station login starts at preparation even when assembly is returned first', async () => {
+  const f = fixture();
+  const transport = async (...args) => {
+    const result = await f.transport(...args);
+    return args[0].endsWith('/stations')
+      ? { ...result, items: [...result.items].reverse() }
+      : result;
+  };
+  const model = new KitchenModel(transport, f.session, f.durable, async () => () => {});
+  await model.importCredential(JSON.stringify(f.c));
+  assert.equal(model.state.stationId, f.station);
+});

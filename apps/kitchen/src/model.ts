@@ -27,6 +27,7 @@ export type Pending = {
   body: Action;
 };
 export type State = {
+  wholeTicketActions: boolean;
   actor: Credential | null;
   stations: Station[];
   stationId: string | null;
@@ -51,18 +52,22 @@ export const journalKey = (c: Credential) => 'pickchick.kitchen.pending.v1.' + s
 export function parsePending(v: unknown, c: Credential): Pending {
   const p = record(v);
   if (p.version !== 1 || p.scope !== scope(c)) throw new Error('JOURNAL_INVALID');
+  const body = action(p.body);
+  if (body.action === 'complete_station' && body.stationId !== p.stationId)
+    throw new Error('JOURNAL_INVALID');
   return {
     version: 1,
     scope: scope(c),
     orderId: uuid(p.orderId),
     stationId: uuid(p.stationId),
     key: uuid(p.key),
-    body: action(p.body),
+    body,
   };
 }
 class StaleOperation extends Error {}
 export class KitchenModel {
   state: State = {
+    wholeTicketActions: false,
     actor: null,
     stations: [],
     stationId: null,
@@ -243,6 +248,7 @@ export class KitchenModel {
     if (Date.parse(c.expires_at) <= Date.now()) throw new Error('SESSION_EXPIRED');
     const enabled = record(await this.call(prefix + '/config', null));
     if (enabled.enabled !== true) throw new Error('FULFILLMENT_DISABLED');
+    this.state.wholeTicketActions = enabled.wholeTicketActions === true;
     const list = stations(await this.call(prefix + '/stations', c), c.branch_id);
     this.release?.();
     this.release = null;
@@ -265,7 +271,7 @@ export class KitchenModel {
     Object.assign(this.state, {
       actor: c,
       stations: list,
-      stationId: list[0]?.id ?? null,
+      stationId: list.find((station) => station.kind === 'prep')?.id ?? list[0]?.id ?? null,
       orders: [],
       display: [],
       cursor: null,
@@ -422,7 +428,9 @@ export class KitchenModel {
         !this.state.orders.some(
           (current) => current.orderId === o.orderId && current.version === o.version,
         ) ||
-        !allowedActions(o, s).some((a) => JSON.stringify(a) === JSON.stringify(body))
+        !allowedActions(o, s, this.state.wholeTicketActions).some(
+          (a) => JSON.stringify(a) === JSON.stringify(body),
+        )
       )
         throw new Error('ACTION_UNAVAILABLE');
       const old = this.durable.getItem(journalKey(c));
@@ -491,7 +499,17 @@ export class KitchenModel {
     });
   }
 }
-export function allowedActions(o: Order, station: string): Action[] {
+export function allowedActions(o: Order, station: string, wholeTicketActions = false): Action[] {
+  if (wholeTicketActions && ['accepted', 'in_production'].includes(o.state)) {
+    const own = o.tasks.filter((t) => t.stationId === station);
+    const assembly = o.assemblyStationId === station;
+    const permitted = assembly
+      ? o.tasks.length > 0 && o.tasks.every((t) => t.stationId === station || t.state === 'done')
+      : own.some((t) => ['queued', 'in_progress'].includes(t.state));
+    if (permitted && own.every((t) => ['queued', 'in_progress', 'done'].includes(t.state)))
+      return [{ action: 'complete_station', expectedVersion: o.version, stationId: station }];
+    return [];
+  }
   const result: Action[] = [];
   for (const t of o.tasks) {
     if (t.stationId !== station) continue;

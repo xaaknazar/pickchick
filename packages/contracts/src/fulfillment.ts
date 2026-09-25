@@ -8,7 +8,10 @@ const number = z
   .string()
   .regex(/^[1-9][0-9]{0,18}$/)
   .refine((value) => /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n);
-export const FulfillmentConfigSchema = z.strictObject({ enabled: z.boolean() });
+export const FulfillmentConfigSchema = z.strictObject({
+  enabled: z.boolean(),
+  wholeTicketActions: z.boolean().optional(),
+});
 export const FulfillmentSummarySchema = z.strictObject({
   orderId: uuid,
   branchId: uuid,
@@ -56,6 +59,7 @@ export const FulfillmentKitchenOrderSchema = FulfillmentSummarySchema.extend({
   assemblyStationId: uuid,
   channel: z.enum(['mobile', 'pos']),
   serviceMode: z.enum(['takeaway', 'dine_in']),
+  kitchenComment: z.string().max(60).optional(),
   tasks: z.array(FulfillmentTaskSchema).max(2000),
 });
 export const FulfillmentOrderSchema = FulfillmentKitchenOrderSchema.extend({
@@ -98,6 +102,11 @@ const taskAction = z.strictObject({
 });
 export const FulfillmentActionSchema = z.discriminatedUnion('action', [
   taskAction,
+  z.strictObject({
+    action: z.literal('complete_station'),
+    expectedVersion: version,
+    stationId: uuid,
+  }),
   z.strictObject({ action: z.enum(['ready', 'handoff']), expectedVersion: version }),
   z.strictObject({
     action: z.literal('confirm_cancel'),

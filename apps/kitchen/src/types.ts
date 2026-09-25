@@ -54,6 +54,7 @@ export type Order = Summary & {
   assemblyStationId: string;
   channel: 'mobile' | 'pos';
   serviceMode: 'takeaway' | 'dine_in';
+  kitchenComment?: string;
   tasks: Task[];
 };
 export type DisplayItem = { number: string; name?: string; state: 'preparing' | 'ready' };
@@ -64,7 +65,8 @@ export type Action =
       taskId: string;
       expectedTaskVersion: number;
     }
-  | { action: 'ready' | 'handoff'; expectedVersion: number };
+  | { action: 'ready' | 'handoff'; expectedVersion: number }
+  | { action: 'complete_station'; expectedVersion: number; stationId: string };
 export const prefix = '/edge/v1/fulfillment';
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export function record(v: unknown): Record<string, unknown> {
@@ -202,6 +204,7 @@ export function order(v: unknown, branch: string): Order {
     assemblyStationId: uuid(o.assemblyStationId),
     channel: choice(o.channel, ['mobile', 'pos']),
     serviceMode: choice(o.serviceMode, ['takeaway', 'dine_in']),
+    ...(o.kitchenComment === undefined ? {} : { kitchenComment: str(o.kitchenComment, 60) }),
     tasks,
   };
 }
@@ -228,7 +231,16 @@ export function displayPage(v: unknown) {
 }
 export function action(v: unknown): Action {
   const a = record(v),
-    name = choice(a.action, ['start_task', 'complete_task', 'confirm_stop', 'ready', 'handoff']);
+    name = choice(a.action, [
+      'start_task',
+      'complete_task',
+      'confirm_stop',
+      'ready',
+      'handoff',
+      'complete_station',
+    ]);
+  if (name === 'complete_station')
+    return { action: name, expectedVersion: int(a.expectedVersion), stationId: uuid(a.stationId) };
   if (name === 'ready' || name === 'handoff')
     return { action: name, expectedVersion: int(a.expectedVersion) };
   return {
