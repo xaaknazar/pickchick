@@ -55,23 +55,20 @@ async function request<T>(
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), 12000);
   try {
-    const response = await fetch(
-      API_BASE + path + (path.includes('?') ? '&' : '?') + 'catalog_version=mockup-v0.3',
-      {
-        method: body === undefined ? 'GET' : 'POST',
-        credentials: 'omit',
-        cache: 'no-store',
-        referrerPolicy: 'no-referrer',
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-          ...(key ? { 'Idempotency-Key': key } : {}),
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    const response = await fetch(API_BASE + path, {
+      method: body === undefined ? 'GET' : 'POST',
+      credentials: 'omit',
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(key ? { 'Idempotency-Key': key } : {}),
       },
-    );
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
     const data: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const record = data as { code?: unknown; error?: { code?: unknown } } | null;
@@ -134,7 +131,9 @@ export const api = {
       { expected_version: order.version, reason },
       key,
     ),
-  kitchen: (token: string) => request('/kitchen', TestKitchenSchema, token),
+  // Staff reads full mobile selections; the legacy web kiosk keeps its v0.2 catalog.
+  kitchen: (token: string) =>
+    request('/kitchen?catalog_version=mockup-v0.3', TestKitchenSchema, token),
   complete: (token: string, order: TestOrder, task: string, key: string) =>
     request(
       `/orders/${order.order_id}/tasks/${task}/complete`,
@@ -151,7 +150,8 @@ export const api = {
       { expected_version: order.version },
       key,
     ),
-  manager: (token: string) => request('/manager/orders', TestOrdersSchema, token),
+  manager: (token: string) =>
+    request('/manager/orders?catalog_version=mockup-v0.3', TestOrdersSchema, token),
   display: (token: string) => request('/display', TestDisplaySchema, token),
 };
 
