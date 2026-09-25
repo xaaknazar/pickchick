@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T12:35:06.870716+00:00",
+  "updatedAt": "2026-09-25T12:39:16.065600+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3311,6 +3311,14 @@
           "path": "docs/operations/shift-order-numbers.md"
         },
         {
+          "label": "Реализация смен - PR88",
+          "url": "https://github.com/xaaknazar/pickchick/pull/88"
+        },
+        {
+          "label": "CI не запущена: billing/spending limit",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/36136004177"
+        },
+        {
           "label": "Правила, проверки и выпуск",
           "path": "docs/operations/daily-order-numbers.md"
         },
@@ -3328,7 +3336,7 @@
         "Прежние заказы сохраняют номер, повтор команды не сбрасывает счётчик.",
         "Смена моноблока и всех каналов согласована через владельца edge."
       ],
-      "nextAction": "Зелёная CI, подготовка и приёмка выпуска020→021; затем общая операционная смена mobile/edge и физическая приёмка.",
+      "nextAction": "Восстановить запуск Actions; зелёная CI и приёмка выпуска020→021. Затем общая смена mobile/edge и физическая приёмка.",
       "checks": {
         "implemented": true,
         "verified": true,

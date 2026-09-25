@@ -64,8 +64,14 @@ Runtime получает SELECT/INSERT(branch_id,state)/UPDATE(state,version,clo
 
 Код и локальные проверки готовы. VPS пока остаётся на schema020 с календарной
 нумерацией. Windows и онлайн-roadmap не обновлены этим этапом. Физическая
-приёмка не выполнена. GitHub Actions ранее блокировался billing/spending limit;
-результат CI этого изменения фиксируется после публикации коммита.
+приёмка не выполнена. [PR88](https://github.com/xaaknazar/pickchick/pull/88), исходный код
+`5a6b3b12b0fd76a441b14bad81c675c6d890114d` опубликован.
+[Foundation CI 36136004177](https://github.com/xaaknazar/pickchick/actions/runs/36136004177)
+не запустила ни одного шага: в GitHub UI все шесть jobs сообщают об ошибке
+оплаты аккаунта либо spending limit. Это не зелёная CI и не падение тестов кода.
+Онлайн-roadmap не опубликован при этом ограничении; исходный JSON обновлён.
+Live iOS Dev manifest/bundle HTTP200, но сервер продолжает выдавать старые
+календарные номера до установки021.
 
 Перед выпуском: полная зелёная Foundation CI точного SHA, reservation @vps,
 свежие pointers и штатный release lock; encrypted backup и отдельное restore;
