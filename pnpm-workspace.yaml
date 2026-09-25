@@ -8,3 +8,7 @@ packages:
 strictPeerDependencies: true
 saveExact: true
 blockExoticSubdeps: true
+
+overrides:
+  # Nest's upload dependency: upstream security fixes, without changing its API.
+  'multer@2.2.0': 2.3.0

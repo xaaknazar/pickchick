@@ -52,7 +52,8 @@ class MobileLayout(unittest.TestCase):
         self.assertIn(urlparse(url).hostname, ('127.0.0.1', 'localhost'))
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            context = browser.new_context(viewport={'width': 390, 'height': 844})
+            # Measure resting geometry independently of the tested entrance animation.
+            context = browser.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce')
             fixture = Fixture()
             def read_fixture(route):
                 assert route.request.method == 'GET', 'Layout checks must never create orders'

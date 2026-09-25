@@ -511,7 +511,7 @@
       "id": "platform-ci-recovery",
       "workstream": "platform",
       "title": "Восстановить общую CI и кухонные браузерные сценарии",
-      "summary": "Исправлены kitchen modules404, healthcheck Host и старый RUN-тест. Локальные static/integration/browser проверки прошли; полная GitHub CI ещё проверяется.",
+      "summary": "Исправлены kitchen modules404, healthcheck Host, старый RUN-тест, fixtures восстановления меню и геометрии. Обновлён multer после audit high. Локальные проверки прошли; полная GitHub CI итогового SHA ещё требуется.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
