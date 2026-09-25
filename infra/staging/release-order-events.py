@@ -74,21 +74,33 @@ class Release(mobile.Release):
         candidate = base64.b64decode(self.remote('base64 -w0 '+REMOTE+'/releases/'+self.sha+'/front-candidate.Caddyfile')).decode()
         require(digest(candidate.encode()) == proof['front_sha256'], 'Front candidate changed')
         self.remote('docker exec -i deploy-caddy-1 caddy validate --config - --adapter caddyfile',input=candidate)
-        backup = path+'.pickchick-events-'+self.lock_owner['id']+'.bak'
+        backup = self.maintenance+'/front-before.Caddyfile'
         program = """from pathlib import Path
-import hashlib,sys,os
-path,backup,expected=sys.argv[1:];p=Path(path);old=p.read_bytes();data=sys.stdin.buffer.read()
+import hashlib,sys,os,json
+path,backup,expected=sys.argv[1:];p=Path(path);assert p.is_file() and not p.is_symlink();old=p.read_bytes()
 assert hashlib.sha256(old).hexdigest()==expected
-with open(backup,'xb') as f: os.chmod(backup,0o600);f.write(old)
-with open(p,'wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
-assert p.read_bytes()==data
+with open(backup,'xb') as f: os.fchmod(f.fileno(),0o600);f.write(old)
+s=p.stat();print(json.dumps({'uid':s.st_uid,'gid':s.st_gid,'mode':s.st_mode,'inode':s.st_ino}))
 """
-        self.remote('python3 -c '+quote(program)+' '+' '.join(map(quote,[path,backup,proof['front_before_sha256']])),input=candidate)
+        meta=json.loads(self.remote('python3 -c '+quote(program)+' '+' '.join(map(quote,[path,backup,proof['front_before_sha256']]))))
+        # The shared directory is owned by another UID. Mount only this existing file,
+        # write as its owner without capabilities/network, and retain its inode/mode.
+        patch="""const fs=require('node:fs'),c=require('node:crypto');const p='/target';
+const hash=b=>c.createHash('sha256').update(b).digest('hex');
+if(hash(fs.readFileSync(p))!==process.argv[1])throw Error('CAS mismatch');
+const data=fs.readFileSync(0);if(hash(data)!==process.argv[2])throw Error('candidate mismatch');
+const fd=fs.openSync(p,'w');fs.writeFileSync(fd,data);fs.fsyncSync(fd);fs.closeSync(fd);
+if(hash(fs.readFileSync(p))!==process.argv[2])throw Error('write verification failed');"""
+        self.remote('docker run --rm -i --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user '+
+            quote(str(meta['uid'])+':'+str(meta['gid']))+' --mount '+quote('type=bind,source='+path+',target=/target')+
+            ' --entrypoint node pickchick-api:'+self.sha+' -e '+quote(patch)+' '+quote(proof['front_before_sha256'])+
+            ' '+quote(proof['front_sha256']),input=candidate)
         # stdin avoids the historical stale bind inode; this is a graceful reload, not restart.
         self.remote('docker exec -i deploy-caddy-1 caddy reload --config - --adapter caddyfile',input=candidate)
         require(self.front_probe()==proof['front_home_sha256'], 'Existing site response changed')
         self.save('front-result.json',{'backup':backup,'before_sha256':proof['front_before_sha256'],
-            'after_sha256':proof['front_sha256'],'existing_home_preserved':True,'reload_without_restart':True})
+            'after_sha256':proof['front_sha256'],'existing_home_preserved':True,'reload_without_restart':True,
+            'existing_file_owner_writer':meta})
 
 
     def runtime_old(self):

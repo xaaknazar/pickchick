@@ -39,7 +39,8 @@ def main():
    page.get_by_role('button',name='Открыть рабочий экран',exact=True).click()
    expect(page.locator('.staff-login')).to_have_count(0)
   ctx=browser.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True,reduced_motion='reduce')
-  signed_in(ctx);mobile=ctx.new_page();errors=[];traffic=[];latencies=[];
+  signed_in(ctx);mobile=ctx.new_page();errors=[];traffic=[];latencies=[];watch_responses=[];
+  mobile.on('response',lambda r:watch_responses.append(r.status) if r.url.split('?')[0]==API+'/orders/watch' else None)
   mobile.on('request',lambda r:traffic.append((r.method,r.url.split('?')[0])))
   mobile.on('pageerror',lambda e:errors.append(str(e)))
   mobile.goto(MOBILE+'/screen/M06')
@@ -61,7 +62,9 @@ def main():
   expect(current.get_by_test_id('connected-order-state')).to_have_text('Готовится',timeout=15000)
   mobile.reload();expect(current.get_by_test_id('connected-order-number')).to_have_text(number,timeout=60000)
   if os.environ.get('REQUIRE_ORDER_EVENTS')=='1':
-   mobile.wait_for_timeout(7000)
+   # Cross the server's full 20-second heartbeat through both public gateways.
+   mobile.wait_for_timeout(21000)
+   assert 200 in watch_responses and all(status==200 for status in watch_responses), watch_responses
    assert ('POST',API+'/orders/watch') in traffic, 'Mobile must subscribe to changes'
    assert sum(1 for method,url in traffic if method=='GET' and url==API+'/orders')<=3, 'No three-second snapshot polling'
   prep=pages['prep'].locator('[data-order-number="'+number+'"]')
@@ -97,7 +100,7 @@ def main():
   assert result['state']=='fulfilled' and result['payment_state']=='not_started' and result['payment_attempt_id'] is None
   assert not errors
   if os.environ.get('REQUIRE_ORDER_EVENTS')=='1': assert max(latencies)<2.5, latencies
-  (OUT/'result.json').write_text(json.dumps({'passed':True,'number':number,'state':result['state'],'payment_state':result['payment_state'],'fiscal_state':result['fiscal_state'],'screens':[320,390,430],'event_latency_seconds':latencies,'events_required':os.environ.get('REQUIRE_ORDER_EVENTS')=='1'},indent=2)+'\n')
+  (OUT/'result.json').write_text(json.dumps({'passed':True,'number':number,'state':result['state'],'payment_state':result['payment_state'],'fiscal_state':result['fiscal_state'],'screens':[320,390,430],'event_latency_seconds':latencies,'events_required':os.environ.get('REQUIRE_ORDER_EVENTS')=='1','public_heartbeat_passed':os.environ.get('REQUIRE_ORDER_EVENTS')=='1'},indent=2)+'\n')
   print('PASS: unpaid mobile order, whole-ticket preparation, assembly, LED, live mobile status and handoff; '+number)
   ctx.unroute_all(behavior='ignoreErrors')
   operator.unroute_all(behavior='ignoreErrors')

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T08:24:58.033787+00:00",
+  "updatedAt": "2026-09-25T10:14:16.431534+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3265,7 +3265,7 @@
       "id": "mobile-order-events",
       "workstream": "mobile",
       "title": "Обновлять статус сразу после кухни",
-      "summary": "Событийное ожидание вместо трёхсекундного опроса. PostgreSQL commit, авторизация, восстановление связи и отдельные лимиты; локальные проверки прошли, публикация впереди.",
+      "summary": "Установлен a0e198e: статус по событию после кухни, восстановление связи и отдельные лимиты. Публичный неоплаченный цикл T-000040 прошёл; физический iPhone ожидает приёмки.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -3274,17 +3274,25 @@
         {
           "label": "Протокол событий и выпуска",
           "path": "docs/operations/mobile-order-events.md"
+        },
+        {
+          "label": "Foundation CI выпущенного SHA",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/36119864030"
+        },
+        {
+          "label": "PR85",
+          "url": "https://github.com/xaaknazar/pickchick/pull/85"
         }
       ],
       "acceptance": [
         "Статус меняется после подтверждения кухни без ожидания очередного опроса.",
         "После возврата в приложение отображается актуальная версия заказа."
       ],
-      "nextAction": "Пройти полный CI, выпустить API/gateway и проверить публичный цикл; затем принять на iPhone.",
+      "nextAction": "Владельцу перезапустить PickChick Dev и подтвердить моментальную смену статуса на iPhone. Физический LED и коммерческий checkout отдельно.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }
