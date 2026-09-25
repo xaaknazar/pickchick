@@ -238,11 +238,12 @@
         "tests",
         "docs",
         "@vps/public-https",
-        "infra/staging/release-order-events.py"
+        "infra/staging/release-order-events.py",
+        "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
-      "status": "available",
+      "status": "active",
       "head": "3bc1a1d8f19a9fcd2583c3f5a55909d67031acab",
-      "updatedAt": "2026-09-25T14:00:03.612Z",
+      "updatedAt": "2026-09-25T14:06:04.449Z",
       "summary": "PR89: cart/checkout bottom sheets, line editing and +/-; restaurant takeaway/dine-in, Apple Pay/card pending UI. 167 Node +30 Python, 7 roadmap, mobile types/lint, 4-size sheet/UX/shortcut and 3-size release checkout passed; native Dev bundles200. CI36144306099 blocked before steps by billing/spending limit. VPS/Windows/online roadmap unchanged.",
       "nextAction": "Owner checks physical iPhone gestures/keyboard/large text. Restore Actions, rerun exact-SHA CI and publish roadmap; then payment/tokenization/server promo integrations. Shift021 release and Windows operational shift linkage remain pending separately."
     }
