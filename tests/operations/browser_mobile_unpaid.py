@@ -37,7 +37,7 @@ def main():
    page.get_by_label('Ключ доступа',exact=True).fill(tokens[role])
    page.get_by_role('button',name='Открыть рабочий экран',exact=True).click()
    expect(page.locator('.staff-login')).to_have_count(0)
-  ctx=browser.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True)
+  ctx=browser.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True,reduced_motion='reduce')
   signed_in(ctx);mobile=ctx.new_page();errors=[];mobile.on('pageerror',lambda e:errors.append(str(e)))
   mobile.goto(MOBILE+'/screen/M06')
   mobile.get_by_test_id('product-pick-combo').click(timeout=60000)

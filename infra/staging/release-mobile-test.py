@@ -91,7 +91,7 @@ class Release(market.Release):
         with tarfile.open(bundle, 'w') as tar:
             for file in (market.REPO/'apps/operations/dist').rglob('*'):
                 if file.is_file():
-                    require(not file.is_symlink() and file.suffix in ['.html','.js','.css','.svg','.png','.woff','.woff2'], 'Unexpected web asset')
+                    require(not file.is_symlink() and file.suffix in ['.html','.js','.css','.svg','.png','.jpg','.jpeg','.webp','.avif','.ico','.woff','.woff2','.ttf','.mp4'], 'Unexpected web asset')
                     tar.add(file, arcname='operations/'+str(file.relative_to(market.REPO/'apps/operations/dist')))
         new = f'{REMOTE}/public-https/releases/{self.sha}/infra/public-staging'
         self.remote(f'test ! -e {REMOTE}/public-https/releases/{self.sha} && mkdir -p {new} && cp -a {old}/. {new}/ && tar -xf - -C {new}/public-web',input=bundle.read_bytes(),timeout=180)
