@@ -6,6 +6,7 @@ import {
   TestOrdersSchema,
   TestKitchenSchema,
   TestDisplaySchema,
+  TestServiceShiftCurrentSchema,
   type TestOrder,
   type TestQuote,
 } from '@pickchick/test-order-flow/contracts';
@@ -39,6 +40,8 @@ export function errorText(error: unknown): string {
   if (error.status === 403) return 'У этого ключа нет прав для выбранного экрана.';
   if (error.code === 'QUOTE_EXPIRED')
     return 'Расчёт заказа истёк. Вернитесь в корзину для нового расчёта.';
+  if (error.code === 'SHIFT_CLOSED')
+    return 'Смена закрыта. Дождитесь открытия новой смены. Состав заказа сохранён.';
   if (error.status === 409) return 'Заказ уже изменился. Обновите его состояние перед действием.';
   if (error.status === 429) return 'Слишком много запросов. Повторите позднее.';
   if (error.status === 503) return 'Сервис временно недоступен. Повторите запрос позже.';
@@ -89,6 +92,23 @@ async function request<T>(
 }
 
 export const api = {
+  shift: (token: string) => request('/shift', TestServiceShiftCurrentSchema, token),
+  changeShift: (
+    token: string,
+    action: 'open' | 'close',
+    current: ReturnType<typeof TestServiceShiftCurrentSchema.parse>['shift'],
+    key: string,
+  ) =>
+    request(
+      `/shift/${action}`,
+      TestServiceShiftCurrentSchema,
+      token,
+      {
+        previous_shift_id: current?.shift_id ?? null,
+        expected_version: current?.version ?? null,
+      },
+      key,
+    ),
   catalog: () => request('/catalog', TestCatalogSchema),
   session: () => request('/sessions', TestSessionSchema, undefined, { channel: 'kiosk' }),
   continueSession: (token: string) => request('/sessions/continue', TestSessionSchema, token, {}),
@@ -155,7 +175,7 @@ export const api = {
     ),
   manager: (token: string) =>
     request('/manager/orders?catalog_version=mockup-v0.3', TestOrdersSchema, token),
-  display: (token: string) => request('/display', TestDisplaySchema, token),
+  display: (token: string) => request('/display?shift_context=1', TestDisplaySchema, token),
 };
 
 export function readSession(): Session | null {

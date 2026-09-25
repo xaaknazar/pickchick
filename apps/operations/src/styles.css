@@ -1288,6 +1288,29 @@ label {
   font-size: 10px;
   color: #71839f;
 }
+.service-shift {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+}
+.service-shift > h2 {
+  font-size: 22px;
+}
+.service-shift p {
+  margin: 0;
+  max-width: 800px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.service-shift > p {
+  color: var(--muted);
+}
+.service-shift > button {
+  justify-self: start;
+}
+.service-shift .action-row {
+  margin-top: 12px;
+}
 .manager-panel {
   border: 1px solid #1e2a42;
   border-radius: 14px;

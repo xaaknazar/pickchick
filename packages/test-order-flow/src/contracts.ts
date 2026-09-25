@@ -260,6 +260,24 @@ export const TestOrderSchema = z.strictObject({
   cancellation_reason: z.string().nullable(),
 });
 export type TestOrder = z.infer<typeof TestOrderSchema>;
+export const TestServiceShiftSchema = z.strictObject({
+  shift_id: Uuid,
+  number: z.string().regex(/^[1-9]\d*$/),
+  state: z.enum(['open', 'closed']),
+  version: z.int().positive(),
+  opened_at: z.iso.datetime(),
+  closed_at: z.iso.datetime().nullable(),
+});
+export const TestServiceShiftCurrentSchema = z.strictObject({
+  ...Synthetic,
+  shift: TestServiceShiftSchema.nullable(),
+});
+export const TestServiceShiftChangeSchema = z
+  .strictObject({
+    previous_shift_id: Uuid.nullable(),
+    expected_version: z.int().positive().nullable(),
+  })
+  .refine((value) => (value.previous_shift_id === null) === (value.expected_version === null));
 export const TestOrdersSchema = z.strictObject({
   ...Synthetic,
   orders: z.array(TestOrderSchema).max(2000),
@@ -277,6 +295,10 @@ export const TestDisplaySchema = z.strictObject({
         channel: TestChannelSchema,
         order_id: Uuid.optional(),
         business_date: z.iso.date().optional(),
+        shift_number: z
+          .string()
+          .regex(/^[1-9]\d*$/)
+          .optional(),
       }),
     )
     .max(2000),
@@ -287,6 +309,10 @@ export const TestDisplaySchema = z.strictObject({
         channel: TestChannelSchema,
         order_id: Uuid.optional(),
         business_date: z.iso.date().optional(),
+        shift_number: z
+          .string()
+          .regex(/^[1-9]\d*$/)
+          .optional(),
       }),
     )
     .max(2000),

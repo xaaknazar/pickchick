@@ -245,13 +245,23 @@ test('migration upgrades all unrevoked legacy credentials and preserves tokens, 
         const revokedCustomer = await ctx.flow.issueSession({ channel: 'mobile' });
         const manager = await provisionTestActor(ctx.cloud.pool, config, 'manager');
         const revokedStaff = await provisionTestActor(ctx.cloud.pool, config, 'prep');
-        const open = await ctx.make();
+        // Insert with the historical schema, not the current service's shift precondition.
+        const legacyMake = async (session = ctx.customer) => {
+          const quote = await ctx.flow.quote(session.token, randomUUID(), cart);
+          const orderId = randomUUID();
+          await ctx.cloud.pool.query(
+            'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor) VALUES($1,$2,$3,$4,$5,$6)',
+            [orderId, session.session_id, TEST_BRANCH_ID, quote.quote_id, quote, quote.total_minor],
+          );
+          return ctx.flow.readOrder(session.token, orderId);
+        };
+        const open = await legacyMake();
         await ctx.flow.simulatePayment(ctx.customer.token, randomUUID(), open.order_id, {
           expected_version: open.version,
           outcome: 'unknown',
         });
-        await ctx.make(expiredCustomer);
-        await ctx.make(revokedCustomer);
+        await legacyMake(expiredCustomer);
+        await legacyMake(revokedCustomer);
         await revokeTestActor(ctx.cloud.pool, config, revokedCustomer.session_id);
         await revokeTestActor(ctx.cloud.pool, config, revokedStaff.actor_id);
         await ctx.cloud.pool.query(

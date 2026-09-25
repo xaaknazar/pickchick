@@ -30,6 +30,8 @@ import {
   TestContinueSessionInputSchema,
   TestSessionSchema,
   TestVersionSchema,
+  TestServiceShiftCurrentSchema,
+  TestServiceShiftChangeSchema,
   type TestOrder,
   type TestRole,
 } from './contracts.js';
@@ -50,6 +52,7 @@ export type TestFlowErrorCode =
   | 'CONFLICT'
   | 'QUOTE_EXPIRED'
   | 'RATE_LIMITED'
+  | 'SHIFT_CLOSED'
   | 'BRANCH_UNAVAILABLE';
 export class TestFlowError extends Error {
   constructor(readonly code: TestFlowErrorCode) {
@@ -331,11 +334,65 @@ export class TestOrderFlow {
     private readonly pool: DatabasePool,
     private readonly config: TestFlowConfig,
   ) {}
+  private async shiftSnapshot(client: DatabaseClient, branchId: string) {
+    const row = (
+      await client.query(
+        'SELECT id AS shift_id,sequence::text AS number,state,version,opened_at,closed_at FROM test_service_shifts WHERE branch_id=$1 ORDER BY sequence DESC LIMIT 1',
+        [branchId],
+      )
+    ).rows[0];
+    return TestServiceShiftCurrentSchema.parse({
+      synthetic: true,
+      namespace: TEST_NAMESPACE,
+      shift: row
+        ? {
+            ...row,
+            opened_at: row.opened_at.toISOString(),
+            closed_at: row.closed_at?.toISOString() ?? null,
+          }
+        : null,
+    });
+  }
+  currentShift(token: string) {
+    return this.read(token, ['manager'], (client, actor) =>
+      this.shiftSnapshot(client, actor.branch_id),
+    );
+  }
+  changeShift(token: string, key: string, action: 'open' | 'close', input: unknown) {
+    const body = parse(TestServiceShiftChangeSchema, input);
+    return this.command(token, ['manager'], key, `shift.${action}`, body, async (client, actor) => {
+      const current = (await this.shiftSnapshot(client, actor.branch_id)).shift;
+      if (
+        (current?.shift_id ?? null) !== body.previous_shift_id ||
+        (current?.version ?? null) !== body.expected_version
+      )
+        throw new TestFlowError('CONFLICT');
+      if (action === 'open') {
+        if (current?.state === 'open') throw new TestFlowError('CONFLICT');
+        await client.query("INSERT INTO test_service_shifts(branch_id,state) VALUES($1,'open')", [
+          actor.branch_id,
+        ]);
+      } else {
+        if (!current || current.state !== 'open') throw new TestFlowError('CONFLICT');
+        await client.query(
+          "UPDATE test_service_shifts SET state='closed',version=version+1,closed_at=clock_timestamp() WHERE id=$1",
+          [current.shift_id],
+        );
+      }
+      return this.shiftSnapshot(client, actor.branch_id);
+    });
+  }
+  // Compatibility name: daily now uses the persistent shift-scoped number.
   // Apply only to an already authorized server response. Stored command results and
   // outbox keep their original global references, including during an API rollback.
-  async dailyNumbers<T>(result: T): Promise<T> {
+  async dailyNumbers<T>(result: T, shiftContext = false): Promise<T> {
     const references = new Set<string>();
-    type NumberIdentity = { number: string; order_id: string; business_date: string };
+    type NumberIdentity = {
+      number: string;
+      order_id: string;
+      business_date: string;
+      shift_number: string;
+    };
     const visit = (value: unknown, replace?: Map<string, NumberIdentity>): unknown => {
       if (Array.isArray(value)) return value.map((item) => visit(item, replace));
       if (!value || typeof value !== 'object') return value;
@@ -345,7 +402,7 @@ export class TestOrderFlow {
             references.add(item);
             if (replace) {
               const number = replace.get(item);
-              if (!number) throw new Error('Missing persistent daily order number');
+              if (!number) throw new Error('Missing persistent order number');
               return [key, number.number];
             }
           }
@@ -364,6 +421,7 @@ export class TestOrderFlow {
           Object.assign(output, {
             order_id: identity.order_id,
             business_date: identity.business_date,
+            ...(shiftContext ? { shift_number: identity.shift_number } : {}),
           });
       }
       return output;
@@ -373,7 +431,7 @@ export class TestOrderFlow {
     const rows = (
       await this.pool.query<NumberIdentity & { reference: string }>(
         `SELECT 'T-' || lpad(o.sequence::text,GREATEST(length(o.sequence::text),6),'0') AS reference,
-       n.number::text AS number, n.order_id, n.business_date::text AS business_date FROM test_orders o JOIN test_order_numbers n ON n.order_id=o.id
+       n.number::text AS number, n.order_id, n.business_date::text AS business_date, s.sequence::text AS shift_number FROM test_orders o JOIN test_order_numbers n ON n.order_id=o.id JOIN test_service_shifts s ON s.id=n.shift_id
        WHERE o.branch_id=$1 AND o.sequence=ANY($2::bigint[])`,
         [TEST_BRANCH_ID, [...references].map((reference) => reference.slice(2))],
       )
@@ -576,6 +634,8 @@ export class TestOrderFlow {
   createOrder(token: string, key: string, input: unknown) {
     const body = parse(TestCreateOrderSchema, input);
     return this.command(token, ['customer'], key, 'order.create', body, async (client, actor) => {
+      const shift = (await this.shiftSnapshot(client, actor.branch_id)).shift;
+      if (shift?.state === 'closed') throw new TestFlowError('SHIFT_CLOSED');
       const q = (
         await client.query(
           'SELECT *,expires_at>clock_timestamp() AS valid FROM test_quotes WHERE id=$1 AND actor_id=$2',

@@ -451,7 +451,7 @@ function testOperation(method, operationId, result, input, options = {}) {
     in: 'query',
     required: false,
     description:
-      'Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.',
+      'Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.',
     schema: { type: 'string', enum: ['daily'] },
   });
   if (options.idempotent)
@@ -588,8 +588,43 @@ Object.assign(openapi.paths, {
     { path: ['orderId'], idempotent: true, roles: 'Assembly or manager. Requires ready state.' },
   ),
   '/v1/test/display': testOperation('get', 'readTestDisplay', 'TestDisplay', undefined, {
-    roles: 'Display or manager. Returns public order numbers only.',
+    roles:
+      'Display or manager. Returns public order numbers only. Optional shift_context=1 adds shift_number with number_format=daily for duplicate numbers across shifts.',
   }),
+  '/v1/test/shift': testOperation(
+    'get',
+    'readTestServiceShift',
+    'TestServiceShiftCurrent',
+    undefined,
+    {
+      roles:
+        'Manager only. Current operational shift of the synthetic cloud queue; independent of Windows cash shifts.',
+    },
+  ),
+  '/v1/test/shift/open': testOperation(
+    'post',
+    'openTestServiceShift',
+    'TestServiceShiftCurrent',
+    'TestServiceShiftChange',
+    {
+      roles:
+        'Manager only. Checks previous shift and version; starts numbering at 1. Null previous identity is valid only before the first shift.',
+      idempotent: true,
+      status: 201,
+    },
+  ),
+  '/v1/test/shift/close': testOperation(
+    'post',
+    'closeTestServiceShift',
+    'TestServiceShiftCurrent',
+    'TestServiceShiftChange',
+    {
+      roles:
+        'Manager only. Stops new orders; existing orders can still complete. Requires the open shift identity and version.',
+      idempotent: true,
+      status: 201,
+    },
+  ),
   '/v1/test/manager/orders': testOperation(
     'get',
     'listManagedTestOrders',

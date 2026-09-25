@@ -207,6 +207,7 @@ test('013-014/018 preserve old unacknowledged commercial bytes and observed tota
                   '018_pos_kitchen_sync.sql',
                   '019_cloud_unpaid_test_orders.sql',
                   '020_cloud_daily_test_numbers.sql',
+                  '021_cloud_test_service_shifts.sql',
                 ],
           );
           assert.deepEqual(await migrate(ctx[side].pool, paths[side], side), []);

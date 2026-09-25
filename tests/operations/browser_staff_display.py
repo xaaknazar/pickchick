@@ -52,7 +52,7 @@ class Fixture:
     def handle(self, method, path, authorization):
         # Never store authorization headers in logs or assertion output.
         self.requests.append((method, path))
-        if method != 'GET' or path not in ('/display', '/kitchen', '/manager/orders'):
+        if method != 'GET' or path not in ('/display', '/kitchen', '/manager/orders', '/shift'):
             self.violations.append((method, path))
             return 405, {'code': 'UNEXPECTED_FIXTURE_REQUEST'}
         role = next((role for role, token in TOKENS.items()
@@ -60,9 +60,11 @@ class Fixture:
         if role is None:
             return 401, {'code': 'UNAUTHORIZED'}
         permitted = {'/display': ('display',), '/kitchen': ('prep', 'assembly'),
-                     '/manager/orders': ('manager',)}
+                     '/manager/orders': ('manager',), '/shift': ('manager',)}
         if role not in permitted[path]:
             return 403, {'code': 'FORBIDDEN'}
+        if path == '/shift':
+            return 200, {**SYNTHETIC, 'shift': None}
         if path == '/display':
             if self.display_status != 200:
                 return self.display_status, {'code': 'LOCAL_FIXTURE_UNAVAILABLE'}
@@ -194,6 +196,17 @@ class StaffDisplay(unittest.TestCase):
     def numbers(self, page, ready=False):
         group = '.display-columns > section.ready' if ready else '.display-columns > section:not(.ready)'
         return page.locator(group + ' .display-number')
+
+    def test_same_number_from_two_shifts_has_distinct_context(self):
+        self.fixture.set_orders(['1'], ['1'])
+        for key, shift in [('preparing', '2'), ('ready', '1')]:
+            self.fixture.display[key][0].update(order_id=f'30000000-0000-4000-8000-{int(shift):012d}', shift_number=shift)
+        page = self.open('display', width=1280, height=720)
+        self.login(page, 'display')
+        expect(page.locator('.display-order')).to_have_count(2)
+        expect(page.locator('.display-order-caption').filter(has_text='Смена №1')).to_be_visible()
+        expect(page.locator('.display-order-caption').filter(has_text='Смена №2')).to_be_visible()
+        page.screenshot(path=str(OUTPUT / 'display-two-shifts.png'))
 
     def test_role_gate_and_removed_navigation_on_every_staff_surface(self):
         for role in PATHS:

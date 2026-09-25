@@ -2495,7 +2495,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -2635,7 +2635,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -2789,7 +2789,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -2952,7 +2952,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -3106,7 +3106,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -3248,7 +3248,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -3411,7 +3411,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -3574,7 +3574,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -3727,7 +3727,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -3899,7 +3899,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -4071,7 +4071,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -4234,7 +4234,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -4396,7 +4396,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -4568,7 +4568,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -4706,7 +4706,7 @@
         "tags": [
           "Synthetic TEST"
         ],
-        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Display or manager. Returns public order numbers only.",
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Display or manager. Returns public order numbers only. Optional shift_context=1 adds shift_number with number_format=daily for duplicate numbers across shifts.",
         "security": [
           {
             "testBearer": []
@@ -4731,7 +4731,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -4747,6 +4747,476 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TestDisplay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired TEST credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong station role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TEST gate disabled or resource outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, expired quote, idempotency conflict or unresolved simulation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable synthetic quota reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Synthetic branch unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/test/shift": {
+      "get": {
+        "operationId": "readTestServiceShift",
+        "tags": [
+          "Synthetic TEST"
+        ],
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Manager only. Current operational shift of the synthetic cloud queue; independent of Windows cash shifts.",
+        "security": [
+          {
+            "testBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
+            "name": "number_format",
+            "in": "query",
+            "required": false,
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestServiceShiftCurrent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired TEST credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong station role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TEST gate disabled or resource outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, expired quote, idempotency conflict or unresolved simulation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable synthetic quota reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Synthetic branch unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/test/shift/open": {
+      "post": {
+        "operationId": "openTestServiceShift",
+        "tags": [
+          "Synthetic TEST"
+        ],
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Manager only. Checks previous shift and version; starts numbering at 1. Null previous identity is valid only before the first shift.",
+        "security": [
+          {
+            "testBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
+            "name": "number_format",
+            "in": "query",
+            "required": false,
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily"
+              ]
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestServiceShiftChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestServiceShiftCurrent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired TEST credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong station role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TEST gate disabled or resource outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, expired quote, idempotency conflict or unresolved simulation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable synthetic quota reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Synthetic branch unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/test/shift/close": {
+      "post": {
+        "operationId": "closeTestServiceShift",
+        "tags": [
+          "Synthetic TEST"
+        ],
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Manager only. Stops new orders; existing orders can still complete. Requires the open shift identity and version.",
+        "security": [
+          {
+            "testBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
+            "name": "number_format",
+            "in": "query",
+            "required": false,
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily"
+              ]
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestServiceShiftChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestServiceShiftCurrent"
                 }
               }
             }
@@ -4875,7 +5345,7 @@
             "name": "number_format",
             "in": "query",
             "required": false,
-            "description": "Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
             "schema": {
               "type": "string",
               "enum": [
@@ -8720,6 +9190,7 @@
               "BRANCH_UNAVAILABLE",
               "ITEM_STOPPED",
               "CASH_SHIFT_REQUIRED",
+              "SHIFT_CLOSED",
               "CONFLICT",
               "INSUFFICIENT_STOCK",
               "NOT_READY",
@@ -13264,6 +13735,10 @@
                   "type": "string",
                   "format": "date",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "shift_number": {
+                  "type": "string",
+                  "pattern": "^[1-9]\\d*$"
                 }
               },
               "required": [
@@ -13298,6 +13773,10 @@
                   "type": "string",
                   "format": "date",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "shift_number": {
+                  "type": "string",
+                  "pattern": "^[1-9]\\d*$"
                 }
               },
               "required": [
@@ -15958,6 +16437,173 @@
           "group_id",
           "option_id",
           "quantity"
+        ],
+        "additionalProperties": false
+      },
+      "TestServiceShiftChange": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "previous_shift_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "previous_shift_id",
+          "expected_version"
+        ],
+        "additionalProperties": false
+      },
+      "TestServiceShiftCurrent": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "synthetic": {
+            "type": "boolean",
+            "const": true
+          },
+          "namespace": {
+            "type": "string",
+            "const": "pickchick-test"
+          },
+          "shift": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "shift_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "number": {
+                    "type": "string",
+                    "pattern": "^[1-9]\\d*$"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "opened_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "closed_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "shift_id",
+                  "number",
+                  "state",
+                  "version",
+                  "opened_at",
+                  "closed_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "synthetic",
+          "namespace",
+          "shift"
+        ],
+        "additionalProperties": false
+      },
+      "TestServiceShift": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "shift_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "number": {
+            "type": "string",
+            "pattern": "^[1-9]\\d*$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "shift_id",
+          "number",
+          "state",
+          "version",
+          "opened_at",
+          "closed_at"
         ],
         "additionalProperties": false
       },

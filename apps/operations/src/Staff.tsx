@@ -292,6 +292,89 @@ function Metric({ value, children }: { value: number; children: ReactNode }) {
   );
 }
 
+function ServiceShift({ token }: { token: string }) {
+  const load = useCallback(() => api.shift(token), [token]);
+  const remote = usePoll(load);
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const current = remote.data?.shift;
+  async function change(action: 'open' | 'close') {
+    if (
+      busy ||
+      !remote.data ||
+      remote.error ||
+      (action === 'close' && confirm !== current?.shift_id)
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.changeShift(
+        token,
+        action,
+        current ?? null,
+        commandKey('service-shift', {
+          action,
+          shift: current?.shift_id ?? null,
+          version: current?.version ?? null,
+        }),
+      );
+      setConfirm(null);
+      await remote.refresh();
+    } catch (cause) {
+      setError(cause);
+      void remote.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="manager-panel service-shift" aria-label="Смена ресторанной очереди">
+      <h2>{current?.state === 'open' ? 'Смена открыта' : current ? 'Смена закрыта' : 'Смена'}</h2>
+      {current ? (
+        <p>
+          Смена №{current.number} · Начало:{' '}
+          {new Date(current.opened_at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' })}
+        </p>
+      ) : null}
+      <p>Номера идут по порядку до закрытия смены. Новая смена начинается с №1.</p>
+      {remote.error ? (
+        <Notice warning>
+          Не удалось проверить смену.{' '}
+          <button onClick={() => void remote.refresh()}>Обновить смену</button>
+        </Notice>
+      ) : null}
+      {error ? <Notice warning>{errorText(error)}</Notice> : null}
+      {confirm === current?.shift_id && current?.state === 'open' ? (
+        <div role="group" aria-label="Подтверждение закрытия смены">
+          <p>
+            Закрыть смену? Новые заказы будут недоступны до открытия следующей. Заказы на кухне
+            сохранятся и смогут быть выданы.
+          </p>
+          <div className="action-row">
+            <button disabled={busy || Boolean(remote.error)} onClick={() => void change('close')}>
+              Подтвердить закрытие смены
+            </button>
+            <button disabled={busy} onClick={() => setConfirm(null)}>
+              Продолжить смену
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          disabled={busy || !remote.data || Boolean(remote.error)}
+          onClick={() =>
+            current?.state === 'open' ? setConfirm(current.shift_id) : void change('open')
+          }
+        >
+          {busy ? 'Сохраняем…' : current?.state === 'open' ? 'Закрыть смену' : 'Открыть смену'}
+        </button>
+      )}
+    </section>
+  );
+}
+
 function Manager({ token, logout }: { token: string; logout: () => void }) {
   const load = useCallback(() => api.manager(token), [token]);
   const remote = usePoll(load);
@@ -345,6 +428,7 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
             </div>
           </header>
           <Connection observed={remote.observed} error={remote.error} refresh={remote.refresh} />
+          <ServiceShift token={token} />
           <div className="metrics">
             <Metric value={all.length}>Всего в списке</Metric>
             <Metric value={all.filter((o) => o.state === 'preparing').length}>На кухне</Metric>

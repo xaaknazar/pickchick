@@ -117,6 +117,7 @@ export class TestOrderController {
           QUOTE_EXPIRED: 409,
           RATE_LIMITED: 429,
           BRANCH_UNAVAILABLE: 503,
+          SHIFT_CLOSED: 409,
         };
         throw new HttpException(
           { code: error.code === 'DISABLED' ? 'NOT_FOUND' : error.code },
@@ -131,6 +132,23 @@ export class TestOrderController {
     @Query('number_format') numberFormat?: string,
   ) {
     return this.execute((flow) => flow.catalog(representation), representation, numberFormat);
+  }
+  @Get('shift') shift(@Headers('authorization') auth?: string) {
+    return this.execute((flow) => flow.currentShift(this.token(auth)));
+  }
+  @Post('shift/open') openShift(
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.execute((flow) => flow.changeShift(this.token(auth), key ?? '', 'open', body));
+  }
+  @Post('shift/close') closeShift(
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.execute((flow) => flow.changeShift(this.token(auth), key ?? '', 'close', body));
   }
   @Post('sessions') session(
     @Body() body: unknown,
@@ -278,8 +296,18 @@ export class TestOrderController {
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
     @Query('number_format') numberFormat?: string,
+    @Query('shift_context') shiftContext?: string,
   ) {
-    return this.execute((flow) => flow.display(this.token(auth)), representation, numberFormat);
+    return this.execute(
+      async (flow) => {
+        const result = await flow.display(this.token(auth));
+        return numberFormat === 'daily' && shiftContext === '1'
+          ? flow.dailyNumbers(result, true)
+          : result;
+      },
+      representation,
+      numberFormat,
+    );
   }
   @Get('manager/orders') manager(
     @Headers('authorization') auth?: string,

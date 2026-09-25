@@ -32,6 +32,8 @@ export interface TestFlowModel {
 
 function errorMessage(error: unknown): string {
   if (error instanceof TestApiError) {
+    if (error.code === 'SHIFT_CLOSED')
+      return 'Смена закрыта. Заказ можно отправить после открытия новой смены. Корзина сохранена.';
     if (error.status === 401)
       return 'Срок доступа истёк. Продлите его после завершения всех заказов. Если заказ ещё на кухне, попросите оператора закончить проверку.';
     if (error.status === 429) return 'Слишком много запросов. Повторите позже.';

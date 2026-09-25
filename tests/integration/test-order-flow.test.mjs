@@ -491,12 +491,34 @@ test('HTTP refuses public staff issuance and unauthorized kitchen, validates bod
           404,
         );
       assert.equal((await request(`${api.url}/v1/test/kitchen`)).status, 401);
+      assert.equal((await request(`${api.url}/v1/test/shift`)).status, 401);
       const headers = {
         Authorization: `Bearer ${ctx.customer.token}`,
         'Content-Type': 'application/json',
         'Idempotency-Key': randomUUID(),
       };
       assert.equal((await request(`${api.url}/v1/test/kitchen`, { headers })).status, 403);
+      assert.equal((await request(`${api.url}/v1/test/shift`, { headers })).status, 403);
+      const shiftHeaders = { ...headers, Authorization: `Bearer ${ctx.actors.manager.token}` };
+      const openedResponse = await request(`${api.url}/v1/test/shift/open`, {
+        method: 'POST',
+        headers: shiftHeaders,
+        body: JSON.stringify({ previous_shift_id: null, expected_version: null }),
+      });
+      assert.equal(openedResponse.status, 201);
+      const openedShift = await openedResponse.json();
+      assert.equal(openedShift.shift.state, 'open');
+      assert.deepEqual(
+        await (
+          await request(`${api.url}/v1/test/shift/open`, {
+            method: 'POST',
+            headers: shiftHeaders,
+            body: JSON.stringify({ previous_shift_id: null, expected_version: null }),
+          })
+        ).json(),
+        openedShift,
+      );
+
       const qr = await request(`${api.url}/v1/test/quotes`, {
         method: 'POST',
         headers,
@@ -623,6 +645,35 @@ test('HTTP refuses public staff issuance and unauthorized kitchen, validates bod
       assert.deepEqual(oldOnNewClient, order);
       const actual = await ctx.flow.readOrder(ctx.customer.token, newOrder.order_id);
       assert.deepEqual(actual.snapshot, newQuote);
+      const shiftBody = {
+        previous_shift_id: openedShift.shift.shift_id,
+        expected_version: openedShift.shift.version,
+      };
+      assert.equal(
+        (
+          await request(`${api.url}/v1/test/shift/close`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(shiftBody),
+          })
+        ).status,
+        403,
+      );
+      const closedResponse = await request(`${api.url}/v1/test/shift/close`, {
+        method: 'POST',
+        headers: { ...shiftHeaders, 'Idempotency-Key': randomUUID() },
+        body: JSON.stringify(shiftBody),
+      });
+      assert.equal(closedResponse.status, 201);
+      assert.equal((await closedResponse.json()).shift.state, 'closed');
+      const waitingQuote = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);
+      const blocked = await request(`${api.url}/v1/test/orders`, {
+        method: 'POST',
+        headers: { ...headers, 'Idempotency-Key': randomUUID() },
+        body: JSON.stringify({ quote_id: waitingQuote.quote_id }),
+      });
+      assert.equal(blocked.status, 409);
+      assert.equal((await blocked.json()).code, 'SHIFT_CLOSED');
     } finally {
       await api.app.close();
     }
@@ -1124,7 +1175,97 @@ test('HTTP event wait delivers kitchen changes, scopes customers, reauthenticate
   });
 });
 
-test('daily numbers survive midnight, concurrency, rollback, retention and legacy response replay', async () => {
+test('only explicit shift reopening resets numbers; retries, authorization and old orders remain safe', async () => {
+  await withDesk(async (ctx) => {
+    const manager = ctx.actors.manager.token;
+    const input = (current) => ({
+      previous_shift_id: current?.shift_id ?? null,
+      expected_version: current?.version ?? null,
+    });
+    assert.equal((await ctx.flow.currentShift(manager)).shift, null);
+    for (const token of [
+      ctx.customer.token,
+      ctx.actors.prep.token,
+      ctx.actors.assembly.token,
+      ctx.actors.display.token,
+    ]) {
+      await assert.rejects(ctx.flow.currentShift(token), code('FORBIDDEN'));
+      await assert.rejects(
+        ctx.flow.changeShift(token, randomUUID(), 'open', input(null)),
+        code('FORBIDDEN'),
+      );
+    }
+    const openKey = randomUUID();
+    const opened = await ctx.flow.changeShift(manager, openKey, 'open', input(null));
+    assert.equal(opened.shift.state, 'open');
+    assert.deepEqual(await ctx.flow.changeShift(manager, openKey, 'open', input(null)), opened);
+    const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);
+    const orderKey = randomUUID();
+    const original = await ctx.flow.createOrder(ctx.customer.token, orderKey, {
+      quote_id: quote.quote_id,
+    });
+    assert.equal((await ctx.flow.dailyNumbers(original)).number, '1');
+    const closeKey = randomUUID();
+    const closed = await ctx.flow.changeShift(manager, closeKey, 'close', input(opened.shift));
+    assert.equal(closed.shift.state, 'closed');
+    const pending = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);
+    const pendingKey = randomUUID();
+    await assert.rejects(
+      ctx.flow.createOrder(ctx.customer.token, pendingKey, { quote_id: pending.quote_id }),
+      code('SHIFT_CLOSED'),
+    );
+    assert.deepEqual(
+      await ctx.flow.createOrder(ctx.customer.token, orderKey, { quote_id: quote.quote_id }),
+      original,
+    );
+    // Database rejects inserts from an older service that does not check shift state.
+    await assert.rejects(
+      ctx.cloud.pool.query(
+        'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor) VALUES($1,$2,$3,$4,$5,$6)',
+        [
+          randomUUID(),
+          ctx.customer.session_id,
+          TEST_BRANCH_ID,
+          pending.quote_id,
+          pending,
+          pending.total_minor,
+        ],
+      ),
+      (error) => error.code === '55000',
+    );
+    const next = await ctx.flow.changeShift(manager, randomUUID(), 'open', input(closed.shift));
+    assert.notEqual(next.shift.shift_id, opened.shift.shift_id);
+    const first = await ctx.flow.createOrder(ctx.customer.token, pendingKey, {
+      quote_id: pending.quote_id,
+    });
+    assert.equal((await ctx.flow.dailyNumbers(first)).number, '1');
+    assert.notEqual(first.order_id, original.order_id);
+    // Replaying yesterday's close cannot close today's shift or reset its counter.
+    assert.deepEqual(
+      await ctx.flow.changeShift(manager, closeKey, 'close', input(opened.shift)),
+      closed,
+    );
+    assert.deepEqual(await ctx.flow.currentShift(manager), next);
+    await assert.rejects(
+      ctx.flow.changeShift(manager, randomUUID(), 'close', input(opened.shift)),
+      code('CONFLICT'),
+    );
+    assert.equal((await ctx.flow.dailyNumbers((await ctx.make()).order)).number, '2');
+    await approve(ctx, original);
+    await approve(ctx, first);
+    const display = await ctx.flow.dailyNumbers(await ctx.flow.display(ctx.actors.display.token));
+    assert.equal(display.preparing.filter((o) => o.number === '1').length, 2);
+    assert.equal(new Set(display.preparing.map((o) => o.order_id)).size, 2);
+    const labeled = await ctx.flow.dailyNumbers(
+      await ctx.flow.display(ctx.actors.display.token),
+      true,
+    );
+    assert.equal(new Set(labeled.preparing.map((o) => o.shift_number)).size, 2);
+    assert.ok(display.preparing.every((o) => !('shift_number' in o)));
+  });
+});
+
+test('shift numbers ignore midnight, concurrency, rollback, retention and legacy response replay', async () => {
   await withDesk(async (ctx) => {
     const insertAt = async (when, client = ctx.cloud.pool) => {
       const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);
@@ -1149,7 +1290,7 @@ test('daily numbers survive midnight, concurrency, rollback, retention and legac
     const read = async (id) =>
       ctx.flow.dailyNumbers(await ctx.flow.readOrder(ctx.customer.token, id));
     assert.equal((await read(before)).number, '1');
-    assert.equal((await read(after)).number, '1');
+    assert.equal((await read(after)).number, '2');
     for (const id of [before, after]) {
       await ctx.flow.simulatePayment(ctx.customer.token, randomUUID(), id, {
         expected_version: 1,
@@ -1159,7 +1300,7 @@ test('daily numbers survive midnight, concurrency, rollback, retention and legac
     const oldDisplay = await ctx.flow.display(ctx.actors.display.token);
     const newDisplay = await ctx.flow.dailyNumbers(oldDisplay);
     assert.equal(newDisplay.preparing.length, 2);
-    assert.ok(newDisplay.preparing.every((item) => item.number === '1'));
+    assert.deepEqual(newDisplay.preparing.map((item) => item.number).sort(), ['1', '2']);
     assert.deepEqual(newDisplay.preparing.map((item) => item.business_date).sort(), [
       '2026-09-24',
       '2026-09-25',
@@ -1175,7 +1316,7 @@ test('daily numbers survive midnight, concurrency, rollback, retention and legac
     const values = await Promise.all(concurrent.map(read));
     assert.deepEqual(
       values.map((o) => Number(o.number)).sort((a, b) => a - b),
-      [2, 3, 4, 5, 6, 7],
+      [3, 4, 5, 6, 7, 8],
     );
     const client = await ctx.cloud.pool.connect();
     try {
@@ -1185,7 +1326,7 @@ test('daily numbers survive midnight, concurrency, rollback, retention and legac
     } finally {
       client.release();
     }
-    assert.equal((await read(await insertAt('2026-09-24T19:03:00.000Z'))).number, '8');
+    assert.equal((await read(await insertAt('2026-09-24T19:03:00.000Z'))).number, '9');
     assert.equal((await read(before)).number, '1');
     // Replaying a stored command reprojects only its display number, never its identity/state.
     const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);

@@ -18,10 +18,12 @@ function OrderColumn({
   items,
   ready = false,
   page,
+  duplicateNumbers,
 }: {
   items: Display['preparing'];
   ready?: boolean;
   page: number;
+  duplicateNumbers: Set<string>;
 }) {
   const capacity = ready ? 4 : 6;
   const pages = Math.max(1, Math.ceil(items.length / capacity));
@@ -56,6 +58,9 @@ function OrderColumn({
             </div>
             <p className="display-order-caption">
               {ready ? 'Можно забирать' : 'Ваш заказ на кухне'}
+              {duplicateNumbers.has(item.number) && item.shift_number
+                ? ` · Смена №${item.shift_number}`
+                : ''}
               {item.business_date &&
               item.business_date !==
                 new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date())
@@ -97,6 +102,13 @@ export function DisplayScreen({
   const [now, setNow] = useState(() => new Date());
   const stale = Boolean(remote.error);
   const hasData = Boolean(remote.data);
+  const counts = new Map<string, number>();
+  for (const item of [...(remote.data?.preparing ?? []), ...(remote.data?.ready ?? [])]) {
+    counts.set(item.number, (counts.get(item.number) ?? 0) + 1);
+  }
+  const duplicateNumbers = new Set(
+    [...counts].filter(([, count]) => count > 1).map(([number]) => number),
+  );
   const location = locations.locations.find((item) => item.branch_id === remote.data?.branch_id);
   const accessLost = remote.error instanceof ApiError && [401, 403].includes(remote.error.status);
   useEffect(() => {
@@ -136,8 +148,17 @@ export function DisplayScreen({
       </header>
       {remote.data ? (
         <main className="display-columns" aria-label="Статусы заказов">
-          <OrderColumn items={remote.data.preparing} page={page} />
-          <OrderColumn items={remote.data.ready} ready page={page} />
+          <OrderColumn
+            items={remote.data.preparing}
+            page={page}
+            duplicateNumbers={duplicateNumbers}
+          />
+          <OrderColumn
+            items={remote.data.ready}
+            ready
+            page={page}
+            duplicateNumbers={duplicateNumbers}
+          />
         </main>
       ) : (
         <main className="display-loading" role="status">

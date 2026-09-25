@@ -65,12 +65,13 @@ async function provision() {
       // TEST storage is isolated from sales. Runtime cannot issue/revoke staff
       // through HTTP, rewrite quotes/outbox or mutate the migration ledger.
       await client.query(`REVOKE ALL ON test_flow_lock, test_actors, test_quotes,
-        test_orders, test_kitchen_tasks, test_command_results, test_outbox, test_order_numbers, test_order_day_counters FROM pickchick_app;
-        REVOKE ALL ON SEQUENCE test_orders_sequence_seq FROM pickchick_app;`);
+        test_orders, test_kitchen_tasks, test_command_results, test_outbox, test_order_numbers, test_order_day_counters, test_service_shifts FROM pickchick_app;
+        REVOKE ALL ON SEQUENCE test_orders_sequence_seq, test_service_shifts_sequence_seq FROM pickchick_app;`);
       if (config.testOrderFlowEnabled) {
         await client.query(`GRANT SELECT ON test_flow_lock, test_actors, test_quotes,
           test_orders, test_kitchen_tasks, test_command_results, test_outbox TO pickchick_app;
-          GRANT SELECT ON test_order_numbers, test_order_day_counters TO pickchick_app;
+          GRANT SELECT ON test_order_numbers, test_order_day_counters, test_service_shifts TO pickchick_app;
+          GRANT INSERT (branch_id, state), UPDATE (state,version,closed_at) ON test_service_shifts TO pickchick_app;
           GRANT UPDATE (id) ON test_flow_lock TO pickchick_app;
           GRANT INSERT, DELETE ON test_actors TO pickchick_app;
           GRANT UPDATE (expires_at) ON test_actors TO pickchick_app;
@@ -79,7 +80,7 @@ async function provision() {
           GRANT UPDATE (version, state, payment_state, payment_attempt_id,
             cancellation_reason, updated_at) ON test_orders TO pickchick_app;
           GRANT UPDATE (state) ON test_kitchen_tasks TO pickchick_app;
-          GRANT USAGE ON SEQUENCE test_orders_sequence_seq TO pickchick_app;`);
+          GRANT USAGE ON SEQUENCE test_orders_sequence_seq, test_service_shifts_sequence_seq TO pickchick_app;`);
       }
       await client.query(customerAuthGrants('pickchick_app', config.customerAuthEnabled === true));
       await client.query(catalogAdminGrants('pickchick_app', config.catalogAdminEnabled === true));

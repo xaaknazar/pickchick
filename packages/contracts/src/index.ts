@@ -130,6 +130,7 @@ export const ErrorSchema = z.strictObject({
     'BRANCH_UNAVAILABLE',
     'ITEM_STOPPED',
     'CASH_SHIFT_REQUIRED',
+    'SHIFT_CLOSED',
     'CONFLICT',
     'INSUFFICIENT_STOCK',
     'NOT_READY',
