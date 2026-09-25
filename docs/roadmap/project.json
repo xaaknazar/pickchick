@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T06:00:57.305841+00:00",
+  "updatedAt": "2026-09-25T06:48:51.907805+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -511,8 +511,8 @@
       "id": "platform-ci-recovery",
       "workstream": "platform",
       "title": "Восстановить общую CI и кухонные браузерные сценарии",
-      "summary": "Исправлены kitchen modules404, healthcheck Host, старый RUN-тест, fixtures восстановления меню и геометрии. Обновлён multer после audit high. Локальные проверки прошли; полная GitHub CI итогового SHA ещё требуется.",
-      "status": "active",
+      "summary": "Все6 заданий Foundation CI b8821d5 прошли, включая POS/backoffice/account. Исправлены модули кухни, Host healthcheck и fixtures; обновлён multer. Портал установлен на VPS, healthy и edgeConnected=true. Windows runtime ещё не обновлён.",
+      "status": "done",
       "owner": "development",
       "phase": "foundation",
       "dependsOn": ["platform-foundation"],
@@ -528,6 +528,10 @@
         {
           "label": "Исправления и локальные проверки25сентября",
           "path": "docs/operations/platform-ci-recovery.md"
+        },
+        {
+          "label": "Foundation CI b8821d5 - all 6 jobs passed",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/36102505595"
         }
       ],
       "acceptance": [
@@ -535,11 +539,11 @@
         "Кухонные модули загружаются, вход/команды/восстановление/табло проходят браузерные проверки.",
         "Полная Foundation CI итогового коммита зелёная; пропущенные POS/backoffice/account проверки выполнены."
       ],
-      "nextAction": "Подтвердить все jobs CI на итоговом SHA; опубликовать узкое обновление портала и отдельно принять оборудование.",
+      "nextAction": "Отдельно обновить действующий Windows runtime с сохранением schema014 и данных; принять физические кухню/LED и WAN-loss. Коммерческий запуск не подтверждён.",
       "checks": {
         "implemented": true,
-        "verified": false,
-        "deployed": false,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       }
     },

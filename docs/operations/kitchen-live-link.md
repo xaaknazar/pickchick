@@ -4,6 +4,11 @@
 экраны до выдачи. [Протокол](deployments/2026-09-22-kitchen-live-link.md).
 Физическая кухня по LAN и LED пока не подключены.
 
+25 сентября портал обновлён до b8821d5 после полной зелёной Foundation CI.
+Healthcheck исправлен, Docker healthy и edgeConnected=true подтверждены.
+Windows edge пока5a96ea1; новая команда целого чека требует его отдельного
+обновления. [Протокол](platform-ci-recovery.md).
+
 Маршруты `/kitchen/prep`, `/kitchen/assembly`, `/display` обслуживаются
 `apps/kitchen`, обращаются к той же очереди edge, что и касса. Три терминала
 и раздельное хранилище сессий позволяют открывать экраны одновременно.
