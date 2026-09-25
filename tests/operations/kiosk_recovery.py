@@ -138,7 +138,7 @@ class Handler(SimpleHTTPRequestHandler):
     def api(self):
         size = int(self.headers.get('Content-Length', '0'))
         body = json.loads(self.rfile.read(size)) if size else None
-        status, value = self.server.fixture.handle(self.command, self.path.removeprefix('/v1/test'), body, self.headers)
+        status, value = self.server.fixture.handle(self.command, urlparse(self.path).path.removeprefix('/v1/test'), body, self.headers)
         data = json.dumps(value).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
