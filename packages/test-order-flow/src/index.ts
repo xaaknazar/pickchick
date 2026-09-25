@@ -17,6 +17,7 @@ import {
   TestCancellationSchema,
   TestCartSchema,
   TestCreateOrderSchema,
+  TestCompleteTaskSchema,
   TestDisplaySchema,
   TestKitchenSchema,
   TestOrderSchema,
@@ -557,11 +558,29 @@ export class TestOrderFlow {
         throw new TestFlowError('RATE_LIMITED');
       const orderId = randomUUID();
       await client.query(
-        'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor) VALUES ($1,$2,$3,$4,$5,$6)',
-        [orderId, actor.id, actor.branch_id, q.id, q.snapshot, q.total_minor],
+        'INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor,execution_mode) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [
+          orderId,
+          actor.id,
+          actor.branch_id,
+          q.id,
+          q.snapshot,
+          q.total_minor,
+          body.execution_mode ?? 'simulated_payment',
+        ],
       );
       const order = await loadOrder(client, actor, orderId);
       await emit(client, order, 'order.created');
+      if (body.execution_mode === 'unpaid_test') {
+        await dispatch(client, order);
+        await client.query(
+          "UPDATE test_orders SET state='preparing',version=version+1,updated_at=clock_timestamp() WHERE id=$1",
+          [orderId],
+        );
+        const submitted = await loadOrder(client, actor, orderId);
+        await emit(client, submitted, 'order.submitted_unpaid');
+        return submitted;
+      }
       return order;
     });
   }
@@ -700,7 +719,7 @@ export class TestOrderFlow {
   completeTask(token: string, key: string, orderId: string, taskId: string, input: unknown) {
     id(orderId);
     id(taskId);
-    const body = parse(TestVersionSchema, input);
+    const body = parse(TestCompleteTaskSchema, input);
     return this.command(
       token,
       ['prep', 'assembly', 'manager'],
@@ -723,7 +742,14 @@ export class TestOrderFlow {
           )
         )
           throw new TestFlowError('CONFLICT');
-        await client.query("UPDATE test_kitchen_tasks SET state='done' WHERE id=$1", [taskId]);
+        if (body.complete_station) {
+          await client.query(
+            "UPDATE test_kitchen_tasks SET state='done' WHERE order_id=$1 AND station=$2 AND state='pending'",
+            [orderId, task.station],
+          );
+        } else {
+          await client.query("UPDATE test_kitchen_tasks SET state='done' WHERE id=$1", [taskId]);
+        }
         await client.query(
           'UPDATE test_orders SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE id=$1',
           [orderId, task.station === 'assembly' ? 'ready' : 'preparing'],

@@ -5,7 +5,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "dev": "PICKCHICK_APP_VARIANT=development expo start --dev-client --lan --scheme pickchick-dev",
+    "dev": "PICKCHICK_APP_VARIANT=development EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 expo start --dev-client --lan --scheme pickchick-dev",
     "dev:check": "node ../../scripts/mobile/check-dev-bundle.mjs",
     "ios": "expo run:ios",
     "android": "expo run:android",

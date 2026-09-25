@@ -34,6 +34,7 @@ export const CapabilitiesSchema = z.strictObject({
     fiscal: z.literal(false),
     loyalty: z.literal(false),
     test_order_flow: z.boolean(),
+    unpaid_test_orders: z.boolean().optional(),
   }),
   notice: LocalizedTextSchema,
 });

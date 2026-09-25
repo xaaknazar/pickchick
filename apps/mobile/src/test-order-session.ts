@@ -42,6 +42,7 @@ interface PendingOrder {
   quoteKey: string;
   orderKey: string;
   quoteId: string | null;
+  unpaidTest?: boolean;
 }
 interface PendingCommand {
   version: 1;
@@ -167,7 +168,8 @@ export class TestCustomerCore {
       !isUuid(p.sessionId) ||
       !isUuid(p.quoteKey) ||
       !isUuid(p.orderKey) ||
-      !(p.quoteId === null || isUuid(p.quoteId))
+      !(p.quoteId === null || isUuid(p.quoteId)) ||
+      (p.unpaidTest !== undefined && typeof p.unpaidTest !== 'boolean')
     )
       throw new TestApiError(409, 'RECOVERY_DATA_INVALID');
     let payload: unknown = p.payload;
@@ -188,6 +190,7 @@ export class TestCustomerCore {
       quoteKey: p.quoteKey,
       orderKey: p.orderKey,
       quoteId: p.quoteId,
+      ...(p.unpaidTest === undefined ? {} : { unpaidTest: p.unpaidTest as boolean }),
     };
   }
   private async pendingCommand(): Promise<PendingCommand | null> {
@@ -330,6 +333,7 @@ export class TestCustomerCore {
     }[],
     serviceMode: 'takeaway' | 'dine_in',
     paymentMethod: PaymentMethod = 'kaspi',
+    unpaidTest = false,
   ): Promise<TestOrder> {
     let payload: Cart;
     try {
@@ -347,11 +351,11 @@ export class TestCustomerCore {
     } catch (error) {
       return Promise.reject(error);
     }
-    return this.singleFlight(`create:${JSON.stringify(payload)}`, () =>
-      this.createPending(payload),
+    return this.singleFlight(`create:${unpaidTest}:${JSON.stringify(payload)}`, () =>
+      this.createPending(payload, unpaidTest),
     );
   }
-  private async createPending(payload: Cart): Promise<TestOrder> {
+  private async createPending(payload: Cart, unpaidTest = false): Promise<TestOrder> {
     const session = await this.authenticate();
     if (await this.pendingCommand()) throw new TestApiError(409, 'PREVIOUS_COMMAND_PENDING');
     let pending = await this.pendingOrder();
@@ -359,7 +363,8 @@ export class TestCustomerCore {
       throw new TestApiError(409, 'PREVIOUS_SESSION_PENDING');
     if (
       pending &&
-      JSON.stringify(normalizeCart(pending.payload)) !== JSON.stringify(normalizeCart(payload))
+      (Boolean(pending.unpaidTest) !== unpaidTest ||
+        JSON.stringify(normalizeCart(pending.payload)) !== JSON.stringify(normalizeCart(payload)))
     )
       throw new TestApiError(409, 'PREVIOUS_ORDER_PENDING');
     const fresh = (): PendingOrder => ({
@@ -369,6 +374,7 @@ export class TestCustomerCore {
       quoteKey: this.io.uuid(),
       orderKey: this.io.uuid(),
       quoteId: null,
+      unpaidTest,
     });
     pending ??= fresh();
     await this.io.write(DRAFT_KEY, JSON.stringify(pending));
@@ -385,7 +391,10 @@ export class TestCustomerCore {
           await this.io.request(
             '/orders',
             session.token,
-            { quote_id: pending.quoteId },
+            {
+              quote_id: pending.quoteId,
+              ...(pending.unpaidTest ? { execution_mode: 'unpaid_test' } : {}),
+            },
             pending.orderKey,
           ),
         );
@@ -469,7 +478,7 @@ export class TestCustomerCore {
       }
       const pending = await this.pendingOrder();
       if (!pending) throw new TestApiError(409, 'NO_PENDING_ORDER');
-      return this.createPending(pending.payload);
+      return this.createPending(pending.payload, Boolean(pending.unpaidTest));
     });
   }
 }

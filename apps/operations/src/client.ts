@@ -55,20 +55,23 @@ async function request<T>(
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), 12000);
   try {
-    const response = await fetch(API_BASE + path, {
-      method: body === undefined ? 'GET' : 'POST',
-      credentials: 'omit',
-      cache: 'no-store',
-      referrerPolicy: 'no-referrer',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(key ? { 'Idempotency-Key': key } : {}),
+    const response = await fetch(
+      API_BASE + path + (path.includes('?') ? '&' : '?') + 'catalog_version=mockup-v0.3',
+      {
+        method: body === undefined ? 'GET' : 'POST',
+        credentials: 'omit',
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(key ? { 'Idempotency-Key': key } : {}),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+    );
     const data: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const record = data as { code?: unknown; error?: { code?: unknown } } | null;
@@ -137,7 +140,7 @@ export const api = {
       `/orders/${order.order_id}/tasks/${task}/complete`,
       TestOrderSchema,
       token,
-      { expected_version: order.version },
+      { expected_version: order.version, complete_station: true },
       key,
     ),
   handoff: (token: string, order: TestOrder, key: string) =>

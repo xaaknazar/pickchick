@@ -59,9 +59,7 @@ export function Staff({ role }: { role: StaffRole }) {
           <form onSubmit={(event) => void login(event)}>
             <span className="eyebrow">Доступ сотрудника</span>
             <h1>{titles[role]}</h1>
-            <p>
-              Введите временный ключ тестовой роли, выданный управляющим через служебную команду.
-            </p>
+            <p>Введите ключ тестовой кухни. Тестовые заказы создаются без списания денег.</p>
             <label>
               Ключ доступа
               <input
@@ -215,39 +213,41 @@ function KitchenScreen({
                   </header>
                   <div className="ticket-lines">
                     {order.snapshot.lines.map((line) => (
-                      <div key={line.id}>
+                      <div key={'line_id' in line ? line.line_id : line.id}>
                         <strong>{line.quantity}×</strong>
                         <span>
                           {line.name}
-                          <small>Стандартный состав</small>
+                          <small>
+                            {'selections' in line && line.selections.length
+                              ? line.selections
+                                  .map((item) => `${item.option_label} × ${item.quantity}`)
+                                  .join(' · ')
+                              : 'Стандартный состав'}
+                          </small>
                         </span>
                       </div>
                     ))}
                   </div>
-                  <div className="task-list">
-                    {tasks.map((task) => (
-                      <div className={task.state === 'done' ? 'done' : ''} key={task.task_id}>
-                        <span>{task.state === 'done' ? '✓' : '○'}</span>
-                        <strong>{task.title}</strong>
-                        {task.state === 'pending' ? (
-                          <button
-                            disabled={Boolean(
-                              busy || remote.error || waiting || order.state !== 'preparing',
-                            )}
-                            onClick={() => void complete(order, task.task_id)}
-                          >
-                            {busy === order.order_id
-                              ? 'Сохраняем…'
-                              : station === 'prep'
-                                ? 'Готово'
-                                : 'Заказ собран'}
-                          </button>
-                        ) : (
-                          <small>Подтверждено</small>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  {tasks.some((task) => task.state === 'pending') ? (
+                    <button
+                      className="primary full"
+                      disabled={Boolean(
+                        busy || remote.error || waiting || order.state !== 'preparing',
+                      )}
+                      onClick={() =>
+                        void complete(
+                          order,
+                          tasks.find((task) => task.state === 'pending')!.task_id,
+                        )
+                      }
+                    >
+                      {busy === order.order_id
+                        ? 'Сохраняем…'
+                        : station === 'prep'
+                          ? 'Весь заказ готов'
+                          : 'Заказ собран'}
+                    </button>
+                  ) : null}
                   {waiting ? (
                     <p className="dependency">Ждём обязательные компоненты приготовления</p>
                   ) : null}
@@ -434,7 +434,7 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
               </p>
               <section className="summary-lines">
                 {current.snapshot.lines.map((line) => (
-                  <div key={line.id}>
+                  <div key={'line_id' in line ? line.line_id : line.id}>
                     <span>
                       {line.name} × {line.quantity}
                     </span>

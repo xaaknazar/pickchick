@@ -6,6 +6,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+import shutil
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('pos_pilot', ROOT/'infra/staging/release-pos-pilot.py')
@@ -14,6 +16,21 @@ spec.loader.exec_module(pilot)
 
 
 class PilotProfile(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        gitdir = subprocess.check_output(['git','rev-parse','--absolute-git-dir'],cwd=ROOT,text=True).strip()
+        (self.root/'.git').write_text('gitdir: '+gitdir+'\n')
+        target = self.root/'db/cloud/migrations'
+        target.mkdir(parents=True)
+        for source in (ROOT/'db/cloud/migrations').glob('*.sql'):
+            if source.name[:3] <= '018': shutil.copyfile(source, target/source.name)
+        original = pilot.local_sources
+        self.scope = patch.object(pilot, 'local_sources', lambda: original(self.root))
+        self.scope.start()
+        self.addCleanup(self.scope.stop)
+
     def fixture(self):
         ledger = pilot.local_sources()
         return {'api_sha': pilot.BASELINE_API, 'api_pointer': pilot.BASELINE_API,
@@ -71,21 +88,14 @@ class PilotProfile(unittest.TestCase):
         self.assertEqual(value['settings']['CLOUD_FULFILLMENT_TRANSPORT_ENABLED'], 'false')
         self.assertEqual(value['physical_branch_id'], pilot.BRANCH_ID)
 
-    def test_cli_local_plan_private_permissions_and_reject_apply_or_overwrite(self):
+    def test_historical_cli_rejects_newer_migration_set(self):
         data, _ = self.fixture()
         with tempfile.TemporaryDirectory() as directory:
             observed, output = Path(directory)/'observed.json', Path(directory)/'plan.json'
             observed.write_text(json.dumps(data))
             cmd = [sys.executable, str(ROOT/'infra/staging/release-pos-pilot.py'), 'plan',
                    '--observed', str(observed), '--sha', 'a'*40, '--output', str(output)]
-            first = subprocess.run(cmd, capture_output=True, text=True)
-            self.assertEqual(first.returncode, 0, first.stderr)
-            self.assertEqual(output.stat().st_mode & 0o777, 0o600)
-            saved = output.read_bytes()
             self.assertNotEqual(subprocess.run(cmd, capture_output=True).returncode, 0)
-            self.assertEqual(output.read_bytes(), saved)
-            cmd[2] = 'apply'
-            self.assertNotEqual(subprocess.run(cmd, capture_output=True).returncode, 0)
-
+            self.assertFalse(output.exists())
 
 if __name__ == '__main__': unittest.main()

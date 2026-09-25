@@ -60,6 +60,7 @@ class CapabilitiesController {
         fiscal: false,
         loyalty: false,
         test_order_flow: this.resources.config.testOrderFlowEnabled === true,
+        unpaid_test_orders: this.resources.config.testOrderFlowEnabled === true,
       },
       notice: {
         ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',

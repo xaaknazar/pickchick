@@ -1,3 +1,4 @@
+import { unpaidTestOrdersEnabled } from '../order-simulator';
 import { MotionPressable } from '../components/Motion';
 import { useState } from 'react';
 import { ScrollView, Text, TextInput, View, StyleSheet, useWindowDimensions } from 'react-native';
@@ -36,6 +37,14 @@ import { assets } from '../assets';
 import { cartMatchesOrder } from '../test-order-session';
 import { restaurantLocation } from '../restaurant-location';
 
+export function orderStage(order: TestOrder): string {
+  if (
+    order.state === 'preparing' &&
+    order.tasks.every((task) => task.station !== 'prep' || task.state === 'done')
+  )
+    return 'На сборке';
+  return statusNames[order.state];
+}
 const statusNames: Record<TestOrder['state'], string> = {
   awaiting_test_payment: 'Ждёт тестовой оплаты',
   preparing: 'Готовится',
@@ -121,7 +130,10 @@ export function ConnectedCheckout(props: ScreenProps) {
   const unknown = flow.orders.find((order) => order.payment_state === 'simulated_unknown');
   const matching = flow.orders.find(
     (order) =>
-      order.state === 'awaiting_test_payment' &&
+      (order.state === 'awaiting_test_payment' ||
+        (unpaidTestOrdersEnabled &&
+          order.payment_state === 'not_started' &&
+          ['preparing', 'ready'].includes(order.state))) &&
       cartMatchesOrder(order, props.model.cart, props.model.diningMode, props.model.paymentMethod),
   );
   const pending = unknown ?? matching ?? null;
@@ -131,7 +143,23 @@ export function ConnectedCheckout(props: ScreenProps) {
   const submit = async () => {
     if (pending) flow.select(pending.order_id);
     const order = pending ?? (await flow.submit());
-    if (order) props.navigate(order.payment_state === 'simulated_unknown' ? 'M14' : 'M13');
+    if (order) {
+      if (['preparing', 'ready'].includes(order.state)) {
+        props.model.clearCart(
+          order.snapshot.lines.map((line) => ({
+            id: 'line_id' in line ? line.line_id : line.id,
+            quantity: line.quantity,
+          })),
+        );
+      }
+      props.navigate(
+        ['preparing', 'ready'].includes(order.state)
+          ? 'M17'
+          : order.payment_state === 'simulated_unknown'
+            ? 'M14'
+            : 'M13',
+      );
+    }
   };
   return (
     <Page
@@ -145,7 +173,9 @@ export function ConnectedCheckout(props: ScreenProps) {
               ? 'Сохраняем заказ…'
               : pending
                 ? `Продолжить ${pending.number}`
-                : 'Перейти к тестовой оплате'
+                : unpaidTestOrdersEnabled
+                  ? 'Отправить на кухню'
+                  : 'Перейти к тестовой оплате'
           }
           disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
           onPress={() => {
@@ -198,7 +228,12 @@ export function ConnectedCheckout(props: ScreenProps) {
           <Caption>Окончательная сумма будет рассчитана и сохранена сервером.</Caption>
         </Card>
       )}
-      {pending ? (
+      {unpaidTestOrdersEnabled && !pending ? (
+        <Notice title="Тестовый заказ без оплаты">
+          Заказ увидит тестовая кухня. Подтверждения приготовления, сборки и выдачи появятся здесь
+          автоматически. Деньги не списываются, чек не создаётся.
+        </Notice>
+      ) : pending ? (
         <SummaryRow
           label="Способ оплаты"
           value={
@@ -210,10 +245,12 @@ export function ConnectedCheckout(props: ScreenProps) {
       ) : (
         <PaymentChoice model={props.model} />
       )}
-      <Caption>
-        Имитация оплаты: деньги не списываются, заказ поступит на тестовые экраны кухни. Ресторан
-        его не готовит.
-      </Caption>
+      {!unpaidTestOrdersEnabled ? (
+        <Caption>
+          Имитация оплаты: деньги не списываются, заказ поступит на тестовые экраны кухни. Ресторан
+          его не готовит.
+        </Caption>
+      ) : null}
       {flow.current?.state === 'awaiting_test_payment' &&
       flow.current.order_id !== pending?.order_id ? (
         <NavRow
@@ -222,10 +259,12 @@ export function ConnectedCheckout(props: ScreenProps) {
           onPress={() => props.navigate('M20')}
         />
       ) : null}
-      <Caption>
-        В первой проверке используется отдельный симулятор. Он не выдаёт банковское подтверждение
-        или фискальный чек.
-      </Caption>
+      {!unpaidTestOrdersEnabled ? (
+        <Caption>
+          В первой проверке используется отдельный симулятор. Он не выдаёт банковское подтверждение
+          или фискальный чек.
+        </Caption>
+      ) : null}
     </Page>
   );
 }
@@ -255,7 +294,7 @@ export function ConnectedHistory(props: ScreenProps) {
           <MotionPressable
             key={order.order_id}
             accessibilityRole="button"
-            accessibilityLabel={`${order.number}, ${statusNames[order.state]}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
+            accessibilityLabel={`${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
             onPress={() => {
               flow.select(order.order_id);
               props.navigate('M20');
@@ -264,7 +303,7 @@ export function ConnectedHistory(props: ScreenProps) {
             <Card>
               <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
                 <Heading small>{order.number}</Heading>
-                <Pill>{statusNames[order.state]}</Pill>
+                <Pill>{orderStage(order)}</Pill>
               </Row>
               <Caption>{new Date(order.created_at).toLocaleString('ru-RU')}</Caption>
               <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
@@ -354,10 +393,10 @@ export function ConnectedOrder(props: ScreenProps) {
       }
     >
       <FlowNotice props={props} />
-      <View style={[s.status, ready && s.ready]}>
+      <View accessibilityLiveRegion="polite" style={[s.status, ready && s.ready]}>
         <Pill>Тестовый заказ</Pill>
         <Heading testID="connected-order-state" style={ready ? { color: '#241208' } : undefined}>
-          {unknown ? 'Уточняем результат' : statusNames[order.state]}
+          {unknown ? 'Уточняем результат' : orderStage(order)}
         </Heading>
         <Text
           testID="connected-order-number"
@@ -371,7 +410,9 @@ export function ConnectedOrder(props: ScreenProps) {
           {unknown
             ? 'Повторная попытка заблокирована. Результат проверит оператор тестового контура.'
             : order.state === 'preparing'
-              ? 'Задания уже появились на двух кухонных экранах.'
+              ? orderStage(order) === 'На сборке'
+                ? 'Кухня подтвердила приготовление. Собираем ваш тестовый заказ.'
+                : 'Заказ передан на тестовую кухню. Статус обновится после её подтверждения.'
               : order.state === 'ready'
                 ? 'Тестовая сборка завершена. Оператор может отметить выдачу.'
                 : order.state === 'fulfilled'
@@ -427,14 +468,35 @@ export function ConnectedOrder(props: ScreenProps) {
       ) : null}
       {order.tasks.length ? (
         <Card>
-          <Heading small>Кухня</Heading>
-          {order.tasks.map((task) => (
-            <SummaryRow
-              key={task.task_id}
-              label={`${task.station === 'prep' ? 'Приготовление' : 'Сборка'} · ${task.title}`}
-              value={task.state === 'done' ? 'Готово' : 'В очереди'}
-            />
-          ))}
+          <Heading small>Этапы заказа</Heading>
+          <SummaryRow
+            label="Кухня"
+            value={
+              order.tasks.some((task) => task.station === 'prep' && task.state !== 'done')
+                ? 'Готовится'
+                : 'Готово'
+            }
+          />
+          <SummaryRow
+            label="Сборка"
+            value={
+              order.tasks.some((task) => task.station === 'assembly' && task.state === 'done')
+                ? 'Готово'
+                : orderStage(order) === 'На сборке'
+                  ? 'Собирается'
+                  : 'Ожидает кухню'
+            }
+          />
+          <SummaryRow
+            label="Выдача"
+            value={
+              order.state === 'fulfilled'
+                ? 'Выдан'
+                : order.state === 'ready'
+                  ? 'Можно забирать'
+                  : 'Ожидает сборку'
+            }
+          />
         </Card>
       ) : null}
       <OrderLines order={order} />

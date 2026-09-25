@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T06:48:51.907805+00:00",
+  "updatedAt": "2026-09-25T07:07:56.892248+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -52,7 +52,8 @@
     "docs/design/ai-design-workflow.md",
     "docs/design/mobile-skills-review-2026-09-23.md",
     "docs/operations/mobile-touch-contrast.md",
-    "docs/operations/cart-shortcut-delight.md"
+    "docs/operations/cart-shortcut-delight.md",
+    "docs/operations/mobile-unpaid-test.md"
   ],
   "workstreams": [
     {
@@ -938,7 +939,7 @@
       "id": "mobile-live-checkout",
       "workstream": "mobile",
       "title": "Подключить оформление и реальные статусы заказа",
-      "summary": "Обычный экран оплаты готов визуально и не имитирует списание. Нужен полный путь customer quote, admission, банк, кухня, возврат и восстановление.",
+      "summary": "Обычный экран оплаты готов визуально и не имитирует списание. Нужен полный путь customer quote, admission, банк, кухня, возврат и восстановление. 25 сентября: отдельный неоплаченный TEST-заказ сразу создаёт задания кухни; приложение получает сохранённые подтверждения приготовления, сборки и выдачи. Проверены PostgreSQL и восстановление, установка и браузерная приёмка отдельно.",
       "status": "planned",
       "owner": "development",
       "phase": "integration",
@@ -962,13 +963,17 @@
         {
           "label": "Roadmap и сценарии AC-01-41",
           "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Неоплаченный мобильный TEST flow",
+          "path": "docs/operations/mobile-unpaid-test.md"
         }
       ],
       "acceptance": [
         "AC-02-08/18: цена и статусы получены с сервера, потерянный ответ восстанавливается.",
         "Возврат из банковского приложения сам не подтверждает оплату."
       ],
-      "nextAction": "Соединить защищённый клиент с доверенным коммерческим API.",
+      "nextAction": "Опубликовать и проверить неоплаченный TEST flow на сервере и Dev-телефоне. Коммерческий checkout с банком, чеком и edge admission остаётся отдельным этапом.",
       "checks": {
         "implemented": true,
         "verified": false,

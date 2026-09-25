@@ -121,7 +121,7 @@ function harness() {
         number: `T-${String(h.orders.size + 1).padStart(6, '0')}`,
         branch_id: branch,
         version: 1,
-        state: 'awaiting_test_payment',
+        state: body.execution_mode === 'unpaid_test' ? 'preparing' : 'awaiting_test_payment',
         payment_state: 'not_started',
         payment_attempt_id: null,
         fiscal_state: 'not_applicable',
@@ -668,4 +668,27 @@ test('continuation refuses missing identity or a response that substitutes a dif
   };
   await assert.rejects(h.client().continueSession(), failure('INVALID_CONTINUATION'));
   assert.equal(h.storedSession, storedSession);
+});
+
+test('unpaid order lost acknowledgement recovers identical admission mode after restart', async () => {
+  const h = harness();
+  let failed = false;
+  h.after = async ({ path }) => {
+    if (path === '/orders' && !failed) {
+      failed = true;
+      throw new Error('lost reply');
+    }
+  };
+  await assert.rejects(h.client().create(cart(), 'takeaway', 'kaspi', true));
+  const stored = JSON.parse(h.storage.get(DRAFT_KEY));
+  assert.equal(stored.unpaidTest, true);
+  await assert.rejects(h.client().create(cart(), 'takeaway'), failure('PREVIOUS_ORDER_PENDING'));
+  const recovered = await h.client().recoverPending();
+  assert.equal(recovered.state, 'preparing');
+  assert.equal(recovered.payment_state, 'not_started');
+  assert.equal(recovered.payment_attempt_id, null);
+  assert.equal(h.orders.size, 1);
+  const commands = h.requests.filter((r) => r.path === '/orders' && r.body);
+  assert.equal(commands.length, 2);
+  assert.deepEqual(commands[0], commands[1]);
 });

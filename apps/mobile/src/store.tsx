@@ -13,6 +13,7 @@ import type { MenuSnapshot } from '@pickchick/contracts';
 import { isRetryableCatalogError, loadCatalog, loadTestCatalog } from './api';
 import { createCatalogRecovery } from './catalog-recovery';
 import { DESIGN_RELEASE, designProducts, serverProducts, connectedProducts } from './catalog';
+import { unpaidTestOrdersEnabled } from './order-simulator';
 import { useTestOrders } from './useTestOrders';
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import {
@@ -49,6 +50,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [requestedBranchId, setRequestedBranchId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [menu, setMenu] = useState<MenuSnapshot | null>(null);
+  const [unpaidAvailable, setUnpaidAvailable] = useState(false);
   const [connectedCatalog, setConnectedCatalog] = useState<TestCatalog | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [previewCart, setPreviewCart] = useState<CartLine[]>([]);
@@ -125,6 +127,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         setBranches(result.branches);
         setMenu(result.menu);
         setConnectedCatalog(testCatalog);
+        setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
           setCart(
             restoreCart(
@@ -180,7 +183,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         ? `test:${connectedCatalog.catalog_version}`
         : (menu?.release_id ?? null);
   const testFlow = useTestOrders(
-    connectedCatalog !== null && catalogMode === 'server' && connection.status === 'online',
+    connectedCatalog !== null &&
+      catalogMode === 'server' &&
+      connection.status === 'online' &&
+      (!unpaidTestOrdersEnabled || unpaidAvailable),
     cart,
     diningMode,
     paymentMethod,

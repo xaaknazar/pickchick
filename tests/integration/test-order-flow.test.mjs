@@ -852,3 +852,129 @@ test('bounded visible TEST order history retains selected compositions without c
     );
   });
 });
+
+test('unpaid TEST order dispatches atomically, preserves money state and follows whole-ticket kitchen statuses', async () => {
+  await withDesk(async (ctx) => {
+    const body = { ...cart, items: [...cart.items, { product_id: 'cheese-burger', quantity: 1 }] };
+    // Use two distinct hot products from the actual test catalog.
+    const products = ctx.flow.catalog().products.filter((p) => p.prep_required);
+    body.items = products.slice(0, 2).map((p) => ({ product_id: p.id, quantity: 1 }));
+    const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), body);
+    const key = randomUUID();
+    const input = { quote_id: quote.quote_id, execution_mode: 'unpaid_test' };
+    const [created, replay] = await Promise.all([
+      ctx.flow.createOrder(ctx.customer.token, key, input),
+      ctx.flow.createOrder(ctx.customer.token, key, input),
+    ]);
+    assert.deepEqual(created, replay);
+    assert.equal(created.state, 'preparing');
+    assert.equal(created.payment_state, 'not_started');
+    assert.equal(created.payment_attempt_id, null);
+    assert.equal(created.fiscal_state, 'not_applicable');
+    assert.equal(
+      (await ctx.flow.kitchen(ctx.actors.prep.token)).orders[0].order_id,
+      created.order_id,
+    );
+    await assert.rejects(approve(ctx, created), code('CONFLICT'));
+    const prep = created.tasks.find((t) => t.station === 'prep');
+    const assembly = created.tasks.find((t) => t.station === 'assembly');
+    const command = { expected_version: created.version, complete_station: true };
+    await assert.rejects(
+      ctx.flow.completeTask(
+        ctx.actors.assembly.token,
+        randomUUID(),
+        created.order_id,
+        assembly.task_id,
+        command,
+      ),
+      code('CONFLICT'),
+    );
+    await assert.rejects(
+      ctx.flow.completeTask(
+        ctx.customer.token,
+        randomUUID(),
+        created.order_id,
+        prep.task_id,
+        command,
+      ),
+      code('FORBIDDEN'),
+    );
+    await assert.rejects(
+      ctx.flow.completeTask(
+        ctx.actors.assembly.token,
+        randomUUID(),
+        created.order_id,
+        prep.task_id,
+        command,
+      ),
+      code('FORBIDDEN'),
+    );
+    const prepKey = randomUUID();
+    const prepared = await ctx.flow.completeTask(
+      ctx.actors.prep.token,
+      prepKey,
+      created.order_id,
+      prep.task_id,
+      command,
+    );
+    assert.ok(prepared.tasks.filter((t) => t.station === 'prep').every((t) => t.state === 'done'));
+    assert.deepEqual(
+      await ctx.flow.completeTask(
+        ctx.actors.prep.token,
+        prepKey,
+        created.order_id,
+        prep.task_id,
+        command,
+      ),
+      prepared,
+    );
+    assert.equal(
+      (await ctx.flow.readOrder(ctx.customer.token, created.order_id)).version,
+      prepared.version,
+    );
+    const ready = await ctx.flow.completeTask(
+      ctx.actors.assembly.token,
+      randomUUID(),
+      created.order_id,
+      assembly.task_id,
+      { expected_version: prepared.version, complete_station: true },
+    );
+    assert.equal(ready.state, 'ready');
+    assert.equal((await ctx.flow.display(ctx.actors.display.token)).ready[0].number, ready.number);
+    const done = await ctx.flow.handoff(ctx.actors.assembly.token, randomUUID(), created.order_id, {
+      expected_version: ready.version,
+    });
+    assert.equal(
+      (await ctx.flow.readOrder(ctx.customer.token, created.order_id)).state,
+      'fulfilled',
+    );
+    assert.equal(done.payment_state, 'not_started');
+    assert.equal(done.payment_attempt_id, null);
+    assert.equal((await ctx.flow.display(ctx.actors.display.token)).ready.length, 0);
+    await assert.rejects(
+      ctx.cloud.pool.query(
+        "UPDATE test_orders SET execution_mode='simulated_payment',version=version+1 WHERE id=$1",
+        [created.order_id],
+      ),
+    );
+  });
+});
+
+test('unpaid dispatch and tasks roll back together when durable outbox fails', async () => {
+  await withDesk(async (ctx) => {
+    const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);
+    await ctx.cloud.pool.query(
+      "CREATE FUNCTION reject_unpaid_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.event_type='test.order.submitted_unpaid' THEN RAISE EXCEPTION 'test failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_unpaid BEFORE INSERT ON test_outbox FOR EACH ROW EXECUTE FUNCTION reject_unpaid_event()",
+    );
+    const key = randomUUID(),
+      body = { quote_id: quote.quote_id, execution_mode: 'unpaid_test' };
+    await assert.rejects(ctx.flow.createOrder(ctx.customer.token, key, body));
+    for (const table of ['test_orders', 'test_kitchen_tasks', 'test_outbox'])
+      assert.equal(
+        (await ctx.cloud.pool.query('SELECT count(*)::int n FROM ' + table)).rows[0].n,
+        0,
+      );
+    await ctx.cloud.pool.query('DROP TRIGGER reject_unpaid ON test_outbox');
+    assert.equal((await ctx.flow.createOrder(ctx.customer.token, key, body)).state, 'preparing');
+  });
+});

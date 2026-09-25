@@ -3,7 +3,7 @@ import { Staff } from './Staff';
 import { Brand } from './shared';
 
 export function App() {
-  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  const path = window.location.pathname.replace(/^\/test(?=\/)/, '').replace(/\/$/, '') || '/';
   if (path === '/kiosk') return <Kiosk />;
   if (path === '/kitchen/prep') return <Staff role="prep" />;
   if (path === '/kitchen/assembly') return <Staff role="assembly" />;

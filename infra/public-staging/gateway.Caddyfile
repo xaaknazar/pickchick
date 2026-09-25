@@ -263,7 +263,7 @@
 
 	@operations {
 		method GET HEAD
-		path /kiosk /kitchen/prep /kitchen/assembly /display /manager
+		path /kiosk /kitchen/prep /kitchen/assembly /display /manager /test/kitchen/prep /test/kitchen/assembly /test/display
 	}
 	handle @operations {
 		root * /srv/public/operations

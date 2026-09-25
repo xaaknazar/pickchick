@@ -117,6 +117,7 @@ export class Resources implements OnApplicationShutdown {
               '004_cloud_test_order_flow.sql',
               '005_cloud_test_modifier_task_titles.sql',
               '006_cloud_test_permanent_access.sql',
+              '019_cloud_unpaid_test_orders.sql',
             ]) {
               const testVersion = await this.pool.query(
                 'SELECT 1 FROM schema_migrations WHERE scope = $1 AND version = $2',

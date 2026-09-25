@@ -197,8 +197,14 @@ export const TestCompleteQuoteSchema = TestLegacyQuoteSchema.extend({
 });
 export const TestQuoteSchema = z.union([TestLegacyQuoteSchema, TestCompleteQuoteSchema]);
 export type TestQuote = z.infer<typeof TestQuoteSchema>;
-export const TestCreateOrderSchema = z.strictObject({ quote_id: Uuid });
+export const TestCreateOrderSchema = z.strictObject({
+  quote_id: Uuid,
+  execution_mode: z.literal('unpaid_test').optional(),
+});
 export const TestVersionSchema = z.strictObject({ expected_version: z.int().min(1) });
+export const TestCompleteTaskSchema = TestVersionSchema.extend({
+  complete_station: z.literal(true).optional(),
+});
 export const TestPaymentSchema = TestVersionSchema.extend({
   outcome: z.enum(['approved', 'declined', 'unknown']),
 });

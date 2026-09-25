@@ -10,6 +10,7 @@ export interface Capabilities {
   ordering_enabled: false;
   features: Record<'phone_auth' | 'payments' | 'fiscal' | 'checkout' | 'loyalty', false> & {
     test_order_flow?: boolean;
+    unpaid_test_orders?: boolean;
   };
 }
 
