@@ -241,11 +241,11 @@
         "infra/staging/release-order-events.py",
         "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
-      "status": "active",
-      "head": "3430a0b119636da32ed1e6ef1300461d4888c487",
-      "updatedAt": "2026-09-25T14:11:05.867Z",
-      "summary": "Removed current order number/status shortcut from menu; Orders/details retained. Mobile TypeScript, ESLint/format, iOS Dev bundle200 and7 roadmap checks pass. Published code3430a0b; online roadmap/VPS/TestFlight unchanged.",
-      "nextAction": "Owner checks menu in PickChick Dev. Continue pending shift021 release/Windows shift linkage and payment/promo integration; restore Actions billing eligibility before releases."
+      "status": "available",
+      "head": "0a383c69b791ca7ed29ddd8b94741075041eedc4",
+      "updatedAt": "2026-09-25T14:25:22.381Z",
+      "summary": "Pick Blocks: исправлены выход за стены при повороте и траектория свайпа. PR91, код46b428d. 39 Node, 20 новых browser, прежние Blocks/motion, TypeScript/lint/format, 7 roadmap, iOS/Android Dev HTTP200. CI36146959681: staging failure в историческом POST preflight; прочие задания на момент записи выполнялись. VPS/Windows/онлайн-пульт не обновлялись.",
+      "nextAction": "Проверить Pick Blocks на физическом iPhone. Перед релизом разобрать test_order_events_release.py / release-order-events.py со свежим gateway и получить зелёную CI. Сохранить прочие открытые блокеры real-menu: iiko API, банк, кухня/LED и выпуск смены021."
     }
   ]
 }
