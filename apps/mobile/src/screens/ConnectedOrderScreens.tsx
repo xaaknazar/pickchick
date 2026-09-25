@@ -46,7 +46,7 @@ export function orderStage(order: TestOrder): string {
   return statusNames[order.state];
 }
 const statusNames: Record<TestOrder['state'], string> = {
-  awaiting_test_payment: 'Ждёт тестовой оплаты',
+  awaiting_test_payment: 'Ждёт подтверждения',
   preparing: 'Готовится',
   ready: 'Можно забирать',
   fulfilled: 'Выдан',
@@ -57,7 +57,7 @@ function ContinueSession({ props }: { props: ScreenProps }) {
   if (!flow.sessionExpired) return null;
   return (
     <Button
-      title="Продлить тестовый доступ"
+      title="Восстановить доступ"
       testID="test-continue-session"
       secondary
       disabled={flow.busy}
@@ -73,7 +73,7 @@ function FlowNotice({ props }: { props: ScreenProps }) {
     <>
       {!flow.available ? (
         <Notice warning title="Новое оформление недоступно">
-          Свежее меню и разрешение тестовых заказов ещё не получены. Сохранённый сеанс и его
+          Пока не удалось загрузить меню и проверить возможность заказа. Сохранённый сеанс и его
           незавершённые запросы остаются на устройстве; их статус проверяется отдельно.
         </Notice>
       ) : null}
@@ -175,7 +175,7 @@ export function ConnectedCheckout(props: ScreenProps) {
                 ? `Продолжить ${pending.number}`
                 : unpaidTestOrdersEnabled
                   ? 'Отправить на кухню'
-                  : 'Перейти к тестовой оплате'
+                  : 'Продолжить оформление'
           }
           disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
           onPress={() => {
@@ -196,7 +196,7 @@ export function ConnectedCheckout(props: ScreenProps) {
         </Notice>
       ) : null}
       <Card>
-        <Heading small>{branch?.name ?? location?.name ?? 'Ресторан PickChick'}</Heading>
+        <Heading small>{location?.name ?? branch?.name ?? 'Ресторан PickChick'}</Heading>
         {location ? (
           <Caption>
             {location.city}, {location.address}
@@ -229,9 +229,8 @@ export function ConnectedCheckout(props: ScreenProps) {
         </Card>
       )}
       {unpaidTestOrdersEnabled && !pending ? (
-        <Notice title="Тестовый заказ без оплаты">
-          Заказ увидит тестовая кухня. Подтверждения приготовления, сборки и выдачи появятся здесь
-          автоматически. Деньги не списываются, чек не создаётся.
+        <Notice title="Оплата и чеки - в процессе подключения">
+          Заказ поступит на кухню. Здесь можно следить за приготовлением, сборкой и выдачей.
         </Notice>
       ) : pending ? (
         <SummaryRow
@@ -239,7 +238,7 @@ export function ConnectedCheckout(props: ScreenProps) {
           value={
             'payment_method' in pending.snapshot
               ? paymentName(pending.snapshot.payment_method)
-              : 'Тестовая оплата'
+              : 'Без списания'
           }
         />
       ) : (
@@ -247,8 +246,7 @@ export function ConnectedCheckout(props: ScreenProps) {
       )}
       {!unpaidTestOrdersEnabled ? (
         <Caption>
-          Имитация оплаты: деньги не списываются, заказ поступит на тестовые экраны кухни. Ресторан
-          его не готовит.
+          Оплата и чеки - в процессе подключения. Заказ можно передать на кухню без оплаты.
         </Caption>
       ) : null}
       {flow.current?.state === 'awaiting_test_payment' &&
@@ -259,12 +257,7 @@ export function ConnectedCheckout(props: ScreenProps) {
           onPress={() => props.navigate('M20')}
         />
       ) : null}
-      {!unpaidTestOrdersEnabled ? (
-        <Caption>
-          В первой проверке используется отдельный симулятор. Он не выдаёт банковское подтверждение
-          или фискальный чек.
-        </Caption>
-      ) : null}
+      {!unpaidTestOrdersEnabled ? <Caption>Деньги не списываются.</Caption> : null}
     </Page>
   );
 }
@@ -275,7 +268,7 @@ export function ConnectedHistory(props: ScreenProps) {
     <Page props={props} title="Мои заказы" noBack>
       <FlowNotice props={props} />
       {!flow.restored ? (
-        <Loading title="Восстанавливаем тестовый сеанс" />
+        <Loading title="Восстанавливаем заказ" />
       ) : !flow.orders.length && (flow.error || flow.recoveryAvailable) ? (
         <Empty
           title={
@@ -286,7 +279,7 @@ export function ConnectedHistory(props: ScreenProps) {
       ) : !flow.orders.length ? (
         <Empty
           title="Заказов пока нет"
-          detail="Соберите корзину, чтобы проверить передачу заказа на тестовую кухню."
+          detail="Выберите блюда в меню и отправьте заказ на кухню."
           action={<Button title="Открыть меню" onPress={() => props.navigate('M06')} />}
         />
       ) : (
@@ -325,12 +318,12 @@ export function ConnectedHistory(props: ScreenProps) {
 export function ConnectedOrder(props: ScreenProps) {
   const flow = props.model.testFlow;
   const order = flow.current;
-  const [reason, setReason] = useState('Проверка отмены тестового заказа');
+  const [reason, setReason] = useState('Отмена по просьбе клиента');
   if (!order)
     return (
       <Page props={props} title="Заказ">
         <FlowNotice props={props} />
-        {!flow.restored ? <Loading title="Восстанавливаем тестовый сеанс" /> : null}
+        {!flow.restored ? <Loading title="Восстанавливаем заказ" /> : null}
         <Empty
           title={flow.error ? 'Статус пока не удалось проверить' : 'Выберите заказ'}
           detail={
@@ -376,7 +369,7 @@ export function ConnectedOrder(props: ScreenProps) {
         cancel ? (
           <Button
             testID="test-cancel-order"
-            title="Отменить тестовый заказ"
+            title="Отменить заказ"
             disabled={
               flow.busy ||
               reason.trim().length < 3 ||
@@ -394,7 +387,7 @@ export function ConnectedOrder(props: ScreenProps) {
     >
       <FlowNotice props={props} />
       <View accessibilityLiveRegion="polite" style={[s.status, ready && s.ready]}>
-        <Pill>Тестовый заказ</Pill>
+        <Pill>{restaurantLocation(order.branch_id)?.name ?? 'Заказ'}</Pill>
         <Heading testID="connected-order-state" style={ready ? { color: '#241208' } : undefined}>
           {unknown ? 'Уточняем результат' : orderStage(order)}
         </Heading>
@@ -409,24 +402,23 @@ export function ConnectedOrder(props: ScreenProps) {
         </Text>
         <Body style={ready ? { color: '#241208' } : undefined}>
           {unknown
-            ? 'Повторная попытка заблокирована. Результат проверит оператор тестового контура.'
+            ? 'Повторная попытка заблокирована. Результат проверит сотрудник ресторана.'
             : order.state === 'preparing'
               ? orderStage(order) === 'На сборке'
-                ? 'Кухня подтвердила приготовление. Собираем ваш тестовый заказ.'
-                : 'Заказ передан на тестовую кухню. Статус обновится после её подтверждения.'
+                ? 'Кухня закончила приготовление. Собираем ваш заказ.'
+                : 'Заказ на кухне. Статус обновится после приготовления.'
               : order.state === 'ready'
-                ? 'Тестовая сборка завершена. Оператор может отметить выдачу.'
+                ? 'Заказ собран и готов к выдаче.'
                 : order.state === 'fulfilled'
                   ? 'Выдача подтверждена на кухне. Заказ убран с табло.'
                   : order.state === 'cancelled'
                     ? (order.cancellation_reason ?? 'Заказ отменён.')
-                    : 'Следующий шаг - проверка симулятора оплаты.'}
+                    : 'Подтвердите передачу заказа на кухню без оплаты.'}
         </Body>
       </View>
       {receipt ? (
-        <Notice title="Фискального чека нет">
-          Этот заказ создан только для проверки связи экранов. Фискализация не запускалась; кассовый
-          чек не подменяется макетом.
+        <Notice title="Оплата и чеки - в процессе подключения">
+          Оплата не списывалась. Здесь сохранён состав вашего заказа.
         </Notice>
       ) : null}
       {canPay && !receipt && !cancel ? (
@@ -435,13 +427,15 @@ export function ConnectedOrder(props: ScreenProps) {
             {'payment_method' in order.snapshot
               ? paymentName(order.snapshot.payment_method)
               : 'Kaspi'}{' '}
-            · тестовая оплата
+            · без списания
           </Heading>
-          <Caption>Только тестовые состояния, без обращения к банку.</Caption>
+          <Caption>Оплата и чеки - в процессе подключения.</Caption>
           <Button
             testID="test-payment-approve"
             title={
-              flow.busy ? 'Проверяем…' : `Оплатить ${money(order.snapshot.total_minor)} · тест`
+              flow.busy
+                ? 'Проверяем…'
+                : `Продолжить без оплаты · ${money(order.snapshot.total_minor)}`
             }
             disabled={flow.busy}
             onPress={() => {
@@ -450,7 +444,7 @@ export function ConnectedOrder(props: ScreenProps) {
           />
           <Button
             testID="test-payment-unknown"
-            title="Тест: неизвестный результат"
+            title="Уточнить результат"
             secondary
             disabled={flow.busy}
             onPress={() => {
@@ -458,7 +452,7 @@ export function ConnectedOrder(props: ScreenProps) {
             }}
           />
           <Button
-            title="Тест: отказ"
+            title="Отметить отказ"
             secondary
             disabled={flow.busy}
             onPress={() => {
@@ -506,7 +500,7 @@ export function ConnectedOrder(props: ScreenProps) {
           <Heading small>Причина отмены</Heading>
           <TextInput
             testID="test-cancel-reason"
-            accessibilityLabel="Причина отмены тестового заказа"
+            accessibilityLabel="Причина отмены заказа"
             // Native owns edits; reason keeps the latest draft for remount and submission.
             defaultValue={reason}
             onChangeText={setReason}
@@ -528,7 +522,7 @@ export function ConnectedOrder(props: ScreenProps) {
       {!receipt ? <NavRow title="Информация о чеке" onPress={() => props.navigate('M21')} /> : null}
       {!cancel && !unknown && !['fulfilled', 'cancelled'].includes(order.state) ? (
         <NavRow
-          title="Отменить тестовый заказ"
+          title="Отменить заказ"
           testID="test-open-cancel"
           onPress={() => props.navigate('M22')}
         />
@@ -569,7 +563,7 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
         <Row>
           <View style={ui.flex}>
             <Heading style={s.readyTitle}>Готово!</Heading>
-            <Body style={s.readyInk}>Тестовая сборка завершена</Body>
+            <Body style={s.readyInk}>Ваш заказ собран</Body>
           </View>
           <Logo size={48} />
         </Row>
@@ -591,7 +585,7 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
           Можно забирать
         </Body>
         <Body style={[s.readyInk, { textAlign: 'center' }]}>
-          Это тест: ресторан не готовит этот заказ. Выдачу в системе подтвердит оператор.
+          Назовите номер заказа на стойке выдачи.
         </Body>
         <View style={ui.flex} />
         <Button
@@ -615,7 +609,7 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
         {props.model.testFlow.error ? <Notice warning>{props.model.testFlow.error}</Notice> : null}
         <ContinueSession props={props} />
         <Caption style={[s.readyInk, { textAlign: 'center' }]}>
-          {branch?.name ?? location?.name ?? 'Ресторан PickChick'}
+          {location?.name ?? branch?.name ?? 'Ресторан PickChick'}
           {location ? ` · ${location.city}, ${location.address}` : ''}
         </Caption>
       </ScrollView>

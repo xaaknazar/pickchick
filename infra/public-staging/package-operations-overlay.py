@@ -26,7 +26,7 @@ def digest(path):
 def public_path(root, relative):
     path = PurePosixPath(relative)
     assert not path.is_absolute() and '..' not in path.parts and str(path) == relative
-    assert path.parts and path.parts[0] in ('operations', 'backoffice', 'design', 'packages')
+    assert path.parts and path.parts[0] in ('operations', 'backoffice', 'design', 'packages', 'kitchen-demo')
     assert not any(part.startswith('.') for part in path.parts)
     target = root.joinpath(*path.parts)
     assert target.is_file() and not target.is_symlink(), relative

@@ -231,7 +231,7 @@ final class SmokeTests: XCTestCase {
         replaceText(in: code, with: "000000", app: app)
         tap("confirm-otp", in: app)
         let error = element("demo-auth-error", in: app)
-        assertLabel("Код не подошёл. Для этого тестового входа используйте 123456.", on: error)
+        assertLabel("Код не подошёл. Для этого входа используйте 123456.", on: error)
         assertScreen("M03", in: app)
         attachScreenshot("Demo-OTP-rejected", of: app)
 

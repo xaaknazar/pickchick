@@ -152,7 +152,7 @@ with sync_playwright() as p:
         expect(visible_element(page, 'screen-M06')).to_be_visible()
         page.goto(URL + '/profile')
         profile = visible_element(page, 'screen-M30')
-        expect(profile.get_by_text('Тестовый профиль', exact=True)).to_be_visible()
+        expect(profile.get_by_text('Профиль на устройстве', exact=True)).to_be_visible()
         expect(profile.get_by_text('+7 700 000-00-01', exact=True)).to_be_visible()
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('29.02.2000')
         page.screenshot(path=str(OUTPUT / f'profile-{width}.png'))

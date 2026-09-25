@@ -83,9 +83,9 @@ def create_kiosk(page, start=True):
     page.get_by_role('button', name=re.compile('^Добавить ·')).click()
     page.get_by_role('button', name='Оформить заказ →', exact=True).click()
     page.get_by_role('button', name='Продолжить →', exact=True).click()
-    page.get_by_role('button', name='Рассчитать тестовый заказ', exact=True).click()
+    page.get_by_role('button', name='Рассчитать заказ', exact=True).click()
     with page.expect_response(lambda r: r.request.method == 'POST' and r.url.split('?')[0] == API + '/orders') as received:
-        page.get_by_role('button', name='Создать тестовый заказ →', exact=True).click()
+        page.get_by_role('button', name='Создать заказ →', exact=True).click()
     assert received.value.ok, 'Kiosk order creation rejected'
     order = received.value.json()
     assert order['synthetic'] is True and order['namespace'] == 'pickchick-test'
@@ -182,7 +182,7 @@ def run():
                 else:
                     route.continue_()
             kiosk.route('**/simulated-payment', lose_response)
-            kiosk.get_by_role('button', name='Тест: подтвердить оплату', exact=True).click()
+            kiosk.get_by_role('button', name='Подтвердить без оплаты', exact=True).click()
             expect(kiosk.get_by_role('button', name='Повторить прежний запрос', exact=True)).to_be_enabled()
             assert kiosk.get_by_role('button', name='Следующий гость', exact=True).count() == 0
             kiosk.reload()
@@ -217,22 +217,22 @@ def run():
 
             stage = 'unknown payment survives reload'
             unknown = create_kiosk(kiosk, start=False)
-            kiosk.get_by_role('button', name='Тест: неизвестный результат', exact=True).click()
-            expect(kiosk.get_by_role('heading', name='Проверяем тестовую оплату', exact=True)).to_be_visible()
+            kiosk.get_by_role('button', name='Уточнить результат', exact=True).click()
+            expect(kiosk.get_by_role('heading', name='Проверяем подтверждение', exact=True)).to_be_visible()
             kiosk.reload()
             expect(kiosk.locator('.order-number')).to_have_text(unknown['number'])
-            assert kiosk.get_by_role('button', name='Тест: подтвердить оплату', exact=True).count() == 0
+            assert kiosk.get_by_role('button', name='Подтвердить без оплаты', exact=True).count() == 0
             assert kiosk.get_by_role('button', name='Следующий гость', exact=True).count() == 0
             kiosk.get_by_role('button', name='Нужна помощь', exact=True).click()
             expect(kiosk.get_by_role('dialog')).to_contain_text(unknown['number'])
             assert kiosk.get_by_role('button', name='Завершить сеанс', exact=True).count() == 0
             kiosk.get_by_role('button', name='Вернуться к проверке', exact=True).click()
             manager_open(manager, unknown['number'])
-            manager.locator('.order-details').get_by_role('button', name='Тест: подтвердить', exact=True).click()
+            manager.locator('.order-details').get_by_role('button', name='Подтвердить без оплаты', exact=True).click()
             expect(kiosk.get_by_role('heading', name='Ваш заказ на кухне', exact=True)).to_be_visible(timeout=15000)
             assert_layout(kiosk, 'kiosk-confirmed-1024')
             # Cancel only the order created by this run; no unrelated user/test orders touched.
-            manager.locator('.order-details').get_by_label('Причина отмены тестового заказа').fill('Завершение браузерной проверки неизвестного результата')
+            manager.locator('.order-details').get_by_label('Причина отмены заказа').fill('Завершение браузерной проверки неизвестного результата')
             manager.locator('.order-details').get_by_role('button', name='Отменить с причиной', exact=True).click()
             expect(kiosk.get_by_role('heading', name='Заказ отменён', exact=True)).to_be_visible(timeout=15000)
             checks.append('unknown persists; no new guest/payment; manager resolves same order')

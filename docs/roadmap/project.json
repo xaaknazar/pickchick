@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T11:55:12.444268+00:00",
+  "updatedAt": "2026-09-25T12:11:20.780866+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3328,6 +3328,33 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "restaurant-customer-copy",
+      "workstream": "mobile",
+      "title": "Название точки и понятные подписи заказа",
+      "summary": "Убраны тестовые подписи mobile/operations; Abay Plaza определяется по branch_id. Оплата и чеки обозначены как в процессе подключения.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-unpaid-test"],
+      "evidence": [
+        {
+          "label": "Область и проверки",
+          "path": "docs/operations/restaurant-copy.md"
+        }
+      ],
+      "acceptance": [
+        "В приложении отображается действующая точка без тестовых подписей.",
+        "Заказ проходит без списания; оплата/чеки обозначены как в процессе подключения."
+      ],
+      "nextAction": "Зелёная CI, выпуск статических operations, обновление Dev и приёмка на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
         "accepted": false
       }
     }

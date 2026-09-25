@@ -103,7 +103,7 @@ with sync_playwright() as p:
         expect(visible(page, 'phone-input')).to_be_editable()
         visible(page, 'phone-input').fill(PHONE)
         expect(visible(page, 'request-otp')).to_be_enabled()
-        expect(page.get_by_text('Тестовый код 123456. SMS не отправляется.', exact=True)).to_have_count(0)
+        expect(page.get_by_text('Код входа 123456. SMS не отправляется.', exact=True)).to_have_count(0)
         page.screenshot(path=str(OUTPUT / f'phone-{width}.png'))
         visible(page, 'request-otp').click()
         expect(visible(page, 'screen-M03')).to_be_visible()

@@ -32,6 +32,7 @@ class OverlayTests(unittest.TestCase):
         files = {
             'operations/index.html': 'old index', 'operations/assets/old.js': 'old asset',
             'backoffice/index.html': 'keep backoffice',
+            'kitchen-demo/index.html': 'keep kitchen rehearsal',
             'design/prototype/assets/logo.png': 'keep public logo',
         }
         hashes = {}
@@ -41,7 +42,8 @@ class OverlayTests(unittest.TestCase):
             p.write_text(content)
             hashes[name] = hashlib.sha256(p.read_bytes()).hexdigest()
         self.manifest = self.base / '.release.json'
-        self.manifest.write_text(json.dumps({'source_sha': 'a' * 40, 'files': hashes}))
+        self.manifest.write_text(json.dumps({'source_sha': 'a' * 40, 'files': hashes,
+                                            'component_sources': {'kitchen-demo': 'b' * 40}}))
         self.manifest_hash = hashlib.sha256(self.manifest.read_bytes()).hexdigest()
         self.dist = self.repo / 'apps/operations/dist'
         (self.dist / 'assets').mkdir(parents=True)
@@ -66,12 +68,13 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         manifest = json.loads((self.output / '.release.json').read_text())
         self.assertEqual((self.output / 'operations/index.html').read_text(), 'new index')
-        for path in ['operations/assets/old.js', 'backoffice/index.html', 'design/prototype/assets/logo.png']:
+        for path in ['operations/assets/old.js', 'backoffice/index.html', 'design/prototype/assets/logo.png', 'kitchen-demo/index.html']:
             self.assertEqual((self.output / path).read_bytes(), (self.base / path).read_bytes())
         actual = {p.relative_to(self.output).as_posix() for p in self.output.rglob('*') if p.is_file()}
         self.assertEqual(actual, set(manifest['files']) | {'.release.json'})
         self.assertEqual(manifest['component_sources']['operations'], self.sha)
         self.assertEqual(manifest['component_sources']['backoffice'], 'a' * 40)
+        self.assertEqual(manifest['component_sources']['kitchen-demo'], 'b' * 40)
         for path, expected in manifest['files'].items():
             self.assertEqual(hashlib.sha256((self.output / path).read_bytes()).hexdigest(), expected)
             self.assertEqual((self.output / path).stat().st_mode & 0o777, 0o644)

@@ -315,12 +315,7 @@ export function Kiosk() {
           ? await api.create(session.token, command.quote.quote_id, command.key)
           : command.kind === 'payment'
             ? await api.payment(session.token, command.order, command.outcome, command.key)
-            : await api.cancel(
-                session.token,
-                command.order,
-                'Гость отменил тестовый заказ',
-                command.key,
-              );
+            : await api.cancel(session.token, command.order, 'Гость отменил заказ', command.key);
       setAck(result);
       update({ pending: null, orderId: result.order_id, screen: 'order' });
       void remote.refresh();
@@ -393,14 +388,14 @@ export function Kiosk() {
     <div className={`kiosk-shell screen-${draft.screen}`}>
       {accessExpired ? (
         <section className="notice warning session-recovery" role="alert">
-          <h2>Срок тестового сеанса истёк</h2>
+          <h2>Срок сеанса истёк</h2>
           <p>
             {sessionBlocked
-              ? 'Сервер не разрешил продление: управляющий должен завершить или отменить прежний тестовый заказ и разрешить неизвестную оплату. Затем повторите продление.'
+              ? 'Сервер не разрешил продление: управляющий должен завершить или отменить прежний заказ и разрешить неизвестную оплату. Затем повторите продление.'
               : 'Корзина, заказ и незавершённый запрос сохранены. Продлите доступ к прежнему сеансу, чтобы проверить результат.'}
           </p>
           <button className="primary" disabled={busy} onClick={() => void continueSession()}>
-            {busy ? 'Проверяем доступ…' : 'Продлить тестовый сеанс'}
+            {busy ? 'Проверяем доступ…' : 'Продлить сеанс'}
           </button>
           <button className="secondary" onClick={() => setHelp(true)}>
             Нужна помощь с доступом
@@ -612,8 +607,8 @@ export function Kiosk() {
                   <h2>Состав по каталогу</h2>
                   <p>{selected.description}</p>
                   <Notice>
-                    В этом тесте доступен стандартный состав. Модификаторы и пошаговый конструктор
-                    комбо пока не подключены к серверному расчёту.
+                    Сейчас доступен стандартный состав. Модификаторы и пошаговый конструктор комбо
+                    пока не подключены к серверному расчёту.
                   </Notice>
                   <p>Аллергены и пищевая ценность появятся после утверждения карточки блюда.</p>
                 </div>
@@ -740,7 +735,7 @@ export function Kiosk() {
                     <strong>Предварительно {money(estimate)}</strong>
                   </div>
                   <Notice>
-                    Точную сумму и доступность проверит сервер. Промокоды и Чики в этом тесте не
+                    Точную сумму и доступность проверит сервер. Промокоды и Чики пока не
                     применяются.
                   </Notice>
                 </>
@@ -764,7 +759,7 @@ export function Kiosk() {
                   }
                   onClick={() => void calculate()}
                 >
-                  {busy ? 'Считаем на сервере…' : 'Рассчитать тестовый заказ'}
+                  {busy ? 'Считаем на сервере…' : 'Рассчитать заказ'}
                 </button>
               }
             >
@@ -773,11 +768,10 @@ export function Kiosk() {
                 <span>✦</span>
                 <h2>Чики скоро появятся здесь</h2>
                 <p>
-                  Телефон, QR и SMS пока не подключены. Для этого тестового заказа контактные данные
-                  не нужны.
+                  Телефон, QR и SMS пока не подключены. Для этого заказа контактные данные не нужны.
                 </p>
               </div>
-              <Notice>Денежных списаний и бонусных начислений в тестовом контуре нет.</Notice>
+              <Notice>Оплата, чеки и бонусные начисления - в процессе подключения.</Notice>
               {missingIds.length ? (
                 <Notice warning>
                   Состав изменился. Вернитесь в корзину и удалите недоступные блюда.
@@ -799,7 +793,7 @@ export function Kiosk() {
                     })
                   }
                 >
-                  Создать тестовый заказ →
+                  Создать заказ →
                 </button>
               }
             >
@@ -820,8 +814,7 @@ export function Kiosk() {
                 <strong>Итого {money(draft.quote.total_minor)}</strong>
               </div>
               <Notice>
-                Сейчас создадим тестовый заказ. На следующем экране можно выбрать результат
-                симулятора оплаты; Kaspi не вызывается.
+                Сейчас создадим заказ. На следующем экране подтвердите передачу на кухню без оплаты.
               </Notice>
             </KioskStep>
           ) : null}
@@ -856,7 +849,7 @@ export function Kiosk() {
                   <span className={`order-pill ${order.state}`}>{stateLabels[order.state]}</span>
                   <h1>
                     {order.payment_state === 'simulated_unknown'
-                      ? 'Проверяем тестовую оплату'
+                      ? 'Проверяем подтверждение'
                       : order.state === 'ready'
                         ? 'Всё готово!'
                         : order.state === 'preparing'
@@ -865,7 +858,7 @@ export function Kiosk() {
                             ? 'Заказ выдан'
                             : order.state === 'cancelled'
                               ? 'Заказ отменён'
-                              : 'Тестовая оплата'}
+                              : 'Без списания'}
                   </h1>
                   <div className="order-number">{order.number}</div>
                   <p>{paymentLabels[order.payment_state]}</p>
@@ -873,28 +866,27 @@ export function Kiosk() {
                   order.payment_state !== 'simulated_unknown' ? (
                     <>
                       <Notice>
-                        Это симулятор. Выбранный результат сохранится на сервере; реальный банк и
-                        ККМ не вызываются.
+                        Оплата и чеки - в процессе подключения. Заказ можно подтвердить без оплаты.
                       </Notice>
                       <button
                         className="primary full"
                         disabled={busy || accessExpired || Boolean(remote.error)}
                         onClick={() => pay('approved')}
                       >
-                        Тест: подтвердить оплату
+                        Подтвердить без оплаты
                       </button>
                       <div className="simulation-options">
                         <button
                           disabled={busy || accessExpired || Boolean(remote.error)}
                           onClick={() => pay('declined')}
                         >
-                          Тест: отказ
+                          Отметить отказ
                         </button>
                         <button
                           disabled={busy || accessExpired || Boolean(remote.error)}
                           onClick={() => pay('unknown')}
                         >
-                          Тест: неизвестный результат
+                          Уточнить результат
                         </button>
                       </div>
                       <button
@@ -904,15 +896,15 @@ export function Kiosk() {
                           void execute({ kind: 'cancel', key: crypto.randomUUID(), order })
                         }
                       >
-                        Отменить тестовый заказ
+                        Отменить заказ
                       </button>
                     </>
                   ) : null}
                   {order.payment_state === 'simulated_unknown' ? (
                     <>
                       <Notice warning>
-                        Повторная оплата заблокирована. Управляющий должен разрешить этот тестовый
-                        результат; экран продолжает получать сохранённый статус.
+                        Повторная попытка заблокирована. Управляющий должен уточнить этот результат;
+                        экран продолжает получать сохранённый статус.
                       </Notice>
                       <button className="primary full" onClick={() => void remote.refresh()}>
                         Проверить состояние
@@ -959,7 +951,7 @@ export function Kiosk() {
                     ))}
                   </section>
                   <p className="fine">
-                    Чек: не применяется к тестовой операции · Чики не начисляются
+                    Оплата и чеки - в процессе подключения · Чики пока не начисляются
                   </p>
                 </>
               ) : remote.error ? (
@@ -1001,8 +993,8 @@ export function Kiosk() {
             <h2 id="help-title">Обратитесь к управляющему</h2>
             <p>
               {accessExpired
-                ? `Срок доступа истёк. Попросите управляющего найти прежний TEST-заказ${order?.number ? ` ${order.number}` : ''}, проверить неизвестный платёж и завершить выдачу или отмену. Затем вернитесь сюда и продлите прежний сеанс. Корзина и незавершённый запрос сохраняются.`
-                : `Номер ${order?.number}. Повторную оплату не запускайте. Управляющий может разрешить неизвестный результат в тестовом контуре.`}
+                ? `Срок доступа истёк. Попросите управляющего найти прежний заказ${order?.number ? ` ${order.number}` : ''}, проверить неизвестный платёж и завершить выдачу или отмену. Затем вернитесь сюда и продлите прежний сеанс. Корзина и незавершённый запрос сохраняются.`
+                : `Номер ${order?.number}. Повторную оплату не запускайте. Управляющий может разрешить неизвестный результат без списания денег.`}
             </p>
             <button className="primary full" autoFocus onClick={() => setHelp(false)}>
               Вернуться к проверке

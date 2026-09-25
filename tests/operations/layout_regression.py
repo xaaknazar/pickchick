@@ -28,7 +28,7 @@ class KioskLayout(KioskRecovery):
             self.assert_footer('.kiosk-actions', '.kiosk-body', height)
         self.page.get_by_role('button', name='Продолжить →', exact=True).click()
         self.assert_footer('.kiosk-actions', '.kiosk-body', 600)
-        self.page.get_by_role('button', name='Рассчитать тестовый заказ', exact=True).click()
+        self.page.get_by_role('button', name='Рассчитать заказ', exact=True).click()
         expect(self.page.get_by_text('Расчёт подтверждён сервером', exact=True)).to_be_visible()
         self.assert_footer('.kiosk-actions', '.kiosk-body', 600)
         self.assertFalse(any(path == '/orders' and method == 'POST' for method, path, *_ in self.fixture.requests))

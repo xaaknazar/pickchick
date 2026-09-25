@@ -220,14 +220,14 @@ class KioskRecovery(unittest.TestCase):
     def quote(self):
         self.page.get_by_role('button', name='Оформить заказ →', exact=True).click()
         self.page.get_by_role('button', name='Продолжить →', exact=True).click()
-        self.page.get_by_role('button', name='Рассчитать тестовый заказ', exact=True).click()
+        self.page.get_by_role('button', name='Рассчитать заказ', exact=True).click()
         expect(self.page.get_by_text('Расчёт подтверждён сервером', exact=True)).to_be_visible()
 
     def create(self):
         self.start()
         self.add()
         self.quote()
-        self.page.get_by_role('button', name='Создать тестовый заказ →', exact=True).click()
+        self.page.get_by_role('button', name='Создать заказ →', exact=True).click()
         expect(self.page.locator('.order-number')).to_have_text('T-900001')
 
     def saved_draft(self):
@@ -270,7 +270,7 @@ class KioskRecovery(unittest.TestCase):
         self.page.get_by_role('button', name='Удалить недоступное блюдо', exact=True).click()
         self.assertEqual(self.saved_draft()['counts'], {'cola': 1})
         self.page.get_by_role('button', name='Продолжить →', exact=True).click()
-        self.page.get_by_role('button', name='Рассчитать тестовый заказ', exact=True).click()
+        self.page.get_by_role('button', name='Рассчитать заказ', exact=True).click()
         expect(self.page.get_by_text('Расчёт подтверждён сервером', exact=True)).to_be_visible()
         request = next(r for r in self.fixture.requests if r[1] == '/quotes')
         self.assertEqual(request[2]['items'], [{'product_id': 'cola', 'quantity': 1}])
@@ -311,14 +311,14 @@ class KioskRecovery(unittest.TestCase):
     def test_expired_pending_command_requires_staff_then_exact_retry(self):
         self.create()
         self.fixture.expire_payment = True
-        self.page.get_by_role('button', name='Тест: подтвердить оплату', exact=True).click()
-        expect(self.page.get_by_role('heading', name='Срок тестового сеанса истёк')).to_be_visible()
+        self.page.get_by_role('button', name='Подтвердить без оплаты', exact=True).click()
+        expect(self.page.get_by_role('heading', name='Срок сеанса истёк')).to_be_visible()
         pending = copy.deepcopy(self.saved_draft()['pending'])
         self.assertEqual(pending['kind'], 'payment')
         self.page.reload()
         expect(self.page.get_by_role('button', name='Повторить прежний запрос', exact=True)).to_be_disabled()
         self.assertEqual(self.saved_draft()['pending'], pending)
-        self.page.get_by_role('button', name='Продлить тестовый сеанс', exact=True).click()
+        self.page.get_by_role('button', name='Продлить сеанс', exact=True).click()
         expect(self.page.locator('.session-recovery')).to_contain_text('управляющий должен завершить')
         self.page.get_by_role('button', name='Нужна помощь с доступом', exact=True).click()
         expect(self.page.get_by_role('dialog')).to_contain_text('Корзина и незавершённый запрос сохраняются')
@@ -330,7 +330,7 @@ class KioskRecovery(unittest.TestCase):
         expect(self.page.get_by_role('button', name='Завершить', exact=True)).to_have_count(0)
         self.fixture.order = {**self.fixture.order, 'state': 'cancelled', 'version': 2,
                               'cancellation_reason': 'Local fixture staff resolution'}
-        self.page.get_by_role('button', name='Продлить тестовый сеанс', exact=True).click()
+        self.page.get_by_role('button', name='Продлить сеанс', exact=True).click()
         expect(self.page.locator('.session-recovery')).to_have_count(0)
         self.assertEqual(self.saved_draft()['pending'], pending)
         self.page.get_by_role('button', name='Повторить прежний запрос', exact=True).click()
@@ -345,9 +345,9 @@ class KioskRecovery(unittest.TestCase):
         order_id = self.saved_draft()['orderId']
         self.fixture.expired = True
         self.page.reload()
-        expect(self.page.get_by_role('heading', name='Срок тестового сеанса истёк')).to_be_visible()
+        expect(self.page.get_by_role('heading', name='Срок сеанса истёк')).to_be_visible()
         expect(self.page.get_by_role('heading', name='Не удалось восстановить заказ')).to_be_visible()
-        self.page.get_by_role('button', name='Продлить тестовый сеанс', exact=True).click()
+        self.page.get_by_role('button', name='Продлить сеанс', exact=True).click()
         expect(self.page.locator('.session-recovery')).to_contain_text('Сервер не разрешил продление')
         self.assertEqual(self.saved_draft()['orderId'], order_id)
         self.assertEqual(self.fixture.session_count, 1)

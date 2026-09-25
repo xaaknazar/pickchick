@@ -11,6 +11,10 @@ import {
 } from './client';
 import { Brand, Connection, Empty, Loading, Notice, commandKey, usePoll } from './shared';
 import { DisplayScreen } from './DisplayScreen';
+import locations from '../../../config/restaurant-locations.json';
+import { TEST_BRANCH_ID } from '@pickchick/test-order-flow/contracts';
+
+const location = locations.locations.find((item) => item.branch_id === TEST_BRANCH_ID);
 
 const titles: Record<StaffRole, string> = {
   prep: 'A · Приготовление',
@@ -59,7 +63,7 @@ export function Staff({ role }: { role: StaffRole }) {
           <form onSubmit={(event) => void login(event)}>
             <span className="eyebrow">Доступ сотрудника</span>
             <h1>{titles[role]}</h1>
-            <p>Введите ключ тестовой кухни. Тестовые заказы создаются без списания денег.</p>
+            <p>Введите ключ доступа. Оплата и чеки - в процессе подключения.</p>
             <label>
               Ключ доступа
               <input
@@ -271,9 +275,7 @@ function KitchenScreen({
             })}
           </div>
         ) : (
-          <Empty title="Очередь свободна">
-            Подтверждённый тестовый заказ появится здесь автоматически.
-          </Empty>
+          <Empty title="Очередь свободна">Подтверждённый заказ появится здесь автоматически.</Empty>
         )}
       </main>
     </div>
@@ -285,7 +287,7 @@ function Metric({ value, children }: { value: number; children: ReactNode }) {
     <article className="metric">
       <span>{children}</span>
       <strong>{value}</strong>
-      <small>Сохранённые тестовые заказы</small>
+      <small>Сохранённые заказы</small>
     </article>
   );
 }
@@ -333,12 +335,12 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
         <main className="manager-main">
           <header>
             <div>
-              <span className="eyebrow">TEST-ALMATY-01</span>
+              <span className="eyebrow">{location?.name ?? 'PickChick'}</span>
               <h1>Заказы и результаты</h1>
-              <p>Серверный тестовый контур · Алматы</p>
+              <p>{location ? `${location.city}, ${location.address}` : 'Заказы ресторана'}</p>
             </div>
             <div className="manager-header-actions">
-              <span className="test-label">Реальные продажи отключены</span>
+              <span className="test-label">Оплата и чеки - в процессе подключения</span>
               <button onClick={logout}>Выйти из роли</button>
             </div>
           </header>
@@ -348,12 +350,11 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
             <Metric value={all.filter((o) => o.state === 'preparing').length}>На кухне</Metric>
             <Metric value={all.filter((o) => o.state === 'ready').length}>Готовы к выдаче</Metric>
             <Metric value={all.filter((o) => o.payment_state === 'simulated_unknown').length}>
-              Проверка оплаты
+              Требуют уточнения
             </Metric>
           </div>
           <Notice>
-            Суммы ниже относятся к симуляции. Продажи, реальные остатки, фискальные документы и
-            банковская сверка ещё не подключены.
+            Оплата и чеки - в процессе подключения. Суммы заказов не являются поступлениями в кассу.
           </Notice>
           {error ? <Notice warning>{errorText(error)}</Notice> : null}
           <section className="manager-panel">
@@ -375,7 +376,7 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
                     <tr>
                       <th>Заказ / канал</th>
                       <th>Состояние</th>
-                      <th>Тестовая оплата</th>
+                      <th>Без списания</th>
                       <th>Сумма</th>
                       <th>Действие</th>
                     </tr>
@@ -416,9 +417,7 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
                 </table>
               </div>
             ) : (
-              <Empty title="Заказов пока нет">
-                Создайте тестовый заказ в приложении или на киоске.
-              </Empty>
+              <Empty title="Заказов пока нет">Создайте заказ в приложении или на киоске.</Empty>
             )}
           </section>
           {current ? (
@@ -452,27 +451,25 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
                     </li>
                   ))
                 ) : (
-                  <li>Не созданы до подтверждения тестовой оплаты</li>
+                  <li>Ожидают подтверждения заказа</li>
                 )}
               </ul>
               {current.payment_state === 'simulated_unknown' ? (
                 <>
-                  <Notice warning>
-                    Разрешите результат только в симуляторе. Эта операция не связана с Kaspi.
-                  </Notice>
+                  <Notice warning>Подтверждение передаст заказ на кухню без списания денег.</Notice>
                   <div className="action-row">
                     <button
                       className="primary"
                       disabled={busy || Boolean(remote.error)}
                       onClick={() => void command(current, 'approved')}
                     >
-                      Тест: подтвердить
+                      Подтвердить без оплаты
                     </button>
                     <button
                       disabled={busy || Boolean(remote.error)}
                       onClick={() => void command(current, 'declined')}
                     >
-                      Тест: отклонить
+                      Отклонить
                     </button>
                   </div>
                 </>
@@ -490,7 +487,7 @@ function Manager({ token, logout }: { token: string; logout: () => void }) {
               current.payment_state !== 'simulated_unknown' ? (
                 <div className="cancel-order">
                   <label>
-                    Причина отмены тестового заказа
+                    Причина отмены заказа
                     <input
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}

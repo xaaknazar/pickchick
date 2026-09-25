@@ -122,7 +122,7 @@ export function Profile(props: ScreenProps) {
                       : 'Без входа в аккаунт'}
                   </Text>
                   {account.account?.kind === 'local_demo' ? (
-                    <Text style={s.demoLabel}>Тестовый профиль</Text>
+                    <Text style={s.demoLabel}>Профиль на устройстве</Text>
                   ) : null}
                 </View>
                 {account.account ? (
@@ -296,7 +296,7 @@ export function Profile(props: ScreenProps) {
             }}
           />
         ) : null}
-        <Text style={s.version}>Pick Chick · приложение в тестировании</Text>
+        <Text style={s.version}>Pick Chick · приложение</Text>
         {!props.preview && props.openReview ? (
           <View style={s.group}>
             <ProfileRow

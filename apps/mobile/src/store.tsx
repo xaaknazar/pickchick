@@ -14,6 +14,7 @@ import { isRetryableCatalogError, loadCatalog, loadTestCatalog } from './api';
 import { createCatalogRecovery } from './catalog-recovery';
 import { DESIGN_RELEASE, designProducts, serverProducts, connectedProducts } from './catalog';
 import { unpaidTestOrdersEnabled } from './order-simulator';
+import { restaurantLocation } from './restaurant-location';
 import { useTestOrders } from './useTestOrders';
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import {
@@ -124,7 +125,13 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           : result.menu.release_id;
         const changed = serverRelease.current !== null && serverRelease.current !== nextRelease;
         serverRelease.current = nextRelease;
-        setBranches(result.branches);
+        // Friendly names are presentation only; IDs and availability remain server-owned.
+        setBranches(
+          result.branches.map((branch) => ({
+            ...branch,
+            name: restaurantLocation(branch.id)?.name ?? branch.name,
+          })),
+        );
         setMenu(result.menu);
         setConnectedCatalog(testCatalog);
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);

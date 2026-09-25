@@ -40,8 +40,8 @@ export function errorText(error: unknown): string {
   if (error.code === 'QUOTE_EXPIRED')
     return 'Расчёт заказа истёк. Вернитесь в корзину для нового расчёта.';
   if (error.status === 409) return 'Заказ уже изменился. Обновите его состояние перед действием.';
-  if (error.status === 429) return 'Достигнут лимит тестового контура. Повторите позднее.';
-  if (error.status === 503) return 'Тестовый контур временно недоступен. Повторите запрос позже.';
+  if (error.status === 429) return 'Слишком много запросов. Повторите позднее.';
+  if (error.status === 503) return 'Сервис временно недоступен. Повторите запрос позже.';
   return 'Сервер не принял запрос. Обновите данные и проверьте состав заказа.';
 }
 
@@ -176,15 +176,15 @@ export function money(value: string): string {
 }
 
 export const stateLabels: Record<TestOrder['state'], string> = {
-  awaiting_test_payment: 'Ожидает тестовой оплаты',
+  awaiting_test_payment: 'Ждёт подтверждения',
   preparing: 'Готовится',
   ready: 'Готов к выдаче',
   fulfilled: 'Выдан',
   cancelled: 'Отменён',
 };
 export const paymentLabels: Record<TestOrder['payment_state'], string> = {
-  not_started: 'Тестовая оплата не начата',
-  simulated_unknown: 'Тестовый результат неизвестен',
-  simulated_approved: 'Тестовая оплата подтверждена',
-  simulated_declined: 'Тестовая оплата отклонена',
+  not_started: 'Без оплаты',
+  simulated_unknown: 'Требует уточнения',
+  simulated_approved: 'Передан без оплаты',
+  simulated_declined: 'Подтверждение отклонено',
 };

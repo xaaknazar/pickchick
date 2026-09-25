@@ -24,7 +24,7 @@ function DemoNote() {
     ) : null;
   return (
     <View style={s.demoNote}>
-      <Text style={s.demoText}>Тестовый код {DEMO_LOGIN_CODE}. SMS не отправляется.</Text>
+      <Text style={s.demoText}>Код входа {DEMO_LOGIN_CODE}. SMS не отправляется.</Text>
     </View>
   );
 }
@@ -100,7 +100,7 @@ export function Phone(props: ScreenProps) {
       subtitle={
         demo.mode === 'server'
           ? 'Войдите, чтобы сохранять свой профиль Pick Chick.'
-          : 'Номер нужен, чтобы познакомиться с тестовым профилем Pick Chick.'
+          : 'Номер нужен, чтобы познакомиться с профилем Pick Chick.'
       }
       footer={
         <AuthButton
@@ -267,7 +267,7 @@ export function Otp(props: ScreenProps) {
           ? `Для ${formatDemoPhone(challenge.phone)}`
           : demo.mode === 'server'
             ? 'Укажите номер, чтобы войти.'
-            : 'Укажите номер, чтобы начать тестовый вход.'
+            : 'Укажите номер, чтобы начать вход.'
       }
       footer={
         <AuthButton

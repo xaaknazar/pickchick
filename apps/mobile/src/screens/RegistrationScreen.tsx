@@ -281,7 +281,7 @@ export function Onboarding(props: ScreenProps) {
       <Caption style={s.localNote}>
         {demo.mode === 'server'
           ? 'Данные профиля сохраняются в вашем аккаунте Pick Chick.'
-          : 'Данные этого тестового профиля сохраняются только на вашем устройстве.'}
+          : 'Данные этого профиля сохраняются только на вашем устройстве.'}
       </Caption>
       {!demo.account && demo.ready ? (
         <Pressable accessibilityRole="button" onPress={() => props.navigate('M02')} style={s.later}>

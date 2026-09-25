@@ -85,7 +85,7 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
               </Row>
               <Caption>
                 {orderSimulatorEnabled
-                  ? 'Имитация оплаты для теста. Деньги не списываются, реквизиты не нужны.'
+                  ? 'Оплата и чеки - в процессе подключения. Реквизиты не нужны.'
                   : 'Выберите удобный способ. Онлайн-оплата скоро появится.'}
               </Caption>
               {(['kaspi', 'card'] as const).map((method) => (
