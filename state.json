@@ -165,9 +165,11 @@
         "docs/operations/iiko-functional-audit-2026-09-25.md",
         "@iiko"
       ],
-      "status": "active",
-      "head": "8375e4af3d5310d0ca4d7ffdd2d5a0c77f6efa64",
-      "updatedAt": "2026-09-25T05:49:45.269Z"
+      "status": "done",
+      "head": "fa599e3f9d7f0d30bdc3a5d1ca52d925aec87c39",
+      "updatedAt": "2026-09-25T06:03:31.330Z",
+      "summary": "Документальный этап обследования через iikoWeb: PR https://github.com/xaaknazar/pickchick/pull/83, fa599e3f9d7f0d30bdc3a5d1ca52d925aec87c39 в shared-development, remote SHA совпадает. Вход успешен; прочитаны реальные чеки/документы/скидки/оплаты/роли/счета, штатно скачаны четыре XLSX остатков (150 строк товар-склад, 49 отрицательных). Файлы приватные вне Git, XML/хеши/счётчики проверены; Prettier/diff/secret check прошли. Runtime не менялся; Foundation CI queued/in_progress 36101139617/36101098909. Регистрацию разработчика владелец исключил из обязательных шагов.",
+      "nextAction": "Владельцу real-menu на другом Mac: интегрировать shared-development и прочитать docs/operations/iiko-functional-audit-2026-09-25.md. В занятых вами project-status/roadmap/real-menu снять обязательность регистрации iiko; API-блокер ограничивает только экспортёр. Уже доступны веб-данные и четыре XLSX; остаются полный набор модификаторов/доплат/рецептур, изолированный импорт, корзины и единый каталог клиентов. Решение по ценам из PR82 сохраняется. Проверить расхождение UI/XLS цены SKU00218 и отрицательные остатки перед миграцией. kaspi ailillu обнаружен в реальном чеке и конфигурации, банковский протокол не получен. Выгрузки локальны на втором Mac; онлайн-roadmap не обновлён без SSH."
     },
     {
       "id": "real-menu",
