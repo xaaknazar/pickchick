@@ -6,6 +6,7 @@ backup + isolated restore, maintenance/cleanup locks and unchanged row digests.
 Never restores a dump over the live database or enables commercial integrations.
 """
 import argparse
+import copy
 import importlib.util
 import json
 import os
@@ -34,6 +35,32 @@ ADDITIONS = {'devices': {'pos_sync_lock_anchor': False},
              'device_credentials': {'pos_sync_lock_anchor': False},
              'test_orders': {'execution_mode': 'simulated_payment'}}
 TEST_PATHS = '/test/kitchen/prep /test/kitchen/assembly /test/display'
+# cloud017's recipe-pinning trigger needs these even with backoffice UI disabled.
+RECIPE_ACL = [
+    {'name': 'bo_order_recipes', 'kind': 'r', 'column': None, 'privilege': 'INSERT', 'grantable': False},
+    {'name': 'bo_records', 'kind': 'r', 'column': None, 'privilege': 'SELECT', 'grantable': False},
+]
+
+
+def verify_runtime_acl(before, after):
+    require(all(row in after for row in before), 'Existing runtime privilege removed')
+    additions = [row for row in after if row not in before]
+    require(len(additions) == len(RECIPE_ACL) and all(row in additions for row in RECIPE_ACL),
+            'Runtime authority differs from the two reviewed recipe grants')
+
+
+def relocate_public_mounts(config, old, new):
+    result = copy.deepcopy(config)
+    volumes = result['services']['gateway']['volumes']
+    expected = {'/etc/caddy/Caddyfile': 'gateway.Caddyfile', '/srv/public': 'public-web'}
+    require(len(volumes) == 2 and {v['target'] for v in volumes} == set(expected),
+            'Unexpected gateway mount set')
+    for volume in volumes:
+        require(volume['type'] == 'bind' and volume['read_only'] is True
+                and volume['source'] == old + '/' + expected[volume['target']],
+                'Unexpected gateway bind source or permissions')
+        volume['source'] = new + '/' + expected[volume['target']]
+    return result
 
 
 def extend_gateway(text):
@@ -98,6 +125,9 @@ class Release(market.Release):
                     tar.add(file, arcname='operations/'+str(file.relative_to(market.REPO/'apps/operations/dist')))
         new = f'{REMOTE}/public-https/releases/{self.sha}/infra/public-staging'
         self.remote(f'test ! -e {REMOTE}/public-https/releases/{self.sha} && mkdir -p {new} && cp -a {old}/. {new}/ && tar -xf - -C {new}/public-web',input=bundle.read_bytes(),timeout=180)
+        compose = json.loads(self.remote(market.web_compose(self.profile.old_web)+' config --format json'))
+        relocated = relocate_public_mounts(compose, old, new)
+        self.remote('python3 -c '+quote('from pathlib import Path;import sys;Path(sys.argv[1]).write_text(sys.stdin.read())')+' '+quote(new+'/compose.yaml'), input=json.dumps(relocated))
         gateway = extend_gateway(self.old_gateway)
         self.remote('python3 -c '+quote('from pathlib import Path;import sys;Path(sys.argv[1]).write_text(sys.stdin.read())')+' '+quote(new+'/gateway.Caddyfile'), input=gateway)
         update = '''from pathlib import Path
@@ -135,7 +165,7 @@ print(json.dumps(m))
 
     def verify_data(self,before):
         self.migration_delta(before['ledger'],before['data'])
-        require(self.acl()==before['acl'],'Existing runtime privileges changed')
+        verify_runtime_acl(before['acl'], self.acl())
         for table, columns in ADDITIONS.items():
             for key,value in columns.items():
                 literal="'simulated_payment'" if value=='simulated_payment' else 'false'
@@ -200,12 +230,19 @@ print(json.dumps(m))
         self.switch(REMOTE+'/current',f'{REMOTE}/releases/{BASELINE}',f'{REMOTE}/releases/{self.sha}')
         self.switch(REMOTE+'/public-https/current',f'{REMOTE}/public-https/releases/{self.profile.old_web}',f'{REMOTE}/public-https/releases/{self.sha}')
         self.remote(market.web_compose(self.sha)+' up -d --no-deps --wait --wait-timeout 90 gateway',timeout=150)
+        mounts = json.loads(self.remote('docker inspect --format '+quote('{{json .Mounts}}')+' '+market.GATEWAY))
+        mounted = {row['Destination']: row['Source'] for row in mounts}
+        public = f'{REMOTE}/public-https/releases/{self.sha}/infra/public-staging'
+        require(mounted.get('/etc/caddy/Caddyfile') == public+'/gateway.Caddyfile'
+                and mounted.get('/srv/public') == public+'/public-web', 'Actual gateway mounts differ')
+        require(self.remote('docker exec '+market.GATEWAY+' sha256sum /etc/caddy/Caddyfile').split()[0]
+                == proof['gateway_sha256'], 'Mounted gateway config differs')
         require(self.http_json('/v1/capabilities')==caps,'Public capability mismatch')
         for path in TEST_PATHS.split(): require(self.http(path)[0]==200,'TEST screen unavailable')
         require(self.http_json('/kitchen-live/health')['edgeConnected'] is True,'Existing kitchen link disconnected')
         require(self.fingerprint()==before['neighbors'],'Unrelated container changed after reopening')
         self.cleanup('release')
-        self.save('result.json',{'source_sha':self.sha,'backup':backup,'schema':19,'commercial_enabled':False,'existing_data_preserved':True,'old_image_compatible':True})
+        self.save('result.json',{'source_sha':self.sha,'backup':backup,'schema':19,'commercial_enabled':False,'existing_data_preserved':True,'old_image_compatible':True,'reviewed_acl_additions':RECIPE_ACL,'web_mounts_verified':True})
         print('Published TEST ordering, preserved edge kitchen and unrelated services',flush=True)
 
 

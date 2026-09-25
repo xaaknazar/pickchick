@@ -6,6 +6,10 @@ API и web: `https://pickchick.185.129.51.103.nip.io`. Этот контур х�
 TEST-оплаты не обращается к Kaspi и не означает платёж, чек или ресторанный заказ.
 Данные не отправляются в рабочий edge, iiko или ресторанную кухню.
 
+С 25 сентября 2026 доступен отдельный [неоплаченный мобильный TEST-путь](mobile-unpaid-test.md).
+Для проверки используйте `/test/kitchen/prep`, `/test/kitchen/assembly`, `/test/display`;
+обычные адреса кухни/табло показывают кассовый edge.
+
 ## Gate и API
 
 `TEST_ORDER_FLOW_ENABLED` по умолчанию `false`; допускаются только строки
@@ -38,7 +42,7 @@ Bearer и проверку ролей сервером. HTTP выдачи staff 
 
 ## Runtime и полномочия
 
-Readiness при включённом gate требует migrations 004, 005, 006
+Readiness при включённом gate требует migrations 004, 005, 006 и 019
 и доступ ко всем семи TEST-таблицам. Runtime получает только необходимые
 SELECT/INSERT и UPDATE изменяемых полей заказа/задачи, блокировку singleton,
 USAGE единственной TEST sequence. DELETE test_actors нужен ограниченной очистке
