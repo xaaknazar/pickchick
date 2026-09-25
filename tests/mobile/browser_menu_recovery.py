@@ -29,6 +29,7 @@ SENTINEL = 'Pick Combo · проверка сети'
 CATALOG['products'][0]['name'] = SENTINEL
 BRANCH = CATALOG['branch_id']
 MENU_PATH = '/v1/branches/' + BRANCH + '/menu'
+CONTENT_PATH = '/v1/content/branches/' + BRANCH
 CAPABILITIES = {
     'schema_version': 1, 'environment': 'staging', 'data_mode': 'synthetic',
     'ordering_enabled': False,
@@ -43,6 +44,7 @@ READS = {
                 'release_id': '10000000-0000-4000-8000-000000000008',
                 'version': 1, 'published_at': '2026-09-07T00:00:00Z', 'items': []},
     '/v1/test/catalog': CATALOG,
+    CONTENT_PATH: {'schema_version': 1, 'branch_id': BRANCH, 'promos': [], 'games': []},
 }
 
 
@@ -55,6 +57,11 @@ class Fixture:
 
     def count(self, path='/v1/capabilities'):
         return sum(request[1] == path for request in self.requests)
+
+    def catalog_reads(self):
+        # Public promotions have their own refresh lifecycle; they are not part
+        # of the four-read catalog recovery transaction tested here.
+        return sum(request[1] != CONTENT_PATH for request in self.requests)
 
     def route(self, route):
         request = route.request
@@ -105,6 +112,9 @@ def online(page):
     expect(page.locator('[data-testid^="product-photo-"]')).to_have_count(24, timeout=12000)
     expect(page.get_by_test_id('product-pick-combo').get_by_text(SENTINEL, exact=True)).to_be_visible()
     expect(page.get_by_text('Нет свежего меню', exact=True)).not_to_be_visible()
+    # Retained cards and a hidden error banner also occur during refresh. Wait
+    # for the visible loading state to settle before counting completed reads.
+    expect(page.get_by_text('Загружаем меню', exact=True)).not_to_be_visible()
     no_design_fallback(page)
 
 
@@ -163,27 +173,27 @@ with sync_playwright() as playwright:
     online(page)
     retained.mode = '503'
     visibility(page, False)
-    hidden_reads = len(retained.requests)
+    hidden_reads = retained.catalog_reads()
     page.wait_for_timeout(2200)
-    assert len(retained.requests) == hidden_reads, 'Background refresh must be stopped'
+    assert retained.catalog_reads() == hidden_reads, 'Background refresh must be stopped'
     visibility(page, True)
     offline(page, received=True)
     expect(page.get_by_test_id('product-pick-combo').get_by_text(SENTINEL, exact=True)).to_be_visible()
     visibility(page, False)
     retained.mode = 'ok'
-    paused_reads = len(retained.requests)
+    paused_reads = retained.catalog_reads()
     page.wait_for_timeout(2200)
-    assert len(retained.requests) == paused_reads, 'A scheduled retry leaked into background'
+    assert retained.catalog_reads() == paused_reads, 'A scheduled retry leaked into background'
     foreground_at = time.monotonic()
     visibility(page, True)
     online(page)
     first_foreground_read = next(timestamp for _, _, timestamp in retained.requests
                                  if timestamp >= foreground_at)
     assert first_foreground_read - foreground_at < 1.8, 'Foreground should not wait for retry backoff'
-    active_reads = len(retained.requests)
+    active_reads = retained.catalog_reads()
     visibility(page, True)
     page.wait_for_timeout(2300)
-    assert len(retained.requests) == active_reads, 'Repeated active events must not multiply reads'
+    assert retained.catalog_reads() == active_reads, ('Repeated active events must not multiply catalog reads', retained.requests)
 
     # Observe the actual 2/5/15-second schedule. Permanent protocol failures run
     # alongside it, so one observation window covers all non-retryable cases.
