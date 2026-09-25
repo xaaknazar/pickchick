@@ -59,7 +59,24 @@ function AppLayout() {
                   animation: reduced ? 'none' : 'default',
                   contentStyle: { backgroundColor: '#04143A' },
                 }}
-              />
+              >
+                <Stack.Screen
+                  name="cart"
+                  options={{
+                    presentation: 'transparentModal',
+                    animation: 'none',
+                    contentStyle: { backgroundColor: 'transparent' },
+                  }}
+                />
+                <Stack.Screen
+                  name="checkout"
+                  options={{
+                    presentation: 'transparentModal',
+                    animation: 'none',
+                    contentStyle: { backgroundColor: 'transparent' },
+                  }}
+                />
+              </Stack>
             </MobileProvider>
           </AccountProvider>
         ) : (

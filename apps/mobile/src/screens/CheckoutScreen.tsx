@@ -1,158 +1,129 @@
-import { MotionPressable as Pressable } from '../components/Motion';
-import { Image } from 'expo-image';
-import { StyleSheet, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 import type { ScreenProps } from '../model';
-import { colors, font } from '../theme';
 import { restaurantLocation } from '../restaurant-location';
-import { cartLineKey, cartTotal, lineUnitPrice, money, selectionDescription } from '../domain';
+import { cartTotal, money, preparationMinutes } from '../domain';
 import { DiningSelector } from '../components/Brand';
-import { PaymentChoice } from '../components/PaymentChoice';
+import { CheckoutPayments } from '../components/CartExtras';
 import {
   Body,
   Button,
   Caption,
   Empty,
   Heading,
-  Icon,
+  IconButton,
   Page,
   Row,
   SummaryRow,
-  styles as ui,
 } from '../components/UI';
+import { colors, font } from '../theme';
 
-/** Customer checkout follows the supplied cart/payment layout; no simulated charges. */
-export function Checkout(props: ScreenProps) {
+export function CheckoutHeader({ props }: { props: ScreenProps }) {
+  return (
+    <Row style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+      <IconButton
+        name="close"
+        label="Вернуться в корзину"
+        testID="checkout-close"
+        onPress={props.goBack}
+      />
+      <Heading small style={{ flex: 1 }}>
+        Оформление
+      </Heading>
+    </Row>
+  );
+}
+export function CheckoutDetails({
+  props,
+  lockedMode,
+  restaurantName,
+  address,
+  details,
+}: {
+  props: ScreenProps;
+  lockedMode?: 'takeaway' | 'dine_in';
+  restaurantName?: string;
+  address?: string;
+  details?: ReactNode;
+}) {
   const { model } = props;
   const location = restaurantLocation(model.branch?.id);
-  const total = cartTotal(model.cart);
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
+  return (
+    <>
+      <Heading style={{ fontSize: 32, lineHeight: 40 }}>Как заберёте заказ?</Heading>
+      {lockedMode ? (
+        <Body>{lockedMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
+      ) : (
+        <DiningSelector value={model.diningMode} onChange={model.setDiningMode} />
+      )}
+      <View style={{ gap: 8, backgroundColor: colors.surface, padding: 18, borderRadius: 20 }}>
+        <Heading small>
+          {restaurantName ?? location?.name ?? model.branch?.name ?? 'Ресторан PickChick'}
+        </Heading>
+        {(address ?? location?.address) ? (
+          <Caption>{address ?? `${location?.city}, ${location?.address}`}</Caption>
+        ) : null}
+        <Caption>
+          {lockedMode ? 'Способ получения сохранён в заказе' : 'Заказ приготовят в этом ресторане'}
+        </Caption>
+      </View>
+      {!lockedMode ? (
+        <View style={{ gap: 8 }}>
+          <Heading small>Когда приготовить</Heading>
+          <Body style={{ fontFamily: font.medium }}>Как можно скорее</Body>
+          <Caption>Ориентир - около {preparationMinutes(model.cart)} мин</Caption>
+        </View>
+      ) : null}
+      <CheckoutPayments />
+      <View style={{ gap: 12 }}>
+        <Heading small>Детали</Heading>
+        {details ?? (
+          <>
+            <SummaryRow label={`Блюда · ${count} шт.`} value={money(cartTotal(model.cart))} />
+            <Button
+              testID="checkout-edit-cart"
+              title="Изменить заказ"
+              secondary
+              onPress={props.goBack}
+            />
+          </>
+        )}
+      </View>
+    </>
+  );
+}
+
+export function Checkout(props: ScreenProps) {
+  const total = cartTotal(props.model.cart);
   return (
     <Page
       props={props}
-      title="Оплата"
+      title="Оформление"
+      header={<CheckoutHeader props={props} />}
       footer={
-        model.cart.length ? (
+        props.model.cart.length ? (
           <>
-            <Row style={s.paymentRow}>
-              <PaymentChoice model={model} />
-              <View style={s.payable}>
-                <Caption>К оплате</Caption>
-                <Heading style={s.total} testID="checkout-total">
-                  {money(total)}
-                </Heading>
-              </View>
-            </Row>
+            <SummaryRow label="Итого" value={money(total)} strong />
             <Button
               testID="checkout-pay-disabled"
-              title={model.paymentMethod === 'kaspi' ? 'Оплатить через Kaspi' : 'Оплатить картой'}
+              title="Оформление скоро появится"
               disabled
+              style={{ borderRadius: 28 }}
             />
-            <Row style={s.availability}>
-              <Icon name="time-outline" size={15} color={colors.muted} />
-              <Caption style={s.availabilityText}>Онлайн-оплата скоро появится</Caption>
-            </Row>
           </>
         ) : undefined
       }
     >
-      {!model.cart.length ? (
+      {!props.model.cart.length ? (
         <Empty
           title="В корзине пока пусто"
-          detail="Выберите любимые блюда, чтобы перейти к оплате."
+          detail="Выберите любимые блюда, чтобы оформить заказ."
           action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
         />
       ) : (
-        <>
-          <View style={s.restaurant}>
-            <Row style={{ alignItems: 'flex-start' }}>
-              <View style={s.locationMark}>
-                <Icon name="location-outline" color={colors.accent} size={23} />
-              </View>
-              <View style={[ui.flex, { gap: 4 }]}>
-                <Caption style={s.eyebrow}>ВАШ РЕСТОРАН</Caption>
-                <Heading small style={s.restaurantName}>
-                  {location?.name ?? model.branch?.name ?? 'Pick Chick'}
-                </Heading>
-                {location ? (
-                  <Caption>
-                    {location.city}, {location.address}
-                  </Caption>
-                ) : null}
-              </View>
-            </Row>
-            <DiningSelector value={model.diningMode} onChange={model.setDiningMode} />
-          </View>
-          <Row style={s.sectionHeading}>
-            <Heading small style={ui.flex}>
-              Ваш заказ
-            </Heading>
-            <Pressable
-              accessibilityRole="button"
-              testID="checkout-edit-cart"
-              onPress={() => props.navigate('M09')}
-              style={s.edit}
-            >
-              <Body style={s.editText}>Изменить</Body>
-              <Icon name="chevron-forward" size={14} color="#A8C8FF" />
-            </Pressable>
-          </Row>
-          <View style={s.order}>
-            {model.cart.map((line, index) => (
-              <View key={cartLineKey(line)} style={[s.line, index > 0 && s.lineBorder]}>
-                <Image source={line.product.image} contentFit="cover" style={s.foodImage} />
-                <View style={[ui.flex, { gap: 4 }]}>
-                  <Body style={s.productName}>{line.product.name}</Body>
-                  {selectionDescription(line) ? (
-                    <Caption style={s.selections}>{selectionDescription(line)}</Caption>
-                  ) : null}
-                  <Row style={s.lineBottom}>
-                    <Caption>{line.quantity} шт.</Caption>
-                    <Body style={s.linePrice}>
-                      {money((BigInt(lineUnitPrice(line)) * BigInt(line.quantity)).toString())}
-                    </Body>
-                  </Row>
-                </View>
-              </View>
-            ))}
-          </View>
-          <View style={s.summary}>
-            <SummaryRow label={`Блюда · ${count} шт.`} value={money(total)} />
-            <View style={s.divider} />
-            <SummaryRow label="Итого" value={money(total)} strong />
-          </View>
-        </>
+        <CheckoutDetails props={props} />
       )}
     </Page>
   );
 }
-const s = StyleSheet.create({
-  restaurant: { backgroundColor: colors.surface, borderRadius: 24, padding: 18, gap: 18 },
-  locationMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    backgroundColor: '#FF7A3D14',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eyebrow: { fontSize: 12, lineHeight: 18, letterSpacing: 1.1 },
-  restaurantName: { fontSize: 20, lineHeight: 30 },
-  sectionHeading: { justifyContent: 'space-between', gap: 12, marginTop: 4 },
-  edit: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editText: { fontFamily: font.medium, fontSize: 13, color: '#A8C8FF' },
-  order: { backgroundColor: colors.surface, borderRadius: 24, paddingHorizontal: 16 },
-  line: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, gap: 12 },
-  lineBorder: { borderTopWidth: 1, borderTopColor: colors.border },
-  foodImage: { width: 60, height: 60, borderRadius: 16, backgroundColor: colors.raised },
-  productName: { fontFamily: font.bold, fontSize: 16, lineHeight: 24 },
-  selections: { fontSize: 13, lineHeight: 19 },
-  lineBottom: { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
-  linePrice: { fontFamily: font.bold, fontSize: 14, lineHeight: 21 },
-  summary: { backgroundColor: colors.surface, borderRadius: 22, padding: 18, gap: 7 },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: 5 },
-  paymentRow: { justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
-  payable: { alignItems: 'flex-end', flexShrink: 1 },
-  total: { fontSize: 25, lineHeight: 36 },
-  availability: { justifyContent: 'center', gap: 6 },
-  availabilityText: { fontSize: 12, lineHeight: 18 },
-});

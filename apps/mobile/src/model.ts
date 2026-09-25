@@ -89,6 +89,7 @@ export interface MobileModel {
   addToCart(id: string, selections?: Selection[], quantity?: number): void;
   setPaymentMethod(method: PaymentMethod): void;
   setQuantity(id: string, quantity: number): void;
+  replaceCartLine(original: CartLine, selections: Selection[], quantity: number): void;
   clearCart(expected?: { id: string; quantity: number }[]): void;
   refresh(): void;
   resetLocalData(): void;
@@ -100,6 +101,7 @@ export interface ScreenProps {
   goBack(): void;
   openReview?(): void;
   inTabLayout?: boolean;
+  inSheet?: boolean;
   cartBottomInset?: number;
   preview: boolean;
 }

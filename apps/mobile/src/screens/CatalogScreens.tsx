@@ -18,18 +18,18 @@ import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Product, ScreenProps } from '../model';
+import type { CartLine, Product, ScreenProps } from '../model';
 import { assets } from '../assets';
 import { restaurantLocation } from '../restaurant-location';
 import {
   cartLineKey,
-  defaultSelections,
   cartTotal,
   lineUnitPrice,
   preparationMinutes,
   selectionDescription,
 } from '../domain';
-import { PaymentChoice } from '../components/PaymentChoice';
+import { CartOffers, PromoCodeEntry } from '../components/CartExtras';
+import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
 import { colors, font } from '../theme';
 import { DiningSelector, HeroVideo, LoyaltyCard } from '../components/Brand';
@@ -630,30 +630,24 @@ export function Cart(props: ScreenProps) {
     null,
   );
   const total = cartTotal(props.model.cart);
+  const [editing, setEditing] = useState<CartLine | null>(null);
   return (
     <Page
       props={props}
       title="Корзина"
       header={
         <Row style={s.cartHeader}>
-          <IconButton
-            name="chevron-back"
-            label="Назад"
-            onPress={props.goBack}
-            style={s.cartHeaderButton}
-            color="#9DC0FF"
-          />
           <Pressable
-            onPress={() => props.navigate('M05')}
+            testID="cart-close"
             accessibilityRole="button"
-            accessibilityLabel="Выбрать ресторан"
-            style={s.branchTitle}
+            onPress={props.goBack}
+            style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 4 }}
           >
-            <Heading style={s.brandTitle}>Pick Chick</Heading>
-            <Caption style={s.branchCaption}>
-              {props.model.branch?.name ?? 'Выбрать ресторан'} · корзина
-            </Caption>
+            <Body style={{ color: colors.accent, fontFamily: font.medium }}>Закрыть</Body>
           </Pressable>
+          <Heading small style={{ flex: 1, textAlign: 'center' }}>
+            Корзина
+          </Heading>
           <IconButton
             name="trash-outline"
             label="Очистить корзину"
@@ -668,29 +662,43 @@ export function Cart(props: ScreenProps) {
               )
             }
             style={s.cartHeaderButton}
-            color="#FF6B6E"
+            color={colors.accent}
           />
         </Row>
       }
       footer={
         props.model.cart.length ? (
           <>
-            <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <PaymentChoice model={props.model} />
-              <View style={{ alignItems: 'flex-end' }}>
-                <Caption>К оплате</Caption>
-                <Heading small>{MinorMoney(total)}</Heading>
-              </View>
-            </Row>
             <Button
-              title="К оформлению"
+              title={`Оформить заказ на ${MinorMoney(total)}`}
               onPress={() => props.navigate('M12')}
               testID="cart-checkout"
+              style={{ borderRadius: 28 }}
             />
           </>
         ) : null
       }
     >
+      <MotionModal
+        visible={editing !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditing(null)}
+      >
+        {editing ? (
+          <ConfiguredProduct
+            {...props}
+            key={cartLineKey(editing)}
+            product={editing.product}
+            editing={editing}
+            goBack={() => setEditing(null)}
+            onSave={(selections, quantity) => {
+              props.model.replaceCartLine(editing, selections, quantity);
+              setEditing(null);
+            }}
+          />
+        ) : null}
+      </MotionModal>
       <MotionModal
         visible={clearSnapshot !== null}
         transparent
@@ -733,7 +741,7 @@ export function Cart(props: ScreenProps) {
           <Row style={s.cartFulfilment}>
             <Icon name="bag-handle-outline" size={16} color={colors.accent} />
             <Body style={{ fontSize: 13.5, fontFamily: font.medium }}>
-              {props.model.diningMode === 'takeaway' ? 'Заберу сам' : 'В зале'} · Приготовим за ~
+              {props.model.diningMode === 'takeaway' ? 'С собой' : 'В зале'} · Приготовим за ~
               {preparationMinutes(props.model.cart)} мин
             </Body>
           </Row>
@@ -742,7 +750,7 @@ export function Cart(props: ScreenProps) {
           ) : null}
           {props.model.cart.map((line) => (
             <View key={cartLineKey(line)} style={s.cartLine}>
-              <Image source={line.product.image} style={s.cartImage} contentFit="cover" />
+              <Image source={line.product.image} style={s.cartImage} contentFit="contain" />
               <View style={ui.flex}>
                 <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
                   {line.product.name}
@@ -750,6 +758,15 @@ export function Cart(props: ScreenProps) {
                 <Caption style={{ fontSize: 12, lineHeight: 17, marginTop: 4 }}>
                   {selectionDescription(line) || line.product.description}
                 </Caption>
+                <Pressable
+                  testID={`cart-edit-${line.product.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Изменить ${line.product.name}`}
+                  onPress={() => setEditing(line)}
+                  style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' }}
+                >
+                  <Body style={{ color: colors.accent, fontFamily: font.bold }}>Изменить</Body>
+                </Pressable>
                 <Row
                   style={{
                     justifyContent: 'space-between',
@@ -760,7 +777,7 @@ export function Cart(props: ScreenProps) {
                 >
                   <Row style={s.stepper}>
                     <IconButton
-                      name={line.quantity === 1 ? 'trash-outline' : 'remove'}
+                      name="remove"
                       label={
                         line.quantity === 1
                           ? `Удалить ${line.product.name}`
@@ -790,84 +807,16 @@ export function Cart(props: ScreenProps) {
               </View>
             </View>
           ))}
-          <View style={{ gap: 12 }}>
-            <Heading small style={{ fontSize: 21, lineHeight: 28 }}>
-              Всегда кстати
-            </Heading>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 11, paddingBottom: 4 }}
-            >
-              {props.model.upsellProductIds
-                .flatMap((id) => {
-                  const product = props.model.products.find((p) => p.id === id);
-                  return product ? [product] : [];
-                })
-                .map((product) => {
-                  const selections = defaultSelections(product);
-                  const existing = props.model.cart.find(
-                    (line) => cartLineKey(line) === cartLineKey({ product, selections }),
-                  );
-                  const disabled = existing
-                    ? existing.quantity >= 20
-                    : props.model.cart.length >= 11;
-                  return (
-                    <Pressable
-                      key={product.id}
-                      testID={`upsell-${product.id}`}
-                      disabled={disabled}
-                      accessibilityState={{ disabled }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Добавить ${product.name}, ${MinorMoney(product.priceMinor)}`}
-                      onPress={() => props.model.addToCart(product.id)}
-                      style={({ pressed }) => [
-                        s.upsell,
-                        disabled && ui.disabled,
-                        pressed && ui.pressed,
-                      ]}
-                    >
-                      <Image
-                        source={product.image}
-                        style={{ width: '100%', aspectRatio: 1, borderRadius: 12 }}
-                        contentFit="cover"
-                      />
-                      <Body style={{ fontSize: 13, lineHeight: 19, fontFamily: font.medium }}>
-                        {product.name}
-                      </Body>
-                      <Row
-                        style={{
-                          marginTop: 'auto',
-                          flexWrap: 'wrap',
-                          gap: 4,
-                          justifyContent: 'space-between',
-                        }}
-                      >
-                        <Body style={{ fontFamily: font.display, fontSize: 15 }}>
-                          {MinorMoney(product.priceMinor)}
-                        </Body>
-                        <View style={[s.productPlus, { width: 28, height: 28 }]}>
-                          <Icon name="add" size={19} color={colors.white} />
-                        </View>
-                      </Row>
-                    </Pressable>
-                  );
-                })}
-            </ScrollView>
-          </View>
-          <View
-            style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 16 }}
-          >
-            <NavRow
-              title="Промокод"
-              subtitle="Скоро можно будет применить при оформлении"
-              disabled
+          <CartOffers props={props} />
+          <PromoCodeEntry />
+          <View style={{ gap: 12, paddingVertical: 8 }}>
+            <Heading small>Детали</Heading>
+            <SummaryRow
+              label={`Блюда · ${props.model.cart.reduce((sum, line) => sum + line.quantity, 0)} шт.`}
+              value={MinorMoney(total)}
             />
-            <NavRow
-              title="Чики за этот заказ"
-              subtitle="Начисление появится после подключения программы"
-              disabled
-            />
+            <SummaryRow label="Итого" value={MinorMoney(total)} strong />
+            <Caption>Чики за покупки появятся после подключения программы.</Caption>
           </View>
           <Button
             title="Добавить ещё что-нибудь"
@@ -1144,7 +1093,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 8,
     paddingBottom: 10,
-    marginBottom: 12,
+    marginBottom: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
@@ -1161,12 +1110,12 @@ const s = StyleSheet.create({
   cartLine: {
     flexDirection: 'row',
     gap: 13,
-    padding: 12,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
-  cartImage: { width: 80, height: 80, borderRadius: 14 },
+  cartImage: { width: 84, height: 96, borderRadius: 14 },
   stepper: { backgroundColor: colors.raised, borderRadius: 22, alignSelf: 'flex-start', gap: 0 },
   largeIcon: {
     width: 94,

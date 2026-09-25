@@ -20,6 +20,7 @@ import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import {
   parsePreferences,
   restoreCart,
+  replaceCartLine,
   updateQuantity,
   cartLineKey,
   defaultSelections,
@@ -318,6 +319,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         return line ? updateQuantity(previous, line.product, quantity, line.selections) : previous;
       });
     },
+    replaceCartLine: (original, selections, quantity) => {
+      restoration.current = null;
+      setCart((previous) => replaceCartLine(previous, original, selections, quantity));
+    },
     clearCart: (expected) => {
       restoration.current = null;
       setCart((previous) => clearMatchingCart(previous, expected));
@@ -384,6 +389,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         const line = previous.find((l) => cartLineKey(l) === id);
         return line ? updateQuantity(previous, line.product, quantity, line.selections) : previous;
       }),
+    replaceCartLine: (original, selections, quantity) =>
+      setPreviewCart((previous) => replaceCartLine(previous, original, selections, quantity)),
     clearCart: (expected) => setPreviewCart((previous) => clearMatchingCart(previous, expected)),
     resetLocalData: () => {
       setPreviewCart([]);

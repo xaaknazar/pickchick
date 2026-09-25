@@ -1,3 +1,4 @@
+import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
 import { unpaidTestOrdersEnabled } from '../order-simulator';
 import { MotionPressable } from '../components/Motion';
 import { useState } from 'react';
@@ -24,15 +25,8 @@ import {
   styles as ui,
 } from '../components/UI';
 import { colors, font } from '../theme';
-import { PaymentChoice, paymentName } from '../components/PaymentChoice';
-import {
-  money,
-  cartTotal,
-  cartLineKey,
-  lineUnitPrice,
-  selectionDescription,
-  preparationMinutes,
-} from '../domain';
+import { paymentName } from '../components/PaymentChoice';
+import { money, cartTotal } from '../domain';
 import { assets } from '../assets';
 import { cartMatchesOrder } from '../test-order-session';
 import { restaurantLocation } from '../restaurant-location';
@@ -165,26 +159,41 @@ export function ConnectedCheckout(props: ScreenProps) {
     <Page
       props={props}
       title="Оформление"
+      header={<CheckoutHeader props={props} />}
       footer={
-        <Button
-          testID="test-checkout-create"
-          title={
-            flow.busy
-              ? 'Сохраняем заказ…'
-              : pending
-                ? `Продолжить ${pending.number}`
-                : unpaidTestOrdersEnabled
-                  ? 'Отправить на кухню'
-                  : 'Продолжить оформление'
-          }
-          disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
-          onPress={() => {
-            void submit();
-          }}
-        />
+        <>
+          <SummaryRow
+            label="Итого"
+            value={money(pending?.snapshot.total_minor ?? cartTotal(props.model.cart))}
+            strong
+          />
+          <Button
+            style={{ borderRadius: 28 }}
+            testID="test-checkout-create"
+            title={
+              flow.busy
+                ? 'Сохраняем заказ…'
+                : pending
+                  ? `Продолжить ${pending.number}`
+                  : unpaidTestOrdersEnabled
+                    ? 'Отправить на кухню'
+                    : 'Продолжить оформление'
+            }
+            disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
+            onPress={() => {
+              void submit();
+            }}
+          />
+        </>
       }
     >
-      <Heading>Проверим ваш{`\n`}заказ</Heading>
+      <CheckoutDetails
+        props={props}
+        lockedMode={pending?.snapshot.service_mode}
+        restaurantName={location?.name ?? branch?.name}
+        address={location ? `${location.city}, ${location.address}` : undefined}
+        details={pending ? <OrderLines order={pending} /> : undefined}
+      />
       <FlowNotice props={props} />
       {!flow.available ? (
         <Button title="Обновить меню" secondary onPress={props.model.refresh} />
@@ -195,58 +204,9 @@ export function ConnectedCheckout(props: ScreenProps) {
           Новая корзина остаётся на устройстве.
         </Notice>
       ) : null}
-      <Card>
-        <Heading small>{location?.name ?? branch?.name ?? 'Ресторан PickChick'}</Heading>
-        {location ? (
-          <Caption>
-            {location.city}, {location.address}
-          </Caption>
-        ) : null}
-        <Body>
-          {(pending?.snapshot.service_mode ?? props.model.diningMode) === 'takeaway'
-            ? 'С собой'
-            : 'В зале'}{' '}
-          · Приготовим за ~
-          {pending && 'estimated_minutes' in pending.snapshot
-            ? pending.snapshot.estimated_minutes.min
-            : preparationMinutes(props.model.cart)}{' '}
-          мин
-        </Body>
-      </Card>
-      {pending ? (
-        <OrderLines order={pending} />
-      ) : (
-        <Card>
-          {props.model.cart.map((line) => (
-            <SummaryRow
-              key={cartLineKey(line)}
-              label={`${line.quantity} × ${line.product.name}${selectionDescription(line) ? ` · ${selectionDescription(line)}` : ''}`}
-              value={money((BigInt(lineUnitPrice(line)) * BigInt(line.quantity)).toString())}
-            />
-          ))}
-          <SummaryRow label="Предварительно" value={money(cartTotal(props.model.cart))} strong />
-          <Caption>Окончательная сумма будет рассчитана и сохранена сервером.</Caption>
-        </Card>
-      )}
       {unpaidTestOrdersEnabled && !pending ? (
-        <Notice title="Оплата и чеки - в процессе подключения">
-          Заказ поступит на кухню. Здесь можно следить за приготовлением, сборкой и выдачей.
-        </Notice>
-      ) : pending ? (
-        <SummaryRow
-          label="Способ оплаты"
-          value={
-            'payment_method' in pending.snapshot
-              ? paymentName(pending.snapshot.payment_method)
-              : 'Без списания'
-          }
-        />
-      ) : (
-        <PaymentChoice model={props.model} />
-      )}
-      {!unpaidTestOrdersEnabled ? (
         <Caption>
-          Оплата и чеки - в процессе подключения. Заказ можно передать на кухню без оплаты.
+          Заказ поступит на кухню без списания денег. Статус приготовления появится в приложении.
         </Caption>
       ) : null}
       {flow.current?.state === 'awaiting_test_payment' &&

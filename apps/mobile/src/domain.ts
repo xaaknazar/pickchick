@@ -142,6 +142,39 @@ export function updateQuantity(
   return lines.map((line) => (cartLineKey(line) === key ? next : line));
 }
 
+/** Editing replaces one exact line atomically, merging an identical configuration without dropping food. */
+export function replaceCartLine(
+  lines: CartLine[],
+  original: CartLine,
+  selections: Selection[],
+  quantity: number,
+): CartLine[] {
+  const key = cartLineKey(original);
+  const current = lines.find((line) => cartLineKey(line) === key);
+  if (
+    !current ||
+    current.quantity !== original.quantity ||
+    current.product.catalogVersion !== original.product.catalogVersion
+  )
+    return lines;
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < 1 ||
+    quantity > MAX_ITEM_QUANTITY ||
+    !validSelections(current.product, selections)
+  )
+    return lines;
+  const next = { product: current.product, selections, quantity };
+  const nextKey = cartLineKey(next);
+  const matching = lines.find((line) => cartLineKey(line) !== key && cartLineKey(line) === nextKey);
+  if ((matching?.quantity ?? 0) + quantity > MAX_ITEM_QUANTITY) return lines;
+  if (matching)
+    return lines
+      .filter((line) => cartLineKey(line) !== key)
+      .map((line) => (line === matching ? { ...line, quantity: line.quantity + quantity } : line));
+  return lines.map((line) => (cartLineKey(line) === key ? next : line));
+}
+
 export interface SavedPreferences {
   version: 1;
   catalogMode: CatalogMode;

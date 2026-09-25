@@ -178,7 +178,7 @@ export function DiningSelector({
     <Row style={brand.segment}>
       {(
         [
-          { value: 'takeaway', label: 'Заберу сам' },
+          { value: 'takeaway', label: 'С собой' },
           { value: 'dine_in', label: 'В зале' },
         ] as const
       ).map((option) => (
@@ -187,7 +187,8 @@ export function DiningSelector({
           testID={`dining-${option.value}`}
           hitSlop={{ top: 4, bottom: 4 }}
           accessibilityRole="radio"
-          accessibilityState={{ selected: value === option.value }}
+          aria-checked={value === option.value}
+          accessibilityState={{ selected: value === option.value, checked: value === option.value }}
           onPress={() => onChange(option.value)}
           style={({ pressed }) => [
             brand.segmentItem,
@@ -262,7 +263,8 @@ const brand = StyleSheet.create({
   },
   segment: { backgroundColor: '#FFFFFF33', padding: 2, borderRadius: 11, gap: 0 },
   segmentItem: {
-    minHeight: 44,
+    minHeight: 48,
+    paddingVertical: 10,
     borderRadius: 9,
     flex: 1,
     alignItems: 'center',

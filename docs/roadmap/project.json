@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T12:39:16.065600+00:00",
+  "updatedAt": "2026-09-25T13:55:19.795229+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -53,7 +53,8 @@
     "docs/design/mobile-skills-review-2026-09-23.md",
     "docs/operations/mobile-touch-contrast.md",
     "docs/operations/cart-shortcut-delight.md",
-    "docs/operations/mobile-unpaid-test.md"
+    "docs/operations/mobile-unpaid-test.md",
+    "docs/operations/mobile-cart-sheet.md"
   ],
   "workstreams": [
     {
@@ -3372,6 +3373,34 @@
         "Заказ проходит без списания; оплата/чеки обозначены как в процессе подключения."
       ],
       "nextAction": "Восстановить запуск GitHub Actions, повторить полную CI точного SHA, выпустить operations overlay и обновить онлайн-пульт. Владельцу принять Dev на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-cart-sheet",
+      "workstream": "mobile",
+      "title": "Корзина и оформление по видео-референсу",
+      "summary": "Два нижних окна, плавное открытие, редактор состава, минус/плюс, акции, ввод промокода, С собой/В зале. Apple Pay/карта - UI подключения, без финансовых операций. Доступно через Dev; физическая приёмка и TestFlight отдельно.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-design"],
+      "evidence": [
+        {
+          "label": "Реализация, проверки и границы",
+          "path": "docs/operations/mobile-cart-sheet.md"
+        }
+      ],
+      "acceptance": [
+        "Корзина сохраняется при закрытии и возврате; состав и сумма корректно меняются.",
+        "Свайп, safe area, клавиатура и крупный шрифт приняты на iPhone/Android.",
+        "Оплата и скидки не выдаются за подключённые интеграции."
+      ],
+      "nextAction": "Принять на физических телефонах. Подключить эквайринг, безопасную токенизацию и серверные промокоды после получения доступов.",
       "checks": {
         "implemented": true,
         "verified": true,

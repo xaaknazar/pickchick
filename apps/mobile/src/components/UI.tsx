@@ -269,7 +269,7 @@ export function Page({
     <KeyboardAvoidingView
       testID={`screen-${props.screenId}`}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.page, { paddingTop: insets.top }]}
+      style={[styles.page, { paddingTop: props.inSheet ? 0 : insets.top }]}
     >
       {header ?? (
         <Row style={styles.pageHeader}>

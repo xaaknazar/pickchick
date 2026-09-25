@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Image } from 'expo-image';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ModifierGroup, Product, ScreenProps, Selection } from '../model';
+import type { CartLine, ModifierGroup, Product, ScreenProps, Selection } from '../model';
 import { cartLineKey, defaultSelections, lineUnitPrice, validSelections } from '../domain';
 import { HeroVideo } from '../components/Brand';
 import {
@@ -43,18 +43,30 @@ export function ProductConfiguration(props: ScreenProps) {
     />
   );
 }
-function ConfiguredProduct(props: ScreenProps & { product: Product }) {
+export function ConfiguredProduct(
+  props: ScreenProps & {
+    product: Product;
+    editing?: CartLine;
+    onSave?(selections: Selection[], quantity: number): void;
+  },
+) {
   const { product } = props;
   const insets = useSafeAreaInsets();
   const { fontScale, width, height } = useWindowDimensions();
-  const [selections, setSelections] = useState<Selection[]>(() => defaultSelections(product));
-  const [quantity, setQuantity] = useState(1);
+  const [selections, setSelections] = useState<Selection[]>(
+    () => props.editing?.selections ?? defaultSelections(product),
+  );
+  const [quantity, setQuantity] = useState(props.editing?.quantity ?? 1);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [details, setDetails] = useState(false);
   const candidate = { product, selections };
   const unitPrice = lineUnitPrice(candidate);
-  const existing = props.model.cart.find((line) => cartLineKey(line) === cartLineKey(candidate));
-  const full = !existing && props.model.cart.length >= 11;
+  const existing = props.model.cart.find(
+    (line) =>
+      cartLineKey(line) === cartLineKey(candidate) &&
+      (!props.editing || cartLineKey(line) !== cartLineKey(props.editing)),
+  );
+  const full = !props.editing && !existing && props.model.cart.length >= 11;
   const valid =
     validSelections(product, selections) && !full && (existing?.quantity ?? 0) + quantity <= 20;
   const incompleteGroup = product.modifierGroups?.find((group) => {
@@ -392,11 +404,15 @@ function ConfiguredProduct(props: ScreenProps & { product: Product }) {
             />
           </Row>
           <Button
-            title={`Добавить · ${MinorMoney(BigInt(unitPrice) * BigInt(quantity))}`}
+            title={`${props.editing ? 'Сохранить' : 'Добавить'} · ${MinorMoney(BigInt(unitPrice) * BigInt(quantity))}`}
             testID="product-add"
             style={{ flex: 1, minWidth: 170 }}
             disabled={!valid}
             onPress={() => {
+              if (props.onSave) {
+                props.onSave(selections, quantity);
+                return;
+              }
               props.model.addToCart(product.id, selections, quantity);
               props.navigate('M09');
             }}
