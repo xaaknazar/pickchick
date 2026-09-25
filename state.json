@@ -241,11 +241,11 @@
         "infra/staging/release-order-events.py",
         "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
-      "status": "active",
-      "head": "3bc1a1d8f19a9fcd2583c3f5a55909d67031acab",
-      "updatedAt": "2026-09-25T14:06:04.449Z",
-      "summary": "PR89: cart/checkout bottom sheets, line editing and +/-; restaurant takeaway/dine-in, Apple Pay/card pending UI. 167 Node +30 Python, 7 roadmap, mobile types/lint, 4-size sheet/UX/shortcut and 3-size release checkout passed; native Dev bundles200. CI36144306099 blocked before steps by billing/spending limit. VPS/Windows/online roadmap unchanged.",
-      "nextAction": "Owner checks physical iPhone gestures/keyboard/large text. Restore Actions, rerun exact-SHA CI and publish roadmap; then payment/tokenization/server promo integrations. Shift021 release and Windows operational shift linkage remain pending separately."
+      "status": "available",
+      "head": "3430a0b119636da32ed1e6ef1300461d4888c487",
+      "updatedAt": "2026-09-25T14:06:50.717Z",
+      "summary": "Removed current order number/status shortcut from menu; Orders/details retained. Mobile TypeScript, ESLint/format, iOS Dev bundle200 and7 roadmap checks pass. Published code3430a0b; online roadmap/VPS/TestFlight unchanged.",
+      "nextAction": "Owner checks menu in PickChick Dev. Continue pending shift021 release/Windows shift linkage and payment/promo integration; restore Actions billing eligibility before releases."
     }
   ]
 }
