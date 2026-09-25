@@ -240,11 +240,11 @@
         "@vps/public-https",
         "infra/staging/release-order-events.py"
       ],
-      "status": "active",
-      "head": "5910e66d0798a19912af2749e03acfe83c242f79",
-      "updatedAt": "2026-09-25T13:38:09.709Z",
-      "summary": "PR88: cloud order numbers reset on explicit shift reopening, not midnight. 41 DB/HTTP, 105 unit, 164+30 mobile, 6 display/staff, 1280/1920 shift UX and migration preservation passed. CI36136004177 not started due billing/spending limit. VPS remains020, Windows and online roadmap unchanged.",
-      "nextAction": "Restore CI; prepare guarded020-to021 release with backup/restore and runtime ACL/rollback acceptance. Cloud manager shift is implemented; linking Windows cash shift and a common edge-owned operational shift remains separate. Continue real-menu work."
+      "status": "available",
+      "head": "3bc1a1d8f19a9fcd2583c3f5a55909d67031acab",
+      "updatedAt": "2026-09-25T14:00:03.612Z",
+      "summary": "PR89: cart/checkout bottom sheets, line editing and +/-; restaurant takeaway/dine-in, Apple Pay/card pending UI. 167 Node +30 Python, 7 roadmap, mobile types/lint, 4-size sheet/UX/shortcut and 3-size release checkout passed; native Dev bundles200. CI36144306099 blocked before steps by billing/spending limit. VPS/Windows/online roadmap unchanged.",
+      "nextAction": "Owner checks physical iPhone gestures/keyboard/large text. Restore Actions, rerun exact-SHA CI and publish roadmap; then payment/tokenization/server promo integrations. Shift021 release and Windows operational shift linkage remain pending separately."
     }
   ]
 }
