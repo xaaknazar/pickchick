@@ -104,6 +104,7 @@ class Release(market.Release):
 import json,hashlib,sys
 root=Path(sys.argv[1]);sha=sys.argv[2];p=root/'public-web/.release.json'
 m=json.loads(p.read_text());m['source_sha']=sha
+m.setdefault('component_sources',{})['operations']=sha
 for f in (root/'public-web/operations').rglob('*'):
  if f.is_file():
   f.chmod(0o644);m['files'][str(f.relative_to(root/'public-web'))]=hashlib.sha256(f.read_bytes()).hexdigest()
