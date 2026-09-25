@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """App-only order-events release on schema019; preserves data, ACL and public overlays."""
 import argparse
+import base64
 import json
 from pathlib import Path
 import re
@@ -31,6 +32,18 @@ def extend_gateway(text, source):
     return text[:start].replace('write 10s', 'write 40s') + patched + block + text[end:]
 
 
+def extend_front(text, old_site, new_site):
+    # Only our exact hostname block may change, preserving the other site byte-for-byte.
+    old_site = old_site[old_site.index('pickchick.185.129.51.103.nip.io {'):]
+    new_site = new_site[new_site.index('pickchick.185.129.51.103.nip.io {'):]
+    require(text.count(old_site) == 1 and text.count('pickchick.185.129.51.103.nip.io {') == 1,
+            'Outer PickChick site baseline differs')
+    require('@order_watch' not in old_site and '@order_watch' in new_site, 'Unexpected outer watch route')
+    result = text.replace(old_site, new_site, 1)
+    require(result.replace(new_site, old_site, 1) == text, 'Unrelated outer site changed')
+    return result
+
+
 class Release(mobile.Release):
     def __init__(self, args):
         require(all(re.fullmatch('[a-f0-9]{40}', v) for v in [args.expected_api_sha, args.expected_public_sha]), 'Exact baseline SHAs required')
@@ -40,6 +53,43 @@ class Release(mobile.Release):
         market.Release.__init__(self, args, profile)
 
     snapshot = market.Release.snapshot
+
+    def rollback_artifacts(self):
+        return {**super().rollback_artifacts(), **self.file_hashes(['/opt/idrink/deploy/Caddyfile'])}
+
+    def prepared_artifacts(self, manifest):
+        result = super().prepared_artifacts(manifest)
+        path = REMOTE+'/releases/'+self.sha+'/front-candidate.Caddyfile'
+        result['front'] = self.file_hashes([path])
+        return result
+
+    def front_probe(self):
+        body=self.execute(['curl','--fail','--silent','--show-error','--max-time','15',
+            '--resolve','185.129.51.103.nip.io:443:185.129.51.103',
+            'https://185.129.51.103.nip.io/'])
+        return digest(body)
+
+    def apply_front(self, proof):
+        path = '/opt/idrink/deploy/Caddyfile'
+        candidate = base64.b64decode(self.remote('base64 -w0 '+REMOTE+'/releases/'+self.sha+'/front-candidate.Caddyfile')).decode()
+        require(digest(candidate.encode()) == proof['front_sha256'], 'Front candidate changed')
+        self.remote('docker exec -i deploy-caddy-1 caddy validate --config - --adapter caddyfile',input=candidate)
+        backup = path+'.pickchick-events-'+self.lock_owner['id']+'.bak'
+        program = """from pathlib import Path
+import hashlib,sys,os
+path,backup,expected=sys.argv[1:];p=Path(path);old=p.read_bytes();data=sys.stdin.buffer.read()
+assert hashlib.sha256(old).hexdigest()==expected
+with open(backup,'xb') as f: os.chmod(backup,0o600);f.write(old)
+with open(p,'wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
+assert p.read_bytes()==data
+"""
+        self.remote('python3 -c '+quote(program)+' '+' '.join(map(quote,[path,backup,proof['front_before_sha256']])),input=candidate)
+        # stdin avoids the historical stale bind inode; this is a graceful reload, not restart.
+        self.remote('docker exec -i deploy-caddy-1 caddy reload --config - --adapter caddyfile',input=candidate)
+        require(self.front_probe()==proof['front_home_sha256'], 'Existing site response changed')
+        self.save('front-result.json',{'backup':backup,'before_sha256':proof['front_before_sha256'],
+            'after_sha256':proof['front_sha256'],'existing_home_preserved':True,'reload_without_restart':True})
+
 
     def runtime_old(self):
         require(self.remote('readlink -f '+REMOTE+'/current') == REMOTE+'/releases/'+self.profile.old_api, 'API pointer changed')
@@ -57,6 +107,12 @@ class Release(mobile.Release):
         self.source_checks(); self.runtime_old()
         require(not (self.private/'prepared.json').exists(), 'Already prepared')
         rollback = self.rollback_artifacts()
+        front = base64.b64decode(self.remote('base64 -w0 /opt/idrink/deploy/Caddyfile')).decode()
+        require(digest(front.encode()) == self.args.expected_front_sha256, 'Outer config baseline differs')
+        old_site = self.execute(['git','show',self.profile.old_api+':infra/public-staging/front-site.Caddyfile']).decode()
+        front_candidate = extend_front(front,old_site,(market.REPO/'infra/public-staging/front-site.Caddyfile').read_text())
+        self.remote('docker exec -i deploy-caddy-1 caddy validate --config - --adapter caddyfile',input=front_candidate)
+        front_home = self.front_probe()
         target = REMOTE+'/releases/'+self.sha
         archive = self.execute(['git','archive','--format=tar',self.sha,*market.ARCHIVE_PATHS])
         self.remote(f'test ! -e {target} && mkdir {target} && tar -xf - -C {target}',input=archive,timeout=180)
@@ -76,12 +132,13 @@ class Release(mobile.Release):
         writer = 'from pathlib import Path;import sys;Path(sys.argv[1]).write_text(sys.stdin.read())'
         for name,value in [('compose.yaml',json.dumps(compose)),('gateway.Caddyfile',gateway)]:
             self.remote('python3 -c '+quote(writer)+' '+quote(new+'/'+name),input=value)
+        self.remote('python3 -c '+quote('from pathlib import Path;import sys,os;p=Path(sys.argv[1]);p.write_bytes(sys.stdin.buffer.read());p.chmod(0o600)')+' '+quote(target+'/front-candidate.Caddyfile'),input=front_candidate)
         self.remote(market.web_compose(self.sha)+' config --quiet')
         self.remote('docker run --rm --network none --entrypoint caddy -v '+new+'/gateway.Caddyfile:/tmp/Caddyfile:ro '+transport.CADDY+' validate --config /tmp/Caddyfile --adapter caddyfile')
         manifest = json.loads(self.remote('cat '+new+'/public-web/.release.json'))
         proof = {'sha':self.sha,'old_api':self.profile.old_api,'old_web':self.profile.old_web,
                  'image_id':image,'public_manifest':manifest,'gateway_sha256':digest(gateway.encode()),
-                 'rollback_files':rollback,'artifacts':self.prepared_artifacts(manifest)}
+                 'rollback_files':rollback,'front_before_sha256':digest(front.encode()),'front_sha256':digest(front_candidate.encode()),'front_home_sha256':front_home,'artifacts':self.prepared_artifacts(manifest)}
         require(self.rollback_artifacts()==rollback, 'Baseline changed during preparation')
         self.save('prepared.json',proof)
         print('Prepared API and minimal gateway overlay',flush=True)
@@ -114,6 +171,9 @@ class Release(mobile.Release):
         require(self.snapshot()==before['data'] and self.acl()==before['acl'] and self.ledger()==before['ledger'], 'Database or permissions changed')
         require(self.fingerprint()==before['neighbors'], 'Unrelated service changed')
         require(self.prepared_artifacts(proof['public_manifest'])==proof['artifacts'], 'Artifacts changed')
+        self.apply_front(proof)
+        expected_neighbors = {**before['neighbors'], 'idrink_caddy_sha256':proof['front_sha256']}
+        require(self.fingerprint()==expected_neighbors, 'Unrelated service changed during outer reload')
         self.switch(REMOTE+'/current',REMOTE+'/releases/'+self.profile.old_api,REMOTE+'/releases/'+self.sha)
         self.switch(REMOTE+'/public-https/current',REMOTE+'/public-https/releases/'+self.profile.old_web,REMOTE+'/public-https/releases/'+self.sha)
         self.remote(market.web_compose(self.sha)+' up -d --no-deps --wait --wait-timeout 90 gateway',timeout=150)
@@ -123,16 +183,16 @@ class Release(mobile.Release):
         require(self.http_json('/v1/capabilities')==caps, 'Public capabilities differ')
         require(self.http('/v1/test/orders/watch',method='POST')[0]==400, 'Watch allowlist is not active')
         require(self.http_json('/kitchen-live/health')['edgeConnected'] is True, 'Cashier kitchen disconnected')
-        require(self.fingerprint()==before['neighbors'], 'Unrelated service changed')
+        require(self.fingerprint()==expected_neighbors, 'Unrelated service changed')
         self.cleanup('release')
-        self.save('result.json',{'source_sha':self.sha,'schema':19,'database_unchanged':True,'acl_unchanged':True,'neighbors_unchanged':True,'backup':backup,'public_watch_enabled':True})
+        self.save('result.json',{'source_sha':self.sha,'schema':19,'database_unchanged':True,'acl_unchanged':True,'neighbors_unchanged':True,'front_watch_overlay':proof['front_sha256'],'backup':backup,'public_watch_enabled':True})
         print('Published event-driven TEST status; data and other services preserved',flush=True)
 
 
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('action',choices=['prepare','apply'])
-    for name in ['sha','branch','expected-api-sha','expected-public-sha','expected-gateway-sha256']: p.add_argument('--'+name,required=True)
+    for name in ['sha','branch','expected-api-sha','expected-public-sha','expected-gateway-sha256','expected-front-sha256']: p.add_argument('--'+name,required=True)
     p.add_argument('--ssh-key',type=Path,required=True)
     p.add_argument('--backup-identity',type=Path)
     p.add_argument('--ci-proof',type=Path)

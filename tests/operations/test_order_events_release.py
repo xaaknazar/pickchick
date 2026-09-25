@@ -17,4 +17,15 @@ class OrderEventsReleaseTest(unittest.TestCase):
   with self.assertRaises(r.market.GuardFailure):r.extend_gateway(source,source)
   with self.assertRaises(r.market.GuardFailure):r.extend_gateway(baseline.replace('write 10s','write 60s'),source)
 
+ def test_outer_route_changes_only_our_exact_hostname(self):
+  new=(ROOT/'infra/public-staging/front-site.Caddyfile').read_text()
+  old='pickchick.185.129.51.103.nip.io {\n reverse_proxy pickchick-public-gateway:8080\n}\n'
+  baseline='other.example { respond "unchanged" }\n'+old+'\n'
+  result=r.extend_front(baseline,old,new)
+  self.assertTrue(result.startswith('other.example { respond "unchanged" }\n'))
+  self.assertIn('response_header_timeout 32s',result)
+  self.assertIn('response_header_timeout 8s',result)
+  with self.assertRaises(r.market.GuardFailure):r.extend_front(result,old,new)
+  with self.assertRaises(r.market.GuardFailure):r.extend_front(baseline+old,old,new)
+
 if __name__=='__main__':unittest.main()

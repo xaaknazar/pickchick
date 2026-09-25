@@ -32,7 +32,10 @@ Disconnect, background, unmount и команды отменяют ожидан�
 
 Gateway разрешает только POST watch и его CORS preflight; cookie/device header
 удаляются, credential не передаётся в URL. Только watch имеет upstream header
-limit32с; обычные запросы сохраняют5с. Общий write deadline40с вмещает bounded wait.
+limit32с на обоих шлюзах; обычные запросы сохраняют5с на внутреннем и8с на внешнем.
+Во внешнем Caddy меняется только точный блок hostname PickChick, остальные байты
+сохраняются. Конфигурация проверяется и передаётся через stdin graceful reload,
+без перезапуска контейнера; исходник сохраняется в приватную резервную копию. Общий write deadline40с вмещает bounded wait.
 
 ## Проверка
 
@@ -51,7 +54,7 @@ limit32с; обычные запросы сохраняют5с. Общий write
 ## Выпуск
 
 `infra/staging/release-order-events.py prepare|apply` требует чистый опубликованный
-SHA, точные `--expected-api-sha`, `--expected-public-sha`, `--expected-gateway-sha256`,
+SHA, точные `--expected-api-sha`, `--expected-public-sha`, `--expected-gateway-sha256`, `--expected-front-sha256`,
 `--branch`, `--ssh-key`. Для apply: `--backup-identity` и `--ci-proof`/`--ci-run`
 полного зелёного Foundation CI (6 jobs). Сначала project:check и claim @vps.
 Схема019/данные/ACL не изменяются, provision не запускается. Под owned deploy и

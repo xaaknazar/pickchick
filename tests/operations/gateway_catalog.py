@@ -25,6 +25,8 @@ containers = []
 network_created = False
 with tempfile.TemporaryDirectory(prefix='pickchick-gateway-') as directory:
     public = Path(directory)
+    front=(ROOT/'infra/public-staging/front-site.Caddyfile').read_text().replace('pickchick.185.129.51.103.nip.io {', ':8080 {')
+    (public/'front.Caddyfile').write_text(front)
     (public / 'backoffice').mkdir()
     (public / 'backoffice/index.html').write_text('<p>Isolated catalog editor fixture</p>')
     try:
@@ -33,7 +35,8 @@ with tempfile.TemporaryDirectory(prefix='pickchick-gateway-') as directory:
         network_created = True
         for suffix, image, options, command in [
             ('api', NODE, ['--network-alias', 'pickchick-staging-api-1', '-v', str(ROOT / 'tests/operations/gateway-upstream.mjs') + ':/fixture.mjs:ro'], ['node', '/fixture.mjs']),
-            ('gateway', CADDY, ['-p', '127.0.0.1::8080', '-v', str(ROOT / 'infra/public-staging/gateway.Caddyfile') + ':/etc/caddy/Caddyfile:ro', '-v', str(public) + ':/srv/public:ro'], ['caddy', 'run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']),
+            ('gateway', CADDY, ['--network-alias', 'pickchick-public-gateway', '-p', '127.0.0.1::8080', '-v', str(ROOT / 'infra/public-staging/gateway.Caddyfile') + ':/etc/caddy/Caddyfile:ro', '-v', str(public) + ':/srv/public:ro'], ['caddy', 'run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']),
+            ('front', CADDY, ['-p', '127.0.0.1::8080', '-v', str(public/'front.Caddyfile')+':/etc/caddy/Caddyfile:ro'], ['caddy','run','--config','/etc/caddy/Caddyfile','--adapter','caddyfile']),
         ]:
             container = name + '-' + suffix
             docker('run', '-d', '--name', container, '--network', name, *options, image, *command)
