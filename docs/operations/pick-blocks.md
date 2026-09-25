@@ -46,8 +46,14 @@ Reduce Motion исключает промежуточную анимацию, п
 
 Изменение доступно через текущий Metro Dev. Физическая проверка iPhone ещё
 нужна; TestFlight, VPS и Windows не обновлялись. Онлайн-пульт этим изменением
-не опубликован: для выпуска требуется зелёная CI, предыдущий запуск
-36144306099 был заблокирован billing/spending limit.
+не опубликован: для выпуска требуется зелёная CI. Код: `46b428d`,
+[PR91](https://github.com/xaaknazar/pickchick/pull/91). В новом запуске
+[CI36146959681](https://github.com/xaaknazar/pickchick/actions/runs/36146959681)
+задания начали выполняться; прежний billing-блок больше не объясняет этот запуск.
+Staging-проверка упала на `test_overlay_preserves_all_other_routes_assets_and_headers`
+из `test_order_events_release.py`: `release-order-events.py` ожидает старый POST
+preflight. Эти файлы и gateway данным изменением не затронуты. Остальные задания
+на момент фиксации ещё выполнялись; полная зелёная CI не заявляется.
 
 ## Яркие блоки без логотипов - 23 сентября 2026
 

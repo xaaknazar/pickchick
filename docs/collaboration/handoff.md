@@ -14,6 +14,10 @@
 поле. Сохранять native-driver падение, touch-only, цвета и сохранения. См.
 `docs/operations/pick-blocks.md` и `tests/mobile/browser_pick_blocks_trajectory.py`.
 Локальные проверки и Dev пройдены; физическая приёмка/релиз ещё не выполнены.
+Код `46b428d`, PR91. CI36146959681 уже выполняет задания (не billing-блок), но
+staging упал на прежнем `test_order_events_release.py` / старом POST preflight.
+Перед выпуском разобрать несовместимость исторического release-order-events
+с текущим gateway. Не применять старый релиз поверх схемы021.
 
 ## Номер заказа в меню
 
