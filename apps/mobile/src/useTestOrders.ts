@@ -63,6 +63,7 @@ export function useTestOrders(
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [commandError, setCommandError] = useState<string | null>(null);
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [hasSavedSession, setHasSavedSession] = useState(false);
@@ -104,6 +105,7 @@ export function useTestOrders(
       );
       setObservedAt(observation.state === 'observed' ? new Date().toISOString() : null);
       setError(null);
+      if (!observation.hasPending) setCommandError(null);
       setSessionExpired(false);
       failures.current = 0;
     } catch (failure) {
@@ -162,8 +164,10 @@ export function useTestOrders(
         setError(null);
         failures.current = 0;
         const pending = await client.hasPending();
-        if (!stopped && !controller.signal.aborted && epoch === generation.current)
+        if (!stopped && !controller.signal.aborted && epoch === generation.current) {
           setRecoveryAvailable(pending);
+          if (!pending) setCommandError(null);
+        }
       } catch (failure) {
         if (stopped || controller.signal.aborted || epoch !== generation.current) return;
         failures.current += 1;
@@ -215,6 +219,7 @@ export function useTestOrders(
   const run = async (command: () => Promise<TestOrder>): Promise<TestOrder | null> => {
     if (!connectedTestOrdersEnabled) return null;
     if (!accountCanAct(access.current)) {
+      setCommandError(null);
       setError('Войдите в аккаунт, чтобы продолжить заказ.');
       return null;
     }
@@ -224,6 +229,7 @@ export function useTestOrders(
     busyRef.current = true;
     setBusy(true);
     setError(null);
+    setCommandError(null);
     try {
       const order = await command();
       if (epoch !== generation.current) return null;
@@ -232,7 +238,7 @@ export function useTestOrders(
       return order;
     } catch (failure) {
       if (epoch === generation.current) {
-        setError(errorMessage(failure));
+        setCommandError(errorMessage(failure));
         if (failure instanceof TestApiError && failure.status === 401) setSessionExpired(true);
       }
       return null;
@@ -256,6 +262,7 @@ export function useTestOrders(
     busyRef.current = true;
     setBusy(true);
     setError(null);
+    setCommandError(null);
     try {
       await client.continueSession();
       if (epoch !== generation.current) return false;
@@ -282,7 +289,7 @@ export function useTestOrders(
     restored,
     hasSavedSession,
     busy: busy || !restored,
-    error,
+    error: commandError ?? error,
     observedAt,
     orders,
     current,

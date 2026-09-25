@@ -6,6 +6,7 @@ stops it before order creation. Integration tests own server pricing/payment.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -281,6 +282,9 @@ with sync_playwright() as p:
         with page.expect_response(lambda response: urlparse(response.url).path == '/v1/test/quotes'):
             checkout.get_by_test_id('test-checkout-create').click()
         page.wait_for_function('(key) => !!localStorage.getItem(key)', arg=DRAFT)
+        expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_be_visible()
+        # A successful background order read must not erase the failed quote notice.
+        expect(checkout.get_by_text(re.compile('^Статус проверен в '))).to_be_visible()
         expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_be_visible()
         assert len(fixture.quotes) == 1
         quote = fixture.quotes[0]
