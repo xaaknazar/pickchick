@@ -10,6 +10,8 @@ class ReleaseGuards(unittest.TestCase):
   live='# kitchen and roadmap preserved\n'+text+'\n# private overlays\n'
   output=r.extend_gateway(live)
   self.assertEqual(output.replace(' '+r.TEST_PATHS,''),live)
+  overlay=live.replace('path /kiosk /kitchen/prep /kitchen/assembly /display /manager','path /kiosk /manager')
+  self.assertEqual(r.extend_gateway(overlay).replace(' '+r.TEST_PATHS,''),overlay)
   with self.assertRaises(r.market.GuardFailure):r.extend_gateway(output)
   with self.assertRaises(r.market.GuardFailure):r.extend_gateway(live+live)
  def test_only_test_and_catalog_are_enabled(self):

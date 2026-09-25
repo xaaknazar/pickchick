@@ -37,7 +37,10 @@ TEST_PATHS = '/test/kitchen/prep /test/kitchen/assembly /test/display'
 
 
 def extend_gateway(text):
-    needle = 'path /kiosk /kitchen/prep /kitchen/assembly /display /manager'
+    candidates = ['path /kiosk /kitchen/prep /kitchen/assembly /display /manager', 'path /kiosk /manager']
+    matched = [value for value in candidates if value in text]
+    require(len(matched) == 1, 'Unexpected operations route baseline')
+    needle = matched[0]
     require(text.count(needle) == 1 and TEST_PATHS not in text, 'Unexpected operations route baseline')
     return text.replace(needle, needle + ' ' + TEST_PATHS)
 
