@@ -145,6 +145,7 @@ export function Button({
   icon,
   testID,
   style,
+  textStyle,
 }: {
   title: string;
   onPress?: () => void;
@@ -153,6 +154,7 @@ export function Button({
   icon?: IconName;
   testID?: string;
   style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 }) {
   return (
     <Pressable
@@ -171,7 +173,9 @@ export function Button({
       ]}
     >
       {icon ? <Icon name={icon} color={secondary ? colors.text : colors.orangeInk} /> : null}
-      <Text style={[styles.buttonText, secondary && styles.secondaryButtonText]}>{title}</Text>
+      <Text style={[styles.buttonText, secondary && styles.secondaryButtonText, textStyle]}>
+        {title}
+      </Text>
     </Pressable>
   );
 }

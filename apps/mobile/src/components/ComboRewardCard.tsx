@@ -6,7 +6,15 @@ import { MotionModal, MotionPressable } from './Motion';
 import { Body, Button, Heading, Icon, IconButton } from './UI';
 
 // Campaign illustration only: no local stamps, balance or redeem operation.
-export function ComboRewardCard({ testID, onMenu }: { testID: string; onMenu(): void }) {
+export function ComboRewardCard({
+  testID,
+  onMenu,
+  compact = false,
+}: {
+  testID: string;
+  onMenu(): void;
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
   return (
@@ -16,11 +24,14 @@ export function ComboRewardCard({ testID, onMenu }: { testID: string; onMenu(): 
         accessibilityRole="button"
         accessibilityLabel="Комбо-бонус. Купи 7 комбо, 8-е в подарок. Как получить подарок"
         onPress={() => setOpen(true)}
-        style={s.ticket}
+        style={[s.ticket, compact && { minHeight: 136 }]}
       >
-        <View style={s.offer}>
+        <View style={[s.offer, compact && { padding: 16, gap: 4 }]}>
           <Text style={s.label}>Комбо-бонус</Text>
-          <Text accessibilityRole="header" style={s.title}>
+          <Text
+            accessibilityRole="header"
+            style={[s.title, compact && { fontFamily: font.heading, fontSize: 20, lineHeight: 26 }]}
+          >
             Купи 7 комбо.{`\n`}8-е - в подарок!
           </Text>
           <View style={s.details}>
@@ -28,7 +39,11 @@ export function ComboRewardCard({ testID, onMenu }: { testID: string; onMenu(): 
             <Icon name="arrow-forward" size={18} color={colors.white} />
           </View>
         </View>
-        <View style={s.reward} accessible={false} importantForAccessibility="no-hide-descendants">
+        <View
+          style={[s.reward, compact && { paddingVertical: 12, gap: 6 }]}
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+        >
           <Icon name="gift-outline" size={28} color={colors.orangeInk} />
           <Text style={s.rewardNumber}>7 + 1</Text>
           <Text style={s.rewardCaption}>На кассе</Text>

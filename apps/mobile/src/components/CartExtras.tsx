@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { MotionPressable } from './Motion';
-import { Body, Button, Caption, Heading, Icon, Row } from './UI';
+import { Body, Button, Caption, Heading, Icon } from './UI';
 import { ComboRewardCard } from './ComboRewardCard';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
 import type { PublishedContent } from '../backoffice/content-model';
 import type { ScreenProps } from '../model';
+import { orderUI } from './OrderPresentation';
 import { colors, font } from '../theme';
 
 export function CartOffers({ props }: { props: ScreenProps }) {
@@ -14,8 +15,10 @@ export function CartOffers({ props }: { props: ScreenProps }) {
   const [selected, setSelected] = useState<PublishedContent['promos'][number] | null>(null);
   return (
     <View style={{ gap: 14 }}>
-      <Heading small>Акции</Heading>
-      <ComboRewardCard testID="cart-combo-reward" onMenu={() => props.navigate('M06')} />
+      <Heading small style={orderUI.section}>
+        Акции
+      </Heading>
+      <ComboRewardCard compact testID="cart-combo-reward" onMenu={() => props.navigate('M06')} />
       {content?.promos.length ? (
         <ScrollView
           horizontal
@@ -55,11 +58,14 @@ export function PromoCodeEntry() {
         testID="cart-promo-open"
         title={open ? 'Скрыть промокод' : 'Ввести промокод'}
         onPress={() => setOpen(!open)}
-        style={{ borderRadius: 28 }}
+        style={{ borderRadius: 16 }}
+        textStyle={orderUI.actionText}
       />
       {open ? (
         <>
-          <Caption nativeID="promo-label">Промокод</Caption>
+          <Caption style={orderUI.detail} nativeID="promo-label">
+            Промокод
+          </Caption>
           <TextInput
             testID="cart-promo-input"
             accessibilityLabel="Промокод"
@@ -78,11 +84,12 @@ export function PromoCodeEntry() {
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
           />
-          <Caption>
+          <Caption style={orderUI.detail}>
             Применение промокодов подключается. Скидка пока не учитывается в сумме заказа.
           </Caption>
           <Button
             secondary
+            textStyle={orderUI.actionText}
             title="Проверить промокод"
             testID="cart-promo-check"
             disabled={!code.trim()}
@@ -92,7 +99,11 @@ export function PromoCodeEntry() {
             }}
           />
           {message ? (
-            <Caption testID="cart-promo-result" accessibilityLiveRegion="polite">
+            <Caption
+              style={orderUI.detail}
+              testID="cart-promo-result"
+              accessibilityLiveRegion="polite"
+            >
               {message}
             </Caption>
           ) : null}
@@ -106,8 +117,10 @@ export function PromoCodeEntry() {
 export function CheckoutPayments() {
   const [cardInfo, setCardInfo] = useState(false);
   return (
-    <View style={{ gap: 14 }}>
-      <Heading small>Оплата</Heading>
+    <View style={{ gap: 12 }}>
+      <Heading small style={orderUI.section}>
+        Оплата
+      </Heading>
       <View style={s.methods}>
         <View
           testID="checkout-apple-pay"
@@ -116,33 +129,43 @@ export function CheckoutPayments() {
           accessibilityState={{ disabled: true }}
           style={s.method}
         >
-          <Row>
-            <Icon name="logo-apple" />
-            <Body style={{ fontFamily: font.bold }}>Apple Pay</Body>
-          </Row>
-          <Caption>Подключается</Caption>
+          <View style={s.methodIcon}>
+            <Icon name="logo-apple" size={24} />
+          </View>
+          <View style={s.methodText}>
+            <Body style={orderUI.label}>Apple Pay</Body>
+            <Caption style={orderUI.detail}>Подключается</Caption>
+          </View>
         </View>
         <MotionPressable
           testID="checkout-add-card"
           accessibilityRole="button"
           accessibilityLabel="Добавить карту, информация о подключении"
+          aria-expanded={cardInfo}
           accessibilityState={{ expanded: cardInfo }}
           onPress={() => setCardInfo(!cardInfo)}
           style={s.method}
         >
-          <Row>
-            <Icon name="add" />
-            <Body style={{ fontFamily: font.bold }}>Добавить карту</Body>
-          </Row>
-          <Caption>Скоро</Caption>
+          <View style={s.methodIcon}>
+            <Icon name="card-outline" size={24} />
+          </View>
+          <View style={s.methodText}>
+            <Body style={orderUI.label}>Добавить карту</Body>
+            <Caption style={orderUI.detail}>Скоро</Caption>
+          </View>
+          <Icon name={cardInfo ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
         </MotionPressable>
       </View>
       {cardInfo ? (
-        <Caption testID="checkout-card-info" accessibilityLiveRegion="polite">
+        <Caption
+          style={orderUI.detail}
+          testID="checkout-card-info"
+          accessibilityLiveRegion="polite"
+        >
           Добавление карты появится после подключения банка. Сейчас вводить реквизиты не нужно.
         </Caption>
       ) : null}
-      <Caption>Оплата и чеки - в процессе подключения.</Caption>
+      <Caption style={orderUI.detail}>Оплата и чеки - в процессе подключения.</Caption>
     </View>
   );
 }
@@ -165,14 +188,23 @@ const s = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.surface,
   },
-  methods: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  methods: { gap: 8 },
   method: {
-    flexBasis: 160,
-    flexGrow: 1,
-    minHeight: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 80,
     padding: 16,
-    gap: 8,
-    borderRadius: 20,
+    gap: 12,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  methodIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
     backgroundColor: colors.raised,
   },
+  methodText: { flex: 1, minWidth: 0, gap: 2 },
 });

@@ -1,17 +1,18 @@
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
 import { cartTotal, money, preparationMinutes } from '../domain';
-import { DiningSelector } from '../components/Brand';
+import { MotionPressable } from '../components/Motion';
 import { CheckoutPayments } from '../components/CartExtras';
+import { OrderHeader, OrderTotal, orderUI } from '../components/OrderPresentation';
 import {
   Body,
   Button,
   Caption,
   Empty,
   Heading,
-  IconButton,
+  Icon,
   Page,
   Row,
   SummaryRow,
@@ -19,19 +20,7 @@ import {
 import { colors, font } from '../theme';
 
 export function CheckoutHeader({ props }: { props: ScreenProps }) {
-  return (
-    <Row style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-      <IconButton
-        name="close"
-        label="Вернуться в корзину"
-        testID="checkout-close"
-        onPress={props.goBack}
-      />
-      <Heading small style={{ flex: 1 }}>
-        Оформление
-      </Heading>
-    </Row>
-  );
+  return <OrderHeader title="Оформление" testID="checkout-close" onClose={props.goBack} back />;
 }
 export function CheckoutDetails({
   props,
@@ -51,33 +40,90 @@ export function CheckoutDetails({
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   return (
     <>
-      <Heading style={{ fontSize: 32, lineHeight: 40 }}>Как заберёте заказ?</Heading>
-      {lockedMode ? (
-        <Body>{lockedMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
-      ) : (
-        <DiningSelector value={model.diningMode} onChange={model.setDiningMode} />
-      )}
-      <View style={{ gap: 8, backgroundColor: colors.surface, padding: 18, borderRadius: 20 }}>
-        <Heading small>
-          {restaurantName ?? location?.name ?? model.branch?.name ?? 'Ресторан PickChick'}
-        </Heading>
-        {(address ?? location?.address) ? (
-          <Caption>{address ?? `${location?.city}, ${location?.address}`}</Caption>
-        ) : null}
-        <Caption>
-          {lockedMode ? 'Способ получения сохранён в заказе' : 'Заказ приготовят в этом ресторане'}
-        </Caption>
+      <View style={s.section}>
+        <Heading style={orderUI.title}>Как заберёте заказ?</Heading>
+        {lockedMode ? (
+          <Body style={orderUI.label}>{lockedMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
+        ) : (
+          <View
+            style={s.modes}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Способ получения"
+          >
+            {(['takeaway', 'dine_in'] as const).map((mode) => {
+              const selected = model.diningMode === mode;
+              const label = mode === 'takeaway' ? 'С собой' : 'В зале';
+              return (
+                <MotionPressable
+                  key={mode}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  aria-checked={selected}
+                  accessibilityState={{ selected, checked: selected }}
+                  onPress={() => model.setDiningMode(mode)}
+                  style={[s.mode, selected && s.modeSelected]}
+                >
+                  <Icon
+                    name={mode === 'takeaway' ? 'bag-handle-outline' : 'restaurant-outline'}
+                    size={20}
+                    color={selected ? colors.orangeInk : colors.muted}
+                  />
+                  <Body
+                    style={[
+                      orderUI.label,
+                      { color: selected ? colors.orangeInk : colors.text, flexShrink: 1 },
+                    ]}
+                  >
+                    {label}
+                  </Body>
+                  {selected ? <Icon name="checkmark" size={16} color={colors.orangeInk} /> : null}
+                </MotionPressable>
+              );
+            })}
+          </View>
+        )}
       </View>
-      {!lockedMode ? (
-        <View style={{ gap: 8 }}>
-          <Heading small>Когда приготовить</Heading>
-          <Body style={{ fontFamily: font.medium }}>Как можно скорее</Body>
-          <Caption>Ориентир - около {preparationMinutes(model.cart)} мин</Caption>
-        </View>
-      ) : null}
+      <View style={s.restaurant}>
+        <Row style={{ alignItems: 'flex-start' }}>
+          <View style={s.icon}>
+            <Icon name="location-outline" color={colors.accent} size={22} />
+          </View>
+          <View style={s.place}>
+            <Body style={[orderUI.label, { fontFamily: font.bold }]}>
+              {restaurantName ?? location?.name ?? model.branch?.name ?? 'Ресторан PickChick'}
+            </Body>
+            {(address ?? location?.address) ? (
+              <Caption style={orderUI.detail}>
+                {address ?? `${location?.city}, ${location?.address}`}
+              </Caption>
+            ) : null}
+            <Caption style={orderUI.detail}>
+              {lockedMode
+                ? 'Способ получения сохранён в заказе'
+                : 'Заказ приготовят в этом ресторане'}
+            </Caption>
+          </View>
+        </Row>
+        {!lockedMode ? (
+          <Row style={s.timing}>
+            <View style={s.icon}>
+              <Icon name="time-outline" size={22} color={colors.muted} />
+            </View>
+            <View style={s.place}>
+              <Caption style={orderUI.detail}>Когда приготовить</Caption>
+              <Body style={orderUI.label}>Как можно скорее</Body>
+              <Caption style={orderUI.detail}>
+                Ориентир - около {preparationMinutes(model.cart)} мин
+              </Caption>
+            </View>
+          </Row>
+        ) : null}
+      </View>
       <CheckoutPayments />
-      <View style={{ gap: 12 }}>
-        <Heading small>Детали</Heading>
+      <View style={s.section}>
+        <Heading small style={orderUI.section}>
+          Детали
+        </Heading>
         {details ?? (
           <>
             <SummaryRow label={`Блюда · ${count} шт.`} value={money(cartTotal(model.cart))} />
@@ -85,6 +131,7 @@ export function CheckoutDetails({
               testID="checkout-edit-cart"
               title="Изменить заказ"
               secondary
+              textStyle={orderUI.actionText}
               onPress={props.goBack}
             />
           </>
@@ -104,12 +151,13 @@ export function Checkout(props: ScreenProps) {
       footer={
         props.model.cart.length ? (
           <>
-            <SummaryRow label="Итого" value={money(total)} strong />
+            <OrderTotal value={money(total)} />
             <Button
               testID="checkout-pay-disabled"
               title="Оформление скоро появится"
               disabled
-              style={{ borderRadius: 28 }}
+              style={orderUI.action}
+              textStyle={orderUI.actionText}
             />
           </>
         ) : undefined
@@ -127,3 +175,29 @@ export function Checkout(props: ScreenProps) {
     </Page>
   );
 }
+const s = StyleSheet.create({
+  section: { gap: 12 },
+  modes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  mode: {
+    flexGrow: 1,
+    flexBasis: 120,
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  modeSelected: { backgroundColor: colors.accent },
+  restaurant: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, gap: 16 },
+  icon: { width: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
+  place: { flex: 1, minWidth: 0, gap: 4 },
+  timing: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: 16,
+    alignItems: 'flex-start',
+  },
+});

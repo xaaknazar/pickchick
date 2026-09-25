@@ -1,3 +1,4 @@
+import { OrderTotal, orderUI } from '../components/OrderPresentation';
 import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
 import { unpaidTestOrdersEnabled } from '../order-simulator';
 import { MotionPressable } from '../components/Motion';
@@ -162,13 +163,10 @@ export function ConnectedCheckout(props: ScreenProps) {
       header={<CheckoutHeader props={props} />}
       footer={
         <>
-          <SummaryRow
-            label="Итого"
-            value={money(pending?.snapshot.total_minor ?? cartTotal(props.model.cart))}
-            strong
-          />
+          <OrderTotal value={money(pending?.snapshot.total_minor ?? cartTotal(props.model.cart))} />
           <Button
-            style={{ borderRadius: 28 }}
+            style={orderUI.action}
+            textStyle={orderUI.actionText}
             testID="test-checkout-create"
             title={
               flow.busy
