@@ -99,7 +99,7 @@ with sync_playwright() as p:
       window.cartMotionFrames = [];
       const start = performance.now();
       function tick() {
-        document.querySelectorAll('[data-testid="cart-mascot"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
+        document.querySelectorAll('[data-testid="cart-count-feedback"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
         if (performance.now() - start < 650) requestAnimationFrame(tick);
       }
       requestAnimationFrame(tick);
@@ -111,8 +111,8 @@ with sync_playwright() as p:
     page.emulate_media(reduced_motion='reduce')
     page.get_by_test_id('tab-profile').click()
     page.wait_for_timeout(100)
-    for mascot in page.get_by_test_id('cart-mascot').all():
-        assert mascot.evaluate('(e) => getComputedStyle(e).transform') in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
+    for counter in page.get_by_test_id('cart-count-feedback').all():
+        assert counter.evaluate('(e) => getComputedStyle(e).transform') in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
     context.close()
     browser.close()
 assert not errors, errors

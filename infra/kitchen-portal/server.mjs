@@ -265,7 +265,10 @@ export async function createPortal({
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const config = JSON.parse(await readFile(process.argv[2], 'utf8'));
-  const portal = await createPortal(config);
+  const portal = await createPortal({
+    ...config,
+    sourceSha: process.env.PICKCHICK_KITCHEN_SOURCE_SHA || config.sourceSha,
+  });
   portal.server.listen(4193, '0.0.0.0');
   for (const event of ['SIGTERM', 'SIGINT']) process.once(event, () => void portal.close());
 }

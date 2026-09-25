@@ -103,3 +103,24 @@ test('gateway POST body and streamed response caps fail closed', () =>
     assert.equal(r.status, 502);
     assert.equal((await r.json()).code, 'INVALID_RESPONSE');
   }));
+
+// A missing transitive module prevents the entire login UI from mounting.
+test('every browser entry module and its local imports are served as JavaScript', () =>
+  fixture(async (f) => {
+    const pending = ['/app.js'];
+    const visited = new Set();
+    while (pending.length) {
+      const path = pending.pop();
+      if (visited.has(path)) continue;
+      visited.add(path);
+      const response = await fetch(f.url + path);
+      assert.equal(response.status, 200, path);
+      assert.match(response.headers.get('content-type'), /^text\/javascript/);
+      const source = await response.text();
+      for (const match of source.matchAll(/(?:from\s*|import\s*)['"](\.\/[^'"]+\.js)['"]/g)) {
+        pending.push(new URL(match[1], f.url + path).pathname);
+      }
+    }
+    assert.ok(visited.size > 1, 'entry imports must be checked');
+    assert.equal((await fetch(f.url + '/server.mjs')).status, 404);
+  }));

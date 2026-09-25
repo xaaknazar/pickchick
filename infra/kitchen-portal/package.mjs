@@ -7,10 +7,12 @@ const root = '.local/kitchen-link/package-' + sha;
 await mkdir(root, { recursive: true });
 const paths = [
   'infra/kitchen-portal/server.mjs',
+  'infra/kitchen-portal/healthcheck.mjs',
   'infra/kitchen-portal/link.mjs',
   'infra/kitchen-portal/agent.mjs',
   'infra/kitchen-portal/compose.yaml',
   'infra/kitchen-portal/remote-deploy.py',
+  'infra/kitchen-portal/update-deploy.py',
   'infra/roadmap/remote-deploy.py',
   'apps/kitchen/server.mjs',
 ];

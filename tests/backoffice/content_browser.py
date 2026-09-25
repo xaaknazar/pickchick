@@ -23,14 +23,17 @@ with sync_playwright() as pw:
   else:route.abort()
  context.route('**/v1/**',route_api)
  page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
- for path in ['/games/pick-man','/games/pick-blocks','/screen/M27']:
+ for path in ['/games/pick-man','/games/pick-blocks']:
   page.goto(c['url']+path)
   try:expect(page.get_by_test_id('game-unavailable')).to_be_visible(timeout=12000)
   except Exception:
    page.screenshot(path=str(output/'failure.png'));print(json.dumps({'text':page.locator('body').inner_text(),'errors':errors,'reads':reads}));raise
   assert page.get_by_test_id('blocks-board').count()==0;assert page.get_by_test_id('game-field').count()==0
+ for removed in ['/screen/M27','/screen/M28']:
+  page.goto(c['url']+removed);expect(page.get_by_test_id('events-games')).to_be_visible(timeout=20000)
+  expect(page.get_by_test_id('pickrun-open')).to_have_count(0)
  page.goto(c['url']+'/events');expect(page.get_by_test_id('events-games')).to_be_visible(timeout=20000)
  for id in ['pick-blocks-open','pick-man-open','pickrun-open']:expect(page.get_by_test_id(id)).to_have_count(0)
  page.goto(c['url']+'/menu');hero=page.get_by_test_id('hero-promotion');expect(hero).to_have_attribute('aria-label','Акция из бэк-офиса, подробнее',timeout=20000);hero.click();expect(page.get_by_text('Опубликовано управляющим',exact=True)).to_be_visible();page.wait_for_function("document.querySelector('[data-testid=promotion-dialog]')?.getBoundingClientRect().top < 2");page.screenshot(path=str(output/'promotion-393.png'));assert reads;assert not errors,errors
- print(json.dumps({'result':'PASS','real_publication_http_reads':len(reads),'disabled_routes':3,'promotion':True,'errors':errors}))
+ print(json.dumps({'result':'PASS','real_publication_http_reads':len(reads),'disabled_routes':2,'removed_routes':2,'promotion':True,'errors':errors}))
  browser.close()

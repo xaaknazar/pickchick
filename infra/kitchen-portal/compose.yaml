@@ -6,6 +6,8 @@ services:
     user: '1000:1000'
     working_dir: /app
     command: ['node', 'infra/kitchen-portal/server.mjs', '/run/secrets/config.json']
+    environment:
+      PICKCHICK_KITCHEN_SOURCE_SHA: '${KITCHEN_SOURCE_SHA:-}'
     init: true
     restart: unless-stopped
     read_only: true
@@ -23,13 +25,7 @@ services:
       driver: json-file
       options: { max-size: '5m', max-file: '2' }
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "fetch('http://127.0.0.1:4193/kitchen-live/health',{headers:{Host:'pickchick.185.129.51.103.nip.io'},signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
+      test: ['CMD', 'node', 'infra/kitchen-portal/healthcheck.mjs', '/run/secrets/config.json']
       interval: 5s
       timeout: 3s
       retries: 12

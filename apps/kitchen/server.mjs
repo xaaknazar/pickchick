@@ -116,7 +116,7 @@ const security = {
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
-  ...['app', 'model', 'types', 'api', 'runtime'].map((n) => [
+  ...['app', 'model', 'types', 'api', 'runtime', 'demo', 'ticket-view'].map((n) => [
     '/' + n + '.js',
     [n + '.js', 'text/javascript; charset=utf-8'],
   ]),

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T05:25:25.248638+00:00",
+  "updatedAt": "2026-09-25T05:48:40.672883+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -507,8 +507,8 @@
       "id": "platform-ci-recovery",
       "workstream": "platform",
       "title": "Восстановить общую CI и кухонные браузерные сценарии",
-      "summary": "На 1ed98b3 Foundation CI падает в старом RUN-сценарии и кухонном входе; часть следующих проверок пропущена. Ближайший этап перед объединением реального каталога.",
-      "status": "planned",
+      "summary": "Исправлены kitchen modules404, healthcheck Host и старый RUN-тест. Локальные static/integration/browser проверки прошли; полная GitHub CI ещё проверяется.",
+      "status": "active",
       "owner": "development",
       "phase": "foundation",
       "dependsOn": ["platform-foundation"],
@@ -520,6 +520,10 @@
         {
           "label": "Foundation CI исходного среза",
           "url": "https://github.com/xaaknazar/pickchick/actions/runs/35965003332"
+        },
+        {
+          "label": "Исправления и локальные проверки25сентября",
+          "path": "docs/operations/platform-ci-recovery.md"
         }
       ],
       "acceptance": [
@@ -527,9 +531,9 @@
         "Кухонные модули загружаются, вход/команды/восстановление/табло проходят браузерные проверки.",
         "Полная Foundation CI итогового коммита зелёная; пропущенные POS/backoffice/account проверки выполнены."
       ],
-      "nextAction": "В отдельной claim-ветке воспроизвести две регрессии, исправить и прогнать CI. VPS portal диагностировать отдельно при разрешённом SSH-доступе.",
+      "nextAction": "Подтвердить все jobs CI на итоговом SHA; опубликовать узкое обновление портала и отдельно принять оборудование.",
       "checks": {
-        "implemented": false,
+        "implemented": true,
         "verified": false,
         "deployed": false,
         "accepted": false
@@ -876,6 +880,10 @@
         {
           "label": "Плавающая корзина и короткая реакция персонажа",
           "path": "docs/operations/cart-shortcut-delight.md"
+        },
+        {
+          "label": "Временный вариант1 корзины и проверка",
+          "path": "docs/operations/cart-shortcut-delight.md"
         }
       ],
       "acceptance": [
@@ -1027,7 +1035,7 @@
       "id": "catalog-approved-data",
       "workstream": "catalog",
       "title": "Утвердить рабочее меню и цены по каналам",
-      "summary": "Сверены 47/52/54 позиции Яндекс/Glovo/AILILLU; семь цен доставки отсутствуют. AILILLU и доставка имеют разные артикулы/цены. Подготовлен экспортёр; нужны API v2 appId/clientSecret и решение владельца по прайсу.",
+      "summary": "Владелец утвердил AILILLU для кассы/киоска/самовывоза, доставку отдельно. API-доступа iiko пока нет; полные ID/модификаторы и семь цен доставки ещё надо сверить.",
       "status": "blocked",
       "owner": "joint",
       "phase": "discovery",
@@ -1053,14 +1061,14 @@
       "acceptance": [
         "Контрольные корзины совпадают с утверждёнными правилами и действующими данными."
       ],
-      "nextAction": "Получить недостающий доступ и выбор прайса, выполнить экспорт, проверить обязательные модификаторы/комбо/налоги и согласовать контрольные корзины из real-menu.md.",
+      "nextAction": "Получить appId/clientSecret, выгрузить API и сверить цены/модификаторы/ID; решение по прайсу уже принято.",
       "checks": {
         "implemented": false,
         "verified": false,
         "deployed": false,
         "accepted": false
       },
-      "customerInput": "Реквизиты приложения iiko через приватный файл; источник цен для mobile/POS/kiosk и подтверждение корзин/неполных данных."
+      "customerInput": "Реквизиты приложения iiko в приватный файл, недостающие цены/данные и подтверждение контрольных корзин."
     },
     {
       "id": "catalog-unified",
