@@ -298,6 +298,8 @@ async function loadOrder(
   return projectOrder(row);
 }
 async function emit(client: DatabaseClient, order: TestOrder, event: string) {
+  // PostgreSQL delivers this hint only after COMMIT. Outbox/database remain the truth.
+  await client.query("SELECT pg_notify('pickchick_test_orders', $1)", [order.order_id]);
   await client.query(
     'INSERT INTO test_outbox(id,order_id,aggregate_version,event_type,payload) VALUES ($1,$2,$3,$4,$5)',
     [randomUUID(), order.order_id, order.version, `test.${event}`, order],

@@ -520,6 +520,16 @@ Object.assign(openapi.paths, {
       status: 201,
     }),
   },
+  '/v1/test/orders/watch': testOperation(
+    'post',
+    'watchOwnTestOrders',
+    'TestOrders',
+    'TestOrderWatch',
+    {
+      roles:
+        'Customer only. Event-driven wait up to 20s for own committed order versions; snapshot on reconnect. Read-only, no idempotency key.',
+    },
+  ),
   '/v1/test/orders/{orderId}': testOperation('get', 'readTestOrder', 'TestOrder', undefined, {
     path: ['orderId'],
   }),

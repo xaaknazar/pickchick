@@ -13,6 +13,23 @@ export const TEST_NAMESPACE = 'pickchick-test';
 export const TEST_ACCESS_NO_EXPIRY = '9999-12-31T23:59:59.999Z';
 const Synthetic = { synthetic: z.literal(true), namespace: z.literal(TEST_NAMESPACE) };
 const Uuid = z.uuid();
+export const TestOrderWatchSchema = z.strictObject({
+  versions: z.array(z.strictObject({ order_id: Uuid, version: z.int().min(1) })).max(20),
+});
+export function testOrderVersions(orders: readonly { order_id: string; version: number }[]) {
+  return orders.map(({ order_id, version }) => ({ order_id, version }));
+}
+export function sameTestOrderVersions(
+  left: readonly { order_id: string; version: number }[],
+  right: readonly { order_id: string; version: number }[],
+) {
+  const key = (values: typeof left) =>
+    values
+      .map((o) => `${o.order_id}:${o.version}`)
+      .sort()
+      .join(',');
+  return key(left) === key(right);
+}
 const Minor = z.string().regex(/^(0|[1-9]\d{0,15})$/);
 export const TestChannelSchema = z.enum(['mobile', 'kiosk']);
 export const TestRoleSchema = z.enum(['customer', 'prep', 'assembly', 'display', 'manager']);

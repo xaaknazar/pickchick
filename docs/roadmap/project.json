@@ -3260,6 +3260,33 @@
         "deployed": false,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-order-events",
+      "workstream": "mobile",
+      "title": "Обновлять статус сразу после кухни",
+      "summary": "Событийное ожидание вместо трёхсекундного опроса. PostgreSQL commit, авторизация, восстановление связи и отдельные лимиты; локальные проверки прошли, публикация впереди.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-unpaid-test"],
+      "evidence": [
+        {
+          "label": "Протокол событий и выпуска",
+          "path": "docs/operations/mobile-order-events.md"
+        }
+      ],
+      "acceptance": [
+        "Статус меняется после подтверждения кухни без ожидания очередного опроса.",
+        "После возврата в приложение отображается актуальная версия заказа."
+      ],
+      "nextAction": "Пройти полный CI, выпустить API/gateway и проверить публичный цикл; затем принять на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }

@@ -126,34 +126,91 @@ export function useTestOrders(
     };
   }, [refresh]);
   const hasActiveOrders = orders.some((order) => !['fulfilled', 'cancelled'].includes(order.state));
-  const pollState = useRef({ active: false, expired: false });
-  pollState.current = {
-    active: recoveryAvailable || hasActiveOrders,
-    expired: sessionExpired,
-  };
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
   useEffect(() => {
-    if (!restored || (!hasSavedSession && !recoveryAvailable)) return;
-    let cancelled = false;
+    if (!restored || busy || sessionExpired || (!hasSavedSession && !recoveryAvailable)) return;
+    let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const schedule = () => {
-      if (cancelled) return;
-      const delay = orderPollDelay({ ...pollState.current, failures: failures.current });
-      if (delay === null) return;
-      timer = setTimeout(async () => {
-        if (AppState.currentState === 'active') await refresh();
-        schedule();
-      }, delay);
+    let request: AbortController | undefined;
+    let foreground = AppState.currentState === 'active';
+    let legacyUntil = 0;
+    const scheduleRetry = () => {
+      const delay = orderPollDelay({ active: true, expired: false, failures: failures.current });
+      if (!stopped && foreground && delay !== null) timer = setTimeout(() => void observe(), delay);
     };
-    schedule();
+    const observe = async () => {
+      if (stopped || !foreground || request || busyRef.current) return;
+      const legacy = Date.now() < legacyUntil;
+      if (legacy || !hasSavedSession || !hasActiveOrders) {
+        if (recoveryAvailable || legacy || failures.current > 0) {
+          await refresh();
+          scheduleRetry();
+        }
+        return;
+      }
+      const epoch = generation.current;
+      const controller = new AbortController();
+      request = controller;
+      try {
+        const next = await client.watchOrders(ordersRef.current, controller.signal);
+        if (stopped || controller.signal.aborted || epoch !== generation.current) return;
+        // Advance the watch cursor before React renders, avoiding an immediate repeat response.
+        ordersRef.current = mergeObservedOrders(ordersRef.current, next);
+        setOrders(ordersRef.current);
+        setObservedAt(new Date().toISOString());
+        setError(null);
+        failures.current = 0;
+        const pending = await client.hasPending();
+        if (!stopped && !controller.signal.aborted && epoch === generation.current)
+          setRecoveryAvailable(pending);
+      } catch (failure) {
+        if (stopped || controller.signal.aborted || epoch !== generation.current) return;
+        failures.current += 1;
+        if (failure instanceof TestApiError && failure.status === 401) {
+          setSessionExpired(true);
+          setError(errorMessage(failure));
+          return;
+        }
+        // During staged rollout an older API can still serve authoritative snapshots.
+        const unsupported = failure instanceof TestApiError && failure.status === 404;
+        if (unsupported) legacyUntil = Date.now() + 60000;
+        else setError(errorMessage(failure));
+        scheduleRetry();
+        return;
+      } finally {
+        if (request === controller) request = undefined;
+      }
+      // A response is triggered by a committed change, or a bounded connection heartbeat.
+      if (!stopped && foreground) timer = setTimeout(() => void observe(), 0);
+    };
+    void observe();
     const listener = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refresh();
+      foreground = state === 'active';
+      clearTimeout(timer);
+      request?.abort();
+      request = undefined;
+      if (foreground)
+        void refresh().then(() => {
+          if (!stopped) void observe();
+        });
     });
     return () => {
-      cancelled = true;
+      stopped = true;
       clearTimeout(timer);
+      request?.abort();
       listener.remove();
     };
-  }, [restored, hasSavedSession, recoveryAvailable, sessionExpired, refresh, hasActiveOrders]);
+  }, [
+    client,
+    restored,
+    busy,
+    hasSavedSession,
+    recoveryAvailable,
+    sessionExpired,
+    refresh,
+    hasActiveOrders,
+  ]);
 
   const run = async (command: () => Promise<TestOrder>): Promise<TestOrder | null> => {
     if (!connectedTestOrdersEnabled) return null;

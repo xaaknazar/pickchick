@@ -101,6 +101,7 @@ export class HealthController {
     const values = {
       pickchick_http_in_flight: admission.active,
       pickchick_readiness_in_flight: admission.probes,
+      pickchick_order_watches_in_flight: admission.watches,
       pickchick_http_admission_limit: admission.limit,
       pickchick_http_rejected_total: admission.rejected,
       pickchick_http_completed_total: admission.completed,

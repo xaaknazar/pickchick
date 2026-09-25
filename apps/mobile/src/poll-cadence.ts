@@ -1,4 +1,4 @@
-/** Polling is a TEST fallback until branch-scoped event delivery is implemented. */
+/** Backoff for failed event subscriptions and snapshot fallback against older TEST APIs. */
 export function orderPollDelay(
   input: {
     active: boolean;

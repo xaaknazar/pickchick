@@ -1,5 +1,6 @@
 import {
   TestCartSchema,
+  testOrderVersions,
   testLineId,
   TestSessionSchema,
   TestQuoteSchema,
@@ -16,13 +17,23 @@ export const DRAFT_KEY = 'pickchick.test.pending-order.v1';
 export const COMMAND_KEY = 'pickchick.test.pending-command.v1';
 type Cart = ReturnType<typeof TestCartSchema.parse>;
 type Action = 'simulated-payment' | 'cancel';
+export interface TestRequestOptions {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
 export interface TestClientIO {
   readSession(): Promise<string | null>;
   saveSession(raw: string): Promise<void>;
   read(key: string): Promise<string | null>;
   write(key: string, raw: string): Promise<void>;
   remove(key: string): Promise<void>;
-  request(path: string, token?: string, body?: unknown, key?: string): Promise<unknown>;
+  request(
+    path: string,
+    token?: string,
+    body?: unknown,
+    key?: string,
+    options?: TestRequestOptions,
+  ): Promise<unknown>;
   uuid(): string;
   now(): number;
 }
@@ -318,6 +329,20 @@ export class TestCustomerCore {
     const session = await this.authenticate();
     const orders = TestOrdersSchema.parse(await this.io.request('/orders', session.token)).orders;
     await this.reconcile(orders, session);
+    return orders;
+  }
+  async watchOrders(known: TestOrder[], signal: AbortSignal): Promise<TestOrder[]> {
+    const session = await this.authenticate();
+    const orders = TestOrdersSchema.parse(
+      await this.io.request(
+        '/orders/watch',
+        session.token,
+        { versions: testOrderVersions(known.slice(0, 20)) },
+        undefined,
+        { signal, timeoutMs: 35000 },
+      ),
+    ).orders;
+    if (!signal.aborted) await this.reconcile(orders, session);
     return orders;
   }
   async order(orderId: string): Promise<TestOrder> {

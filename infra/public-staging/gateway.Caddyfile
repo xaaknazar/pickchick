@@ -7,7 +7,7 @@
 		timeouts {
 			read_header 5s
 			read_body 5s
-			write 10s
+			write 40s
 			idle 30s
 		}
 	}
@@ -232,7 +232,7 @@
 		method OPTIONS
 		header Origin *
 		header Access-Control-Request-Method POST
-		path_regexp test_post_preflight ^/v1/test/(sessions|sessions/continue|quotes|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
+		path_regexp test_post_preflight ^/v1/test/(sessions|sessions/continue|quotes|orders/watch|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
 	}
 	handle @test_post_preflight {
 		header {
@@ -242,6 +242,23 @@
 			Access-Control-Max-Age 300
 		}
 		respond "" 204
+	}
+
+	# Bounded event wait: all ordinary upstream requests retain their 5s header limit.
+	@test_order_watch {
+		method POST
+		path /v1/test/orders/watch
+	}
+	handle @test_order_watch {
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
 	}
 
 	@test_post {

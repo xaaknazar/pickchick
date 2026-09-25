@@ -4,6 +4,7 @@ import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from './api';
 export { loadTestCatalog } from './api';
+import type { TestRequestOptions } from './test-order-session';
 import { SESSION_KEY, TestApiError, TestCustomerCore } from './test-order-session';
 export { TestApiError } from './test-order-session';
 
@@ -12,9 +13,13 @@ export async function testRequest(
   token?: string,
   body?: unknown,
   key?: string,
+  options?: TestRequestOptions,
 ): Promise<unknown> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const abort = () => controller.abort();
+  options?.signal?.addEventListener('abort', abort, { once: true });
+  if (options?.signal?.aborted) abort();
+  const timer = setTimeout(abort, options?.timeoutMs ?? 10000);
   try {
     const response = await fetch(
       `${API_URL}/v1/test${path}${path.includes('?') ? '&' : '?'}catalog_version=mockup-v0.3`,
@@ -52,6 +57,7 @@ export async function testRequest(
     return data;
   } finally {
     clearTimeout(timer);
+    options?.signal?.removeEventListener('abort', abort);
   }
 }
 export class TestCustomerClient extends TestCustomerCore {

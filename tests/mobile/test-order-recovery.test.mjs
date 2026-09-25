@@ -57,8 +57,8 @@ function harness() {
     after: async () => {},
     readSession: async () => h.storedSession,
   };
-  h.request = async (path, token, body, key) => {
-    const request = { path, token, body: globalThis.structuredClone(body), key };
+  h.request = async (path, token, body, key, options) => {
+    const request = { path, token, body: globalThis.structuredClone(body), key, options };
     h.requests.push(request);
     await h.before(request);
     if (path !== '/sessions') assert.equal(token, session.token, 'restored customer identity');
@@ -132,7 +132,7 @@ function harness() {
         cancellation_reason: null,
       };
       h.orders.set(result.order_id, result);
-    } else if (path === '/orders') {
+    } else if (path === '/orders' || path === '/orders/watch') {
       result = { ...synthetic, orders: [...h.orders.values()] };
     } else {
       const [, , orderId, action] = path.split('/');
@@ -691,4 +691,27 @@ test('unpaid order lost acknowledgement recovers identical admission mode after 
   const commands = h.requests.filter((r) => r.path === '/orders' && r.body);
   assert.equal(commands.length, 2);
   assert.deepEqual(commands[0], commands[1]);
+});
+
+test('event observation sends only order versions with cancellable wait and reconciles lost acknowledgement', async () => {
+  const h = harness();
+  h.after = async (request) => {
+    if (request.path === '/orders' && request.body) throw new Error('lost reply');
+  };
+  await assert.rejects(h.client().create(cart(), 'takeaway'), /lost reply/);
+  const original = [...h.orders.values()][0];
+  assert.equal(h.storage.has(DRAFT_KEY), true);
+  h.after = async () => {};
+  const signal = new AbortController().signal;
+  const observed = await h.client().watchOrders([original], signal);
+  assert.equal(observed[0].order_id, original.order_id);
+  assert.equal(h.storage.has(DRAFT_KEY), false);
+  const watch = h.count('/orders/watch')[0];
+  assert.deepEqual(watch.body, {
+    versions: [{ order_id: original.order_id, version: original.version }],
+  });
+  assert.equal(watch.options.signal, signal);
+  assert.equal(watch.options.timeoutMs, 35000);
+  assert.equal(watch.key, undefined, 'read-only subscription does not create command intent');
+  assert.equal(h.orders.size, 1);
 });

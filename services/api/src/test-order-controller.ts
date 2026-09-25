@@ -9,7 +9,12 @@ import {
   Param,
   Post,
   Query,
+  Res,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import type { ServerResponse } from 'node:http';
+import { TestOrderEvents } from './test-order-events.js';
+import { TestOrderWatchSchema, sameTestOrderVersions } from '@pickchick/test-order-flow';
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
   TestFlowError,
@@ -21,7 +26,56 @@ import {
 
 @Controller('v1/test')
 export class TestOrderController {
-  constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
+  private readonly events: TestOrderEvents;
+  private readonly watchers = new Map<string, number>();
+  constructor(@Inject(RESOURCE) private readonly resources: Resources) {
+    this.events = new TestOrderEvents(resources.config.databaseUrl);
+  }
+  async onModuleDestroy() {
+    await this.events.close();
+  }
+
+  @Post('orders/watch') @HttpCode(200) watch(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Headers('authorization') auth?: string,
+    @Query('catalog_version') representation?: string,
+  ) {
+    return this.execute(async (flow) => {
+      const parsed = TestOrderWatchSchema.safeParse(body);
+      if (!parsed.success) throw new TestFlowError('INVALID_REQUEST');
+      const token = this.token(auth);
+      // Authenticate before opening a subscription; authenticate again after every wait.
+      await flow.ownOrders(token);
+      if ((this.watchers.get(token) ?? 0) >= 2) throw new TestFlowError('RATE_LIMITED');
+      this.watchers.set(token, (this.watchers.get(token) ?? 0) + 1);
+      const abort = new AbortController();
+      const close = () => abort.abort();
+      response.on('close', close);
+      if (response.destroyed) abort.abort();
+      let subscription: Awaited<ReturnType<TestOrderEvents['subscribe']>> | undefined;
+      try {
+        try {
+          subscription = await this.events.subscribe();
+        } catch {
+          throw new ServiceUnavailableException();
+        }
+        const snapshot = await flow.ownOrders(token);
+        if (!sameTestOrderVersions(snapshot.orders, parsed.data.versions)) return snapshot;
+        await subscription.wait(
+          snapshot.orders.map((o) => o.order_id),
+          abort.signal,
+        );
+        return abort.signal.aborted ? snapshot : await flow.ownOrders(token);
+      } finally {
+        subscription?.dispose();
+        response.off('close', close);
+        const remaining = (this.watchers.get(token) ?? 1) - 1;
+        if (remaining) this.watchers.set(token, remaining);
+        else this.watchers.delete(token);
+      }
+    }, representation);
+  }
   private flow() {
     const config = this.resources.config;
     return new TestOrderFlow(this.resources.pool, {

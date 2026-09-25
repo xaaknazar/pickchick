@@ -8,7 +8,9 @@ createServer((request, response) => {
   request.on('error', () => {
     response.destroy();
   });
-  request.on('end', () => {
+  request.on('end', async () => {
+    if (request.url === '/v1/test/orders/watch')
+      await new Promise((resolve) => setTimeout(resolve, 11000));
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(
       JSON.stringify({

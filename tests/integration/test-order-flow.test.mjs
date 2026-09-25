@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { performance } from 'node:perf_hooks';
 import { createPool } from '@pickchick/database';
 import { createHttpApplication, RESOURCE, Resources } from '@pickchick/platform';
 import { withSyncDatabases, running, request } from '../helpers/sync.mjs';
@@ -976,5 +977,130 @@ test('unpaid dispatch and tasks roll back together when durable outbox fails', a
       );
     await ctx.cloud.pool.query('DROP TRIGGER reject_unpaid ON test_outbox');
     assert.equal((await ctx.flow.createOrder(ctx.customer.token, key, body)).state, 'preparing');
+  });
+});
+
+test('order events are commit-only, remember the subscribe/snapshot race and reconnect after loss', async () => {
+  const { TestOrderEvents } = await import('../../services/api/dist/test-order-events.js');
+  await withDesk(async (ctx) => {
+    const events = new TestOrderEvents(ctx.cloud.config.databaseUrl);
+    const controller = new AbortController();
+    const id = randomUUID();
+    try {
+      const sub = await events.subscribe();
+      const db = await ctx.cloud.pool.connect();
+      let delivered = false;
+      const waiting = sub.wait([id], controller.signal, 2000).then(() => {
+        delivered = true;
+      });
+      try {
+        await db.query('BEGIN');
+        await db.query("SELECT pg_notify('pickchick_test_orders',$1)", [id]);
+        await new Promise((r) => setTimeout(r, 80));
+        assert.equal(delivered, false, 'uncommitted state cannot reach the phone');
+        await db.query('ROLLBACK');
+        await new Promise((r) => setTimeout(r, 80));
+        assert.equal(delivered, false, 'rolled-back hints are discarded');
+        await db.query("SELECT pg_notify('pickchick_test_orders',$1)", [randomUUID()]);
+        await new Promise((r) => setTimeout(r, 80));
+        assert.equal(delivered, false, 'unrelated orders do not wake customer');
+        await db.query("SELECT pg_notify('pickchick_test_orders',$1)", [id]);
+        await waiting;
+        assert.equal(delivered, true);
+      } finally {
+        db.release();
+        sub.dispose();
+      }
+      const race = await events.subscribe();
+      await ctx.cloud.pool.query("SELECT pg_notify('pickchick_test_orders',$1)", [id]);
+      await new Promise((r) => setTimeout(r, 60));
+      const start = performance.now();
+      await race.wait([id], controller.signal, 2000);
+      assert.ok(performance.now() - start < 500, 'hint during snapshot is retained');
+      race.dispose();
+      const lost = await events.subscribe();
+      const loss = lost.wait([id], controller.signal, 2000);
+      const listenerPid = events.client.processID;
+      await ctx.cloud.pool.query('SELECT pg_terminate_backend($1)', [listenerPid]);
+      await loss;
+      assert.notEqual(events.client?.processID, listenerPid);
+      lost.dispose();
+      const resumed = await events.subscribe();
+      const next = resumed.wait([id], new AbortController().signal, 2000);
+      await ctx.cloud.pool.query("SELECT pg_notify('pickchick_test_orders',$1)", [id]);
+      await next;
+      resumed.dispose();
+    } finally {
+      await events.close();
+    }
+  });
+});
+
+test('HTTP event wait delivers kitchen changes, scopes customers, reauthenticates and frees aborted waits', async () => {
+  await withDesk(async (ctx) => {
+    class EventModule {}
+    const resources = new Resources({
+      ...ctx.cloud.config,
+      testOrderFlowEnabled: true,
+      httpMaxInFlight: 1,
+    });
+    Module({
+      controllers: [TestOrderController],
+      providers: [{ provide: RESOURCE, useValue: resources }],
+    })(EventModule);
+    const api = await running(() => createHttpApplication(EventModule), ctx.cloud.config);
+    const waitUntil = async (predicate) => {
+      const end = Date.now() + 3000;
+      while (!predicate()) {
+        assert.ok(Date.now() < end, 'condition within 3s');
+        await new Promise((r) => setTimeout(r, 10));
+      }
+    };
+    const watch = (token, orders, signal = AbortSignal.timeout(5000)) =>
+      request(`${api.url}/v1/test/orders/watch?catalog_version=mockup-v0.3`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          versions: orders.map(({ order_id, version }) => ({ order_id, version })),
+        }),
+        signal,
+      });
+    try {
+      assert.equal((await watch('a'.repeat(64), [])).status, 401);
+      assert.equal((await watch(ctx.actors.prep.token, [])).status, 403);
+      let order = await approve(ctx, (await ctx.make()).order);
+      const initial = await watch(ctx.customer.token, []);
+      assert.equal(initial.status, 200);
+      assert.equal((await initial.json()).orders[0].order_id, order.order_id);
+      const other = await ctx.flow.issueSession({ channel: 'mobile' });
+      const foreign = await watch(other.token, [order]);
+      assert.deepEqual((await foreign.json()).orders, []);
+      for (const station of ['prep', 'assembly']) {
+        const start = performance.now();
+        const pending = watch(ctx.customer.token, [order]);
+        await waitUntil(() => resources.admission.watches === 1);
+        assert.equal(resources.admission.active, 0, 'wait does not occupy command admission');
+        order = await complete(ctx, order, station);
+        const result = await pending;
+        assert.equal(result.status, 200);
+        assert.equal((await result.json()).orders[0].version, order.version);
+        assert.ok(performance.now() - start < 1500, 'event delivered without a 3s polling tick');
+      }
+      const abort = new AbortController();
+      const abandoned = watch(ctx.customer.token, [order], abort.signal).catch(() => null);
+      await waitUntil(() => resources.admission.watches === 1);
+      abort.abort();
+      await abandoned;
+      await waitUntil(() => resources.admission.watches === 0);
+      const revoked = watch(ctx.customer.token, [order]);
+      await waitUntil(() => resources.admission.watches === 1);
+      // Let authentication finish before revoking; wake via the same committed order hint.
+      await new Promise((r) => setTimeout(r, 100));
+      await revokeTestActor(ctx.cloud.pool, config, ctx.customer.session_id);
+      await ctx.cloud.pool.query("SELECT pg_notify('pickchick_test_orders',$1)", [order.order_id]);
+      assert.equal((await revoked).status, 401);
+    } finally {
+      await api.app.close();
+    }
   });
 });

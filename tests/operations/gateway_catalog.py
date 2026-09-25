@@ -55,7 +55,7 @@ with tempfile.TemporaryDirectory(prefix='pickchick-gateway-') as directory:
                 'Content-Type': 'application/json', **(headers or {}),
             })
             try:
-                result = urllib.request.urlopen(req, timeout=8)
+                result = urllib.request.urlopen(req, timeout=35)
             except urllib.error.HTTPError as error:
                 result = error
             return result.status, {key.lower(): value for key, value in result.headers.items()}, result.read()
@@ -82,6 +82,15 @@ with tempfile.TemporaryDirectory(prefix='pickchick-gateway-') as directory:
         assert request(path + '/draft', 'PUT', {'padding': 'x' * (321 * 1024)}, headers)[0] == 413
         assert request(path + '/publish', 'POST', {'padding': 'x' * (17 * 1024)}, headers)[0] == 413
         assert request('/v1/test/quotes', 'POST', {'padding': 'x' * (17 * 1024)}, headers)[0] == 413
+        preflight = request('/v1/test/orders/watch', 'OPTIONS', headers={**headers, 'Access-Control-Request-Method':'POST'})
+        assert preflight[0] == 204
+        assert preflight[1]['access-control-allow-origin'] == '*'
+        started = time.monotonic()
+        watched = request('/v1/test/orders/watch', 'POST', {'versions':[]}, headers)
+        assert watched[0] == 200 and time.monotonic()-started >= 10
+        assert json.loads(watched[2])['authorization'] == headers['Authorization']
+        assert json.loads(watched[2])['cookie'] is None
+        assert request('/v1/test/orders/watch', headers=headers)[0] == 404
         public_data = json.loads(request('/v1/catalog/branches/' + branch, headers=headers)[2])
         assert public_data['authorization'] is None and public_data['cookie'] is None
         for invalid, method in [(path, 'DELETE'), (path + '/credential', 'POST'),
