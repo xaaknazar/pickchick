@@ -163,11 +163,12 @@
         "tests/catalog",
         "docs/operations/real-menu.md",
         "docs/project-status.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "tests/unit/iiko-menu-export.test.mjs"
       ],
       "status": "active",
       "head": "8a93c06e4435541994e265a99dacae627a596654",
-      "updatedAt": "2026-09-25T05:07:38.356Z"
+      "updatedAt": "2026-09-25T05:14:33.932Z"
     }
   ]
 }
