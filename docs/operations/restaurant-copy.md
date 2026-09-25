@@ -33,7 +33,19 @@ branch_id сохраняет имя API, а не подменяется перв
 
 ## Выпуск
 
-На момент исходного commit: VPS ещё не обновлён, CI ожидается.
+Исходники: `bccc6722f247bd93d7b7e5977db29cb0961c3493`, [PR87](https://github.com/xaaknazar/pickchick/pull/87).
+[Foundation CI 36133545207](https://github.com/xaaknazar/pickchick/actions/runs/36133545207)
+и roadmap CI 36133545147 остановлены до выполнения steps. GitHub UI подтвердил:
+account payments failed or spending limit needs to be increased. Это ограничение
+запуска CI, а не прошедшие либо упавшие тесты кода. Историческое исключение
+8 сентября не распространено на новый выпуск.
+
+VPS operations/API/БД и онлайн-пульт этим этапом НЕ обновлены. Рабочие исходники
+передаются в общий development; live Metro iOS/Android manifest+bundle HTTP200.
+Dev можно перезагрузить, новая TestFlight/Windows сборка не выпускалась.
+Дополнительно проверены неоплаченный checkout 320/390/430, название точки,
+подпись подключения и отсутствие тестовых подписей на локальных fixtures;
+заказы/платежи не создавались. Roadmap build и 7 tests прошли локально.
 Требуется полная Foundation CI точного source SHA, затем статический overlay
 operations по operations-ui-release.md без исторического исключения CI.
 API, БД, Redis, edge, маршруты Caddy и Windows не меняются.

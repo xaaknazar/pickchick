@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T12:11:20.780866+00:00",
+  "updatedAt": "2026-09-25T12:15:06.449067+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3335,7 +3335,7 @@
       "id": "restaurant-customer-copy",
       "workstream": "mobile",
       "title": "Название точки и понятные подписи заказа",
-      "summary": "Убраны тестовые подписи mobile/operations; Abay Plaza определяется по branch_id. Оплата и чеки обозначены как в процессе подключения.",
+      "summary": "Готово в mobile/operations, Dev доступен. VPS и онлайн-пульт ожидают CI: GitHub не запускает jobs из-за оплаты/лимита Actions.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -3344,13 +3344,21 @@
         {
           "label": "Область и проверки",
           "path": "docs/operations/restaurant-copy.md"
+        },
+        {
+          "label": "PR87",
+          "url": "https://github.com/xaaknazar/pickchick/pull/87"
+        },
+        {
+          "label": "CI не запущена: billing/spending limit",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/36133545207"
         }
       ],
       "acceptance": [
         "В приложении отображается действующая точка без тестовых подписей.",
         "Заказ проходит без списания; оплата/чеки обозначены как в процессе подключения."
       ],
-      "nextAction": "Зелёная CI, выпуск статических operations, обновление Dev и приёмка на iPhone.",
+      "nextAction": "Восстановить запуск GitHub Actions, повторить полную CI точного SHA, выпустить operations overlay и обновить онлайн-пульт. Владельцу принять Dev на iPhone.",
       "checks": {
         "implemented": true,
         "verified": true,
