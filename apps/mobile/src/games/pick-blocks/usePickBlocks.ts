@@ -132,17 +132,22 @@ export function usePickBlocks() {
   }, [canPlay, publish, runClock]);
 
   const input = useCallback(
-    (action: (game: GameState) => GameState) => {
+    (action: (game: GameState) => GameState, expectedPiece?: number) => {
       const latest = current.current;
       if (latest.status !== 'playing' || latest.game === null || !canPlay()) return;
+      // React can still show the old piece for a frame after the clock locks it.
+      if (expectedPiece !== undefined && latest.game.piecesPlaced !== expectedPiece) return;
       commitGame(action(latest.game));
     },
     [canPlay, commitGame],
   );
-  const move = useCallback((dx: -1 | 1) => input((game) => moveGame(game, dx)), [input]);
-  const rotate = useCallback(() => input(rotateGame), [input]);
-  const softDrop = useCallback(() => input(lowerGame), [input]);
-  const hardDrop = useCallback(() => input(dropGame), [input]);
+  const move = useCallback(
+    (dx: -1 | 1, piece?: number) => input((game) => moveGame(game, dx), piece),
+    [input],
+  );
+  const rotate = useCallback((piece?: number) => input(rotateGame, piece), [input]);
+  const softDrop = useCallback((piece?: number) => input(lowerGame, piece), [input]);
+  const hardDrop = useCallback((piece?: number) => input(dropGame, piece), [input]);
 
   const retryStorage = useCallback(() => {
     if (current.current.status === 'loading') return;

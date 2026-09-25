@@ -29,7 +29,7 @@ import {
   type PieceKind,
 } from './engine';
 import { usePickBlocks } from './usePickBlocks';
-import { blockDrag, isBlockDrop } from './gestures';
+import { blockDrag, blockDragAxis, isBlockDrop, type BlockDragAxis } from './gestures';
 import { Tile } from './visuals';
 import { assets } from '../../assets';
 import { ArcadeButton, ArcadeBackdrop, ArcadeIntro, arcade } from '../ArcadeExperience';
@@ -194,11 +194,8 @@ function FallingPiece({
     if (fresh || reduced || !playing) position.setValue({ x: piece.x * cell, y: currentY });
     else if (!softFall) position.y.setValue(currentY);
     if (!playing || reduced) return;
-    const move = Animated.timing(position.x, {
-      toValue: piece.x * cell,
-      duration: reduced ? 0 : 75,
-      useNativeDriver: true,
-    });
+    // Horizontal positions and rotations are committed together by the engine.
+    // Tweening an old origin with a new shape can cross a wall or a settled tile.
     const fall = Animated.timing(position.y, {
       toValue: canFall && playing && !reduced ? (piece.y + 1) * cell : currentY,
       duration: canFall && playing && !reduced ? Math.max(1, interval - game.gravityMs) : 0,
@@ -216,7 +213,7 @@ function FallingPiece({
           fall,
         ])
       : fall;
-    const animation = Animated.parallel([move, vertical]);
+    const animation = vertical;
     animation.start();
     return () => animation.stop();
   }, [
@@ -257,7 +254,15 @@ function Board({
   const glow = useRef(new Animated.Value(0)).current;
   const live = useRef({ controller, cell });
   live.current = { controller, cell };
-  const drag = useRef({ x: 0, y: 0, moved: false, cancelled: false, started: 0, piece: -1 });
+  const drag = useRef({
+    x: 0,
+    y: 0,
+    moved: false,
+    cancelled: false,
+    started: 0,
+    piece: -1,
+    axis: null as BlockDragAxis,
+  });
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => live.current.controller.status === 'playing',
@@ -270,6 +275,7 @@ function Board({
           cancelled: false,
           started: Date.now(),
           piece: live.current.controller.game?.piecesPlaced ?? -1,
+          axis: null,
         };
       },
       onPanResponderStart: (_, gesture) => {
@@ -284,16 +290,20 @@ function Board({
         )
           return;
         if (Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8) drag.current.moved = true;
-        const displacement = blockDrag(gesture.dx, gesture.dy, live.current.cell);
-        // Keep the inactive axis at its last value rather than undoing a prior move.
-        const x =
-          Math.abs(gesture.dx) >= Math.abs(gesture.dy) * 0.8 ? displacement.x : drag.current.x;
+        drag.current.axis = blockDragAxis(gesture.dx, gesture.dy, drag.current.axis);
+        const displacement = blockDrag(
+          gesture.dx,
+          gesture.dy,
+          live.current.cell,
+          drag.current.axis,
+        );
+        const x = drag.current.axis === 'horizontal' ? displacement.x : drag.current.x;
         const y = Math.max(drag.current.y, displacement.y);
         const delta = x - drag.current.x;
         for (let i = 0; i < Math.min(BOARD_WIDTH, Math.abs(delta)); i++)
-          live.current.controller.move(delta < 0 ? -1 : 1);
+          live.current.controller.move(delta < 0 ? -1 : 1, drag.current.piece);
         for (let i = drag.current.y; i < Math.min(y, drag.current.y + BOARD_HEIGHT); i++)
-          live.current.controller.softDrop();
+          live.current.controller.softDrop(drag.current.piece);
         drag.current.x = x;
         drag.current.y = y;
       },
@@ -304,11 +314,12 @@ function Board({
           drag.current.piece !== live.current.controller.game?.piecesPlaced
         )
           return;
-        if (!drag.current.moved) live.current.controller.rotate();
+        if (!drag.current.moved) live.current.controller.rotate(drag.current.piece);
         else if (
+          drag.current.axis === 'vertical' &&
           isBlockDrop(gesture.dx, gesture.dy, live.current.cell, Date.now() - drag.current.started)
         )
-          live.current.controller.hardDrop();
+          live.current.controller.hardDrop(drag.current.piece);
       },
       onPanResponderTerminate: () => {
         drag.current.cancelled = true;
@@ -420,6 +431,7 @@ function Board({
               .map((p, i) => <Tile key={`g${i}`} {...p} size={cell} kind={ghost.kind} ghost />)
           : null}
         <FallingPiece
+          key={`${game.piecesPlaced}:${game.active?.rotation}:${game.active?.x}:${cell}`}
           game={game}
           cell={cell}
           playing={controller.status === 'playing'}
