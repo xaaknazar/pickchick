@@ -216,11 +216,13 @@
         "tests/mobile/browser_menu_recovery.py",
         ".github/workflows/ci.yml",
         "@windows/cashier",
-        "tests/operations/layout_regression.py"
+        "tests/operations/layout_regression.py",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
       ],
       "status": "active",
       "head": "1dcd623cf5411c92f8897307b96670db68a128a6",
-      "updatedAt": "2026-09-25T06:18:16.213Z",
+      "updatedAt": "2026-09-25T06:20:01.091Z",
       "summary": "Незавершённый этап реального меню: checkpoint 5cfaeb2fcc9bf5c81149524d2e2bc323c1dddaf1, PR https://github.com/xaaknazar/pickchick/pull/80, включён в shared-development. Проверены через UI 47/52/54 цены трёх меню и обязательные группы Pick Meal. API старый auth 403 требует v2; нужны appId/clientSecret. Реальные меню через API НЕ выгружены, БД/клиенты НЕ переключены. Экспортёр v2/v3 с приватными снимками и review подготовлен. Frozen pnpm11.19/Node24.16, полная сборка, 105 unit (11 новых), 7 roadmap, lint/format/diff прошли. Новая CI выполняется; старые RUN/kitchen failures не исправлены. Онлайн-roadmap не обновлён без SSH.",
       "nextAction": "Продолжить эту задачу через claim real-menu после ответа владельца: 1) зарегистрированное приложение iiko и appId/clientSecret безопасно в приватный env, не в чат/Git; 2) выбор цен (AILILLU вероятно зал, доставка дороже, это не утверждено). На этом Mac файл .local/iiko-import/credentials.env 0600 подготовлен, app-поля пустые. Запустить --discover и экспорт по реальному organizationId, проверить правила/ID/налоги/изображения/RU-KZ, совместимость контрактов, импорт на изолированной БД, согласование корзин, подключение mobile/POS/kiosk/edge с receipt версии. Подробности docs/operations/real-menu.md. Секреты/локальные файлы не переносятся автоматически."
     }
