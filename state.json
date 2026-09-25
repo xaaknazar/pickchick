@@ -243,11 +243,11 @@
         "packages/backoffice-core",
         "apps/backoffice"
       ],
-      "status": "active",
-      "head": "35a742c9d3ec489dc7cbf1f8ba03d82c837eab51",
-      "updatedAt": "2026-09-25T15:05:44.505Z",
-      "summary": "35a742c / PR92: UI/UX Pro Max + Impeccable polish корзины и оформления. Единая типографика, фото/количество/цены, compact 7+1, ресторан/время, строки Apple Pay/карты. TypeScript/lint/format, 3 cart-edit, 7 roadmap; browser cart4 размера, ещё6 viewport/text150% комбинаций; release checkout3 размера без записей; Dev iOS/Android HTTP200. Снимки в docs. Включено в shared-development, новая CI ещё не подтверждена.",
-      "nextAction": "Проверить дизайн/клавиатуру/Dynamic Type/VoiceOver на iPhone. Перед выпуском устранить staging POST preflight-блокер и пройти полную CI. Онлайн-пульт/TestFlight/VPS/Windows этим этапом не обновлены. Сохранить блокеры API iiko, банка, кухни/LED и смены021."
+      "status": "done",
+      "head": "26eee8feea0b38c0d672fd1000c53780784ba79f",
+      "updatedAt": "2026-09-25T15:14:02.219Z",
+      "summary": "26eee8f / PR93: понятные активные заказы и история, live этапы; отзывы после выдачи и обращения управляющему, durable retry, ownership, BO readonly originals; ручная корзина. 25 PostgreSQL, 29 mobile +3 access, 7 roadmap, browser orders/cart4 и catalog3, recovery, TypeScript/lint/contracts, Dev iOS/Android HTTP200. CI нового SHA ещё выполняется.",
+      "nextAction": "Выпустить backend/gateway/backoffice из фактического VPS020 с отдельной проверкой021 и INSERT ACL bo_records, после зелёной CI. До выпуска приём feedback недоступен. Пульт/TestFlight/приёмка на устройствах не обновлены, чек ждёт ККМ. См. docs/operations/mobile-orders.md."
     }
   ]
 }
