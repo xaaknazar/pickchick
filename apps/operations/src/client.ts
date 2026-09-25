@@ -55,20 +55,23 @@ async function request<T>(
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), 12000);
   try {
-    const response = await fetch(API_BASE + path, {
-      method: body === undefined ? 'GET' : 'POST',
-      credentials: 'omit',
-      cache: 'no-store',
-      referrerPolicy: 'no-referrer',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(key ? { 'Idempotency-Key': key } : {}),
+    const response = await fetch(
+      API_BASE + path + (path.includes('?') ? '&' : '?') + 'number_format=daily',
+      {
+        method: body === undefined ? 'GET' : 'POST',
+        credentials: 'omit',
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(key ? { 'Idempotency-Key': key } : {}),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+    );
     const data: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const record = data as { code?: unknown; error?: { code?: unknown } } | null;

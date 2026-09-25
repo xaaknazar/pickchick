@@ -40,41 +40,46 @@ export class TestOrderController {
     @Res({ passthrough: true }) response: ServerResponse,
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute(async (flow) => {
-      const parsed = TestOrderWatchSchema.safeParse(body);
-      if (!parsed.success) throw new TestFlowError('INVALID_REQUEST');
-      const token = this.token(auth);
-      // Authenticate before opening a subscription; authenticate again after every wait.
-      await flow.ownOrders(token);
-      if ((this.watchers.get(token) ?? 0) >= 2) throw new TestFlowError('RATE_LIMITED');
-      this.watchers.set(token, (this.watchers.get(token) ?? 0) + 1);
-      const abort = new AbortController();
-      const close = () => abort.abort();
-      response.on('close', close);
-      if (response.destroyed) abort.abort();
-      let subscription: Awaited<ReturnType<TestOrderEvents['subscribe']>> | undefined;
-      try {
+    return this.execute(
+      async (flow) => {
+        const parsed = TestOrderWatchSchema.safeParse(body);
+        if (!parsed.success) throw new TestFlowError('INVALID_REQUEST');
+        const token = this.token(auth);
+        // Authenticate before opening a subscription; authenticate again after every wait.
+        await flow.ownOrders(token);
+        if ((this.watchers.get(token) ?? 0) >= 2) throw new TestFlowError('RATE_LIMITED');
+        this.watchers.set(token, (this.watchers.get(token) ?? 0) + 1);
+        const abort = new AbortController();
+        const close = () => abort.abort();
+        response.on('close', close);
+        if (response.destroyed) abort.abort();
+        let subscription: Awaited<ReturnType<TestOrderEvents['subscribe']>> | undefined;
         try {
-          subscription = await this.events.subscribe();
-        } catch {
-          throw new ServiceUnavailableException();
+          try {
+            subscription = await this.events.subscribe();
+          } catch {
+            throw new ServiceUnavailableException();
+          }
+          const snapshot = await flow.ownOrders(token);
+          if (!sameTestOrderVersions(snapshot.orders, parsed.data.versions)) return snapshot;
+          await subscription.wait(
+            snapshot.orders.map((o) => o.order_id),
+            abort.signal,
+          );
+          return abort.signal.aborted ? snapshot : await flow.ownOrders(token);
+        } finally {
+          subscription?.dispose();
+          response.off('close', close);
+          const remaining = (this.watchers.get(token) ?? 1) - 1;
+          if (remaining) this.watchers.set(token, remaining);
+          else this.watchers.delete(token);
         }
-        const snapshot = await flow.ownOrders(token);
-        if (!sameTestOrderVersions(snapshot.orders, parsed.data.versions)) return snapshot;
-        await subscription.wait(
-          snapshot.orders.map((o) => o.order_id),
-          abort.signal,
-        );
-        return abort.signal.aborted ? snapshot : await flow.ownOrders(token);
-      } finally {
-        subscription?.dispose();
-        response.off('close', close);
-        const remaining = (this.watchers.get(token) ?? 1) - 1;
-        if (remaining) this.watchers.set(token, remaining);
-        else this.watchers.delete(token);
-      }
-    }, representation);
+      },
+      representation,
+      numberFormat,
+    );
   }
   private flow() {
     const config = this.resources.config;
@@ -86,11 +91,19 @@ export class TestOrderController {
   private token(value?: string) {
     return value?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '';
   }
-  private async execute<T>(run: (flow: TestOrderFlow) => T | Promise<T>, representation?: string) {
+  private async execute<T>(
+    run: (flow: TestOrderFlow) => T | Promise<T>,
+    representation?: string,
+    numberFormat?: string,
+  ) {
     try {
       const version = TestCatalogVersionSchema.safeParse(representation ?? TEST_CATALOG_VERSION);
       if (!version.success) throw new TestFlowError('INVALID_REQUEST');
-      const result = await run(this.flow());
+      if (numberFormat !== undefined && numberFormat !== 'daily')
+        throw new TestFlowError('INVALID_REQUEST');
+      const flow = this.flow();
+      const raw = await run(flow);
+      const result = numberFormat === 'daily' ? await flow.dailyNumbers(raw) : raw;
       return version.data === TEST_CATALOG_VERSION ? legacyTestResponse(result) : result;
     } catch (error) {
       if (error instanceof TestFlowError) {
@@ -113,53 +126,75 @@ export class TestOrderController {
       throw error;
     }
   }
-  @Get('catalog') catalog(@Query('catalog_version') representation?: string) {
-    return this.execute((flow) => flow.catalog(representation), representation);
+  @Get('catalog') catalog(
+    @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
+  ) {
+    return this.execute((flow) => flow.catalog(representation), representation, numberFormat);
   }
   @Post('sessions') session(
     @Body() body: unknown,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.issueSession(body), representation);
+    return this.execute((flow) => flow.issueSession(body), representation, numberFormat);
   }
   @Post('sessions/continue') @HttpCode(200) continueSession(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.continueSession(this.token(auth), body), representation);
+    return this.execute(
+      (flow) => flow.continueSession(this.token(auth), body),
+      representation,
+      numberFormat,
+    );
   }
   @Post('quotes') quote(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.quote(this.token(auth), key ?? '', body), representation);
+    return this.execute(
+      (flow) => flow.quote(this.token(auth), key ?? '', body),
+      representation,
+      numberFormat,
+    );
   }
   @Post('orders') order(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
       (flow) => flow.createOrder(this.token(auth), key ?? '', body),
       representation,
+      numberFormat,
     );
   }
   @Get('orders') orders(
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.ownOrders(this.token(auth)), representation);
+    return this.execute((flow) => flow.ownOrders(this.token(auth)), representation, numberFormat);
   }
   @Get('orders/:id') read(
     @Param('id') orderId: string,
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.readOrder(this.token(auth), orderId), representation);
+    return this.execute(
+      (flow) => flow.readOrder(this.token(auth), orderId),
+      representation,
+      numberFormat,
+    );
   }
   @Post('orders/:id/simulated-payment') @HttpCode(200) payment(
     @Param('id') orderId: string,
@@ -167,10 +202,12 @@ export class TestOrderController {
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
       (flow) => flow.simulatePayment(this.token(auth), key ?? '', orderId, body),
       representation,
+      numberFormat,
     );
   }
   @Post('orders/:id/resolve-payment') @HttpCode(200) resolve(
@@ -179,10 +216,12 @@ export class TestOrderController {
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
       (flow) => flow.resolvePayment(this.token(auth), key ?? '', orderId, body),
       representation,
+      numberFormat,
     );
   }
   @Post('orders/:id/cancel') @HttpCode(200) cancel(
@@ -191,17 +230,20 @@ export class TestOrderController {
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
       (flow) => flow.cancel(this.token(auth), key ?? '', orderId, body),
       representation,
+      numberFormat,
     );
   }
   @Get('kitchen') kitchen(
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.kitchen(this.token(auth)), representation);
+    return this.execute((flow) => flow.kitchen(this.token(auth)), representation, numberFormat);
   }
   @Post('orders/:id/tasks/:taskId/complete') @HttpCode(200) complete(
     @Param('id') orderId: string,
@@ -210,10 +252,12 @@ export class TestOrderController {
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
       (flow) => flow.completeTask(this.token(auth), key ?? '', orderId, taskId, body),
       representation,
+      numberFormat,
     );
   }
   @Post('orders/:id/handoff') @HttpCode(200) handoff(
@@ -222,22 +266,30 @@ export class TestOrderController {
     @Headers('authorization') auth?: string,
     @Headers('idempotency-key') key?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
       (flow) => flow.handoff(this.token(auth), key ?? '', orderId, body),
       representation,
+      numberFormat,
     );
   }
   @Get('display') display(
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.display(this.token(auth)), representation);
+    return this.execute((flow) => flow.display(this.token(auth)), representation, numberFormat);
   }
   @Get('manager/orders') manager(
     @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
+    @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.managerOrders(this.token(auth)), representation);
+    return this.execute(
+      (flow) => flow.managerOrders(this.token(auth)),
+      representation,
+      numberFormat,
+    );
   }
 }

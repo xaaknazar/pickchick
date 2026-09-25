@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T10:14:16.431534+00:00",
+  "updatedAt": "2026-09-25T10:30:24.889021+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3293,6 +3293,33 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "daily-order-numbers",
+      "workstream": "mobile",
+      "title": "Короткие номера с 1 каждый день",
+      "summary": "Подготовлена нумерация по дням Алматы без видимых T- и нулей. Проверены параллельные заказы, полночь и повторы; установка впереди.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-unpaid-test"],
+      "evidence": [
+        {
+          "label": "Правила, проверки и выпуск",
+          "path": "docs/operations/daily-order-numbers.md"
+        }
+      ],
+      "acceptance": [
+        "Номер одинаков в приложении, на кухне и табло.",
+        "Первый заказ нового дня по Алматы имеет номер 1; вчерашние номера сохраняются."
+      ],
+      "nextAction": "Пройти CI, обновить сервер и подтвердить на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
         "accepted": false
       }
     }

@@ -446,6 +446,14 @@ function testOperation(method, operationId, result, input, options = {}) {
       'Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.',
     schema: { type: 'string', enum: ['mockup-v0.2', 'mockup-v0.3'], default: 'mockup-v0.2' },
   });
+  parameters.push({
+    name: 'number_format',
+    in: 'query',
+    required: false,
+    description:
+      'Select daily for a persistent branch-local order number starting at 1 each Asia/Almaty calendar day. Omit to preserve legacy global T-number responses. UUID remains the order identity.',
+    schema: { type: 'string', enum: ['daily'] },
+  });
   if (options.idempotent)
     parameters.push({
       name: 'Idempotency-Key',

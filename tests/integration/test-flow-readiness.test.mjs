@@ -32,6 +32,7 @@ for (const migration of [
   '005_cloud_test_modifier_task_titles.sql',
   '006_cloud_test_permanent_access.sql',
   '019_cloud_unpaid_test_orders.sql',
+  '020_cloud_daily_test_numbers.sql',
 ]) {
   test(`enabled TEST readiness fails when ${migration} is missing; disabled API keeps serving its earlier schema`, async () => {
     await withSyncDatabases(async ({ cloud }) => {

@@ -331,6 +331,39 @@ export class TestOrderFlow {
     private readonly pool: DatabasePool,
     private readonly config: TestFlowConfig,
   ) {}
+  // Apply only to an already authorized server response. Stored command results and
+  // outbox keep their original global references, including during an API rollback.
+  async dailyNumbers<T>(result: T): Promise<T> {
+    const references = new Set<string>();
+    const visit = (value: unknown, replace?: Map<string, string>): unknown => {
+      if (Array.isArray(value)) return value.map((item) => visit(item, replace));
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => {
+          if (key === 'number' && typeof item === 'string' && /^T-\d{6,}$/.test(item)) {
+            references.add(item);
+            if (replace) {
+              const number = replace.get(item);
+              if (!number) throw new Error('Missing persistent daily order number');
+              return [key, number];
+            }
+          }
+          return [key, visit(item, replace)];
+        }),
+      );
+    };
+    visit(result);
+    if (!references.size) return result;
+    const rows = (
+      await this.pool.query<{ reference: string; number: string }>(
+        `SELECT 'T-' || lpad(o.sequence::text,GREATEST(length(o.sequence::text),6),'0') AS reference,
+       n.number::text AS number FROM test_orders o JOIN test_order_numbers n ON n.order_id=o.id
+       WHERE o.branch_id=$1 AND o.sequence=ANY($2::bigint[])`,
+        [TEST_BRANCH_ID, [...references].map((reference) => reference.slice(2))],
+      )
+    ).rows;
+    return visit(result, new Map(rows.map((row) => [row.reference, row.number]))) as T;
+  }
   catalog(requestedVersion: unknown = TEST_CATALOG_VERSION) {
     enabled(this.config);
     const selected = parse(TestCatalogVersionSchema, requestedVersion);

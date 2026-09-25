@@ -299,6 +299,13 @@ test('migration upgrades all unrevoked legacy credentials and preserves tokens, 
         // 019 adds only an inert default; all pre-existing values remain identical.
         for (const row of dataBefore.test_orders) row.data.execution_mode = 'simulated_payment';
         assert.deepEqual(await persistedData(ctx.cloud.pool), dataBefore);
+        const numbered = await ctx.cloud.pool.query(
+          'SELECT order_id,number FROM test_order_numbers ORDER BY number',
+        );
+        assert.equal(numbered.rowCount, 3);
+        assert.equal(new Set(numbered.rows.map((row) => row.order_id)).size, 3);
+        assert.ok(numbered.rows.every((row) => row.number >= 1));
+
         assert.equal((await ctx.flow.continueSession(ctx.customer.token, {})).expires_at, marker);
         assert.equal((await ctx.flow.ownOrders(expiredCustomer.token)).orders.length, 1);
         assert.equal((await ctx.flow.managerOrders(manager.token)).orders.length, 3);

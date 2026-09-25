@@ -22,7 +22,7 @@ export async function testRequest(
   const timer = setTimeout(abort, options?.timeoutMs ?? 10000);
   try {
     const response = await fetch(
-      `${API_URL}/v1/test${path}${path.includes('?') ? '&' : '?'}catalog_version=mockup-v0.3`,
+      `${API_URL}/v1/test${path}${path.includes('?') ? '&' : '?'}catalog_version=mockup-v0.3&number_format=daily`,
       {
         method: body === undefined ? 'GET' : 'POST',
         credentials: 'omit',

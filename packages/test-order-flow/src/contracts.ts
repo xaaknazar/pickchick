@@ -241,7 +241,7 @@ export const TestTaskSchema = z.strictObject({
 export const TestOrderSchema = z.strictObject({
   ...Synthetic,
   order_id: Uuid,
-  number: z.string().regex(/^T-\d{6,}$/),
+  number: z.string().regex(/^(?:T-\d{6,}|[1-9]\d*)$/),
   branch_id: z.literal(TEST_BRANCH_ID),
   version: z.int().min(1),
   state: z.enum(['awaiting_test_payment', 'preparing', 'ready', 'fulfilled', 'cancelled']),

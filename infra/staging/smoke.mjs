@@ -69,6 +69,12 @@ async function testOrderFlowSmoke(config, owner, runtime, request) {
       order,
     );
     assert.equal(order.state, 'awaiting_test_payment');
+    const daily = await send(
+      `/v1/test/orders/${order.order_id}?number_format=daily`,
+      session.token,
+    );
+    assert.match(daily.number, /^[1-9]\d*$/);
+    assert.deepEqual({ ...daily, number: order.number }, order);
     const path = `orders/${order.order_id}`;
     order = await command(`${path}/simulated-payment`, session.token, {
       expected_version: order.version,

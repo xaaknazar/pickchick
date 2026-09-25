@@ -294,7 +294,7 @@ export function ConnectedHistory(props: ScreenProps) {
           <MotionPressable
             key={order.order_id}
             accessibilityRole="button"
-            accessibilityLabel={`${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
+            accessibilityLabel={`Заказ номер ${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
             onPress={() => {
               flow.select(order.order_id);
               props.navigate('M20');
@@ -371,7 +371,7 @@ export function ConnectedOrder(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title={receipt ? 'Электронный чек' : cancel ? 'Отмена заказа' : order.number}
+      title={receipt ? 'Электронный чек' : cancel ? 'Отмена заказа' : `Заказ №${order.number}`}
       footer={
         cancel ? (
           <Button
@@ -400,6 +400,7 @@ export function ConnectedOrder(props: ScreenProps) {
         </Heading>
         <Text
           testID="connected-order-number"
+          accessibilityLabel={`Заказ номер ${order.number}`}
           style={[s.number, ready && { color: '#241208' }]}
           adjustsFontSizeToFit
           numberOfLines={1}
@@ -575,7 +576,7 @@ function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder
         <View onLayout={({ nativeEvent }) => setNumberWidth(nativeEvent.layout.width)}>
           <Text
             testID="connected-order-number"
-            accessibilityLabel={`Тестовый заказ ${order.number}`}
+            accessibilityLabel={`Заказ номер ${order.number}`}
             style={[s.readyNumber, { fontSize: numberFontSize }]}
             adjustsFontSizeToFit
             numberOfLines={1}

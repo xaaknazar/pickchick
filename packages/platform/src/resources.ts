@@ -118,6 +118,7 @@ export class Resources implements OnApplicationShutdown {
               '005_cloud_test_modifier_task_titles.sql',
               '006_cloud_test_permanent_access.sql',
               '019_cloud_unpaid_test_orders.sql',
+              '020_cloud_daily_test_numbers.sql',
             ]) {
               const testVersion = await this.pool.query(
                 'SELECT 1 FROM schema_migrations WHERE scope = $1 AND version = $2',
@@ -133,6 +134,8 @@ export class Resources implements OnApplicationShutdown {
               'test_quotes',
               'test_orders',
               'test_kitchen_tasks',
+              'test_order_numbers',
+              'test_order_day_counters',
               'test_command_results',
               'test_outbox',
             ]) {

@@ -42,8 +42,12 @@ function OrderColumn({
         <span className="display-column-translation">{ready ? 'Дайын' : 'Дайындалуда'}</span>
       </div>
       <div className="display-numbers">
-        {visible.map((item) => (
-          <article className="display-order" key={item.number} data-order-number={item.number}>
+        {visible.map((item, index) => (
+          <article
+            className="display-order"
+            key={`${item.number}-${index}`}
+            data-order-number={item.number}
+          >
             <div
               className="display-number"
               style={{ '--number-width': Math.max(3, item.number.length) * 0.72 } as CSSProperties}

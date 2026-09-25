@@ -35,7 +35,7 @@ export async function kioskRequest(
     const url =
       path === '/capabilities'
         ? `${KIOSK_API_URL}/v1/capabilities`
-        : `${KIOSK_API_URL}/v1/test${path}?catalog_version=mockup-v0.3`;
+        : `${KIOSK_API_URL}/v1/test${path}?catalog_version=mockup-v0.3&number_format=daily`;
     const response = await fetcher(url, {
       method: body === undefined ? 'GET' : 'POST',
       credentials: 'omit',
