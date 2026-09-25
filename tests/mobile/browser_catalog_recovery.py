@@ -36,6 +36,16 @@ with sync_playwright() as p:
         request = route.request
         path = urlparse(request.url).path
         requests.append((request.method, path))
+        if request.method == 'POST' and path == '/v1/test/orders/watch':
+            # An older API has no event endpoint. Only this exact read-only request
+            # is allowed; session/quote/order/payment mutations remain forbidden.
+            body = request.post_data_json
+            assert set(body) == {'versions'} and len(body['versions']) <= 1
+            assert all(set(row) == {'order_id', 'version'} and row['order_id'] == ORDER['order_id']
+                       and row['version'] in (2, 3) for row in body['versions'])
+            assert request.headers.get('authorization') == 'Bearer ' + SESSION['token']
+            route.fulfill(status=404, json={'code':'NOT_FOUND'}, headers={'Access-Control-Allow-Origin':'*'})
+            return
         assert request.method == 'GET', 'Reading order screens must not issue any mutation'
         if path == '/v1/test/orders' and mode['orders'] == 'success':
             route.fulfill(json={**META, 'orders': [({**ORDER, 'version': 3, 'state': 'fulfilled', 'payment_state': 'simulated_approved'} if mode.get('terminal') else ORDER)]}, headers={'Access-Control-Allow-Origin': '*'})
@@ -84,11 +94,14 @@ with sync_playwright() as p:
     # Observe actual scheduled network activity over more than two old poll periods.
     page.wait_for_timeout(7500)
     assert len([path for _, path in requests if path == '/v1/test/orders']) == terminal_reads
-    assert not any(method != 'GET' for method, _ in requests)
+    assert all(method == 'GET' or (method, path) == ('POST', '/v1/test/orders/watch')
+               for method, path in requests)
+    assert ('POST', '/v1/test/orders/watch') in requests
     browser.close()
 
 print(json.dumps({'success': True, 'fixture_only': True, 'real_orders_created': 0,
                   'checks': ['saved unknown order survives unavailable catalog',
                              'failed cold read stays unknown; manual retry restores the same order',
                              'checkout resumes saved unknown order without a new request',
-                             'availability retry does not falsely report a closed restaurant']}, ensure_ascii=False))
+                             'availability retry does not falsely report a closed restaurant',
+                             'older API watch404 falls back to read-only snapshots without mutations']}, ensure_ascii=False))
