@@ -56,6 +56,19 @@ class Release(market.Release):
     def __init__(self, args):
         super().__init__(args, profile(args.expected_public_sha))
 
+    def runtime_old(self):
+        # Roadmap/kitchen releases clone the public bundle while advancing its pointer.
+        # Its operations provenance remains bc1 until this explicit operations update.
+        require(self.remote('readlink -f '+REMOTE+'/current')==f'{REMOTE}/releases/{BASELINE}', 'API pointer changed')
+        require(self.remote('readlink -f '+REMOTE+'/public-https/current')==f'{REMOTE}/public-https/releases/{self.profile.old_web}', 'Public pointer changed')
+        require(self.remote('docker inspect --format '+quote('{{index .Config.Labels "org.opencontainers.image.revision"}}')+' '+market.API_CONTAINER)==BASELINE, 'Running API changed')
+        manifest=json.loads(self.remote('docker exec '+market.GATEWAY+' cat /srv/public/.release.json'))
+        require(manifest['source_sha']=='bc1d1d55594fff40f64cdd0c6065631133be5370','Operations bundle baseline changed')
+        require(self.remote('docker exec '+market.GATEWAY+' sha256sum /etc/caddy/Caddyfile').split()[0]==self.args.expected_gateway_sha256,'Mounted gateway changed')
+        require(self.remote('docker image inspect --format '+quote('{{index .Config.Labels "org.opencontainers.image.revision"}}')+' pickchick-api:'+BASELINE)==BASELINE,'Rollback image missing')
+        role=json.loads(self.psql(market.DB,"SELECT json_build_object('superuser',rolsuper,'createdb',rolcreatedb,'createrole',rolcreaterole,'replication',rolreplication,'bypassrls',rolbypassrls,'memberships',(SELECT count(*) FROM pg_auth_members WHERE member=r.oid)) FROM pg_roles r WHERE rolname='pickchick_app'"))
+        require(role=={'superuser':False,'createdb':False,'createrole':False,'replication':False,'bypassrls':False,'memberships':0},'Runtime authority changed')
+
     def prepare(self):
         self.source_checks()
         self.runtime_old()
