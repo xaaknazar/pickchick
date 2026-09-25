@@ -129,6 +129,16 @@ print(json.dumps(m))
         result=json.loads(self.remote('python3 '+runner+' '+action+' '+quote(self.maintenance)+' '+quote(transport.CLEANUP_LOCK)+' '+quote(self.lock_owner['id'])))
         require(result['owner']==self.lock_owner['id'],'Cleanup ownership changed')
 
+    def journal(self, phase, **details):
+        self.save('phase-'+str(time.time_ns())+'.json', {'phase':phase, **details})
+
+    def quiescent(self):
+        self.cleanup('status')
+        require(self.http('/v1/test/orders', method='POST')[0]==503, 'Public ingress reopened during backup')
+
+    # On an uncertain restore keep the drill database and locks for inspection.
+    backup_restore = transport.TransportRelease.backup_restore
+
     def apply(self):
         self.source_checks()
         self.ci()
