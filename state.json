@@ -137,9 +137,11 @@
         "docs/roadmap/project.json",
         "docs/operations/project-review-2026-09-25.md"
       ],
-      "status": "active",
-      "head": "1ed98b3ddcf72e50f56a07f23ee5983c9a63d264",
-      "updatedAt": "2026-09-25T04:54:41.355Z"
+      "status": "done",
+      "head": "8a93c06e4435541994e265a99dacae627a596654",
+      "updatedAt": "2026-09-25T05:02:31.742Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/79; 8a93c06e4435541994e265a99dacae627a596654 включён в shared-development, удалённый SHA совпадает. Сверены ТЗ/архитектура, код, журналы и CI 1ed98b3. Обращение Kaspi 24 сентября отмечено active, интеграции не объявлены готовыми. 7 roadmap-тестов, build, форматирование и diff check прошли. Новая CI выполняется; исходная красная в RUN browser/kitchen login, последующие проверки пропущены. Runtime и ресторан не менялись; онлайн-roadmap не опубликован без SSH.",
+      "nextAction": "Следующий этап: отдельная ветка/claim для исправления RUN-теста и загрузки kitchen demo.js/ticket-view.js, полный прогон CI. Затем read-only экспорт iiko, утверждение меню/контрольных корзин и единый catalog в mobile/POS/kiosk/edge. Kaspi: дождаться ответа по mobile и существующему терминалу. Обновить онлайн-roadmap с разрешённого Mac по runbook; portal диагностировать отдельно. На этом Mac сначала закреплённые pnpm/зависимости и изолированные БД."
     }
   ]
 }
