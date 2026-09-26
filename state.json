@@ -328,11 +328,12 @@
         "docs/collaboration/handoff.md",
         ".env.customer-auth.example",
         "@vps/roadmap",
-        "tests/integration/service-shift-upgrade.test.mjs"
+        "tests/integration/service-shift-upgrade.test.mjs",
+        "tests/mobile/browser_customer_account.py"
       ],
       "status": "active",
-      "head": "bcf4fe624ba587208afb37e212bc8a49df6f6dea",
-      "updatedAt": "2026-09-26T13:39:09.101Z"
+      "head": "668687fba11d69955cacc2ecdf4645b3323c6589",
+      "updatedAt": "2026-09-26T13:44:57.348Z"
     }
   ]
 }
