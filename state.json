@@ -278,11 +278,12 @@
         "services/api/src/resources.ts",
         "tests/integration/identity-readiness.test.mjs",
         "packages/contracts/openapi.json",
-        "packages/platform/src/resources.ts"
+        "packages/platform/src/resources.ts",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "26eee8feea0b38c0d672fd1000c53780784ba79f",
-      "updatedAt": "2026-09-26T11:58:23.147Z"
+      "updatedAt": "2026-09-26T12:14:13.088Z"
     }
   ]
 }
