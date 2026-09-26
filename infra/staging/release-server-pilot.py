@@ -107,6 +107,7 @@ def verify_acl(before, after):
             require(not row['grantable'] and (column_grant or ((row['name'],row['privilege']) in allowed and row['column'] is None)),'Unexpected runtime privilege delta')
     for name, privileges in expected.items():
         require({r['privilege'] for r in after if r['name']==name and r['column'] is None}==privileges,'Missing or excessive pilot privilege')
+    require({(r['column'],r['privilege']) for r in after if r['name']=='test_service_shifts' and r['column'] is not None} == {('branch_id','INSERT'),('state','INSERT'),('state','UPDATE'),('version','UPDATE'),('closed_at','UPDATE')},'Missing shift column privilege')
     require(any(r['name']=='bo_records' and r['privilege']=='INSERT' for r in after),'Feedback insert unavailable')
 
 
@@ -229,6 +230,14 @@ def main():
     parser.add_argument('--ci-run')
     args=parser.parse_args();release=Release(args)
     try:
+        if args.action=='prepare':
+            require(args.auth_env.is_file() and not args.auth_env.is_symlink() and args.auth_env.stat().st_mode&0o077==0,'Protected local auth file required')
+            auth_environment(args.auth_env.read_text())
+            for name in ['terms','privacy']:
+                p=args.legal_dir/(name+'.html')
+                require(p.is_file() and not p.is_symlink(),'Published legal artifact missing')
+                text=p.read_text()
+                require(500<len(text)<200000 and VERSION in text and '{{' not in text and '[До публикации' not in text,'Legal artifact unfinished')
         with release.deployment_lock():getattr(release,args.action)()
     except Exception as error:
         release.record_error(error)

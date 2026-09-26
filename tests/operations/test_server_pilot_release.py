@@ -48,4 +48,5 @@ class ServerPilotGuards(unittest.TestCase):
   for extra in [row('identity_customer_test_actors','UPDATE'),row('commerce_orders','UPDATE'),row('test_service_shifts','UPDATE')]:
    with self.assertRaises(r.market.GuardFailure):r.verify_acl([],after+[extra])
   with self.assertRaises(r.market.GuardFailure):r.verify_acl([],after[1:])
+  with self.assertRaises(r.market.GuardFailure):r.verify_acl([],after[:-1])
 if __name__=='__main__':unittest.main()
