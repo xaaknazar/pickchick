@@ -673,6 +673,12 @@ Object.assign(openapi.components.schemas, {
     required: ['enabled', 'consent_version', 'terms_url', 'privacy_url'],
     properties: {
       enabled: { type: 'boolean' },
+      channels: {
+        type: 'array',
+        minItems: 1,
+        uniqueItems: true,
+        items: { type: 'string', enum: ['sms', 'telegram'] },
+      },
       consent_version: { type: ['string', 'null'] },
       terms_url: { type: ['string', 'null'], format: 'uri' },
       privacy_url: { type: ['string', 'null'], format: 'uri' },

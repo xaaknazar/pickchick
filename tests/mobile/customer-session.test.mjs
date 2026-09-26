@@ -531,3 +531,56 @@ test('auth transport trusts only complete structured revocation errors and caps 
   assert.equal(cancelled, true);
   assert.ok(reads <= 3, `unbounded streaming: ${reads}`);
 });
+
+test('Telegram request channel survives lost response and restart; SMS requires cooldown and new intent', async () => {
+  const f = fixture();
+  const base = f.io.request;
+  const bodies = [];
+  let lost = true;
+  f.io.request = async (path, method, body, token) => {
+    if (path === '/v1/auth/config')
+      return { ...(await base(path, method, body, token)), channels: ['telegram', 'sms'] };
+    if (path.endsWith('/otp/request')) {
+      bodies.push(structuredClone(body));
+      if (lost) {
+        lost = false;
+        throw new CustomerSessionError('NETWORK_UNAVAILABLE');
+      }
+      return { ...(await base(path, method, body, token)), channel: body.channel };
+    }
+    return base(path, method, body, token);
+  };
+  await f.core.restore();
+  await assert.rejects(
+    f.core.requestCode(f.customer.phone, 'telegram'),
+    code('NETWORK_UNAVAILABLE'),
+  );
+  await f.restart();
+  assert.equal(f.core.pendingChannel, 'telegram');
+  await assert.rejects(f.core.requestCode(f.customer.phone, 'sms'), code('CONFLICT'));
+  await f.core.requestCode(f.customer.phone, 'telegram');
+  assert.deepEqual(bodies[0], bodies[1]);
+  assert.equal(f.core.challenge.channel, 'telegram');
+  await assert.rejects(f.core.requestCode(f.customer.phone, 'sms'), code('RATE_LIMITED'));
+  f.tick(61000);
+  await f.core.requestCode(f.customer.phone, 'sms');
+  assert.equal(f.core.challenge.channel, 'sms');
+  assert.notEqual(bodies[1].request_id, bodies[2].request_id);
+});
+test('legacy server supports SMS only and cannot silently accept Telegram; channel mismatch fails closed', async () => {
+  const f = fixture();
+  await f.core.restore();
+  await assert.rejects(
+    f.core.requestCode(f.customer.phone, 'telegram'),
+    code('SERVICE_UNAVAILABLE'),
+  );
+  assert.equal(f.calls.filter((c) => c.path.endsWith('/otp/request')).length, 0);
+  const base = f.io.request;
+  f.io.request = async (path, method, body, token) => {
+    const response = await base(path, method, body, token);
+    return path === '/v1/auth/config' ? { ...response, channels: ['telegram'] } : response;
+  };
+  await assert.rejects(f.core.requestCode(f.customer.phone, 'telegram'), code('INVALID_RESPONSE'));
+  assert.equal(f.core.challenge, null);
+  assert.equal(f.core.pendingChannel, 'telegram');
+});

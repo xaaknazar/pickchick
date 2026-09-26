@@ -33,3 +33,18 @@ test('enabled identity refuses an incomplete receipt-limit migration while the d
     }
   });
 });
+
+test('enabled auth requires channel columns and migration 022; disabled staging remains compatible', async () => {
+  await withSyncDatabases(async ({ cloud }) => {
+    const enabled = new Resources({ ...cloud.config, customerAuthEnabled: true });
+    const disabled = new Resources({ ...cloud.config, customerAuthEnabled: false });
+    try {
+      await cloud.pool.query('ALTER TABLE identity_otp_challenges DROP COLUMN delivery_channel');
+      assert.equal((await enabled.readiness()).ready, false);
+      assert.equal((await disabled.readiness()).ready, true);
+    } finally {
+      await enabled.onApplicationShutdown();
+      await disabled.onApplicationShutdown();
+    }
+  });
+});

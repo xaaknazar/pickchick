@@ -2,7 +2,12 @@ import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { isIP } from 'node:net';
 import { transaction } from '@pickchick/database';
 import type { DatabasePool, DatabaseClient } from '@pickchick/database';
-import type { PhoneCodeDelivery } from '@pickchick/phone-verification';
+import { phoneDeliveryChannels } from '@pickchick/phone-verification';
+import type {
+  PhoneDeliveryChannel,
+  PhoneCodeDelivery,
+  PhoneCodeDeliveryResult,
+} from '@pickchick/phone-verification';
 import {
   CustomerIdentityError,
   CustomerSessionSchema,
@@ -44,6 +49,7 @@ interface SessionRow {
   revoked_at: Date | null;
 }
 interface ChallengeRow {
+  delivery_channel: PhoneDeliveryChannel;
   id: string;
   phone_lookup: string;
   phone_cipher: string | null;
@@ -77,17 +83,18 @@ export class CustomerIdentity {
     private readonly delivery: PhoneCodeDelivery,
   ) {}
   config() {
-    if (!this.options.enabled || this.delivery.provider === 'disabled')
+    if (!this.options.enabled || phoneDeliveryChannels(this.delivery).length === 0)
       return { enabled: false, consent_version: null, terms_url: null, privacy_url: null };
     return {
       enabled: true,
+      channels: phoneDeliveryChannels(this.delivery),
       consent_version: this.options.consentVersion,
       terms_url: this.options.termsUrl,
       privacy_url: this.options.privacyUrl,
     };
   }
   private enabled(): EnabledOptions {
-    if (!this.options.enabled || this.delivery.provider === 'disabled')
+    if (!this.options.enabled || phoneDeliveryChannels(this.delivery).length === 0)
       throw fail('SERVICE_UNAVAILABLE');
     return this.options;
   }
@@ -117,7 +124,10 @@ export class CustomerIdentity {
   async requestOtp(input: unknown, clientIp: string): Promise<OtpResponse> {
     const config = this.enabled(),
       body = parseInput(OtpRequestSchema, input),
-      phone = normalizeKazakhstanPhone(body.phone);
+      phone = normalizeKazakhstanPhone(body.phone),
+      channel = body.channel ?? 'sms';
+    // Missing channel belongs to legacy SMS clients, never silently reroute to Telegram.
+    if (!phoneDeliveryChannels(this.delivery).includes(channel)) throw fail('SERVICE_UNAVAILABLE');
     // Caller must supply the trusted socket/proxy-resolved address, never an untrusted forwarding header.
     if (!isIP(clientIp)) throw fail('INVALID_REQUEST');
     const ip =
@@ -147,7 +157,11 @@ export class CustomerIdentity {
         ])
       ).rows[0];
       if (replay) {
-        if (replay.phone_lookup !== phoneHash || replay.device_hash !== deviceHash)
+        if (
+          replay.phone_lookup !== phoneHash ||
+          replay.device_hash !== deviceHash ||
+          replay.delivery_channel !== channel
+        )
           throw fail('CONFLICT');
         if (replay.state === 'rejected') throw fail('SERVICE_UNAVAILABLE');
         return {
@@ -213,8 +227,8 @@ export class CustomerIdentity {
       );
       const expires = new Date(now.getTime() + CHALLENGE_MS);
       await db.query(
-        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id)
-         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9)`,
+        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel)
+         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10)`,
         [
           id,
           phoneHash,
@@ -225,6 +239,7 @@ export class CustomerIdentity {
           now,
           expires,
           body.request_id,
+          channel,
         ],
       );
       return {
@@ -236,6 +251,7 @@ export class CustomerIdentity {
       };
     });
     const response = {
+      ...(body.channel ? { channel } : {}),
       challenge_id: reservation.challenge_id,
       expires_at: reservation.expires_at,
       resend_at: reservation.resend_at,
@@ -243,8 +259,10 @@ export class CustomerIdentity {
     if (reservation.replay) return { ...response, delivery_status: reservation.delivery_status };
     // A crash/timeout here leaves a durable unknown reservation. It must never be dispatched again.
     let state: 'submitted' | 'unknown' | 'rejected';
+    let submitted: Extract<PhoneCodeDeliveryResult, { kind: 'submitted' }> | undefined;
     try {
-      const result = await this.delivery.sendCode({ phoneE164: phone, code });
+      const result = await this.delivery.sendCode({ phoneE164: phone, code }, channel);
+      if (result.kind === 'submitted') submitted = result;
       state =
         result.kind === 'submitted'
           ? 'submitted'
@@ -255,8 +273,8 @@ export class CustomerIdentity {
       state = 'unknown';
     }
     await this.pool.query(
-      "UPDATE identity_otp_challenges SET state=$2,code_hash=CASE WHEN $2='rejected' THEN NULL ELSE code_hash END,phone_cipher=CASE WHEN $2='rejected' THEN NULL ELSE phone_cipher END WHERE id=$1 AND state='reserved'",
-      [id, state],
+      "UPDATE identity_otp_challenges SET state=$2,delivery_provider=$3,delivery_reference=$4,code_hash=CASE WHEN $2='rejected' THEN NULL ELSE code_hash END,phone_cipher=CASE WHEN $2='rejected' THEN NULL ELSE phone_cipher END WHERE id=$1 AND state='reserved'",
+      [id, state, submitted?.provider ?? null, submitted?.messageId ?? null],
     );
     if (state === 'rejected') throw fail('SERVICE_UNAVAILABLE');
     return { ...response, delivery_status: state };

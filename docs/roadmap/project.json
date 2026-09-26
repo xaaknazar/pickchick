@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-25T14:06:08.690230+00:00",
+  "updatedAt": "2026-09-26T12:15:43.657319+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -54,7 +54,8 @@
     "docs/operations/mobile-touch-contrast.md",
     "docs/operations/cart-shortcut-delight.md",
     "docs/operations/mobile-unpaid-test.md",
-    "docs/operations/mobile-cart-sheet.md"
+    "docs/operations/mobile-cart-sheet.md",
+    "docs/operations/telegram-login.md"
   ],
   "workstreams": [
     {
@@ -3150,7 +3151,7 @@
       "id": "identity-whatsapp-login",
       "workstream": "identity",
       "title": "Включить вход через WhatsApp с резервом SMS",
-      "summary": "Предложен явный выбор WhatsApp; нужны channel в API/mobile, общие лимиты, webhook доставки и безопасная смена канала. Реальная доставка ещё не проверена.",
+      "summary": "Telegram/SMS channel-контракт уже подготовлен. WhatsApp остаётся следующим этапом: нужны Business Platform, Authentication-шаблон, отдельное расширение каналов и реальная проверка.",
       "status": "planned",
       "owner": "joint",
       "phase": "integration",
@@ -3169,7 +3170,7 @@
         "AC-01: один аккаунт/действующий challenge между каналами, неверный и просроченный код не дают вход.",
         "Поздняя доставка, дубли, timeout и SMS-резерв проверены на iOS/Android; новый вход сохраняется."
       ],
-      "nextAction": "Завершить channel-контракт и мобильный сценарий, затем проверить зарегистрированного отправителя на согласованных номерах.",
+      "nextAction": "После Telegram-релиза подготовить Business Platform и добавить WhatsApp без автоматических повторных отправок.",
       "checks": {
         "implemented": false,
         "verified": false,
@@ -3439,6 +3440,59 @@
         "deployed": false,
         "accepted": false
       }
+    },
+    {
+      "id": "identity-telegram-login",
+      "workstream": "identity",
+      "title": "Подготовить Telegram-вход и ручной SMS-резерв",
+      "summary": "Реализованы API/mobile, транспорт и миграция022. 55 Node/29 PostgreSQL проверок и локальный UI393/320. Владелец подтвердил один реальный Telegram-код; это ещё не публичный вход.",
+      "status": "done",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["identity-core"],
+      "evidence": [
+        {
+          "label": "Telegram: реализация, доставка и выпуск",
+          "path": "docs/operations/telegram-login.md"
+        }
+      ],
+      "acceptance": [
+        "Канал и идемпотентность сохраняются при потере ответа; код проверяется сервером."
+      ],
+      "nextAction": "Выпустить после legal/budget/CI и проверить сквозной вход на устройствах.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "identity-telegram-release",
+      "workstream": "identity",
+      "title": "Включить Telegram-вход для клиентов",
+      "summary": "Токен сохранён локально. На VPS/API и в публичной мобильной сборке вход ещё не включён; собственный бесплатный код не подтверждает платные отправки клиентам.",
+      "status": "blocked",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["identity-telegram-login", "identity-privacy"],
+      "evidence": [
+        {
+          "label": "Telegram: реализация, доставка и выпуск",
+          "path": "docs/operations/telegram-login.md"
+        }
+      ],
+      "acceptance": [
+        "Канал и идемпотентность сохраняются при потере ответа; код проверяется сервером."
+      ],
+      "nextAction": "Утвердить legal/бюджет, проверить Gateway для клиентских номеров; подготовить выпуск021/022 и мобильную приёмку.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      },
+      "customerInput": "Утверждённые условия/конфиденциальность, версия согласий и дневной лимит сообщений."
     }
   ]
 }

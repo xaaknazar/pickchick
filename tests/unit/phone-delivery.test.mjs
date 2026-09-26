@@ -408,3 +408,151 @@ test('same five-second deadline covers partial body and a cancellation that neve
   assert.equal(calls[0][1].signal.aborted, true);
   assert.equal(calls.length, 1);
 });
+
+const telegramEnv = {
+  PHONE_DELIVERY_PROVIDER: 'telegram_gateway',
+  TELEGRAM_GATEWAY_TOKEN: 'synthetic-gateway-token',
+};
+const telegramSuccess = {
+  ok: true,
+  result: { request_id: 'fixture_1', phone_number: input.phoneE164, request_cost: 0.01 },
+};
+test('Telegram Gateway uses bearer HTTPS POST, explicit code/TTL and one paid method only', async () => {
+  const calls = [];
+  const delivery = createPhoneCodeDelivery(telegramEnv, {
+    fetch: async (...args) => {
+      calls.push(args);
+      return Response.json(telegramSuccess);
+    },
+  });
+  assert.equal(delivery.provider, 'telegram_gateway');
+  assert.deepEqual(await delivery.sendCode(input), {
+    kind: 'submitted',
+    provider: 'telegram_gateway',
+    submission: 'accepted',
+    messageId: 'fixture_1',
+  });
+  assert.equal(calls.length, 1);
+  const [url, init] = calls[0];
+  assert.equal(url, 'https://gatewayapi.telegram.org/sendVerificationMessage');
+  assert.equal(init.headers.Authorization, 'Bearer synthetic-gateway-token');
+  assert.equal(init.redirect, 'error');
+  assert.equal(init.method, 'POST');
+  assert.deepEqual(JSON.parse(init.body), {
+    phone_number: input.phoneE164,
+    code: input.code,
+    ttl: 180,
+  });
+});
+test('Telegram rejects invalid configuration/input and does not leak upstream response data', async () => {
+  for (const token of ['', 'bad\nheader', 'secret?query'])
+    assert.throws(
+      () => createPhoneCodeDelivery({ ...telegramEnv, TELEGRAM_GATEWAY_TOKEN: token }),
+      /PHONE_DELIVERY_CONFIGURATION_INVALID/,
+    );
+  let calls = 0;
+  const delivery = createPhoneCodeDelivery(telegramEnv, {
+    fetch: async () => {
+      calls++;
+      return Response.json({ ok: false, error: 'ACCESS_TOKEN_INVALID', details: input });
+    },
+  });
+  assert.deepEqual(await delivery.sendCode({ ...input, code: '1234' }), {
+    kind: 'rejected',
+    reason: 'invalid_input',
+  });
+  assert.equal(calls, 0);
+  assert.deepEqual(await delivery.sendCode(input), {
+    kind: 'rejected',
+    reason: 'channel_unavailable',
+  });
+});
+test('Telegram malformed, mismatched, oversized and error responses never establish submission', async () => {
+  for (const response of [
+    Response.json({
+      ok: true,
+      result: { ...telegramSuccess.result, phone_number: '+77010000002' },
+    }),
+    Response.json({ ok: true, result: { ...telegramSuccess.result, request_id: '' } }),
+    Response.json({ ok: false, error: 'UNKNOWN_FAILURE' }),
+    Response.json(telegramSuccess, { status: 502 }),
+    new Response('{'),
+    new Response('x'.repeat(16385)),
+    new Response(null, { status: 204 }),
+  ]) {
+    let calls = 0;
+    const delivery = createPhoneCodeDelivery(telegramEnv, {
+      fetch: async () => {
+        calls++;
+        return response;
+      },
+    });
+    assert.equal((await delivery.sendCode(input)).kind, 'unknown');
+    assert.equal(calls, 1);
+  }
+});
+test('Telegram timeout is bounded and SMS fallback requires a separate explicit call', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const calls = [];
+  const delivery = createPhoneCodeDelivery(
+    {
+      ...telegramEnv,
+      ...env,
+      PHONE_DELIVERY_PROVIDER: 'telegram_gateway',
+      PHONE_SMS_FALLBACK_ENABLED: 'true',
+    },
+    {
+      fetch: async (url, init) => {
+        calls.push({ url, init });
+        return url.includes('telegram.org') ? new Promise(() => {}) : Response.json(success);
+      },
+    },
+  );
+  assert.deepEqual(delivery.channels, ['telegram', 'sms']);
+  const pending = delivery.sendCode(input, 'telegram');
+  t.mock.timers.tick(5000);
+  assert.deepEqual(await pending, { kind: 'unknown', reason: 'timeout' });
+  assert.equal(calls.length, 1);
+  assert.equal((await delivery.sendCode(input, 'sms')).provider, 'mobizon');
+  assert.equal(calls.length, 2);
+  assert.equal((await delivery.sendCode(input, 'invalid')).kind, 'rejected');
+  assert.equal(calls.length, 2);
+});
+test('Telegram deadline also bounds a stalled response stream', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let cancelled = false;
+  const delivery = createPhoneCodeDelivery(telegramEnv, {
+    fetch: async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(Buffer.from('{"ok":true,'));
+          },
+          cancel() {
+            cancelled = true;
+            return new Promise(() => {});
+          },
+        }),
+      ),
+  });
+  const pending = delivery.sendCode(input);
+  for (let i = 0; i < 10; i++) await Promise.resolve();
+  t.mock.timers.tick(5000);
+  assert.deepEqual(await pending, { kind: 'unknown', reason: 'timeout' });
+  assert.equal(cancelled, true);
+});
+
+test('Gateway owner response uses digits-only phone and zero cost, still bound to the exact recipient', async () => {
+  const adapter = createPhoneCodeDelivery(telegramEnv, {
+    fetch: async () =>
+      Response.json({
+        ok: true,
+        result: {
+          ...telegramSuccess.result,
+          phone_number: input.phoneE164.slice(1),
+          request_cost: 0,
+        },
+      }),
+  });
+  assert.equal((await adapter.sendCode(input)).kind, 'submitted');
+});

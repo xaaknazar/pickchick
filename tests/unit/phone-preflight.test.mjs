@@ -31,6 +31,8 @@ test('provider preflight stays offline and does not claim account verification',
       configured: provider !== 'disabled',
       provider_account_verified: false,
       sms_sent: 0,
+      messages_sent: 0,
+      channels: provider === 'mobizon' ? ['sms'] : [],
     });
     assert.equal(result.stderr, '');
     assert.equal(result.stdout.includes(syntheticKey), false);

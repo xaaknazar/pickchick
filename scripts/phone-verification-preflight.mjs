@@ -1,4 +1,4 @@
-import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
+import { createPhoneCodeDelivery, phoneDeliveryChannels } from '@pickchick/phone-verification';
 
 try {
   if (process.argv.length !== 2) throw new Error('Unexpected arguments');
@@ -17,11 +17,13 @@ try {
       configured: delivery.provider !== 'disabled',
       provider_account_verified: false,
       sms_sent: 0,
+      messages_sent: 0,
+      channels: phoneDeliveryChannels(delivery),
     }),
   );
 } catch {
   console.error(
-    'Phone delivery configuration is invalid. Check PHONE_DELIVERY_PROVIDER, MOBIZON_API_KEY and MOBIZON_APPROVED_SENDER in the private environment file. No SMS was sent.',
+    'Phone delivery configuration is invalid. Check PHONE_DELIVERY_PROVIDER, TELEGRAM_GATEWAY_TOKEN, PHONE_SMS_FALLBACK_ENABLED, MOBIZON_API_KEY and MOBIZON_APPROVED_SENDER in the private environment file. No SMS was sent.',
   );
   process.exitCode = 1;
 }

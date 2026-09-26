@@ -989,3 +989,92 @@ test('repeated cleanup does not rewrite already scrubbed OTP rows and expiry can
     ).rows;
     assert.equal(indexes.length, 2);
   }));
+
+test('channel is durable and immutable for replay; fallback shares budget/cooldown and invalidates previous code', async () =>
+  fixture(async (ctx) => {
+    const calls = [];
+    const delivery = {
+      provider: 'channels',
+      channels: ['telegram', 'sms'],
+      async sendCode(input, channel) {
+        calls.push({ ...input, channel });
+        return {
+          kind: 'submitted',
+          provider: channel === 'telegram' ? 'telegram_gateway' : 'mobizon',
+          submission: 'accepted',
+          messageId: 'fixture',
+          campaignId: 'fixture',
+        };
+      },
+    };
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    const body = { phone, device_id: randomUUID(), request_id: randomUUID(), channel: 'telegram' };
+    assert.deepEqual(identity.config().channels, ['telegram', 'sms']);
+    const first = await identity.requestOtp(body, ip);
+    assert.equal(first.channel, 'telegram');
+    const restart = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    assert.deepEqual(await restart.requestOtp(body, ip), first);
+    assert.equal(calls.length, 1);
+    await assert.rejects(restart.requestOtp({ ...body, channel: 'sms' }, ip), error('CONFLICT'));
+    await assert.rejects(
+      restart.requestOtp({ ...body, request_id: randomUUID(), channel: 'sms' }, ip),
+      error('RATE_LIMITED'),
+    );
+    await ctx.ageRequests();
+    const second = await restart.requestOtp(
+      { ...body, request_id: randomUUID(), channel: 'sms' },
+      ip,
+    );
+    assert.equal(second.channel, 'sms');
+    assert.deepEqual(
+      calls.map((c) => c.channel),
+      ['telegram', 'sms'],
+    );
+    const rows = await ctx.pool.query(
+      'SELECT delivery_channel, delivery_provider, delivery_reference, state FROM identity_otp_challenges ORDER BY created_at',
+    );
+    assert.equal(rows.rows[0].state, 'superseded');
+    assert.equal(rows.rows[0].delivery_provider, 'telegram_gateway');
+    assert.equal(rows.rows[0].delivery_reference, 'fixture');
+    await assert.rejects(
+      restart.verifyOtp({
+        challenge_id: first.challenge_id,
+        device_id: body.device_id,
+        code: calls[0].code,
+        request_id: randomUUID(),
+        consents: consent,
+      }),
+      error('UNAUTHORIZED'),
+    );
+    const signedIn = await restart.verifyOtp({
+      challenge_id: second.challenge_id,
+      device_id: body.device_id,
+      code: calls[1].code,
+      request_id: randomUUID(),
+      consents: consent,
+    });
+    assert.equal(signedIn.customer.phone, phone);
+    assert.equal(
+      (await ctx.pool.query('SELECT sum(reservations) AS count FROM identity_sms_daily_budget'))
+        .rows[0].count,
+      '2',
+    );
+  }));
+test('Telegram-only configuration refuses legacy SMS requests before reservation or network', async () =>
+  fixture(async (ctx) => {
+    const delivery = {
+      provider: 'telegram_gateway',
+      async sendCode() {
+        throw new Error('must not call');
+      },
+    };
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    await assert.rejects(
+      identity.requestOtp({ phone, device_id: randomUUID(), request_id: randomUUID() }, ip),
+      error('SERVICE_UNAVAILABLE'),
+    );
+    assert.equal(
+      (await ctx.pool.query('SELECT count(*) FROM identity_otp_challenges')).rows[0].count,
+      '0',
+    );
+  }));

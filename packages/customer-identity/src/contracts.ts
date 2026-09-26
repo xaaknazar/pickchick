@@ -34,10 +34,16 @@ export function isValidCustomerBirthDate(value: string, now = Date.now()): boole
   }).format(now);
   return value <= today;
 }
+export const OtpChannelSchema = z.enum(['sms', 'telegram']);
 const Uuid = z.uuid();
 const Token = z.string().regex(/^[a-f0-9]{64}$/);
 export const OtpRequestSchema = z
-  .object({ phone: z.string().max(32), device_id: Uuid, request_id: Uuid })
+  .object({
+    phone: z.string().max(32),
+    device_id: Uuid,
+    request_id: Uuid,
+    channel: OtpChannelSchema.optional(),
+  })
   .strict();
 export const OtpVerifySchema = z
   .object({
@@ -100,6 +106,7 @@ export const OtpResponseSchema = z
     expires_at: z.iso.datetime(),
     resend_at: z.iso.datetime(),
     delivery_status: z.enum(['submitted', 'unknown']),
+    channel: OtpChannelSchema.optional(),
   })
   .strict();
 export type Customer = z.infer<typeof CustomerSchema>;

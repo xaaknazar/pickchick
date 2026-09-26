@@ -19,6 +19,7 @@ import {
   CUSTOMER_SESSION_KEY,
   CustomerSessionCore,
   CustomerSessionError,
+  type CustomerChannel,
 } from './customer-session';
 import { createCustomerRequest } from './customer-http';
 
@@ -29,6 +30,8 @@ type Account = Omit<DemoAccount, 'kind'> & {
 };
 interface AccountContextValue {
   mode: 'demo' | 'server';
+  channels: CustomerChannel[];
+  activeChannel: CustomerChannel | null;
   account: Account | null;
   challenge: DemoChallenge | null;
   deliveryUnknown: boolean;
@@ -39,7 +42,7 @@ interface AccountContextValue {
   busy: boolean;
   error: string | null;
   retryRestore(): Promise<boolean>;
-  requestCode(phone: string): Promise<boolean>;
+  requestCode(phone: string, channel?: CustomerChannel): Promise<boolean>;
   verifyCode(code: string, acceptedVersion?: string | null): Promise<boolean>;
   saveProfile(input: DemoProfileInput): Promise<boolean>;
   cancelChallenge(): void;
@@ -72,12 +75,13 @@ function message(error: unknown): string {
     INVALID_PHONE: 'Введите мобильный номер Казахстана.',
     INVALID_CODE: 'Введите код из шести цифр.',
     UNAUTHORIZED: 'Код не подошёл или доступ был отозван. Проверьте код либо войдите снова.',
-    RATE_LIMITED: 'Подождите перед повторным запросом. Лимит защищает ваш номер от лишних SMS.',
+    RATE_LIMITED:
+      'Подождите перед повторным запросом. Лимит защищает ваш номер от лишних сообщений.',
     INVALID_REQUEST: 'Проверьте введённые данные. При необходимости запросите новый код.',
     NO_CHALLENGE: 'Сначала запросите код на свой номер.',
     CONSENT_REQUIRED: 'Подтвердите условия заказа и обработку данных для входа.',
     INVALID_PROFILE: 'Проверьте имя и дату рождения.',
-    SERVICE_UNAVAILABLE: 'Вход по SMS сейчас недоступен. Попробуйте позднее.',
+    SERVICE_UNAVAILABLE: 'Этот способ входа сейчас недоступен. Попробуйте позднее.',
     NETWORK_UNAVAILABLE:
       'Нет связи с сервером. Сохранённый вход останется на устройстве. Попробуйте ещё раз.',
     RESTORE_REQUIRED: 'Не удалось прочитать сохранённый вход. Повторите восстановление.',
@@ -94,6 +98,8 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
   const [deliveryUnknown, setDeliveryUnknown] = useState(false);
   const [pendingVerify, setPendingVerify] = useState(false);
   const [pendingOtp, setPendingOtp] = useState(false);
+  const [channels, setChannels] = useState<CustomerChannel[]>([]);
+  const [activeChannel, setActiveChannel] = useState<CustomerChannel | null>(null);
   const [legal, setLegal] = useState<AccountContextValue['legal']>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(true);
@@ -134,6 +140,8 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
     setDeliveryUnknown(core.challenge?.delivery_status === 'unknown');
     setPendingVerify(core.pendingVerify);
     setPendingOtp(core.pendingOtp);
+    setChannels(core.config.channels);
+    setActiveChannel(core.pendingChannel ?? core.challenge?.channel ?? null);
     setLegal(
       core.config.consent_version && core.config.terms_url && core.config.privacy_url
         ? {
@@ -202,6 +210,8 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
     <CustomerContext.Provider
       value={{
         mode: 'server',
+        channels,
+        activeChannel,
         account,
         challenge,
         deliveryUnknown,
@@ -217,7 +227,7 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
             snapshot();
             await core.sync();
           }),
-        requestCode: (phone) => run(() => core.requestCode(phone)),
+        requestCode: (phone, channel) => run(() => core.requestCode(phone, channel)),
         verifyCode: (code, acceptedVersion = null) =>
           run(() => core.verifyCode(code, acceptedVersion)),
         saveProfile: (input) => run(() => core.saveProfile(input)),
@@ -247,6 +257,8 @@ export function useAccount(): AccountContextValue {
   return {
     ...demo,
     mode: 'demo',
+    channels: ['sms'],
+    activeChannel: 'sms',
     deliveryUnknown: false,
     pendingVerify: false,
     pendingOtp: false,

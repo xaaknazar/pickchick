@@ -12,6 +12,7 @@ import { DEMO_LOGIN_CODE, formatDemoPhone, normalizeDemoPhone } from '../demo-ac
 import type { ScreenProps } from '../model';
 import { font } from '../theme';
 import { useAccount } from '../useAccount';
+import { CUSTOMER_CHANNEL_LABELS, type CustomerChannel } from '../customer-session';
 
 function DemoNote() {
   const account = useAccount();
@@ -53,6 +54,13 @@ export function Phone(props: ScreenProps) {
   const input = useRef<TextInput>(null);
   const phoneRef = useRef(initial.current);
   const [phone, setPhone] = useState(initial.current);
+  const [selectedChannel, setSelectedChannel] = useState<CustomerChannel>('telegram');
+  const channel =
+    demo.pendingOtp && demo.activeChannel
+      ? demo.activeChannel
+      : demo.channels.includes(selectedChannel)
+        ? selectedChannel
+        : demo.channels[0];
   const [inputSeed, setInputSeed] = useState({ text: initial.current, revision: 0 });
   const [submitted, setSubmitted] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -74,7 +82,7 @@ export function Phone(props: ScreenProps) {
   const request = async () => {
     if (props.preview) return;
     setSubmitted(true);
-    if (await demo.requestCode(phoneRef.current)) {
+    if (await demo.requestCode(phoneRef.current, channel)) {
       setSubmitted(false);
       Keyboard.dismiss();
       props.navigate('M03');
@@ -104,9 +112,15 @@ export function Phone(props: ScreenProps) {
       }
       footer={
         <AuthButton
-          title={demo.busy ? 'Подготавливаем код…' : 'Получить код'}
+          title={
+            demo.busy
+              ? 'Подготавливаем код…'
+              : channel
+                ? `Получить код ${channel === 'telegram' ? 'в Telegram' : 'по SMS'}`
+                : 'Вход пока недоступен'
+          }
           testID="request-otp"
-          disabled={props.preview || !demo.ready || demo.busy || !valid}
+          disabled={props.preview || !demo.ready || demo.busy || !valid || !channel}
           onPress={() => void request()}
         />
       }
@@ -171,6 +185,57 @@ export function Phone(props: ScreenProps) {
           style={s.phoneInput}
         />
       </View>
+      {demo.mode === 'server' && demo.channels.length > 0 ? (
+        <View style={s.channelGroup}>
+          <Text style={s.channelTitle}>Куда прислать код?</Text>
+          <View style={s.channelChoices} accessibilityRole="radiogroup">
+            {demo.channels.map((option) => (
+              <Pressable
+                key={option}
+                testID={`auth-channel-${option}`}
+                accessibilityRole="radio"
+                accessibilityLabel={CUSTOMER_CHANNEL_LABELS[option]}
+                aria-checked={channel === option}
+                accessibilityState={{
+                  checked: channel === option,
+                  disabled: demo.busy || demo.pendingOtp,
+                }}
+                disabled={demo.busy || demo.pendingOtp}
+                onPress={() => setSelectedChannel(option)}
+                style={({ pressed }) => [
+                  s.channelChoice,
+                  channel === option && s.channelSelected,
+                  pressed && s.pressed,
+                ]}
+              >
+                <Text style={s.channelLabel}>{CUSTOMER_CHANNEL_LABELS[option]}</Text>
+                {channel === option ? (
+                  <Icon name="checkmark-circle" size={20} color={authColors.blueInk} />
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+          <Text style={s.channelHint}>
+            {channel === 'telegram'
+              ? 'Telegram должен быть зарегистрирован на этот номер.'
+              : 'Код придёт в SMS на указанный номер.'}
+          </Text>
+        </View>
+      ) : null}
+      {demo.mode === 'server' && demo.ready && !demo.busy && demo.channels.length === 0 ? (
+        <View style={s.channelGroup}>
+          <Text accessibilityRole="alert" style={s.channelHint}>
+            {demo.error ?? 'Подтверждение номера пока недоступно. Можно посмотреть меню без входа.'}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void demo.retryRestore()}
+            style={s.resend}
+          >
+            <Text style={s.resendText}>Повторить подключение</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {phone.replace(/\D/g, '').length >= 10 && !valid ? (
         <Text style={s.error}>Введите 10 цифр, начиная с 7, после префикса +7.</Text>
       ) : null}
@@ -233,6 +298,7 @@ export function Otp(props: ScreenProps) {
   const expired = challenge ? now >= challenge.expiresAt && !demo.pendingVerify : false;
   const canVerify = Boolean(
     challenge &&
+    !demo.pendingOtp &&
     !expired &&
     challenge.attemptsLeft > 0 &&
     /^\d{6}$/.test(code) &&
@@ -249,10 +315,10 @@ export function Otp(props: ScreenProps) {
       props.navigate('M04');
     }
   };
-  const resend = async () => {
+  const resend = async (channel: CustomerChannel = demo.activeChannel ?? 'sms') => {
     if (!challenge || props.preview) return;
     setSubmitted(true);
-    if (await demo.requestCode(challenge.phone)) {
+    if (await demo.requestCode(challenge.phone, channel)) {
       setNow(Date.now());
       setSubmitted(false);
     }
@@ -261,7 +327,7 @@ export function Otp(props: ScreenProps) {
     <AuthLayout
       props={props}
       topAction={{ label: 'Изменить номер', onPress: () => props.navigate('M02') }}
-      title="Код из SMS"
+      title={demo.activeChannel === 'telegram' ? 'Код из Telegram' : 'Код из SMS'}
       subtitle={
         challenge
           ? `Для ${formatDemoPhone(challenge.phone)}`
@@ -292,7 +358,11 @@ export function Otp(props: ScreenProps) {
           accessibilityLabel="Код подтверждения, 6 цифр"
           defaultValue=""
           editable={
-            Boolean(challenge) && !demo.busy && !expired && (challenge?.attemptsLeft ?? 0) > 0
+            Boolean(challenge) &&
+            !demo.pendingOtp &&
+            !demo.busy &&
+            !expired &&
+            (challenge?.attemptsLeft ?? 0) > 0
           }
           onChangeText={(value) => {
             setCode(value);
@@ -349,14 +419,16 @@ export function Otp(props: ScreenProps) {
       ) : null}
       {demo.mode === 'server' && demo.pendingVerify ? (
         <Text style={s.demoText}>
-          Повторите код, который уже пришёл на ваш номер. Новую SMS запрашивать не нужно.
+          Повторите код, который уже пришёл на ваш номер. Новый код запрашивать не нужно.
         </Text>
       ) : null}
       <Pressable
         testID="resend-otp"
         accessibilityRole="button"
-        accessibilityState={{ disabled: !challenge || remaining > 0 || demo.busy }}
-        disabled={props.preview || !challenge || remaining > 0 || demo.busy}
+        accessibilityState={{
+          disabled: !challenge || remaining > 0 || demo.busy || demo.pendingVerify,
+        }}
+        disabled={props.preview || !challenge || remaining > 0 || demo.busy || demo.pendingVerify}
         onPress={() => void resend()}
         style={({ pressed }) => [s.resend, pressed && s.pressed]}
       >
@@ -371,6 +443,25 @@ export function Otp(props: ScreenProps) {
           {demo.error}
         </Text>
       ) : null}
+      {demo.mode === 'server' && challenge && !demo.pendingVerify && !demo.pendingOtp
+        ? demo.channels
+            .filter((option) => option !== demo.activeChannel)
+            .map((option) => (
+              <Pressable
+                key={option}
+                testID={`otp-fallback-${option}`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: remaining > 0 || demo.busy }}
+                disabled={props.preview || remaining > 0 || demo.busy}
+                onPress={() => void resend(option)}
+                style={({ pressed }) => [s.resend, pressed && s.pressed]}
+              >
+                <Text style={[s.resendText, remaining === 0 && s.resendReady]}>
+                  {option === 'sms' ? 'Получить код по SMS' : 'Получить код в Telegram'}
+                </Text>
+              </Pressable>
+            ))
+        : null}
       {expired ? <Text style={s.error}>Код истёк. Запросите его повторно.</Text> : null}
       <DemoNote />
     </AuthLayout>
@@ -378,6 +469,23 @@ export function Otp(props: ScreenProps) {
 }
 
 const s = StyleSheet.create({
+  channelGroup: { marginTop: 20, gap: 10 },
+  channelTitle: { fontFamily: font.body, fontSize: 16, lineHeight: 24, color: authColors.text },
+  channelChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  channelChoice: {
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: authColors.border,
+  },
+  channelSelected: { borderColor: authColors.blueInk, backgroundColor: authColors.blueSoft },
+  channelLabel: { fontFamily: font.body, fontSize: 16, lineHeight: 24, color: authColors.text },
+  channelHint: { fontFamily: font.body, fontSize: 14, lineHeight: 21, color: authColors.muted },
   phoneField: {
     flexDirection: 'row',
     alignItems: 'center',

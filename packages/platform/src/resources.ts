@@ -148,6 +148,7 @@ export class Resources implements OnApplicationShutdown {
             for (const migration of [
               '007_cloud_customer_identity.sql',
               '013_cloud_identity_receipt_limits.sql',
+              '022_cloud_otp_channels.sql',
             ]) {
               const identityVersion = await this.pool.query(
                 'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
@@ -169,7 +170,7 @@ export class Resources implements OnApplicationShutdown {
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
             }
             await this.pool.query(
-              'SELECT receipt_failed_attempts FROM identity_otp_challenges LIMIT 0',
+              'SELECT receipt_failed_attempts, delivery_channel, delivery_provider, delivery_reference FROM identity_otp_challenges LIMIT 0',
             );
           }
           if (this.config.fulfillmentTransportEnabled) {

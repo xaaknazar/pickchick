@@ -1,6 +1,12 @@
 import { normalizeDemoPhone } from './demo-account.ts';
 import { normalizeProfileDetails, type DemoProfileInput } from './profile-details.ts';
 
+export type CustomerChannel = 'sms' | 'telegram';
+export const CUSTOMER_CHANNEL_LABELS: Record<CustomerChannel, string> = {
+  sms: 'SMS',
+  telegram: 'Telegram',
+};
+const isChannel = (v: unknown): v is CustomerChannel => v === 'sms' || v === 'telegram';
 export const CUSTOMER_SESSION_KEY = 'pickchick.customer.session.v1';
 export interface Customer {
   id: string;
@@ -19,6 +25,7 @@ export interface CustomerTokens {
   customer: Customer;
 }
 export interface CustomerChallenge {
+  channel: CustomerChannel;
   challenge_id: string;
   phone: string;
   expires_at: string;
@@ -26,6 +33,8 @@ export interface CustomerChallenge {
   delivery_status: 'submitted' | 'unknown';
 }
 export interface CustomerAuthConfig {
+  channels: CustomerChannel[];
+  channelSelection: boolean;
   enabled: boolean;
   consent_version: string | null;
   terms_url: string | null;
@@ -49,7 +58,7 @@ interface Envelope {
   device_id: string;
   tokens: CustomerTokens | null;
   challenge: CustomerChallenge | null;
-  otp_request: { request_id: string; phone: string } | null;
+  otp_request: { request_id: string; phone: string; channel?: CustomerChannel } | null;
   verify_intent: { request_id: string; consent_version: string } | null;
   refresh_request_id: string | null;
   closing: 'logout' | null;
@@ -123,9 +132,15 @@ export function parseCustomerTokens(value: unknown, now = Date.now()): CustomerT
     customer: parseCustomer(v.customer, now),
   };
 }
-function parseChallenge(value: unknown, phone: string): CustomerChallenge {
+function parseChallenge(
+  value: unknown,
+  phone: string,
+  expectedChannel: CustomerChannel = 'sms',
+): CustomerChallenge {
   const v = object(value);
   if (
+    (v.channel !== undefined && !isChannel(v.channel)) ||
+    (v.channel ?? 'sms') !== expectedChannel ||
     typeof v.challenge_id !== 'string' ||
     !uuid.test(v.challenge_id) ||
     !instant(v.expires_at) ||
@@ -135,6 +150,7 @@ function parseChallenge(value: unknown, phone: string): CustomerChallenge {
     throw new CustomerSessionError('INVALID_RESPONSE');
   return {
     challenge_id: v.challenge_id,
+    channel: expectedChannel,
     phone,
     expires_at: v.expires_at,
     resend_at: v.resend_at,
@@ -173,7 +189,8 @@ function parseEnvelope(raw: string, now: number): Envelope {
   const pending = v.otp_request === null ? null : object(v.otp_request);
   if (
     pending &&
-    (typeof pending.request_id !== 'string' ||
+    ((pending.channel !== undefined && !isChannel(pending.channel)) ||
+      typeof pending.request_id !== 'string' ||
       !uuid.test(pending.request_id) ||
       typeof pending.phone !== 'string' ||
       normalizeDemoPhone(pending.phone) !== pending.phone)
@@ -185,7 +202,13 @@ function parseEnvelope(raw: string, now: number): Envelope {
     version: 1,
     device_id: v.device_id,
     tokens,
-    challenge: challenge ? parseChallenge(challenge, challenge.phone as string) : null,
+    challenge: challenge
+      ? parseChallenge(
+          challenge,
+          challenge.phone as string,
+          (challenge.channel ?? 'sms') as CustomerChannel,
+        )
+      : null,
     otp_request: pending as Envelope['otp_request'],
     verify_intent: verify as Envelope['verify_intent'],
     refresh_request_id: v.refresh_request_id as string | null,
@@ -201,6 +224,8 @@ export class CustomerSessionCore {
   private restored = false;
   config: CustomerAuthConfig = {
     enabled: false,
+    channels: [],
+    channelSelection: false,
     consent_version: null,
     terms_url: null,
     privacy_url: null,
@@ -216,6 +241,9 @@ export class CustomerSessionCore {
   }
   get pendingVerify(): boolean {
     return Boolean(this.state?.verify_intent);
+  }
+  get pendingChannel(): CustomerChannel | null {
+    return this.state?.otp_request ? (this.state.otp_request.channel ?? 'sms') : null;
   }
   get pendingOtp(): boolean {
     return Boolean(this.state?.otp_request);
@@ -282,20 +310,32 @@ export class CustomerSessionCore {
       if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
         throw new CustomerSessionError('INVALID_RESPONSE');
     }
+    if (
+      v.channels !== undefined &&
+      (!Array.isArray(v.channels) ||
+        v.channels.some((c) => !isChannel(c)) ||
+        new Set(v.channels).size !== v.channels.length ||
+        (v.enabled && v.channels.length === 0))
+    )
+      throw new CustomerSessionError('INVALID_RESPONSE');
     this.config = {
+      channels: v.enabled ? ((v.channels as CustomerChannel[] | undefined) ?? ['sms']) : [],
+      channelSelection: v.channels !== undefined,
       enabled: v.enabled,
       consent_version: v.consent_version as string | null,
       terms_url: v.terms_url as string | null,
       privacy_url: v.privacy_url as string | null,
     };
   }
-  requestCode(input: string): Promise<void> {
+  requestCode(input: string, channel: CustomerChannel = 'sms'): Promise<void> {
     return this.serial(async () => {
       let s = this.current();
       if (s.tokens || s.closing) throw new CustomerSessionError('ALREADY_SIGNED_IN');
       const phone = normalizeDemoPhone(input);
       if (!phone) throw new CustomerSessionError('INVALID_PHONE');
       await this.loadConfig();
+      if (!isChannel(channel) || !this.config.channels.includes(channel))
+        throw new CustomerSessionError('SERVICE_UNAVAILABLE', 503);
       if (!this.config.enabled) throw new CustomerSessionError('SERVICE_UNAVAILABLE', 503);
       if (
         !s.otp_request &&
@@ -303,10 +343,20 @@ export class CustomerSessionCore {
         this.io.now() < Date.parse(s.challenge.resend_at)
       )
         throw new CustomerSessionError('RATE_LIMITED', 429);
-      if (s.otp_request && s.otp_request.phone !== phone)
+      if (
+        s.otp_request &&
+        (s.otp_request.phone !== phone || (s.otp_request.channel ?? 'sms') !== channel)
+      )
         throw new CustomerSessionError('CONFLICT', 409);
       if (!s.otp_request) {
-        await this.persist({ ...s, otp_request: { request_id: this.io.randomId(), phone } });
+        await this.persist({
+          ...s,
+          otp_request: {
+            request_id: this.io.randomId(),
+            phone,
+            ...(this.config.channelSelection ? { channel } : {}),
+          },
+        });
         s = this.current();
       }
       let challenge: CustomerChallenge;
@@ -316,8 +366,10 @@ export class CustomerSessionCore {
             phone,
             device_id: s.device_id,
             request_id: s.otp_request!.request_id,
+            ...(s.otp_request!.channel ? { channel: s.otp_request!.channel } : {}),
           }),
           phone,
+          channel,
         );
       } catch (error) {
         // Definitive validation/rate/conflict replies did not leave a usable challenge.
