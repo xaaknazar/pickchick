@@ -17,7 +17,9 @@ jobs:
   verify:
     name: Build, contracts and PostgreSQL integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Run 36100220136 reached browser recovery at 14 minutes; remaining browser,
+    # POS/backoffice and native-account export checks need their own headroom.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -44,11 +46,112 @@ jobs:
           pnpm db:seed
       - name: Test PostgreSQL constraints and HTTP failure scenarios
         run: pnpm test:integration
+      - name: Verify commerce transactions and delivery invariants
+        run: pnpm test:commerce
+      - name: Verify Chiki ledger, reservations and refund debt
+        run: pnpm test:loyalty
+      - name: Verify local kitchen admission, station roles and recovery
+        run: pnpm test:fulfillment
+      - name: Mobile state, API and release invariants
+        run: pnpm test:mobile
+      - name: Export native and web JavaScript bundles
+        run: pnpm --filter @pickchick/mobile export
+      - name: Browser recovery regressions (isolated HTTP fixtures)
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          .local/design-venv/bin/python tests/operations/kiosk_recovery.py
+          .local/design-venv/bin/python tests/operations/browser_staff_display.py
+          .local/design-venv/bin/python tests/operations/browser_service_shift.py
+          python3 -m unittest tests/operations/test_operations_overlay.py
+          MOBILE_PREVIEW_PORT=4182 node scripts/mobile/preview-server.mjs > .local/mobile-recovery-server.log 2>&1 &
+          recovery_pid=$!
+          trap 'kill "$recovery_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4182/ > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/design-venv/bin/python tests/mobile/browser_checkout.py
+          MOBILE_RECOVERY_URL=http://127.0.0.1:4182 .local/design-venv/bin/python tests/mobile/browser_cart_sheet.py
+          MOBILE_RECOVERY_URL=http://127.0.0.1:4182 BACKOFFICE_TEST_PYTHON=.local/design-venv/bin/python node --env-file=.env tests/backoffice/content-browser.mjs
+          # Simulator regressions use an explicit QA export; customer/native exports above stay disabled.
+          EXPO_PUBLIC_ORDER_SIMULATOR=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear
+          .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
+          .local/design-venv/bin/python tests/mobile/browser_menu_recovery.py
+          .local/design-venv/bin/python tests/mobile/browser_demo_account.py
+          .local/design-venv/bin/python tests/mobile/browser_profile.py
+          .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
+          .local/design-venv/bin/python tests/operations/layout_regression.py
+          .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
+          .local/design-venv/bin/python tests/mobile/browser_pick_blocks.py
+          .local/design-venv/bin/python tests/mobile/browser_pick_man.py
+          .local/design-venv/bin/python tests/mobile/browser_arcade.py
+          .local/design-venv/bin/python tests/mobile/browser_arcade_motion.py
+          .local/design-venv/bin/python tests/mobile/browser_account_required.py
+          .local/design-venv/bin/python tests/mobile/browser_peak_loyalty.py
+      - name: Verify POS against the local edge and PostgreSQL
+        env:
+          POS_TEST_PYTHON: .local/design-venv/bin/python
+        run: pnpm test:pos
+      - name: Verify backoffice operations and catalog against PostgreSQL
+        env:
+          BACKOFFICE_TEST_PYTHON: .local/design-venv/bin/python
+        run: pnpm --filter @pickchick/backoffice-core test && pnpm --filter @pickchick/backoffice-core test:integration && pnpm test:backoffice
+      - name: Verify opt-in server account screens and recovery
+        run: |
+          EXPO_PUBLIC_CUSTOMER_AUTH=server pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
+          PICKCHICK_PREVIEW_OUTPUT=customer-auth MOBILE_PREVIEW_PORT=4196 node scripts/mobile/preview-server.mjs > .local/customer-auth-server.log 2>&1 &
+          customer_pid=$!
+          trap 'kill "$customer_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4196/ > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/design-venv/bin/python tests/mobile/browser_customer_account.py
       - name: Check dependency advisories
         run: pnpm audit --audit-level=high
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  kiosk:
+    name: iPad kiosk state, bundles and browser recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install locked dependencies
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile
+      - name: Check kiosk state and export iPad/web bundles
+        run: |
+          pnpm --filter @pickchick/kiosk... build
+          pnpm test:kiosk
+          pnpm --filter @pickchick/kiosk export
+      - name: Install browser test tools
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+      - name: Check kiosk against isolated API fixtures
+        run: |
+          PICKCHICK_PREVIEW_APP=kiosk KIOSK_PREVIEW_PORT=4184 node scripts/mobile/preview-server.mjs > .local/kiosk-preview.log 2>&1 &
+          kiosk_pid=$!
+          trap 'kill "$kiosk_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4184/ > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/design-venv/bin/python tests/kiosk/browser_ui.py
+          .local/design-venv/bin/python tests/kiosk/browser_payment_success.py
 
   staging:
     name: Private staging image and restricted database role
@@ -58,12 +161,24 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+          # Release guard tests inspect the pinned historical deployment tree.
+          fetch-depth: 0
+      - name: Check deployment guards and operator maintenance installer
+        run: |
+          python3 -m unittest discover -s tests/operations -p 'test_*.py'
+          python3 tests/operations/docker_context.py
+          bash -n infra/staging/identity-cleanup-cron.sh
       - name: Build immutable image
         run: docker build -f infra/staging/Dockerfile --build-arg RELEASE_SHA=${{ github.sha }} -t pickchick-api:${{ github.sha }} .
+      - name: Check pinned public gateway routing and request limits
+        env:
+          GATEWAY_FIXTURE_IMAGE: pickchick-api:${{ github.sha }}
+        run: python3 tests/operations/gateway_catalog.py
       - name: Create disposable secrets and start dependencies
         run: |
           python3 infra/staging/generate-secrets.py .local/staging-ci
           echo RELEASE_SHA=${{ github.sha }} > .local/staging-ci/release.env
+          echo TEST_ORDER_FLOW_ENABLED=true >> .local/staging-ci/release.env
           docker compose --env-file .local/staging-ci/staging.env --env-file .local/staging-ci/release.env -f infra/staging/compose.yaml up -d --wait cloud-db redis-cache
       - name: Provision twice, seed and exercise deployed API permissions
         run: |
@@ -84,6 +199,77 @@ jobs:
           if test -f .local/staging-ci/release.env; then
             docker compose --env-file .local/staging-ci/staging.env --env-file .local/staging-ci/release.env -f infra/staging/compose.yaml down --volumes
           fi
+
+  kitchen:
+    name: Local kitchen UI and recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install locked dependencies and local fixtures
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile
+          cp .env.example .env
+          pnpm infra:up
+      - name: Build local kitchen and backend dependencies
+        run: |
+          pnpm --filter @pickchick/edge... build
+          pnpm --filter @pickchick/commerce-core... build
+          pnpm --filter @pickchick/kitchen... build
+      - name: Install browser test tools
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+      - name: Verify local queue, command recovery and display
+        env:
+          PICKCHICK_BROWSER_PYTHON: .local/design-venv/bin/python
+        run: |
+          pnpm test:kitchen
+          node --env-file=.env --test --test-concurrency=1 tests/operations/kitchen-lan.test.mjs tests/operations/kitchen-lan-chain.test.mjs
+          node --env-file=.env --test --test-concurrency=1 tests/kitchen-portal/*.test.mjs
+          python3 -m unittest discover -s tests/kitchen-portal -p 'test_*.py'
+      - name: Stop isolated local infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  fulfillment_transport:
+    name: Cloud-edge fulfillment transport and recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install locked dependencies and isolated databases
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile
+          cp .env.example .env
+          pnpm infra:up
+      - name: Build both HTTP services and transport dependencies
+        run: |
+          pnpm --filter @pickchick/api... build
+          pnpm --filter @pickchick/edge... build
+      - name: Verify durable delivery, permissions and interrupted requests
+        run: |
+          pnpm test:fulfillment-transport
+          pnpm test:pos-order-sync
+          node --test tests/load/fulfillment-capacity.test.mjs
+      - name: Stop isolated local infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
 
   design:
     name: Design screens and interaction smoke

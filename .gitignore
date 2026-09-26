@@ -20,7 +20,7 @@ Thumbs.db
 *.jks
 
 # Dependencies, generated builds and temporary output
-node_modules/
+node_modules
 .pnpm-store/
 .expo/
 .turbo/
@@ -40,3 +40,13 @@ __pycache__/
 *.dump
 *.sql.gz
 .local/
+
+# Expo native directories are generated from the versioned app config
+/apps/mobile/ios/
+/apps/mobile/android/
+/apps/kiosk/ios/
+/apps/kiosk/android/
+*.xcarchive/
+*.ipa
+*.dSYM/
+/apps/kitchen/demo-dist/

@@ -13,7 +13,12 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
-import { BranchSchema, MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
+import {
+  BranchSchema,
+  CapabilitiesSchema,
+  MenuSnapshotSchema,
+  UuidSchema,
+} from '@pickchick/contracts';
 import {
   createHttpApplication,
   HealthController,
@@ -22,6 +27,53 @@ import {
   Resources,
 } from '@pickchick/platform';
 import type { ServiceConfig } from '@pickchick/platform';
+import { TestOrderController } from './test-order-controller.js';
+import { CustomerAuthController } from './customer-auth-controller.js';
+import {
+  CUSTOMER_IDENTITY,
+  CustomerIdentity,
+  createCustomerIdentityOptions,
+} from '@pickchick/customer-identity';
+import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
+import { CATALOG_ADMIN, CatalogAdmin } from '@pickchick/catalog-admin';
+import { CatalogAdminController } from './catalog-admin-controller.js';
+import { BACKOFFICE, Backoffice } from '@pickchick/backoffice-core';
+import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
+import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
+import { PosOrderSyncController } from './pos-order-sync-controller.js';
+
+@Controller('v1/capabilities')
+class CapabilitiesController {
+  constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
+
+  @Get()
+  get() {
+    return CapabilitiesSchema.parse({
+      schema_version: 1,
+      environment: this.resources.config.environment,
+      data_mode: this.resources.config.customerAuthEnabled ? 'pilot' : 'synthetic',
+      ordering_enabled: false,
+      features: {
+        phone_auth: this.resources.config.customerAuthEnabled === true,
+        checkout: false,
+        payments: false,
+        fiscal: false,
+        loyalty: false,
+        test_order_flow: this.resources.config.testOrderFlowEnabled === true,
+        unpaid_test_orders: this.resources.config.testOrderFlowEnabled === true,
+      },
+      notice: this.resources.config.customerAuthEnabled
+        ? {
+            ru: 'Заказы в ресторане доступны без оплаты. Оплата и чеки в процессе подключения.',
+            kk: 'Мейрамханаға тапсырыстар төлемсіз қолжетімді. Төлем мен чектер қосылуда.',
+          }
+        : {
+            ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',
+            kk: 'PickChick сынақ ортасы. Сынақ режимі қосылғанда тек синтетикалық TEST сценарийі қолжетімді. Нақты тапсырыстар, SMS, төлемдер мен чектер қолжетімсіз.',
+          },
+    });
+  }
+}
 
 @Controller('v1/branches')
 class BranchesController {
@@ -98,8 +150,50 @@ class MenuSyncController {
 export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
-    controllers: [HealthController, BranchesController, MenuSyncController],
-    providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],
+    controllers: [
+      HealthController,
+      CapabilitiesController,
+      BranchesController,
+      MenuSyncController,
+      CustomerAuthController,
+      CatalogAdminController,
+      BackofficeController,
+      BackofficeContentController,
+      FulfillmentTransportController,
+      PosOrderSyncController,
+      ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
+    ],
+    providers: [
+      {
+        provide: BACKOFFICE,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new Backoffice(resources.pool, config.backofficeEnabled === true),
+      },
+      { provide: RESOURCE, useFactory: () => new Resources(config) },
+      {
+        provide: CATALOG_ADMIN,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new CatalogAdmin(resources.pool, { enabled: config.catalogAdminEnabled === true }),
+      },
+      {
+        provide: CUSTOMER_IDENTITY,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) => {
+          const env = {
+            ...process.env,
+            CUSTOMER_AUTH_ENABLED: String(config.customerAuthEnabled === true),
+          };
+          const options = createCustomerIdentityOptions(env);
+          return new CustomerIdentity(
+            resources.pool,
+            options,
+            createPhoneCodeDelivery(options.enabled ? env : {}),
+          );
+        },
+      },
+    ],
   })
   class ApiModule {}
   return createHttpApplication(ApiModule);

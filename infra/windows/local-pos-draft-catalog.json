@@ -1,0 +1,180 @@
+{
+  "format": "pickchick-local-pos-draft-catalog-v1",
+  "content_reviewed": false,
+  "source": {
+    "design_path": "design/reference-source/mobile-v2.html.txt",
+    "design_sha256": "63ed692aaf314b3161870efb22a8680e1db679e62e7d1fd169c2626d04e42eb5",
+    "dataset_path": "packages/test-order-flow/src/complete-catalog.ts",
+    "dataset_sha256": "4195d24891954dc261e0b296d91423f07f32d2ff204f634da49b74c4af550c97"
+  },
+  "products": [
+    {
+      "source_id": "pick-combo",
+      "category": "Комбо",
+      "name_ru": "Pick Combo",
+      "price_minor": "419000",
+      "image_asset_key": "i7.jpg"
+    },
+    {
+      "source_id": "master-combo",
+      "category": "Комбо",
+      "name_ru": "Master Combo",
+      "price_minor": "549000",
+      "image_asset_key": "i8.jpg"
+    },
+    {
+      "source_id": "burger-combo",
+      "category": "Комбо",
+      "name_ru": "Burger Combo",
+      "price_minor": "379000",
+      "image_asset_key": "i9.jpg"
+    },
+    {
+      "source_id": "solo-combo",
+      "category": "Комбо",
+      "name_ru": "Solo Combo",
+      "price_minor": "349000",
+      "image_asset_key": "i10.jpg"
+    },
+    {
+      "source_id": "finger-duo",
+      "category": "На двоих",
+      "name_ru": "Фингер Дуо",
+      "price_minor": "799000",
+      "image_asset_key": "i11.jpg"
+    },
+    {
+      "source_id": "burger-duo",
+      "category": "На двоих",
+      "name_ru": "Бургер Дуо",
+      "price_minor": "699000",
+      "image_asset_key": "i12.jpg"
+    },
+    {
+      "source_id": "mix-duo",
+      "category": "На двоих",
+      "name_ru": "Микс Дуо",
+      "price_minor": "749000",
+      "image_asset_key": "i13.jpg"
+    },
+    {
+      "source_id": "fingers-25",
+      "category": "На компанию",
+      "name_ru": "25 фингерсов",
+      "price_minor": "1399000",
+      "image_asset_key": "i14.jpg"
+    },
+    {
+      "source_id": "fingers-50",
+      "category": "На компанию",
+      "name_ru": "50 фингерсов",
+      "price_minor": "2699000",
+      "image_asset_key": "i15.jpg"
+    },
+    {
+      "source_id": "fingers-75",
+      "category": "На компанию",
+      "name_ru": "75 фингерсов",
+      "price_minor": "3999000",
+      "image_asset_key": "i16.jpg"
+    },
+    {
+      "source_id": "fingers-100",
+      "category": "На компанию",
+      "name_ru": "100 фингерсов",
+      "price_minor": "5299000",
+      "image_asset_key": "i17.jpg"
+    },
+    {
+      "source_id": "fingers",
+      "category": "Допы",
+      "name_ru": "Фингерс, 1 шт",
+      "price_minor": "69000",
+      "image_asset_key": "i4.jpg"
+    },
+    {
+      "source_id": "sauce",
+      "category": "Допы",
+      "name_ru": "Соус фирменный",
+      "price_minor": "39000",
+      "image_asset_key": "i18.jpg"
+    },
+    {
+      "source_id": "sauce-hot",
+      "category": "Допы",
+      "name_ru": "Соус острый",
+      "price_minor": "39000",
+      "image_asset_key": "i19.jpg"
+    },
+    {
+      "source_id": "toast",
+      "category": "Допы",
+      "name_ru": "Тост, 1 шт",
+      "price_minor": "39000",
+      "image_asset_key": "i5.jpg"
+    },
+    {
+      "source_id": "coleslaw",
+      "category": "Допы",
+      "name_ru": "Коулслоу, 90 г",
+      "price_minor": "69000",
+      "image_asset_key": "i6.jpg"
+    },
+    {
+      "source_id": "wedges",
+      "category": "Допы",
+      "name_ru": "Картофельные дольки, 90 г",
+      "price_minor": "89000",
+      "image_asset_key": "i20.jpg"
+    },
+    {
+      "source_id": "burger",
+      "category": "Допы",
+      "name_ru": "Бургер, 1 шт",
+      "price_minor": "239000",
+      "image_asset_key": "shot.jpg"
+    },
+    {
+      "source_id": "lemonade",
+      "category": "Напитки",
+      "name_ru": "Фирменный лимонад 0.5 л",
+      "price_minor": "119000",
+      "image_asset_key": "i0.jpg"
+    },
+    {
+      "source_id": "cola",
+      "category": "Напитки",
+      "name_ru": "Coca-Cola 0.5 л, банка",
+      "price_minor": "99000",
+      "image_asset_key": "i2.jpg"
+    },
+    {
+      "source_id": "fuse-peach",
+      "category": "Напитки",
+      "name_ru": "Fuse Tea Персик 0.5 л",
+      "price_minor": "79000",
+      "image_asset_key": "i1.jpg"
+    },
+    {
+      "source_id": "iced-tea",
+      "category": "Напитки",
+      "name_ru": "Холодный чай 0.5 л",
+      "price_minor": "49000",
+      "image_asset_key": "i22.jpg"
+    },
+    {
+      "source_id": "water",
+      "category": "Напитки",
+      "name_ru": "Bonaqua негаз. 0.5 л",
+      "price_minor": "59000",
+      "image_asset_key": "i23.jpg"
+    },
+    {
+      "source_id": "piko",
+      "category": "Напитки",
+      "name_ru": "Piko 0.2 л",
+      "price_minor": "59000",
+      "image_asset_key": "generic-drink"
+    }
+  ]
+}

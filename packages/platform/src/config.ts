@@ -1,4 +1,5 @@
 import { UuidSchema } from '@pickchick/contracts';
+import { isIP } from 'node:net';
 
 export interface ServiceConfig {
   service: 'api' | 'edge';
@@ -6,7 +7,25 @@ export interface ServiceConfig {
   databaseUrl: string;
   redisUrl?: string;
   branchId?: string;
+  testOrderFlowEnabled?: boolean;
   port: number;
+  databasePoolMax?: number;
+  httpMaxInFlight?: number;
+  customerAuthEnabled?: boolean;
+  catalogAdminEnabled?: boolean;
+  backofficeEnabled?: boolean;
+  trustedProxyIps?: string[];
+  edgeFulfillmentEnabled?: boolean;
+  edgeDeviceId?: string;
+  fulfillmentTransportEnabled?: boolean;
+  posOrderSyncEnabled?: boolean;
+}
+
+function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
+  const value = env[name] ?? String(fallback);
+  if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max)
+    throw new Error(`Invalid configuration: ${name}`);
+  return Number(value);
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -42,6 +61,70 @@ export function loadConfig(
   }
   if (environment === 'staging' && service !== 'api')
     throw new Error('Staging is only enabled for the cloud API');
+  const testOrderFlow = env.TEST_ORDER_FLOW_ENABLED ?? 'false';
+  if (testOrderFlow !== 'true' && testOrderFlow !== 'false')
+    throw new Error('TEST_ORDER_FLOW_ENABLED must be true or false');
+  if (testOrderFlow === 'true' && service !== 'api')
+    throw new Error('TEST order flow is only enabled for the cloud API');
+  const customerAuth = env.CUSTOMER_AUTH_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(customerAuth))
+    throw new Error('CUSTOMER_AUTH_ENABLED must be true or false');
+  if (customerAuth === 'true' && service !== 'api')
+    throw new Error('Customer identity belongs to cloud API');
+  const backoffice = env.BACKOFFICE_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(backoffice) || (backoffice === 'true' && service !== 'api'))
+    throw new Error('BACKOFFICE_ENABLED configuration invalid');
+  const catalogAdmin = env.CATALOG_ADMIN_ENABLED ?? 'false';
+  if (backoffice === 'true' && catalogAdmin !== 'true')
+    throw new Error('Backoffice requires the scoped catalog login');
+  if (!['true', 'false'].includes(catalogAdmin))
+    throw new Error('CATALOG_ADMIN_ENABLED must be true or false');
+  if (catalogAdmin === 'true' && service !== 'api')
+    throw new Error('Catalog editor belongs to cloud API');
+  const fulfillment = env.EDGE_FULFILLMENT_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(fulfillment))
+    throw new Error('EDGE_FULFILLMENT_ENABLED must be true or false');
+  if (fulfillment === 'true' && service !== 'edge')
+    throw new Error('Local fulfillment belongs to the edge service');
+  if (fulfillment === 'true' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
+    throw new Error('Enabled local fulfillment requires EDGE_DEVICE_ID');
+  for (const [key, owner] of [
+    ['CLOUD_FULFILLMENT_TRANSPORT_ENABLED', 'api'],
+    ['EDGE_FULFILLMENT_TRANSPORT_ENABLED', 'edge'],
+  ]) {
+    const value = env[key!] ?? 'false';
+    if (!['true', 'false'].includes(value))
+      throw new Error('Fulfillment transport flag must be true or false');
+    if (value === 'true' && service !== owner)
+      throw new Error('Fulfillment transport flag service mismatch');
+  }
+  const transport =
+    env[
+      service === 'api'
+        ? 'CLOUD_FULFILLMENT_TRANSPORT_ENABLED'
+        : 'EDGE_FULFILLMENT_TRANSPORT_ENABLED'
+    ] === 'true';
+  if (transport && service === 'edge' && fulfillment !== 'true')
+    throw new Error('Edge transport requires enabled local fulfillment');
+  for (const [name, owner] of [
+    ['CLOUD_POS_ORDER_SYNC_ENABLED', 'api'],
+    ['EDGE_POS_ORDER_SYNC_ENABLED', 'edge'],
+  ]) {
+    const value = env[name!] ?? 'false';
+    if (!['true', 'false'].includes(value) || (value === 'true' && service !== owner))
+      throw new Error('POS order sync flag service mismatch or invalid value');
+  }
+  const posSync =
+    env[service === 'api' ? 'CLOUD_POS_ORDER_SYNC_ENABLED' : 'EDGE_POS_ORDER_SYNC_ENABLED'] ===
+    'true';
+  if (posSync && service === 'edge' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
+    throw new Error('POS order sync requires EDGE_DEVICE_ID');
+  const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
+  if (
+    proxyIps &&
+    (proxyIps.length > 8 || proxyIps.some((ip) => !isIP(ip) || ['0.0.0.0', '::'].includes(ip)))
+  )
+    throw new Error('TRUSTED_PROXY_IPS requires explicit proxy IP addresses');
   const key = service === 'api' ? 'CLOUD_DATABASE_URL' : 'EDGE_DATABASE_URL';
   const databaseUrl =
     environment === 'staging'
@@ -56,7 +139,25 @@ export function loadConfig(
   if (!/^\d+$/.test(portText) || Number(portText) < 1 || Number(portText) > 65535) {
     throw new Error('Invalid service port');
   }
-  const base: ServiceConfig = { service, environment, databaseUrl, port: Number(portText) };
+  const base: ServiceConfig = {
+    service,
+    environment,
+    databaseUrl,
+    port: Number(portText),
+    testOrderFlowEnabled: testOrderFlow === 'true',
+    databasePoolMax: boundedInteger(env, 'DB_POOL_MAX', 5, 64),
+    httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
+    ...(customerAuth === 'true' ? { customerAuthEnabled: true } : {}),
+    ...(backoffice === 'true' ? { backofficeEnabled: true } : {}),
+    ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
+    ...(fulfillment === 'true'
+      ? { edgeFulfillmentEnabled: true, edgeDeviceId: env.EDGE_DEVICE_ID! }
+      : {}),
+    ...(proxyIps ? { trustedProxyIps: proxyIps } : {}),
+    ...(transport ? { fulfillmentTransportEnabled: true } : {}),
+    ...(posSync ? { posOrderSyncEnabled: true } : {}),
+    ...(posSync && service === 'edge' ? { edgeDeviceId: env.EDGE_DEVICE_ID! } : {}),
+  };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));
     if (!branch.success) throw new Error('Invalid EDGE_BRANCH_ID');

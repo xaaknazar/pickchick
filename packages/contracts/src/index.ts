@@ -22,6 +22,57 @@ export const BranchSchema = z.strictObject({
   ordering_enabled: z.boolean(),
 });
 
+export const CapabilitiesSchema = z.strictObject({
+  schema_version: z.literal(1),
+  environment: z.enum(['local', 'test', 'staging']),
+  data_mode: z.enum(['synthetic', 'pilot']),
+  ordering_enabled: z.literal(false),
+  features: z.strictObject({
+    phone_auth: z.boolean(),
+    checkout: z.literal(false),
+    payments: z.literal(false),
+    fiscal: z.literal(false),
+    loyalty: z.literal(false),
+    test_order_flow: z.boolean(),
+    unpaid_test_orders: z.boolean().optional(),
+  }),
+  notice: LocalizedTextSchema,
+});
+
+export const MenuModifierOptionSchema = z
+  .strictObject({
+    id: UuidSchema,
+    name: LocalizedTextSchema,
+    price_minor: MoneyMinorSchema,
+    max_quantity: z.number().int().min(1).max(99).optional(),
+    default_quantity: z.number().int().min(0).max(99).optional(),
+    available: z.boolean().optional(),
+  })
+  .refine(
+    (option) =>
+      (option.default_quantity ?? 0) <= (option.max_quantity ?? 1) &&
+      (option.available !== false || !option.default_quantity),
+    'Invalid option defaults',
+  );
+export const MenuModifierGroupSchema = z
+  .strictObject({
+    id: UuidSchema,
+    name: LocalizedTextSchema,
+    min_selected: z.number().int().min(0).max(99),
+    max_selected: z.number().int().min(1).max(99),
+    options: z.array(MenuModifierOptionSchema).min(1).max(20),
+  })
+  .refine(
+    (group) =>
+      group.min_selected <= group.max_selected &&
+      group.max_selected <=
+        group.options.reduce((sum, option) => sum + (option.max_quantity ?? 1), 0) &&
+      group.options.reduce((sum, option) => sum + (option.default_quantity ?? 0), 0) <=
+        group.max_selected &&
+      new Set(group.options.map((option) => option.id)).size === group.options.length,
+    'Invalid modifier group',
+  );
+
 export const MenuItemSchema = z.strictObject({
   product_id: UuidSchema,
   variant_id: UuidSchema,
@@ -29,6 +80,19 @@ export const MenuItemSchema = z.strictObject({
   name: LocalizedTextSchema,
   price_minor: MoneyMinorSchema,
   currency: z.literal('KZT'),
+  image_url: z
+    .string()
+    .max(2048)
+    .regex(/^(?:https:\/\/[^\s]+|\/(?!\/)[^\s]*)$/)
+    .optional(),
+  modifier_groups: z
+    .array(MenuModifierGroupSchema)
+    .max(20)
+    .refine(
+      (groups) => new Set(groups.map((group) => group.id)).size === groups.length,
+      'Duplicate modifier groups',
+    )
+    .optional(),
 });
 
 export const MenuSnapshotSchema = z.strictObject({
@@ -65,10 +129,16 @@ export const ErrorSchema = z.strictObject({
     'MENU_CHANGED',
     'BRANCH_UNAVAILABLE',
     'ITEM_STOPPED',
+    'CASH_SHIFT_REQUIRED',
+    'SHIFT_CLOSED',
     'CONFLICT',
+    'INSUFFICIENT_STOCK',
+    'NOT_READY',
     'PAYLOAD_TOO_LARGE',
     'NOT_FOUND',
     'SERVICE_UNAVAILABLE',
+    'RATE_LIMITED',
+    'AUTH_RATE_LIMITED',
     'INTERNAL_ERROR',
   ]),
   message_key: z.string(),
@@ -138,20 +208,61 @@ export const StaffSessionSchema = z.strictObject({
   terminal_id: UuidSchema,
   branch_id: UuidSchema,
   role: StaffRoleSchema,
+  name: z.string().min(1).max(100).optional(),
   expires_at: z.iso.datetime(),
 });
 export const StaffCredentialSchema = StaffSessionSchema.extend({
   token: z.string().regex(/^[a-f0-9]{64}$/),
 });
+// Passwords are deliberately never transformed or included in validation errors at HTTP boundaries.
+export const StaffLoginNameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9._-]{2,63}$/);
+export const StaffPinLoginSchema = z.strictObject({
+  pin: z.string().regex(/^[0-9]{4}$/),
+  terminal_id: UuidSchema,
+});
+export const StaffPasswordSchema = z.string().min(12).max(128);
+export const StaffLoginSchema = z.strictObject({
+  login: StaffLoginNameSchema,
+  password: StaffPasswordSchema,
+  terminal_id: UuidSchema,
+});
+export type StaffLogin = z.infer<typeof StaffLoginSchema>;
+
+export const ModifierSelectionSchema = z.strictObject({
+  group_id: UuidSchema,
+  option_id: UuidSchema,
+  quantity: z.number().int().min(1).max(99).optional(),
+});
+export const QuoteModifierSchema = ModifierSelectionSchema.extend({
+  group_name: LocalizedTextSchema,
+  name: LocalizedTextSchema,
+  price_minor: MoneyMinorSchema,
+});
+export const PosOrderDetailsSchema = z.strictObject({
+  display_name: z.string().trim().max(14),
+  kitchen_comment: z.string().trim().max(60),
+});
 export const CartSchema = z.strictObject({
+  details: PosOrderDetailsSchema.optional(),
   release_id: UuidSchema,
   service_mode: z.enum(['dine_in', 'takeaway']),
   items: z
-    .array(z.strictObject({ variant_id: UuidSchema, quantity: z.number().int().min(1).max(99) }))
+    .array(
+      z.strictObject({
+        variant_id: UuidSchema,
+        quantity: z.number().int().min(1).max(99),
+        modifiers: z.array(ModifierSelectionSchema).max(100).optional(),
+      }),
+    )
     .min(1)
     .max(50),
 });
 export const QuoteLineSchema = z.strictObject({
+  modifiers: z.array(QuoteModifierSchema).max(100).optional(),
   product_id: UuidSchema,
   variant_id: UuidSchema,
   name: LocalizedTextSchema,
@@ -160,6 +271,7 @@ export const QuoteLineSchema = z.strictObject({
   total_minor: MoneyMinorSchema,
 });
 export const QuoteSchema = z.strictObject({
+  details: PosOrderDetailsSchema.optional(),
   quote_id: UuidSchema,
   branch_id: UuidSchema,
   release_id: UuidSchema,
@@ -174,12 +286,29 @@ export const QuoteSchema = z.strictObject({
   created_at: z.iso.datetime(),
   expires_at: z.iso.datetime(),
 });
-export const CreateLocalOrderSchema = z.strictObject({ quote_id: UuidSchema });
+export const CreateLocalOrderSchema = z.strictObject({
+  quote_id: UuidSchema,
+  kitchen_admission: z.literal('unpaid').optional(),
+});
+export const LocalFulfillmentStateSchema = z.enum([
+  'accepted',
+  'in_production',
+  'ready',
+  'handed_over',
+  'cancel_requested',
+  'cancelled',
+]);
+export const LocalFulfillmentSchema = z.strictObject({
+  version: z.number().int().positive().max(2147483647),
+  display_number: MoneyMinorSchema.refine((value) => BigInt(value) > 0n),
+  state: LocalFulfillmentStateSchema,
+});
 export const CancelLocalOrderSchema = z.strictObject({
   expected_version: z.number().int().positive().max(2147483647),
   reason: z.string().trim().min(1).max(300),
 });
 export const LocalOrderSchema = z.strictObject({
+  cash_shift_id: UuidSchema.nullable().optional(),
   order_id: UuidSchema,
   branch_id: UuidSchema,
   quote_id: UuidSchema,
@@ -187,7 +316,9 @@ export const LocalOrderSchema = z.strictObject({
   state: z.enum(['awaiting_payment', 'cancelled']),
   payment_state: z.literal('not_started'),
   fiscal_state: z.literal('not_requested'),
-  fulfillment_state: z.literal('blocked'),
+  fulfillment_state: z.union([z.literal('blocked'), LocalFulfillmentStateSchema]),
+  execution_mode: z.literal('unpaid_service').optional(),
+  fulfillment: LocalFulfillmentSchema.optional(),
   next_action: z.enum(['payment_not_available', 'none']),
   snapshot: QuoteSchema,
   created_at: z.iso.datetime(),
@@ -197,11 +328,13 @@ export const OrderingCommandSchema = z.strictObject({
   expected_version: z.number().int().positive().max(2147483647),
 });
 export const OrderingStateSchema = z.strictObject({
+  pos_service_mode: z.enum(['payment_required', 'unpaid_service']).optional(),
   branch_id: UuidSchema,
   ordering_enabled: z.boolean(),
   version: z.number().int().positive().max(2147483647),
 });
 export const StopCommandSchema = z.strictObject({
+  duration: z.enum(['manual', 'hour', 'shift']).optional(),
   variant_id: UuidSchema,
   stopped: z.boolean(),
   expected_version: z.number().int().nonnegative().max(2147483647),
@@ -212,6 +345,7 @@ export const StopStateSchema = z.strictObject({
   stopped: z.boolean(),
   version: z.number().int().nonnegative().max(2147483647),
 });
+export const StopListSchema = z.strictObject({ stops: z.array(StopStateSchema).max(10000) });
 export type StaffSession = z.infer<typeof StaffSessionSchema>;
 export type StaffCredential = z.infer<typeof StaffCredentialSchema>;
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
@@ -219,5 +353,73 @@ export type Cart = z.infer<typeof CartSchema>;
 export type Quote = z.infer<typeof QuoteSchema>;
 export type LocalOrder = z.infer<typeof LocalOrderSchema>;
 
+export const CashShiftOpenSchema = z.strictObject({ opening_cash_minor: MoneyMinorSchema });
+export const CashShiftCloseSchema = z.strictObject({
+  expected_version: z.number().int().positive().max(2147483647),
+  counted_cash_minor: MoneyMinorSchema,
+  reason: z.string().trim().min(1).max(300),
+});
+export const CashMovementInputSchema = z.strictObject({
+  direction: z.enum(['in', 'out']),
+  amount_minor: MoneyMinorSchema.refine((v) => BigInt(v) > 0n),
+  reason: z.string().trim().min(1).max(300),
+});
+export const CashMovementSchema = CashMovementInputSchema.extend({
+  id: UuidSchema,
+  staff_id: UuidSchema,
+  created_at: z.iso.datetime(),
+});
+export const CashShiftSchema = z.strictObject({
+  shift_id: UuidSchema,
+  branch_id: UuidSchema,
+  terminal_id: UuidSchema,
+  staff_id: UuidSchema,
+  version: z.number().int().positive().max(2147483647),
+  state: z.enum(['open', 'closed']),
+  opened_at: z.iso.datetime(),
+  closed_at: z.iso.datetime().nullable(),
+  closed_by_staff_id: UuidSchema.nullable(),
+  opening_cash_minor: MoneyMinorSchema,
+  expected_cash_minor: MoneyMinorSchema,
+  cash_movements: z.array(CashMovementSchema).max(1000).optional(),
+  counted_cash_minor: MoneyMinorSchema.nullable(),
+  discrepancy_minor: z
+    .string()
+    .regex(/^(?:0|-?[1-9]\d{0,18})$/)
+    .refine(
+      (value) =>
+        /^(?:0|-?[1-9]\d{0,18})$/.test(value) &&
+        BigInt(value) >= -9223372036854775807n &&
+        BigInt(value) <= 9223372036854775807n,
+    )
+    .nullable(),
+  closing_reason: z.string().nullable(),
+  currency: z.literal('KZT'),
+  order_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  awaiting_payment_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  cancelled_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  order_total_minor: MoneyMinorSchema,
+  unpaid_total_minor: MoneyMinorSchema,
+  cash_received_minor: z.literal('0'),
+  cash_refunded_minor: z.literal('0'),
+  payment_processing_available: z.literal(false),
+  report_at: z.iso.datetime(),
+});
+export const CashShiftCurrentSchema = z.strictObject({
+  shift: CashShiftSchema.nullable(),
+  server_time: z.iso.datetime(),
+});
+export const CashShiftListSchema = z.strictObject({
+  shifts: z.array(CashShiftSchema).max(50),
+  server_time: z.iso.datetime(),
+});
+export const LocalOrderListSchema = z.strictObject({
+  orders: z.array(LocalOrderSchema).max(100),
+  server_time: z.iso.datetime(),
+});
+export type CashShift = z.infer<typeof CashShiftSchema>;
+
 // OpenAPI and event JSON Schema are generated from these runtime schemas.
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);
+
+export * from './fulfillment.js';

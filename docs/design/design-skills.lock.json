@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "installedOn": "2026-09-23",
+  "scope": "Codex user skills; project instructions in AGENTS.md",
+  "impeccableEngineVersion": "0.1.5",
+  "automaticHooks": false,
+  "skills": [
+    {
+      "name": "ui-ux-pro-max",
+      "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "revision": "dcc40ff5133ef78276117db0cc34e7b83cc8aeba",
+      "path": ".claude/skills/ui-ux-pro-max",
+      "skillVersion": null,
+      "skillSha256": "ea087c341bfb5b23195c7302027268ede86da802554c18a5c4896a6017b439f9",
+      "sourceFilesVerified": 73
+    },
+    {
+      "name": "impeccable",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "revision": "e0881d2de397d5e9761d7b35ff5017d8f5ebf69b",
+      "path": ".agents/skills/impeccable",
+      "skillVersion": "4.3.1",
+      "skillSha256": "fa0cb3ef01a25b9094266109a63c1d01d4b2d4973f75b324f5c4ad7e568d148f",
+      "sourceFilesVerified": 57
+    }
+  ]
+}

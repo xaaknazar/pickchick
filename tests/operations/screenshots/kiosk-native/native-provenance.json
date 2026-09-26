@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-09-07T14:52:37+05:00",
+  "source_commit": "d82641047df00246ff87d58132db1c538c931348",
+  "app": "kz.pickchick.kiosk",
+  "version": "0.1.0",
+  "build": "1",
+  "renderer": "native React Native Release, iPad Air 13 M4 Simulator",
+  "os": "iOS 26.5",
+  "viewport_points": [1024, 1366],
+  "xcode": "26.6 (17F113)",
+  "xcresult": "kiosk-ui-run07-air13.xcresult",
+  "test": "SmokeTests/testOriginalPortraitCompositionAndFixedCart",
+  "result": "1 passed, 0 failures, 38.124 seconds",
+  "testflight_uploaded": false,
+  "physical_lockdown_applied": false,
+  "screenshots": [
+    {
+      "file": "native-menu-air13.png",
+      "sha256": "65358f3d5fb4feaa0a4369fbfee54af80aa8bef57cb482bf5ec53c1faadf3140",
+      "width_px": 2048,
+      "height_px": 2732
+    },
+    {
+      "file": "native-mode-air13.png",
+      "sha256": "9dc4a7e56f615f517d8b573112532a4bf3816a41258ac0e091134afe6ace9e4f",
+      "width_px": 2048,
+      "height_px": 2732
+    }
+  ]
+}
