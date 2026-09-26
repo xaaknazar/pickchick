@@ -2614,7 +2614,7 @@
         "tags": [
           "Synthetic TEST"
         ],
-        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Synthetic customer data only.",
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Mobile requires customerBearer when phone_auth is enabled. Verified customers reuse their own actor; anonymous history is never adopted. Kiosk remains a separate pilot channel.",
         "security": [],
         "parameters": [
           {
@@ -9254,7 +9254,10 @@
           },
           "data_mode": {
             "type": "string",
-            "const": "synthetic"
+            "enum": [
+              "synthetic",
+              "pilot"
+            ]
           },
           "ordering_enabled": {
             "type": "boolean",
@@ -9264,8 +9267,7 @@
             "type": "object",
             "properties": {
               "phone_auth": {
-                "type": "boolean",
-                "const": false
+                "type": "boolean"
               },
               "checkout": {
                 "type": "boolean",

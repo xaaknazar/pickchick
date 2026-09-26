@@ -45,6 +45,7 @@ export * from './representation.js';
 export interface TestFlowConfig {
   enabled: boolean;
   environment: string;
+  customerAuthEnabled?: boolean;
 }
 export type TestFlowErrorCode =
   | 'DISABLED'
@@ -171,18 +172,46 @@ function accessExpiry(value: Date | number | undefined): string {
   if (value instanceof Date) return value.toISOString();
   throw new Error('Invalid TEST access expiry');
 }
+async function identityOwner(client: DatabaseClient, token: string): Promise<string> {
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new TestFlowError('UNAUTHORIZED');
+  const row = (
+    await client.query<{ customer_id: string }>(
+      `SELECT s.customer_id FROM identity_sessions s JOIN identity_customers c ON c.id=s.customer_id
+     WHERE s.access_hash=$1 AND s.revoked_at IS NULL AND s.access_expires_at>clock_timestamp()
+       AND c.deleted_at IS NULL FOR SHARE OF s,c`,
+      [hash(token)],
+    )
+  ).rows[0];
+  if (!row) throw new TestFlowError('UNAUTHORIZED');
+  return row.customer_id;
+}
 async function authenticate(
   client: DatabaseClient,
   token: string,
   roles: TestRole[],
+  customerAuthEnabled = false,
 ): Promise<Actor> {
   if (!/^[a-f0-9]{64}$/.test(token)) throw new TestFlowError('UNAUTHORIZED');
-  const actor = (
+  let actor = (
     await client.query<Actor>(
       'SELECT id,role,branch_id,channel FROM test_actors WHERE token_hash=$1 AND expires_at>clock_timestamp() AND revoked_at IS NULL',
       [hash(token)],
     )
   ).rows[0];
+  if (customerAuthEnabled && actor?.role === 'customer' && actor.channel === 'mobile')
+    throw new TestFlowError('UNAUTHORIZED');
+  if (!actor && customerAuthEnabled) {
+    const customerId = await identityOwner(client, token);
+    actor = (
+      await client.query<Actor>(
+        `SELECT a.id,a.role,a.branch_id,a.channel FROM identity_customer_test_actors m
+       JOIN test_actors a ON a.id=m.actor_id WHERE m.customer_id=$1
+       AND a.role='customer' AND a.channel='mobile' AND a.branch_id=$2
+       AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp()`,
+        [customerId, TEST_BRANCH_ID],
+      )
+    ).rows[0];
+  }
   if (!actor) throw new TestFlowError('UNAUTHORIZED');
   if (!roles.includes(actor.role)) throw new TestFlowError('FORBIDDEN');
   return actor;
@@ -473,7 +502,7 @@ export class TestOrderFlow {
     enabled(this.config);
     return transaction(this.pool, async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-      const actor = await authenticate(client, token, roles);
+      const actor = await authenticate(client, token, roles, this.config.customerAuthEnabled);
       return run(client, actor);
     });
   }
@@ -491,7 +520,7 @@ export class TestOrderFlow {
     return transaction(this.pool, async (client) => {
       // One synthetic branch uses a common short-lived write lock: quota/command/order lock order never inverts.
       await lockFlow(client);
-      const actor = await authenticate(client, token, roles);
+      const actor = await authenticate(client, token, roles, this.config.customerAuthEnabled);
       await checkBranch(client);
       const old = (
         await client.query<{ request_hash: string; result: T }>(
@@ -511,9 +540,11 @@ export class TestOrderFlow {
       return result;
     });
   }
-  async issueSession(input: unknown) {
+  async issueSession(input: unknown, token = '') {
     enabled(this.config);
     const body = parse(TestSessionInputSchema, input);
+    if (this.config.customerAuthEnabled && body.channel === 'mobile')
+      return this.customerSession(token);
     return transaction(this.pool, async (client) => {
       await lockFlow(client);
       await checkBranch(client);
@@ -541,9 +572,51 @@ export class TestOrderFlow {
       });
     });
   }
+  private async customerSession(token: string) {
+    return transaction(this.pool, async (client) => {
+      await lockFlow(client);
+      await checkBranch(client);
+      const customerId = await identityOwner(client, token);
+      const row = (
+        await client.query<{ actor_id: string }>(
+          'SELECT actor_id FROM identity_customer_test_actors WHERE customer_id=$1',
+          [customerId],
+        )
+      ).rows[0];
+      if (!row) {
+        const actorId = randomUUID();
+        // This token is never disclosed. Every request must use a current identity access token.
+        await client.query(
+          "INSERT INTO test_actors(id,branch_id,token_hash,role,channel,expires_at) VALUES($1,$2,$3,'customer','mobile','infinity')",
+          [actorId, TEST_BRANCH_ID, hash(randomBytes(32).toString('hex'))],
+        );
+        await client.query(
+          'INSERT INTO identity_customer_test_actors(customer_id,actor_id) VALUES($1,$2)',
+          [customerId, actorId],
+        );
+      }
+      const actor = await authenticate(client, token, ['customer'], true);
+      return TestSessionSchema.parse({
+        ...synthetic,
+        session_id: actor.id,
+        token,
+        expires_at: TEST_ACCESS_NO_EXPIRY,
+        channel: 'mobile',
+      });
+    });
+  }
   async continueSession(token: string, input: unknown) {
     enabled(this.config);
     parse(TestContinueSessionInputSchema, input);
+    if (this.config.customerAuthEnabled) {
+      const legacy = (
+        await this.pool.query<{ channel: string }>(
+          'SELECT channel FROM test_actors WHERE token_hash=$1',
+          [hash(token)],
+        )
+      ).rows[0];
+      if (!legacy || legacy.channel === 'mobile') return this.customerSession(token);
+    }
     if (!/^[a-f0-9]{64}$/.test(token)) throw new TestFlowError('UNAUTHORIZED');
     return transaction(this.pool, async (client) => {
       await lockFlow(client);

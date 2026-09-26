@@ -83,7 +83,24 @@ with sync_playwright() as p:
  expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
  page.get_by_test_id('open-cart').click()
  page.get_by_test_id('cart-close').click();page.goto(URL+'/menu')
- page.evaluate("""() => { window.sheetFrames=[];const until=performance.now()+1500;function tick(){ const el=document.querySelector('[data-testid="order-sheet"]');if(el)window.sheetFrames.push(el.getBoundingClientRect().y);if(performance.now()<until)requestAnimationFrame(tick); }requestAnimationFrame(tick); }""")
+ # Start the measurement on the actual click. On a cold CI export, auto-wait
+ # for hydration/splash can exceed the old timer before the sheet even opens.
+ page.get_by_test_id('open-cart').wait_for(state='visible')
+ page.evaluate("""() => {
+   window.sheetFrames=[];
+   const start = event => {
+     if (!event.target.closest('[data-testid="open-cart"]')) return;
+     document.removeEventListener('click', start, true);
+     const until=performance.now()+1500;
+     function tick(){
+       const el=document.querySelector('[data-testid="order-sheet"]');
+       if(el)window.sheetFrames.push(el.getBoundingClientRect().y);
+       if(performance.now()<until)requestAnimationFrame(tick);
+     }
+     requestAnimationFrame(tick);
+   };
+   document.addEventListener('click', start, true);
+ }""")
  page.get_by_test_id('open-cart').click();page.wait_for_timeout(500)
  frames=page.evaluate('sheetFrames');assert len(frames)>4 and max(frames)-min(frames)>80,frames
  handle=page.get_by_test_id('sheet-handle').bounding_box();x=handle['x']+handle['width']/2;y=handle['y']+handle['height']/2

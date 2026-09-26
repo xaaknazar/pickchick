@@ -25,10 +25,10 @@ export const BranchSchema = z.strictObject({
 export const CapabilitiesSchema = z.strictObject({
   schema_version: z.literal(1),
   environment: z.enum(['local', 'test', 'staging']),
-  data_mode: z.literal('synthetic'),
+  data_mode: z.enum(['synthetic', 'pilot']),
   ordering_enabled: z.literal(false),
   features: z.strictObject({
-    phone_auth: z.literal(false),
+    phone_auth: z.boolean(),
     checkout: z.literal(false),
     payments: z.literal(false),
     fiscal: z.literal(false),

@@ -216,3 +216,14 @@ test('a stalled full-catalog GET is aborted at its original ten-second deadline 
   await pending;
   assert.equal(passedSignal.aborted, true);
 });
+
+test('pilot capabilities expose phone identity while keeping commercial actions disabled', () => {
+  const pilot = {
+    ...capabilities,
+    data_mode: 'pilot',
+    features: { ...capabilities.features, phone_auth: true },
+  };
+  assert.equal(parseCapabilities(pilot).features.phone_auth, true);
+  for (const flags of [{ phone_auth: false }, { payments: true }, { fiscal: true }])
+    assert.throws(() => parseCapabilities({ ...pilot, features: { ...pilot.features, ...flags } }));
+});

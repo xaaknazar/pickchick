@@ -30,6 +30,7 @@ type Account = Omit<DemoAccount, 'kind'> & {
 };
 interface AccountContextValue {
   mode: 'demo' | 'server';
+  withOrderAccess?<T>(customerId: string, send: (token: string) => Promise<T>): Promise<T>;
   channels: CustomerChannel[];
   activeChannel: CustomerChannel | null;
   deliveryConsentVersion: string | null;
@@ -211,10 +212,21 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
       listener.remove();
     };
   }, [core, run, snapshot]);
+  const withOrderAccess = useCallback(
+    async <T,>(customerId: string, send: (token: string) => Promise<T>): Promise<T> => {
+      try {
+        return await core.withAccess(customerId, send);
+      } finally {
+        snapshot();
+      }
+    },
+    [core, snapshot],
+  );
   return (
     <CustomerContext.Provider
       value={{
         mode: 'server',
+        withOrderAccess,
         channels,
         activeChannel,
         deliveryConsentVersion: core.challenge?.deliveryConsentVersion ?? null,

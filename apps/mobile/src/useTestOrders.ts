@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { orderPollDelay } from './poll-cadence';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
-import { TestApiError, TestCustomerClient } from './test-client';
+import { TestApiError } from './test-client';
+import { useOrderClient } from './useOrderClient';
 import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
 import { canCreateTestOrder, observeSavedOrders } from './test-order-observation';
 import type { CartLine, DiningMode, PaymentMethod } from './model';
@@ -62,7 +63,10 @@ export function useTestOrders(
   const account = useAccount();
   const access = useRef(account);
   access.current = account;
-  const client = useMemo(() => new TestCustomerClient(), []);
+  const client = useOrderClient();
+  const customerId = account.mode === 'server' ? (account.account?.customerId ?? null) : 'demo';
+  const [visibleClient, setVisibleClient] = useState(client);
+  const sameAccount = visibleClient === client;
   const [orders, setOrders] = useState<TestOrder[]>([]);
   const [history, setHistory] = useState<TestOrder[]>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
@@ -81,10 +85,12 @@ export function useTestOrders(
   const [sessionExpired, setSessionExpired] = useState(false);
   const polling = useRef(false);
   const failures = useRef(0);
-  const allOrders = [
-    ...orders,
-    ...history.filter((old) => !orders.some((order) => order.order_id === old.order_id)),
-  ];
+  const allOrders = sameAccount
+    ? [
+        ...orders,
+        ...history.filter((old) => !orders.some((order) => order.order_id === old.order_id)),
+      ]
+    : [];
   const current = allOrders.find((order) => order.order_id === currentId) ?? null;
   const generation = useRef(0);
 
@@ -103,6 +109,7 @@ export function useTestOrders(
     const epoch = generation.current;
     polling.current = true;
     try {
+      if (customerId && customerId !== 'demo') await client.authenticate();
       const observation = await observeSavedOrders(client);
       if (epoch !== generation.current) return;
       setHasSavedSession(observation.hasSavedSession);
@@ -130,12 +137,30 @@ export function useTestOrders(
       }
     } finally {
       if (epoch === generation.current) setRestored(true);
-      polling.current = false;
+      if (epoch === generation.current) polling.current = false;
     }
-  }, [client]);
+  }, [client, customerId]);
 
   useEffect(() => {
     generation.current += 1;
+    setVisibleClient(client);
+    setOrders([]);
+    setHistory([]);
+    setCurrentId(null);
+    setObservedAt(null);
+    setHasSavedSession(false);
+    setRecoveryAvailable(false);
+    setSessionExpired(false);
+    setRestored(false);
+    setError(null);
+    setCommandError(null);
+    setBusy(false);
+    setHistoryBusy(false);
+    setMoreHistory(true);
+    historyCursor.current = undefined;
+    historyLock.current = false;
+    busyRef.current = false;
+    polling.current = false;
     void refresh();
     return () => {
       generation.current += 1;
@@ -239,6 +264,7 @@ export function useTestOrders(
     }
     if (!restored || busyRef.current) return null;
     generation.current += 1;
+    polling.current = false;
     const epoch = generation.current;
     busyRef.current = true;
     setBusy(true);
@@ -257,8 +283,10 @@ export function useTestOrders(
       }
       return null;
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      if (epoch === generation.current) {
+        busyRef.current = false;
+        setBusy(false);
+      }
       try {
         const pending = await client.hasPending();
         if (epoch === generation.current) setRecoveryAvailable(pending);
@@ -272,6 +300,7 @@ export function useTestOrders(
     if (!connectedTestOrdersEnabled || !accountCanAct(access.current)) return false;
     if (!hasSavedSession || !restored || busyRef.current) return false;
     generation.current += 1;
+    polling.current = false;
     const epoch = generation.current;
     busyRef.current = true;
     setBusy(true);
@@ -293,27 +322,31 @@ export function useTestOrders(
         );
       return false;
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      if (epoch === generation.current) {
+        busyRef.current = false;
+        setBusy(false);
+      }
     }
   };
 
   return {
     available: connectedTestOrdersEnabled && available,
-    restored,
-    hasSavedSession,
-    busy: busy || !restored,
-    error: commandError ?? error,
-    observedAt,
+    restored: sameAccount && restored,
+    hasSavedSession: sameAccount && hasSavedSession,
+    busy: !sameAccount || busy || !restored,
+    error: sameAccount ? (commandError ?? error) : null,
+    observedAt: sameAccount ? observedAt : null,
     orders: allOrders,
-    historyBusy,
-    moreHistory,
+    historyBusy: sameAccount && historyBusy,
+    moreHistory: sameAccount && moreHistory,
     loadHistory: async () => {
       if (historyLock.current || !moreHistory || !hasSavedSession) return;
+      const epoch = generation.current;
       historyLock.current = true;
       setHistoryBusy(true);
       try {
         const page = await client.history(historyCursor.current);
+        if (epoch !== generation.current) return;
         historyCursor.current = page.orders.at(-1)?.order_id ?? historyCursor.current;
         setHistory((previous) => [
           ...previous,
@@ -324,16 +357,18 @@ export function useTestOrders(
         setMoreHistory(page.has_more);
         setError(null);
       } catch (failure) {
-        setError(errorMessage(failure));
+        if (epoch === generation.current) setError(errorMessage(failure));
       } finally {
-        historyLock.current = false;
-        setHistoryBusy(false);
+        if (epoch === generation.current) {
+          historyLock.current = false;
+          setHistoryBusy(false);
+        }
       }
     },
     current,
-    recoveryAvailable,
+    recoveryAvailable: sameAccount && recoveryAvailable,
     recoverPending: () => run(() => client.recoverPending()),
-    sessionExpired,
+    sessionExpired: sameAccount && sessionExpired,
     continueSession,
     select: setCurrentId,
     refresh: () => {

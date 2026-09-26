@@ -86,6 +86,7 @@ export class TestOrderController {
     return new TestOrderFlow(this.resources.pool, {
       environment: config.environment,
       enabled: 'testOrderFlowEnabled' in config && config.testOrderFlowEnabled === true,
+      customerAuthEnabled: config.customerAuthEnabled === true,
     });
   }
   private token(value?: string) {
@@ -152,10 +153,15 @@ export class TestOrderController {
   }
   @Post('sessions') session(
     @Body() body: unknown,
+    @Headers('authorization') auth?: string,
     @Query('catalog_version') representation?: string,
     @Query('number_format') numberFormat?: string,
   ) {
-    return this.execute((flow) => flow.issueSession(body), representation, numberFormat);
+    return this.execute(
+      (flow) => flow.issueSession(body, this.token(auth)),
+      representation,
+      numberFormat,
+    );
   }
   @Post('sessions/continue') @HttpCode(200) continueSession(
     @Body() body: unknown,

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import type { TestFeedback, TestFeedbackInput } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
-import { TestApiError, TestCustomerClient } from '../test-client';
+import { TestApiError } from '../test-client';
+import { useOrderClient } from '../useOrderClient';
+import { useAccount } from '../useAccount';
 import { Body, Button, Caption, Heading, Icon, Loading, Notice, Page, Row } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
 import { orderUI } from '../components/OrderPresentation';
@@ -29,9 +31,20 @@ function message(error: unknown) {
 }
 
 export function ConnectedFeedback(props: ScreenProps) {
+  const account = useAccount();
+  const owner = account.mode === 'server' ? (account.account?.customerId ?? 'signed-out') : 'demo';
+  return (
+    <FeedbackForm
+      key={`${owner}:${props.screenId}:${props.model.testFlow.current?.order_id ?? ''}`}
+      {...props}
+    />
+  );
+}
+
+function FeedbackForm(props: ScreenProps) {
   const order = props.model.testFlow.current;
   const kind = props.screenId === 'M35' ? 'review' : 'ticket';
-  const client = useMemo(() => new TestCustomerClient(), []);
+  const client = useOrderClient();
   const [feedback, setFeedback] = useState<TestFeedback | null>(null);
   const [stars, setStars] = useState(0);
   const [text, setText] = useState('');
@@ -43,6 +56,12 @@ export function ConnectedFeedback(props: ScreenProps) {
   const id = order?.order_id;
   useEffect(() => {
     let active = true;
+    setFeedback(null);
+    setStars(0);
+    setText('');
+    setPending(null);
+    setError(null);
+    setSent(false);
     if (!id) {
       setBusy(false);
       return;

@@ -55,6 +55,16 @@ class Release(events.Release):
           USING(branch_id,business_date) WHERE c.last_number IS DISTINCT FROM e.n""")
         require(counters=='0','Daily counters differ from preserved history')
 
+    # Extension points retain the same immutable prepare/apply and owned-lock protocol.
+    def prepare_api(self, target): pass
+    def gateway_candidate(self, gateway): return gateway
+    def prepare_public(self, target, manifest): return manifest
+    def verify_capabilities(self, caps):
+        require(caps['features'].get('unpaid_test_orders') is True and caps['ordering_enabled'] is False,'Wrong TEST capability')
+        require(all(caps['features'][name] is False for name in ['phone_auth','checkout','payments','fiscal','loyalty']),'Commercial feature enabled')
+    def verify_public(self):
+        require(self.http_json('/kitchen-live/health')['edgeConnected'] is True,'Existing kitchen link disconnected')
+
     def prepare(self):
         self.source_checks()
         self.runtime_old()
@@ -67,7 +77,8 @@ class Release(events.Release):
         target = f'{REMOTE}/releases/{self.sha}'
         self.remote(f'test ! -e {target} && mkdir {target} && tar -xf - -C {target}', input=archive, timeout=180)
         self.remote('python3 -c ' + quote(market.release_env_script(self.profile)) + ' ' + ' '.join(map(quote, [
-            f'{REMOTE}/releases/{BASELINE}/release.env', target+'/release.env', self.sha, BASELINE])))
+            f'{REMOTE}/releases/{self.profile.old_api}/release.env', target+'/release.env', self.sha, self.profile.old_api])))
+        self.prepare_api(target)
         self.remote('! docker image inspect pickchick-api:'+self.sha+' >/dev/null 2>&1')
         print('Building immutable TEST API image', flush=True)
         image = self.remote(f'cd {target} && docker build -q -f infra/staging/Dockerfile --build-arg RELEASE_SHA={self.sha} -t pickchick-api:{self.sha} .', timeout=1200)
@@ -84,7 +95,7 @@ class Release(events.Release):
         compose = json.loads(self.remote(market.web_compose(self.profile.old_web)+' config --format json'))
         relocated = relocate_public_mounts(compose, old, new)
         self.remote('python3 -c '+quote('from pathlib import Path;import sys;Path(sys.argv[1]).write_text(sys.stdin.read())')+' '+quote(new+'/compose.yaml'), input=json.dumps(relocated))
-        gateway = self.old_gateway
+        gateway = self.gateway_candidate(self.old_gateway)
         self.remote('python3 -c '+quote('from pathlib import Path;import sys;Path(sys.argv[1]).write_text(sys.stdin.read())')+' '+quote(new+'/gateway.Caddyfile'), input=gateway)
         update = '''from pathlib import Path
 import json,hashlib,sys
@@ -100,6 +111,7 @@ for f in (root/'public-web/operations').rglob('*'):
 print(json.dumps(m))
 '''
         manifest=json.loads(self.remote('python3 -c '+quote(update)+' '+quote(new)+' '+self.sha))
+        manifest = self.prepare_public(new, manifest)
         self.remote(market.web_compose(self.sha)+' config --quiet')
         self.remote('docker run --rm --network none --entrypoint caddy -v '+new+'/gateway.Caddyfile:/tmp/Caddyfile:ro '+transport.CADDY+' validate --config /tmp/Caddyfile --adapter caddyfile')
         prepared={'sha':self.sha,'old_web':self.profile.old_web,'image_id':image,'public_manifest':manifest,
@@ -128,7 +140,7 @@ print(json.dumps(m))
         self.cleanup('acquire')
         self.remote(market.web_compose(self.profile.old_web)+' -f '+quote(self.maintenance+'/compose.json')+' up -d --no-deps --wait --wait-timeout 90 gateway',timeout=150)
         require(self.http('/v1/test/orders',method='POST')[0]==503,'Ingress did not close')
-        self.remote(market.api_compose(BASELINE)+' stop --timeout 30 api',timeout=60)
+        self.remote(market.api_compose(self.profile.old_api)+' stop --timeout 30 api',timeout=60)
         require(self.psql(market.DB,"SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND (usename='pickchick_app' OR xact_start IS NOT NULL)")=='0','Competing database writer')
         before={'data':self.snapshot(),'ledger':self.ledger(),'acl':self.acl(),'neighbors':self.fingerprint()}
         expected=[{'version':n,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/n).read_bytes())} for n in self.baseline_migrations()]
@@ -141,17 +153,16 @@ print(json.dumps(m))
             self.remote(market.api_compose(self.sha)+' run --rm --no-deps provision',timeout=180)
             self.verify_data(before)
         # Confirm old image can still serve retained additive schema, without running old provision.
-        self.remote(market.api_compose(BASELINE)+' up -d --no-deps --wait --wait-timeout 120 api',timeout=180)
+        self.remote(market.api_compose(self.profile.old_api)+' up -d --no-deps --wait --wait-timeout 120 api',timeout=180)
         require(self.http_json('/health/ready',public=False)['ready'],'Rollback image incompatible')
         self.remote(market.api_compose(self.sha)+' up -d --no-deps --wait --wait-timeout 120 api',timeout=180)
         require(self.http_json('/health/ready',public=False)['ready'],'Candidate not ready')
         caps=self.http_json('/v1/capabilities',public=False)
-        require(caps['features'].get('unpaid_test_orders') is True and caps['ordering_enabled'] is False,'Wrong TEST capability')
-        require(all(caps['features'][name] is False for name in ['phone_auth','checkout','payments','fiscal','loyalty']),'Commercial feature enabled')
+        self.verify_capabilities(caps)
         self.verify_data(before)
         require(self.fingerprint()==before['neighbors'],'Unrelated container changed')
         require(self.prepared_artifacts(proof['public_manifest'])==proof['artifacts'],'Artifacts changed before reopening')
-        self.switch(REMOTE+'/current',f'{REMOTE}/releases/{BASELINE}',f'{REMOTE}/releases/{self.sha}')
+        self.switch(REMOTE+'/current',f'{REMOTE}/releases/{self.profile.old_api}',f'{REMOTE}/releases/{self.sha}')
         self.switch(REMOTE+'/public-https/current',f'{REMOTE}/public-https/releases/{self.profile.old_web}',f'{REMOTE}/public-https/releases/{self.sha}')
         self.remote(market.web_compose(self.sha)+' up -d --no-deps --wait --wait-timeout 90 gateway',timeout=150)
         mounts = json.loads(self.remote('docker inspect --format '+quote('{{json .Mounts}}')+' '+market.GATEWAY))
@@ -163,10 +174,10 @@ print(json.dumps(m))
                 == proof['gateway_sha256'], 'Mounted gateway config differs')
         require(self.http_json('/v1/capabilities')==caps,'Public capability mismatch')
         for path in TEST_PATHS.split(): require(self.http(path)[0]==200,'TEST screen unavailable')
-        require(self.http_json('/kitchen-live/health')['edgeConnected'] is True,'Existing kitchen link disconnected')
+        self.verify_public()
         require(self.fingerprint()==before['neighbors'],'Unrelated container changed after reopening')
         self.cleanup('release')
-        self.save('result.json',{'source_sha':self.sha,'backup':backup,'schema':20,'commercial_enabled':False,'existing_data_preserved':True,'old_image_compatible':True,'reviewed_acl_additions':NUMBER_ACL,'web_mounts_verified':True})
+        self.save('result.json',{'source_sha':self.sha,'backup':backup,'schema':self.profile.baseline_count+len(self.profile.migrations),'commercial_enabled':False,'existing_data_preserved':True,'old_image_compatible':True,'runtime_acl_verified':True,'web_mounts_verified':True})
         print('Published TEST ordering, preserved edge kitchen and unrelated services',flush=True)
 
 

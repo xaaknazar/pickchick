@@ -623,3 +623,59 @@ test('pre-send consent gates OTP; lost response retains version and a changed po
   assert.equal(requests.length, 2);
   assert.deepEqual(requests[0].body, requests[1].body);
 });
+
+test('order access refreshes once, isolates owners and never blocks logout behind a watch', async () => {
+  const f = fixture();
+  await f.login();
+  await assert.rejects(
+    f.core.withAccess(randomUUID(), async () => assert.fail('wrong owner sent')),
+    code('UNAUTHORIZED'),
+  );
+  let attempts = 0;
+  const seen = [];
+  assert.equal(
+    await f.core.withAccess(f.customer.id, async (token) => {
+      seen.push(token);
+      if (attempts++ === 0) throw { status: 401 };
+      return 'order';
+    }),
+    'order',
+  );
+  assert.notEqual(seen[0], seen[1]);
+  assert.equal(f.calls.filter((x) => x.path.endsWith('/refresh')).length, 1);
+  let release;
+  let started;
+  const ready = new Promise((resolve) => {
+    started = resolve;
+  });
+  const late = f.core.withAccess(f.customer.id, async () => {
+    started();
+    return new Promise((resolve) => {
+      release = resolve;
+    });
+  });
+  await ready;
+  await f.core.signOut();
+  release('old private order');
+  await assert.rejects(late, code('UNAUTHORIZED'));
+});
+
+test('expired order access uses the current refreshed token and revoked identity cannot retry an order', async () => {
+  const f = fixture();
+  await f.login();
+  const old = JSON.parse(f.raw()).tokens.access_token;
+  f.tick(901000);
+  const current = await f.core.withAccess(f.customer.id, async (token) => token);
+  assert.notEqual(current, old);
+  f.revoke();
+  let attempts = 0;
+  await assert.rejects(
+    f.core.withAccess(f.customer.id, async () => {
+      attempts++;
+      throw { status: 401 };
+    }),
+    code('UNAUTHORIZED'),
+  );
+  assert.equal(attempts, 1);
+  assert.equal(f.core.customer, null);
+});

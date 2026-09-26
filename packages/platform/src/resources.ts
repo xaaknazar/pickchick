@@ -150,6 +150,7 @@ export class Resources implements OnApplicationShutdown {
               '013_cloud_identity_receipt_limits.sql',
               '022_cloud_otp_channels.sql',
               '023_cloud_otp_delivery_consent.sql',
+              '024_cloud_customer_pilot_orders.sql',
             ]) {
               const identityVersion = await this.pool.query(
                 'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
@@ -167,6 +168,7 @@ export class Resources implements OnApplicationShutdown {
               'identity_sms_daily_budget',
               'identity_consents',
               'identity_deletions',
+              'identity_customer_test_actors',
             ]) {
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
             }

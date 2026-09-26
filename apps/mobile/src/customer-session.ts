@@ -533,6 +533,40 @@ export class CustomerSessionCore {
       return this.refresh();
     });
   }
+  /** Order HTTP owns its timeout/abort. Serialize only token rotation, never the long poll. */
+  async withAccess<T>(customerId: string, send: (token: string) => Promise<T>): Promise<T> {
+    const check = () => {
+      const state = this.current();
+      if (state.closing || state.tokens?.customer.id !== customerId)
+        throw new CustomerSessionError('UNAUTHORIZED', 401, true);
+    };
+    const access = await this.serial(async () => {
+      check();
+      await this.refresh();
+      return this.refresh();
+    });
+    let result: T;
+    try {
+      result = await send(access);
+    } catch (error) {
+      if (!error || typeof error !== 'object' || !('status' in error) || error.status !== 401)
+        throw error;
+      const next = await this.serial(async () => {
+        check();
+        const state = this.current();
+        if (state.tokens!.access_token === access)
+          await this.persist({
+            ...state,
+            tokens: { ...state.tokens!, access_expires_at: new Date(0).toISOString() },
+          });
+        await this.refresh();
+        return this.refresh();
+      });
+      result = await send(next);
+    }
+    check();
+    return result;
+  }
   private async authenticated(
     path: string,
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',

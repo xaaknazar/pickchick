@@ -61,22 +61,36 @@ export async function testRequest(
   }
 }
 export class TestCustomerClient extends TestCustomerCore {
-  constructor() {
+  constructor(binding?: {
+    customerId: string | null;
+    authorize: <T>(send: (token: string) => Promise<T>) => Promise<T>;
+  }) {
+    const scopedKey = (key: string) =>
+      binding ? `${key}.customer.${binding.customerId ?? 'signed-out'}` : key;
     super({
       readSession: () =>
         Platform.OS === 'web'
-          ? AsyncStorage.getItem(SESSION_KEY)
-          : SecureStore.getItemAsync(SESSION_KEY),
+          ? AsyncStorage.getItem(scopedKey(SESSION_KEY))
+          : SecureStore.getItemAsync(scopedKey(SESSION_KEY)),
       saveSession: (raw) =>
         Platform.OS === 'web'
-          ? AsyncStorage.setItem(SESSION_KEY, raw)
-          : SecureStore.setItemAsync(SESSION_KEY, raw, {
+          ? AsyncStorage.setItem(scopedKey(SESSION_KEY), raw)
+          : SecureStore.setItemAsync(scopedKey(SESSION_KEY), raw, {
               keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
             }),
-      read: (key) => AsyncStorage.getItem(key),
-      write: (key, raw) => AsyncStorage.setItem(key, raw),
-      remove: (key) => AsyncStorage.removeItem(key),
-      request: testRequest,
+      read: (key) => AsyncStorage.getItem(scopedKey(key)),
+      write: (key, raw) => AsyncStorage.setItem(scopedKey(key), raw),
+      remove: (key) => AsyncStorage.removeItem(scopedKey(key)),
+      request: binding
+        ? (path, _token, body, key, options) =>
+            binding.authorize(async (token) => {
+              const result = await testRequest(path, token, body, key, options);
+              // The account provider owns access/refresh storage. Order storage holds only actor identity.
+              return path === '/sessions' || path === '/sessions/continue'
+                ? { ...(result as Record<string, unknown>), token: '0'.repeat(64) }
+                : result;
+            })
+        : testRequest,
       uuid: () => Crypto.randomUUID(),
       now: () => Date.now(),
     });

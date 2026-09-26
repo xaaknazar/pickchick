@@ -505,7 +505,12 @@ Object.assign(openapi.paths, {
     'createTestSession',
     'TestSession',
     'TestSessionInput',
-    { public: true, status: 201 },
+    {
+      public: true,
+      status: 201,
+      roles:
+        'Mobile requires customerBearer when phone_auth is enabled. Verified customers reuse their own actor; anonymous history is never adopted. Kiosk remains a separate pilot channel.',
+    },
   ),
   '/v1/test/quotes': testOperation('post', 'quoteTestCart', 'TestQuote', 'TestCart', {
     idempotent: true,

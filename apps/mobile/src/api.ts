@@ -6,9 +6,10 @@ export const API_URL = 'https://pickchick.185.129.51.103.nip.io';
 export interface Capabilities {
   schema_version: 1;
   environment: 'staging';
-  data_mode: 'synthetic';
+  data_mode: 'synthetic' | 'pilot';
   ordering_enabled: false;
-  features: Record<'phone_auth' | 'payments' | 'fiscal' | 'checkout' | 'loyalty', false> & {
+  features: Record<'payments' | 'fiscal' | 'checkout' | 'loyalty', false> & {
+    phone_auth: boolean;
     test_order_flow?: boolean;
     unpaid_test_orders?: boolean;
   };
@@ -20,7 +21,7 @@ export function parseCapabilities(value: unknown): Capabilities {
   if (
     c.schema_version !== 1 ||
     c.environment !== 'staging' ||
-    c.data_mode !== 'synthetic' ||
+    !['synthetic', 'pilot'].includes(String(c.data_mode)) ||
     c.ordering_enabled !== false ||
     !c.features ||
     typeof c.features !== 'object'
@@ -29,9 +30,10 @@ export function parseCapabilities(value: unknown): Capabilities {
   const flags = c.features as Record<string, unknown>;
   if (flags.test_order_flow !== undefined && typeof flags.test_order_flow !== 'boolean')
     throw new Error('Unsupported test feature');
-  for (const key of ['phone_auth', 'payments', 'fiscal', 'checkout', 'loyalty']) {
+  for (const key of ['payments', 'fiscal', 'checkout', 'loyalty']) {
     if (flags[key] !== false) throw new Error('Unsupported feature');
   }
+  if (flags.phone_auth !== (c.data_mode === 'pilot')) throw new Error('Invalid identity mode');
   return c as unknown as Capabilities;
 }
 

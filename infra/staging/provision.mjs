@@ -89,6 +89,8 @@ async function provision() {
       );
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
+      if (config.testOrderFlowEnabled)
+        await client.query('GRANT INSERT ON bo_records TO pickchick_app');
     });
     console.log(JSON.stringify({ event: 'staging_provisioned', applied }));
   } finally {

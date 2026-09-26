@@ -51,10 +51,10 @@ class CapabilitiesController {
     return CapabilitiesSchema.parse({
       schema_version: 1,
       environment: this.resources.config.environment,
-      data_mode: 'synthetic',
+      data_mode: this.resources.config.customerAuthEnabled ? 'pilot' : 'synthetic',
       ordering_enabled: false,
       features: {
-        phone_auth: false,
+        phone_auth: this.resources.config.customerAuthEnabled === true,
         checkout: false,
         payments: false,
         fiscal: false,
@@ -62,10 +62,15 @@ class CapabilitiesController {
         test_order_flow: this.resources.config.testOrderFlowEnabled === true,
         unpaid_test_orders: this.resources.config.testOrderFlowEnabled === true,
       },
-      notice: {
-        ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',
-        kk: 'PickChick сынақ ортасы. Сынақ режимі қосылғанда тек синтетикалық TEST сценарийі қолжетімді. Нақты тапсырыстар, SMS, төлемдер мен чектер қолжетімсіз.',
-      },
+      notice: this.resources.config.customerAuthEnabled
+        ? {
+            ru: 'Заказы в ресторане доступны без оплаты. Оплата и чеки в процессе подключения.',
+            kk: 'Мейрамханаға тапсырыстар төлемсіз қолжетімді. Төлем мен чектер қосылуда.',
+          }
+        : {
+            ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',
+            kk: 'PickChick сынақ ортасы. Сынақ режимі қосылғанда тек синтетикалық TEST сценарийі қолжетімді. Нақты тапсырыстар, SMS, төлемдер мен чектер қолжетімсіз.',
+          },
     });
   }
 }
