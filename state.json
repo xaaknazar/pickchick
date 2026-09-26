@@ -248,6 +248,35 @@
       "updatedAt": "2026-09-25T15:14:02.219Z",
       "summary": "26eee8f / PR93: понятные активные заказы и история, live этапы; отзывы после выдачи и обращения управляющему, durable retry, ownership, BO readonly originals; ручная корзина. 25 PostgreSQL, 29 mobile +3 access, 7 roadmap, browser orders/cart4 и catalog3, recovery, TypeScript/lint/contracts, Dev iOS/Android HTTP200. CI нового SHA ещё выполняется.",
       "nextAction": "Выпустить backend/gateway/backoffice из фактического VPS020 с отдельной проверкой021 и INSERT ACL bo_records, после зелёной CI. До выпуска приём feedback недоступен. Пульт/TestFlight/приёмка на устройствах не обновлены, чек ждёт ККМ. См. docs/operations/mobile-orders.md."
+    },
+    {
+      "id": "telegram-login",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/telegram-login",
+      "scopes": [
+        "packages/phone-verification",
+        "packages/customer-identity",
+        "apps/mobile",
+        "services/api/src/customer-auth-controller.ts",
+        "tests/unit/phone-delivery.test.mjs",
+        "tests/unit/customer-identity.test.mjs",
+        "tests/unit/phone-preflight.test.mjs",
+        "tests/integration/customer-identity.test.mjs",
+        "tests/mobile/customer-session.test.mjs",
+        "scripts/phone-verification-preflight.mjs",
+        ".env.phone.example",
+        "db/cloud/migrations",
+        "docs/operations/telegram-login.md",
+        "docs/operations/whatsapp-login.md",
+        "docs/operations/customer-identity.md",
+        "docs/integrations/phone-verification.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "26eee8feea0b38c0d672fd1000c53780784ba79f",
+      "updatedAt": "2026-09-26T11:53:30.462Z"
     }
   ]
 }
