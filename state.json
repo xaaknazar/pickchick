@@ -370,11 +370,14 @@
         "@vps/api",
         "@vps/public",
         "@vps/roadmap",
-        "apps/mobile"
+        "apps/mobile",
+        "tests/unit/server-pilot-release.test.mjs",
+        "scripts/customer-identity-maintenance.mjs",
+        ".env.customer-auth.example"
       ],
       "status": "active",
       "head": "9c0c61d64c3c7a606bab433b89e48faffd52e9ca",
-      "updatedAt": "2026-09-26T14:01:17.430Z"
+      "updatedAt": "2026-09-26T14:08:55.930Z"
     }
   ]
 }
