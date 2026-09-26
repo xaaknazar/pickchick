@@ -198,7 +198,13 @@ test('013-014/018 preserve old unacknowledged commercial bytes and observed tota
               (await ctx[side].pool.query('SELECT row_to_json(t) r FROM ' + table + ' t')).rows,
             );
         for (const side of ['edge', 'cloud']) {
-          const changed = await migrate(ctx[side].pool, paths[side], side);
+          // Pin this historical transition; unrelated future migrations must not change its scope.
+          const target = side === 'edge' ? edgeOld : cloudOld;
+          const maximum = side === 'edge' ? '015' : '022';
+          for (const name of await readdir(paths[side]))
+            if (/^\d{3}_[a-z_]+\.sql$/.test(name) && name < maximum)
+              await copyFile(join(paths[side], name), join(target, name));
+          const changed = await migrate(ctx[side].pool, target, side);
           assert.deepEqual(
             changed,
             side === 'edge'
@@ -210,7 +216,7 @@ test('013-014/018 preserve old unacknowledged commercial bytes and observed tota
                   '021_cloud_test_service_shifts.sql',
                 ],
           );
-          assert.deepEqual(await migrate(ctx[side].pool, paths[side], side), []);
+          assert.deepEqual(await migrate(ctx[side].pool, target, side), []);
         }
         for (const side of ['edge', 'cloud'])
           for (const table of tables[side]) {

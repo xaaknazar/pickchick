@@ -5,7 +5,9 @@ import { createServer } from 'node:http';
 import { Resources } from '@pickchick/platform';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, symlink, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApi } from '@pickchick/api';
 import { createEdge } from '@pickchick/edge';
@@ -469,10 +471,21 @@ test('enabled readiness requires migration and edge binding; disabled serving st
 test('runtime worker handles SIGTERM and restarts pending network delivery from PostgreSQL', async () => {
   await fixture(async (ctx) => {
     await order(ctx, true);
-    const directory = new URL('../../../.local/', import.meta.url),
-      identityPath = new URL('edge-identity.json', directory);
-    await mkdir(directory, { recursive: true, mode: 0o700 });
-    // wx preserves any developer identity: this dedicated worktree must not have one.
+    const directory = await mkdtemp(join(tmpdir(), 'pickchick-pos-worker-'));
+    const identityPath = join(directory, '.local', 'edge-identity.json');
+    await mkdir(join(directory, '.local'), { mode: 0o700 });
+    await mkdir(join(directory, 'scripts'));
+    // Execute unchanged worker files in an isolated fixture; never touch the operator's identity.
+    for (const name of ['pos-order-sync-worker.mjs', 'private-identity.mjs'])
+      await copyFile(
+        new URL('../../../scripts/' + name, import.meta.url),
+        join(directory, 'scripts', name),
+      );
+    await symlink(
+      fileURLToPath(new URL('../../../node_modules', import.meta.url)),
+      join(directory, 'node_modules'),
+      'dir',
+    );
     await writeFile(identityPath, JSON.stringify(ctx.identity), { flag: 'wx', mode: 0o600 });
     const unavailable = createServer();
     await new Promise((resolve) => unavailable.listen(0, '127.0.0.1', resolve));
@@ -480,23 +493,19 @@ test('runtime worker handles SIGTERM and restarts pending network delivery from 
     await new Promise((resolve) => unavailable.close(resolve));
     let child;
     function start(origin) {
-      return spawn(
-        process.execPath,
-        [fileURLToPath(new URL('../../../scripts/pos-order-sync-worker.mjs', import.meta.url))],
-        {
-          env: {
-            ...process.env,
-            APP_ENV: 'test',
-            EDGE_DATABASE_URL: ctx.edge.config.databaseUrl,
-            EDGE_BRANCH_ID: ctx.branch,
-            EDGE_DEVICE_ID: ctx.device,
-            EDGE_POS_ORDER_SYNC_ENABLED: 'true',
-            CLOUD_POS_ORDER_SYNC_ENABLED: 'false',
-            EDGE_POS_ORDER_SYNC_CLOUD_ORIGIN: origin,
-          },
-          stdio: ['ignore', 'pipe', 'pipe'],
+      return spawn(process.execPath, [join(directory, 'scripts', 'pos-order-sync-worker.mjs')], {
+        env: {
+          ...process.env,
+          APP_ENV: 'test',
+          EDGE_DATABASE_URL: ctx.edge.config.databaseUrl,
+          EDGE_BRANCH_ID: ctx.branch,
+          EDGE_DEVICE_ID: ctx.device,
+          EDGE_POS_ORDER_SYNC_ENABLED: 'true',
+          CLOUD_POS_ORDER_SYNC_ENABLED: 'false',
+          EDGE_POS_ORDER_SYNC_CLOUD_ORIGIN: origin,
         },
-      );
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
     }
     function state(process, state, count = 1) {
       return new Promise((resolve, reject) => {
@@ -551,7 +560,7 @@ test('runtime worker handles SIGTERM and restarts pending network delivery from 
         child.kill('SIGKILL');
         await ended;
       }
-      await rm(identityPath);
+      await rm(directory, { recursive: true, force: true });
     }
   });
 });

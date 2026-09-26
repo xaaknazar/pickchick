@@ -19,7 +19,8 @@ $5 - намерение пополнить, не факт оплаты. См. `d
 
 28 Node, общие DB191 (189pass/1skip/1старый сбой), исправленный исторический
 upgrade-тест отдельным повтором, transport9+46, build/typecheck/export и UI393/320
-прошли. Базовая CI красная; причину transport CI не установили (локально зелёный).
+прошли. Базовая CI красная; в POS sync тоже исправлен старый migration-тест и изолирован
+worker fixture от настоящего edge-identity.json;4 unit/16 DB и4 capacity прошли.
 Сначала свежие CI и release guards, затем API с VPS020 через021/022/023,
 ACL feedback, публичные legal URL и mobile server-auth. Нужна серверная привязка
 заказов: useTestOrders и useAccount пока держат разные сессии. Не приклеивать
