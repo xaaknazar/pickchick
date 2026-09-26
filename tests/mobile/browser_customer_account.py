@@ -47,11 +47,13 @@ with sync_playwright() as p:
             calls.append({'path': path, 'method': request.method, 'body': body})
             status = 200
             if path == '/v1/auth/config':
-                response = {'enabled': True, 'consent_version': policy['version'],
+                response = {'enabled': True, 'delivery_consent_required': True,
+                            'consent_version': policy['version'],
                             'terms_url': 'https://example.test/terms',
                             'privacy_url': 'https://example.test/privacy'}
             elif path == '/v1/auth/otp/request':
                 assert body['phone'] == '+7' + PHONE
+                assert body['delivery_consent'] == {'privacy_version': policy['version'], 'accepted': True}
                 assert len(body['request_id']) == 36 and len(body['device_id']) == 36
                 status = 202
                 response = {'challenge_id': '40000000-0000-4000-8000-000000000003',
@@ -102,6 +104,9 @@ with sync_playwright() as p:
         page.goto(URL + '/screen/M02')
         expect(visible(page, 'phone-input')).to_be_editable()
         visible(page, 'phone-input').fill(PHONE)
+        expect(visible(page, 'request-otp')).to_be_disabled()
+        assert not any(call['path'] == '/v1/auth/otp/request' for call in calls)
+        visible(page, 'delivery-consent').click()
         expect(visible(page, 'request-otp')).to_be_enabled()
         expect(page.get_by_text('Код входа 123456. SMS не отправляется.', exact=True)).to_have_count(0)
         page.screenshot(path=str(OUTPUT / f'phone-{width}.png'))
