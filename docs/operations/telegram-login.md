@@ -104,3 +104,13 @@ ignored). Номер, токен, код и ответы с балансом н�
 - [Gateway и тариф](https://core.telegram.org/gateway)
 
 Повторное пополнение, регистрация и расход средств выполняются владельцем.
+
+## Публикация результата
+
+[PR94](https://github.com/xaaknazar/pickchick/pull/94), код
+`1ca4c881b92a087cff25183988330120ed4cd1fc` опубликован в GitHub. Онлайн-roadmap
+установлен из того же SHA; `/roadmap/health` подтвердил его. Release guards
+подтвердили неизменность API, кухни, PostgreSQL/Redis и соседних сервисов.
+Опубликован именно план: identity backend и публичные auth-маршруты этим
+обновлением не устанавливались. GitHub CI на момент публикации выполняется;
+готовность main/production не заявлена.
