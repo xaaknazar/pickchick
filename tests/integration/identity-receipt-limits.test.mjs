@@ -47,6 +47,7 @@ async function fixture(run) {
     const request = await identity.requestOtp(
       {
         phone: '+77010000001',
+        delivery_consent: { privacy_version: config.consentVersion, accepted: true },
         device_id: '10000000-0000-4000-8000-000000000009',
         request_id: randomUUID(),
       },
@@ -234,6 +235,10 @@ test('changed accepted input spends a failure and exhausted recovery can be repl
     const request = await ctx.identity.requestOtp(
       {
         phone: '+77010000001',
+        delivery_consent: {
+          privacy_version: ctx.verification.consents.privacy_version,
+          accepted: true,
+        },
         device_id: ctx.verification.device_id,
         request_id: randomUUID(),
       },

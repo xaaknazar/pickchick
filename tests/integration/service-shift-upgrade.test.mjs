@@ -69,10 +69,13 @@ test('020 to 021 preserves issued numbers and order history, continues current c
             'SELECT order_id,branch_id,business_date,number FROM test_order_numbers ORDER BY order_id',
           )
         ).rows;
-        assert.deepEqual(await migrate(pool, directory, 'cloud'), [
-          '021_cloud_test_service_shifts.sql',
-        ]);
-        assert.deepEqual(await migrate(pool, directory, 'cloud'), []);
+        // Keep this historical upgrade pinned to 021; later auth migrations have their own checks.
+        await copyFile(
+          join(directory, '021_cloud_test_service_shifts.sql'),
+          join(old, '021_cloud_test_service_shifts.sql'),
+        );
+        assert.deepEqual(await migrate(pool, old, 'cloud'), ['021_cloud_test_service_shifts.sql']);
+        assert.deepEqual(await migrate(pool, old, 'cloud'), []);
         for (const table of tables) assert.deepEqual(await read(table), before.get(table), table);
         assert.deepEqual(
           (

@@ -32,6 +32,7 @@ interface AccountContextValue {
   mode: 'demo' | 'server';
   channels: CustomerChannel[];
   activeChannel: CustomerChannel | null;
+  deliveryConsentVersion: string | null;
   account: Account | null;
   challenge: DemoChallenge | null;
   deliveryUnknown: boolean;
@@ -42,7 +43,11 @@ interface AccountContextValue {
   busy: boolean;
   error: string | null;
   retryRestore(): Promise<boolean>;
-  requestCode(phone: string, channel?: CustomerChannel): Promise<boolean>;
+  requestCode(
+    phone: string,
+    channel?: CustomerChannel,
+    acceptedDeliveryVersion?: string | null,
+  ): Promise<boolean>;
   verifyCode(code: string, acceptedVersion?: string | null): Promise<boolean>;
   saveProfile(input: DemoProfileInput): Promise<boolean>;
   cancelChallenge(): void;
@@ -212,6 +217,7 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
         mode: 'server',
         channels,
         activeChannel,
+        deliveryConsentVersion: core.challenge?.deliveryConsentVersion ?? null,
         account,
         challenge,
         deliveryUnknown,
@@ -227,7 +233,8 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
             snapshot();
             await core.sync();
           }),
-        requestCode: (phone, channel) => run(() => core.requestCode(phone, channel)),
+        requestCode: (phone, channel, version) =>
+          run(() => core.requestCode(phone, channel, version)),
         verifyCode: (code, acceptedVersion = null) =>
           run(() => core.verifyCode(code, acceptedVersion)),
         saveProfile: (input) => run(() => core.saveProfile(input)),
@@ -259,6 +266,7 @@ export function useAccount(): AccountContextValue {
     mode: 'demo',
     channels: ['sms'],
     activeChannel: 'sms',
+    deliveryConsentVersion: null,
     deliveryUnknown: false,
     pendingVerify: false,
     pendingOtp: false,

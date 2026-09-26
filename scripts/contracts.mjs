@@ -673,6 +673,7 @@ Object.assign(openapi.components.schemas, {
     required: ['enabled', 'consent_version', 'terms_url', 'privacy_url'],
     properties: {
       enabled: { type: 'boolean' },
+      delivery_consent_required: { type: 'boolean' },
       channels: {
         type: 'array',
         minItems: 1,

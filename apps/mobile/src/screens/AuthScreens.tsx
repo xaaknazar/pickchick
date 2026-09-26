@@ -54,6 +54,7 @@ export function Phone(props: ScreenProps) {
   const input = useRef<TextInput>(null);
   const phoneRef = useRef(initial.current);
   const [phone, setPhone] = useState(initial.current);
+  const [deliveryConsentKey, setDeliveryConsentKey] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<CustomerChannel>('telegram');
   const channel =
     demo.pendingOtp && demo.activeChannel
@@ -79,10 +80,14 @@ export function Phone(props: ScreenProps) {
   }, [demo.account, demo.challenge]);
 
   const valid = normalizeDemoPhone(phone) !== null;
+  const currentConsentKey = `${demo.legal?.version}:${channel}:${normalizeDemoPhone(phone)}`;
+  const deliveryAccepted =
+    demo.mode === 'demo' ||
+    Boolean(demo.legal && valid && deliveryConsentKey === currentConsentKey);
   const request = async () => {
-    if (props.preview) return;
+    if (props.preview || !deliveryAccepted) return;
     setSubmitted(true);
-    if (await demo.requestCode(phoneRef.current, channel)) {
+    if (await demo.requestCode(phoneRef.current, channel, demo.legal?.version)) {
       setSubmitted(false);
       Keyboard.dismiss();
       props.navigate('M03');
@@ -120,7 +125,9 @@ export function Phone(props: ScreenProps) {
                 : 'Вход пока недоступен'
           }
           testID="request-otp"
-          disabled={props.preview || !demo.ready || demo.busy || !valid || !channel}
+          disabled={
+            props.preview || !demo.ready || demo.busy || !valid || !channel || !deliveryAccepted
+          }
           onPress={() => void request()}
         />
       }
@@ -222,6 +229,28 @@ export function Phone(props: ScreenProps) {
           </Text>
         </View>
       ) : null}
+      {demo.mode === 'server' && demo.legal && channel ? (
+        <Pressable
+          testID="delivery-consent"
+          accessibilityRole="checkbox"
+          aria-checked={deliveryAccepted}
+          accessibilityState={{ checked: deliveryAccepted, disabled: !valid || demo.busy }}
+          disabled={!valid || demo.busy || props.preview}
+          onPress={() => setDeliveryConsentKey(deliveryAccepted ? null : currentConsentKey)}
+          style={({ pressed }) => [s.deliveryConsent, pressed && s.pressed]}
+        >
+          <Icon
+            name={deliveryAccepted ? 'checkbox' : 'square-outline'}
+            size={26}
+            color={authColors.blueInk}
+          />
+          <Text style={[s.legalText, { flex: 1 }]}>
+            Согласен на обработку номера и передачу номера и кода{' '}
+            {channel === 'telegram' ? 'Telegram Gateway' : 'SMS-провайдеру'} для подтверждения
+            входа.
+          </Text>
+        </Pressable>
+      ) : null}
       {demo.mode === 'server' && demo.ready && !demo.busy && demo.channels.length === 0 ? (
         <View style={s.channelGroup}>
           <Text accessibilityRole="alert" style={s.channelHint}>
@@ -318,7 +347,14 @@ export function Otp(props: ScreenProps) {
   const resend = async (channel: CustomerChannel = demo.activeChannel ?? 'sms') => {
     if (!challenge || props.preview) return;
     setSubmitted(true);
-    if (await demo.requestCode(challenge.phone, channel)) {
+    if (
+      demo.mode === 'server' &&
+      (!demo.deliveryConsentVersion || demo.deliveryConsentVersion !== demo.legal?.version)
+    ) {
+      props.navigate('M02');
+      return;
+    }
+    if (await demo.requestCode(challenge.phone, channel, demo.deliveryConsentVersion)) {
       setNow(Date.now());
       setSubmitted(false);
     }
@@ -453,11 +489,11 @@ export function Otp(props: ScreenProps) {
                 accessibilityRole="button"
                 accessibilityState={{ disabled: remaining > 0 || demo.busy }}
                 disabled={props.preview || remaining > 0 || demo.busy}
-                onPress={() => void resend(option)}
+                onPress={() => props.navigate('M02')}
                 style={({ pressed }) => [s.resend, pressed && s.pressed]}
               >
                 <Text style={[s.resendText, remaining === 0 && s.resendReady]}>
-                  {option === 'sms' ? 'Получить код по SMS' : 'Получить код в Telegram'}
+                  Изменить способ получения кода
                 </Text>
               </Pressable>
             ))
@@ -469,6 +505,14 @@ export function Otp(props: ScreenProps) {
 }
 
 const s = StyleSheet.create({
+  deliveryConsent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    minHeight: 48,
+    marginTop: 18,
+    paddingVertical: 8,
+  },
   channelGroup: { marginTop: 20, gap: 10 },
   channelTitle: { fontFamily: font.body, fontSize: 16, lineHeight: 24, color: authColors.text },
   channelChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

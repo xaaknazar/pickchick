@@ -43,6 +43,9 @@ export const OtpRequestSchema = z
     device_id: Uuid,
     request_id: Uuid,
     channel: OtpChannelSchema.optional(),
+    delivery_consent: z
+      .object({ privacy_version: z.string().min(1).max(100), accepted: z.literal(true) })
+      .strict(),
   })
   .strict();
 export const OtpVerifySchema = z

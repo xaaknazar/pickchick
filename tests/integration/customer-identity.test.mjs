@@ -53,7 +53,12 @@ async function fixture(run, budget = 100) {
     async function challenge(device = randomUUID(), number = phone) {
       const requested = OtpResponseSchema.parse(
         await identity.requestOtp(
-          { phone: number, device_id: device, request_id: randomUUID() },
+          {
+            phone: number,
+            delivery_consent: { privacy_version: version, accepted: true },
+            device_id: device,
+            request_id: randomUUID(),
+          },
           ip,
         ),
       );
@@ -110,7 +115,12 @@ test('deployed identity grants permit the complete session lifecycle and revoke 
       const identity = new CustomerIdentity(runtime, ctx.settings, ctx.delivery);
       const device = randomUUID();
       const requested = await identity.requestOtp(
-        { phone, device_id: device, request_id: randomUUID() },
+        {
+          phone,
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: device,
+          request_id: randomUUID(),
+        },
         ip,
       );
       const verified = await identity.verifyOtp({
@@ -214,7 +224,7 @@ test('mobile session client survives committed verify and rotation response loss
       };
       let client = new CustomerSessionCore(io);
       await client.restore();
-      await client.requestCode(phone);
+      await client.requestCode(phone, 'sms', version);
       const otp = ctx.deliveries[0].code;
       await assert.rejects(client.verifyCode(otp, version));
       assert.equal(client.customer, null);
@@ -305,7 +315,15 @@ test('concurrent requests reserve once before delivery; restart preserves cooldo
     const device = randomUUID();
     const results = await Promise.allSettled(
       Array.from({ length: 12 }, () =>
-        ctx.identity.requestOtp({ phone, device_id: device, request_id: randomUUID() }, ip),
+        ctx.identity.requestOtp(
+          {
+            phone,
+            delivery_consent: { privacy_version: version, accepted: true },
+            device_id: device,
+            request_id: randomUUID(),
+          },
+          ip,
+        ),
       ),
     );
     assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
@@ -314,12 +332,15 @@ test('concurrent requests reserve once before delivery; restart preserves cooldo
     );
     assert.equal(ctx.deliveries.length, 1);
     await assert.rejects(
-      ctx
-        .make()
-        .requestOtp(
-          { phone: '8 (701) 000-00-01', device_id: randomUUID(), request_id: randomUUID() },
-          ip,
-        ),
+      ctx.make().requestOtp(
+        {
+          phone: '8 (701) 000-00-01',
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: randomUUID(),
+          request_id: randomUUID(),
+        },
+        ip,
+      ),
       error('RATE_LIMITED'),
     );
     assert.equal(
@@ -335,6 +356,7 @@ test('daily global budget fails closed under distinct concurrent phones/devices 
         ctx.identity.requestOtp(
           {
             phone: '+770100000' + String(n + 11),
+            delivery_consent: { privacy_version: version, accepted: true },
             device_id: randomUUID(),
             request_id: randomUUID(),
           },
@@ -360,7 +382,15 @@ test('unknown and thrown transport responses have one submission, no blind retry
     await ctx.ageRequests();
     ctx.setOutcome({ kind: 'rejected', reason: 'provider_rejected', providerCode: 9 });
     await assert.rejects(
-      ctx.identity.requestOtp({ phone, device_id: randomUUID(), request_id: randomUUID() }, ip),
+      ctx.identity.requestOtp(
+        {
+          phone,
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: randomUUID(),
+          request_id: randomUUID(),
+        },
+        ip,
+      ),
       error('SERVICE_UNAVAILABLE'),
     );
     assert.equal(ctx.deliveries.length, 2);
@@ -654,7 +684,12 @@ test('logout and deletion revoke refresh recovery and all customer devices; dele
 
 test('lost request response replays the same challenge without spending budget or sending another SMS', async () =>
   fixture(async (ctx) => {
-    const input = { phone, device_id: randomUUID(), request_id: randomUUID() };
+    const input = {
+      phone,
+      delivery_consent: { privacy_version: version, accepted: true },
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+    };
     const first = await ctx.identity.requestOtp(input, ip);
     assert.deepEqual(
       await ctx.make().requestOtp({ ...input, phone: '8 (701) 000-00-01' }, ip),
@@ -686,7 +721,12 @@ test('request replay while provider is still pending returns unknown without a s
     });
     let submissions = 0;
     const settings = config(100),
-      input = { phone, device_id: randomUUID(), request_id: randomUUID() };
+      input = {
+        phone,
+        delivery_consent: { privacy_version: version, accepted: true },
+        device_id: randomUUID(),
+        request_id: randomUUID(),
+      };
     const identity = new CustomerIdentity(ctx.pool, settings, {
       provider: 'mobizon',
       async sendCode() {
@@ -707,7 +747,12 @@ test('request replay while provider is still pending returns unknown without a s
 
 test('cleanup purges private OTP payload and keeps a PII-free tombstone preventing an old key from sending again', async () =>
   fixture(async (ctx) => {
-    const input = { phone, device_id: randomUUID(), request_id: randomUUID() };
+    const input = {
+      phone,
+      delivery_consent: { privacy_version: version, accepted: true },
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+    };
     await ctx.identity.requestOtp(input, ip);
     await ctx.pool.query(
       "UPDATE identity_otp_challenges SET created_at=created_at-interval '25 hours',expires_at=expires_at-interval '25 hours'",
@@ -746,13 +791,26 @@ test('phone, device and shared-IP rolling limits survive new request IDs without
   fixture(async (ctx) => {
     for (let n = 0; n < 5; n++) {
       await ctx.identity.requestOtp(
-        { phone, device_id: randomUUID(), request_id: randomUUID() },
+        {
+          phone,
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: randomUUID(),
+          request_id: randomUUID(),
+        },
         ip,
       );
       await ctx.ageRequests();
     }
     await assert.rejects(
-      ctx.make().requestOtp({ phone, device_id: randomUUID(), request_id: randomUUID() }, ip),
+      ctx.make().requestOtp(
+        {
+          phone,
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: randomUUID(),
+          request_id: randomUUID(),
+        },
+        ip,
+      ),
       error('RATE_LIMITED'),
     );
     assert.equal(ctx.deliveries.length, 5);
@@ -761,6 +819,7 @@ test('phone, device and shared-IP rolling limits survive new request IDs without
       await ctx.identity.requestOtp(
         {
           phone: '+7701' + String(n).padStart(7, '0'),
+          delivery_consent: { privacy_version: version, accepted: true },
           device_id: device,
           request_id: randomUUID(),
         },
@@ -769,27 +828,37 @@ test('phone, device and shared-IP rolling limits survive new request IDs without
       await ctx.ageRequests();
     }
     await assert.rejects(
-      ctx
-        .make()
-        .requestOtp({ phone: '+77010000021', device_id: device, request_id: randomUUID() }, ip),
+      ctx.make().requestOtp(
+        {
+          phone: '+77010000021',
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: device,
+          request_id: randomUUID(),
+        },
+        ip,
+      ),
       error('RATE_LIMITED'),
     );
     for (let n = 30; n < 45; n++)
       await ctx.identity.requestOtp(
         {
           phone: '+7701' + String(n).padStart(7, '0'),
+          delivery_consent: { privacy_version: version, accepted: true },
           device_id: randomUUID(),
           request_id: randomUUID(),
         },
         ip,
       );
     await assert.rejects(
-      ctx
-        .make()
-        .requestOtp(
-          { phone: '+77010000046', device_id: randomUUID(), request_id: randomUUID() },
-          ip,
-        ),
+      ctx.make().requestOtp(
+        {
+          phone: '+77010000046',
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: randomUUID(),
+          request_id: randomUUID(),
+        },
+        ip,
+      ),
       error('RATE_LIMITED'),
     );
     assert.equal(ctx.deliveries.length, 30);
@@ -851,6 +920,7 @@ test('HTTP controller exposes strict responses and sanitized errors with no-stor
       const device = randomUUID();
       const challenge = await request('/v1/auth/otp/request', {
         phone,
+        delivery_consent: { privacy_version: version, accepted: true },
         device_id: device,
         request_id: randomUUID(),
       });
@@ -1008,7 +1078,13 @@ test('channel is durable and immutable for replay; fallback shares budget/cooldo
       },
     };
     const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
-    const body = { phone, device_id: randomUUID(), request_id: randomUUID(), channel: 'telegram' };
+    const body = {
+      phone,
+      delivery_consent: { privacy_version: version, accepted: true },
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+      channel: 'telegram',
+    };
     assert.deepEqual(identity.config().channels, ['telegram', 'sms']);
     const first = await identity.requestOtp(body, ip);
     assert.equal(first.channel, 'telegram');
@@ -1070,7 +1146,15 @@ test('Telegram-only configuration refuses legacy SMS requests before reservation
     };
     const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
     await assert.rejects(
-      identity.requestOtp({ phone, device_id: randomUUID(), request_id: randomUUID() }, ip),
+      identity.requestOtp(
+        {
+          phone,
+          delivery_consent: { privacy_version: version, accepted: true },
+          device_id: randomUUID(),
+          request_id: randomUUID(),
+        },
+        ip,
+      ),
       error('SERVICE_UNAVAILABLE'),
     );
     assert.equal(
@@ -1078,3 +1162,79 @@ test('Telegram-only configuration refuses legacy SMS requests before reservation
       '0',
     );
   }));
+
+test('delivery consent is mandatory before any reservation or provider call and persists before dispatch', async () =>
+  fixture(async (ctx) => {
+    const base = { phone, device_id: randomUUID(), request_id: randomUUID(), channel: 'telegram' };
+    let delivered = 0;
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, {
+      provider: 'telegram_gateway',
+      async sendCode() {
+        const row = (
+          await ctx.pool.query(
+            'SELECT delivery_consent_version, created_at FROM identity_otp_challenges WHERE request_id=$1',
+            [base.request_id],
+          )
+        ).rows[0];
+        assert.equal(row.delivery_consent_version, version);
+        assert.ok(row.created_at);
+        delivered++;
+        return {
+          kind: 'submitted',
+          provider: 'telegram_gateway',
+          submission: 'accepted',
+          messageId: 'consent-fixture',
+        };
+      },
+    });
+    for (const delivery_consent of [
+      undefined,
+      { privacy_version: version, accepted: false },
+      { privacy_version: 'old', accepted: true },
+    ])
+      await assert.rejects(
+        identity.requestOtp({ ...base, ...(delivery_consent ? { delivery_consent } : {}) }, ip),
+        error('INVALID_REQUEST'),
+      );
+    assert.equal(delivered, 0);
+    assert.equal(
+      (await ctx.pool.query('SELECT count(*) FROM identity_otp_challenges')).rows[0].count,
+      '0',
+    );
+    assert.equal(
+      (await ctx.pool.query('SELECT count(*) FROM identity_sms_daily_budget')).rows[0].count,
+      '0',
+    );
+    const input = { ...base, delivery_consent: { privacy_version: version, accepted: true } };
+    await identity.requestOtp(input, ip);
+    await identity.requestOtp(input, ip);
+    assert.equal(delivered, 1);
+  }));
+
+test('approved 1000 daily cap survives competing reservations and a service restart', async () =>
+  fixture(async (ctx) => {
+    await ctx.pool.query(
+      "INSERT INTO identity_sms_daily_budget(budget_day,reservations) VALUES ((clock_timestamp() AT TIME ZONE 'UTC')::date,999)",
+    );
+    const requests = Array.from({ length: 3 }, (_, n) => ({
+      phone: '+770100000' + String(n + 11),
+      delivery_consent: { privacy_version: version, accepted: true },
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+    }));
+    const outcomes = await Promise.allSettled(
+      requests.map((body) => ctx.make().requestOtp(body, ip)),
+    );
+    assert.equal(outcomes.filter((r) => r.status === 'fulfilled').length, 1);
+    for (const result of outcomes.filter((r) => r.status === 'rejected'))
+      assert.equal(result.reason.code, 'RATE_LIMITED');
+    assert.equal(ctx.deliveries.length, 1);
+    const accepted = outcomes.findIndex((r) => r.status === 'fulfilled');
+    await ctx.make().requestOtp(requests[accepted], ip);
+    assert.equal(ctx.deliveries.length, 1);
+    assert.equal(
+      (await ctx.pool.query('SELECT reservations FROM identity_sms_daily_budget')).rows[0]
+        .reservations,
+      1000,
+    );
+  }, 1000));

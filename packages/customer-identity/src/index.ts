@@ -50,6 +50,7 @@ interface SessionRow {
 }
 interface ChallengeRow {
   delivery_channel: PhoneDeliveryChannel;
+  delivery_consent_version: string | null;
   id: string;
   phone_lookup: string;
   phone_cipher: string | null;
@@ -88,6 +89,7 @@ export class CustomerIdentity {
     return {
       enabled: true,
       channels: phoneDeliveryChannels(this.delivery),
+      delivery_consent_required: true,
       consent_version: this.options.consentVersion,
       terms_url: this.options.termsUrl,
       privacy_url: this.options.privacyUrl,
@@ -126,6 +128,8 @@ export class CustomerIdentity {
       body = parseInput(OtpRequestSchema, input),
       phone = normalizeKazakhstanPhone(body.phone),
       channel = body.channel ?? 'sms';
+    if (body.delivery_consent.privacy_version !== config.consentVersion)
+      throw fail('INVALID_REQUEST');
     // Missing channel belongs to legacy SMS clients, never silently reroute to Telegram.
     if (!phoneDeliveryChannels(this.delivery).includes(channel)) throw fail('SERVICE_UNAVAILABLE');
     // Caller must supply the trusted socket/proxy-resolved address, never an untrusted forwarding header.
@@ -160,7 +164,8 @@ export class CustomerIdentity {
         if (
           replay.phone_lookup !== phoneHash ||
           replay.device_hash !== deviceHash ||
-          replay.delivery_channel !== channel
+          replay.delivery_channel !== channel ||
+          replay.delivery_consent_version !== body.delivery_consent.privacy_version
         )
           throw fail('CONFLICT');
         if (replay.state === 'rejected') throw fail('SERVICE_UNAVAILABLE');
@@ -227,8 +232,8 @@ export class CustomerIdentity {
       );
       const expires = new Date(now.getTime() + CHALLENGE_MS);
       await db.query(
-        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel)
-         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10)`,
+        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel,delivery_consent_version)
+         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10,$11)`,
         [
           id,
           phoneHash,
@@ -240,6 +245,7 @@ export class CustomerIdentity {
           expires,
           body.request_id,
           channel,
+          body.delivery_consent.privacy_version,
         ],
       );
       return {

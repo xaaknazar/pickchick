@@ -18096,12 +18096,32 @@
               "sms",
               "telegram"
             ]
+          },
+          "delivery_consent": {
+            "type": "object",
+            "properties": {
+              "privacy_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "accepted": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "privacy_version",
+              "accepted"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "phone",
           "device_id",
-          "request_id"
+          "request_id",
+          "delivery_consent"
         ],
         "additionalProperties": false
       },
@@ -18265,6 +18285,9 @@
         ],
         "properties": {
           "enabled": {
+            "type": "boolean"
+          },
+          "delivery_consent_required": {
             "type": "boolean"
           },
           "channels": {

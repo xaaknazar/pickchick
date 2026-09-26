@@ -87,13 +87,14 @@ test('factory defaults disabled, blocks placeholder/reused crypto keys and requi
   const env = {
     CUSTOMER_AUTH_ENABLED: 'true',
     CUSTOMER_AUTH_CONSENT_VERSION: 'test-only-v1',
-    CUSTOMER_AUTH_DAILY_SMS_BUDGET: '100',
+    CUSTOMER_AUTH_DAILY_SMS_BUDGET: '1000',
     CUSTOMER_AUTH_TERMS_URL: 'https://example.test/terms',
     CUSTOMER_AUTH_PRIVACY_URL: 'https://example.test/privacy',
   };
   const names = ['LOOKUP', 'OTP', 'PII', 'RECEIPT'].map((v) => 'CUSTOMER_AUTH_' + v + '_KEY');
   for (const name of names) env[name] = randomBytes(32).toString('hex');
   assert.equal(createCustomerIdentityOptions(env).enabled, true);
+  assert.equal(createCustomerIdentityOptions(env).dailySmsBudget, 1000);
   for (const extra of [
     { CUSTOMER_AUTH_TERMS_URL: 'https://secret@example.test/terms' },
     { CUSTOMER_AUTH_TERMS_URL: 'https://example.test/terms#secret' },

@@ -48,3 +48,29 @@ test('enabled auth requires channel columns and migration 022; disabled staging 
     }
   });
 });
+
+test('enabled auth requires delivery consent column and migration 023 before accepting traffic', async () => {
+  await withSyncDatabases(async ({ cloud }) => {
+    const enabled = new Resources({ ...cloud.config, customerAuthEnabled: true });
+    const disabled = new Resources({ ...cloud.config, customerAuthEnabled: false });
+    try {
+      assert.equal((await enabled.readiness()).ready, true);
+      await cloud.pool.query(
+        'ALTER TABLE identity_otp_challenges DROP COLUMN delivery_consent_version',
+      );
+      assert.equal((await enabled.readiness()).ready, false);
+      assert.equal((await disabled.readiness()).ready, true);
+      await cloud.pool.query(
+        'ALTER TABLE identity_otp_challenges ADD COLUMN delivery_consent_version text',
+      );
+      await cloud.pool.query('DELETE FROM schema_migrations WHERE scope=$1 AND version=$2', [
+        'cloud',
+        '023_cloud_otp_delivery_consent.sql',
+      ]);
+      assert.equal((await enabled.readiness()).ready, false);
+    } finally {
+      await enabled.onApplicationShutdown();
+      await disabled.onApplicationShutdown();
+    }
+  });
+});

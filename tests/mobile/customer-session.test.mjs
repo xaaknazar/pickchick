@@ -584,3 +584,42 @@ test('legacy server supports SMS only and cannot silently accept Telegram; chann
   assert.equal(f.core.challenge, null);
   assert.equal(f.core.pendingChannel, 'telegram');
 });
+
+test('pre-send consent gates OTP; lost response retains version and a changed policy cannot silently resend', async () => {
+  const f = fixture();
+  const base = f.io.request;
+  f.io.request = async (path, method, body, token) => {
+    const reply = await base(path, method, body, token);
+    return path === '/v1/auth/config'
+      ? { ...reply, delivery_consent_required: true, channels: ['sms'] }
+      : reply;
+  };
+  await f.core.restore();
+  for (const version of [null, 'old'])
+    await assert.rejects(
+      f.core.requestCode(f.customer.phone, 'sms', version),
+      code('CONSENT_REQUIRED'),
+    );
+  assert.equal(f.calls.filter((c) => c.path.endsWith('/otp/request')).length, 0);
+  f.loseRequest();
+  await assert.rejects(
+    f.core.requestCode(f.customer.phone, 'sms', 'fixture-v1'),
+    code('NETWORK_UNAVAILABLE'),
+  );
+  const pending = JSON.parse(f.raw()).otp_request;
+  assert.deepEqual(pending.delivery_consent, { privacy_version: 'fixture-v1', accepted: true });
+  await f.restart();
+  f.setConsent('fixture-v2');
+  await assert.rejects(
+    f.core.requestCode(f.customer.phone, 'sms', 'fixture-v1'),
+    code('CONSENT_REQUIRED'),
+  );
+  await assert.rejects(f.core.requestCode(f.customer.phone, 'sms', 'fixture-v2'), code('CONFLICT'));
+  f.setConsent('fixture-v1');
+  await f.core.requestCode(f.customer.phone, 'sms', 'fixture-v1');
+  await f.restart();
+  assert.equal(f.core.challenge.deliveryConsentVersion, 'fixture-v1');
+  const requests = f.calls.filter((c) => c.path.endsWith('/otp/request'));
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[0].body, requests[1].body);
+});
