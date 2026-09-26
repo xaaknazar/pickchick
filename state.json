@@ -333,9 +333,11 @@
         "packages/pos-order-sync/tests/kitchen-upgrade.test.mjs",
         "packages/pos-order-sync/tests/integration.test.mjs"
       ],
-      "status": "active",
-      "head": "c0ce8acd0a5dbcd4b17a8bbf38693b2f78549e50",
-      "updatedAt": "2026-09-26T13:45:17.447Z"
+      "status": "done",
+      "head": "9c0c61d64c3c7a606bab433b89e48faffd52e9ca",
+      "updatedAt": "2026-09-26T13:56:20.048Z",
+      "summary": "PR96; 9c0c61d в общей ветке, код c4ebc0e. Согласованы документы/1000 кодов/бесплатный пилот/hoster.kz Алматы. Подготовлены env1000, pre-send consent и023, durable mobile recovery. Build/typecheck/export,28 Node, адресные DB/999→1000/readiness, transport9+46, POS4+16, capacity4, roadmap7+13 и UI393/320 прошли. Два старых migration-теста исправлены; worker fixture изолирован. Полная CI ещё выполняется. Пультc4 прошёл inspect без apply; онлайнbcf4fe6, auth/API/БД не менялись.",
+      "nextAction": "Проверить финальную CI (c4 run36246307101 и новый checkpoint), затем занять @vps/roadmap и опубликовать пульт по runbook. Для публичного auth нужны legal URL/фактические сроки хранения, server customerId→order binding с изоляцией аккаунтов, выпуск с VPS020 через021/022/023 и feedback ACL, mobile server-auth и физическая проверка вход→кухня→выдача. Не спрашивать повторно согласованные условия, не считать  уже пополненными. См. docs/operations/telegram-pilot.md."
     }
   ]
 }
