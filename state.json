@@ -327,11 +327,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         ".env.customer-auth.example",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "tests/integration/service-shift-upgrade.test.mjs"
       ],
       "status": "active",
       "head": "bcf4fe624ba587208afb37e212bc8a49df6f6dea",
-      "updatedAt": "2026-09-26T13:35:50.013Z"
+      "updatedAt": "2026-09-26T13:39:09.101Z"
     }
   ]
 }
