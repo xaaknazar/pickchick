@@ -272,11 +272,15 @@
         "docs/integrations/phone-verification.md",
         "docs/project-status.md",
         "docs/roadmap/project.json",
-        "docs/collaboration/handoff.md"
+        "docs/collaboration/handoff.md",
+        "scripts/contracts.mjs",
+        "packages/contracts/openapi",
+        "services/api/src/resources.ts",
+        "tests/integration/identity-readiness.test.mjs"
       ],
       "status": "active",
       "head": "26eee8feea0b38c0d672fd1000c53780784ba79f",
-      "updatedAt": "2026-09-26T11:53:30.462Z"
+      "updatedAt": "2026-09-26T11:54:51.237Z"
     }
   ]
 }
