@@ -373,11 +373,13 @@
         "apps/mobile",
         "tests/unit/server-pilot-release.test.mjs",
         "scripts/customer-identity-maintenance.mjs",
-        ".env.customer-auth.example"
+        ".env.customer-auth.example",
+        "packages/contracts/src/index.ts",
+        "tests/operations/test_server_pilot_release.py"
       ],
       "status": "active",
       "head": "9c0c61d64c3c7a606bab433b89e48faffd52e9ca",
-      "updatedAt": "2026-09-26T14:08:55.930Z"
+      "updatedAt": "2026-09-26T14:10:12.269Z"
     }
   ]
 }
