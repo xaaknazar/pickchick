@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-26T12:15:43.657319+00:00",
+  "updatedAt": "2026-09-26T12:32:37.586988+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -55,7 +55,8 @@
     "docs/operations/cart-shortcut-delight.md",
     "docs/operations/mobile-unpaid-test.md",
     "docs/operations/mobile-cart-sheet.md",
-    "docs/operations/telegram-login.md"
+    "docs/operations/telegram-login.md",
+    "docs/legal/customer-documents-draft.md"
   ],
   "workstreams": [
     {
@@ -799,7 +800,7 @@
       "id": "identity-privacy",
       "workstream": "identity",
       "title": "Принять согласия и удаление аккаунта",
-      "summary": "Механизм отзыва сессий реализован в ядре. Требуется сквозная политика хранения, удаления и маркетинговых согласий для выпуска.",
+      "summary": "Подготовлены обезличенные черновики условий/privacy/согласия. Реквизиты подтверждены владельцем и внесены в локальную приватную копию. Требуют утверждения, сверки получателей/хранения и согласия до отправки OTP.",
       "status": "planned",
       "owner": "joint",
       "phase": "product",
@@ -816,12 +817,16 @@
         {
           "label": "Что требуется от заказчика",
           "path": "docs/operations/customer-integration-request-2026-09-16.md"
+        },
+        {
+          "label": "Проект документов для утверждения",
+          "path": "docs/legal/customer-documents-draft.md"
         }
       ],
       "acceptance": [
         "AC-27/38: удаление отзывает устройства, финансовая история обрабатывается по утверждённой политике."
       ],
-      "nextAction": "Утвердить документы и проверить сценарии mobile/CRM/поддержки.",
+      "nextAction": "Уточнить выдачу еды в пилоте, retention и получателей; подтвердить базу/backups в РК, проверить актуальное право/языки и доработать согласие до Telegram-запроса. Бюджет100/сутки не утверждён.",
       "checks": {
         "implemented": true,
         "verified": false,
