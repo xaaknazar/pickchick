@@ -303,6 +303,17 @@
       "updatedAt": "2026-09-26T12:35:06.248Z",
       "summary": "PR95/bcf4fe6: обезличенные черновики условий/privacy/согласия; заполненная копия только .local/legal0600. Реквизиты подтверждены владельцем, документы/бюджет не утверждены.7 roadmap тестов, format/diff прошли. Roadmap опубликован, health подтвердил SHA, API/кухня/БД неизменны; verify CI success, полная CI выполняется.",
       "nextAction": "Утвердить правила пилота, retention/получателей, подтвердить размещение базы/backups, проверить актуальную редакцию законодательства и языковые версии. До Telegram-запроса доработать состав/фиксацию согласия. Лимит100/сутки не одобрен, публичные auth/legal URL не включены."
+    },
+    {
+      "id": "telegram-pilot-ready",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/telegram-pilot-ready",
+      "scopes": [
+        "tests/integration/identity-receipt-limits.test.mjs"
+      ],
+      "status": "active",
+      "head": "bcf4fe624ba587208afb37e212bc8a49df6f6dea",
+      "updatedAt": "2026-09-26T13:30:07.143Z"
     }
   ]
 }
