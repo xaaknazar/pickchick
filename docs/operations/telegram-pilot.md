@@ -98,3 +98,22 @@ API требует `delivery_consent: {privacy_version, accepted: true}` и пр
 publicbcf4fe624ba587208afb37e212bc8a49df6f6dea. Этот этап не менял API, БД,
 кассу, кухонные заказы, банк или фискализацию. Не объявлять подготовленный
 auth код установленным сервисом.
+
+## Публикация этапа
+
+[PR96](https://github.com/xaaknazar/pickchick/pull/96), проверяемый код
+`c4ebc0e64a2315ba4182ccf927bef39fc03136e1`. Секреты и заполненная приватная
+копия документов в Git не включены. На этом SHA verify успешна, а
+[полная CI36246307101](https://github.com/xaaknazar/pickchick/actions/runs/36246307101)
+ещё выполняется: кухня, киоск, дизайн, transport и staging image прошли;
+общая цепочка PostgreSQL/commerce/mobile ещё не завершена. Не считать это
+зелёным релизом, пока не получен финальный результат.
+
+Roadmap:7 локальных тестов и13 deployment guards прошли. Пакет изc4ebc0e
+собран, передан и прошёл inspect на VPS; apply **не запускался** до полной CI.
+SHA-256 архива: `a3b239b0ff6e9971e9b6fd2db9533c0804ce7d6f9f4605760fdfab7696555553`.
+Онлайн-пульт пока остаётся наbcf4fe6. Подготовленный пакет:
+`/opt/pickchick-staging/roadmap-incoming/c4ebc0e64a2315ba4182ccf927bef39fc03136e1`.
+Перед применением заново занять `@vps/roadmap`, получить финальную CI и проверить
+актуальные pointers/hash/lock по `infra/roadmap/README.md`; старые значения из
+этого отчёта не подставлять без повторной проверки.
