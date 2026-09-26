@@ -309,11 +309,29 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/telegram-pilot-ready",
       "scopes": [
-        "tests/integration/identity-receipt-limits.test.mjs"
+        "tests/integration/identity-receipt-limits.test.mjs",
+        "apps/mobile",
+        "packages/customer-identity",
+        "packages/platform",
+        "packages/contracts/openapi.json",
+        "db/cloud/migrations",
+        "scripts/contracts.mjs",
+        "tests/unit/customer-identity.test.mjs",
+        "tests/integration/customer-identity.test.mjs",
+        "tests/integration/identity-readiness.test.mjs",
+        "tests/mobile/customer-session.test.mjs",
+        "docs/legal",
+        "docs/operations/telegram-login.md",
+        "docs/operations/telegram-pilot.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        ".env.customer-auth.example",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "bcf4fe624ba587208afb37e212bc8a49df6f6dea",
-      "updatedAt": "2026-09-26T13:30:07.143Z"
+      "updatedAt": "2026-09-26T13:35:50.013Z"
     }
   ]
 }
