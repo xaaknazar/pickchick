@@ -281,9 +281,11 @@
         "packages/platform/src/resources.ts",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "26eee8feea0b38c0d672fd1000c53780784ba79f",
-      "updatedAt": "2026-09-26T12:14:13.088Z"
+      "status": "done",
+      "head": "1c697209fdb9a08c806493bdd132dc7213091b8b",
+      "updatedAt": "2026-09-26T12:19:39.527Z",
+      "summary": "PR94: Telegram + ручной SMS, миграция022, реальные доставка и формат ответа проверены; 55 Node,29 PostgreSQL,7 roadmap, build/typecheck/contracts/lint/format, локальный UI393/320. Код1ca4c88, checkpoint1c69720 включён в общий срез. Roadmap health подтвердил1ca4c88, API/кухня/БД не изменились. Полная CI ещё выполняется.",
+      "nextAction": "Публичный вход ещё не включён. Утвердить legal/бюджет и Gateway для клиентских номеров; проверить финальную CI, затем выпуск API/gateway с фактического020 через021/022 и mobile server-auth, приёмка на устройствах. Токен только в локальном защищённом файле первого Mac; см. docs/operations/telegram-login.md."
     }
   ]
 }
