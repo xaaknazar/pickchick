@@ -329,11 +329,13 @@
         ".env.customer-auth.example",
         "@vps/roadmap",
         "tests/integration/service-shift-upgrade.test.mjs",
-        "tests/mobile/browser_customer_account.py"
+        "tests/mobile/browser_customer_account.py",
+        "packages/pos-order-sync/tests/kitchen-upgrade.test.mjs",
+        "packages/pos-order-sync/tests/integration.test.mjs"
       ],
       "status": "active",
-      "head": "668687fba11d69955cacc2ecdf4645b3323c6589",
-      "updatedAt": "2026-09-26T13:44:57.348Z"
+      "head": "c0ce8acd0a5dbcd4b17a8bbf38693b2f78549e50",
+      "updatedAt": "2026-09-26T13:45:17.447Z"
     }
   ]
 }
