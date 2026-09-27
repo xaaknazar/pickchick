@@ -758,9 +758,11 @@
         "docs/roadmap/project.json",
         "tests/mobile/browser_orders.py"
       ],
-      "status": "active",
-      "head": "f3345a0492cd1f6a92b32a9db882c358931306cd",
-      "updatedAt": "2026-09-27T16:50:29.543Z"
+      "status": "done",
+      "head": "f60ca02289811a08f3d456aa6749726486fdcd5b",
+      "updatedAt": "2026-09-27T16:53:03.074Z",
+      "summary": "Separate ready/fulfilled takeaway bags by saved service mode, dine-in tray preserved.4 status tests, typecheck/lint/format, detector, iOS Dev/asset hash and CUA393 passed. PR120. No VPS/TestFlight/online roadmap deploy.",
+      "nextAction": "Confirm on physical iPhone; release after full green CI."
     }
   ]
 }
