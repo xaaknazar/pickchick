@@ -436,9 +436,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "f934160be9a55dfb12814dc34003cc85950e5677",
-      "updatedAt": "2026-09-27T12:48:45.086Z"
+      "status": "done",
+      "head": "87ccda4adecd9d98a0f645311b2ef052b9dfe025",
+      "updatedAt": "2026-09-27T12:54:43.665Z",
+      "summary": "PR103 https://github.com/xaaknazar/pickchick/pull/103; синий градиент всей страницы, компактная пищевая ценность, лента допов с фото/счётчиками. 187+30 mobile,7roadmap,typecheck/lint,CUA393/320/768 и native Dev bundles прошли. Общая ветка87ccda4. VPS/TestFlight/онлайн-пульт не обновлены.",
+      "nextAction": "Проверить физический iPhone/Android и крупный шрифт, получить точные фото Heinz, утвердить исходный состав; выпуск после полной зелёной CI."
     }
   ]
 }
