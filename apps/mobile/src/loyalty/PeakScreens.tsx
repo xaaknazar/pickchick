@@ -81,7 +81,6 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
           {peak ? (
             <View testID="peak-details" style={s.sheet} accessibilityViewIsModal>
               <View style={s.sheetTop}>
-                <Text style={s.eyebrow}>ВЕРШИНА {peaks.indexOf(peak) + 1} ИЗ 6</Text>
                 <Pressable
                   testID="peak-close"
                   accessibilityRole="button"
@@ -91,6 +90,7 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
                 >
                   <Icon name="close" color={colors.white} size={24} />
                 </Pressable>
+                <Text style={s.eyebrow}>ВЕРШИНА {peaks.indexOf(peak) + 1} ИЗ 6</Text>
               </View>
               <Image
                 source={art[peak.id]}

@@ -40,9 +40,6 @@ export function OrderActions({
         >
           <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
             <Row style={{ justifyContent: 'space-between', gap: 12 }}>
-              <Heading small style={{ flex: 1 }}>
-                Заказ №{number}
-              </Heading>
               <MotionPressable
                 testID="order-actions-close"
                 accessibilityRole="button"
@@ -52,6 +49,9 @@ export function OrderActions({
               >
                 <Icon name="close" />
               </MotionPressable>
+              <Heading small style={{ flex: 1 }}>
+                Заказ №{number}
+              </Heading>
             </Row>
             <View style={s.symbol}>
               <Icon name="chatbubbles-outline" color={colors.accent} size={30} />

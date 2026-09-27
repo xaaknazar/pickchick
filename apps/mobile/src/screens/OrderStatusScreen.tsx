@@ -11,6 +11,7 @@ import { MotionPressable } from '../components/Motion';
 import { OrderActions } from '../components/OrderActions';
 import { OrderChef } from '../components/OrderChef';
 import { assets } from '../assets';
+import { menuPhotos } from '../menu-photo-assets';
 import { colors, font } from '../theme';
 import { money } from '../domain';
 import { restaurantLocation } from '../restaurant-location';
@@ -88,7 +89,7 @@ export function OrderStatusScreen({
           <View style={s.foodVisual}>
             {product ? (
               <Image
-                source={product.image}
+                source={menuPhotos[product.id] ?? product.image}
                 contentFit="contain"
                 style={s.foodImage}
                 accessibilityLabel={line.name}
@@ -123,14 +124,13 @@ export function OrderStatusScreen({
       >
         <Row style={s.header}>
           <MotionPressable
-            testID="order-more"
+            testID="order-status-close"
             accessibilityRole="button"
-            accessibilityLabel={more ? 'Закрыть действия заказа' : 'Действия заказа'}
-            accessibilityState={{ expanded: more }}
-            onPress={() => setMore(!more)}
+            accessibilityLabel="Закрыть статус заказа"
+            onPress={props.goBack}
             style={s.iconButton}
           >
-            <Icon name="ellipsis-horizontal" size={25} />
+            <Icon name="close" size={28} />
           </MotionPressable>
           <View style={s.location}>
             <Body style={s.locationName}>
@@ -141,13 +141,14 @@ export function OrderStatusScreen({
             </Caption>
           </View>
           <MotionPressable
-            testID="order-status-close"
+            testID="order-more"
             accessibilityRole="button"
-            accessibilityLabel="Закрыть статус заказа"
-            onPress={props.goBack}
+            accessibilityLabel={more ? 'Закрыть действия заказа' : 'Действия заказа'}
+            accessibilityState={{ expanded: more }}
+            onPress={() => setMore(!more)}
             style={s.iconButton}
           >
-            <Icon name="close" size={28} />
+            <Icon name="ellipsis-horizontal" size={25} />
           </MotionPressable>
         </Row>
         <ScrollView

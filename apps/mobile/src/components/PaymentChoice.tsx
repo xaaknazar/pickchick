@@ -74,14 +74,14 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
               }}
             >
               <Row>
-                <Heading small style={ui.flex}>
-                  Способ оплаты
-                </Heading>
                 <IconButton
                   name="close"
                   label="Закрыть способы оплаты"
                   onPress={() => setOpen(false)}
                 />
+                <Heading small style={ui.flex}>
+                  Способ оплаты
+                </Heading>
               </Row>
               <Caption>
                 {orderSimulatorEnabled

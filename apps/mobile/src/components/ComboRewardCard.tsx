@@ -118,15 +118,15 @@ export function ComboRewardCard({
             style={[s.sheet, { paddingBottom: Math.max(20, insets.bottom) }]}
           >
             <View style={s.sheetHeader}>
-              <Heading small style={{ flex: 1 }}>
-                Твоё восьмое комбо
-              </Heading>
               <IconButton
                 name="close"
                 label="Закрыть условия акции"
                 testID="combo-reward-close"
                 onPress={() => setOpen(false)}
               />
+              <Heading small style={{ flex: 1 }}>
+                Твоё восьмое комбо
+              </Heading>
             </View>
             <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={s.rules}>
               {[

@@ -438,7 +438,7 @@ function LegacyConfiguredProduct(
   );
 }
 const s = StyleSheet.create({
-  close: { position: 'absolute', right: 16, backgroundColor: '#FFFFFFE6', width: 48, height: 48 },
+  close: { position: 'absolute', left: 16, backgroundColor: '#FFFFFFE6', width: 48, height: 48 },
   body: { paddingHorizontal: 18, paddingVertical: 20, gap: 16 },
   title: { fontFamily: font.display, fontSize: 30, lineHeight: 38 },
   description: { fontSize: 14.5, lineHeight: 23 },

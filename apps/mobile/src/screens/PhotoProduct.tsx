@@ -648,7 +648,6 @@ export function PhotoProduct(props: Props) {
             testID="photo-nutrition-dialog"
           >
             <Row style={s.modalHeader}>
-              <Text style={s.modalTitle}>Пищевая ценность</Text>
               <Pressable
                 style={s.modalClose}
                 accessibilityRole="button"
@@ -657,6 +656,7 @@ export function PhotoProduct(props: Props) {
               >
                 <Icon name="close" color="#8A3309" size={25} />
               </Pressable>
+              <Text style={s.modalTitle}>Пищевая ценность</Text>
             </Row>
             <ScrollView>{infoContent}</ScrollView>
           </View>
