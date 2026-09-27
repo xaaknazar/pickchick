@@ -26,12 +26,21 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     segments[0] === '(tabs)' &&
     id in tabRoutes &&
     tabRoutes[id as keyof typeof tabRoutes] === `/${segments.join('/')}`;
-  const inSheet = id === 'M09' || id === 'M12';
+  const statusSheet = ['M17', 'M18', 'M20'].includes(id);
+  const inSheet = id === 'M09' || id === 'M12' || statusSheet;
   const back = useCallback(
     () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu')),
     [router],
   );
   const navigate = (next: ScreenId) => {
+    if (['M17', 'M18', 'M20'].includes(next)) {
+      if (id === 'M12') router.dismissAll();
+      router.navigate({
+        pathname: '/order-status',
+        params: { id: next, ...(preview ? { preview: '1' } : {}) },
+      });
+      return;
+    }
     if (next === 'M09' || next === 'M12') {
       if (id === 'M12' && next === 'M09' && router.canGoBack()) {
         router.back();
@@ -77,7 +86,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   );
   if (inSheet)
     return (
-      <OrderSheet name={id === 'M09' ? 'Корзина' : 'Оформление'} onClose={back}>
+      <OrderSheet
+        name={statusSheet ? 'Статус заказа' : id === 'M09' ? 'Корзина' : 'Оформление'}
+        onClose={back}
+      >
         {(close) => screen(close)}
       </OrderSheet>
     );

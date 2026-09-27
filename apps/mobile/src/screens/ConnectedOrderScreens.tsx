@@ -3,9 +3,7 @@ import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
 import { unpaidTestOrdersEnabled } from '../order-simulator';
 import { MotionPressable } from '../components/Motion';
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View, StyleSheet, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Text, TextInput, View, StyleSheet } from 'react-native';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
 import {
@@ -16,7 +14,6 @@ import {
   Empty,
   Heading,
   Icon,
-  Logo,
   Loading,
   NavRow,
   Notice,
@@ -27,25 +24,12 @@ import {
 import { colors, font } from '../theme';
 import { paymentName } from '../components/PaymentChoice';
 import { money, cartTotal } from '../domain';
-import { assets } from '../assets';
 import { cartMatchesOrder } from '../test-order-session';
 import { restaurantLocation } from '../restaurant-location';
 
-export function orderStage(order: TestOrder): string {
-  if (
-    order.state === 'preparing' &&
-    order.tasks.every((task) => task.station !== 'prep' || task.state === 'done')
-  )
-    return 'На сборке';
-  return statusNames[order.state];
-}
-const statusNames: Record<TestOrder['state'], string> = {
-  awaiting_test_payment: 'Ждёт подтверждения',
-  preparing: 'Готовится',
-  ready: 'Можно забирать',
-  fulfilled: 'Выдан',
-  cancelled: 'Отменён',
-};
+export { orderStage } from '../order-status';
+import { orderStage } from '../order-status';
+import { OrderStatusScreen } from './OrderStatusScreen';
 function ContinueSession({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
   if (!flow.sessionExpired) return null;
@@ -437,8 +421,18 @@ export function ConnectedOrder(props: ScreenProps) {
   };
   const receipt = props.screenId === 'M21';
   const cancel = props.screenId === 'M22';
-  const ready = order.state === 'ready' && !receipt && !cancel && props.screenId !== 'M20';
-  if (ready) return <ConnectedReady props={props} order={order} />;
+  if (!receipt && !cancel && !canPay && !unknown)
+    return (
+      <OrderStatusScreen
+        props={props}
+        order={order}
+        notice={
+          flow.error || flow.sessionExpired || flow.recoveryAvailable ? (
+            <FlowNotice props={props} />
+          ) : undefined
+        }
+      />
+    );
   return (
     <Page
       props={props}
@@ -626,86 +620,6 @@ export function ConnectedOrder(props: ScreenProps) {
     </Page>
   );
 }
-function ConnectedReady({ props, order }: { props: ScreenProps; order: TestOrder }) {
-  const branch = props.model.branches.find((candidate) => candidate.id === order.branch_id);
-  const location = restaurantLocation(order.branch_id);
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const [numberWidth, setNumberWidth] = useState<number | null>(null);
-  const numberFontSize = Math.min(
-    112,
-    Math.max(1, numberWidth ?? width - 48) / (order.number.length * 0.72),
-  );
-  return (
-    <View
-      testID={`screen-${props.screenId}`}
-      style={[
-        s.readyPage,
-        { paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 24) },
-      ]}
-    >
-      <Image
-        source={assets.orange}
-        style={[StyleSheet.absoluteFill, { opacity: 0.3 }]}
-        contentFit="cover"
-      />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.readyContent}>
-        <Row>
-          <View style={ui.flex}>
-            <Heading style={s.readyTitle}>Готово!</Heading>
-            <Body style={s.readyInk}>Ваш заказ собран</Body>
-          </View>
-          <Logo size={48} />
-        </Row>
-        <View onLayout={({ nativeEvent }) => setNumberWidth(nativeEvent.layout.width)}>
-          <Text
-            testID="connected-order-number"
-            accessibilityLabel={`Заказ номер ${order.number}`}
-            style={[s.readyNumber, { fontSize: numberFontSize }]}
-            adjustsFontSizeToFit
-            numberOfLines={1}
-          >
-            {order.number}
-          </Text>
-        </View>
-        <Body
-          testID="connected-order-state"
-          style={[s.readyInk, { textAlign: 'center', fontFamily: font.bold, fontSize: 22 }]}
-        >
-          Можно забирать
-        </Body>
-        <Body style={[s.readyInk, { textAlign: 'center' }]}>
-          Назовите номер заказа на стойке выдачи.
-        </Body>
-        <View style={ui.flex} />
-        <Button
-          title="Состав и чек"
-          testID="test-ready-details"
-          secondary
-          onPress={() => props.navigate('M20')}
-        />
-        <Button
-          title="Обновить статус"
-          testID="test-refresh-order"
-          secondary
-          onPress={props.model.testFlow.refresh}
-        />
-        <Button
-          title="Мои заказы"
-          testID="test-open-history"
-          secondary
-          onPress={() => props.navigate('M19')}
-        />
-        {props.model.testFlow.error ? <Notice warning>{props.model.testFlow.error}</Notice> : null}
-        <ContinueSession props={props} />
-        <Caption style={[s.readyInk, { textAlign: 'center' }]}>
-          {location?.name ?? branch?.name ?? 'Ресторан PickChick'}
-          {location ? ` · ${location.city}, ${location.address}` : ''}
-        </Caption>
-      </ScrollView>
-    </View>
-  );
-}
 const s = StyleSheet.create({
   section: { gap: 12 },
   line: { gap: 6, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -719,20 +633,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.raised,
   },
   status: { gap: 12, padding: 20, borderRadius: 16, backgroundColor: colors.raised },
-  ready: { backgroundColor: colors.accent },
   number: { color: colors.accent, fontFamily: font.heading, fontSize: 28, lineHeight: 36 },
-  readyPage: { flex: 1, backgroundColor: colors.accent },
-  readyContent: { paddingHorizontal: 24, gap: 24, flexGrow: 1 },
-  readyTitle: { color: colors.orangeInk, fontSize: 46, lineHeight: 52 },
-  readyInk: { color: colors.orangeInk },
-  readyNumber: {
-    color: colors.orangeInk,
-    fontFamily: font.display,
-    fontSize: 112,
-    letterSpacing: -3,
-    textAlign: 'center',
-    marginVertical: 32,
-  },
   input: {
     minHeight: 90,
     borderWidth: 1,

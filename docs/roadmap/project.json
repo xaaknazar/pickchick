@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-26T14:22:28.862990+00:00",
+  "updatedAt": "2026-09-27T11:10:00Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -55,6 +55,7 @@
     "docs/operations/cart-shortcut-delight.md",
     "docs/operations/mobile-unpaid-test.md",
     "docs/operations/mobile-cart-sheet.md",
+    "docs/operations/order-status-sheet.md",
     "docs/operations/telegram-login.md",
     "docs/legal/customer-documents-draft.md",
     "docs/operations/server-pilot.md"
@@ -3427,12 +3428,16 @@
       "id": "mobile-orders-feedback",
       "workstream": "mobile",
       "title": "Мои заказы, отзывы и поддержка",
-      "summary": "Активные заказы и история, этапы по событиям кухни; отзыв после выдачи и обращения управляющему. API/бэк-офис реализованы и локально проверены, на VPS ещё не выпущены. Официальный чек ждёт ККМ. Корзина открывается только вручную.",
+      "summary": "Активные заказы и история; новая панель снизу с фирменным персонажем, составом и Pick Blocks, этапы по событиям кухни; отзыв после выдачи и обращения управляющему. API/бэк-офис реализованы и локально проверены, на VPS ещё не выпущены. Официальный чек ждёт ККМ. Корзина открывается только вручную.",
       "status": "active",
       "owner": "development",
       "phase": "product",
       "dependsOn": ["mobile-unpaid-test"],
       "evidence": [
+        {
+          "label": "Панель статуса с персонажем: реализация, CUA и границы",
+          "path": "docs/operations/order-status-sheet.md"
+        },
         {
           "label": "Реализация, тесты, снимки и границы выпуска",
           "path": "docs/operations/mobile-orders.md"

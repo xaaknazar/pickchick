@@ -13,6 +13,15 @@ export default function ScreenRoute() {
         }}
       />
     );
+  if (['M17', 'M18', 'M20'].includes(params.id))
+    return (
+      <Redirect
+        href={{
+          pathname: '/order-status',
+          params: { id: params.id, ...(params.preview === '1' ? { preview: '1' } : {}) },
+        }}
+      />
+    );
   return (
     <ScreenHost id={valid ? (params.id as ScreenId) : 'M06'} preview={params.preview === '1'} />
   );

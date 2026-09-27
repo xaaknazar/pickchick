@@ -571,7 +571,7 @@ export function PickBlocksScreen() {
         <Pressable
           testID="blocks-exit"
           accessibilityRole="button"
-          accessibilityLabel="Вернуться к событиям"
+          accessibilityLabel="Вернуться назад"
           onPress={exit}
           style={s.iconButton}
         >

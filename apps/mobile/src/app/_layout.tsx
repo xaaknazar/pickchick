@@ -61,6 +61,14 @@ function AppLayout() {
                 }}
               >
                 <Stack.Screen
+                  name="order-status"
+                  options={{
+                    presentation: 'transparentModal',
+                    animation: 'none',
+                    contentStyle: { backgroundColor: 'transparent' },
+                  }}
+                />
+                <Stack.Screen
                   name="cart"
                   options={{
                     presentation: 'transparentModal',

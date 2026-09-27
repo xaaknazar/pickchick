@@ -1,3 +1,4 @@
+import { OrderStatusPreview } from './OrderStatusPreview';
 import { ConnectedFeedback } from './ConnectedFeedback';
 import { connectedTestOrdersEnabled } from '../order-simulator';
 import type { ScreenProps } from '../model';
@@ -54,6 +55,8 @@ export function MobileScreen(props: ScreenProps) {
 }
 
 function ScreenContent(props: ScreenProps) {
+  if (props.preview && ['M17', 'M18', 'M20'].includes(props.screenId))
+    return <OrderStatusPreview {...props} />;
   if (!props.preview && connectedTestOrdersEnabled) {
     if (['M31', 'M35'].includes(props.screenId) && props.model.testFlow.current)
       return (
