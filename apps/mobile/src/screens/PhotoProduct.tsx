@@ -94,14 +94,14 @@ export function PhotoProduct(props: Props) {
       0n,
     )
   ).toString();
-  const reason =
+  const reasonFor = (choices: Selection[]) =>
     photoCartLimit(
       props.model.cart,
-      { product, selections, quantity },
+      { product, selections: choices, quantity },
       props.editing,
       selectedCompanions,
     ) ??
-    (!validSelections(product, selections)
+    (!validSelections(product, choices)
       ? 'Завершите выбор состава и доступных вариантов.'
       : null) ??
     (Object.entries(companionCounts).some(
@@ -109,6 +109,19 @@ export function PhotoProduct(props: Props) {
     )
       ? 'Одно из дополнений сейчас недоступно. Откройте блюдо заново.'
       : null);
+  const reason = reasonFor(selections);
+  const replacement = picker?.chosen
+    ? replaceComboSlot(selections, picker.group, picker.index, picker.chosen)
+    : null;
+  const replacementReason = props.editing && replacement ? reasonFor(replacement) : null;
+  const save = (choices: Selection[]) => {
+    if (reasonFor(choices)) return;
+    if (props.onSave) props.onSave(choices, quantity);
+    else props.model.addToCart(product.id, choices, quantity);
+    for (const line of selectedCompanions)
+      props.model.addToCart(line.product.id, line.selections, line.quantity);
+    if (!props.onSave) props.goBack();
+  };
   const companionCard = (line: CartLine) => {
     const id = line.product.id;
     const count = companionCounts[id] ?? 0;
@@ -514,13 +527,7 @@ export function PhotoProduct(props: Props) {
             accessibilityState={{ disabled: !!reason }}
             disabled={!!reason}
             style={[s.add, s.priceAction, !!reason && { opacity: 0.5 }]}
-            onPress={() => {
-              if (props.onSave) props.onSave(selections, quantity);
-              else props.model.addToCart(product.id, selections, quantity);
-              for (const line of selectedCompanions)
-                props.model.addToCart(line.product.id, line.selections, line.quantity);
-              if (!props.onSave) props.goBack();
-            }}
+            onPress={() => save(selections)}
           >
             <Icon name={props.editing ? 'checkmark' : 'add'} color={colors.orangeInk} size={27} />
             <Text style={[s.addText, { color: colors.orangeInk }]}>{money(totalPrice)}</Text>
@@ -606,21 +613,26 @@ export function PhotoProduct(props: Props) {
               })}
             </ScrollView>
             <View style={[s.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              {replacementReason ? (
+                <Text accessibilityLiveRegion="polite" style={s.reason}>
+                  {replacementReason}
+                </Text>
+              ) : null}
               <Pressable
                 testID="photo-replacement-apply"
                 accessibilityRole="button"
-                disabled={!picker.chosen}
-                accessibilityState={{ disabled: !picker.chosen }}
-                style={s.add}
+                disabled={!replacement || !!replacementReason}
+                accessibilityState={{ disabled: !replacement || !!replacementReason }}
+                style={[s.add, (!replacement || !!replacementReason) && { opacity: 0.5 }]}
                 onPress={() => {
-                  if (picker.chosen)
-                    setSelections(
-                      replaceComboSlot(selections, picker.group, picker.index, picker.chosen),
-                    );
+                  if (!replacement || replacementReason) return;
+                  setSelections(replacement);
                   setPicker(null);
+                  // Editing an existing line commits once, directly back to the cart.
+                  if (props.editing && props.onSave) save(replacement);
                 }}
               >
-                <Text style={s.addText}>Назад в комбо</Text>
+                <Text style={s.addText}>Готово</Text>
               </Pressable>
             </View>
           </View>

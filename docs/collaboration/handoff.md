@@ -1,5 +1,11 @@
 # Контекст для нового компьютера
 
+## Последнее: checkout-combo-done
+
+Оформление использует ту же высоту safe-area+8, что корзина. Кнопка замены напитка/соуса переименована в «Готово». При редактировании существующего комбо она сразу сохраняет состав и количество, возвращает в корзину и пересчитывает сумму; для нового товара выбор остаётся до добавления. Проверяются доступность и лимиты новой конфигурации.202 Node +30 Python mobile-тестов, typecheck/lint/format, detector и iOS Dev HTTP200 прошли. CUA393×852: Burger Duo с лимонадом6990→7190, одна строка корзины; корзина и оформление832px, верх20px. Физическая приёмка отдельно; VPS/TestFlight/онлайн-пульт не обновлены.
+
+Подробности: `docs/operations/product-photo-pilot.md`.
+
 ## Latest: blocks-render-sync
 
 Pick Blocks rendering now uses engine coordinates for the piece origin and shape, plus a bounded Reanimated fraction of one free cell. Removed Animated.ValueXY absolute motion and remounts on every swipe/rotation. Explicit native bounds and collapsable=false keep the coordinate hierarchy stable. Verified 202 Node + 30 Python mobile tests, typecheck/lint/format, detector, and iOS Dev HTTP200. CUA393x852 covered both wall swipes, rotation, accelerated drop, multiple landings, pause and restoration. The original native iPhone failure was not reproduced locally; physical iPhone acceptance is still required. VPS/TestFlight/online roadmap not deployed.
