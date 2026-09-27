@@ -727,6 +727,20 @@
       "updatedAt": "2026-09-27T16:37:19.920Z",
       "summary": "Warm cream price action with terracotta text; contrast6.61. Typecheck/lint/format, detector, Dev iOS and CUA393 passed. PR118; no VPS/TestFlight/online roadmap deploy.",
       "nextAction": "Physical iPhone acceptance; release after full green CI."
+    },
+    {
+      "id": "order-chef-products",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/order-chef-products",
+      "scopes": [
+        "apps/mobile/assets/order-status",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "a0a87e3b016d06bb8a12179edceb849cecdb114e",
+      "updatedAt": "2026-09-27T16:39:10.996Z"
     }
   ]
 }
