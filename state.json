@@ -460,6 +460,22 @@
       "updatedAt": "2026-09-27T13:07:11.073Z",
       "summary": "PR104 https://github.com/xaaknazar/pickchick/pull/104; градиент от названия, компактные карточки, 4 пищевых допа+соус300мл1190₸ отдельной строкой.190+30 mobile,7roadmap,typecheck/lint,CUA393/320 корзина8180 без дубля,Dev bundles прошли. Общая ветка0b32928. VPS/TestFlight/онлайн-пульт не обновлены.",
       "nextAction": "Физическая приёмка дизайна/жестов, сверка состава и производственного меню; выпуск после полной зелёной CI."
+    },
+    {
+      "id": "product-close-button",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/product-close-button",
+      "scopes": [
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "docs/operations/product-photo-pilot.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "0b329281fedcfb146c26ac747f19c716df0599f5",
+      "updatedAt": "2026-09-27T13:08:07.364Z"
     }
   ]
 }
