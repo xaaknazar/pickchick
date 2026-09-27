@@ -473,9 +473,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "0b329281fedcfb146c26ac747f19c716df0599f5",
-      "updatedAt": "2026-09-27T13:08:07.364Z"
+      "status": "done",
+      "head": "19532fb403a838a55fc739dd0afd994562e7540e",
+      "updatedAt": "2026-09-27T13:10:52.546Z",
+      "summary": "Светлая кнопка закрытия44, крестик26, область48×48;CUA393/320,закрытие,typecheck/lint,7roadmap,Dev bundles прошли.PR105 https://github.com/xaaknazar/pickchick/pull/105. Shared19532fb;VPS/TestFlight/онлайн-пульт не обновлены.",
+      "nextAction": "Физическая приёмка на телефоне, выпуск после полной зелёной CI."
     }
   ]
 }
