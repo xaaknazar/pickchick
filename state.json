@@ -633,6 +633,27 @@
       "updatedAt": "2026-09-27T15:44:38.306Z",
       "summary": "Light cart photos; typecheck/lint/format, Impeccable, iOS Dev bundle and browser cart verified. PR113. No VPS/TestFlight/online roadmap deployment.",
       "nextAction": "Confirm on physical iPhone; release separately after full green CI."
+    },
+    {
+      "id": "order-light-photos",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/order-light-photos",
+      "scopes": [
+        "apps/mobile/src/screens/OrderStatusScreen.tsx",
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/screens/ProductConfiguration.tsx",
+        "apps/mobile/src/components/OrderActions.tsx",
+        "apps/mobile/src/components/PaymentChoice.tsx",
+        "apps/mobile/src/components/ComboRewardCard.tsx",
+        "apps/mobile/src/loyalty/PeakScreens.tsx",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "0ca9dfbfffeea5fd1bbb1849e0e879bb97a8399a",
+      "updatedAt": "2026-09-27T15:45:50.286Z"
     }
   ]
 }
