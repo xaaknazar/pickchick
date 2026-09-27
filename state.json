@@ -422,6 +422,23 @@
       "updatedAt": "2026-09-27T12:36:10.523Z",
       "summary": "Бургер Дуо в синем, HD-напитки одного масштаба, окно пищевой ценности;185+30 mobile,7roadmap,typecheck/lint/export,CUA393/320 и Dev bundles прошли. PR102 https://github.com/xaaknazar/pickchick/pull/102. Общая ветка f934160; VPS/TestFlight/онлайн-пульт не обновлены.",
       "nextAction": "Проверить на iPhone, утвердить фото и сверить описание обоих бургеров с реальным составом; дождаться полной зелёной CI перед выпуском."
+    },
+    {
+      "id": "product-gradient-extras",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/product-gradient-extras",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "docs/operations/product-photo-pilot.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "f934160be9a55dfb12814dc34003cc85950e5677",
+      "updatedAt": "2026-09-27T12:48:45.086Z"
     }
   ]
 }
