@@ -607,11 +607,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "tests/operations/test_server_pilot_release.py",
-        "docs/operations/server-pilot.md"
+        "docs/operations/server-pilot.md",
+        "apps/mobile/assets/catalog-hd/README.md"
       ],
       "status": "active",
       "head": "d5c50cd5b761ccf267daad672af9648aaa19203c",
-      "updatedAt": "2026-09-27T15:24:21.195Z"
+      "updatedAt": "2026-09-27T15:26:06.320Z"
     }
   ]
 }
