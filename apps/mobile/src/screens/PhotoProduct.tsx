@@ -375,7 +375,9 @@ export function PhotoProduct(props: Props) {
           onPress={props.goBack}
           style={[s.close, { top: insets.top + 10, left: 16 }]}
         >
-          <Icon name="close" color={colors.white} size={30} />
+          <View pointerEvents="none" style={s.closeFace}>
+            <Icon name="close" color="#04143A" size={26} />
+          </View>
         </Pressable>
       </View>
       <MotionModal visible={!!picker} animationType="slide" onRequestClose={() => setPicker(null)}>
@@ -591,9 +593,17 @@ function makeStyles(blue: boolean) {
       width: 48,
       height: 48,
       borderRadius: 24,
-      backgroundColor: '#271C15B8',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    closeFace: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: '#F7F9FC',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0px 3px 10px rgba(0, 19, 50, 0.16)',
     },
     photoAction: {
       position: 'absolute',
