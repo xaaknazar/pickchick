@@ -781,9 +781,11 @@
         "docs/operations/product-photo-pilot.md",
         "apps/mobile/src/screens/OrderStatusScreen.tsx"
       ],
-      "status": "active",
-      "head": "f60ca02289811a08f3d456aa6749726486fdcd5b",
-      "updatedAt": "2026-09-27T16:57:03.702Z"
+      "status": "done",
+      "head": "27cbe9eaf8e6876af35c3fbd27342baa288f82b6",
+      "updatedAt": "2026-09-27T17:05:51.739Z",
+      "summary": "Cart layout/stamps, direct menu return, service mode only at checkout, order number sign and contained cola bag.203+30 tests, typecheck/lint/format, detector, Dev iOS/asset hash, CUA320/393/768 passed. PR121. No VPS/TestFlight/roadmap deploy.",
+      "nextAction": "Physical iPhone acceptance; guarded server7+1 rollout remains separate."
     }
   ]
 }
