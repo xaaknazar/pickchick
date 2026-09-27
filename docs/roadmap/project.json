@@ -3218,6 +3218,10 @@
         {
           "label": "Профиль и карточка «7 + 1» - 23 сентября 2026",
           "path": "docs/operations/profile-combo-card.md"
+        },
+        {
+          "label": "27.09: восстановление Dev, iOS bundle и фон HTTP 200; физическая приёмка ожидается",
+          "path": "docs/operations/profile-combo-card.md"
         }
       ],
       "acceptance": [
