@@ -510,9 +510,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "6be8b140c0cc37413bdbcb3013fe7b082243fc59",
-      "updatedAt": "2026-09-27T13:51:38.129Z"
+      "status": "done",
+      "head": "bdc0d6f9eaecd686e76158c1e228031c33d0244e",
+      "updatedAt": "2026-09-27T14:20:52.635Z",
+      "summary": "Все24 страницы,25 фото и фон7+1; X выше, orange controls.195+30 mobile,16 targeted,7 roadmap tests; typecheck/lint, CUA320/393/768, exports и Dev bundles OK. PR107 https://github.com/xaaknazar/pickchick/pull/107. VPS/TestFlight/онлайн-пульт не обновлены.",
+      "nextAction": "Физически принять safe area на iPhone, качество/соответствие фото рецептуре и скорость загрузки; получить отсутствующие Piko/Heinz/напитки; выпуск только после полного зелёного CI."
     }
   ]
 }
