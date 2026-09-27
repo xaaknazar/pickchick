@@ -14,7 +14,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -248,6 +248,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
 export function Menu(props: ScreenProps) {
   const [cartHeight, setCartHeight] = useState(100);
   const router = useRouter();
+  const { catalogVisit } = useLocalSearchParams();
   const reduced = useReducedMotion();
   const published = usePublishedContent(props.model.branch?.id);
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
@@ -292,6 +293,16 @@ export function Menu(props: ScreenProps) {
     offsets.value = categories.map((name) => catalogTop + (sectionY.current[name] ?? 0));
   };
   useEffect(updateOffsets, [catalogTop, categories]);
+  useEffect(() => {
+    if (!catalogVisit || !catalogTop) return;
+    const frame = requestAnimationFrame(() => {
+      const target = Math.max(0, catalogTop - collapsedHeaderHeight - categoryHeight);
+      setCategory(categories[0] ?? 'Комбо');
+      requestedCategory.value = -1;
+      scroll.current?.scrollTo({ y: target, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [catalogVisit, catalogTop, collapsedHeaderHeight, categoryHeight, categories]);
   const selectVisibleCategory = (index: number) => {
     const name = categories[index];
     if (name) setCategory(name);
@@ -700,10 +711,9 @@ export function Cart(props: ScreenProps) {
       ) : (
         <>
           <Row style={s.cartFulfilment}>
-            <Icon name="bag-handle-outline" size={16} color={colors.accent} />
+            <Icon name="time-outline" size={18} color={colors.accent} />
             <Body style={[orderUI.detail, { fontFamily: font.medium, flexShrink: 1 }]}>
-              {props.model.diningMode === 'takeaway' ? 'С собой' : 'В зале'} · Приготовим за ~
-              {preparationMinutes(props.model.cart)} мин
+              Приготовим примерно за {preparationMinutes(props.model.cart)} мин
             </Body>
           </Row>
           {props.model.catalogMode === 'design' ? (
@@ -718,10 +728,10 @@ export function Cart(props: ScreenProps) {
                   contentFit="contain"
                 />
                 <View style={ui.flex}>
-                  <Heading small style={[orderUI.label, { fontFamily: font.bold }]}>
+                  <Heading small style={s.cartName}>
                     {line.product.name}
                   </Heading>
-                  <Caption style={[orderUI.detail, { marginTop: 4 }]}>
+                  <Caption style={s.cartDescription}>
                     {selectionDescription(line) || line.product.description}
                   </Caption>
                   <Pressable
@@ -781,6 +791,14 @@ export function Cart(props: ScreenProps) {
               </Row>
             </View>
           ))}
+          <Button
+            title="Добавить ещё что-нибудь"
+            testID="cart-add-more"
+            textStyle={orderUI.actionText}
+            secondary
+            icon="arrow-back"
+            onPress={() => props.navigate('M06')}
+          />
           <CartOffers props={props} />
           <PromoCodeEntry />
           <View style={{ gap: 12, paddingVertical: 8 }}>
@@ -796,16 +814,7 @@ export function Cart(props: ScreenProps) {
               Чики за покупки появятся после подключения программы.
             </Caption>
           </View>
-          <Button
-            title="Добавить ещё что-нибудь"
-            textStyle={orderUI.actionText}
-            secondary
-            icon="add"
-            onPress={() => props.navigate('M06')}
-          />
-          <Caption style={orderUI.detail}>
-            Окончательную цену и доступность подтвердит ресторан при оформлении.
-          </Caption>
+          <Caption style={orderUI.detail}>Цены и наличие блюд проверим при оформлении.</Caption>
         </>
       )}
     </Page>
@@ -1079,14 +1088,22 @@ const s = StyleSheet.create({
     gap: 8,
   },
   cartLine: {
-    gap: 12,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    gap: 8,
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
   },
-  cartProduct: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
+  cartProduct: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  cartName: { fontFamily: font.bold, fontSize: 17, lineHeight: 24 },
+  cartDescription: {
+    fontFamily: font.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+    color: '#C0CDE6',
+  },
   upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
-  cartImage: { width: 84, height: 84, borderRadius: 12 },
+  cartImage: { width: 88, height: 88, borderRadius: 14 },
   stepper: { backgroundColor: colors.raised, borderRadius: 22, alignSelf: 'flex-start', gap: 0 },
   largeIcon: {
     width: 94,

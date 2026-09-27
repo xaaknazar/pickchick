@@ -164,7 +164,7 @@ export function OrderStatusScreen({
                 testID="connected-order-number"
                 accessibilityLabel={`Заказ номер ${order.number}${name ? `, ${name}` : ''}`}
               >
-                {order.number}
+                № {order.number}
                 {name ? ` · ${name}` : ''}
               </Text>
             </View>

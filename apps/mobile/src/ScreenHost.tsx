@@ -33,6 +33,13 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     [router],
   );
   const navigate = (next: ScreenId) => {
+    if (id === 'M09' && next === 'M06') {
+      router.dismissTo({
+        pathname: '/(tabs)/menu',
+        params: { catalogVisit: String(Date.now()), ...(preview ? { preview: '1' } : {}) },
+      });
+      return;
+    }
     if (['M17', 'M18', 'M20'].includes(next)) {
       if (id === 'M12') router.dismissAll();
       router.navigate({

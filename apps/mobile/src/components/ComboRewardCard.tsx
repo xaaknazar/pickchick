@@ -76,7 +76,7 @@ export function ComboRewardCard({
                     style={[s.stamp, earned && s.earned, index === 7 && s.gift]}
                   >
                     {earned ? (
-                      <Icon name="checkmark" size={17} color="#5E290C" />
+                      <Icon name="checkmark-circle" size={22} color="#073E2D" />
                     ) : index === 7 ? (
                       <Icon name="gift-outline" size={17} color="#FFE2C3" />
                     ) : (
@@ -192,7 +192,7 @@ const s = StyleSheet.create({
   stamps: { flexDirection: 'row', gap: 6 },
   stamp: {
     flex: 1,
-    height: 28,
+    height: 30,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -200,7 +200,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#738699',
   },
-  earned: { backgroundColor: '#FFE2C3', borderColor: '#FFE2C3' },
+  earned: { backgroundColor: colors.success, borderColor: colors.success },
   gift: { backgroundColor: '#163755', borderColor: '#FFE2C3' },
   stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: '#E3EDF7' },
   details: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
