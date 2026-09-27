@@ -743,6 +743,23 @@
       "updatedAt": "2026-09-27T16:46:16.058Z",
       "summary": "Replaced food in three chef scenes using original i4/i9/i20 photos. 3 status tests, Dev iOS, asset HTTP hashes and CUA393 checked. PR119. No VPS/TestFlight/online roadmap deploy.",
       "nextAction": "Confirm food likeness on physical iPhone; release separately after full green CI."
+    },
+    {
+      "id": "chef-takeaway",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/chef-takeaway",
+      "scopes": [
+        "apps/mobile/assets/order-status",
+        "apps/mobile/src/order-status.ts",
+        "apps/mobile/src/components/OrderChef.tsx",
+        "tests/mobile/order-status.test.mjs",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "f3345a0492cd1f6a92b32a9db882c358931306cd",
+      "updatedAt": "2026-09-27T16:49:17.148Z"
     }
   ]
 }
