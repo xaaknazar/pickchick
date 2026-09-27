@@ -12,8 +12,15 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CartLine, ModifierGroup, Product, ScreenProps, Selection } from '../model';
-import { cartLineKey, defaultSelections, lineUnitPrice, money, validSelections } from '../domain';
-import { comboSlots, replaceComboSlot, setExtraQuantity } from '../product-photo-selection';
+import { defaultSelections, lineUnitPrice, money, validSelections } from '../domain';
+import {
+  comboSlots,
+  replaceComboSlot,
+  setExtraQuantity,
+  recommendedExtras,
+  largeSauceOffer,
+  photoCartLimit,
+} from '../product-photo-selection';
 import { optionPhotos, extraPhotos, photoHeroes } from '../product-photo-assets';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { Icon, Row } from '../components/UI';
@@ -28,7 +35,7 @@ type Picker = { group: ModifierGroup; index: number; chosen: string | null };
 const ink = '#271C15';
 const paper = '#D8C5A7';
 const gradient = 'linear-gradient(180deg, rgba(216,197,167,0) 0%, #D8C5A7 100%)';
-const blueGradient = 'linear-gradient(180deg, rgba(0,71,187,0) 0%, #0047BB 100%)';
+const blueGradient = 'linear-gradient(180deg, rgba(0,71,187,0) 0%, #063B94 100%)';
 const blueBlend = (
   Platform.OS === 'web'
     ? { backgroundImage: blueGradient }
@@ -51,38 +58,44 @@ export function PhotoProduct(props: Props) {
   const [quantity, setQuantity] = useState(props.editing?.quantity ?? 1);
   const [picker, setPicker] = useState<Picker | null>(null);
   const [info, setInfo] = useState(false);
+  const [largeSauceCount, setLargeSauceCount] = useState(0);
   const blue = product.id === 'burger-duo';
   const combo = product.id === 'finger-duo' || blue;
   const s = blue ? blueStyles : warmStyles;
   const pageInk = blue ? '#FFFFFF' : ink;
   const pagePaper = blue ? '#0047BB' : paper;
   const heroHeight = Math.min(width, height * 0.61, 600);
-  const pageGradient = `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight}px, #04143A 100%)`;
+  const pageGradient = `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 70}px, #063B94 ${heroHeight}px, #04143A 100%)`;
   const gradientSurface = (
     Platform.OS === 'web'
       ? { backgroundImage: pageGradient }
       : { experimental_backgroundImage: pageGradient }
   ) as ViewStyle;
-  const extraWidth = Math.min(192, Math.max(176, width * 0.5));
+  const extraWidth = Math.min(160, Math.max(144, width * 0.39));
   const title = product.id === 'burger' ? 'Бургер' : product.name;
   const columns = fontScale > 1.3 || width < 375 ? 2 : 3;
   const optionWidth = (Math.min(width, 768) - 24 - (columns - 1) * 8) / columns;
   const drinkPhotoSize = Math.min(180, optionWidth - 16);
   const unit = lineUnitPrice({ product, selections });
-  const candidateKey = cartLineKey({ product, selections });
-  const existing = props.model.cart.find(
-    (line) =>
-      cartLineKey(line) === candidateKey &&
-      (!props.editing || cartLineKey(line) !== cartLineKey(props.editing)),
-  );
-  const full = !props.editing && !existing && props.model.cart.length >= 11;
-  const reason = full
-    ? 'В корзине уже 11 разных позиций.'
-    : (existing?.quantity ?? 0) + quantity > 20
-      ? 'Можно добавить до 20 одинаковых позиций.'
-      : !validSelections(product, selections)
-        ? 'Выберите доступные напитки и соусы.'
-        : null;
+  const largeSauce = combo ? largeSauceOffer(props.model.products) : null;
+  const largeSauceUnit = largeSauce ? lineUnitPrice(largeSauce) : '0';
+  const largeSauceLine =
+    largeSauce && largeSauceCount > 0
+      ? { ...largeSauce, quantity: largeSauceCount * quantity }
+      : undefined;
+  const totalPrice = (
+    (BigInt(unit) + BigInt(largeSauceUnit) * BigInt(largeSauceCount)) *
+    BigInt(quantity)
+  ).toString();
+  const reason =
+    photoCartLimit(
+      props.model.cart,
+      { product, selections, quantity },
+      props.editing,
+      largeSauceLine,
+    ) ??
+    (!validSelections(product, selections) ? 'Выберите доступные напитки и соусы.' : null) ??
+    (largeSauceCount > 0 && !largeSauce ? 'Большая порция соуса сейчас недоступна.' : null);
   const groups = (product.modifierGroups ?? []).filter((g) => ['drink', 'sauce'].includes(g.id));
   const extras = product.modifierGroups?.find((g) => g.id === 'extras');
   const infoContent = (
@@ -223,54 +236,92 @@ export function PhotoProduct(props: Props) {
                   testID="photo-extras-track"
                   accessibilityLabel="Дополнения к комбо, горизонтальный список"
                 >
-                  {[...extras.options]
-                    .sort((a, b) => Number(!!extraPhotos[b.id]) - Number(!!extraPhotos[a.id]))
-                    .map((option) => {
-                      const count =
-                        selections.find(
-                          (v) => v.group_id === extras.id && v.option_id === option.id,
-                        )?.quantity ?? 0;
-                      const total = selections
-                        .filter((v) => v.group_id === extras.id)
-                        .reduce((n, v) => n + v.quantity, 0);
-                      const unavailable = option.available === false;
-                      const change = (delta: number) =>
-                        setSelections((current) => {
-                          const previous =
-                            current.find(
-                              (v) => v.group_id === extras.id && v.option_id === option.id,
-                            )?.quantity ?? 0;
-                          return setExtraQuantity(current, extras, option.id, previous + delta);
-                        });
-                      return (
-                        <View
-                          key={option.id}
-                          testID={`photo-extra-${option.id}`}
-                          style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
-                        >
-                          <OptionImage id={option.id} size={extraWidth - 24} extra />
-                          <Text style={s.choiceName}>{option.label}</Text>
-                          <Text style={s.choiceLabel}>
-                            {unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`}
-                          </Text>
-                          <View style={s.extraControls}>
-                            <Counter
-                              blue={blue}
-                              value={count}
-                              name={option.label}
-                              minus={() => change(-1)}
-                              plus={() => change(1)}
-                              minusDisabled={!count}
-                              plusDisabled={
-                                unavailable ||
-                                count >= (option.max_quantity ?? extras.max) ||
-                                total >= extras.max
-                              }
-                            />
-                          </View>
+                  {recommendedExtras(extras, selections).map((option) => {
+                    const count =
+                      selections.find((v) => v.group_id === extras.id && v.option_id === option.id)
+                        ?.quantity ?? 0;
+                    const total = selections
+                      .filter((v) => v.group_id === extras.id)
+                      .reduce((n, v) => n + v.quantity, 0);
+                    const unavailable = option.available === false;
+                    const change = (delta: number) =>
+                      setSelections((current) => {
+                        const previous =
+                          current.find((v) => v.group_id === extras.id && v.option_id === option.id)
+                            ?.quantity ?? 0;
+                        return setExtraQuantity(current, extras, option.id, previous + delta);
+                      });
+                    return (
+                      <View
+                        key={option.id}
+                        testID={`photo-extra-${option.id}`}
+                        style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
+                      >
+                        <OptionImage id={option.id} size={extraWidth - 24} extra />
+                        <Text style={s.choiceName}>{option.label}</Text>
+                        <Text style={s.choiceLabel}>
+                          {unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`}
+                        </Text>
+                        <View style={s.extraControls}>
+                          <Counter
+                            blue={blue}
+                            value={count}
+                            name={option.label}
+                            minus={() => change(-1)}
+                            plus={() => change(1)}
+                            minusDisabled={!count}
+                            plusDisabled={
+                              unavailable ||
+                              count >= (option.max_quantity ?? extras.max) ||
+                              total >= extras.max
+                            }
+                          />
                         </View>
-                      );
-                    })}
+                      </View>
+                    );
+                  })}
+                  {largeSauce ? (
+                    <View
+                      testID="photo-extra-large-sauce"
+                      style={[
+                        s.extraCard,
+                        { width: extraWidth },
+                        largeSauceCount > 0 && s.extraSelected,
+                      ]}
+                    >
+                      <Image
+                        source={largeSauce.product.image}
+                        contentFit="cover"
+                        style={{
+                          width: extraWidth - 24,
+                          height: extraWidth - 24,
+                          borderRadius: 12,
+                        }}
+                        accessible={false}
+                      />
+                      <Text style={s.choiceName}>Фирменный соус, 300 мл</Text>
+                      <Text style={s.choiceLabel}>+{money(largeSauceUnit)}</Text>
+                      <Text style={s.extraHint}>Отдельная порция</Text>
+                      <View style={s.extraControls}>
+                        <Counter
+                          blue={blue}
+                          value={largeSauceCount}
+                          name="Фирменный соус, 300 мл"
+                          minus={() => setLargeSauceCount((n) => Math.max(0, n - 1))}
+                          plus={() => setLargeSauceCount((n) => Math.min(20, n + 1))}
+                          minusDisabled={!largeSauceCount}
+                          plusDisabled={
+                            !!photoCartLimit(
+                              props.model.cart,
+                              { product, selections, quantity },
+                              props.editing,
+                              { ...largeSauce, quantity: (largeSauceCount + 1) * quantity },
+                            )
+                          }
+                        />
+                      </View>
+                    </View>
+                  ) : null}
                 </ScrollView>
               </View>
             ) : null}
@@ -297,20 +348,24 @@ export function PhotoProduct(props: Props) {
           <Pressable
             testID="product-add"
             accessibilityRole="button"
-            accessibilityLabel={`${props.editing ? 'Сохранить' : 'Добавить в корзину'}: ${money((BigInt(unit) * BigInt(quantity)).toString())}`}
+            accessibilityLabel={`${props.editing ? 'Сохранить' : 'Добавить в корзину'}: ${money(totalPrice)}`}
             accessibilityState={{ disabled: !!reason }}
             disabled={!!reason}
             style={[s.add, !!reason && { opacity: 0.5 }]}
             onPress={() => {
               if (props.onSave) props.onSave(selections, quantity);
-              else {
-                props.model.addToCart(product.id, selections, quantity);
-                props.goBack();
-              }
+              else props.model.addToCart(product.id, selections, quantity);
+              if (largeSauceLine)
+                props.model.addToCart(
+                  largeSauceLine.product.id,
+                  largeSauceLine.selections,
+                  largeSauceLine.quantity,
+                );
+              if (!props.onSave) props.goBack();
             }}
           >
             <Icon name={props.editing ? 'checkmark' : 'add'} color={colors.orangeInk} size={27} />
-            <Text style={s.addText}>{money((BigInt(unit) * BigInt(quantity)).toString())}</Text>
+            <Text style={s.addText}>{money(totalPrice)}</Text>
           </Pressable>
         </View>
         <Pressable
@@ -609,15 +664,16 @@ function makeStyles(blue: boolean) {
     extrasSection: { gap: 14, marginTop: 24 },
     extrasTrack: { gap: 12, paddingRight: 4, paddingBottom: 4 },
     extraCard: {
-      padding: 12,
-      gap: 8,
+      padding: 10,
+      gap: 6,
       borderRadius: 16,
       backgroundColor: blue ? '#0C2B5D' : '#EADBC5',
       borderWidth: 1,
       borderColor: 'transparent',
     },
     extraSelected: { borderColor: blue ? '#8CBFFF' : '#735737' },
-    extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 8 },
+    extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 4 },
+    extraHint: { fontFamily: font.body, fontSize: 12, lineHeight: 17, color: muted },
     footer: {
       paddingTop: 12,
       paddingHorizontal: 24,

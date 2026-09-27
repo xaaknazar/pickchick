@@ -6,6 +6,9 @@ import {
   replaceComboSlot,
   hasPhotoPilot,
   setExtraQuantity,
+  recommendedExtras,
+  largeSauceOffer,
+  photoCartLimit,
 } from '../../apps/mobile/src/product-photo-selection.ts';
 import { defaultSelections, lineUnitPrice, validSelections } from '../../apps/mobile/src/domain.ts';
 const item = testCompleteCatalog.products.find((p) => p.id === 'finger-duo');
@@ -110,4 +113,53 @@ test('extra limits reject excess and stopped additions but allow removing stoppe
   const stopped = { ...extras, options: extras.options.map((o) => ({ ...o, available: false })) };
   assert.equal(setExtraQuantity(one, stopped, 'fingers', 2), one);
   assert.deepEqual(setExtraQuantity(one, stopped, 'fingers', 0), initial);
+});
+
+const allProducts = testCompleteCatalog.products.map((p) => ({
+  ...p,
+  priceMinor: p.price_minor,
+  modifierGroups: p.modifier_groups,
+}));
+test('recommend food add-ons, retain old selected sauce for editing only', () => {
+  const extras = product.modifierGroups.find((g) => g.id === 'extras');
+  assert.deepEqual(
+    recommendedExtras(extras, []).map((o) => o.id),
+    ['fingers', 'toast', 'coleslaw', 'wedges'],
+  );
+  const selected = [
+    ...defaultSelections(product),
+    { group_id: 'extras', option_id: 'sauce', quantity: 1 },
+  ];
+  assert.equal(recommendedExtras(extras, selected).at(-1).id, 'sauce');
+  assert.equal(recommendedExtras(extras, setExtraQuantity(selected, extras, 'sauce', 0)).length, 4);
+});
+test('large sauce is the real 300ml catalog variant at 1190, never the small extra', () => {
+  const offer = largeSauceOffer(allProducts);
+  assert.equal(offer.product.id, 'sauce');
+  assert.deepEqual(offer.selections, [{ group_id: 'size', option_id: 'size-1', quantity: 1 }]);
+  assert.equal(lineUnitPrice(offer), '119000');
+  assert.equal(validSelections(offer.product, offer.selections), true);
+  assert.equal(largeSauceOffer([]), null);
+  const stopped = {
+    ...offer.product,
+    modifierGroups: offer.product.modifierGroups.map((g) => ({
+      ...g,
+      options: g.options.map((o) => ({ ...o, available: o.id !== 'size-1' })),
+    })),
+  };
+  assert.equal(largeSauceOffer([stopped]), null);
+});
+test('combo plus large sauce reserves both cart slots and enforces quantity limits', () => {
+  const main = { product, selections: defaultSelections(product), quantity: 1 };
+  const sauce = largeSauceOffer(allProducts);
+  const others = Array.from({ length: 10 }, (_, i) => ({
+    product: { ...product, id: `other-${i}` },
+    selections: [],
+    quantity: 1,
+  }));
+  assert.ok(photoCartLimit(others, main, undefined, sauce));
+  assert.equal(photoCartLimit(others.slice(1), main, undefined, sauce), null);
+  assert.equal(photoCartLimit([...others.slice(1), main], main, main, sauce), null);
+  assert.ok(photoCartLimit([{ ...sauce, quantity: 20 }], main, undefined, sauce));
+  assert.equal(photoCartLimit([{ ...sauce, quantity: 19 }], main, undefined, sauce), null);
 });

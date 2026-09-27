@@ -1,4 +1,5 @@
-import type { ModifierGroup, Selection } from './model';
+import { defaultSelections, validSelections, cartLineKey } from './domain.ts';
+import type { CartLine, ModifierGroup, Product, Selection } from './model';
 
 export const hasPhotoPilot = (id: string) =>
   id === 'finger-duo' || id === 'burger-duo' || id === 'burger';
@@ -58,4 +59,53 @@ export function setExtraQuantity(
     ...selections.filter((s) => !(s.group_id === group.id && s.option_id === optionId)),
     ...(quantity ? [{ group_id: group.id, option_id: optionId, quantity }] : []),
   ];
+}
+
+/** Existing saved add-ons remain editable even when they are no longer recommended. */
+export function recommendedExtras(group: ModifierGroup, selections: Selection[]) {
+  const order = ['fingers', 'toast', 'coleslaw', 'wedges'];
+  return group.options
+    .filter(
+      (o) =>
+        order.includes(o.id) ||
+        selections.some((s) => s.group_id === group.id && s.option_id === o.id && s.quantity > 0),
+    )
+    .sort(
+      (a, b) =>
+        (order.includes(a.id) ? order.indexOf(a.id) : 99) -
+        (order.includes(b.id) ? order.indexOf(b.id) : 99),
+    );
+}
+
+/** Use the catalog's actual 300 ml product variant, never relabel a 60 ml modifier. */
+export function largeSauceOffer(products: Product[]): CartLine | null {
+  const product = products.find((p) => p.id === 'sauce');
+  const sizes = product?.modifierGroups?.find((g) => g.id === 'size');
+  const size = sizes?.options.find(
+    (o) => /^(?:0[,.]3\s*л|300\s*мл)$/i.test(o.label.trim()) && o.available !== false,
+  );
+  if (!product || !sizes || !size) return null;
+  const selections = [
+    ...defaultSelections(product).filter((s) => s.group_id !== sizes.id),
+    { group_id: sizes.id, option_id: size.id, quantity: 1 },
+  ];
+  return validSelections(product, selections) ? { product, selections, quantity: 1 } : null;
+}
+
+/** Preflight all resulting lines, including a separately priced large sauce. */
+export function photoCartLimit(
+  cart: CartLine[],
+  main: CartLine,
+  editing?: CartLine,
+  extra?: CartLine,
+): string | null {
+  const projected = cart.filter((line) => !editing || cartLineKey(line) !== cartLineKey(editing));
+  const quantities = new Map(projected.map((line) => [cartLineKey(line), line.quantity]));
+  for (const line of [main, ...(extra ? [extra] : [])]) {
+    const key = cartLineKey(line);
+    const quantity = (quantities.get(key) ?? 0) + line.quantity;
+    if (quantity > 20) return 'Можно добавить до 20 одинаковых позиций.';
+    quantities.set(key, quantity);
+  }
+  return quantities.size > 11 ? 'В корзине уже 11 разных позиций.' : null;
 }
