@@ -1,3 +1,4 @@
+import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { MotionPressable as Pressable, MotionModal } from '../components/Motion';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
@@ -369,9 +370,14 @@ export function Menu(props: ScreenProps) {
   const openProduct = useCallback(
     (product: Product) => {
       props.model.selectProduct(product.id);
-      props.navigate('M07');
+      if (hasPhotoPilot(product.id))
+        router.push({
+          pathname: '/product-photo',
+          params: { product: product.id, ...(props.preview ? { preview: '1' } : {}) },
+        });
+      else props.navigate('M07');
     },
-    [props.model.selectProduct, props.navigate],
+    [props.model.selectProduct, props.navigate, props.preview, router],
   );
   const categoryBar = (
     <ScrollView

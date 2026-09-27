@@ -29,6 +29,24 @@ export default function Review() {
           33 страницы для проверки дизайна. Заказы, платежи и Чики здесь - примеры дизайна. Действия
           не отправляются в ресторан или банк.
         </Text>
+        {[
+          ['finger-duo', 'Фингер Дуо'],
+          ['burger', 'Бургер'],
+        ].map(([id, name]) => (
+          <Pressable
+            key={id}
+            accessibilityRole="button"
+            testID={`review-photo-${id}`}
+            onPress={() =>
+              router.push({ pathname: '/product-photo', params: { product: id, preview: '1' } })
+            }
+            style={{ padding: 20, borderRadius: 16, backgroundColor: '#D8C5A7', minHeight: 64 }}
+          >
+            <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 20, color: '#271C15' }}>
+              {name} - новый дизайн
+            </Text>
+          </Pressable>
+        ))}
         {screens
           .filter((screen) => screen.surface === 'mobile' && !['M27', 'M28'].includes(screen.id))
           .map((screen) => (

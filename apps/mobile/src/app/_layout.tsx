@@ -61,6 +61,14 @@ function AppLayout() {
                 }}
               >
                 <Stack.Screen
+                  name="product-photo"
+                  options={{
+                    presentation: 'modal',
+                    animation: reduced ? 'none' : 'slide_from_bottom',
+                    contentStyle: { backgroundColor: '#D8C5A7' },
+                  }}
+                />
+                <Stack.Screen
                   name="order-status"
                   options={{
                     presentation: 'transparentModal',

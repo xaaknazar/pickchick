@@ -1,3 +1,5 @@
+import { PhotoProduct } from './PhotoProduct';
+import { hasPhotoPilot } from '../product-photo-selection';
 import { MotionPressable as Pressable } from '../components/Motion';
 import { useState } from 'react';
 import { Image } from 'expo-image';
@@ -44,6 +46,19 @@ export function ProductConfiguration(props: ScreenProps) {
   );
 }
 export function ConfiguredProduct(
+  props: ScreenProps & {
+    product: Product;
+    editing?: CartLine;
+    onSave?(selections: Selection[], quantity: number): void;
+  },
+) {
+  return hasPhotoPilot(props.product.id) ? (
+    <PhotoProduct {...props} />
+  ) : (
+    <LegacyConfiguredProduct {...props} />
+  );
+}
+function LegacyConfiguredProduct(
   props: ScreenProps & {
     product: Product;
     editing?: CartLine;
