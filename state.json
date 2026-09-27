@@ -587,6 +587,29 @@
       "updatedAt": "2026-09-27T15:13:25.491Z",
       "summary": "Dev restarted with clear cache; iOS bundle and campaign PNG HTTP200, exact image bytes verified; 7 roadmap tests pass. PR111. No VPS/TestFlight/online roadmap deployment.",
       "nextAction": "Owner reopen PickChick Dev and confirm physical screen; save assets before referencing them in future edits."
+    },
+    {
+      "id": "combo-server-stamps",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/combo-server-stamps",
+      "scopes": [
+        "packages/test-order-flow",
+        "services/api/src/test-order-controller.ts",
+        "db/cloud/migrations/025_cloud_combo_stamps.sql",
+        "apps/mobile/src",
+        "tests/integration/customer-pilot-orders.test.mjs",
+        "tests/mobile",
+        "packages/contracts",
+        "scripts/contracts.mjs",
+        "infra/staging",
+        "docs/operations/profile-combo-card.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "d5c50cd5b761ccf267daad672af9648aaa19203c",
+      "updatedAt": "2026-09-27T15:15:35.356Z"
     }
   ]
 }
