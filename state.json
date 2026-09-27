@@ -533,6 +533,22 @@
       "updatedAt": "2026-09-27T14:47:56.796Z",
       "summary": "Светлое меню,19 фото, Fuse Tea500мл, плавающая цена.16 selection tests; typecheck/lint/exports и CUA320/393/768, iOS Dev bundle OK. PR108 https://github.com/xaaknazar/pickchick/pull/108. VPS/TestFlight/пульт не обновлены.",
       "nextAction": "Уточнить подачу Heinz60мл/упаковку25мл и вкус Piko; принять фото и safe-area на iPhone, измерить загрузку. Выпуск после полной зелёной CI."
+    },
+    {
+      "id": "cart-reward-progress",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-reward-progress",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/profile-combo-card.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "b73800d083120da0974b715e427da117f720c751",
+      "updatedAt": "2026-09-27T14:49:40.746Z"
     }
   ]
 }
