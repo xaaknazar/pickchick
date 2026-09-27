@@ -755,11 +755,12 @@
         "tests/mobile/order-status.test.mjs",
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "tests/mobile/browser_orders.py"
       ],
       "status": "active",
       "head": "f3345a0492cd1f6a92b32a9db882c358931306cd",
-      "updatedAt": "2026-09-27T16:49:17.148Z"
+      "updatedAt": "2026-09-27T16:50:29.543Z"
     }
   ]
 }
