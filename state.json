@@ -778,11 +778,12 @@
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
-        "docs/operations/product-photo-pilot.md"
+        "docs/operations/product-photo-pilot.md",
+        "apps/mobile/src/screens/OrderStatusScreen.tsx"
       ],
       "status": "active",
       "head": "f60ca02289811a08f3d456aa6749726486fdcd5b",
-      "updatedAt": "2026-09-27T16:56:43.437Z"
+      "updatedAt": "2026-09-27T16:57:03.702Z"
     }
   ]
 }
