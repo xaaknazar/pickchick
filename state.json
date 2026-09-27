@@ -798,9 +798,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "27cbe9eaf8e6876af35c3fbd27342baa288f82b6",
-      "updatedAt": "2026-09-27T17:10:23.833Z"
+      "status": "done",
+      "head": "361b238af8923cfe8b1a46964a78c07973513df5",
+      "updatedAt": "2026-09-27T17:13:55.445Z",
+      "summary": "Cart displays selected modifiers only; no generic descriptions. Typecheck/lint/format, detector, iOS Dev and CUA393 water/combo passed. PR122. No VPS/TestFlight/online roadmap deploy.",
+      "nextAction": "Confirm on physical iPhone; release separately after green CI."
     }
   ]
 }
