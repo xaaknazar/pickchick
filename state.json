@@ -668,9 +668,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "f6d203654310bfba50ab56115b9dbd0d613bae4b",
-      "updatedAt": "2026-09-27T15:50:16.928Z"
+      "status": "done",
+      "head": "7589867e4f9e753b709f80bf0c17d3160090cc0c",
+      "updatedAt": "2026-09-27T15:54:25.314Z",
+      "summary": "Removed main-menu dining selector; both checkout choices verified. Typecheck/lint/format, detector, Dev iOS HTTP200 and CUA passed. PR115. No VPS/TestFlight/online roadmap deploy.",
+      "nextAction": "Physical iPhone acceptance; release separately after green CI."
     }
   ]
 }
