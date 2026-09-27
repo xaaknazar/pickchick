@@ -398,11 +398,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "a4488b24ae3849137f96a0225da48fb661b1c625",
-      "updatedAt": "2026-09-27T11:10:09.800Z",
-      "summary": "PR98 https://github.com/xaaknazar/pickchick/pull/98, a4488b2 опубликован и включён в shared-development. Новая панель статуса, две анимированные 3D-иллюстрации, состав, Pick Blocks, галерея. 178 Node+30 Python, 7 roadmap, typecheck/lint/Expo export и живые iOS/Android Dev bundles прошли. CUA на изолированном API/PG: вход->заказ->готовность по событию, чек/поддержка, игра и возврат; 320/393/768 web. CI ещё ожидается; TestFlight/VPS/онлайн-roadmap не обновлены. Metro8081 остаётся запущен, временный API4198 остановлен.",
-      "nextAction": "Проверить CI exact SHA и обновлённый browser_orders.py, затем опубликовать roadmap по runbook. Принять жесты/FPS/VoiceOver/Dynamic Type на физическом iPhone/Android. Серверный пилот продолжить отдельной задачей по docs/operations/server-pilot.md: вопрос хранения ещё без ответа, публичный auth не включён. Протокол UI: docs/operations/order-status-sheet.md."
+      "status": "available",
+      "head": "7c3babe18f9ee9847415543131767b10a25d3422",
+      "updatedAt": "2026-09-27T11:18:52.616Z",
+      "summary": "Уточнение владельца опубликовано: PR99 https://github.com/xaaknazar/pickchick/pull/99, 7c3babe18f9ee9847415543131767b10a25d3422 в shared-development. Панель выше, отдельный Modal только с поддержкой, три неподвижные сцены cooking/assembly/ready, крупные фото и весь фон Pick Blocks.179 Node+30 Python,7 roadmap,typecheck/lint/export всех платформ и живые Dev bundles прошли. CUA393/320: три сцены, modal close/Escape, карточки/обложка. Новая CI ожидается; VPS/TestFlight/online roadmap не обновлены. Metro8081 остаётся.",
+      "nextAction": "Проверить CI точного SHA и обновлённый browser_orders.py, затем roadmap по runbook; физическая приёмка iPhone/Android. Три сцены - неподвижные 3D-иллюстрации с crossfade, не rigged video. Серверный пилот/срок хранения остаются отдельной задачей. docs/operations/order-status-sheet.md содержит новое уточнение."
     }
   ]
 }
