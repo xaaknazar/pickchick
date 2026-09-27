@@ -1,5 +1,23 @@
 # PICK BLOCKS — игра внутри «Событий»
 
+## Native rendering follow-up - 27 September 2026
+
+Pick Blocks rendering now uses engine coordinates for the piece origin and shape, plus a bounded Reanimated fraction of one free cell. Removed Animated.ValueXY absolute motion and remounts on every swipe/rotation. Explicit native bounds and collapsable=false keep the coordinate hierarchy stable. Verified 202 Node + 30 Python mobile tests, typecheck/lint/format, detector, and iOS Dev HTTP200. CUA393x852 covered both wall swipes, rotation, accelerated drop, multiple landings, pause and restoration. The original native iPhone failure was not reproduced locally; physical iPhone acceptance is still required. VPS/TestFlight/online roadmap not deployed.
+
+The supplied screenshots show the visible piece in a different column from its
+landing guide, then disappearing. Prior web coverage did not establish native
+correctness. The previous renderer held absolute coordinates in native animation
+nodes and relied on keyed remounts to resynchronise X/rotation. Now board origin
+is ordinary layout, shared with the engine, and animation holds only progress0..1.
+Every frame clamps that progress to the current collision-free next cell; at the
+floor or a stack it is zero. A delayed animation cannot retain an old row/column.
+Natural gravity stays smooth; accelerated input uses committed engine positions.
+
+Four new regression tests check rendered cells against walls, floor and settled
+blocks, including stale progress, square swipes, wall/floor kicks, repeated
+spawns and hard drops. Scores, rules, saves and authentication are unchanged.
+Browser BackHandler warning is pre-existing; no native FPS claim is made.
+
 Для запуска нужен вход в аккаунт PickChick, включая прямую ссылку на игру.
 Гостю показывается вход; после него открывается выбранная игра. При выходе
 из аккаунта игровой экран закрывается проверкой доступа.

@@ -1,5 +1,11 @@
 # Контекст для нового компьютера
 
+## Latest: blocks-render-sync
+
+Pick Blocks rendering now uses engine coordinates for the piece origin and shape, plus a bounded Reanimated fraction of one free cell. Removed Animated.ValueXY absolute motion and remounts on every swipe/rotation. Explicit native bounds and collapsable=false keep the coordinate hierarchy stable. Verified 202 Node + 30 Python mobile tests, typecheck/lint/format, detector, and iOS Dev HTTP200. CUA393x852 covered both wall swipes, rotation, accelerated drop, multiple landings, pause and restoration. The original native iPhone failure was not reproduced locally; physical iPhone acceptance is still required. VPS/TestFlight/online roadmap not deployed.
+
+Evidence: `docs/operations/pick-blocks.md`.
+
 ## Последнее: menu-checkout-mode
 
 Из главного меню удалён переключатель «С собой / В зале» и связанная с ним анимация. Выбор остаётся на оформлении в блоке «Как заберёте заказ?». Typecheck, ESLint/format, Impeccable detect и iOS Dev bundle HTTP200 проверены. В браузере подтверждены отсутствие переключателя в меню и выбор обоих вариантов на оформлении. Физическая приёмка отдельно; VPS/TestFlight/онлайн-пульт не обновлены.

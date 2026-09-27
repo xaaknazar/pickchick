@@ -5,7 +5,6 @@ import {
   BackHandler,
   ActivityIndicator,
   Animated,
-  Easing,
   Modal,
   PanResponder,
   Platform,
@@ -17,6 +16,14 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Reanimated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { fallingFrame, fallingOffset } from './falling-motion';
 import { Icon, Logo, type IconName } from '../../components/UI';
 import { colors, font } from '../../theme';
 import {
@@ -24,7 +31,6 @@ import {
   BOARD_WIDTH,
   cells,
   ghostPiece,
-  gravityIntervalMs,
   type GameState,
   type PieceKind,
 } from './engine';
@@ -164,7 +170,7 @@ function SideRail({ game, compact }: { game: GameState; compact: boolean }) {
     </View>
   );
 }
-/** Native-driver interpolation fills the time between deterministic gravity steps. */
+/** Board coordinates come from the engine; animation only fills a safe fraction of one row. */
 function FallingPiece({
   game,
   cell,
@@ -177,67 +183,45 @@ function FallingPiece({
   reduced: boolean;
 }) {
   const piece = game.active;
-  const position = useRef(
-    new Animated.ValueXY({ x: (piece?.x ?? 0) * cell, y: (piece?.y ?? 0) * cell }),
-  ).current;
-  const previous = useRef({ id: game.piecesPlaced, cell, score: game.score });
+  const frame = fallingFrame(game);
+  const progress = useSharedValue(0);
+  const start = frame?.progress ?? 0;
+  const travel = frame?.travel ?? 0;
+  const duration = frame?.duration ?? 1;
   useLayoutEffect(() => {
-    if (!piece) return;
-    const interval = gravityIntervalMs(game.level);
-    const canFall = (ghostPiece(game)?.y ?? piece.y) > piece.y;
-    const progress = canFall ? game.gravityMs / interval : 0;
-    const currentY = (piece.y + progress) * cell;
-    const fresh = previous.current.id !== game.piecesPlaced || previous.current.cell !== cell;
-    const softFall = !fresh && game.score > previous.current.score;
-    previous.current = { id: game.piecesPlaced, cell, score: game.score };
-    position.stopAnimation();
-    if (fresh || reduced || !playing) position.setValue({ x: piece.x * cell, y: currentY });
-    else if (!softFall) position.y.setValue(currentY);
-    if (!playing || reduced) return;
-    // Horizontal positions and rotations are committed together by the engine.
-    // Tweening an old origin with a new shape can cross a wall or a settled tile.
-    const fall = Animated.timing(position.y, {
-      toValue: canFall && playing && !reduced ? (piece.y + 1) * cell : currentY,
-      duration: canFall && playing && !reduced ? Math.max(1, interval - game.gravityMs) : 0,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    });
-    const vertical = softFall
-      ? Animated.sequence([
-          Animated.timing(position.y, {
-            toValue: currentY,
-            duration: 65,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          }),
-          fall,
-        ])
-      : fall;
-    const animation = vertical;
-    animation.start();
-    return () => animation.stop();
-  }, [
-    piece,
-    game.piecesPlaced,
-    game.level,
-    game.gravityMs,
-    game.score,
-    game.board,
-    cell,
-    playing,
-    reduced,
-    position,
-  ]);
-  if (!piece) return null;
+    cancelAnimation(progress);
+    progress.value = reduced ? 0 : start;
+    if (playing && !reduced && travel) {
+      progress.value = withTiming(travel, { duration, easing: Easing.linear });
+    }
+    return () => cancelAnimation(progress);
+  }, [piece, game.piecesPlaced, cell, playing, reduced, start, travel, duration, progress]);
+  const falling = useAnimatedStyle(() => ({
+    // A stale frame can no longer carry a previous row/column past a wall or the floor.
+    transform: [{ translateY: fallingOffset(reduced ? 0 : progress.value, travel, cell) }],
+  }));
+  if (!piece || !frame) return null;
   return (
-    <Animated.View
-      testID="blocks-falling-piece"
-      style={{ position: 'absolute', left: 0, top: 0, transform: position.getTranslateTransform() }}
+    <View
+      testID="blocks-piece-origin"
+      collapsable={false}
+      style={{
+        position: 'absolute',
+        left: frame.x * cell,
+        top: frame.y * cell,
+        width: 4 * cell,
+        height: 4 * cell,
+      }}
     >
-      {cells(piece).map((point, i) => (
-        <Tile key={i} x={point.x - piece.x} y={point.y - piece.y} size={cell} kind={piece.kind} />
-      ))}
-    </Animated.View>
+      <Reanimated.View
+        testID="blocks-falling-piece"
+        style={[{ width: 4 * cell, height: 4 * cell }, falling]}
+      >
+        {cells(piece).map((point, i) => (
+          <Tile key={i} x={point.x - piece.x} y={point.y - piece.y} size={cell} kind={piece.kind} />
+        ))}
+      </Reanimated.View>
+    </View>
   );
 }
 function Board({
@@ -431,7 +415,6 @@ function Board({
               .map((p, i) => <Tile key={`g${i}`} {...p} size={cell} kind={ghost.kind} ghost />)
           : null}
         <FallingPiece
-          key={`${game.piecesPlaced}:${game.active?.rotation}:${game.active?.x}:${cell}`}
           game={game}
           cell={cell}
           playing={controller.status === 'playing'}

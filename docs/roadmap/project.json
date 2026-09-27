@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-27T15:52:58.917490+00:00",
+  "updatedAt": "2026-09-27T16:21:07.311710+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -2577,7 +2577,7 @@
       "id": "games-local",
       "workstream": "games",
       "title": "PICK MAN и PICK BLOCKS",
-      "summary": "По решению владельца PICK RUN временно скрыт, включая старые ссылки и галерею. В приложении две игры: MAN со свайпами и BLOCKS с разноцветными клетками. Проверены четыре размера; очки локальные, серверные награды выключены. 25.09 исправлены выход BLOCKS за стену при повороте и смена траектории свайпа; 20 адресных browser-сценариев пройдены. Приёмка на телефоне ещё нужна.",
+      "summary": "По решению владельца PICK RUN временно скрыт, включая старые ссылки и галерею. В приложении две игры: MAN со свайпами и BLOCKS с разноцветными клетками. Проверены четыре размера; очки локальные, серверные награды выключены. 25.09 исправлены выход BLOCKS за стену при повороте и смена траектории свайпа; 20 адресных browser-сценариев пройдены. Приёмка на телефоне ещё нужна. Pick Blocks rendering now uses engine coordinates for the piece origin and shape, plus a bounded Reanimated fraction of one free cell. Removed Animated.ValueXY absolute motion and remounts on every swipe/rotation. Explicit native bounds and collapsable=false keep the coordinate hierarchy stable. Verified 202 Node + 30 Python mobile tests, typecheck/lint/format, detector, and iOS Dev HTTP200. CUA393x852 covered both wall swipes, rotation, accelerated drop, multiple landings, pause and restoration. The original native iPhone failure was not reproduced locally; physical iPhone acceptance is still required. VPS/TestFlight/online roadmap not deployed.",
       "status": "done",
       "owner": "development",
       "phase": "product",
