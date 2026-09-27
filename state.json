@@ -569,6 +569,22 @@
       "updatedAt": "2026-09-27T15:06:10.036Z",
       "summary": "Restored navy menu cards; retained light photos; orange price and replace labels. Typecheck/lint, CUA393 and iOS Dev bundle passed. PR110 https://github.com/xaaknazar/pickchick/pull/110. No VPS/TestFlight/online roadmap deploy.",
       "nextAction": "Native visual acceptance; release after full green CI."
+    },
+    {
+      "id": "dev-campaign-asset-recovery",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/dev-campaign-asset-recovery",
+      "scopes": [
+        "scripts/mobile/check-dev-bundle.mjs",
+        "docs/operations/profile-combo-card.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@workstations/mac1/metro"
+      ],
+      "status": "active",
+      "head": "4c47cb58155d6cb146338cffa73d708eb311249f",
+      "updatedAt": "2026-09-27T15:07:45.051Z"
     }
   ]
 }
