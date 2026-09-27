@@ -763,6 +763,26 @@
       "updatedAt": "2026-09-27T16:53:03.074Z",
       "summary": "Separate ready/fulfilled takeaway bags by saved service mode, dine-in tray preserved.4 status tests, typecheck/lint/format, detector, iOS Dev/asset hash and CUA393 passed. PR120. No VPS/TestFlight/online roadmap deploy.",
       "nextAction": "Confirm on physical iPhone; release after full green CI."
+    },
+    {
+      "id": "cart-ux-return",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-ux-return",
+      "scopes": [
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/app",
+        "apps/mobile/src/components/ComboRewardCard.tsx",
+        "apps/mobile/assets/order-status",
+        "tests/mobile",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md"
+      ],
+      "status": "active",
+      "head": "f60ca02289811a08f3d456aa6749726486fdcd5b",
+      "updatedAt": "2026-09-27T16:56:43.437Z"
     }
   ]
 }
