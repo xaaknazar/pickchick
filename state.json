@@ -691,6 +691,23 @@
       "updatedAt": "2026-09-27T16:23:05.837Z",
       "summary": "Bounded Reanimated fall; engine owns origin/shape, no per-swipe remount.202+30 mobile tests, typecheck/lint/format, iOS Dev and CUA393 passed. PR116. Native original issue not reproduced here; no VPS/TestFlight/roadmap deployment.",
       "nextAction": "Reopen game on physical iPhone and repeat fast wall swipes, rotation and floor landing; release after green CI."
+    },
+    {
+      "id": "checkout-combo-done",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-combo-done",
+      "scopes": [
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "tests/mobile/product-photo-selection.test.mjs",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "bea9a3eed82703ffde30a446ab24bc77ec6cb9aa",
+      "updatedAt": "2026-09-27T16:24:55.210Z"
     }
   ]
 }
