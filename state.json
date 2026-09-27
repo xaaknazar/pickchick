@@ -384,6 +384,23 @@
       "updatedAt": "2026-09-27T10:48:22.017Z",
       "summary": "Подготовка серверного пилота сохранена в PR97 и общем срезе 3ef80c9. VPS не обновлён, срок хранения не выбран; проверки и продолжение в docs/operations/server-pilot.md. По новому запросу владельца начинается отдельная задача оформления статуса заказа.",
       "nextAction": "Продолжить серверный выпуск отдельной задачей после решения о хранении, проверки CI и legal HTML. Не считать этот checkpoint развёрнутым."
+    },
+    {
+      "id": "order-status-sheet",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/order-status-sheet",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "docs/operations/order-status-sheet.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "3ef80c950d0a2c4c04c5285c5657c8713fb7311e",
+      "updatedAt": "2026-09-27T10:48:28.055Z"
     }
   ]
 }
