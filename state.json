@@ -546,9 +546,11 @@
         "docs/operations/profile-combo-card.md",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "b73800d083120da0974b715e427da117f720c751",
-      "updatedAt": "2026-09-27T14:49:40.746Z"
+      "status": "done",
+      "head": "85ec0596a5d52368c96dd6ba904e779dcc8f4840",
+      "updatedAt": "2026-09-27T15:00:07.386Z",
+      "summary": "Корзина выше; новый фон Burger Combo и шкала7+1 без изменения174/136.195 tests, typecheck/lint/export и CUA320/393/768. PR109 https://github.com/xaaknazar/pickchick/pull/109. Реальный счётчик не подключён, preview3из7; VPS/TestFlight/пульт не обновлены.",
+      "nextAction": "Подключить серверный журнал отметок/возвратов и погашение после согласования правил; нативно принять корзину/акцию. Выпуск после полной зелёной CI."
     }
   ]
 }
