@@ -582,9 +582,11 @@
         "docs/collaboration/handoff.md",
         "@workstations/mac1/metro"
       ],
-      "status": "active",
-      "head": "4c47cb58155d6cb146338cffa73d708eb311249f",
-      "updatedAt": "2026-09-27T15:07:45.051Z"
+      "status": "done",
+      "head": "d5c50cd5b761ccf267daad672af9648aaa19203c",
+      "updatedAt": "2026-09-27T15:13:25.491Z",
+      "summary": "Dev restarted with clear cache; iOS bundle and campaign PNG HTTP200, exact image bytes verified; 7 roadmap tests pass. PR111. No VPS/TestFlight/online roadmap deployment.",
+      "nextAction": "Owner reopen PickChick Dev and confirm physical screen; save assets before referencing them in future edits."
     }
   ]
 }
