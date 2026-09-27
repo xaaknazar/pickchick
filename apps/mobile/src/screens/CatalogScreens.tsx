@@ -746,7 +746,11 @@ export function Cart(props: ScreenProps) {
           {props.model.cart.map((line) => (
             <View key={cartLineKey(line)} style={s.cartLine}>
               <View style={s.cartProduct}>
-                <Image source={line.product.image} style={s.cartImage} contentFit="contain" />
+                <Image
+                  source={menuPhotos[line.product.id] ?? line.product.image}
+                  style={s.cartImage}
+                  contentFit="contain"
+                />
                 <View style={ui.flex}>
                   <Heading small style={[orderUI.label, { fontFamily: font.bold }]}>
                     {line.product.name}
