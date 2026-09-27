@@ -1,8 +1,64 @@
 import { defaultSelections, validSelections, cartLineKey } from './domain.ts';
 import type { CartLine, ModifierGroup, Product, Selection } from './model';
 
-export const hasPhotoPilot = (id: string) =>
-  id === 'finger-duo' || id === 'burger-duo' || id === 'burger';
+export const photoProductIds = [
+  'pick-combo',
+  'master-combo',
+  'burger-combo',
+  'solo-combo',
+  'finger-duo',
+  'burger-duo',
+  'mix-duo',
+  'fingers-25',
+  'fingers-50',
+  'fingers-75',
+  'fingers-100',
+  'fingers',
+  'toast',
+  'coleslaw',
+  'wedges',
+  'sauce',
+  'sauce-hot',
+  'burger',
+  'lemonade',
+  'cola',
+  'fuse-peach',
+  'iced-tea',
+  'water',
+  'piko',
+];
+export const hasPhotoPilot = (id: string) => photoProductIds.includes(id);
+export const isComboProduct = (id: string) =>
+  id.endsWith('-combo') || id.endsWith('-duo') || /^fingers-(25|50|75|100)$/.test(id);
+
+/** Allow incomplete required groups while editing, but keep catalog maxima and stop-list. */
+export function setPhotoChoice(
+  selections: Selection[],
+  group: ModifierGroup,
+  optionId: string,
+  quantity: number,
+): Selection[] {
+  const option = group.options.find((o) => o.id === optionId);
+  if (!option || !Number.isInteger(quantity) || quantity < 0) return selections;
+  const previous =
+    selections.find((s) => s.group_id === group.id && s.option_id === optionId)?.quantity ?? 0;
+  const others = selections
+    .filter((s) => s.group_id === group.id && s.option_id !== optionId)
+    .reduce((n, s) => n + s.quantity, 0);
+  if (
+    quantity > previous &&
+    (option.available === false ||
+      quantity > (option.max_quantity ?? group.max) ||
+      (group.max !== 1 && others + quantity > group.max))
+  )
+    return selections;
+  return [
+    ...selections.filter(
+      (s) => s.group_id !== group.id || (group.max !== 1 && s.option_id !== optionId),
+    ),
+    ...(quantity ? [{ group_id: group.id, option_id: optionId, quantity }] : []),
+  ];
+}
 
 /** Expand the saved quantities into individual replaceable combo slots. */
 export function comboSlots(group: ModifierGroup, selections: Selection[]): (string | null)[] {
@@ -94,7 +150,7 @@ export function largeSauceOffer(products: Product[]): CartLine | null {
 
 /** Companion products keep their real SKU, variant, availability and price. */
 export function comboCompanions(productId: string, products: Product[]): CartLine[] {
-  if (productId !== 'finger-duo' && productId !== 'burger-duo') return [];
+  if (!isComboProduct(productId)) return [];
   const burger = productId === 'finger-duo' ? products.find((p) => p.id === 'burger') : undefined;
   const selections = burger ? defaultSelections(burger) : [];
   const sauce = largeSauceOffer(products);

@@ -15,6 +15,8 @@ import type { CartLine, ModifierGroup, Product, ScreenProps, Selection } from '.
 import { defaultSelections, lineUnitPrice, money, validSelections } from '../domain';
 import {
   comboSlots,
+  isComboProduct,
+  setPhotoChoice,
   replaceComboSlot,
   setExtraQuantity,
   recommendedExtras,
@@ -33,8 +35,8 @@ type Props = ScreenProps & {
 };
 type Picker = { group: ModifierGroup; index: number; chosen: string | null };
 const ink = '#271C15';
-const paper = '#D8C5A7';
-const gradient = 'linear-gradient(180deg, rgba(216,197,167,0) 0%, #D8C5A7 100%)';
+const paper = '#FFF8EE';
+const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
 const blueGradient =
   'linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)';
 const blueBlend = (
@@ -60,8 +62,8 @@ export function PhotoProduct(props: Props) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [info, setInfo] = useState(false);
   const [companionCounts, setCompanionCounts] = useState<Record<string, number>>({});
-  const blue = product.id === 'burger-duo';
-  const combo = product.id === 'finger-duo' || blue;
+  const combo = isComboProduct(product.id);
+  const blue = combo;
   const s = blue ? blueStyles : warmStyles;
   const pageInk = blue ? '#FFFFFF' : ink;
   const pagePaper = blue ? '#0047BB' : paper;
@@ -73,7 +75,7 @@ export function PhotoProduct(props: Props) {
       : { experimental_backgroundImage: pageGradient }
   ) as ViewStyle;
   const extraWidth = Math.min(160, Math.max(144, width * 0.39));
-  const title = product.id === 'burger' ? 'Бургер' : product.name;
+  const title = product.name.replace(/,?\s*1 шт\.?$/, '');
   const columns = fontScale > 1.3 || width < 375 ? 2 : 3;
   const optionWidth = (Math.min(width, 768) - 24 - (columns - 1) * 8) / columns;
   const drinkPhotoSize = Math.min(180, optionWidth - 16);
@@ -98,7 +100,9 @@ export function PhotoProduct(props: Props) {
       props.editing,
       selectedCompanions,
     ) ??
-    (!validSelections(product, selections) ? 'Выберите доступные напитки и соусы.' : null) ??
+    (!validSelections(product, selections)
+      ? 'Завершите выбор состава и доступных вариантов.'
+      : null) ??
     (Object.entries(companionCounts).some(
       ([id, count]) => count > 0 && !companions.some((line) => line.product.id === id),
     )
@@ -153,13 +157,29 @@ export function PhotoProduct(props: Props) {
       </View>
     );
   };
-  const groups = (product.modifierGroups ?? []).filter((g) => ['drink', 'sauce'].includes(g.id));
+  const groups = (product.modifierGroups ?? []).filter(
+    (g) => ['drink', 'sauce'].includes(g.id) && g.min <= 4,
+  );
+  const otherGroups = (product.modifierGroups ?? []).filter(
+    (g) => g.id !== 'extras' && !groups.includes(g),
+  );
   const extras = product.modifierGroups?.find((g) => g.id === 'extras');
+  const sizeGroup = product.modifierGroups?.find((g) => g.id === 'size');
+  const chosenSize = sizeGroup?.options.find((o) =>
+    selections.some((v) => v.group_id === sizeGroup.id && v.option_id === o.id),
+  );
+  const servingLabel = chosenSize?.label ?? product.servingLabel;
+  const hero =
+    product.id === 'sauce' && chosenSize?.price_delta_minor === '0'
+      ? optionPhotos.pick
+      : photoHeroes[product.id];
+  const nutritionMultiplier =
+    product.nutrition?.basis === 'per_serving' ? (chosenSize?.nutrition_multiplier ?? 1) : 1;
   const infoContent = (
     <View style={s.infoCopy}>
       <Text style={s.modalMuted}>
-        {product.servingLabel} ·{' '}
-        {product.nutrition?.basis === 'per_100_g' ? 'На 100 г' : 'На базовую порцию'}
+        {servingLabel} ·{' '}
+        {product.nutrition?.basis === 'per_100_g' ? 'На 100 г' : 'На выбранную порцию'}
       </Text>
       {product.nutrition ? (
         <View style={s.nutritionGrid}>
@@ -170,7 +190,11 @@ export function PhotoProduct(props: Props) {
             [product.nutrition.carbs_g, 'Углеводы, г'],
           ].map(([value, label]) => (
             <View key={String(label)} style={s.nutrient}>
-              <Text style={s.nutrientValue}>{value}</Text>
+              <Text style={s.nutrientValue}>
+                {typeof value === 'number'
+                  ? Math.round(value * nutritionMultiplier * 10) / 10
+                  : value}
+              </Text>
               <Text style={s.modalMuted}>{label}</Text>
             </View>
           ))}
@@ -202,12 +226,24 @@ export function PhotoProduct(props: Props) {
           testID="photo-product-scroll"
         >
           <View style={{ height: heroHeight, backgroundColor: pagePaper }}>
-            <Image
-              source={photoHeroes[product.id] ?? product.image}
-              style={StyleSheet.absoluteFill}
-              contentFit="contain"
-              accessibilityLabel={title}
-            />
+            {hero ? (
+              <Image
+                source={hero}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                accessibilityLabel={title}
+              />
+            ) : (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { alignItems: 'center', justifyContent: 'center', gap: 12 },
+                ]}
+              >
+                <Icon name="image-outline" color="#65594F" size={48} />
+                <Text style={s.noPhoto}>Фото скоро</Text>
+              </View>
+            )}
             <View pointerEvents="none" style={[s.blend, blue ? blueBlend : blend]} />
             {combo ? (
               <Pressable
@@ -218,7 +254,7 @@ export function PhotoProduct(props: Props) {
                   scroll.current?.scrollTo({ y: choicesY.current, animated: !reduced })
                 }
               >
-                <Icon name="options-outline" color={ink} size={20} />
+                <Icon name="options-outline" color="#8A3309" size={20} />
                 <Text style={s.photoActionText}>Настроить комбо</Text>
               </Pressable>
             ) : null}
@@ -230,8 +266,8 @@ export function PhotoProduct(props: Props) {
             <Text style={s.description}>{product.description}</Text>
             <View style={s.productMeta}>
               <Text style={s.serving}>
-                {product.servingLabel}
-                {combo ? ' · На двоих' : ''}
+                {servingLabel}
+                {product.category === 'На двоих' ? ' · На двоих' : ''}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -251,6 +287,100 @@ export function PhotoProduct(props: Props) {
             }}
           >
             {combo ? <Text style={s.sectionTitle}>Соберите своё комбо</Text> : null}
+            {otherGroups.map((group) => {
+              const total = selections
+                .filter((v) => v.group_id === group.id)
+                .reduce((n, v) => n + v.quantity, 0);
+              return (
+                <View key={group.id} style={{ gap: 10 }}>
+                  <Text style={s.sectionTitle}>{group.title}</Text>
+                  {group.max > 1 ? (
+                    <Text style={s.choiceLabel}>
+                      Выбрано {total} из {group.max}
+                    </Text>
+                  ) : null}
+                  {group.options.map((option) => {
+                    const count =
+                      selections.find((v) => v.group_id === group.id && v.option_id === option.id)
+                        ?.quantity ?? 0;
+                    const change = (delta: number) =>
+                      setSelections((current) => {
+                        const previous =
+                          current.find((v) => v.group_id === group.id && v.option_id === option.id)
+                            ?.quantity ?? 0;
+                        return setPhotoChoice(
+                          current,
+                          group,
+                          option.id,
+                          group.max === 1 ? 1 : previous + delta,
+                        );
+                      });
+                    return group.max === 1 ? (
+                      <Pressable
+                        key={option.id}
+                        accessibilityRole="radio"
+                        aria-checked={count > 0}
+                        accessibilityState={{
+                          checked: count > 0,
+                          disabled: option.available === false,
+                        }}
+                        disabled={option.available === false}
+                        onPress={() => change(1)}
+                        testID={`photo-choice-${group.id}-${option.id}`}
+                        style={[s.choice, count > 0 && s.variantSelected]}
+                      >
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={s.choiceName}>{option.label}</Text>
+                          <Text style={s.choiceLabel}>
+                            {option.available === false
+                              ? 'Временно нет'
+                              : option.price_delta_minor === '0'
+                                ? 'Включено'
+                                : `+${money(option.price_delta_minor)}`}
+                          </Text>
+                        </View>
+                        <Icon
+                          name={count ? 'radio-button-on' : 'radio-button-off'}
+                          color={blue ? colors.accent : '#9A3F00'}
+                          size={24}
+                        />
+                      </Pressable>
+                    ) : (
+                      <View key={option.id} style={[s.choice, { flexWrap: 'wrap' }]}>
+                        <OptionImage id={option.id} size={54} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.choiceName}>{option.label}</Text>
+                          <Text style={s.choiceLabel}>
+                            {option.available === false ? 'Временно нет' : 'Включено'}
+                          </Text>
+                        </View>
+                        <View
+                          style={
+                            width < 375 || fontScale > 1.3
+                              ? { width: '100%', alignItems: 'flex-end' }
+                              : undefined
+                          }
+                        >
+                          <Counter
+                            blue={blue}
+                            value={count}
+                            name={option.label}
+                            minus={() => change(-1)}
+                            plus={() => change(1)}
+                            minusDisabled={!count}
+                            plusDisabled={
+                              option.available === false ||
+                              total >= group.max ||
+                              count >= (option.max_quantity ?? group.max)
+                            }
+                          />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
             {groups.flatMap((group) =>
               comboSlots(group, selections).map((optionId, index) => {
                 const option = group.options.find((o) => o.id === optionId);
@@ -388,10 +518,10 @@ export function PhotoProduct(props: Props) {
           accessibilityRole="button"
           accessibilityLabel="Закрыть блюдо"
           onPress={props.goBack}
-          style={[s.close, { top: insets.top, left: 16 }]}
+          style={[s.close, { top: Math.max(0, insets.top - 16), left: 16 }]}
         >
           <View pointerEvents="none" style={s.closeFace}>
-            <Icon name="close" color="#04143A" size={26} />
+            <Icon name="close" color="#8A3309" size={25} />
           </View>
         </Pressable>
       </View>
@@ -409,7 +539,7 @@ export function PhotoProduct(props: Props) {
                 accessibilityLabel="Закрыть замену без сохранения"
                 onPress={() => setPicker(null)}
               >
-                <Icon name="close" size={29} />
+                <Icon name="close" color="#8A3309" size={25} />
               </Pressable>
               <Text style={s.modalTitle}>
                 Заменить {picker.group.id === 'drink' ? 'напиток' : 'соус'}
@@ -455,7 +585,7 @@ export function PhotoProduct(props: Props) {
                     </Text>
                     {chosen ? (
                       <View style={s.check}>
-                        <Icon name="checkmark-circle" color={colors.action} size={23} />
+                        <Icon name="checkmark-circle" color="#8A3309" size={23} />
                       </View>
                     ) : null}
                   </Pressable>
@@ -512,7 +642,7 @@ export function PhotoProduct(props: Props) {
                 accessibilityLabel="Закрыть окно пищевой ценности"
                 onPress={() => setInfo(false)}
               >
-                <Icon name="close" size={27} />
+                <Icon name="close" color="#8A3309" size={25} />
               </Pressable>
             </Row>
             <ScrollView>{infoContent}</ScrollView>
@@ -600,7 +730,7 @@ function Counter({
 }
 function makeStyles(blue: boolean) {
   const ink = blue ? '#FFFFFF' : '#271C15';
-  const paper = blue ? '#0047BB' : '#D8C5A7';
+  const paper = blue ? '#0047BB' : '#FFF8EE';
   const muted = blue ? '#D4E5FF' : '#594635';
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: blue ? '#04143A' : paper },
@@ -617,7 +747,7 @@ function makeStyles(blue: boolean) {
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: '#FFF9ED',
+      backgroundColor: '#FFE2C3',
       alignItems: 'center',
       justifyContent: 'center',
       boxShadow: '0px 3px 10px rgba(0, 19, 50, 0.16)',
@@ -626,7 +756,7 @@ function makeStyles(blue: boolean) {
       position: 'absolute',
       bottom: 22,
       right: 20,
-      backgroundColor: '#FFF9ED',
+      backgroundColor: '#FFE2C3',
       borderRadius: 28,
       paddingHorizontal: 18,
       paddingVertical: 14,
@@ -635,7 +765,7 @@ function makeStyles(blue: boolean) {
       alignItems: 'center',
       minHeight: 48,
     },
-    photoActionText: { fontFamily: font.bold, fontSize: 14, color: '#271C15' },
+    photoActionText: { fontFamily: font.bold, fontSize: 14, color: '#8A3309' },
     intro: {
       paddingHorizontal: 24,
       paddingTop: 6,
@@ -671,7 +801,7 @@ function makeStyles(blue: boolean) {
     },
     choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: muted },
     choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
-    replace: { fontFamily: font.bold, fontSize: 12, color: ink },
+    replace: { fontFamily: font.bold, fontSize: 12, color: blue ? '#FFB28B' : '#8A3309' },
     moreRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -698,10 +828,11 @@ function makeStyles(blue: boolean) {
       borderWidth: 1,
       borderColor: 'transparent',
     },
-    extraSelected: { borderColor: blue ? '#8CBFFF' : '#735737' },
+    extraSelected: { borderColor: colors.accent },
+    variantSelected: { borderWidth: 1, borderColor: blue ? colors.accent : '#9A3F00' },
     extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 4 },
     extraName: { fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: ink },
-    priceAction: { backgroundColor: '#FFF9ED' },
+    priceAction: { backgroundColor: colors.accent },
     footer: {
       paddingTop: 12,
       paddingHorizontal: 24,
@@ -724,7 +855,7 @@ function makeStyles(blue: boolean) {
     },
     addText: { fontFamily: font.bold, fontSize: 20, lineHeight: 28, color: colors.orangeInk },
     reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
-    counter: { backgroundColor: blue ? '#103B86' : '#C8B395', borderRadius: 25, gap: 0 },
+    counter: { backgroundColor: blue ? '#133668' : '#F2DFC7', borderRadius: 25, gap: 0 },
     countButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
     count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
     modal: { flex: 1, backgroundColor: colors.background },
@@ -733,7 +864,7 @@ function makeStyles(blue: boolean) {
       width: 48,
       height: 48,
       borderRadius: 24,
-      backgroundColor: colors.raised,
+      backgroundColor: '#FFE2C3',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -764,7 +895,7 @@ function makeStyles(blue: boolean) {
       alignItems: 'center',
       minHeight: 260,
     },
-    tileSelected: { backgroundColor: '#FFF9ED' },
+    tileSelected: { backgroundColor: '#FFE2C3' },
     tileName: {
       fontFamily: font.medium,
       fontSize: 13,

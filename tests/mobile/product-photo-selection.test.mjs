@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { testCompleteCatalog } from '@pickchick/test-order-flow/complete-catalog';
 import {
   comboSlots,
+  setPhotoChoice,
+  photoProductIds,
   replaceComboSlot,
   hasPhotoPilot,
   setExtraQuantity,
@@ -16,10 +18,15 @@ const item = testCompleteCatalog.products.find((p) => p.id === 'finger-duo');
 const product = { ...item, priceMinor: item.price_minor, modifierGroups: item.modifier_groups };
 const drink = product.modifierGroups.find((g) => g.id === 'drink');
 const sauce = product.modifierGroups.find((g) => g.id === 'sauce');
-test('only owner-selected combo and burger use the pilot', () => {
+test('all current catalog products use the unified photo design', () => {
   assert.equal(hasPhotoPilot('burger'), true);
   assert.equal(hasPhotoPilot('finger-duo'), true);
-  assert.equal(hasPhotoPilot('pick-combo'), false);
+  assert.equal(hasPhotoPilot('pick-combo'), true);
+  assert.deepEqual(
+    new Set(photoProductIds),
+    new Set(testCompleteCatalog.products.map((p) => p.id)),
+  );
+  assert.equal(hasPhotoPilot('unknown'), false);
 });
 test('each duo slot replaces one drink and preserves sauces, extras and input', () => {
   const initial = [
@@ -204,4 +211,35 @@ test('combo plus large sauce reserves both cart slots and enforces quantity limi
   assert.equal(photoCartLimit([...others.slice(1), main], main, main, sauce), null);
   assert.ok(photoCartLimit([{ ...sauce, quantity: 20 }], main, undefined, sauce));
   assert.equal(photoCartLimit([{ ...sauce, quantity: 19 }], main, undefined, sauce), null);
+});
+
+test('single size replacement keeps a valid recipe and correct large-sauce price', () => {
+  const sauce = allProducts.find((p) => p.id === 'sauce');
+  const group = sauce.modifierGroups.find((g) => g.id === 'size');
+  const initial = defaultSelections(sauce);
+  const next = setPhotoChoice(initial, group, 'size-1', 1);
+  assert.equal(next.filter((s) => s.group_id === 'size').length, 1);
+  assert.equal(validSelections(sauce, next), true);
+  assert.equal(lineUnitPrice({ product: sauce, selections: next }), '119000');
+  assert.equal(setPhotoChoice(initial, group, 'size-1', 2), initial);
+});
+test('bulk sauce mix can be edited through incomplete state, preserving quantity and stops', () => {
+  const bulk = allProducts.find((p) => p.id === 'fingers-100');
+  const group = bulk.modifierGroups.find((g) => g.id === 'sauce');
+  const initial = defaultSelections(bulk);
+  assert.equal(setPhotoChoice(initial, group, 'hot', 1), initial);
+  const incomplete = setPhotoChoice(initial, group, 'pick', 30);
+  assert.equal(validSelections(bulk, incomplete), false);
+  const mixed = setPhotoChoice(incomplete, group, 'hot', 2);
+  assert.equal(validSelections(bulk, mixed), true);
+  assert.equal(lineUnitPrice({ product: bulk, selections: mixed }), bulk.priceMinor);
+  assert.equal(setPhotoChoice(incomplete, group, 'bbq', 2), incomplete);
+  assert.equal(setPhotoChoice(initial, group, 'missing', 1), initial);
+});
+test('every unified page starts from the unchanged valid catalog selection', () => {
+  for (const p of allProducts) {
+    const choices = defaultSelections(p);
+    assert.equal(validSelections(p, choices), true, p.id);
+    assert.equal(lineUnitPrice({ product: p, selections: choices }), p.priceMinor, p.id);
+  }
 });

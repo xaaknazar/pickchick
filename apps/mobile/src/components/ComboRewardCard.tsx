@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { brandColors, colors, font } from '../theme';
+import { colors, font } from '../theme';
 import { MotionModal, MotionPressable } from './Motion';
 import { Body, Button, Heading, Icon, IconButton } from './UI';
 
@@ -26,6 +27,27 @@ export function ComboRewardCard({
         onPress={() => setOpen(true)}
         style={[s.ticket, compact && { minHeight: 136 }]}
       >
+        <Image
+          source={require('../../assets/catalog-hd/reward-seven-plus-one.png')}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          accessible={false}
+        />
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            (Platform.OS === 'web'
+              ? {
+                  backgroundImage:
+                    'linear-gradient(90deg, rgba(29,23,18,0.94) 0%, rgba(29,23,18,0.78) 55%, rgba(29,23,18,0.12) 100%)',
+                }
+              : {
+                  experimental_backgroundImage:
+                    'linear-gradient(90deg, rgba(29,23,18,0.94) 0%, rgba(29,23,18,0.78) 55%, rgba(29,23,18,0.12) 100%)',
+                }) as ViewStyle,
+          ]}
+        />
         <View style={[s.offer, compact && { padding: 16, gap: 4 }]}>
           <Text style={s.label}>Комбо-бонус</Text>
           <Text
@@ -39,17 +61,6 @@ export function ComboRewardCard({
             <Icon name="arrow-forward" size={18} color={colors.white} />
           </View>
         </View>
-        <View
-          style={[s.reward, compact && { paddingVertical: 12, gap: 6 }]}
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
-        >
-          <Icon name="gift-outline" size={28} color={colors.orangeInk} />
-          <Text style={s.rewardNumber}>7 + 1</Text>
-          <Text style={s.rewardCaption}>На кассе</Text>
-        </View>
-        <View pointerEvents="none" style={[s.notch, { top: -7 }]} />
-        <View pointerEvents="none" style={[s.notch, { bottom: -7 }]} />
       </MotionPressable>
       <MotionModal
         visible={open}
@@ -125,18 +136,10 @@ export function ComboRewardCard({
 }
 
 const s = StyleSheet.create({
-  card: { borderRadius: 24, overflow: 'hidden', backgroundColor: brandColors.brandBlue },
+  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#30271F' },
   ticket: { flexDirection: 'row', minHeight: 174 },
-  notch: {
-    position: 'absolute',
-    right: 83,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.background,
-  },
-  offer: { flex: 1, minWidth: 0, padding: 18, gap: 8 },
-  label: { fontFamily: font.medium, color: '#DBE8FF', fontSize: 13, lineHeight: 20 },
+  offer: { width: '73%', minWidth: 0, padding: 18, gap: 8 },
+  label: { fontFamily: font.medium, color: '#F3D8BD', fontSize: 13, lineHeight: 20 },
   title: {
     fontFamily: font.display,
     fontSize: 22,
@@ -146,32 +149,6 @@ const s = StyleSheet.create({
   },
   details: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
   detailsText: { fontFamily: font.medium, fontSize: 13, lineHeight: 20, color: colors.white },
-  reward: {
-    width: 90,
-    paddingHorizontal: 8,
-    paddingVertical: 18,
-    gap: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: brandColors.brandOrange,
-    borderLeftWidth: 1,
-    borderLeftColor: '#25160944',
-    borderStyle: 'dashed',
-  },
-  rewardNumber: {
-    fontFamily: font.display,
-    color: colors.orangeInk,
-    fontSize: 25,
-    lineHeight: 32,
-    textAlign: 'center',
-  },
-  rewardCaption: {
-    fontFamily: font.medium,
-    color: colors.orangeInk,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
   overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '100%',

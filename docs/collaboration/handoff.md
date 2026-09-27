@@ -1,11 +1,15 @@
 # Контекст для нового компьютера
 
-Обновлено 26 сентября 2026. Начать с `AGENTS.md`, `docs/project-status.md`,
+Обновлено 27 сентября 2026. Начать с `AGENTS.md`, `docs/project-status.md`,
 `pnpm project:check`, `pnpm project:tasks` и открытых PR. GitHub хранит общий
 код и журнал задач; история чата, секреты, `.local`, процессы и подписи не
 синхронизируются. Общий срез - `codex/shared-development`, не старый `main`.
 Перед изменениями отдельная ветка/копия и claim. Точный текущий checkpoint и
-следующий шаг читать в задаче `product-fullwidth-extras`, а не угадывать по памяти.
+следующий шаг читать в задаче `catalog-photo-unification`, а не угадывать по памяти.
+
+27.09 catalog-photo-unification: все24 товара,25 фото и фон акции, X выше/orange.
+195+30 tests, CUA320/393/768 и exports/Dev bundles прошли. Физическая приёмка
+и сверка фотографий с рецептурой впереди. VPS/TestFlight/онлайн-пульт не обновлены.
 
 27.09 product-fullwidth-extras: фон/кнопки и полноширинные компактные допы,
 Фингер Дуо+бургер отдельной строкой.192+30 tests, CUA393/320/768, Dev bundles

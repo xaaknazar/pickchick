@@ -5,7 +5,7 @@ export const assets = {
   kaspi: require('../assets/payments/kaspi.png') as ImageSourcePropType,
   pickManCover: require('../assets/games/pick-man-cover.png') as ImageSourcePropType,
   pickManChick: require('../assets/games/pick-man-chick.png') as ImageSourcePropType,
-  burger: require('../../../design/prototype/assets/mockup/shot.jpg') as ImageSourcePropType,
+  burger: require('../assets/catalog-hd/burger.png') as ImageSourcePropType,
   pickBlocksCover: require('../assets/games/pick-blocks-cover.png') as ImageSourcePropType,
   logo: require('../../../design/prototype/assets/mockup/logo.png') as ImageSourcePropType,
   skyline: require('../../../design/prototype/assets/mockup/skyline.svg') as ImageSourcePropType,
@@ -17,9 +17,9 @@ export const assets = {
   hero: require('../../../design/prototype/assets/mockup/hero.mp4') as number,
   pickrun:
     require('../../../design/prototype/assets/mockup/pickrun-poster.png') as ImageSourcePropType,
-  combo: require('../../../design/prototype/assets/mockup/i7.jpg') as ImageSourcePropType,
-  fingers: require('../../../design/prototype/assets/mockup/i4.jpg') as ImageSourcePropType,
-  wedges: require('../../../design/prototype/assets/mockup/i20.jpg') as ImageSourcePropType,
-  drink: require('../../../design/prototype/assets/mockup/i2.jpg') as ImageSourcePropType,
-  sauce: require('../../../design/prototype/assets/mockup/i18.jpg') as ImageSourcePropType,
+  combo: require('../assets/catalog-hd/pick-combo.png') as ImageSourcePropType,
+  fingers: require('../assets/catalog-hd/fingers.png') as ImageSourcePropType,
+  wedges: require('../assets/catalog-hd/wedges.png') as ImageSourcePropType,
+  drink: require('../assets/catalog-hd/cola.png') as ImageSourcePropType,
+  sauce: require('../assets/catalog-hd/sauce.png') as ImageSourcePropType,
 };
