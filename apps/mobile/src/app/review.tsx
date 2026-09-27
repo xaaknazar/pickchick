@@ -31,6 +31,7 @@ export default function Review() {
         </Text>
         {[
           ['finger-duo', 'Фингер Дуо'],
+          ['burger-duo', 'Бургер Дуо'],
           ['burger', 'Бургер'],
         ].map(([id, name]) => (
           <Pressable
@@ -40,9 +41,20 @@ export default function Review() {
             onPress={() =>
               router.push({ pathname: '/product-photo', params: { product: id, preview: '1' } })
             }
-            style={{ padding: 20, borderRadius: 16, backgroundColor: '#D8C5A7', minHeight: 64 }}
+            style={{
+              padding: 20,
+              borderRadius: 16,
+              backgroundColor: id === 'burger-duo' ? '#0047BB' : '#D8C5A7',
+              minHeight: 64,
+            }}
           >
-            <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 20, color: '#271C15' }}>
+            <Text
+              style={{
+                fontFamily: 'Jost_600SemiBold',
+                fontSize: 20,
+                color: id === 'burger-duo' ? '#FFFFFF' : '#271C15',
+              }}
+            >
               {name} - новый дизайн
             </Text>
           </Pressable>

@@ -28,6 +28,12 @@ type Picker = { group: ModifierGroup; index: number; chosen: string | null };
 const ink = '#271C15';
 const paper = '#D8C5A7';
 const gradient = 'linear-gradient(180deg, rgba(216,197,167,0) 0%, #D8C5A7 100%)';
+const blueGradient = 'linear-gradient(180deg, rgba(0,71,187,0) 0%, #0047BB 100%)';
+const blueBlend = (
+  Platform.OS === 'web'
+    ? { backgroundImage: blueGradient }
+    : { experimental_backgroundImage: blueGradient }
+) as ViewStyle;
 const blend = (
   Platform.OS === 'web' ? { backgroundImage: gradient } : { experimental_backgroundImage: gradient }
 ) as ViewStyle;
@@ -46,7 +52,15 @@ export function PhotoProduct(props: Props) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [info, setInfo] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
-  const combo = product.id === 'finger-duo';
+  const blue = product.id === 'burger-duo';
+  const combo = product.id === 'finger-duo' || blue;
+  const s = blue ? blueStyles : warmStyles;
+  const pageInk = blue ? '#FFFFFF' : ink;
+  const pagePaper = blue ? '#0047BB' : paper;
+  const title = product.id === 'burger' ? 'Бургер' : product.name;
+  const columns = fontScale > 1.3 || width < 375 ? 2 : 3;
+  const optionWidth = (Math.min(width, 768) - 24 - (columns - 1) * 8) / columns;
+  const drinkPhotoSize = Math.min(180, optionWidth - 16);
   const unit = lineUnitPrice({ product, selections });
   const candidateKey = cartLineKey({ product, selections });
   const existing = props.model.cart.find(
@@ -66,15 +80,28 @@ export function PhotoProduct(props: Props) {
   const extras = product.modifierGroups?.find((g) => g.id === 'extras');
   const infoContent = (
     <View style={s.infoCopy}>
-      <Text style={s.modalBody}>{product.ingredients || product.description}</Text>
-      <Text style={s.modalMuted}>{product.servingLabel}</Text>
+      <Text style={s.modalMuted}>
+        {product.servingLabel} ·{' '}
+        {product.nutrition?.basis === 'per_100_g' ? 'На 100 г' : 'На базовую порцию'}
+      </Text>
       {product.nutrition ? (
-        <Text style={s.modalMuted}>
-          На базовую порцию: {product.nutrition.energy_kcal} ккал · белки{' '}
-          {product.nutrition.protein_g} г · жиры {product.nutrition.fat_g} г · углеводы{' '}
-          {product.nutrition.carbs_g} г
-        </Text>
-      ) : null}
+        <View style={s.nutritionGrid}>
+          {[
+            [product.nutrition.energy_kcal, 'ккал'],
+            [product.nutrition.protein_g, 'Белки, г'],
+            [product.nutrition.fat_g, 'Жиры, г'],
+            [product.nutrition.carbs_g, 'Углеводы, г'],
+          ].map(([value, label]) => (
+            <View key={String(label)} style={s.nutrient}>
+              <Text style={s.nutrientValue}>{value}</Text>
+              <Text style={s.modalMuted}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={s.modalMuted}>Данные уточняются.</Text>
+      )}
+      <Text style={s.modalMuted}>Без учёта дополнительных опций.</Text>
       <Text style={s.modalMuted}>
         {product.allergens?.length
           ? `Аллергены: ${product.allergens.join(', ')}`
@@ -84,7 +111,7 @@ export function PhotoProduct(props: Props) {
   );
   return (
     <View style={s.page} testID={`photo-product-${product.id}`}>
-      <StatusBar style={picker || info ? 'light' : 'dark'} />
+      <StatusBar style={picker || info || blue ? 'light' : 'dark'} />
       <View
         style={{ flex: 1 }}
         aria-hidden={!!picker || info}
@@ -97,34 +124,32 @@ export function PhotoProduct(props: Props) {
           contentContainerStyle={{ paddingBottom: 24 }}
           testID="photo-product-scroll"
         >
-          <View style={{ height: Math.min(width, height * 0.61, 600), backgroundColor: paper }}>
+          <View style={{ height: Math.min(width, height * 0.61, 600), backgroundColor: pagePaper }}>
             <Image
               source={photoHeroes[product.id] ?? product.image}
               style={StyleSheet.absoluteFill}
               contentFit="contain"
-              accessibilityLabel={product.name}
+              accessibilityLabel={title}
             />
-            <View pointerEvents="none" style={[s.blend, blend]} />
-            <Pressable
-              style={s.photoAction}
-              accessibilityRole="button"
-              testID="photo-configure"
-              onPress={() =>
-                combo
-                  ? scroll.current?.scrollTo({ y: choicesY.current, animated: !reduced })
-                  : setInfo(true)
-              }
-            >
-              <Icon
-                name={combo ? 'options-outline' : 'information-circle-outline'}
-                color={ink}
-                size={20}
-              />
-              <Text style={s.photoActionText}>{combo ? 'Настроить комбо' : 'О продукте'}</Text>
-            </Pressable>
+            <View pointerEvents="none" style={[s.blend, blue ? blueBlend : blend]} />
+            {combo ? (
+              <Pressable
+                style={s.photoAction}
+                accessibilityRole="button"
+                testID="photo-configure"
+                onPress={() =>
+                  scroll.current?.scrollTo({ y: choicesY.current, animated: !reduced })
+                }
+              >
+                <Icon name="options-outline" color={ink} size={20} />
+                <Text style={s.photoActionText}>Настроить комбо</Text>
+              </Pressable>
+            ) : null}
           </View>
           <View style={s.intro}>
-            <Text style={s.title}>{product.name}</Text>
+            <Text style={s.title} testID="photo-product-title">
+              {title}
+            </Text>
             <Text style={s.description}>{product.description}</Text>
             <Text style={s.serving}>
               {product.servingLabel}
@@ -150,7 +175,7 @@ export function PhotoProduct(props: Props) {
                     testID={`photo-replace-${group.id}-${index}`}
                     onPress={() => setPicker({ group, index, chosen: optionId })}
                   >
-                    <OptionImage id={optionId} size={70} />
+                    <OptionImage id={optionId} size={82} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <Text style={s.choiceLabel}>
                         {group.id === 'drink' ? 'Напиток' : 'Соус'} {index + 1}
@@ -174,7 +199,7 @@ export function PhotoProduct(props: Props) {
                   onPress={() => setExtrasOpen(!extrasOpen)}
                 >
                   <Text style={s.sectionTitle}>Добавить к комбо</Text>
-                  <Icon name={extrasOpen ? 'remove' : 'add'} color={ink} />
+                  <Icon name={extrasOpen ? 'remove' : 'add'} color={pageInk} />
                 </Pressable>
                 {extrasOpen
                   ? extras.options.map((option) => {
@@ -205,6 +230,7 @@ export function PhotoProduct(props: Props) {
                             </Text>
                           </View>
                           <Counter
+                            blue={blue}
                             value={count}
                             minus={() => change(count - 1)}
                             plus={() => change(count + 1)}
@@ -222,13 +248,19 @@ export function PhotoProduct(props: Props) {
                   : null}
               </>
             ) : null}
-            <Pressable accessibilityRole="button" style={s.moreRow} onPress={() => setInfo(true)}>
-              <Text style={s.choiceName}>Состав и пищевая ценность</Text>
-              <Icon name="information-circle-outline" color={ink} />
+            <Pressable
+              accessibilityRole="button"
+              testID="photo-nutrition-open"
+              style={s.nutritionTrigger}
+              onPress={() => setInfo(true)}
+            >
+              <Icon name="information-circle-outline" color={pageInk} />
+              <Text style={s.choiceName}>Пищевая ценность</Text>
             </Pressable>
             <View style={s.moreRow}>
               <Text style={s.choiceName}>Количество</Text>
               <Counter
+                blue={blue}
                 value={quantity}
                 minus={() => setQuantity(quantity - 1)}
                 plus={() => setQuantity(quantity + 1)}
@@ -318,12 +350,12 @@ export function PhotoProduct(props: Props) {
                     onPress={() => setPicker({ ...picker, chosen: option.id })}
                     style={[
                       s.tile,
-                      { width: fontScale > 1.3 || width < 375 ? '48%' : '31.8%' },
+                      { width: optionWidth },
                       chosen && s.tileSelected,
                       unavailable && { opacity: 0.4 },
                     ]}
                   >
-                    <OptionImage id={option.id} size={96} />
+                    <OptionImage id={option.id} size={drinkPhotoSize} />
                     <Text style={[s.tileName, chosen && { color: ink }]}>{option.label}</Text>
                     <Text style={[s.tilePrice, chosen && { color: ink }]}>
                       {unavailable
@@ -362,26 +394,47 @@ export function PhotoProduct(props: Props) {
           </View>
         ) : null}
       </MotionModal>
-      <MotionModal visible={info} animationType="slide" onRequestClose={() => setInfo(false)}>
-        <View style={[s.modal, { paddingTop: insets.top }]} accessibilityViewIsModal>
-          <Row style={s.modalHeader}>
-            <Pressable
-              style={s.modalClose}
-              accessibilityRole="button"
-              accessibilityLabel="Закрыть информацию о продукте"
-              onPress={() => setInfo(false)}
-            >
-              <Icon name="close" size={29} />
-            </Pressable>
-            <Text style={s.modalTitle}>О продукте</Text>
-          </Row>
-          <ScrollView>{infoContent}</ScrollView>
+      <MotionModal
+        visible={info}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setInfo(false)}
+      >
+        <View style={[s.nutritionOverlay, { paddingTop: insets.top + 16 }]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityRole="button"
+            accessibilityLabel="Закрыть пищевую ценность"
+            onPress={() => setInfo(false)}
+          />
+          <View
+            style={[s.nutritionWindow, { paddingBottom: Math.max(insets.bottom, 16) }]}
+            role="dialog"
+            aria-modal
+            accessibilityViewIsModal
+            accessibilityLabel="Пищевая ценность"
+            testID="photo-nutrition-dialog"
+          >
+            <Row style={s.modalHeader}>
+              <Text style={s.modalTitle}>Пищевая ценность</Text>
+              <Pressable
+                style={s.modalClose}
+                accessibilityRole="button"
+                accessibilityLabel="Закрыть окно пищевой ценности"
+                onPress={() => setInfo(false)}
+              >
+                <Icon name="close" size={27} />
+              </Pressable>
+            </Row>
+            <ScrollView>{infoContent}</ScrollView>
+          </View>
         </View>
       </MotionModal>
     </View>
   );
 }
 function OptionImage({ id, size }: { id: string | null; size: number }) {
+  const s = warmStyles;
   const source = id ? optionPhotos[id] : undefined;
   return (
     <View style={[s.optionPhoto, { width: size, height: size }]}>
@@ -402,6 +455,7 @@ function OptionImage({ id, size }: { id: string | null; size: number }) {
   );
 }
 function Counter({
+  blue = false,
   value,
   minus,
   plus,
@@ -409,6 +463,7 @@ function Counter({
   plusDisabled,
   name,
 }: {
+  blue?: boolean;
   value: number;
   minus(): void;
   plus(): void;
@@ -416,6 +471,8 @@ function Counter({
   plusDisabled: boolean;
   name: string;
 }) {
+  const s = blue ? blueStyles : warmStyles;
+  const counterInk = blue ? '#FFFFFF' : ink;
   return (
     <Row style={s.counter}>
       <Pressable
@@ -426,7 +483,7 @@ function Counter({
         style={[s.countButton, minusDisabled && { opacity: 0.35 }]}
         onPress={minus}
       >
-        <Icon name="remove" color={ink} />
+        <Icon name="remove" color={counterInk} />
       </Pressable>
       <Text style={s.count}>{value}</Text>
       <Pressable
@@ -437,160 +494,208 @@ function Counter({
         style={[s.countButton, plusDisabled && { opacity: 0.35 }]}
         onPress={plus}
       >
-        <Icon name="add" color={ink} />
+        <Icon name="add" color={counterInk} />
       </Pressable>
     </Row>
   );
 }
-const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: paper },
-  blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 70 },
-  close: {
-    position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#271C15B8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoAction: {
-    position: 'absolute',
-    bottom: 22,
-    right: 20,
-    backgroundColor: '#FFF9ED',
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    minHeight: 48,
-  },
-  photoActionText: { fontFamily: font.bold, fontSize: 14, color: ink },
-  intro: { paddingHorizontal: 24, paddingTop: 6, paddingBottom: 24, gap: 10, alignItems: 'center' },
-  title: {
-    fontFamily: font.display,
-    fontSize: 34,
-    lineHeight: 41,
-    color: ink,
-    textAlign: 'center',
-  },
-  description: {
-    fontFamily: font.body,
-    fontSize: 15,
-    lineHeight: 23,
-    color: ink,
-    textAlign: 'center',
-    maxWidth: 560,
-  },
-  serving: { fontFamily: font.medium, fontSize: 13, color: '#594635' },
-  choices: { paddingHorizontal: 20, gap: 10, maxWidth: 680, width: '100%', alignSelf: 'center' },
-  sectionTitle: { fontFamily: font.heading, fontSize: 21, lineHeight: 28, color: ink },
-  choice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#EADBC5',
-    padding: 12,
-    borderRadius: 16,
-  },
-  choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: '#594635' },
-  choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
-  replace: { fontFamily: font.bold, fontSize: 12, color: ink },
-  moreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    minHeight: 60,
-    paddingVertical: 10,
-  },
-  extra: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  footer: { paddingTop: 12, paddingHorizontal: 24, backgroundColor: paper, gap: 8 },
-  add: {
-    minHeight: 56,
-    borderRadius: 30,
-    backgroundColor: colors.accent,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    width: '100%',
-    maxWidth: 540,
-    alignSelf: 'center',
-  },
-  addText: { fontFamily: font.bold, fontSize: 20, lineHeight: 28, color: colors.orangeInk },
-  reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
-  counter: { backgroundColor: '#C8B395', borderRadius: 25, gap: 0 },
-  countButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
-  modal: { flex: 1, backgroundColor: colors.background },
-  modalHeader: { paddingHorizontal: 16, paddingVertical: 14, gap: 14 },
-  modalClose: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontFamily: font.heading,
-    fontSize: 22,
-    lineHeight: 28,
-    color: colors.text,
-    flex: 1,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingBottom: 20,
-    alignItems: 'stretch',
-  },
-  tile: {
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 16,
-    gap: 12,
-    alignItems: 'center',
-    minHeight: 232,
-  },
-  tileSelected: { backgroundColor: '#FFF9ED' },
-  tileName: {
-    fontFamily: font.medium,
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-    color: colors.text,
-  },
-  tilePrice: {
-    fontFamily: font.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    color: colors.text,
-    marginTop: 'auto',
-    paddingTop: 8,
-  },
-  check: { position: 'absolute', top: 7, right: 7 },
-  optionPhoto: {
-    backgroundColor: '#F6F6F6',
-    borderRadius: 12,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    maxWidth: '100%',
-  },
-  noPhoto: { fontFamily: font.body, fontSize: 10, color: '#65594F' },
-  modalFooter: { paddingHorizontal: 24, paddingTop: 12 },
-  infoCopy: { padding: 24, gap: 18 },
-  modalBody: { fontFamily: font.body, fontSize: 16, lineHeight: 25, color: colors.text },
-  modalMuted: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: colors.muted },
-});
+function makeStyles(blue: boolean) {
+  const ink = blue ? '#FFFFFF' : '#271C15';
+  const paper = blue ? '#0047BB' : '#D8C5A7';
+  const muted = blue ? '#D4E5FF' : '#594635';
+  return StyleSheet.create({
+    page: { flex: 1, backgroundColor: paper },
+    blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 70 },
+    close: {
+      position: 'absolute',
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: '#271C15B8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    photoAction: {
+      position: 'absolute',
+      bottom: 22,
+      right: 20,
+      backgroundColor: '#FFF9ED',
+      borderRadius: 28,
+      paddingHorizontal: 18,
+      paddingVertical: 14,
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'center',
+      minHeight: 48,
+    },
+    photoActionText: { fontFamily: font.bold, fontSize: 14, color: '#271C15' },
+    intro: {
+      paddingHorizontal: 24,
+      paddingTop: 6,
+      paddingBottom: 24,
+      gap: 10,
+      alignItems: 'center',
+    },
+    title: {
+      fontFamily: font.display,
+      fontSize: 34,
+      lineHeight: 41,
+      color: ink,
+      textAlign: 'center',
+    },
+    description: {
+      fontFamily: font.body,
+      fontSize: 15,
+      lineHeight: 23,
+      color: ink,
+      textAlign: 'center',
+      maxWidth: 560,
+    },
+    serving: { fontFamily: font.medium, fontSize: 13, color: muted },
+    choices: { paddingHorizontal: 20, gap: 10, maxWidth: 680, width: '100%', alignSelf: 'center' },
+    sectionTitle: { fontFamily: font.heading, fontSize: 21, lineHeight: 28, color: ink },
+    choice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: blue ? '#073987' : '#EADBC5',
+      padding: 12,
+      borderRadius: 16,
+    },
+    choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: muted },
+    choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
+    replace: { fontFamily: font.bold, fontSize: 12, color: ink },
+    moreRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      minHeight: 60,
+      paddingVertical: 10,
+    },
+    extra: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+    footer: { paddingTop: 12, paddingHorizontal: 24, backgroundColor: paper, gap: 8 },
+    add: {
+      minHeight: 56,
+      borderRadius: 30,
+      backgroundColor: colors.accent,
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 14,
+      width: '100%',
+      maxWidth: 540,
+      alignSelf: 'center',
+    },
+    addText: { fontFamily: font.bold, fontSize: 20, lineHeight: 28, color: colors.orangeInk },
+    reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
+    counter: { backgroundColor: blue ? '#103B86' : '#C8B395', borderRadius: 25, gap: 0 },
+    countButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+    count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
+    modal: { flex: 1, backgroundColor: colors.background },
+    modalHeader: { paddingHorizontal: 16, paddingVertical: 14, gap: 14 },
+    modalClose: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalTitle: {
+      fontFamily: font.heading,
+      fontSize: 22,
+      lineHeight: 28,
+      color: colors.text,
+      flex: 1,
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingBottom: 20,
+      alignItems: 'stretch',
+      maxWidth: 768,
+      alignSelf: 'center',
+      width: '100%',
+    },
+    tile: {
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 8,
+      paddingVertical: 16,
+      gap: 12,
+      alignItems: 'center',
+      minHeight: 260,
+    },
+    tileSelected: { backgroundColor: '#FFF9ED' },
+    tileName: {
+      fontFamily: font.medium,
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: 'center',
+      color: colors.text,
+    },
+    tilePrice: {
+      fontFamily: font.bold,
+      fontSize: 14,
+      lineHeight: 20,
+      textAlign: 'center',
+      color: colors.text,
+      marginTop: 'auto',
+      paddingTop: 8,
+    },
+    check: { position: 'absolute', top: 7, right: 7 },
+    optionPhoto: {
+      backgroundColor: '#F6F6F6',
+      borderRadius: 12,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      maxWidth: '100%',
+    },
+    noPhoto: { fontFamily: font.body, fontSize: 10, color: '#65594F' },
+    modalFooter: { paddingHorizontal: 24, paddingTop: 12 },
+    nutritionTrigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      alignSelf: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      minHeight: 48,
+      borderRadius: 24,
+      backgroundColor: blue ? '#073987' : '#EADBC5',
+      marginTop: 12,
+    },
+    nutritionOverlay: { flex: 1, backgroundColor: '#00000080', justifyContent: 'flex-end' },
+    nutritionWindow: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      maxHeight: '82%',
+      width: '100%',
+      maxWidth: 600,
+      alignSelf: 'center',
+    },
+    nutritionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    nutrient: {
+      flexGrow: 1,
+      flexBasis: '42%',
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      gap: 4,
+    },
+    nutrientValue: { fontFamily: font.display, fontSize: 30, lineHeight: 38, color: colors.text },
+    infoCopy: { padding: 24, gap: 18 },
+    modalMuted: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: colors.muted },
+  });
+}
+const warmStyles = makeStyles(false);
+const blueStyles = makeStyles(true);

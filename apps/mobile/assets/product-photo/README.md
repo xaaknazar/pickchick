@@ -40,3 +40,23 @@ Fanta, Sprite, Zero, other Fuse flavors, Piko and Heinz sauces have no exact sup
 photo in this asset set. Their options stay functional and show “Фото скоро”; no
 other drink or sauce photo is substituted. Existing lemonade, tea, water, can and
 hot sauce photographs are reused from the catalog.
+
+## Refinement: Burger Duo and equal-scale drinks, 27 September
+
+Five additional AI-retouched PNGs, each 1254×1254, generated from the owner's
+originals in `design/prototype/assets/mockup/`. Exact prompts, including the
+rejected water candidate, are recorded in [refinement-prompts.json](refinement-prompts.json).
+
+| Output              | Reference | Use                                                                  |
+| ------------------- | --------- | -------------------------------------------------------------------- |
+| burger-duo-blue.png | i12.jpg   | Two burgers, wedges, two sauces and two bottles on cobalt background |
+| lemonade-hd.png     | i0.jpg    | Yellow branded lemonade can                                          |
+| fuse-peach-hd.png   | i1.jpg    | Orange-cap peach tea bottle                                          |
+| iced-tea-hd.png     | i22.jpg   | Branded tea cup, shared by sweet/unsweet variants                    |
+| cola-can-hd.png     | i2.jpg    | Red Coca-Cola can                                                    |
+
+Drink objects target 86% canvas height; card dimensions are identical. Source
+files and existing bottle image remain. Generated water was rejected because
+its label said carbonated while the option is still water; original remains.
+AI retouch is a visual proposal, not a new product photograph or packaging
+approval. Verify printed labels, actual servings and meal description before release.

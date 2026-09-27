@@ -1,6 +1,7 @@
 import type { ModifierGroup, Selection } from './model';
 
-export const hasPhotoPilot = (id: string) => id === 'finger-duo' || id === 'burger';
+export const hasPhotoPilot = (id: string) =>
+  id === 'finger-duo' || id === 'burger-duo' || id === 'burger';
 
 /** Expand the saved quantities into individual replaceable combo slots. */
 export function comboSlots(group: ModifierGroup, selections: Selection[]): (string | null)[] {

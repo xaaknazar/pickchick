@@ -67,3 +67,17 @@ test('sauce replacement is independent and missing required choices remain visib
   assert.deepEqual(comboSlots(drink, []), [null, null]);
   assert.equal(validSelections(product, replaceComboSlot([], drink, 0, 'lemonade')), false);
 });
+test('Burger Duo keeps two drinks and sauces and prices one replacement', () => {
+  assert.equal(hasPhotoPilot('burger-duo'), true);
+  const item = testCompleteCatalog.products.find((p) => p.id === 'burger-duo');
+  const duo = { ...item, priceMinor: item.price_minor, modifierGroups: item.modifier_groups };
+  const group = duo.modifierGroups.find((g) => g.id === 'drink');
+  const sauces = duo.modifierGroups.find((g) => g.id === 'sauce');
+  const initial = defaultSelections(duo);
+  const next = replaceComboSlot(initial, group, 1, 'lemonade');
+  assert.deepEqual(comboSlots(group, next), ['cola-bottle', 'lemonade']);
+  assert.deepEqual(comboSlots(sauces, next), ['pick', 'pick']);
+  assert.equal(lineUnitPrice({ product: duo, selections: initial }), '699000');
+  assert.equal(lineUnitPrice({ product: duo, selections: next }), '719000');
+  assert.equal(validSelections(duo, next), true);
+});
