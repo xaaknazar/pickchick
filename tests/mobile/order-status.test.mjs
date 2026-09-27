@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { orderStage, orderTimeLabel, orderScene } from '../../apps/mobile/src/order-status.ts';
 const order = {
   state: 'preparing',
+  snapshot: { service_mode: 'dine_in' },
   created_at: '2026-09-27T10:00:00Z',
   updated_at: '2026-09-27T10:06:00Z',
   tasks: [
@@ -55,4 +56,26 @@ test('chef scenes follow kitchen, assembly and ready with no client-side simulat
   );
   assert.equal(orderScene({ ...order, state: 'ready' }), 'ready');
   assert.equal(orderScene({ ...order, state: 'fulfilled' }), 'ready');
+});
+
+test('ready and fulfilled scenes follow the saved order service mode', () => {
+  for (const state of ['ready', 'fulfilled']) {
+    assert.equal(orderScene({ ...order, state }), 'ready');
+    assert.equal(
+      orderScene({ ...order, state, snapshot: { service_mode: 'takeaway' } }),
+      'ready-takeaway',
+    );
+  }
+  const takeaway = { ...order, snapshot: { service_mode: 'takeaway' } };
+  assert.equal(orderScene(takeaway), 'cooking');
+  assert.equal(
+    orderScene({
+      ...takeaway,
+      tasks: [
+        { station: 'prep', state: 'done' },
+        { station: 'assembly', state: 'pending' },
+      ],
+    }),
+    'assembly',
+  );
 });

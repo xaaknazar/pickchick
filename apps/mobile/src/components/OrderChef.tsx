@@ -8,6 +8,7 @@ const scenes = {
   cooking: require('../../assets/order-status/chef-cooking.png'),
   assembly: require('../../assets/order-status/chef-assembly.png'),
   ready: require('../../assets/order-status/chef-ready.png'),
+  'ready-takeaway': require('../../assets/order-status/chef-ready-takeaway.png'),
 };
 
 function Scene({ name, selected }: { name: OrderScene; selected: OrderScene }) {
@@ -34,7 +35,7 @@ export function OrderChef({ stage, size }: { stage: OrderScene; size: number }) 
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {(['cooking', 'assembly', 'ready'] as const).map((name) => (
+      {(['cooking', 'assembly', 'ready', 'ready-takeaway'] as const).map((name) => (
         <Scene key={name} name={name} selected={stage} />
       ))}
     </View>

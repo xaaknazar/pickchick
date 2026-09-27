@@ -73,7 +73,7 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('order-chef-assembly')).to_be_visible()
   page.screenshot(path=str(OUT/f'details-{width}.png'))
   advance('ready','done','done');expect(page.get_by_test_id('connected-order-state')).to_have_text('Заказ готов!')
-  expect(page.get_by_test_id('order-chef-ready')).to_be_visible()
+  expect(page.get_by_test_id('order-chef-ready-takeaway')).to_be_visible()
   expect(page.get_by_test_id('order-rate')).to_have_count(0)
   expect(page.get_by_test_id('order-status-items')).to_have_count(0)
   advance('fulfilled','done','done');expect(page.get_by_test_id('connected-order-state')).to_have_text('Приятного аппетита!')

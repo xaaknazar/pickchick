@@ -32,8 +32,9 @@ export function orderTimeLabel(order: TestOrder, now: number): string {
   return minutes < 1 ? 'Заказ только что принят' : `С момента заказа: ${minutes} мин`;
 }
 
-export type OrderScene = 'cooking' | 'assembly' | 'ready';
+export type OrderScene = 'cooking' | 'assembly' | 'ready' | 'ready-takeaway';
 export function orderScene(order: TestOrder): OrderScene {
-  if (order.state === 'ready' || order.state === 'fulfilled') return 'ready';
+  if (order.state === 'ready' || order.state === 'fulfilled')
+    return order.snapshot.service_mode === 'takeaway' ? 'ready-takeaway' : 'ready';
   return orderStage(order) === 'На сборке' ? 'assembly' : 'cooking';
 }
