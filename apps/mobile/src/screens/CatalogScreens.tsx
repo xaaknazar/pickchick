@@ -731,9 +731,9 @@ export function Cart(props: ScreenProps) {
                   <Heading small style={s.cartName}>
                     {line.product.name}
                   </Heading>
-                  <Caption style={s.cartDescription}>
-                    {selectionDescription(line) || line.product.description}
-                  </Caption>
+                  {selectionDescription(line) ? (
+                    <Caption style={s.cartDescription}>{selectionDescription(line)}</Caption>
+                  ) : null}
                   <Pressable
                     testID={`cart-edit-${line.product.id}`}
                     accessibilityRole="button"
