@@ -608,11 +608,12 @@
         "docs/collaboration/handoff.md",
         "tests/operations/test_server_pilot_release.py",
         "docs/operations/server-pilot.md",
-        "apps/mobile/assets/catalog-hd/README.md"
+        "apps/mobile/assets/catalog-hd/README.md",
+        "tests/unit/catalog-images.test.mjs"
       ],
       "status": "active",
       "head": "d5c50cd5b761ccf267daad672af9648aaa19203c",
-      "updatedAt": "2026-09-27T15:26:06.320Z"
+      "updatedAt": "2026-09-27T15:32:50.126Z"
     }
   ]
 }
