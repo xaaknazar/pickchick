@@ -398,9 +398,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "3ef80c950d0a2c4c04c5285c5657c8713fb7311e",
-      "updatedAt": "2026-09-27T10:48:28.055Z"
+      "status": "available",
+      "head": "a4488b24ae3849137f96a0225da48fb661b1c625",
+      "updatedAt": "2026-09-27T11:04:30.895Z",
+      "summary": "PR98 https://github.com/xaaknazar/pickchick/pull/98, a4488b2 опубликован и включён в shared-development. Новая панель статуса, две анимированные 3D-иллюстрации, состав, Pick Blocks, галерея. 178 Node+30 Python, 7 roadmap, typecheck/lint/Expo export и живые iOS/Android Dev bundles прошли. CUA на изолированном API/PG: вход->заказ->готовность по событию, чек/поддержка, игра и возврат; 320/393/768 web. CI ещё ожидается; TestFlight/VPS/онлайн-roadmap не обновлены. Metro8081 остаётся запущен, временный API4198 остановлен.",
+      "nextAction": "Проверить CI exact SHA и обновлённый browser_orders.py, затем опубликовать roadmap по runbook. Принять жесты/FPS/VoiceOver/Dynamic Type на физическом iPhone/Android. Серверный пилот продолжить отдельной задачей по docs/operations/server-pilot.md: вопрос хранения ещё без ответа, публичный auth не включён. Протокол UI: docs/operations/order-status-sheet.md."
     }
   ]
 }
