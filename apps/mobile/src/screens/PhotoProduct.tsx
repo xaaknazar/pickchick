@@ -13,8 +13,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CartLine, ModifierGroup, Product, ScreenProps, Selection } from '../model';
 import { cartLineKey, defaultSelections, lineUnitPrice, money, validSelections } from '../domain';
-import { comboSlots, replaceComboSlot } from '../product-photo-selection';
-import { optionPhotos, photoHeroes } from '../product-photo-assets';
+import { comboSlots, replaceComboSlot, setExtraQuantity } from '../product-photo-selection';
+import { optionPhotos, extraPhotos, photoHeroes } from '../product-photo-assets';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { Icon, Row } from '../components/UI';
 import { colors, font } from '../theme';
@@ -51,12 +51,19 @@ export function PhotoProduct(props: Props) {
   const [quantity, setQuantity] = useState(props.editing?.quantity ?? 1);
   const [picker, setPicker] = useState<Picker | null>(null);
   const [info, setInfo] = useState(false);
-  const [extrasOpen, setExtrasOpen] = useState(false);
   const blue = product.id === 'burger-duo';
   const combo = product.id === 'finger-duo' || blue;
   const s = blue ? blueStyles : warmStyles;
   const pageInk = blue ? '#FFFFFF' : ink;
   const pagePaper = blue ? '#0047BB' : paper;
+  const heroHeight = Math.min(width, height * 0.61, 600);
+  const pageGradient = `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight}px, #04143A 100%)`;
+  const gradientSurface = (
+    Platform.OS === 'web'
+      ? { backgroundImage: pageGradient }
+      : { experimental_backgroundImage: pageGradient }
+  ) as ViewStyle;
+  const extraWidth = Math.min(192, Math.max(176, width * 0.5));
   const title = product.id === 'burger' ? 'Бургер' : product.name;
   const columns = fontScale > 1.3 || width < 375 ? 2 : 3;
   const optionWidth = (Math.min(width, 768) - 24 - (columns - 1) * 8) / columns;
@@ -121,10 +128,10 @@ export function PhotoProduct(props: Props) {
         <ScrollView
           ref={scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={[{ paddingBottom: 24, flexGrow: 1 }, blue && gradientSurface]}
           testID="photo-product-scroll"
         >
-          <View style={{ height: Math.min(width, height * 0.61, 600), backgroundColor: pagePaper }}>
+          <View style={{ height: heroHeight, backgroundColor: pagePaper }}>
             <Image
               source={photoHeroes[product.id] ?? product.image}
               style={StyleSheet.absoluteFill}
@@ -151,10 +158,21 @@ export function PhotoProduct(props: Props) {
               {title}
             </Text>
             <Text style={s.description}>{product.description}</Text>
-            <Text style={s.serving}>
-              {product.servingLabel}
-              {combo ? ' · На двоих' : ''}
-            </Text>
+            <View style={s.productMeta}>
+              <Text style={s.serving}>
+                {product.servingLabel}
+                {combo ? ' · На двоих' : ''}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                testID="photo-nutrition-open"
+                style={s.nutritionTrigger}
+                onPress={() => setInfo(true)}
+              >
+                <Icon name="information-circle-outline" color={pageInk} size={16} />
+                <Text style={s.nutritionLabel}>Пищевая ценность</Text>
+              </Pressable>
+            </View>
           </View>
           <View
             style={s.choices}
@@ -191,18 +209,23 @@ export function PhotoProduct(props: Props) {
               }),
             )}
             {extras ? (
-              <>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: extrasOpen }}
-                  style={s.moreRow}
-                  onPress={() => setExtrasOpen(!extrasOpen)}
+              <View style={s.extrasSection}>
+                <Text style={s.sectionTitle}>Добавить к комбо</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  directionalLockEnabled
+                  nestedScrollEnabled
+                  decelerationRate="fast"
+                  snapToInterval={extraWidth + 12}
+                  snapToAlignment="start"
+                  contentContainerStyle={s.extrasTrack}
+                  testID="photo-extras-track"
+                  accessibilityLabel="Дополнения к комбо, горизонтальный список"
                 >
-                  <Text style={s.sectionTitle}>Добавить к комбо</Text>
-                  <Icon name={extrasOpen ? 'remove' : 'add'} color={pageInk} />
-                </Pressable>
-                {extrasOpen
-                  ? extras.options.map((option) => {
+                  {[...extras.options]
+                    .sort((a, b) => Number(!!extraPhotos[b.id]) - Number(!!extraPhotos[a.id]))
+                    .map((option) => {
                       const count =
                         selections.find(
                           (v) => v.group_id === extras.id && v.option_id === option.id,
@@ -210,53 +233,47 @@ export function PhotoProduct(props: Props) {
                       const total = selections
                         .filter((v) => v.group_id === extras.id)
                         .reduce((n, v) => n + v.quantity, 0);
-                      const change = (n: number) =>
-                        setSelections([
-                          ...selections.filter(
-                            (v) => !(v.group_id === extras.id && v.option_id === option.id),
-                          ),
-                          ...(n
-                            ? [{ group_id: extras.id, option_id: option.id, quantity: n }]
-                            : []),
-                        ]);
+                      const unavailable = option.available === false;
+                      const change = (delta: number) =>
+                        setSelections((current) => {
+                          const previous =
+                            current.find(
+                              (v) => v.group_id === extras.id && v.option_id === option.id,
+                            )?.quantity ?? 0;
+                          return setExtraQuantity(current, extras, option.id, previous + delta);
+                        });
                       return (
-                        <View key={option.id} style={s.extra}>
-                          <View style={{ flex: 1, gap: 4 }}>
-                            <Text style={s.choiceName}>{option.label}</Text>
-                            <Text style={s.choiceLabel}>
-                              {option.available === false
-                                ? 'Временно нет'
-                                : `+${money(option.price_delta_minor)}`}
-                            </Text>
+                        <View
+                          key={option.id}
+                          testID={`photo-extra-${option.id}`}
+                          style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
+                        >
+                          <OptionImage id={option.id} size={extraWidth - 24} extra />
+                          <Text style={s.choiceName}>{option.label}</Text>
+                          <Text style={s.choiceLabel}>
+                            {unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`}
+                          </Text>
+                          <View style={s.extraControls}>
+                            <Counter
+                              blue={blue}
+                              value={count}
+                              name={option.label}
+                              minus={() => change(-1)}
+                              plus={() => change(1)}
+                              minusDisabled={!count}
+                              plusDisabled={
+                                unavailable ||
+                                count >= (option.max_quantity ?? extras.max) ||
+                                total >= extras.max
+                              }
+                            />
                           </View>
-                          <Counter
-                            blue={blue}
-                            value={count}
-                            minus={() => change(count - 1)}
-                            plus={() => change(count + 1)}
-                            minusDisabled={!count}
-                            plusDisabled={
-                              option.available === false ||
-                              count >= (option.max_quantity ?? 40) ||
-                              total >= extras.max
-                            }
-                            name={option.label}
-                          />
                         </View>
                       );
-                    })
-                  : null}
-              </>
+                    })}
+                </ScrollView>
+              </View>
             ) : null}
-            <Pressable
-              accessibilityRole="button"
-              testID="photo-nutrition-open"
-              style={s.nutritionTrigger}
-              onPress={() => setInfo(true)}
-            >
-              <Icon name="information-circle-outline" color={pageInk} />
-              <Text style={s.choiceName}>Пищевая ценность</Text>
-            </Pressable>
             <View style={s.moreRow}>
               <Text style={s.choiceName}>Количество</Text>
               <Counter
@@ -433,15 +450,23 @@ export function PhotoProduct(props: Props) {
     </View>
   );
 }
-function OptionImage({ id, size }: { id: string | null; size: number }) {
+function OptionImage({
+  id,
+  size,
+  extra = false,
+}: {
+  id: string | null;
+  size: number;
+  extra?: boolean;
+}) {
   const s = warmStyles;
-  const source = id ? optionPhotos[id] : undefined;
+  const source = id ? (extra ? extraPhotos[id] : optionPhotos[id]) : undefined;
   return (
     <View style={[s.optionPhoto, { width: size, height: size }]}>
       {source ? (
         <Image
           source={source}
-          contentFit="contain"
+          contentFit={extra ? 'cover' : 'contain'}
           style={StyleSheet.absoluteFill}
           accessible={false}
         />
@@ -504,7 +529,7 @@ function makeStyles(blue: boolean) {
   const paper = blue ? '#0047BB' : '#D8C5A7';
   const muted = blue ? '#D4E5FF' : '#594635';
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: paper },
+    page: { flex: 1, backgroundColor: blue ? '#04143A' : paper },
     blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 70 },
     close: {
       position: 'absolute',
@@ -573,8 +598,32 @@ function makeStyles(blue: boolean) {
       minHeight: 60,
       paddingVertical: 10,
     },
-    extra: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-    footer: { paddingTop: 12, paddingHorizontal: 24, backgroundColor: paper, gap: 8 },
+    productMeta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      alignItems: 'center',
+      columnGap: 12,
+    },
+    nutritionLabel: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: ink },
+    extrasSection: { gap: 14, marginTop: 24 },
+    extrasTrack: { gap: 12, paddingRight: 4, paddingBottom: 4 },
+    extraCard: {
+      padding: 12,
+      gap: 8,
+      borderRadius: 16,
+      backgroundColor: blue ? '#0C2B5D' : '#EADBC5',
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    extraSelected: { borderColor: blue ? '#8CBFFF' : '#735737' },
+    extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 8 },
+    footer: {
+      paddingTop: 12,
+      paddingHorizontal: 24,
+      backgroundColor: blue ? '#04143A' : paper,
+      gap: 8,
+    },
     add: {
       minHeight: 56,
       borderRadius: 30,
@@ -664,14 +713,9 @@ function makeStyles(blue: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 8,
-      alignSelf: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 14,
+      gap: 5,
+      paddingHorizontal: 4,
       minHeight: 48,
-      borderRadius: 24,
-      backgroundColor: blue ? '#073987' : '#EADBC5',
-      marginTop: 12,
     },
     nutritionOverlay: { flex: 1, backgroundColor: '#00000080', justifyContent: 'flex-end' },
     nutritionWindow: {

@@ -16,3 +16,13 @@ export const optionPhotos: Record<string, ImageSourcePropType> = {
   pick: require('../assets/product-photo/signature-sauce.png'),
   hot: require('../../../design/prototype/assets/mockup/i19.jpg'),
 };
+
+// Exact menu photos for paid add-ons; unknown Heinz packaging stays a placeholder.
+export const extraPhotos: Record<string, ImageSourcePropType> = {
+  fingers: require('../../../design/prototype/assets/mockup/i4.jpg'),
+  sauce: require('../assets/product-photo/signature-sauce.png'),
+  'sauce-hot': require('../../../design/prototype/assets/mockup/i19.jpg'),
+  toast: require('../../../design/prototype/assets/mockup/i5.jpg'),
+  coleslaw: require('../../../design/prototype/assets/mockup/i6.jpg'),
+  wedges: require('../../../design/prototype/assets/mockup/i20.jpg'),
+};

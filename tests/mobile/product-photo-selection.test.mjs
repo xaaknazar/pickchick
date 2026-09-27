@@ -5,6 +5,7 @@ import {
   comboSlots,
   replaceComboSlot,
   hasPhotoPilot,
+  setExtraQuantity,
 } from '../../apps/mobile/src/product-photo-selection.ts';
 import { defaultSelections, lineUnitPrice, validSelections } from '../../apps/mobile/src/domain.ts';
 const item = testCompleteCatalog.products.find((p) => p.id === 'finger-duo');
@@ -80,4 +81,33 @@ test('Burger Duo keeps two drinks and sauces and prices one replacement', () => 
   assert.equal(lineUnitPrice({ product: duo, selections: initial }), '699000');
   assert.equal(lineUnitPrice({ product: duo, selections: next }), '719000');
   assert.equal(validSelections(duo, next), true);
+});
+
+test('paid extras add and remove independently and update the combo price', () => {
+  const extras = product.modifierGroups.find((g) => g.id === 'extras');
+  const initial = defaultSelections(product);
+  const added = setExtraQuantity(initial, extras, 'fingers', 2);
+  assert.deepEqual(comboSlots(drink, added), comboSlots(drink, initial));
+  assert.equal(
+    BigInt(lineUnitPrice({ product, selections: added })) - BigInt(product.priceMinor),
+    138000n,
+  );
+  assert.equal(validSelections(product, added), true);
+  assert.deepEqual(setExtraQuantity(added, extras, 'fingers', 0), initial);
+  assert.equal(
+    initial.some((s) => s.group_id === 'extras'),
+    false,
+  );
+});
+test('extra limits reject excess and stopped additions but allow removing stopped food', () => {
+  const extras = product.modifierGroups.find((g) => g.id === 'extras');
+  const initial = defaultSelections(product);
+  for (const n of [-1, 0.5, 11])
+    assert.equal(setExtraQuantity(initial, extras, 'fingers', n), initial);
+  assert.equal(setExtraQuantity(initial, extras, 'unknown', 1), initial);
+  const one = setExtraQuantity(initial, extras, 'fingers', 1);
+  assert.equal(setExtraQuantity(one, { ...extras, max: 1 }, 'toast', 1), one);
+  const stopped = { ...extras, options: extras.options.map((o) => ({ ...o, available: false })) };
+  assert.equal(setExtraQuantity(one, stopped, 'fingers', 2), one);
+  assert.deepEqual(setExtraQuantity(one, stopped, 'fingers', 0), initial);
 });

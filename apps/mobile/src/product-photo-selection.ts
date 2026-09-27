@@ -31,3 +31,31 @@ export function replaceComboSlot(
     ...Array.from(counts, ([option_id, quantity]) => ({ group_id: group.id, option_id, quantity })),
   ];
 }
+
+/** Update a paid extra without altering included choices or exceeding catalog limits. */
+export function setExtraQuantity(
+  selections: Selection[],
+  group: ModifierGroup,
+  optionId: string,
+  quantity: number,
+): Selection[] {
+  const option = group.options.find((o) => o.id === optionId);
+  if (!option || !Number.isInteger(quantity) || quantity < 0) return selections;
+  const previous =
+    selections.find((s) => s.group_id === group.id && s.option_id === optionId)?.quantity ?? 0;
+  const others = selections
+    .filter((s) => s.group_id === group.id && s.option_id !== optionId)
+    .reduce((n, s) => n + s.quantity, 0);
+  if (
+    quantity > previous &&
+    (option.available === false ||
+      quantity > (option.max_quantity ?? group.max) ||
+      others + quantity > group.max)
+  )
+    return selections;
+  if (others + quantity < group.min) return selections;
+  return [
+    ...selections.filter((s) => !(s.group_id === group.id && s.option_id === optionId)),
+    ...(quantity ? [{ group_id: group.id, option_id: optionId, quantity }] : []),
+  ];
+}
