@@ -656,6 +656,21 @@
       "updatedAt": "2026-09-27T15:49:15.905Z",
       "summary": "Light order photos, left close buttons and right overflow.198+30 mobile tests, typecheck/lint/format, Impeccable, iOS Dev and CUA393 verified. PR114. No VPS/TestFlight/online roadmap deployment.",
       "nextAction": "Physical iPhone acceptance; release after full green CI."
+    },
+    {
+      "id": "menu-checkout-mode",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/menu-checkout-mode",
+      "scopes": [
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "f6d203654310bfba50ab56115b9dbd0d613bae4b",
+      "updatedAt": "2026-09-27T15:50:16.928Z"
     }
   ]
 }
