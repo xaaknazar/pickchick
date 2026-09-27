@@ -417,11 +417,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "095a30377ed5e2a1519ff0ad8991303dcf06cc21",
-      "updatedAt": "2026-09-27T12:24:03.967Z",
-      "summary": "PR101 https://github.com/xaaknazar/pickchick/pull/101; 095a30377ed5e2a1519ff0ad8991303dcf06cc21 в shared-development, SHA проверены. Две photo modal страницы: Finger Duo и burger, отдельная замена каждого напитка/соуса, сохранение extras/лимитов/корзины. 4 AI-ретуши1254px по оригиналам; missing photos явно отмечены. 184 Node+30 Python,7 roadmap,typecheck/lint,Expo export всех платформ,Dev bundles прошли. CUA393/320/768 и add/edit/cancel/stop list/totals. Metro8081 остаётся; VPS/TestFlight/online-roadmap не обновлены, CI ожидается, предыдущая Foundation16dbf64 failure.",
-      "nextAction": "Владелец смотрит два товара в Dev или /review. Ждёт вопрос о составе бургера: фото томат/зелень, текст коулслоу; сохранён каталог. Нужны фото остальных напитков/Heinz и утверждение AI-ретуши. Физическая приёмка и CI затем guarded roadmap. Документ docs/operations/product-photo-pilot.md."
+      "status": "done",
+      "head": "f934160be9a55dfb12814dc34003cc85950e5677",
+      "updatedAt": "2026-09-27T12:36:10.523Z",
+      "summary": "Бургер Дуо в синем, HD-напитки одного масштаба, окно пищевой ценности;185+30 mobile,7roadmap,typecheck/lint/export,CUA393/320 и Dev bundles прошли. PR102 https://github.com/xaaknazar/pickchick/pull/102. Общая ветка f934160; VPS/TestFlight/онлайн-пульт не обновлены.",
+      "nextAction": "Проверить на iPhone, утвердить фото и сверить описание обоих бургеров с реальным составом; дождаться полной зелёной CI перед выпуском."
     }
   ]
 }
