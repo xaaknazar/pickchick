@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guarded 020 -> 024 pilot: identity opt-in, immutable secrets, preserved kitchen overlays."""
+"""Guarded 020 -> 025 pilot: identity opt-in, immutable secrets, preserved kitchen overlays."""
 import argparse
 import importlib.util
 import ipaddress
@@ -14,8 +14,8 @@ market, REMOTE = daily.market, daily.REMOTE
 require, quote, digest = market.require, market.quote, market.digest
 BASELINE = '4ee0b801a8ceefa5aad339bdeecc1d4974f40538'
 MIGRATIONS = ('021_cloud_test_service_shifts.sql', '022_cloud_otp_channels.sql',
-              '023_cloud_otp_delivery_consent.sql', '024_cloud_customer_pilot_orders.sql')
-NEW_TABLES = {'test_service_shifts', 'identity_customer_test_actors'}
+              '023_cloud_otp_delivery_consent.sql', '024_cloud_customer_pilot_orders.sql', '025_cloud_combo_stamps.sql')
+NEW_TABLES = {'test_service_shifts', 'identity_customer_test_actors', 'test_combo_stamps'}
 ADDITIONS = {'test_order_numbers': ['shift_id'], 'identity_otp_challenges':
              ['delivery_channel','delivery_provider','delivery_reference','delivery_consent_version']}
 AUTH_FILE = REMOTE+'/secrets/customer-auth.env'
@@ -44,9 +44,24 @@ def extend_gateway(text, outer_ip):
     # No real customer response may inherit the old synthetic-data assertion.
     text = text.replace('not path /v1/content/*','not path /v1/auth/* /v1/customers/* /legal/* /v1/content/*',1)
     block = '''
+\t@pilot_combo_progress {
+\t\tmethod GET
+\t\tpath /v1/test/combo-progress
+\t}
+\thandle @pilot_combo_progress {
+\t\theader Access-Control-Allow-Origin *
+\t\treverse_proxy pickchick-staging-api-1:3100 {
+\t\t\theader_up -Cookie
+\t\t\theader_up -X-Device-Id
+\t\t\ttransport http {
+\t\t\t\tdial_timeout 2s
+\t\t\t\tresponse_header_timeout 7s
+\t\t\t}
+\t\t}
+\t}
 \t@pilot_auth_preflight {
 \t\tmethod OPTIONS
-\t\tpath /v1/auth/config /v1/auth/otp/request /v1/auth/otp/verify /v1/auth/refresh /v1/auth/logout /v1/customers/me
+\t\tpath /v1/test/combo-progress /v1/auth/config /v1/auth/otp/request /v1/auth/otp/verify /v1/auth/refresh /v1/auth/logout /v1/customers/me
 \t}
 \thandle @pilot_auth_preflight {
 \t\theader Access-Control-Allow-Origin *
@@ -99,7 +114,8 @@ def verify_acl(before, after):
                 'identity_consents':{'SELECT','INSERT','DELETE'},
                 'identity_otp_request_tombstones':{'SELECT','INSERT'},
                 'identity_deletions':{'SELECT','INSERT'},
-                'identity_customer_test_actors':{'SELECT','INSERT'}}
+                'identity_customer_test_actors':{'SELECT','INSERT'},
+                'test_combo_stamps':{'SELECT','INSERT'}}
     allowed = {(name,p) for name,ps in expected.items() for p in ps}|{('bo_records','INSERT')}
     for row in after:
         if row not in before:
@@ -114,7 +130,7 @@ def verify_acl(before, after):
 class Release(daily.Release):
     def __init__(self,args):
         require(args.expected_api_sha==BASELINE,'Unexpected schema020 baseline')
-        profile=market.ReleaseProfile('customer-pilot-020-024',BASELINE,args.expected_public_sha,20,MIGRATIONS,
+        profile=market.ReleaseProfile('customer-pilot-020-025',BASELINE,args.expected_public_sha,20,MIGRATIONS,
             market.TRANSPORT_PROFILE.ci_jobs,frozenset({'test_service_shifts_sequence_seq'}),'server-pilot-release',(),exact_ci_jobs=True)
         market.Release.__init__(self,args,profile)
 
@@ -202,6 +218,7 @@ p.write_text(json.dumps(m,indent=2)+'\\n');print(json.dumps(m))
         preserved['tables']['schema_migrations']=before['data']['tables']['schema_migrations']
         market.compare_existing(before['data'],preserved)
         verify_acl(before['acl'],self.acl())
+        require(self.psql(market.DB,"SELECT count(*) FROM test_combo_stamps")=='0','Historical practice stamps adopted')
         require(self.psql(market.DB,"SELECT count(*) FROM identity_customer_test_actors")=='0','Anonymous customer ownership adopted')
         require(self.psql(market.DB,"SELECT count(*) FROM identity_otp_challenges WHERE delivery_channel<>'sms' OR delivery_provider IS NOT NULL OR delivery_reference IS NOT NULL OR delivery_consent_version IS NOT NULL")=='0','Historical OTP consent or channel fabricated')
         require(self.psql(market.DB,"SELECT count(*) FROM test_order_numbers n JOIN test_service_shifts s ON s.id=n.shift_id WHERE s.state<>'closed' OR s.branch_id<>n.branch_id OR (s.opened_at AT TIME ZONE (SELECT timezone FROM branches WHERE id=n.branch_id))::date<>n.business_date OR n.number>s.last_number")=='0','Historical shift numbering changed')
@@ -211,6 +228,7 @@ p.write_text(json.dumps(m,indent=2)+'\\n');print(json.dumps(m))
         require(all(caps['features'][k] is False for k in ['checkout','payments','fiscal','loyalty']),'Commercial feature enabled')
 
     def verify_public(self):
+        require(self.http('/v1/test/combo-progress')[0]==401,'Anonymous combo progress allowed')
         auth=self.http_json('/v1/auth/config')
         require(auth['enabled'] is True and auth['consent_version']==VERSION,'Public identity unavailable')
         require(auth['channels']==['telegram'] and auth['delivery_consent_required'] is True,'Wrong delivery configuration')

@@ -67,7 +67,9 @@ async function provision() {
       await client.query(`REVOKE ALL ON test_flow_lock, test_actors, test_quotes,
         test_orders, test_kitchen_tasks, test_command_results, test_outbox, test_order_numbers, test_order_day_counters, test_service_shifts FROM pickchick_app;
         REVOKE ALL ON SEQUENCE test_orders_sequence_seq, test_service_shifts_sequence_seq FROM pickchick_app;`);
+      await client.query('REVOKE ALL ON test_combo_stamps FROM pickchick_app');
       if (config.testOrderFlowEnabled) {
+        await client.query('GRANT SELECT, INSERT ON test_combo_stamps TO pickchick_app');
         await client.query(`GRANT SELECT ON test_flow_lock, test_actors, test_quotes,
           test_orders, test_kitchen_tasks, test_command_results, test_outbox TO pickchick_app;
           GRANT SELECT ON test_order_numbers, test_order_day_counters, test_service_shifts TO pickchick_app;

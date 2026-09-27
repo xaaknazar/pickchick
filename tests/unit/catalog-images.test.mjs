@@ -34,7 +34,7 @@ function mobileCatalog() {
   return exports;
 }
 
-test('burger, homemade tea and water use the original source photographs all the way to mobile assets', () => {
+test('burger, tea and water retain original provenance and use bundled HD retouches in mobile', () => {
   const mobile = mobileCatalog().connectedProducts(testCompleteCatalog);
   for (const id of ['burger', 'iced-tea', 'water']) {
     const product = testCompleteCatalog.products.find((item) => item.id === id);
@@ -45,7 +45,13 @@ test('burger, homemade tea and water use the original source photographs all the
     assert(filename);
     assert.equal(product.image_id, filename);
     const imagePath = resolve(assetRoot, filename);
-    assert.equal(mobile.find((item) => item.id === id)?.image, imagePath);
+    const retouch = resolve(root, `apps/mobile/assets/catalog-hd/${id}.png`);
+    assert.equal(mobile.find((item) => item.id === id)?.image, retouch);
+    assert.deepEqual(
+      [...readFileSync(retouch).subarray(0, 8)],
+      [137, 80, 78, 71, 13, 10, 26, 10],
+      'bundled PNG retouch',
+    );
     const bytes = readFileSync(imagePath);
     assert.deepEqual([...bytes.subarray(0, 3)], [0xff, 0xd8, 0xff], 'original JPEG');
     const evidence = provenance.find((entry) => entry.file === filename);

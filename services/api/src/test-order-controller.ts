@@ -128,6 +128,9 @@ export class TestOrderController {
       throw error;
     }
   }
+  @Get('combo-progress') comboProgress(@Headers('authorization') auth?: string) {
+    return this.execute((flow) => flow.comboProgress(this.token(auth)));
+  }
   @Get('catalog') catalog(
     @Query('catalog_version') representation?: string,
     @Query('number_format') numberFormat?: string,

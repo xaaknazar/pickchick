@@ -40,12 +40,12 @@ class ServerPilotGuards(unittest.TestCase):
     'identity_refresh_receipts':['SELECT','INSERT','UPDATE','DELETE'],'identity_otp_challenges':['SELECT','INSERT','UPDATE','DELETE'],
     'identity_sms_daily_budget':['SELECT','INSERT','UPDATE','DELETE'],'identity_consents':['SELECT','INSERT','DELETE'],
     'identity_otp_request_tombstones':['SELECT','INSERT'],'identity_deletions':['SELECT','INSERT'],
-    'identity_customer_test_actors':['SELECT','INSERT'],'bo_records':['INSERT']}
+    'identity_customer_test_actors':['SELECT','INSERT'],'test_combo_stamps':['SELECT','INSERT'],'bo_records':['INSERT']}
   after=[row(n,p) for n,ps in expected.items() for p in ps]
   after += [row('test_service_shifts','INSERT','branch_id'),row('test_service_shifts','INSERT','state')]
   after += [row('test_service_shifts','UPDATE',c) for c in ['state','version','closed_at']]
   r.verify_acl([],after)
-  for extra in [row('identity_customer_test_actors','UPDATE'),row('commerce_orders','UPDATE'),row('test_service_shifts','UPDATE')]:
+  for extra in [row('identity_customer_test_actors','UPDATE'),row('test_combo_stamps','UPDATE'),row('test_combo_stamps','DELETE'),row('commerce_orders','UPDATE'),row('test_service_shifts','UPDATE')]:
    with self.assertRaises(r.market.GuardFailure):r.verify_acl([],after+[extra])
   with self.assertRaises(r.market.GuardFailure):r.verify_acl([],after[1:])
   with self.assertRaises(r.market.GuardFailure):r.verify_acl([],after[:-1])

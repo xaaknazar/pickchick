@@ -6,6 +6,7 @@ import {
   TestQuoteSchema,
   TestOrderSchema,
   TestOrdersSchema,
+  TestComboProgressSchema,
   TestHistorySchema,
   TestFeedbackSchema,
   TestFeedbackInputSchema,
@@ -355,6 +356,15 @@ export class TestCustomerCore {
     return TestHistorySchema.parse(
       await this.io.request(`/history${before ? `?before=${before}` : ''}`, session.token),
     );
+  }
+  async comboProgress(signal?: AbortSignal) {
+    const session = await this.authenticate();
+    const result = TestComboProgressSchema.parse(
+      await this.io.request('/combo-progress', session.token, undefined, undefined, { signal }),
+    );
+    if (result.earned_units !== result.completed_cycles * 7 + result.current_stamps)
+      throw new TestApiError(503, 'INVALID_RESPONSE');
+    return result;
   }
   async feedback(orderId: string) {
     if (!isUuid(orderId)) throw new TestApiError(400, 'INVALID_ORDER');

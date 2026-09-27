@@ -744,3 +744,37 @@ test('feedback survives lost response and app restart with the exact idempotent 
   assert.equal(sends.length, 2);
   assert.equal(sends[0].key, sends[1].key);
 });
+
+test('combo progress accepts only authenticated, consistent practice responses and propagates cancellation', async () => {
+  const h = harness();
+  h.persistSession();
+  const response = {
+    synthetic: true,
+    namespace: 'pickchick-test',
+    mode: 'practice',
+    program_version: 'practice-single-combo-v1',
+    threshold: 7,
+    earned_units: 8,
+    current_stamps: 1,
+    completed_cycles: 1,
+    redeemable: false,
+  };
+  const previous = h.request;
+  let captured;
+  h.request = async (path, token, body, key, options) => {
+    if (path !== '/combo-progress') return previous(path, token, body, key, options);
+    assert.equal(token, h.session.token);
+    assert.equal(body, undefined);
+    captured = options;
+    return { ...response };
+  };
+  const client = h.client();
+  const controller = new AbortController();
+  assert.deepEqual(await client.comboProgress(controller.signal), response);
+  assert.equal(captured.signal, controller.signal);
+  response.earned_units = 9;
+  await assert.rejects(client.comboProgress(), failure('INVALID_RESPONSE'));
+  response.earned_units = 8;
+  response.redeemable = true;
+  await assert.rejects(client.comboProgress());
+});

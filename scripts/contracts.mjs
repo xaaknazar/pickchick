@@ -533,6 +533,16 @@ Object.assign(openapi.paths, {
       status: 201,
     }),
   },
+  '/v1/test/combo-progress': testOperation(
+    'get',
+    'readOwnPracticeComboProgress',
+    'TestComboProgress',
+    undefined,
+    {
+      roles:
+        'Verified customer only. Server journal of future fulfilled single combos in the practice namespace. No commercial entitlement or redemption.',
+    },
+  ),
   '/v1/test/history': testOperation('get', 'listOwnTestHistory', 'TestHistory', undefined, {
     roles:
       'Customer only. Finished orders, newest first, twenty per page. Optional before UUID must belong to this customer.',

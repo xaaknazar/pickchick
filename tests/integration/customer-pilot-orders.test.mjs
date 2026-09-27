@@ -181,7 +181,7 @@ test('restricted runtime binds verified actors and HTTP rejects anonymous mobile
       await pool.query(`GRANT USAGE ON SCHEMA ${ctx.cloud.schema} TO ${role}`);
       await pool.query(customerAuthGrants(role, true));
       await pool.query(
-        `GRANT SELECT ON branches,test_flow_lock,test_actors,test_orders,test_kitchen_tasks TO ${role}; GRANT UPDATE(id) ON test_flow_lock TO ${role}; GRANT INSERT ON test_actors TO ${role}`,
+        `GRANT SELECT ON branches,test_flow_lock,test_actors,test_orders,test_kitchen_tasks,test_combo_stamps TO ${role}; GRANT UPDATE(id) ON test_flow_lock TO ${role}; GRANT INSERT ON test_actors TO ${role}`,
       );
       const url = new URL(ctx.cloud.config.databaseUrl);
       url.searchParams.set('options', `-c search_path=${ctx.cloud.schema} -c role=${role}`);
@@ -205,6 +205,13 @@ test('restricted runtime binds verified actors and HTTP rejects anonymous mobile
       assert.equal(caps.features.phone_auth, true);
       assert.equal(caps.features.payments, false);
       assert.equal((await fetch(api.url + '/health/ready')).status, 200);
+      const progressReply = await fetch(api.url + '/v1/test/combo-progress', {
+        headers: { Authorization: 'Bearer ' + user.access_token },
+      });
+      assert.equal(progressReply.status, 200);
+      assert.equal((await progressReply.json()).redeemable, false);
+      assert.equal((await fetch(api.url + '/v1/test/combo-progress')).status, 401);
+
       for (const [token, status] of [
         ['', 401],
         [user.access_token, 201],
@@ -230,4 +237,125 @@ test('restricted runtime binds verified actors and HTTP rejects anonymous mobile
       await pool.query(`DROP OWNED BY ${role}`);
       await ctx.cloud.admin.query(`DROP ROLE ${role}`);
     }
+  }));
+
+test('practice combo journal is atomic, quantity-based, idempotent and isolated by verified customer', async () =>
+  fixture(async ({ pool, ctx, login, flow }) => {
+    const a = await login('+77010000001');
+    const b = await login('+77010000002');
+    await flow.issueSession({ channel: 'mobile' }, a.access_token);
+    await flow.issueSession({ channel: 'mobile' }, b.access_token);
+    const manager = await provisionTestActor(pool, config, 'manager');
+    const make = async (quantity, product = 'pick-combo') => {
+      const quote = await flow.quote(a.access_token, randomUUID(), {
+        ...cart,
+        items: [{ product_id: product, quantity }],
+      });
+      return flow.createOrder(a.access_token, randomUUID(), {
+        quote_id: quote.quote_id,
+        execution_mode: 'unpaid_test',
+      });
+    };
+    const ready = async (order) => {
+      for (const station of ['prep', 'assembly']) {
+        const task = order.tasks.find((t) => t.station === station && t.state === 'pending');
+        if (task)
+          order = await flow.completeTask(
+            manager.token,
+            randomUUID(),
+            order.order_id,
+            task.task_id,
+            { expected_version: order.version, complete_station: true },
+          );
+      }
+      return order;
+    };
+    assert.equal((await flow.comboProgress(a.access_token)).earned_units, 0);
+    let order = await ready(await make(7));
+    assert.equal(
+      (await flow.comboProgress(a.access_token)).earned_units,
+      0,
+      'ready is not handed out',
+    );
+    const role = 'combo_runtime_' + randomUUID().replaceAll('-', '');
+    await ctx.cloud.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      await pool.query(`GRANT USAGE ON SCHEMA ${ctx.cloud.schema} TO ${role}`);
+      await pool.query(customerAuthGrants(role, true));
+      await pool.query(`GRANT SELECT ON branches,test_flow_lock,test_actors,test_orders,test_kitchen_tasks,test_command_results,test_combo_stamps TO ${role};
+        GRANT UPDATE(id) ON test_flow_lock TO ${role};
+        GRANT UPDATE(state,version,updated_at) ON test_orders TO ${role};
+        GRANT INSERT ON test_command_results,test_outbox TO ${role}`);
+      const url = new URL(ctx.cloud.config.databaseUrl);
+      url.searchParams.set('options', `-c search_path=${ctx.cloud.schema} -c role=${role}`);
+      runtime = createPool(url.toString());
+      const runtimeFlow = new TestOrderFlow(runtime, config);
+      const key = randomUUID();
+      const input = { expected_version: order.version };
+      await assert.rejects(
+        runtimeFlow.handoff(manager.token, key, order.order_id, input),
+        (error) => error.code === '42501' && error.message.includes('test_combo_stamps'),
+      );
+      assert.equal(
+        (await flow.readOrder(a.access_token, order.order_id)).state,
+        'ready',
+        'stamp failure rolls back handoff',
+      );
+      await pool.query(`GRANT INSERT ON test_combo_stamps TO ${role}`);
+      const [first, repeated] = await Promise.all([
+        runtimeFlow.handoff(manager.token, key, order.order_id, input),
+        runtimeFlow.handoff(manager.token, key, order.order_id, input),
+      ]);
+      assert.equal(first.version, repeated.version);
+      await assert.rejects(
+        runtimeFlow.handoff(manager.token, randomUUID(), order.order_id, input),
+        code('CONFLICT'),
+      );
+      const progress = await runtimeFlow.comboProgress(a.access_token);
+      assert.deepEqual(
+        [
+          progress.earned_units,
+          progress.completed_cycles,
+          progress.current_stamps,
+          progress.redeemable,
+        ],
+        [7, 1, 0, false],
+      );
+      assert.equal((await flow.comboProgress(b.access_token)).earned_units, 0);
+      await assert.rejects(flow.comboProgress(manager.token), code('FORBIDDEN'));
+      await assert.rejects(flow.comboProgress(''), code('UNAUTHORIZED'));
+      assert.equal((await pool.query('SELECT count(*) FROM test_combo_stamps')).rows[0].count, '1');
+      await assert.rejects(
+        runtime.query('UPDATE test_combo_stamps SET units=1'),
+        (error) => error.code === '42501',
+      );
+    } finally {
+      await runtime?.end();
+      await pool.query(`DROP OWNED BY ${role}`);
+      await ctx.cloud.admin.query(`DROP ROLE ${role}`);
+    }
+    order = await ready(await make(1));
+    await flow.handoff(manager.token, randomUUID(), order.order_id, {
+      expected_version: order.version,
+    });
+    let progress = await flow.comboProgress(a.access_token);
+    assert.equal(progress.current_stamps, 1);
+    assert.equal(progress.completed_cycles, 1);
+    order = await make(2);
+    await flow.cancel(a.access_token, randomUUID(), order.order_id, {
+      expected_version: order.version,
+      reason: 'Changed mind',
+    });
+    order = await ready(await make(1, 'cola'));
+    await flow.handoff(manager.token, randomUUID(), order.order_id, {
+      expected_version: order.version,
+    });
+    progress = await flow.comboProgress(a.access_token);
+    assert.equal(progress.earned_units, 8, 'cancelled orders and drinks add nothing');
+    const otherDevice = await login('+77010000001');
+    assert.deepEqual(
+      await new TestOrderFlow(pool, config).comboProgress(otherDevice.access_token),
+      progress,
+    );
   }));

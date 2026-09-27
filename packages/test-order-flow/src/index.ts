@@ -22,6 +22,7 @@ import {
   TestKitchenSchema,
   TestOrderSchema,
   TestOrdersSchema,
+  TestComboProgressSchema,
   TestFeedbackInputSchema,
   TestFeedbackSchema,
   TestHistorySchema,
@@ -885,6 +886,29 @@ export class TestOrderFlow {
   ownOrders(token: string) {
     return this.listOrders(token, ['customer']);
   }
+  comboProgress(token: string) {
+    if (!this.config.customerAuthEnabled) throw new TestFlowError('DISABLED');
+    return this.read(token, ['customer'], async (client) => {
+      const customerId = await identityOwner(client, token);
+      const row = (
+        await client.query<{ units: string }>(
+          'SELECT coalesce(sum(units),0)::text AS units FROM test_combo_stamps WHERE customer_id=$1',
+          [customerId],
+        )
+      ).rows[0];
+      const units = Number(row?.units ?? 0);
+      return TestComboProgressSchema.parse({
+        ...synthetic,
+        mode: 'practice',
+        program_version: 'practice-single-combo-v1',
+        threshold: 7,
+        earned_units: units,
+        current_stamps: units % 7,
+        completed_cycles: Math.floor(units / 7),
+        redeemable: false,
+      });
+    });
+  }
   managerOrders(token: string) {
     return this.listOrders(token, ['manager']);
   }
@@ -1070,6 +1094,21 @@ export class TestOrderFlow {
           [orderId],
         );
         const order = await loadOrder(client, actor, orderId);
+        if (this.config.customerAuthEnabled) {
+          // Same transaction as handoff/outbox. Quantity and ownership come only from stored data.
+          // The unique order reference also rejects duplicate delivery with a new command key.
+          await client.query(
+            `INSERT INTO test_combo_stamps
+            (order_id,customer_id,branch_id,program_version,units)
+            SELECT o.id,m.customer_id,o.branch_id,'practice-single-combo-v1',sum((line->>'quantity')::integer)
+            FROM test_orders o JOIN identity_customer_test_actors m ON m.actor_id=o.actor_id
+            CROSS JOIN LATERAL jsonb_array_elements(o.snapshot->'lines') line
+            WHERE o.id=$1 AND o.state='fulfilled'
+              AND line->>'id' IN ('solo-combo','burger-combo','pick-combo','master-combo')
+            GROUP BY o.id,m.customer_id ON CONFLICT(order_id) DO NOTHING`,
+            [orderId],
+          );
+        }
         await emit(client, order, 'order.fulfilled');
         return order;
       },

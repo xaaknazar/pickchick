@@ -3380,6 +3380,150 @@
         }
       }
     },
+    "/v1/test/combo-progress": {
+      "get": {
+        "operationId": "readOwnPracticeComboProgress",
+        "tags": [
+          "Synthetic TEST"
+        ],
+        "description": "Only available when TEST_ORDER_FLOW_ENABLED=true. Verified customer only. Server journal of future fulfilled single combos in the practice namespace. No commercial entitlement or redemption.",
+        "security": [
+          {
+            "testBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "catalog_version",
+            "in": "query",
+            "required": false,
+            "description": "Response representation. Omit for strict build-3 compatibility (mockup-v0.2). Select mockup-v0.3 for descriptions, nutrition, variants and selected options. Existing immutable snapshots retain their original version; v0.2 responses project newer choices into readable names without rewriting stored data. Quote input chooses its own catalog version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mockup-v0.2",
+                "mockup-v0.3"
+              ],
+              "default": "mockup-v0.2"
+            }
+          },
+          {
+            "name": "number_format",
+            "in": "query",
+            "required": false,
+            "description": "Select daily for a persistent branch-local order number starting at 1 when a new operational shift opens; the parameter name is retained for compatibility. Omit to preserve legacy global T-number responses. UUID remains the order identity.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestComboProgress"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired TEST credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong station role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TEST gate disabled or resource outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, expired quote, idempotency conflict or unresolved simulation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable synthetic quota reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Synthetic branch unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/test/history": {
       "get": {
         "operationId": "listOwnTestHistory",
@@ -13139,6 +13283,63 @@
           "mobile",
           "kiosk"
         ]
+      },
+      "TestComboProgress": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "synthetic": {
+            "type": "boolean",
+            "const": true
+          },
+          "namespace": {
+            "type": "string",
+            "const": "pickchick-test"
+          },
+          "mode": {
+            "type": "string",
+            "const": "practice"
+          },
+          "program_version": {
+            "type": "string",
+            "const": "practice-single-combo-v1"
+          },
+          "threshold": {
+            "type": "number",
+            "const": 7
+          },
+          "earned_units": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "current_stamps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "completed_cycles": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "redeemable": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "synthetic",
+          "namespace",
+          "mode",
+          "program_version",
+          "threshold",
+          "earned_units",
+          "current_stamps",
+          "completed_cycles",
+          "redeemable"
+        ],
+        "additionalProperties": false
       },
       "TestCompleteCart": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

@@ -278,6 +278,18 @@ export const TestServiceShiftChangeSchema = z
     expected_version: z.int().positive().nullable(),
   })
   .refine((value) => (value.previous_shift_id === null) === (value.expected_version === null));
+export const TestComboProgressSchema = z.strictObject({
+  ...Synthetic,
+  mode: z.literal('practice'),
+  program_version: z.literal('practice-single-combo-v1'),
+  threshold: z.literal(7),
+  earned_units: z.int().nonnegative(),
+  current_stamps: z.int().min(0).max(6),
+  completed_cycles: z.int().nonnegative(),
+  redeemable: z.literal(false),
+});
+export type TestComboProgress = z.infer<typeof TestComboProgressSchema>;
+
 export const TestOrdersSchema = z.strictObject({
   ...Synthetic,
   orders: z.array(TestOrderSchema).max(2000),

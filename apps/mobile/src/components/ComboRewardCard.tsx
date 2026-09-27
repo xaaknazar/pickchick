@@ -5,31 +5,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font } from '../theme';
 import { MotionModal, MotionPressable } from './Motion';
 import { Body, Button, Heading, Icon, IconButton } from './UI';
+import { comboProgressView, type ComboProgressState } from '../loyalty/combo-progress';
 
 // Read-only progress. Undefined means not connected, never an invented zero balance.
 export function ComboRewardCard({
   testID,
   onMenu,
   compact = false,
-  purchasedCombos,
+  progress,
   preview = false,
 }: {
   testID: string;
   onMenu(): void;
   compact?: boolean;
-  purchasedCombos?: number;
+  progress?: ComboProgressState;
   preview?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const count =
-    Number.isInteger(purchasedCombos) && purchasedCombos! >= 0 && purchasedCombos! <= 7
-      ? purchasedCombos!
-      : preview
-        ? 3
-        : null;
-  const progressText =
-    count === null ? 'Отметки пока у кассира' : `${preview ? 'Пример: ' : ''}${count} из 7 комбо`;
+  const { count, text: progressText } = comboProgressView(progress, preview);
 
   return (
     <View testID={testID} style={s.card}>
@@ -93,7 +87,11 @@ export function ComboRewardCard({
               })}
             </View>
             <View style={s.details}>
-              <Text testID={`${testID}-progress`} style={s.detailsText}>
+              <Text
+                testID={`${testID}-progress`}
+                style={s.detailsText}
+                accessibilityLiveRegion="polite"
+              >
                 {progressText}
               </Text>
               <Icon name="arrow-forward" size={16} color={colors.white} />
@@ -145,7 +143,9 @@ export function ComboRewardCard({
                 [
                   '3',
                   'Сохраните свои отметки',
-                  'Цифровая карточка готовится. Сейчас покупки и подарок учитываются на кассе; эта схема не показывает ваш личный прогресс.',
+                  progress?.data?.mode === 'practice'
+                    ? `Сейчас показан отдельный пробный счётчик без права на подарок. После выдачи Solo, Burger, Pick или Master Combo сервер добавляет одну отметку за каждое комбо. Сеты на двоих, напитки и допы не учитываются. Завершено пробных кругов: ${progress.data.completed_cycles}. Остаток переносится. Бумажные отметки остаются у кассира.`
+                    : 'Личные отметки загружаются после входа. При отсутствии связи счётчик не обнуляется. Бумажные отметки и право на подарок пока учитываются на кассе.',
                 ],
               ].map(([number, title, text]) => (
                 <View key={number} style={s.rule}>

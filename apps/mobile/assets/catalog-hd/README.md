@@ -14,22 +14,22 @@
 
 Все `i*.jpg` ниже находятся в `design/prototype/assets/mockup/`.
 
-| Файл PNG | Исходник |
-| --- | --- |
-| pick-combo | i7.jpg |
-| master-combo | i8.jpg |
-| burger-combo | i9.jpg |
-| solo-combo | i10.jpg |
-| finger-duo | i11.jpg |
-| burger-duo | i12.jpg |
-| mix-duo | i13.jpg |
-| fingers-25 / fingers-50 / fingers-75 / fingers-100 | i14.jpg / i15.jpg / i16.jpg / i17.jpg |
-| fingers / toast / coleslaw / wedges | i4.jpg / i5.jpg / i6.jpg / i20.jpg |
-| sauce / sauce-hot | i18.jpg / i19.jpg |
-| burger | shot.jpg в той же папке |
-| lemonade / cola / fuse-peach / iced-tea / water | i0.jpg / i2.jpg / i1.jpg / i22.jpg / i23.jpg |
-| cola-bottle / signature-small | ../product-photo/cola-bottle.png / signature-sauce.png, предыдущая ретушь по оригиналам |
-| reward-seven-plus-one | i10.jpg |
+| Файл PNG                                           | Исходник                                                                                |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| pick-combo                                         | i7.jpg                                                                                  |
+| master-combo                                       | i8.jpg                                                                                  |
+| burger-combo                                       | i9.jpg                                                                                  |
+| solo-combo                                         | i10.jpg                                                                                 |
+| finger-duo                                         | i11.jpg                                                                                 |
+| burger-duo                                         | i12.jpg                                                                                 |
+| mix-duo                                            | i13.jpg                                                                                 |
+| fingers-25 / fingers-50 / fingers-75 / fingers-100 | i14.jpg / i15.jpg / i16.jpg / i17.jpg                                                   |
+| fingers / toast / coleslaw / wedges                | i4.jpg / i5.jpg / i6.jpg / i20.jpg                                                      |
+| sauce / sauce-hot                                  | i18.jpg / i19.jpg                                                                       |
+| burger                                             | shot.jpg в той же папке                                                                 |
+| lemonade / cola / fuse-peach / iced-tea / water    | i0.jpg / i2.jpg / i1.jpg / i22.jpg / i23.jpg                                            |
+| cola-bottle / signature-small                      | ../product-photo/cola-bottle.png / signature-sauce.png, предыдущая ретушь по оригиналам |
+| reward-seven-plus-one                              | i10.jpg                                                                                 |
 
 ## Промпты и проверка
 

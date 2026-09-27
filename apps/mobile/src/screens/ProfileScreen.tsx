@@ -198,6 +198,7 @@ export function Profile(props: ScreenProps) {
 
         <ComboRewardCard
           preview={props.preview}
+          progress={props.model.testFlow.comboProgress}
           testID="profile-combo-reward"
           onMenu={() => props.navigate('M06')}
         />

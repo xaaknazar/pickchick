@@ -10,8 +10,11 @@ import type { CartLine, DiningMode, PaymentMethod } from './model';
 import { useAccount } from './useAccount';
 import { connectedTestOrdersEnabled, unpaidTestOrdersEnabled } from './order-simulator';
 import { accountCanAct } from './account-access';
+import { useComboProgress } from './loyalty/useComboProgress';
+import type { ComboProgressState } from './loyalty/combo-progress';
 
 export interface TestFlowModel {
+  comboProgress?: ComboProgressState;
   available: boolean;
   restored: boolean;
   hasSavedSession: boolean;
@@ -92,6 +95,14 @@ export function useTestOrders(
       ]
     : [];
   const current = allOrders.find((order) => order.order_id === currentId) ?? null;
+  const comboProgress = useComboProgress(
+    client,
+    connectedTestOrdersEnabled && account.mode === 'server' && accountCanAct(account),
+    allOrders
+      .map((order) => `${order.order_id}:${order.state}`)
+      .sort()
+      .join('|'),
+  );
   const generation = useRef(0);
 
   const apply = useCallback((order: TestOrder) => {
@@ -330,6 +341,10 @@ export function useTestOrders(
   };
 
   return {
+    comboProgress:
+      account.mode === 'demo' && account.account
+        ? { status: 'unavailable', data: null }
+        : comboProgress,
     available: connectedTestOrdersEnabled && available,
     restored: sameAccount && restored,
     hasSavedSession: sameAccount && hasSavedSession,
