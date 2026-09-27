@@ -379,11 +379,11 @@
         "tests/mobile/api.test.mjs",
         "tests/mobile/browser_cart_sheet.py"
       ],
-      "status": "active",
+      "status": "done",
       "head": "3ef80c950d0a2c4c04c5285c5657c8713fb7311e",
-      "updatedAt": "2026-09-27T10:48:16.247Z",
-      "summary": "PR https://github.com/xaaknazar/pickchick/pull/97, checkpoint 3ef80c950d0a2c4c04c5285c5657c8713fb7311e опубликован и включён в shared-development. Реализованы identity-owned TEST actors (024), mobile token binding/refresh/изоляция аккаунтов, guarded release020-024 и feedback INSERT ACL. pnpm check,176 Node+30 Python mobile,192 PG (191 pass/1 existing skip),2 адресных pilot PG/HTTP,23 release guards и7 roadmap прошли. Caddy candidate валиден. В CUA с изолированным настоящим API/PG пройден вход->комбо->unpaid->кухня->готово через событие и восстановление после reload; реальных отправок не было. Предыдущая CI9c упала на browser_cart_sheet sampler до нажатия; исправлено, новая CI выполняется. VPS/API/БД/публичный auth/roadmap не обновлены.",
-      "nextAction": "Дождаться ответа владельца о сроке хранения истории/обращений (12 или6 месяцев/пока без публичной регистрации). Ранее согласованный текст повторно не утверждать; заполнить факты и legal HTML, не обещать неработающую очистку. Получить полную зелёную CI exact SHA, затем prepare/apply по docs/operations/server-pilot.md с protected .local/customer-auth-server-pilot.env, legal-dir и off-server backup key. На VPS API4ee0b80/schema020, publicbcf4fe6, gateway ab475f1; заново сверить. Кухня edgeConnected=false. Штатный cleanup cron уже есть в repo, установить после выпуска. Обновить mobile server-auth/физическую приёмку, затем online roadmap. Другой Mac принимает эту же задачу с опубликованного SHA, секреты через Git не переносить."
+      "updatedAt": "2026-09-27T10:48:22.017Z",
+      "summary": "Подготовка серверного пилота сохранена в PR97 и общем срезе 3ef80c9. VPS не обновлён, срок хранения не выбран; проверки и продолжение в docs/operations/server-pilot.md. По новому запросу владельца начинается отдельная задача оформления статуса заказа.",
+      "nextAction": "Продолжить серверный выпуск отдельной задачей после решения о хранении, проверки CI и legal HTML. Не считать этот checkpoint развёрнутым."
     }
   ]
 }
