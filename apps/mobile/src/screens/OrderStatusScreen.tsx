@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -66,6 +67,8 @@ export function OrderStatusScreen({
           : orderStage(order) === 'На сборке'
             ? 'Всё приготовили. Проверяем, всё ли на месте'
             : 'Жарим, собираем и следим за каждой деталью';
+  const itemCount = order.snapshot.lines.reduce((sum, line) => sum + line.quantity, 0);
+  const cardWidth = Math.min(380, width - (order.snapshot.lines.length > 1 ? 60 : 40));
   const lineCards = order.snapshot.lines.map((line) => {
     const product = props.model.products.find((p) => p.id === line.id);
     const description =
@@ -79,28 +82,34 @@ export function OrderStatusScreen({
     return (
       <View
         key={'line_id' in line ? line.line_id : line.id}
-        style={[s.foodCard, { width: Math.min(380, width - 48) }]}
+        style={[s.foodCard, { width: cardWidth }]}
       >
-        <View style={s.foodVisual}>
-          {product ? (
-            <Image
-              source={product.image}
-              contentFit="cover"
-              style={s.foodImage}
-              accessibilityLabel={line.name}
-            />
-          ) : (
-            <Icon name="restaurant-outline" size={32} color={colors.muted} />
-          )}
+        <View style={s.foodMain}>
+          <View style={s.foodVisual}>
+            {product ? (
+              <Image
+                source={product.image}
+                contentFit="contain"
+                style={s.foodImage}
+                accessibilityLabel={line.name}
+              />
+            ) : (
+              <Icon name="restaurant-outline" size={32} color={colors.muted} />
+            )}
+          </View>
+          <View style={s.foodCopy}>
+            <Body style={s.foodName}>{line.name}</Body>
+            <Row style={s.foodBottom}>
+              <Text style={s.foodPrice}>{money(line.line_total_minor)}</Text>
+              <Text style={s.quantity}>{line.quantity} шт.</Text>
+            </Row>
+          </View>
         </View>
-        <View style={s.foodCopy}>
-          <Body style={s.foodName}>{line.name}</Body>
-          {description ? <Caption style={s.foodDetail}>{description}</Caption> : null}
-          <Row style={s.foodBottom}>
-            <Text style={s.quantity}>{line.quantity} шт.</Text>
-            <Text style={s.foodPrice}>{money(line.line_total_minor)}</Text>
-          </Row>
-        </View>
+        {description ? (
+          <View style={s.foodOptions}>
+            <Caption style={s.foodDetail}>{description}</Caption>
+          </View>
+        ) : null}
       </View>
     );
   });
@@ -191,14 +200,22 @@ export function OrderStatusScreen({
             </View>
           </View>
           {active || details ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.foodList}
-              testID="order-status-items"
-            >
-              {lineCards}
-            </ScrollView>
+            <View style={s.itemsSection}>
+              <Row style={s.itemsHeader}>
+                <Heading style={s.itemsTitle}>Ваш заказ</Heading>
+                <Caption style={s.itemsCount}>{itemCount} шт.</Caption>
+              </Row>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.foodList}
+                snapToInterval={cardWidth + 12}
+                decelerationRate="fast"
+                testID="order-status-items"
+              >
+                {lineCards}
+              </ScrollView>
+            </View>
           ) : (
             <View style={s.inset}>
               <NavRow
@@ -232,10 +249,18 @@ export function OrderStatusScreen({
                 contentFit="cover"
                 style={StyleSheet.absoluteFill}
               />
-              <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.gameShade]} />
+              <View pointerEvents="none" style={[StyleSheet.absoluteFill, gameShade]} />
+              <View style={s.gameIntro}>
+                <Icon name="game-controller-outline" size={16} color={colors.white} />
+                <Caption style={s.gameIntroText}>
+                  {active ? 'Пока готовим' : 'Ещё один раунд?'}
+                </Caption>
+              </View>
               <View style={s.gameCopy}>
-                <Caption style={s.gameIntro}>{active ? 'Пока готовим' : 'Ещё один раунд?'}</Caption>
-                <Heading style={s.gameTitle}>Pick Blocks</Heading>
+                <View style={s.gameHeading}>
+                  <Heading style={s.gameTitle}>Pick Blocks</Heading>
+                  <Caption style={s.gameDetail}>Соберите свой рекорд</Caption>
+                </View>
                 <Row style={s.play}>
                   <Body style={s.playText}>Играть</Body>
                   <Icon name="arrow-forward" color={colors.orangeInk} size={18} />
@@ -285,6 +310,13 @@ export function OrderStatusScreen({
     </View>
   );
 }
+const gameGradient =
+  'linear-gradient(180deg, rgba(2,10,30,0.06) 0%, rgba(2,10,30,0.02) 35%, rgba(2,10,30,0.65) 62%, rgba(2,10,30,0.98) 100%)';
+const gameShade = (
+  Platform.OS === 'web'
+    ? { backgroundImage: gameGradient }
+    : { experimental_backgroundImage: gameGradient }
+) as ViewStyle;
 const s = StyleSheet.create({
   root: { flex: 1, minHeight: 0, backgroundColor: colors.background },
   header: { paddingHorizontal: 16, paddingBottom: 12, alignItems: 'center', gap: 12 },
@@ -339,62 +371,73 @@ const s = StyleSheet.create({
   trackBar: { height: 3, borderRadius: 2, backgroundColor: colors.border },
   trackActive: { backgroundColor: colors.accent },
   trackLabel: { fontSize: 11, textAlign: 'center', color: colors.muted },
-  foodList: { paddingHorizontal: 20, gap: 12 },
+  itemsSection: { gap: 12 },
+  itemsHeader: { paddingHorizontal: 20, justifyContent: 'space-between', gap: 12 },
+  itemsTitle: { fontSize: 20, lineHeight: 26 },
+  itemsCount: { fontSize: 13, color: colors.muted },
+  foodList: { paddingHorizontal: 20, gap: 12, alignItems: 'flex-start' },
   foodCard: {
-    flexDirection: 'row',
-    overflow: 'hidden',
-    borderRadius: 18,
+    padding: 12,
+    borderRadius: 20,
     backgroundColor: colors.surface,
+    gap: 12,
   },
+  foodMain: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   foodVisual: {
-    width: 112,
-    minHeight: 144,
+    width: 92,
+    height: 92,
+    borderRadius: 14,
+    overflow: 'hidden',
     backgroundColor: '#F6F6F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  foodImage: { width: 112, height: 144 },
-  foodCopy: { flex: 1, padding: 14, gap: 8 },
+  foodImage: { width: '100%', height: '100%' },
+  foodCopy: { flex: 1, gap: 12 },
   foodName: { fontFamily: font.bold, fontSize: 16, lineHeight: 22 },
-  foodDetail: { fontSize: 12, lineHeight: 18, color: colors.muted },
-  foodBottom: {
-    marginTop: 'auto',
-    paddingTop: 8,
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
+  foodOptions: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: 10,
   },
-  quantity: {
-    fontFamily: font.medium,
-    color: colors.text,
-    fontSize: 12,
-    backgroundColor: colors.raised,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  foodPrice: { fontFamily: font.bold, fontSize: 14, color: colors.text },
+  foodDetail: { fontSize: 13, lineHeight: 19, color: colors.muted },
+  foodBottom: { flexWrap: 'wrap', gap: 10 },
+  quantity: { fontFamily: font.medium, color: colors.muted, fontSize: 13 },
+  foodPrice: { fontFamily: font.bold, fontSize: 16, lineHeight: 22, color: colors.text },
   game: {
     marginHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: 24,
     backgroundColor: colors.surface,
     overflow: 'hidden',
-    minHeight: 216,
-    justifyContent: 'flex-end',
+    minHeight: 248,
+    justifyContent: 'space-between',
+    padding: 16,
+    gap: 96,
   },
-  gameShade: { backgroundColor: '#020B20A6' },
-  gameCopy: { padding: 20, gap: 8, alignItems: 'flex-start' },
-  gameIntro: { color: colors.white, fontSize: 12 },
-  gameTitle: { color: colors.white, fontSize: 23, lineHeight: 28 },
-  play: {
+  gameIntro: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: colors.accent,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: 6,
+    backgroundColor: '#020A1EDD',
     borderRadius: 20,
-    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  playText: { fontFamily: font.bold, fontSize: 13, color: colors.orangeInk },
+  gameIntroText: { color: colors.white, fontSize: 12, lineHeight: 18 },
+  gameCopy: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
+  gameHeading: { flex: 1, minWidth: 128, gap: 4 },
+  gameTitle: { color: colors.white, fontSize: 24, lineHeight: 30 },
+  gameDetail: { color: '#D5DDF0', fontSize: 12, lineHeight: 18 },
+  play: {
+    backgroundColor: colors.accent,
+    minHeight: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    gap: 6,
+  },
+  playText: { fontFamily: font.bold, fontSize: 14, color: colors.orangeInk },
   bottom: { paddingHorizontal: 20, gap: 12 },
   address: { flexDirection: 'row', gap: 12, paddingVertical: 16 },
 });
