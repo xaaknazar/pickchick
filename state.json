@@ -478,6 +478,23 @@
       "updatedAt": "2026-09-27T13:10:52.546Z",
       "summary": "Светлая кнопка закрытия44, крестик26, область48×48;CUA393/320,закрытие,typecheck/lint,7roadmap,Dev bundles прошли.PR105 https://github.com/xaaknazar/pickchick/pull/105. Shared19532fb;VPS/TestFlight/онлайн-пульт не обновлены.",
       "nextAction": "Физическая приёмка на телефоне, выпуск после полной зелёной CI."
+    },
+    {
+      "id": "product-fullwidth-extras",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/product-fullwidth-extras",
+      "scopes": [
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/product-photo-selection.ts",
+        "tests/mobile/product-photo-selection.test.mjs",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "19532fb403a838a55fc739dd0afd994562e7540e",
+      "updatedAt": "2026-09-27T13:34:07.276Z"
     }
   ]
 }
