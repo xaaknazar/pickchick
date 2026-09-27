@@ -403,6 +403,23 @@
       "updatedAt": "2026-09-27T11:58:24.145Z",
       "summary": "PR100 включён в shared-development; проверки сохранены.",
       "nextAction": "Далее product-photo-pilot: две страницы товара по скриншотам владельца."
+    },
+    {
+      "id": "product-photo-pilot",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/product-photo-pilot",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "docs/operations/product-photo-pilot.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "16dbf6499b1c62d446847a639b2a0a0162e18767",
+      "updatedAt": "2026-09-27T11:58:45.212Z"
     }
   ]
 }
