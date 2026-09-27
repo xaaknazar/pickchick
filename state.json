@@ -616,6 +616,21 @@
       "updatedAt": "2026-09-27T15:38:00.715Z",
       "summary": "Practice PostgreSQL stamps and mobile progress implemented; atomic handoff, account isolation, 7-to-8 carry, no real entitlement. 112 unit,193 integration+1 skip,198 mobile+30 Python,44 release,7 roadmap; CUA0-to-1 and logout verified. PR112; CI still running. VPS/TestFlight/online roadmap NOT deployed: identity pilot/legal publication prerequisites outstanding.",
       "nextAction": "Finish server-pilot publication artifacts and green release CI, deploy guarded020-to-025 and verify on iPhone. Confirm practice-mode choice with owner; commercial coupon rules remain separate."
+    },
+    {
+      "id": "cart-light-photos",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-light-photos",
+      "scopes": [
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "444f4cef4c321d03a212e4cef279edfff1f830a7",
+      "updatedAt": "2026-09-27T15:40:55.649Z"
     }
   ]
 }
