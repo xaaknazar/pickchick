@@ -710,6 +710,21 @@
       "updatedAt": "2026-09-27T16:32:58.541Z",
       "summary": "Checkout/cart height aligned; Done saves edited combo directly. 202+30 mobile tests, typecheck/lint/format, detector, Dev iOS and CUA393 passed. PR117. No VPS/TestFlight/online roadmap deploy.",
       "nextAction": "Physical iPhone acceptance; release separately after full green CI."
+    },
+    {
+      "id": "product-price-cream",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/product-price-cream",
+      "scopes": [
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "790c846dd3f8a2764bc084d929956dacd48effbe",
+      "updatedAt": "2026-09-27T16:34:13.285Z"
     }
   ]
 }
