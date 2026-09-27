@@ -227,7 +227,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
         ) : null}
       </View>
       <View style={s.productInfo}>
-        <Heading small style={[compact ? s.compactTitle : s.productTitle, { color: '#271C15' }]}>
+        <Heading small style={compact ? s.compactTitle : s.productTitle}>
           {product.name}
         </Heading>
         {!compact ? <Caption style={s.productDescription}>{product.description}</Caption> : null}
@@ -1025,8 +1025,8 @@ const s = StyleSheet.create({
     borderRadius: 24,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E8DDCE',
-    backgroundColor: '#FFF8EE',
+    borderColor: '#FFFFFF12',
+    backgroundColor: colors.surface,
   },
   productPhotoWrap: {
     width: 112,
@@ -1038,7 +1038,7 @@ const s = StyleSheet.create({
   },
   productInfo: { flex: 1, minWidth: 0, gap: 6 },
   productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 25, letterSpacing: -0.19 },
-  productDescription: { fontSize: 14, lineHeight: 20, color: '#675448' },
+  productDescription: { fontSize: 14, lineHeight: 20 },
   productPriceRow: {
     marginTop: 'auto',
     paddingTop: 8,
@@ -1051,7 +1051,7 @@ const s = StyleSheet.create({
     fontSize: 20,
     lineHeight: 28,
     fontVariant: ['tabular-nums'],
-    color: '#271C15',
+    color: colors.text,
   },
   productChoose: {
     minHeight: 44,

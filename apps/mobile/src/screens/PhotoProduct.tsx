@@ -522,8 +522,8 @@ export function PhotoProduct(props: Props) {
               if (!props.onSave) props.goBack();
             }}
           >
-            <Icon name={props.editing ? 'checkmark' : 'add'} color="#8A3309" size={27} />
-            <Text style={[s.addText, { color: '#8A3309' }]}>{money(totalPrice)}</Text>
+            <Icon name={props.editing ? 'checkmark' : 'add'} color={colors.orangeInk} size={27} />
+            <Text style={[s.addText, { color: colors.orangeInk }]}>{money(totalPrice)}</Text>
           </Pressable>
         </View>
         <Pressable
@@ -814,7 +814,7 @@ function makeStyles(blue: boolean) {
     },
     choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: muted },
     choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
-    replace: { fontFamily: font.bold, fontSize: 12, color: blue ? '#FFB28B' : '#8A3309' },
+    replace: { fontFamily: font.bold, fontSize: 12, color: blue ? '#FF8A4C' : '#A33B00' },
     moreRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -845,7 +845,7 @@ function makeStyles(blue: boolean) {
     variantSelected: { borderWidth: 1, borderColor: blue ? colors.accent : '#9A3F00' },
     extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 4 },
     extraName: { fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: ink },
-    priceAction: { backgroundColor: '#FFE2C3' },
+    priceAction: { backgroundColor: colors.accent },
     footer: {
       paddingTop: 12,
       paddingHorizontal: 24,
