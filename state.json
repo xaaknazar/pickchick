@@ -564,9 +564,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "85ec0596a5d52368c96dd6ba904e779dcc8f4840",
-      "updatedAt": "2026-09-27T15:02:02.114Z"
+      "status": "done",
+      "head": "4c47cb58155d6cb146338cffa73d708eb311249f",
+      "updatedAt": "2026-09-27T15:06:10.036Z",
+      "summary": "Restored navy menu cards; retained light photos; orange price and replace labels. Typecheck/lint, CUA393 and iOS Dev bundle passed. PR110 https://github.com/xaaknazar/pickchick/pull/110. No VPS/TestFlight/online roadmap deploy.",
+      "nextAction": "Native visual acceptance; release after full green CI."
     }
   ]
 }
