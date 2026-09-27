@@ -786,6 +786,21 @@
       "updatedAt": "2026-09-27T17:05:51.739Z",
       "summary": "Cart layout/stamps, direct menu return, service mode only at checkout, order number sign and contained cola bag.203+30 tests, typecheck/lint/format, detector, Dev iOS/asset hash, CUA320/393/768 passed. PR121. No VPS/TestFlight/roadmap deploy.",
       "nextAction": "Physical iPhone acceptance; guarded server7+1 rollout remains separate."
+    },
+    {
+      "id": "cart-selected-modifiers",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-selected-modifiers",
+      "scopes": [
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/operations/product-photo-pilot.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "27cbe9eaf8e6876af35c3fbd27342baa288f82b6",
+      "updatedAt": "2026-09-27T17:10:23.833Z"
     }
   ]
 }
