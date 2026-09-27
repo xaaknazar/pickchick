@@ -398,9 +398,9 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "available",
+      "status": "active",
       "head": "16dbf6499b1c62d446847a639b2a0a0162e18767",
-      "updatedAt": "2026-09-27T11:33:41.243Z",
+      "updatedAt": "2026-09-27T11:58:08.479Z",
       "summary": "Карточки отполированы: PR100 https://github.com/xaaknazar/pickchick/pull/100, 16dbf6499b1c62d446847a639b2a0a0162e18767 опубликован в shared-development, SHA сверены. Полные квадратные фото, отдельная строка состава, заголовок/количество и carousel snap; яркая обложка Pick Blocks, lower scrim, CTA48. Typecheck/lint/format,3 status+7 roadmap tests, живые iOS/Android bundles прошли. CUA393/320 и guest game gate проверены. Metro8081 остаётся. VPS/TestFlight/онлайн roadmap не обновлены; новая CI ожидается.",
       "nextAction": "Проверить точный CI, физическую приёмку на iPhone/Android и guarded roadmap publication. Сохранять неподвижные три сцены и отдельный Modal только с поддержкой. Доказательства в docs/operations/order-status-sheet.md; backend pilot отдельно."
     }
