@@ -36,6 +36,7 @@ type Props = ScreenProps & {
 type Picker = { group: ModifierGroup; index: number; chosen: string | null };
 const ink = '#271C15';
 const paper = '#FFF8EE';
+const priceButton = { surface: '#FFE2C3', ink: '#8A3309' };
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
 const blueGradient =
   'linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)';
@@ -529,8 +530,8 @@ export function PhotoProduct(props: Props) {
             style={[s.add, s.priceAction, !!reason && { opacity: 0.5 }]}
             onPress={() => save(selections)}
           >
-            <Icon name={props.editing ? 'checkmark' : 'add'} color={colors.orangeInk} size={27} />
-            <Text style={[s.addText, { color: colors.orangeInk }]}>{money(totalPrice)}</Text>
+            <Icon name={props.editing ? 'checkmark' : 'add'} color={priceButton.ink} size={27} />
+            <Text style={[s.addText, { color: priceButton.ink }]}>{money(totalPrice)}</Text>
           </Pressable>
         </View>
         <Pressable
@@ -857,7 +858,7 @@ function makeStyles(blue: boolean) {
     variantSelected: { borderWidth: 1, borderColor: blue ? colors.accent : '#9A3F00' },
     extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 4 },
     extraName: { fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: ink },
-    priceAction: { backgroundColor: colors.accent },
+    priceAction: { backgroundColor: priceButton.surface },
     footer: {
       paddingTop: 12,
       paddingHorizontal: 24,
