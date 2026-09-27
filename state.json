@@ -492,9 +492,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "19532fb403a838a55fc739dd0afd994562e7540e",
-      "updatedAt": "2026-09-27T13:34:07.276Z"
+      "status": "done",
+      "head": "6be8b140c0cc37413bdbcb3013fe7b082243fc59",
+      "updatedAt": "2026-09-27T13:42:01.066Z",
+      "summary": "PR106 https://github.com/xaaknazar/pickchick/pull/106; плавный фон, светлые действия, полноширинные компактные допы, Finger Duo+бургер отдельным SKU.192+30 mobile,7 roadmap,typecheck/lint,CUA393/320/768,Dev bundles прошли;корзина10380 без дублей. Shared6be8b14. VPS/TestFlight/онлайн-пульт не обновлены.",
+      "nextAction": "Приёмка дизайна на iPhone, фото Heinz и состав по владельцу; выпуск после полной зелёной CI."
     }
   ]
 }
