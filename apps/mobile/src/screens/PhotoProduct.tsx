@@ -61,6 +61,7 @@ export function PhotoProduct(props: Props) {
   const [quantity, setQuantity] = useState(props.editing?.quantity ?? 1);
   const [picker, setPicker] = useState<Picker | null>(null);
   const [info, setInfo] = useState(false);
+  const [footerHeight, setFooterHeight] = useState(110);
   const [companionCounts, setCompanionCounts] = useState<Record<string, number>>({});
   const combo = isComboProduct(product.id);
   const blue = combo;
@@ -121,7 +122,12 @@ export function PhotoProduct(props: Props) {
         <Image
           source={photoHeroes[id] ?? line.product.image}
           contentFit="contain"
-          style={{ width: extraWidth - 24, height: 90, borderRadius: 12 }}
+          style={{
+            width: extraWidth - 24,
+            height: 104,
+            borderRadius: 12,
+            backgroundColor: '#FFF8EE',
+          }}
           accessible={false}
         />
         <Text style={s.extraName}>{label}</Text>
@@ -222,7 +228,10 @@ export function PhotoProduct(props: Props) {
         <ScrollView
           ref={scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[{ paddingBottom: 24, flexGrow: 1 }, blue && gradientSurface]}
+          contentContainerStyle={[
+            { paddingBottom: footerHeight + 24, flexGrow: 1 },
+            blue && gradientSurface,
+          ]}
           testID="photo-product-scroll"
         >
           <View style={{ height: heroHeight, backgroundColor: pagePaper }}>
@@ -446,7 +455,7 @@ export function PhotoProduct(props: Props) {
                       testID={`photo-extra-${option.id}`}
                       style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
                     >
-                      <OptionImage id={option.id} size={extraWidth - 24} height={90} extra />
+                      <OptionImage id={option.id} size={extraWidth - 24} height={104} extra />
                       <Text style={s.extraName}>{option.label}</Text>
                       <Text style={s.choiceLabel}>
                         {unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`}
@@ -488,7 +497,11 @@ export function PhotoProduct(props: Props) {
             </View>
           </View>
         </ScrollView>
-        <View style={[s.footer, { paddingBottom: Math.max(16, insets.bottom) }]}>
+        <View
+          pointerEvents="box-none"
+          onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+          style={[s.footer, { paddingBottom: Math.max(16, insets.bottom) }]}
+        >
           {reason ? (
             <Text accessibilityLiveRegion="polite" style={s.reason}>
               {reason}
@@ -509,8 +522,8 @@ export function PhotoProduct(props: Props) {
               if (!props.onSave) props.goBack();
             }}
           >
-            <Icon name={props.editing ? 'checkmark' : 'add'} color="#271C15" size={27} />
-            <Text style={[s.addText, { color: '#271C15' }]}>{money(totalPrice)}</Text>
+            <Icon name={props.editing ? 'checkmark' : 'add'} color="#8A3309" size={27} />
+            <Text style={[s.addText, { color: '#8A3309' }]}>{money(totalPrice)}</Text>
           </Pressable>
         </View>
         <Pressable
@@ -832,11 +845,15 @@ function makeStyles(blue: boolean) {
     variantSelected: { borderWidth: 1, borderColor: blue ? colors.accent : '#9A3F00' },
     extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 4 },
     extraName: { fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: ink },
-    priceAction: { backgroundColor: colors.accent },
+    priceAction: { backgroundColor: '#FFE2C3' },
     footer: {
       paddingTop: 12,
       paddingHorizontal: 24,
-      backgroundColor: blue ? '#04143A' : paper,
+      backgroundColor: 'transparent',
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
       gap: 8,
     },
     add: {

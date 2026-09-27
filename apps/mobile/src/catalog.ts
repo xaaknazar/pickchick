@@ -9,7 +9,7 @@ const displayCopy = (text: string) => text.replace(/[\u2013\u2014]/g, '-');
 // Retouched source photographs, bundled locally for offline use. Provenance: assets/catalog-hd.
 const images: Record<string, number> = {
   'i0.jpg': require('../assets/catalog-hd/lemonade.png'),
-  'i1.jpg': require('../assets/catalog-hd/fuse-peach.png'),
+  'i1.jpg': require('../assets/catalog-options/fuse-peach.png'),
   'i10.jpg': require('../assets/catalog-hd/solo-combo.png'),
   'i11.jpg': require('../assets/catalog-hd/finger-duo.png'),
   'i12.jpg': require('../assets/catalog-hd/burger-duo.png'),
@@ -40,7 +40,10 @@ export function connectedProducts(catalog: TestCatalog): Product[] {
     category: item.category,
     priceMinor: item.price_minor,
     catalogVersion: catalog.catalog_version,
-    image: images[item.image_id] ?? require('../../../design/prototype/assets/mockup/logo.png'),
+    image:
+      item.id === 'piko'
+        ? require('../assets/catalog-options/piko.png')
+        : (images[item.image_id] ?? require('../../../design/prototype/assets/mockup/logo.png')),
     source: 'server',
     ...('modifier_groups' in item
       ? {

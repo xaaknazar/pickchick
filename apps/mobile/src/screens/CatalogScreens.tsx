@@ -1,3 +1,4 @@
+import { menuPhotos } from '../menu-photo-assets';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { MotionPressable as Pressable, MotionModal } from '../components/Motion';
@@ -214,9 +215,9 @@ const ProductMenuCard = memo(function ProductMenuCard({
         style={[s.productPhotoWrap, compact && s.compactPhoto]}
       >
         <Image
-          source={product.image}
+          source={menuPhotos[product.id] ?? product.image}
           style={StyleSheet.absoluteFill}
-          contentFit="cover"
+          contentFit="contain"
           cachePolicy="memory-disk"
         />
         {hit ? (
@@ -226,7 +227,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
         ) : null}
       </View>
       <View style={s.productInfo}>
-        <Heading small style={compact ? s.compactTitle : s.productTitle}>
+        <Heading small style={[compact ? s.compactTitle : s.productTitle, { color: '#271C15' }]}>
           {product.name}
         </Heading>
         {!compact ? <Caption style={s.productDescription}>{product.description}</Caption> : null}
@@ -1024,8 +1025,8 @@ const s = StyleSheet.create({
     borderRadius: 24,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#FFFFFF12',
-    backgroundColor: colors.surface,
+    borderColor: '#E8DDCE',
+    backgroundColor: '#FFF8EE',
   },
   productPhotoWrap: {
     width: 112,
@@ -1033,11 +1034,11 @@ const s = StyleSheet.create({
     flexShrink: 0,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#EAF0F8',
+    backgroundColor: '#FFF8EE',
   },
   productInfo: { flex: 1, minWidth: 0, gap: 6 },
   productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 25, letterSpacing: -0.19 },
-  productDescription: { fontSize: 14, lineHeight: 20 },
+  productDescription: { fontSize: 14, lineHeight: 20, color: '#675448' },
   productPriceRow: {
     marginTop: 'auto',
     paddingTop: 8,
@@ -1050,7 +1051,7 @@ const s = StyleSheet.create({
     fontSize: 20,
     lineHeight: 28,
     fontVariant: ['tabular-nums'],
-    color: colors.text,
+    color: '#271C15',
   },
   productChoose: {
     minHeight: 44,

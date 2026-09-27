@@ -1,5 +1,11 @@
 # Контекст для нового компьютера
 
+## Последнее: menu-light-photos
+
+Светлые карточки главного меню и11 отдельных фото; синие страницы комбо сохранены. Кнопка цены в стиле X без тёмной полосы.8 фото напитков, все Fuse Tea500мл.16 selection tests, typecheck/lint, CUA320/393/768, export всех платформ и iOS Dev bundle проверены. Heinz ожидает уточнения упаковки, физическая приёмка и выпуск не выполнены; онлайн-пульт не обновлён.
+Источники и промпты: `apps/mobile/assets/catalog-options/README.md` и
+`apps/mobile/assets/menu-light/README.md`. Объёмы/цены не менять по фото.
+
 Обновлено 27 сентября 2026. Начать с `AGENTS.md`, `docs/project-status.md`,
 `pnpm project:check`, `pnpm project:tasks` и открытых PR. GitHub хранит общий
 код и журнал задач; история чата, секреты, `.local`, процессы и подписи не

@@ -20,16 +20,25 @@ export const photoHeroes: Record<string, ImageSourcePropType> = {
   burger: require('../assets/catalog-hd/burger.png'),
   lemonade: require('../assets/catalog-hd/lemonade.png'),
   cola: require('../assets/catalog-hd/cola.png'),
-  'fuse-peach': require('../assets/catalog-hd/fuse-peach.png'),
+  piko: require('../assets/catalog-options/piko.png'),
+  'fuse-peach': require('../assets/catalog-options/fuse-peach.png'),
   'iced-tea': require('../assets/catalog-hd/iced-tea.png'),
   water: require('../assets/catalog-hd/water.png'),
 };
 // No invented packaging: missing catalog references keep an explicit placeholder.
 export const optionPhotos: Record<string, ImageSourcePropType> = {
+  fanta: require('../assets/catalog-options/fanta.png'),
+  sprite: require('../assets/catalog-options/sprite.png'),
+  'cola-zero': require('../assets/catalog-options/cola-zero.png'),
+  'fuse-berry': require('../assets/catalog-options/fuse-berry.png'),
+  'fuse-mango': require('../assets/catalog-options/fuse-mango.png'),
+  'fuse-watermelon': require('../assets/catalog-options/fuse-watermelon.png'),
+  piko: require('../assets/catalog-options/piko.png'),
+
   'cola-bottle': require('../assets/catalog-hd/cola-bottle.png'),
   lemonade: require('../assets/catalog-hd/lemonade.png'),
   'cola-can': require('../assets/catalog-hd/cola.png'),
-  'fuse-peach': require('../assets/catalog-hd/fuse-peach.png'),
+  'fuse-peach': require('../assets/catalog-options/fuse-peach.png'),
   'iced-tea-sweet': require('../assets/catalog-hd/iced-tea.png'),
   'iced-tea-unsweet': require('../assets/catalog-hd/iced-tea.png'),
   water: require('../assets/catalog-hd/water.png'),
