@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { orderStage, orderTimeLabel } from '../../apps/mobile/src/order-status.ts';
+import { orderStage, orderTimeLabel, orderScene } from '../../apps/mobile/src/order-status.ts';
 const order = {
   state: 'preparing',
   created_at: '2026-09-27T10:00:00Z',
@@ -39,4 +39,20 @@ test('time is elapsed, clamps clock skew, and stops ticking on terminal server s
   assert.equal(orderTimeLabel(ready, 0), 'Готов к выдаче в 15:06');
   assert.equal(orderTimeLabel(ready, Date.now()), orderTimeLabel(ready, 0));
   assert.equal(orderTimeLabel({ ...order, state: 'cancelled' }, 0), 'Заказ отменён');
+});
+
+test('chef scenes follow kitchen, assembly and ready with no client-side simulation', () => {
+  assert.equal(orderScene(order), 'cooking');
+  assert.equal(
+    orderScene({
+      ...order,
+      tasks: [
+        { station: 'prep', state: 'done' },
+        { station: 'assembly', state: 'pending' },
+      ],
+    }),
+    'assembly',
+  );
+  assert.equal(orderScene({ ...order, state: 'ready' }), 'ready');
+  assert.equal(orderScene({ ...order, state: 'fulfilled' }), 'ready');
 });

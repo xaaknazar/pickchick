@@ -7,12 +7,13 @@ import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
 import { Body, Caption, Heading, Icon, NavRow, Row, Button, styles as ui } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
+import { OrderActions } from '../components/OrderActions';
 import { OrderChef } from '../components/OrderChef';
 import { assets } from '../assets';
 import { colors, font } from '../theme';
 import { money } from '../domain';
 import { restaurantLocation } from '../restaurant-location';
-import { orderStage, orderTimeLabel } from '../order-status';
+import { orderStage, orderTimeLabel, orderScene } from '../order-status';
 
 export function OrderStatusScreen({
   props,
@@ -26,7 +27,6 @@ export function OrderStatusScreen({
   const [more, setMore] = useState(false);
   const [details, setDetails] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [heroVisible, setHeroVisible] = useState(true);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -79,219 +79,209 @@ export function OrderStatusScreen({
     return (
       <View
         key={'line_id' in line ? line.line_id : line.id}
-        style={[s.foodCard, { width: Math.min(300, width - 70) }]}
+        style={[s.foodCard, { width: Math.min(380, width - 48) }]}
       >
-        <View style={ui.flex}>
+        <View style={s.foodVisual}>
+          {product ? (
+            <Image
+              source={product.image}
+              contentFit="cover"
+              style={s.foodImage}
+              accessibilityLabel={line.name}
+            />
+          ) : (
+            <Icon name="restaurant-outline" size={32} color={colors.muted} />
+          )}
+        </View>
+        <View style={s.foodCopy}>
           <Body style={s.foodName}>{line.name}</Body>
           {description ? <Caption style={s.foodDetail}>{description}</Caption> : null}
-          <Caption style={s.foodPrice}>
-            {line.quantity} шт. · {money(line.line_total_minor)}
-          </Caption>
+          <Row style={s.foodBottom}>
+            <Text style={s.quantity}>{line.quantity} шт.</Text>
+            <Text style={s.foodPrice}>{money(line.line_total_minor)}</Text>
+          </Row>
         </View>
-        {product ? (
-          <Image
-            source={product.image}
-            contentFit="contain"
-            style={s.foodImage}
-            accessibilityLabel={line.name}
-          />
-        ) : (
-          <Icon name="restaurant-outline" size={32} color={colors.muted} />
-        )}
       </View>
     );
   });
   return (
     <View style={s.root} testID={`screen-${props.screenId}`}>
-      <Row style={s.header}>
-        <MotionPressable
-          testID="order-more"
-          accessibilityRole="button"
-          accessibilityLabel={more ? 'Закрыть действия заказа' : 'Действия заказа'}
-          accessibilityState={{ expanded: more }}
-          onPress={() => setMore(!more)}
-          style={s.iconButton}
-        >
-          <Icon name="ellipsis-horizontal" size={25} />
-        </MotionPressable>
-        <View style={s.location}>
-          <Body style={s.locationName}>
-            {location?.name ?? branch?.name ?? 'Ресторан PickChick'}
-          </Body>
-          <Caption style={s.mode}>
-            {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
-          </Caption>
-        </View>
-        <MotionPressable
-          testID="order-status-close"
-          accessibilityRole="button"
-          accessibilityLabel="Закрыть статус заказа"
-          onPress={props.goBack}
-          style={s.iconButton}
-        >
-          <Icon name="close" size={28} />
-        </MotionPressable>
-      </Row>
-      <ScrollView
-        testID="order-status-scroll"
-        showsVerticalScrollIndicator={false}
-        onScroll={(e) => setHeroVisible(e.nativeEvent.contentOffset.y < heroSize + 100)}
-        scrollEventThrottle={100}
-        contentContainerStyle={{ paddingBottom: Math.max(24, insets.bottom + 16), gap: 20 }}
+      <View
+        style={{ flex: 1 }}
+        aria-hidden={more}
+        accessibilityElementsHidden={more}
+        importantForAccessibility={more ? 'no-hide-descendants' : 'auto'}
       >
-        {more ? (
-          <View style={s.actions}>
-            <NavRow
-              title="Написать в поддержку"
-              subtitle="Сообщение управляющему по заказу"
-              onPress={() => {
-                setMore(false);
-                props.navigate('M31');
-              }}
-            />
-            <NavRow
-              title="Обновить статус"
-              onPress={() => {
-                setMore(false);
-                if (!props.preview) props.model.testFlow.refresh();
-              }}
-            />
-            {active ? (
-              <NavRow
-                title="Отменить заказ"
-                onPress={() => {
-                  setMore(false);
-                  props.navigate('M22');
-                }}
-              />
-            ) : null}
+        <Row style={s.header}>
+          <MotionPressable
+            testID="order-more"
+            accessibilityRole="button"
+            accessibilityLabel={more ? 'Закрыть действия заказа' : 'Действия заказа'}
+            accessibilityState={{ expanded: more }}
+            onPress={() => setMore(!more)}
+            style={s.iconButton}
+          >
+            <Icon name="ellipsis-horizontal" size={25} />
+          </MotionPressable>
+          <View style={s.location}>
+            <Body style={s.locationName}>
+              {location?.name ?? branch?.name ?? 'Ресторан PickChick'}
+            </Body>
+            <Caption style={s.mode}>
+              {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
+            </Caption>
           </View>
-        ) : null}
-        {notice ? <View style={s.inset}>{notice}</View> : null}
-        <View style={s.hero}>
-          <View style={[s.badge, ready && s.readyBadge]}>
-            <Text
-              style={s.badgeText}
-              testID="connected-order-number"
-              accessibilityLabel={`Заказ номер ${order.number}${name ? `, ${name}` : ''}`}
+          <MotionPressable
+            testID="order-status-close"
+            accessibilityRole="button"
+            accessibilityLabel="Закрыть статус заказа"
+            onPress={props.goBack}
+            style={s.iconButton}
+          >
+            <Icon name="close" size={28} />
+          </MotionPressable>
+        </Row>
+        <ScrollView
+          testID="order-status-scroll"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: Math.max(24, insets.bottom + 16), gap: 20 }}
+        >
+          {notice ? <View style={s.inset}>{notice}</View> : null}
+          <View style={s.hero}>
+            <View style={[s.badge, ready && s.readyBadge]}>
+              <Text
+                style={s.badgeText}
+                testID="connected-order-number"
+                accessibilityLabel={`Заказ номер ${order.number}${name ? `, ${name}` : ''}`}
+              >
+                {order.number}
+                {name ? ` · ${name}` : ''}
+              </Text>
+            </View>
+            {order.state !== 'cancelled' ? (
+              <OrderChef stage={orderScene(order)} size={heroSize} />
+            ) : (
+              <View style={{ height: 112, justifyContent: 'center' }}>
+                <Icon name="close-circle-outline" size={64} color={colors.muted} />
+              </View>
+            )}
+            <Row style={s.time}>
+              <Icon name="time-outline" size={18} color={colors.accent} />
+              <Caption style={s.timeText}>{orderTimeLabel(order, now)}</Caption>
+            </Row>
+            <View accessibilityLiveRegion="polite" style={s.statusText}>
+              <Heading style={s.title} testID="connected-order-state">
+                {title}
+              </Heading>
+              <Body style={s.subtitle}>{subtitle}</Body>
+            </View>
+            <View style={s.track} accessibilityLabel={`Этап заказа: ${orderStage(order)}`}>
+              {['Кухня', 'Сборка', 'Выдача'].map((label, i) => (
+                <View key={label} style={s.trackItem}>
+                  <View
+                    style={[
+                      s.trackBar,
+                      (ready || (active && i <= (orderStage(order) === 'На сборке' ? 1 : 0))) &&
+                        s.trackActive,
+                    ]}
+                  />
+                  <Caption style={s.trackLabel}>{label}</Caption>
+                </View>
+              ))}
+            </View>
+          </View>
+          {active || details ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.foodList}
+              testID="order-status-items"
             >
-              {order.number}
-              {name ? ` · ${name}` : ''}
-            </Text>
-          </View>
-          {order.state !== 'cancelled' ? (
-            <OrderChef
-              ready={ready}
-              animate={heroVisible && (active || order.state === 'ready')}
-              size={heroSize}
-            />
+              {lineCards}
+            </ScrollView>
           ) : (
-            <View style={{ height: 112, justifyContent: 'center' }}>
-              <Icon name="close-circle-outline" size={64} color={colors.muted} />
+            <View style={s.inset}>
+              <NavRow
+                title="Состав заказа"
+                subtitle={`${order.snapshot.lines.reduce((sum, l) => sum + l.quantity, 0)} шт. · ${money(order.snapshot.total_minor)}`}
+                onPress={() => setDetails(true)}
+              />
             </View>
           )}
-          <Row style={s.time}>
-            <Icon name="time-outline" size={18} color={colors.accent} />
-            <Caption style={s.timeText}>{orderTimeLabel(order, now)}</Caption>
-          </Row>
-          <View accessibilityLiveRegion="polite" style={s.statusText}>
-            <Heading style={s.title} testID="connected-order-state">
-              {title}
-            </Heading>
-            <Body style={s.subtitle}>{subtitle}</Body>
-          </View>
-          <View style={s.track} accessibilityLabel={`Этап заказа: ${orderStage(order)}`}>
-            {['Кухня', 'Сборка', 'Выдача'].map((label, i) => (
-              <View key={label} style={s.trackItem}>
-                <View
-                  style={[
-                    s.trackBar,
-                    (ready || (active && i <= (orderStage(order) === 'На сборке' ? 1 : 0))) &&
-                      s.trackActive,
-                  ]}
-                />
-                <Caption style={s.trackLabel}>{label}</Caption>
-              </View>
-            ))}
-          </View>
-        </View>
-        {active || details ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.foodList}
-            testID="order-status-items"
-          >
-            {lineCards}
-          </ScrollView>
-        ) : (
-          <View style={s.inset}>
-            <NavRow
-              title="Состав заказа"
-              subtitle={`${order.snapshot.lines.reduce((sum, l) => sum + l.quantity, 0)} шт. · ${money(order.snapshot.total_minor)}`}
-              onPress={() => setDetails(true)}
-            />
-          </View>
-        )}
-        {order.state === 'fulfilled' ? (
-          <View style={s.inset}>
-            <Button
-              title="Оценить заказ"
-              testID="order-rate"
-              onPress={() => props.navigate('M35')}
-            />
-          </View>
-        ) : null}
-        {active || ready ? (
-          <MotionPressable
-            testID="order-play-blocks"
-            accessibilityRole="button"
-            accessibilityLabel={
-              active ? 'Пока готовим, сыграйте в Pick Blocks' : 'Сыграть в Pick Blocks'
-            }
-            onPress={() => router.push('/games/pick-blocks')}
-            style={s.game}
-          >
-            <Image source={assets.pickBlocksCover} contentFit="cover" style={s.gameArt} />
-            <View style={s.gameCopy}>
-              <Caption style={s.gameIntro}>{active ? 'Пока готовим' : 'Ещё один раунд?'}</Caption>
-              <Heading style={s.gameTitle}>Время для{`\n`}Pick Blocks</Heading>
-              <Row style={s.play}>
-                <Body style={s.playText}>Играть</Body>
-                <Icon name="arrow-forward" color={colors.orangeInk} size={18} />
-              </Row>
-            </View>
-          </MotionPressable>
-        ) : null}
-        <View style={s.bottom}>
-          <NavRow
-            title="Официальный чек"
-            subtitle="Чеки и оплата в процессе"
-            testID="order-receipt"
-            onPress={() => props.navigate('M21')}
-          />
-          <NavRow
-            title="Написать в поддержку"
-            subtitle="Мы видим, по какому заказу нужна помощь"
-            testID="order-support"
-            onPress={() => props.navigate('M31')}
-          />
-          {location ? (
-            <View style={s.address}>
-              <Icon name="location-outline" color={colors.accent} />
-              <View style={ui.flex}>
-                <Body style={s.foodName}>{location.address}</Body>
-                <Caption style={s.foodDetail}>
-                  {location.city} ·{' '}
-                  {order.snapshot.service_mode === 'takeaway'
-                    ? 'Заберите с собой'
-                    : 'Ждём вас в зале'}
-                </Caption>
-              </View>
+          {order.state === 'fulfilled' ? (
+            <View style={s.inset}>
+              <Button
+                title="Оценить заказ"
+                testID="order-rate"
+                onPress={() => props.navigate('M35')}
+              />
             </View>
           ) : null}
-        </View>
-      </ScrollView>
+          {active || ready ? (
+            <MotionPressable
+              testID="order-play-blocks"
+              accessibilityRole="button"
+              accessibilityLabel={
+                active ? 'Пока готовим, сыграйте в Pick Blocks' : 'Сыграть в Pick Blocks'
+              }
+              onPress={() => router.push('/games/pick-blocks')}
+              style={s.game}
+            >
+              <Image
+                source={assets.pickBlocksCover}
+                contentFit="cover"
+                style={StyleSheet.absoluteFill}
+              />
+              <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.gameShade]} />
+              <View style={s.gameCopy}>
+                <Caption style={s.gameIntro}>{active ? 'Пока готовим' : 'Ещё один раунд?'}</Caption>
+                <Heading style={s.gameTitle}>Pick Blocks</Heading>
+                <Row style={s.play}>
+                  <Body style={s.playText}>Играть</Body>
+                  <Icon name="arrow-forward" color={colors.orangeInk} size={18} />
+                </Row>
+              </View>
+            </MotionPressable>
+          ) : null}
+          <View style={s.bottom}>
+            <NavRow
+              title="Официальный чек"
+              subtitle="Чеки и оплата в процессе"
+              testID="order-receipt"
+              onPress={() => props.navigate('M21')}
+            />
+            <NavRow
+              title="Написать в поддержку"
+              subtitle="Мы видим, по какому заказу нужна помощь"
+              testID="order-support"
+              onPress={() => props.navigate('M31')}
+            />
+            {location ? (
+              <View style={s.address}>
+                <Icon name="location-outline" color={colors.accent} />
+                <View style={ui.flex}>
+                  <Body style={s.foodName}>{location.address}</Body>
+                  <Caption style={s.foodDetail}>
+                    {location.city} ·{' '}
+                    {order.snapshot.service_mode === 'takeaway'
+                      ? 'Заберите с собой'
+                      : 'Ждём вас в зале'}
+                  </Caption>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
+      </View>
+      <OrderActions
+        visible={more}
+        number={order.number}
+        onClose={() => setMore(false)}
+        onSupport={() => {
+          setMore(false);
+          props.navigate('M31');
+        }}
+      />
     </View>
   );
 }
@@ -309,13 +299,6 @@ const s = StyleSheet.create({
   location: { flex: 1, alignItems: 'center', gap: 2 },
   locationName: { fontFamily: font.medium, fontSize: 16, lineHeight: 22, textAlign: 'center' },
   mode: { fontSize: 12, color: colors.muted },
-  actions: {
-    marginHorizontal: 16,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: colors.raised,
-    gap: 8,
-  },
   inset: { paddingHorizontal: 20, gap: 12 },
   hero: { alignItems: 'center', paddingHorizontal: 20, gap: 10 },
   badge: {
@@ -359,25 +342,48 @@ const s = StyleSheet.create({
   foodList: { paddingHorizontal: 20, gap: 12 },
   foodCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 16,
-    borderRadius: 16,
+    overflow: 'hidden',
+    borderRadius: 18,
     backgroundColor: colors.surface,
   },
-  foodName: { fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
-  foodDetail: { fontSize: 12, lineHeight: 18, color: colors.muted, marginTop: 4 },
-  foodPrice: { fontSize: 12, color: colors.text, marginTop: 8 },
-  foodImage: { width: 74, height: 84, borderRadius: 10 },
+  foodVisual: {
+    width: 112,
+    minHeight: 144,
+    backgroundColor: '#F6F6F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  foodImage: { width: 112, height: 144 },
+  foodCopy: { flex: 1, padding: 14, gap: 8 },
+  foodName: { fontFamily: font.bold, fontSize: 16, lineHeight: 22 },
+  foodDetail: { fontSize: 12, lineHeight: 18, color: colors.muted },
+  foodBottom: {
+    marginTop: 'auto',
+    paddingTop: 8,
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quantity: {
+    fontFamily: font.medium,
+    color: colors.text,
+    fontSize: 12,
+    backgroundColor: colors.raised,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  foodPrice: { fontFamily: font.bold, fontSize: 14, color: colors.text },
   game: {
     marginHorizontal: 20,
     borderRadius: 20,
-    backgroundColor: colors.action,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
-    minHeight: 184,
+    minHeight: 216,
+    justifyContent: 'flex-end',
   },
-  gameArt: { position: 'absolute', right: 0, top: 0, width: '53%', height: '100%' },
-  gameCopy: { width: '53%', padding: 18, gap: 7, backgroundColor: colors.action },
+  gameShade: { backgroundColor: '#020B20A6' },
+  gameCopy: { padding: 20, gap: 8, alignItems: 'flex-start' },
   gameIntro: { color: colors.white, fontSize: 12 },
   gameTitle: { color: colors.white, fontSize: 23, lineHeight: 28 },
   play: {

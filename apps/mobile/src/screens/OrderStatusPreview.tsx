@@ -28,7 +28,7 @@ export function OrderStatusPreview(props: ScreenProps) {
         {
           task_id: '00000000-0000-4000-8000-000000000002',
           station: 'prep',
-          state: ready ? 'done' : 'pending',
+          state: ready || props.screenId === 'M20' ? 'done' : 'pending',
           title: 'Приготовление',
           mandatory: true,
         },

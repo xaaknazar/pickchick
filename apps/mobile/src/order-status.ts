@@ -31,3 +31,9 @@ export function orderTimeLabel(order: TestOrder, now: number): string {
   const minutes = Math.max(0, Math.floor((now - Date.parse(order.created_at)) / 60_000));
   return minutes < 1 ? 'Заказ только что принят' : `С момента заказа: ${minutes} мин`;
 }
+
+export type OrderScene = 'cooking' | 'assembly' | 'ready';
+export function orderScene(order: TestOrder): OrderScene {
+  if (order.state === 'ready' || order.state === 'fulfilled') return 'ready';
+  return orderStage(order) === 'На сборке' ? 'assembly' : 'cooking';
+}
