@@ -8,6 +8,7 @@ import {
   setExtraQuantity,
   recommendedExtras,
   largeSauceOffer,
+  comboCompanions,
   photoCartLimit,
 } from '../../apps/mobile/src/product-photo-selection.ts';
 import { defaultSelections, lineUnitPrice, validSelections } from '../../apps/mobile/src/domain.ts';
@@ -120,18 +121,59 @@ const allProducts = testCompleteCatalog.products.map((p) => ({
   priceMinor: p.price_minor,
   modifierGroups: p.modifier_groups,
 }));
-test('recommend food add-ons, retain old selected sauce for editing only', () => {
+test('all catalog extras remain available with food first and small signature sauce editable', () => {
   const extras = product.modifierGroups.find((g) => g.id === 'extras');
+  const result = recommendedExtras(extras, []);
+  assert.equal(result[0].id, 'fingers');
   assert.deepEqual(
-    recommendedExtras(extras, []).map((o) => o.id),
-    ['fingers', 'toast', 'coleslaw', 'wedges'],
+    new Set(result.map((o) => o.id)),
+    new Set(extras.options.filter((o) => o.id !== 'sauce').map((o) => o.id)),
   );
   const selected = [
     ...defaultSelections(product),
     { group_id: 'extras', option_id: 'sauce', quantity: 1 },
   ];
-  assert.equal(recommendedExtras(extras, selected).at(-1).id, 'sauce');
-  assert.equal(recommendedExtras(extras, setExtraQuantity(selected, extras, 'sauce', 0)).length, 4);
+  assert.ok(recommendedExtras(extras, selected).some((o) => o.id === 'sauce'));
+  assert.equal(
+    recommendedExtras(extras, setExtraQuantity(selected, extras, 'sauce', 0)).some(
+      (o) => o.id === 'sauce',
+    ),
+    false,
+  );
+});
+test('Finger Duo recommends the real burger; Burger Duo does not recommend another burger', () => {
+  const finger = comboCompanions('finger-duo', allProducts);
+  assert.deepEqual(
+    finger.map((line) => line.product.id),
+    ['burger', 'sauce'],
+  );
+  assert.equal(lineUnitPrice(finger[0]), '239000');
+  assert.deepEqual(
+    comboCompanions('burger-duo', allProducts).map((line) => line.product.id),
+    ['sauce'],
+  );
+  assert.deepEqual(comboCompanions('burger', allProducts), []);
+  assert.deepEqual(comboCompanions('finger-duo', []), []);
+});
+test('multiple companions reserve all cart slots and reject overflow before adding any line', () => {
+  const main = { product, selections: defaultSelections(product), quantity: 2 };
+  const additions = comboCompanions('finger-duo', allProducts).map((line) => ({
+    ...line,
+    quantity: 2,
+  }));
+  const others = Array.from({ length: 9 }, (_, i) => ({
+    product: { ...product, id: `other-${i}` },
+    selections: [],
+    quantity: 1,
+  }));
+  assert.ok(photoCartLimit(others, main, undefined, additions));
+  assert.equal(photoCartLimit(others.slice(1), main, undefined, additions), null);
+  assert.ok(photoCartLimit([{ ...additions[0], quantity: 19 }], main, undefined, additions));
+  const amount = [main, ...additions].reduce(
+    (sum, line) => sum + BigInt(lineUnitPrice(line)) * BigInt(line.quantity),
+    0n,
+  );
+  assert.equal(amount, 2314000n);
 });
 test('large sauce is the real 300ml catalog variant at 1190, never the small extra', () => {
   const offer = largeSauceOffer(allProducts);

@@ -61,13 +61,13 @@ export function setExtraQuantity(
   ];
 }
 
-/** Existing saved add-ons remain editable even when they are no longer recommended. */
+/** Show the full extras catalog; the included small signature sauce is replaced by 300 ml. */
 export function recommendedExtras(group: ModifierGroup, selections: Selection[]) {
   const order = ['fingers', 'toast', 'coleslaw', 'wedges'];
   return group.options
     .filter(
       (o) =>
-        order.includes(o.id) ||
+        o.id !== 'sauce' ||
         selections.some((s) => s.group_id === group.id && s.option_id === o.id && s.quantity > 0),
     )
     .sort(
@@ -92,16 +92,30 @@ export function largeSauceOffer(products: Product[]): CartLine | null {
   return validSelections(product, selections) ? { product, selections, quantity: 1 } : null;
 }
 
+/** Companion products keep their real SKU, variant, availability and price. */
+export function comboCompanions(productId: string, products: Product[]): CartLine[] {
+  if (productId !== 'finger-duo' && productId !== 'burger-duo') return [];
+  const burger = productId === 'finger-duo' ? products.find((p) => p.id === 'burger') : undefined;
+  const selections = burger ? defaultSelections(burger) : [];
+  const sauce = largeSauceOffer(products);
+  return [
+    ...(burger && validSelections(burger, selections)
+      ? [{ product: burger, selections, quantity: 1 }]
+      : []),
+    ...(sauce ? [sauce] : []),
+  ];
+}
+
 /** Preflight all resulting lines, including a separately priced large sauce. */
 export function photoCartLimit(
   cart: CartLine[],
   main: CartLine,
   editing?: CartLine,
-  extra?: CartLine,
+  extra?: CartLine | CartLine[],
 ): string | null {
   const projected = cart.filter((line) => !editing || cartLineKey(line) !== cartLineKey(editing));
   const quantities = new Map(projected.map((line) => [cartLineKey(line), line.quantity]));
-  for (const line of [main, ...(extra ? [extra] : [])]) {
+  for (const line of [main, ...(Array.isArray(extra) ? extra : extra ? [extra] : [])]) {
     const key = cartLineKey(line);
     const quantity = (quantities.get(key) ?? 0) + line.quantity;
     if (quantity > 20) return 'Можно добавить до 20 одинаковых позиций.';
