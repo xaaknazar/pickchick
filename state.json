@@ -628,9 +628,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "444f4cef4c321d03a212e4cef279edfff1f830a7",
-      "updatedAt": "2026-09-27T15:40:55.649Z"
+      "status": "done",
+      "head": "0ca9dfbfffeea5fd1bbb1849e0e879bb97a8399a",
+      "updatedAt": "2026-09-27T15:44:38.306Z",
+      "summary": "Light cart photos; typecheck/lint/format, Impeccable, iOS Dev bundle and browser cart verified. PR113. No VPS/TestFlight/online roadmap deployment.",
+      "nextAction": "Confirm on physical iPhone; release separately after full green CI."
     }
   ]
 }
