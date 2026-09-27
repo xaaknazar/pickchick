@@ -705,9 +705,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "bea9a3eed82703ffde30a446ab24bc77ec6cb9aa",
-      "updatedAt": "2026-09-27T16:24:55.210Z"
+      "status": "done",
+      "head": "790c846dd3f8a2764bc084d929956dacd48effbe",
+      "updatedAt": "2026-09-27T16:32:58.541Z",
+      "summary": "Checkout/cart height aligned; Done saves edited combo directly. 202+30 mobile tests, typecheck/lint/format, detector, Dev iOS and CUA393 passed. PR117. No VPS/TestFlight/online roadmap deploy.",
+      "nextAction": "Physical iPhone acceptance; release separately after full green CI."
     }
   ]
 }
