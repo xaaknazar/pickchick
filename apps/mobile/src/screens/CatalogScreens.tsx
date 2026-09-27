@@ -7,9 +7,7 @@ import { PromotionDialog } from '../backoffice/PromotionDialog';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
   runOnJS,
-  interpolate,
   interpolateColor,
-  Extrapolation,
   useAnimatedReaction,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -35,7 +33,7 @@ import { CartOffers, PromoCodeEntry } from '../components/CartExtras';
 import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
 import { colors, font } from '../theme';
-import { DiningSelector, HeroVideo, LoyaltyCard } from '../components/Brand';
+import { HeroVideo, LoyaltyCard } from '../components/Brand';
 import {
   Body,
   Button,
@@ -264,8 +262,7 @@ export function Menu(props: ScreenProps) {
   const scroll = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
   const [category, setCategory] = useState('Комбо');
-  const [collapsed, setCollapsed] = useState(false);
-  // Scroll geometry stays on the UI thread; React only sees a category/threshold change.
+  // Scroll geometry stays on the UI thread; React only sees category changes.
   const scrollY = useSharedValue(0);
   const offsets = useSharedValue<number[]>([]);
   const requestedCategory = useSharedValue(-1);
@@ -300,12 +297,6 @@ export function Menu(props: ScreenProps) {
     if (name) setCategory(name);
   };
   useAnimatedReaction(
-    () => scrollY.value >= 120,
-    (value, previous) => {
-      if (value !== previous) runOnJS(setCollapsed)(value);
-    },
-  );
-  useAnimatedReaction(
     () => {
       const y = scrollY.value + collapsedHeaderHeight + categoryHeight + 28;
       if (requestedCategory.value >= 0) {
@@ -339,20 +330,6 @@ export function Menu(props: ScreenProps) {
   });
   const headerStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', '#04143AF5']),
-  }));
-  const diningStyle = useAnimatedStyle(() => ({
-    opacity: reduced
-      ? scrollY.value >= 120
-        ? 0
-        : 1
-      : interpolate(scrollY.value, [32, 120], [1, 0], Extrapolation.CLAMP),
-    transform: [
-      {
-        translateY: reduced
-          ? 0
-          : interpolate(scrollY.value, [32, 120], [0, -10], Extrapolation.CLAMP),
-      },
-    ],
   }));
   const stickyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
@@ -591,17 +568,6 @@ export function Menu(props: ScreenProps) {
             </Pressable>
           </Row>
         </View>
-        <Animated.View
-          pointerEvents={collapsed ? 'none' : 'auto'}
-          accessibilityElementsHidden={collapsed}
-          importantForAccessibility={collapsed ? 'no-hide-descendants' : 'auto'}
-          style={[
-            { position: 'absolute', top: headerHeight + 2, left: 18, right: 18 },
-            diningStyle,
-          ]}
-        >
-          <DiningSelector value={props.model.diningMode} onChange={props.model.setDiningMode} />
-        </Animated.View>
       </Animated.View>
       <Animated.View
         onLayout={(e) => setCategoryHeight(e.nativeEvent.layout.height)}
