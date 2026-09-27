@@ -417,9 +417,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "16dbf6499b1c62d446847a639b2a0a0162e18767",
-      "updatedAt": "2026-09-27T11:58:45.212Z"
+      "status": "available",
+      "head": "095a30377ed5e2a1519ff0ad8991303dcf06cc21",
+      "updatedAt": "2026-09-27T12:15:59.081Z",
+      "summary": "PR101 https://github.com/xaaknazar/pickchick/pull/101; 095a30377ed5e2a1519ff0ad8991303dcf06cc21 в shared-development, SHA проверены. Две photo modal страницы: Finger Duo и burger, отдельная замена каждого напитка/соуса, сохранение extras/лимитов/корзины. 4 AI-ретуши1254px по оригиналам; missing photos явно отмечены. 184 Node+30 Python,7 roadmap,typecheck/lint,Expo export всех платформ,Dev bundles прошли. CUA393/320/768 и add/edit/cancel/stop list/totals. Metro8081 остаётся; VPS/TestFlight/online-roadmap не обновлены, CI ожидается, предыдущая Foundation16dbf64 failure.",
+      "nextAction": "Владелец смотрит два товара в Dev или /review. Ждёт вопрос о составе бургера: фото томат/зелень, текст коулслоу; сохранён каталог. Нужны фото остальных напитков/Heinz и утверждение AI-ретуши. Физическая приёмка и CI затем guarded roadmap. Документ docs/operations/product-photo-pilot.md."
     }
   ]
 }
