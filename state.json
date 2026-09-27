@@ -455,9 +455,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "87ccda4adecd9d98a0f645311b2ef052b9dfe025",
-      "updatedAt": "2026-09-27T13:00:37.955Z"
+      "status": "done",
+      "head": "0b329281fedcfb146c26ac747f19c716df0599f5",
+      "updatedAt": "2026-09-27T13:07:11.073Z",
+      "summary": "PR104 https://github.com/xaaknazar/pickchick/pull/104; градиент от названия, компактные карточки, 4 пищевых допа+соус300мл1190₸ отдельной строкой.190+30 mobile,7roadmap,typecheck/lint,CUA393/320 корзина8180 без дубля,Dev bundles прошли. Общая ветка0b32928. VPS/TestFlight/онлайн-пульт не обновлены.",
+      "nextAction": "Физическая приёмка дизайна/жестов, сверка состава и производственного меню; выпуск после полной зелёной CI."
     }
   ]
 }
