@@ -196,7 +196,11 @@ export function Profile(props: ScreenProps) {
           ))}
         </View>
 
-        <ComboRewardCard testID="profile-combo-reward" onMenu={() => props.navigate('M06')} />
+        <ComboRewardCard
+          preview={props.preview}
+          testID="profile-combo-reward"
+          onMenu={() => props.navigate('M06')}
+        />
 
         <Pressable
           testID="profile-loyalty"

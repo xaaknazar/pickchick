@@ -25,19 +25,23 @@ export function OrderSheet({
   name,
   onClose,
   raised = false,
+  productHeight = false,
 }: {
   children(close: () => void): ReactNode;
   name: string;
   onClose(): void;
   raised?: boolean;
+  productHeight?: boolean;
 }) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
-  const top = Math.max(
-    insets.top + (raised ? 12 : 16),
-    Math.min(raised ? 76 : 116, height * (width > height ? 0.08 : raised ? 0.085 : 0.13)),
-  );
+  const top = productHeight
+    ? Math.max(20, insets.top + 8)
+    : Math.max(
+        insets.top + (raised ? 12 : 16),
+        Math.min(raised ? 76 : 116, height * (width > height ? 0.08 : raised ? 0.085 : 0.13)),
+      );
   const travel = height - top;
   const y = useSharedValue(reduced ? 0 : travel);
   const exiting = useRef(false);

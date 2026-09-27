@@ -88,6 +88,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     return (
       <OrderSheet
         raised={statusSheet}
+        productHeight={id === 'M09'}
         name={statusSheet ? 'Статус заказа' : id === 'M09' ? 'Корзина' : 'Оформление'}
         onClose={back}
       >

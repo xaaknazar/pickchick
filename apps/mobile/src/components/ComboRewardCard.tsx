@@ -6,29 +6,42 @@ import { colors, font } from '../theme';
 import { MotionModal, MotionPressable } from './Motion';
 import { Body, Button, Heading, Icon, IconButton } from './UI';
 
-// Campaign illustration only: no local stamps, balance or redeem operation.
+// Read-only progress. Undefined means not connected, never an invented zero balance.
 export function ComboRewardCard({
   testID,
   onMenu,
   compact = false,
+  purchasedCombos,
+  preview = false,
 }: {
   testID: string;
   onMenu(): void;
   compact?: boolean;
+  purchasedCombos?: number;
+  preview?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const count =
+    Number.isInteger(purchasedCombos) && purchasedCombos! >= 0 && purchasedCombos! <= 7
+      ? purchasedCombos!
+      : preview
+        ? 3
+        : null;
+  const progressText =
+    count === null ? 'Отметки пока у кассира' : `${preview ? 'Пример: ' : ''}${count} из 7 комбо`;
+
   return (
     <View testID={testID} style={s.card}>
       <MotionPressable
         testID={`${testID}-details`}
         accessibilityRole="button"
-        accessibilityLabel="Комбо-бонус. Купи 7 комбо, 8-е в подарок. Как получить подарок"
+        accessibilityLabel={`Комбо-бонус. Купи 7 комбо, 8-е в подарок. ${progressText}. Условия акции`}
         onPress={() => setOpen(true)}
         style={[s.ticket, compact && { minHeight: 136 }]}
       >
         <Image
-          source={require('../../assets/catalog-hd/reward-seven-plus-one.png')}
+          source={require('../../assets/campaigns/combo-seven-plus-one.png')}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           accessible={false}
@@ -40,25 +53,51 @@ export function ComboRewardCard({
             (Platform.OS === 'web'
               ? {
                   backgroundImage:
-                    'linear-gradient(90deg, rgba(29,23,18,0.94) 0%, rgba(29,23,18,0.78) 55%, rgba(29,23,18,0.12) 100%)',
+                    'linear-gradient(90deg, rgba(4,20,42,0.78) 0%, rgba(4,20,42,0.42) 55%, rgba(4,20,42,0.06) 100%)',
                 }
               : {
                   experimental_backgroundImage:
-                    'linear-gradient(90deg, rgba(29,23,18,0.94) 0%, rgba(29,23,18,0.78) 55%, rgba(29,23,18,0.12) 100%)',
+                    'linear-gradient(90deg, rgba(4,20,42,0.78) 0%, rgba(4,20,42,0.42) 55%, rgba(4,20,42,0.06) 100%)',
                 }) as ViewStyle,
           ]}
         />
-        <View style={[s.offer, compact && { padding: 16, gap: 4 }]}>
-          <Text style={s.label}>Комбо-бонус</Text>
-          <Text
-            accessibilityRole="header"
-            style={[s.title, compact && { fontFamily: font.heading, fontSize: 20, lineHeight: 26 }]}
-          >
+        <View style={[s.offer, compact && s.offerCompact]}>
+          <Text accessibilityRole="header" style={[s.title, compact && s.titleCompact]}>
             Купи 7 комбо.{`\n`}8-е - в подарок!
           </Text>
-          <View style={s.details}>
-            <Text style={s.detailsText}>Условия акции</Text>
-            <Icon name="arrow-forward" size={18} color={colors.white} />
+          <View style={s.progress}>
+            <View
+              style={s.stamps}
+              accessible={false}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              aria-hidden
+            >
+              {Array.from({ length: 8 }, (_, index) => {
+                const earned = count !== null && index < count;
+                return (
+                  <View
+                    key={index}
+                    testID={`${testID}-stamp-${index + 1}`}
+                    style={[s.stamp, earned && s.earned, index === 7 && s.gift]}
+                  >
+                    {earned ? (
+                      <Icon name="checkmark" size={17} color="#5E290C" />
+                    ) : index === 7 ? (
+                      <Icon name="gift-outline" size={17} color="#FFE2C3" />
+                    ) : (
+                      <Text style={s.stampNumber}>{index + 1}</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+            <View style={s.details}>
+              <Text testID={`${testID}-progress`} style={s.detailsText}>
+                {progressText}
+              </Text>
+              <Icon name="arrow-forward" size={16} color={colors.white} />
+            </View>
           </View>
         </View>
       </MotionPressable>
@@ -136,19 +175,36 @@ export function ComboRewardCard({
 }
 
 const s = StyleSheet.create({
-  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#30271F' },
-  ticket: { flexDirection: 'row', minHeight: 174 },
-  offer: { width: '73%', minWidth: 0, padding: 18, gap: 8 },
-  label: { fontFamily: font.medium, color: '#F3D8BD', fontSize: 13, lineHeight: 20 },
+  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#263C55' },
+  ticket: { minHeight: 174 },
+  offer: { flex: 1, minWidth: 0, padding: 18, gap: 10, justifyContent: 'space-between' },
+  offerCompact: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
   title: {
+    maxWidth: '74%',
     fontFamily: font.display,
     fontSize: 22,
     lineHeight: 28,
     letterSpacing: -0.3,
     color: colors.white,
   },
-  details: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
-  detailsText: { fontFamily: font.medium, fontSize: 13, lineHeight: 20, color: colors.white },
+  titleCompact: { fontFamily: font.heading, fontSize: 20, lineHeight: 24 },
+  progress: { gap: 6 },
+  stamps: { flexDirection: 'row', gap: 6 },
+  stamp: {
+    flex: 1,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#132B45',
+    borderWidth: 1,
+    borderColor: '#738699',
+  },
+  earned: { backgroundColor: '#FFE2C3', borderColor: '#FFE2C3' },
+  gift: { backgroundColor: '#163755', borderColor: '#FFE2C3' },
+  stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: '#E3EDF7' },
+  details: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  detailsText: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: colors.white },
   overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '100%',

@@ -40,7 +40,11 @@ export function Events(props: ScreenProps) {
         </Body>
 
         <View style={{ marginTop: 20 }}>
-          <ComboRewardCard testID="events-combo-reward" onMenu={() => props.navigate('M06')} />
+          <ComboRewardCard
+            preview={props.preview}
+            testID="events-combo-reward"
+            onMenu={() => props.navigate('M06')}
+          />
         </View>
 
         <Heading testID="events-games" style={s.eventSection}>

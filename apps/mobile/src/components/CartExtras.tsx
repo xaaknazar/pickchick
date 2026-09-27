@@ -18,7 +18,12 @@ export function CartOffers({ props }: { props: ScreenProps }) {
       <Heading small style={orderUI.section}>
         Акции
       </Heading>
-      <ComboRewardCard compact testID="cart-combo-reward" onMenu={() => props.navigate('M06')} />
+      <ComboRewardCard
+        preview={props.preview}
+        compact
+        testID="cart-combo-reward"
+        onMenu={() => props.navigate('M06')}
+      />
       {content?.promos.length ? (
         <ScrollView
           horizontal
