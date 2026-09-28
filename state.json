@@ -917,6 +917,18 @@
       "status": "active",
       "head": "9cc6dd8cea0b769adff33ac93cc977c684bd0347",
       "updatedAt": "2026-09-28T08:16:28.006Z"
+    },
+    {
+      "id": "webkassa-audit",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/webkassa-audit",
+      "scopes": [
+        "@iiko",
+        "docs/integrations/webkassa-access-audit-2026-09-28.md"
+      ],
+      "status": "active",
+      "head": "9cc6dd8cea0b769adff33ac93cc977c684bd0347",
+      "updatedAt": "2026-09-28T08:16:50.407Z"
     }
   ]
 }
