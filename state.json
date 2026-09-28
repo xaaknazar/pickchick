@@ -896,6 +896,27 @@
       "updatedAt": "2026-09-28T07:49:15.763Z",
       "summary": "White photo surfaces for drinks/extras and brand orange checked tiles. Typecheck, lint/format, detector, CUA393 and roadmap7 passed. PR127; shared9cc6dd8. Remote CI still running at handoff, no VPS/TestFlight/online roadmap deployment. New user image not attached yet.",
       "nextAction": "Review on iPhone; apply the promised image after upload. Check remote CI before any guarded release."
+    },
+    {
+      "id": "tiptoppay-domain",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-domain",
+      "scopes": [
+        "packages/commerce-core",
+        "services/api/src",
+        "infra/payments",
+        "infra/domains",
+        "tests/payments",
+        "docs/operations/payment-domain-pilot.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps",
+        "@dns/pickchick.kz"
+      ],
+      "status": "active",
+      "head": "9cc6dd8cea0b769adff33ac93cc977c684bd0347",
+      "updatedAt": "2026-09-28T08:16:28.006Z"
     }
   ]
 }
