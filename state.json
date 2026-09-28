@@ -958,11 +958,12 @@
         "docs/integrations/webkassa-access-audit-2026-09-28.md",
         "docs/integrations/fiscal-wofd-webkassa.md",
         "docs/integrations/webkassa-live-access-2026-09-28.md",
-        "@webkassa"
+        "@webkassa",
+        "tests/operations/layout_regression.py"
       ],
       "status": "active",
       "head": "3246e5b8ea2f606dd231f23bee6475e487a12b57",
-      "updatedAt": "2026-09-28T09:28:02.705Z"
+      "updatedAt": "2026-09-28T09:32:36.352Z"
     }
   ]
 }
