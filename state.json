@@ -930,9 +930,11 @@
         "docs/01-technical-spec.md",
         "docs/integrations/fiscal-wofd-webkassa.md"
       ],
-      "status": "active",
-      "head": "67160b3d9dd9f399262a34c21648ea02909833e7",
-      "updatedAt": "2026-09-28T08:36:27.935Z"
+      "status": "done",
+      "head": "e4d469e3960bbc22ab844b3265cb86b59fc50e27",
+      "updatedAt": "2026-09-28T08:50:13.569Z",
+      "summary": "Подготовительный этап сохранён: e4d469e в shared-development, PR https://github.com/xaaknazar/pickchick/pull/129. Default-disabled Check/Pay с HMAC и PostgreSQL inbox/ledger/outbox; 10 новых + 6 unit ядра, 23 PG integration, 7 roadmap проверок прошли. Официальный /test принял приватный ключ без списания. PS.kz apex/api DNS подтверждён авторитетным NS; HTTPS/VPS/online-roadmap не выпущены. Новая CI 36399632587 выполняется; базовая CI 36393740158 имеет browser recovery failure. Принят аудит Webkassa второго Mac 67160b3.",
+      "nextAction": "Проверить CI и устранить browser recovery, затем guarded HTTPS/gateway. Реализовать исходящий checkout/3DS/reconcile/возвраты и native кошельки. Получить Webkassa API и согласование merchant/legal entity/LIVE: текущий терминал TEST в кабинете другой компании. Сумма реального пилота ещё не утверждена. Секрет только .local/tiptoppay.env на этом Mac, не в Git/VPS; адреса webhook в кабинет пока не вносить."
     }
   ]
 }
