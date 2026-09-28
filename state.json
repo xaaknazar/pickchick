@@ -853,9 +853,11 @@
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "fe25287c7d4dfd9158a919157210db5ebdfcee4c",
-      "updatedAt": "2026-09-28T06:56:48.126Z"
+      "status": "done",
+      "head": "b59c5689f0d4e80bb37ecccfaa7b7d675f4fa25e",
+      "updatedAt": "2026-09-28T07:13:43.097Z",
+      "summary": "Прочитаны все 54 карточки AILILLU, 13 конфигураций комбо и 33 числовые доплаты; полный список и пробелы сохранены. Сверка 54 строк, Prettier, roadmap build и 7/7 тестов прошли. PR https://github.com/xaaknazar/pickchick/pull/125. Remote roadmap CI 36390368125 failure, steps пусты; причина не установлена. iiko/VPS не менялись.",
+      "nextAction": "Подтвердить составы комбо, спорные веса и контрольные корзины; уточнить цены доставки, затем нормализовать набор и проверить импорт в изолированную PickChick. Онлайн-roadmap не опубликован."
     },
     {
       "id": "cart-repeat-combo",
