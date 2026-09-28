@@ -64,10 +64,16 @@ jobs:
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
-          .local/design-venv/bin/python tests/operations/kiosk_recovery.py
-          .local/design-venv/bin/python tests/operations/browser_staff_display.py
-          .local/design-venv/bin/python tests/operations/browser_service_shift.py
-          python3 -m unittest tests/operations/test_operations_overlay.py
+          # Run every isolated regression and fail the step if any failed. This
+          # reports all outdated scenarios in one run without hiding failures.
+          failures=()
+          run_regression() {
+            "$@" || failures+=("$*")
+          }
+          run_regression .local/design-venv/bin/python tests/operations/kiosk_recovery.py
+          run_regression .local/design-venv/bin/python tests/operations/browser_staff_display.py
+          run_regression .local/design-venv/bin/python tests/operations/browser_service_shift.py
+          run_regression python3 -m unittest tests/operations/test_operations_overlay.py
           MOBILE_PREVIEW_PORT=4182 node scripts/mobile/preview-server.mjs > .local/mobile-recovery-server.log 2>&1 &
           recovery_pid=$!
           trap 'kill "$recovery_pid"' EXIT
@@ -75,24 +81,28 @@ jobs:
             if curl --fail --silent http://127.0.0.1:4182/ > /dev/null; then break; fi
             sleep 1
           done
-          .local/design-venv/bin/python tests/mobile/browser_checkout.py
-          MOBILE_RECOVERY_URL=http://127.0.0.1:4182 .local/design-venv/bin/python tests/mobile/browser_cart_sheet.py
-          MOBILE_RECOVERY_URL=http://127.0.0.1:4182 BACKOFFICE_TEST_PYTHON=.local/design-venv/bin/python node --env-file=.env tests/backoffice/content-browser.mjs
+          run_regression .local/design-venv/bin/python tests/mobile/browser_checkout.py
+          run_regression env MOBILE_RECOVERY_URL=http://127.0.0.1:4182 .local/design-venv/bin/python tests/mobile/browser_cart_sheet.py
+          run_regression env MOBILE_RECOVERY_URL=http://127.0.0.1:4182 BACKOFFICE_TEST_PYTHON=.local/design-venv/bin/python node --env-file=.env tests/backoffice/content-browser.mjs
           # Simulator regressions use an explicit QA export; customer/native exports above stay disabled.
           EXPO_PUBLIC_ORDER_SIMULATOR=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear
-          .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
-          .local/design-venv/bin/python tests/mobile/browser_menu_recovery.py
-          .local/design-venv/bin/python tests/mobile/browser_demo_account.py
-          .local/design-venv/bin/python tests/mobile/browser_profile.py
-          .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
-          .local/design-venv/bin/python tests/operations/layout_regression.py
-          .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
-          .local/design-venv/bin/python tests/mobile/browser_pick_blocks.py
-          .local/design-venv/bin/python tests/mobile/browser_pick_man.py
-          .local/design-venv/bin/python tests/mobile/browser_arcade.py
-          .local/design-venv/bin/python tests/mobile/browser_arcade_motion.py
-          .local/design-venv/bin/python tests/mobile/browser_account_required.py
-          .local/design-venv/bin/python tests/mobile/browser_peak_loyalty.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_menu_recovery.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_demo_account.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_profile.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
+          run_regression .local/design-venv/bin/python tests/operations/layout_regression.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_pick_blocks.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_pick_man.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_arcade.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_arcade_motion.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_account_required.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_peak_loyalty.py
+          if ((${#failures[@]})); then
+            printf 'Failed regression: %s\n' "${failures[@]}"
+            exit 1
+          fi
       - name: Verify POS against the local edge and PostgreSQL
         env:
           POS_TEST_PYTHON: .local/design-venv/bin/python
