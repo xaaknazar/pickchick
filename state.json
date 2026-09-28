@@ -817,9 +817,11 @@
         "docs/roadmap/project.json",
         "docs/operations/product-photo-pilot.md"
       ],
-      "status": "active",
-      "head": "361b238af8923cfe8b1a46964a78c07973513df5",
-      "updatedAt": "2026-09-28T04:33:10.703Z"
+      "status": "done",
+      "head": "a414eb2515ad4359bb29c553aa4585e751d2684b",
+      "updatedAt": "2026-09-28T04:39:47.800Z",
+      "summary": "Unified close buttons; typecheck, lint/format, detector, iOS Dev HTTP200 and CUA393 passed. PR https://github.com/xaaknazar/pickchick/pull/123. No VPS/TestFlight/roadmap deployment.",
+      "nextAction": "Physical iPhone acceptance; separate guarded server release remains pending."
     }
   ]
 }
