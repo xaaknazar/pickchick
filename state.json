@@ -873,9 +873,11 @@
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "4d4717d914cce8984f98d0dd59585c217ea3b97b",
-      "updatedAt": "2026-09-28T07:26:43.068Z"
+      "status": "done",
+      "head": "ef756039baae58d9785b8609a9cd24933db88a91",
+      "updatedAt": "2026-09-28T07:32:21.621Z",
+      "summary": "Five mobile UX improvements: repeat/undo/contextual extras/combo slots/7+1 next steps, 0.5 L cutouts. 212 Node +30 Python, typecheck/lint/format, detector, iOS Dev, CUA320/393/768, roadmap7 tests passed. PR126. Included other Mac audit b59c568. Remote CI fails before steps; no VPS/TestFlight/online-roadmap release.",
+      "nextAction": "Physical device and packaging acceptance; restore green CI then guarded release. 7+1 practice only, no gift redemption."
     }
   ]
 }
