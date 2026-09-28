@@ -954,11 +954,15 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps",
-        "@dns/pickchick.kz"
+        "@dns/pickchick.kz",
+        "docs/integrations/webkassa-access-audit-2026-09-28.md",
+        "docs/integrations/fiscal-wofd-webkassa.md",
+        "docs/integrations/webkassa-live-access-2026-09-28.md",
+        "@webkassa"
       ],
       "status": "active",
-      "head": "e4d469e3960bbc22ab844b3265cb86b59fc50e27",
-      "updatedAt": "2026-09-28T08:55:32.449Z"
+      "head": "3246e5b8ea2f606dd231f23bee6475e487a12b57",
+      "updatedAt": "2026-09-28T09:28:02.705Z"
     }
   ]
 }
