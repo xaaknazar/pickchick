@@ -869,11 +869,13 @@
         "tests/mobile",
         "docs/design/dodo-drinkit-ux-study.md",
         "docs/operations/product-photo-pilot.md",
-        "docs/collaboration/handoff.md"
+        "docs/collaboration/handoff.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
-      "head": "fe25287c7d4dfd9158a919157210db5ebdfcee4c",
-      "updatedAt": "2026-09-28T06:59:19.076Z"
+      "head": "4d4717d914cce8984f98d0dd59585c217ea3b97b",
+      "updatedAt": "2026-09-28T07:26:43.068Z"
     }
   ]
 }
