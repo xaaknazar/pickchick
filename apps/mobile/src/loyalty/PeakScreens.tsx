@@ -3,7 +3,17 @@ import { useState } from 'react';
 import { Image } from 'expo-image';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Body, Button, Heading, Icon, NavRow, Page, Row, type IconName } from '../components/UI';
+import {
+  CloseButton,
+  Body,
+  Button,
+  Heading,
+  Icon,
+  NavRow,
+  Page,
+  Row,
+  type IconName,
+} from '../components/UI';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import { ascentProgress, peaks, proposedProgram, type Peak } from './peaks';
@@ -81,15 +91,7 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
           {peak ? (
             <View testID="peak-details" style={s.sheet} accessibilityViewIsModal>
               <View style={s.sheetTop}>
-                <Pressable
-                  testID="peak-close"
-                  accessibilityRole="button"
-                  accessibilityLabel="Закрыть вершину"
-                  onPress={close}
-                  style={s.close}
-                >
-                  <Icon name="close" color={colors.white} size={24} />
-                </Pressable>
+                <CloseButton testID="peak-close" label="Закрыть вершину" onPress={close} />
                 <Text style={s.eyebrow}>ВЕРШИНА {peaks.indexOf(peak) + 1} ИЗ 6</Text>
               </View>
               <Image
@@ -539,7 +541,6 @@ const s = StyleSheet.create({
     borderColor: '#355788',
   },
   sheetTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  close: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   sheetMountain: { height: 170, width: '100%' },
   sheetTitle: {
     fontFamily: font.display,

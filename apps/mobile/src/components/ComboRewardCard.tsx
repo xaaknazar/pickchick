@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font } from '../theme';
 import { MotionModal, MotionPressable } from './Motion';
-import { Body, Button, Heading, Icon, IconButton } from './UI';
+import { Body, Button, Heading, Icon, CloseButton } from './UI';
 import { comboProgressView, type ComboProgressState } from '../loyalty/combo-progress';
 
 // Read-only progress. Undefined means not connected, never an invented zero balance.
@@ -118,8 +118,7 @@ export function ComboRewardCard({
             style={[s.sheet, { paddingBottom: Math.max(20, insets.bottom) }]}
           >
             <View style={s.sheetHeader}>
-              <IconButton
-                name="close"
+              <CloseButton
                 label="Закрыть условия акции"
                 testID="combo-reward-close"
                 onPress={() => setOpen(false)}

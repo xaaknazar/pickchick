@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MobileModel, PaymentMethod } from '../model';
-import { Body, Caption, Heading, Icon, IconButton, Row, styles as ui } from './UI';
+import { Body, Caption, Heading, Icon, CloseButton, Row, styles as ui } from './UI';
 import { colors, font } from '../theme';
 
 export function paymentName(method: PaymentMethod) {
@@ -74,11 +74,7 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
               }}
             >
               <Row>
-                <IconButton
-                  name="close"
-                  label="Закрыть способы оплаты"
-                  onPress={() => setOpen(false)}
-                />
+                <CloseButton label="Закрыть способы оплаты" onPress={() => setOpen(false)} />
                 <Heading small style={ui.flex}>
                   Способ оплаты
                 </Heading>

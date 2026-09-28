@@ -6,7 +6,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
-import { Body, Caption, Heading, Icon, NavRow, Row, Button, styles as ui } from '../components/UI';
+import {
+  CloseButton,
+  Body,
+  Caption,
+  Heading,
+  Icon,
+  NavRow,
+  Row,
+  Button,
+  styles as ui,
+} from '../components/UI';
 import { MotionPressable } from '../components/Motion';
 import { OrderActions } from '../components/OrderActions';
 import { OrderChef } from '../components/OrderChef';
@@ -123,15 +133,11 @@ export function OrderStatusScreen({
         importantForAccessibility={more ? 'no-hide-descendants' : 'auto'}
       >
         <Row style={s.header}>
-          <MotionPressable
+          <CloseButton
             testID="order-status-close"
-            accessibilityRole="button"
-            accessibilityLabel="Закрыть статус заказа"
+            label="Закрыть статус заказа"
             onPress={props.goBack}
-            style={s.iconButton}
-          >
-            <Icon name="close" size={28} />
-          </MotionPressable>
+          />
           <View style={s.location}>
             <Body style={s.locationName}>
               {location?.name ?? branch?.name ?? 'Ресторан PickChick'}

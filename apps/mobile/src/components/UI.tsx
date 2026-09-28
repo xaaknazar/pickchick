@@ -215,6 +215,29 @@ export function IconButton({
     </Pressable>
   );
 }
+/** Cart-style close control shared by every sheet and product screen. */
+export function CloseButton({
+  label,
+  onPress,
+  testID,
+  style,
+}: {
+  label: string;
+  onPress(): void;
+  testID?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <IconButton
+      name="close"
+      color={colors.text}
+      label={label}
+      onPress={onPress}
+      testID={testID}
+      style={[style, { backgroundColor: colors.surface, width: 48, height: 48, borderRadius: 24 }]}
+    />
+  );
+}
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }

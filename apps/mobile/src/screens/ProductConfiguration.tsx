@@ -17,6 +17,7 @@ import {
   Heading,
   Icon,
   IconButton,
+  CloseButton,
   MinorMoney,
   NavRow,
   Page,
@@ -143,12 +144,10 @@ function LegacyConfiguredProduct(
           ) : (
             <Image source={product.image} style={StyleSheet.absoluteFill} contentFit="cover" />
           )}
-          <IconButton
+          <CloseButton
             testID="product-close"
-            name="close"
             label="Закрыть блюдо"
             onPress={props.goBack}
-            color="#12151C"
             style={[s.close, { top: insets.top + 8 }]}
           />
         </View>
@@ -438,7 +437,7 @@ function LegacyConfiguredProduct(
   );
 }
 const s = StyleSheet.create({
-  close: { position: 'absolute', left: 16, backgroundColor: '#FFFFFFE6', width: 48, height: 48 },
+  close: { position: 'absolute', left: 16 },
   body: { paddingHorizontal: 18, paddingVertical: 20, gap: 16 },
   title: { fontFamily: font.display, fontSize: 30, lineHeight: 38 },
   description: { fontSize: 14.5, lineHeight: 23 },

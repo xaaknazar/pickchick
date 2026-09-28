@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Body, Heading, IconButton, Row } from './UI';
+import { Body, CloseButton, Heading, IconButton, Row } from './UI';
 import { colors, font } from '../theme';
 
 /** Scoped to the cart/checkout sheets; storefront display typography stays intact. */
@@ -42,13 +42,17 @@ export function OrderHeader({
   return (
     <Row style={orderUI.header}>
       <View style={orderUI.headerSide}>
-        <IconButton
-          name={back ? 'chevron-back' : 'close'}
-          label={back ? 'Вернуться в корзину' : 'Закрыть корзину'}
-          testID={testID}
-          onPress={onClose}
-          style={orderUI.headerButton}
-        />
+        {back ? (
+          <IconButton
+            name="chevron-back"
+            label="Вернуться в корзину"
+            testID={testID}
+            onPress={onClose}
+            style={orderUI.headerButton}
+          />
+        ) : (
+          <CloseButton label="Закрыть корзину" testID={testID} onPress={onClose} />
+        )}
       </View>
       <Heading small style={orderUI.headerTitle}>
         {title}

@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionModal, MotionPressable } from './Motion';
-import { Body, Button, Caption, Heading, Icon, Row } from './UI';
+import { CloseButton, Body, Button, Caption, Heading, Icon, Row } from './UI';
 import { colors } from '../theme';
 
 export function OrderActions({
@@ -40,15 +40,11 @@ export function OrderActions({
         >
           <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
             <Row style={{ justifyContent: 'space-between', gap: 12 }}>
-              <MotionPressable
+              <CloseButton
                 testID="order-actions-close"
-                accessibilityRole="button"
-                accessibilityLabel="Закрыть окно помощи"
+                label="Закрыть окно помощи"
                 onPress={onClose}
-                style={s.close}
-              >
-                <Icon name="close" />
-              </MotionPressable>
+              />
               <Heading small style={{ flex: 1 }}>
                 Заказ №{number}
               </Heading>
@@ -85,14 +81,6 @@ const s = StyleSheet.create({
     borderRadius: 24,
   },
   content: { padding: 20, gap: 16 },
-  close: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   symbol: {
     width: 56,
     height: 56,

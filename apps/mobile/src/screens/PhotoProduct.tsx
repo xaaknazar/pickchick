@@ -25,7 +25,7 @@ import {
 } from '../product-photo-selection';
 import { optionPhotos, extraPhotos, photoHeroes } from '../product-photo-assets';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
-import { Icon, Row } from '../components/UI';
+import { CloseButton, Icon, Row } from '../components/UI';
 import { colors, font } from '../theme';
 
 type Props = ScreenProps & {
@@ -534,17 +534,12 @@ export function PhotoProduct(props: Props) {
             <Text style={[s.addText, { color: priceButton.ink }]}>{money(totalPrice)}</Text>
           </Pressable>
         </View>
-        <Pressable
+        <CloseButton
           testID="product-close"
-          accessibilityRole="button"
-          accessibilityLabel="Закрыть блюдо"
+          label="Закрыть блюдо"
           onPress={props.goBack}
           style={[s.close, { top: Math.max(0, insets.top - 16), left: 16 }]}
-        >
-          <View pointerEvents="none" style={s.closeFace}>
-            <Icon name="close" color="#8A3309" size={25} />
-          </View>
-        </Pressable>
+        />
       </View>
       <MotionModal visible={!!picker} animationType="slide" onRequestClose={() => setPicker(null)}>
         {picker ? (
@@ -554,14 +549,7 @@ export function PhotoProduct(props: Props) {
             testID="photo-replacement-dialog"
           >
             <Row style={s.modalHeader}>
-              <Pressable
-                style={s.modalClose}
-                accessibilityRole="button"
-                accessibilityLabel="Закрыть замену без сохранения"
-                onPress={() => setPicker(null)}
-              >
-                <Icon name="close" color="#8A3309" size={25} />
-              </Pressable>
+              <CloseButton label="Закрыть замену без сохранения" onPress={() => setPicker(null)} />
               <Text style={s.modalTitle}>
                 Заменить {picker.group.id === 'drink' ? 'напиток' : 'соус'}
               </Text>
@@ -661,14 +649,7 @@ export function PhotoProduct(props: Props) {
             testID="photo-nutrition-dialog"
           >
             <Row style={s.modalHeader}>
-              <Pressable
-                style={s.modalClose}
-                accessibilityRole="button"
-                accessibilityLabel="Закрыть окно пищевой ценности"
-                onPress={() => setInfo(false)}
-              >
-                <Icon name="close" color="#8A3309" size={25} />
-              </Pressable>
+              <CloseButton label="Закрыть окно пищевой ценности" onPress={() => setInfo(false)} />
               <Text style={s.modalTitle}>Пищевая ценность</Text>
             </Row>
             <ScrollView>{infoContent}</ScrollView>
@@ -761,23 +742,7 @@ function makeStyles(blue: boolean) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: blue ? '#04143A' : paper },
     blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 150 },
-    close: {
-      position: 'absolute',
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    closeFace: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: '#FFE2C3',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxShadow: '0px 3px 10px rgba(0, 19, 50, 0.16)',
-    },
+    close: { position: 'absolute' },
     photoAction: {
       position: 'absolute',
       bottom: 22,
@@ -890,14 +855,6 @@ function makeStyles(blue: boolean) {
     count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
     modal: { flex: 1, backgroundColor: colors.background },
     modalHeader: { paddingHorizontal: 16, paddingVertical: 14, gap: 14 },
-    modalClose: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: '#FFE2C3',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     modalTitle: {
       fontFamily: font.heading,
       fontSize: 22,
