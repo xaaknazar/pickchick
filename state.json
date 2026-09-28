@@ -961,9 +961,11 @@
         "@webkassa",
         "tests/operations/layout_regression.py"
       ],
-      "status": "active",
-      "head": "3246e5b8ea2f606dd231f23bee6475e487a12b57",
-      "updatedAt": "2026-09-28T09:32:36.352Z"
+      "status": "available",
+      "head": "6891e4196d1823d79ec0287b7960ced50094cc74",
+      "updatedAt": "2026-09-28T09:38:51.475Z",
+      "summary": "Checkpoint 6891e4196d1823d79ec0287b7960ced50094cc74 опубликован и сверён; PR130. HTTPS aliases/guarded release подготовлены, VPS ещё не изменён. pnpm check, Caddy validate, 4 domain guards, 4 isolated rollback cases и 7 roadmap tests прошли. CI36401735780 выявила 3 stale browser-сценария; исправления в6891e41, полный повтор CI36404546441 выполняется. Webkassa production login/PDF проверены только на чтение: Peak Group, касса2/4мкр, открытая смена; продавцом mobile владелец подтвердил PICK CHICK ALA AP. PIN programming ещё ожидает ручного ввода; API/Postman/sandbox отсутствуют, production-финансы не тронуты. Онлайн-roadmap не обновлён.",
+      "nextAction": "Проверить полный CI36404546441, устранить оставшиеся точные регрессии и только на зелёном SHA выполнить guarded HTTPS inspect/apply, обновить deployment evidence/online-roadmap и включить этап в shared. Ждать PIN в браузере и ответ о собственной Webkassa ИП PICK CHICK ALA AP. Не использовать ККМ Peak Group автоматически, не открывать/закрывать смены и не создавать реальные чеки. Доступные вкладки Webkassa7 и dev8 оставлены для продолжения; секреты не в Git, API-доступ ещё не подтверждён."
     }
   ]
 }
