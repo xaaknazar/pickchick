@@ -898,6 +898,20 @@
       "nextAction": "Review on iPhone; apply the promised image after upload. Check remote CI before any guarded release."
     },
     {
+      "id": "webkassa-audit",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/webkassa-audit",
+      "scopes": [
+        "@iiko",
+        "docs/integrations/webkassa-access-audit-2026-09-28.md"
+      ],
+      "status": "done",
+      "head": "67160b3d9dd9f399262a34c21648ea02909833e7",
+      "updatedAt": "2026-09-28T08:21:27.286Z",
+      "summary": "Обследован iikoWeb: DN.WebKassaPlugin 1.4.4 на двух терминалах; конфиг/схема пусты, история первого без данных, ключ Webkassa и SWK mapping не получены. Сохранён план чтения чеков и фискализации через существующие ККМ. PR128, 67160b3; Prettier/diff прошли; API не тестировался, PR workflow runs пока отсутствуют. Общие status/roadmap/handoff не изменены: заняты tiptoppay-domain.",
+      "nextAction": "Получить доступ к существующему кабинету Webkassa или помощь ЦТО, актуальную API/Postman и тестовый доступ. Согласовать одного исполнителя фискализации с tiptoppay-domain; после освобождения общих документов добавить evidence отчёта webkassa-access-audit-2026-09-28. Онлайн-roadmap не опубликован."
+    },
+    {
       "id": "tiptoppay-domain",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-domain",
@@ -912,25 +926,13 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps",
-        "@dns/pickchick.kz"
+        "@dns/pickchick.kz",
+        "docs/01-technical-spec.md",
+        "docs/integrations/fiscal-wofd-webkassa.md"
       ],
       "status": "active",
-      "head": "9cc6dd8cea0b769adff33ac93cc977c684bd0347",
-      "updatedAt": "2026-09-28T08:16:28.006Z"
-    },
-    {
-      "id": "webkassa-audit",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/webkassa-audit",
-      "scopes": [
-        "@iiko",
-        "docs/integrations/webkassa-access-audit-2026-09-28.md"
-      ],
-      "status": "done",
       "head": "67160b3d9dd9f399262a34c21648ea02909833e7",
-      "updatedAt": "2026-09-28T08:21:27.286Z",
-      "summary": "Обследован iikoWeb: DN.WebKassaPlugin 1.4.4 на двух терминалах; конфиг/схема пусты, история первого без данных, ключ Webkassa и SWK mapping не получены. Сохранён план чтения чеков и фискализации через существующие ККМ. PR128, 67160b3; Prettier/diff прошли; API не тестировался, PR workflow runs пока отсутствуют. Общие status/roadmap/handoff не изменены: заняты tiptoppay-domain.",
-      "nextAction": "Получить доступ к существующему кабинету Webkassa или помощь ЦТО, актуальную API/Postman и тестовый доступ. Согласовать одного исполнителя фискализации с tiptoppay-domain; после освобождения общих документов добавить evidence отчёта webkassa-access-audit-2026-09-28. Онлайн-roadmap не опубликован."
+      "updatedAt": "2026-09-28T08:36:27.935Z"
     }
   ]
 }
