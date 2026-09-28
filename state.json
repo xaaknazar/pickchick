@@ -878,6 +878,22 @@
       "updatedAt": "2026-09-28T07:32:21.621Z",
       "summary": "Five mobile UX improvements: repeat/undo/contextual extras/combo slots/7+1 next steps, 0.5 L cutouts. 212 Node +30 Python, typecheck/lint/format, detector, iOS Dev, CUA320/393/768, roadmap7 tests passed. PR126. Included other Mac audit b59c568. Remote CI fails before steps; no VPS/TestFlight/online-roadmap release.",
       "nextAction": "Physical device and packaging acceptance; restore green CI then guarded release. 7+1 practice only, no gift redemption."
+    },
+    {
+      "id": "option-photo-backgrounds",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/option-photo-backgrounds",
+      "scopes": [
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/components/CartExtras.tsx",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "docs/operations/product-photo-pilot.md"
+      ],
+      "status": "active",
+      "head": "ef756039baae58d9785b8609a9cd24933db88a91",
+      "updatedAt": "2026-09-28T07:46:16.830Z"
     }
   ]
 }
