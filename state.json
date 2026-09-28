@@ -842,6 +842,20 @@
       "updatedAt": "2026-09-28T06:51:11.759Z",
       "summary": "Orange #FF6900, readable links, bounded/cancelable sheet motion and direct Dodo/partial Drinkit study. Local 203+30 tests, typecheck/lint/format, design check, detector, iOS Dev and CUA320/393/768 passed. PR124; shared fe25287. Remote CI failure before steps; no VPS/TestFlight/online roadmap release.",
       "nextAction": "Physical iPhone motion acceptance, finish Drinkit UX study when mirroring input is stable; resolve CI before release."
+    },
+    {
+      "id": "menu-audit",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/menu-audit",
+      "scopes": [
+        "@iiko",
+        "docs/operations/iiko-menu-details-2026-09-28.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "fe25287c7d4dfd9158a919157210db5ebdfcee4c",
+      "updatedAt": "2026-09-28T06:56:48.126Z"
     }
   ]
 }
