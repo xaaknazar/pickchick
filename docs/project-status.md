@@ -1,5 +1,17 @@
 # PickChick — состояние проекта
 
+### HTTPS домена: подготовка и исправление CI - 28 сентября
+
+Добавлен guarded выпуск aliases pickchick.kz/api/www с сохранением прежнего
+Caddyfile, штатным lock, backup, CAS, trusted-TLS smoke и откатом. Денежные
+callback-маршруты пока 503; служебные страницы ведут на прежний адрес. VPS не
+изменён до зелёной CI. Выявлена точная причина прежних ошибок CI: формат handoff
+и старые ожидания теста корзины после перехода на PhotoProduct. Проверки
+обновлены под picker/«Готово» и accessible name, сохранены проверки сумм/состава.
+Локальный pnpm check, Caddy validate и 4 release guards прошли; новая CI ожидается.
+[Подготовка и текущий baseline](operations/deployments/2026-09-28-domain.md).
+
+
 ### TipTopPay, домен и действующая Webkassa - 28 сентября
 
 Подготовлен отключённый по умолчанию приём Check/Pay: raw HMAC, точные тиыны,

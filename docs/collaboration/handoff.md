@@ -1,5 +1,14 @@
 # Контекст для нового компьютера
 
+## Продолжение HTTPS - 28 сентября
+
+`codex/domain-https-rollout`: подготовлен `infra/domains/release-alias.py`.
+Нужен зелёный точный CI перед inspect/apply; секреты не передавать со скриптом.
+Локальный pnpm check и четыре release guards прошли. VPS по-прежнему API4ee0b80,
+новый OTP pilot не установлен. Факты и baseline в
+`docs/operations/deployments/2026-09-28-domain.md`. Прежние CI ошибки уточнены
+по настоящим логам; не считать их общим инфраструктурным сбоем GitHub.
+
 ## Передача TipTopPay и домена - 28 сентября
 
 Текущий этап: `codex/tiptoppay-domain`. Подготовлен Check/Pay receiver и безопасный

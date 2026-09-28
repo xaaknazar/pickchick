@@ -47,7 +47,10 @@ jobs:
       - name: Test PostgreSQL constraints and HTTP failure scenarios
         run: pnpm test:integration
       - name: Verify commerce transactions and delivery invariants
-        run: pnpm test:commerce
+        run: |
+          pnpm test:commerce
+          node --test tests/payments/tiptoppay-http.test.mjs
+          python3 -m unittest discover -s infra/domains -p 'test_*.py'
       - name: Verify Chiki ledger, reservations and refund debt
         run: pnpm test:loyalty
       - name: Verify local kitchen admission, station roles and recovery
