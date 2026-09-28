@@ -837,9 +837,11 @@
         "docs/collaboration/handoff.md",
         "docs/design/screen-catalog.md"
       ],
-      "status": "active",
-      "head": "a414eb2515ad4359bb29c553aa4585e751d2684b",
-      "updatedAt": "2026-09-28T06:47:57.199Z"
+      "status": "done",
+      "head": "fe25287c7d4dfd9158a919157210db5ebdfcee4c",
+      "updatedAt": "2026-09-28T06:51:11.759Z",
+      "summary": "Orange #FF6900, readable links, bounded/cancelable sheet motion and direct Dodo/partial Drinkit study. Local 203+30 tests, typecheck/lint/format, design check, detector, iOS Dev and CUA320/393/768 passed. PR124; shared fe25287. Remote CI failure before steps; no VPS/TestFlight/online roadmap release.",
+      "nextAction": "Physical iPhone motion acceptance, finish Drinkit UX study when mirroring input is stable; resolve CI before release."
     }
   ]
 }
