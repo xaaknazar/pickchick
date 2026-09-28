@@ -834,11 +834,12 @@
         "docs/design/dodo-drinkit-ux-study.md",
         "docs/project-status.md",
         "docs/roadmap/project.json",
-        "docs/collaboration/handoff.md"
+        "docs/collaboration/handoff.md",
+        "docs/design/screen-catalog.md"
       ],
       "status": "active",
       "head": "a414eb2515ad4359bb29c553aa4585e751d2684b",
-      "updatedAt": "2026-09-28T06:28:01.229Z"
+      "updatedAt": "2026-09-28T06:47:57.199Z"
     }
   ]
 }
