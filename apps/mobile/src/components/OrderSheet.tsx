@@ -11,12 +11,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useReducedMotion } from './Motion';
+import { motion, useReducedMotion } from './Motion';
 import { colors } from '../theme';
 
 /** One bounded surface; only the handle drags so scrolling a long cart never dismisses it. */
@@ -44,21 +45,27 @@ export function OrderSheet({
       );
   const travel = height - top;
   const y = useSharedValue(reduced ? 0 : travel);
+  const gestureStart = useSharedValue(0);
+  const closing = useSharedValue(false);
   const exiting = useRef(false);
   const dialog = useRef<View>(null);
   const close = useCallback(() => {
     if (exiting.current) return;
     exiting.current = true;
+    closing.value = true;
     y.value = withTiming(
       travel,
-      { duration: reduced ? 0 : 210, easing: Easing.in(Easing.cubic) },
+      { duration: reduced ? 0 : motion.sheetExit, easing: Easing.in(Easing.cubic) },
       (done) => {
         if (done) runOnJS(onClose)();
       },
     );
-  }, [onClose, reduced, travel, y]);
+  }, [closing, onClose, reduced, travel, y]);
   useEffect(() => {
-    y.value = withTiming(0, { duration: reduced ? 0 : 340, easing: Easing.out(Easing.cubic) });
+    y.value = withTiming(0, {
+      duration: reduced ? 0 : motion.sheetEnter,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
   }, [reduced, y]);
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -102,12 +109,28 @@ export function OrderSheet({
   }, [close]);
   const pan = Gesture.Pan()
     .activeOffsetY([-10, 10])
+    .onStart(() => {
+      if (closing.value) return;
+      cancelAnimation(y);
+      gestureStart.value = y.value;
+    })
     .onUpdate((e) => {
-      y.value = Math.max(0, e.translationY);
+      if (!closing.value)
+        y.value = Math.min(travel, Math.max(0, gestureStart.value + e.translationY));
     })
     .onEnd((e) => {
-      if (e.translationY > 90 || e.velocityY > 850) runOnJS(close)();
-      else y.value = withTiming(0, { duration: reduced ? 0 : 180 });
+      if (closing.value) return;
+      if (y.value > 90 || e.velocityY > 850) {
+        closing.value = true;
+        runOnJS(close)();
+      }
+    })
+    .onFinalize(() => {
+      if (!closing.value)
+        y.value = withTiming(0, {
+          duration: reduced ? 0 : motion.sheetReturn,
+          easing: Easing.out(Easing.cubic),
+        });
     });
   const position = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - y.value / travel) }));

@@ -1,8 +1,9 @@
+import { colors } from '../theme';
 import { useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { LaunchReveal } from '../components/LaunchReveal';
 import { Stack } from 'expo-router';
-import { MotionProvider, useReducedMotion } from '../components/Motion';
+import { motion, MotionProvider, useReducedMotion } from '../components/Motion';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Jost_600SemiBold } from '@expo-google-fonts/jost/600SemiBold';
@@ -65,6 +66,7 @@ function AppLayout() {
                   options={{
                     presentation: 'modal',
                     animation: reduced ? 'none' : 'slide_from_bottom',
+                    animationDuration: reduced ? 0 : motion.sheetEnter,
                     contentStyle: { backgroundColor: '#D8C5A7' },
                   }}
                 />
@@ -96,7 +98,7 @@ function AppLayout() {
             </MobileProvider>
           </AccountProvider>
         ) : (
-          <ActivityIndicator accessibilityLabel="Загрузка PickChick" color="#FF7A3D" />
+          <ActivityIndicator accessibilityLabel="Загрузка PickChick" color={colors.accent} />
         )}
       </View>
       {!introDone ? (

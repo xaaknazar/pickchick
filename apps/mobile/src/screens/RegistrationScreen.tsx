@@ -5,7 +5,7 @@ import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { formatDemoPhone } from '../demo-account';
 import { isValidBirthDate, type DemoProfileInput } from '../profile-details';
-import { font } from '../theme';
+import { colors, font } from '../theme';
 import { AuthButton, AuthLayout, authColors } from '../components/AuthLayout';
 import { Body, Caption, Icon } from '../components/UI';
 import BirthDatePicker from '../components/BirthDatePicker';
@@ -400,7 +400,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  orangeDot: { width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: '#FF7A3D' },
+  orangeDot: { width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: colors.accent },
   rewardText: { flex: 1, fontSize: 13, lineHeight: 21, color: '#F2F6FF' },
   localNote: { marginTop: 12, fontSize: 12, lineHeight: 19, color: '#93A6C9' },
   error: { fontSize: 13, lineHeight: 20, color: '#FFB0AB' },

@@ -22,7 +22,7 @@ import Animated, {
 import { advanceMotion, createMotion, queueMotion } from './motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, Logo } from '../../components/UI';
-import { font } from '../../theme';
+import { colors, font } from '../../theme';
 import {
   COLS,
   ROWS,
@@ -851,7 +851,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 1,
   },
-  powerFill: { height: 4, backgroundColor: '#FF7A3D' },
+  powerFill: { height: 4, backgroundColor: colors.accent },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: '#020919DB', borderRadius: 24 },
   overlayScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
   dialog: {

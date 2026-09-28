@@ -36,7 +36,7 @@ type Props = ScreenProps & {
 type Picker = { group: ModifierGroup; index: number; chosen: string | null };
 const ink = '#271C15';
 const paper = '#FFF8EE';
-const priceButton = { surface: '#FFE2C3', ink: '#8A3309' };
+const priceButton = { surface: colors.accent, ink: colors.orangeInk };
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
 const blueGradient =
   'linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)';

@@ -156,7 +156,7 @@ function StageTrack({ order }: { order: TestOrder }) {
               {label}
             </Body>
             {index === current && order.state !== 'fulfilled' ? (
-              <Caption style={{ color: colors.accent }}>Сейчас</Caption>
+              <Caption style={{ color: colors.accentText }}>Сейчас</Caption>
             ) : null}
           </Row>
         ),
@@ -633,7 +633,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.raised,
   },
   status: { gap: 12, padding: 20, borderRadius: 16, backgroundColor: colors.raised },
-  number: { color: colors.accent, fontFamily: font.heading, fontSize: 28, lineHeight: 36 },
+  number: { color: colors.accentText, fontFamily: font.heading, fontSize: 28, lineHeight: 36 },
   input: {
     minHeight: 90,
     borderWidth: 1,

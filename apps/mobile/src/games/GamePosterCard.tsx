@@ -8,7 +8,7 @@ import {
   type ImageSourcePropType,
   type ViewStyle,
 } from 'react-native';
-import { font } from '../theme';
+import { colors, font } from '../theme';
 import { Icon } from '../components/UI';
 import { useGameCardHeight } from './ArcadeCard';
 
@@ -113,7 +113,7 @@ const s = StyleSheet.create({
     height: 52,
     flexShrink: 0,
     borderRadius: 26,
-    backgroundColor: '#FF7A3D',
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 3,

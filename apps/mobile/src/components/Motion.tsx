@@ -23,7 +23,15 @@ import {
 // One live preference for the whole application; no listener per card or button.
 const MotionContext = createContext(true);
 const MotionReadyContext = createContext(false);
-export const motion = { pressIn: 80, pressOut: 150, reveal: 180, media: 240 };
+export const motion = {
+  pressIn: 80,
+  pressOut: 150,
+  reveal: 180,
+  media: 240,
+  sheetEnter: 360,
+  sheetExit: 240,
+  sheetReturn: 200,
+};
 export function MotionProvider({ children }: { children: ReactNode }) {
   const [reduced, setReduced] = useState(true);
   const [ready, setReady] = useState(false);

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Icon, type IconName } from '../components/UI';
-import { font } from '../theme';
+import { colors, font } from '../theme';
 
 export const arcade = {
   ink: '#070F21',
@@ -352,7 +352,7 @@ const a = StyleSheet.create({
     width: 350,
     height: 350,
     borderRadius: 175,
-    backgroundColor: '#FF7A3D08',
+    backgroundColor: `${colors.accent}08`,
   },
   horizon: {
     position: 'absolute',

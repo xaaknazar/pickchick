@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { assets } from '../assets';
-import { font } from '../theme';
+import { colors, font } from '../theme';
 import { Icon, Logo } from '../components/UI';
 
 export function useGameCardHeight() {
@@ -125,7 +125,7 @@ const s = StyleSheet.create({
     minHeight: 48,
     borderRadius: 15,
     paddingHorizontal: 18,
-    backgroundColor: '#FF7A3D',
+    backgroundColor: colors.accent,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 18,

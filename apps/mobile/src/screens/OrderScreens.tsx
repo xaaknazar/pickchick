@@ -480,7 +480,7 @@ const s = StyleSheet.create({
     fontFamily: font.display,
     fontSize: 120,
     lineHeight: 136,
-    color: colors.accent,
+    color: colors.accentText,
     letterSpacing: -5,
   },
   progress: { gap: 7 },

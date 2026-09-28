@@ -221,7 +221,7 @@ const s = StyleSheet.create({
   rule: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   ruleNumber: {
     fontFamily: font.display,
-    color: colors.accent,
+    color: colors.accentText,
     fontSize: 24,
     lineHeight: 30,
     minWidth: 24,

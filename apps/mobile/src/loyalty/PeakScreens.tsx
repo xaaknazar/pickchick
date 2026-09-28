@@ -152,7 +152,9 @@ function MountainRoad({ preview }: { preview: boolean }) {
                   {reached ? (
                     <Icon name="checkmark" color={colors.orangeInk} size={20} />
                   ) : (
-                    <Text style={[s.nodeText, next && { color: colors.accent }]}>{index + 1}</Text>
+                    <Text style={[s.nodeText, next && { color: colors.accentText }]}>
+                      {index + 1}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -255,7 +257,10 @@ export function PeakWallet(props: ScreenProps) {
         </View>
         <View style={s.balanceCell}>
           <Text style={s.balanceLabel}>ДЛЯ УРОВНЯ</Text>
-          <Text testID="peak-earned-progress" style={[s.balanceNumber, { color: colors.accent }]}>
+          <Text
+            testID="peak-earned-progress"
+            style={[s.balanceNumber, { color: colors.accentText }]}
+          >
             {props.preview ? '540' : '-'}
           </Text>
           <Text style={s.balanceHint}>Всего заработано</Text>
@@ -553,7 +558,7 @@ const s = StyleSheet.create({
     fontFamily: font.bold,
     fontSize: 16,
     lineHeight: 23,
-    color: colors.accent,
+    color: colors.accentText,
     textAlign: 'center',
   },
   giftPanel: {

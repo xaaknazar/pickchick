@@ -42,7 +42,7 @@ export function CartOffers({ props }: { props: ScreenProps }) {
               <Icon name="pricetag-outline" color={colors.accent} />
               <Body style={{ fontFamily: font.bold }}>{promo.title.ru}</Body>
               <Caption numberOfLines={3}>{promo.body.ru}</Caption>
-              <Body style={{ color: colors.accent }}>Условия акции</Body>
+              <Body style={{ color: colors.accentText }}>Условия акции</Body>
             </MotionPressable>
           ))}
         </ScrollView>

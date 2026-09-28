@@ -1333,7 +1333,7 @@ OTP→quote→оплата→выдача; DAU/MAU, когорты и дедуп
 | ink / surface           | 17.38:1  |
 | muted / surface         | 6.00:1   |
 | surface / brandBlue     | 8.02:1   |
-| ink / brandOrange       | 5.97:1   |
+| ink / brandOrange       | 6.02:1   |
 | success / successSoft   | 5.67:1   |
 | warning / warningSoft   | 6.07:1   |
 | danger / dangerSoft     | 5.43:1   |

@@ -742,7 +742,10 @@ export function Cart(props: ScreenProps) {
                     style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' }}
                   >
                     <Body
-                      style={[orderUI.detail, { color: colors.accent, fontFamily: font.medium }]}
+                      style={[
+                        orderUI.detail,
+                        { color: colors.accentText, fontFamily: font.medium },
+                      ]}
                     >
                       Изменить
                     </Body>
