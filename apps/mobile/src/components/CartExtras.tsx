@@ -239,7 +239,7 @@ export function CheckoutPayments() {
 }
 const s = StyleSheet.create({
   extra: { width: 160, padding: 12, gap: 8, borderRadius: 16, backgroundColor: colors.surface },
-  extraPhoto: { width: 136, height: 116, borderRadius: 12, backgroundColor: '#FFF8EE' },
+  extraPhoto: { width: 136, height: 116, borderRadius: 12, backgroundColor: '#FFFFFF' },
   promotion: {
     width: 260,
     padding: 18,

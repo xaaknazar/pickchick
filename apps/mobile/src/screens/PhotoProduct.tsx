@@ -1,4 +1,3 @@
-import { catalogCutouts } from '../catalog-cutouts';
 import { useRef, useState } from 'react';
 import {
   Platform,
@@ -141,7 +140,7 @@ export function PhotoProduct(props: Props) {
             width: extraWidth - 24,
             height: 104,
             borderRadius: 12,
-            backgroundColor: '#FFF8EE',
+            backgroundColor: '#FFFFFF',
           }}
           accessible={false}
         />
@@ -599,8 +598,10 @@ export function PhotoProduct(props: Props) {
                     ]}
                   >
                     <OptionImage id={option.id} size={drinkPhotoSize} />
-                    <Text style={[s.tileName, chosen && { color: ink }]}>{option.label}</Text>
-                    <Text style={[s.tilePrice, chosen && { color: ink }]}>
+                    <Text style={[s.tileName, chosen && { color: colors.orangeInk }]}>
+                      {option.label}
+                    </Text>
+                    <Text style={[s.tilePrice, chosen && { color: colors.orangeInk }]}>
                       {unavailable
                         ? 'Временно нет'
                         : option.price_delta_minor === '0' && chosen
@@ -609,7 +610,7 @@ export function PhotoProduct(props: Props) {
                     </Text>
                     {chosen ? (
                       <View style={s.check}>
-                        <Icon name="checkmark-circle" color="#8A3309" size={23} />
+                        <Icon name="checkmark-circle" color={colors.orangeInk} size={23} />
                       </View>
                     ) : null}
                   </Pressable>
@@ -706,13 +707,7 @@ function OptionImage({
   const s = warmStyles;
   const source = id ? (extra ? extraPhotos[id] : optionPhotos[id]) : undefined;
   return (
-    <View
-      style={[
-        s.optionPhoto,
-        { width: size, height: height ?? size },
-        id && catalogCutouts[id] ? { backgroundColor: 'transparent' } : null,
-      ]}
-    >
+    <View style={[s.optionPhoto, { width: size, height: height ?? size }]}>
       {source ? (
         <Image
           source={source}
@@ -921,7 +916,7 @@ function makeStyles(blue: boolean) {
       alignItems: 'center',
       minHeight: 260,
     },
-    tileSelected: { backgroundColor: '#FFE2C3' },
+    tileSelected: { backgroundColor: colors.accent },
     tileName: {
       fontFamily: font.medium,
       fontSize: 13,
@@ -940,7 +935,7 @@ function makeStyles(blue: boolean) {
     },
     check: { position: 'absolute', top: 7, right: 7 },
     optionPhoto: {
-      backgroundColor: '#F6F6F6',
+      backgroundColor: '#FFFFFF',
       borderRadius: 12,
       overflow: 'hidden',
       alignItems: 'center',
