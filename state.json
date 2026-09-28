@@ -856,6 +856,22 @@
       "status": "active",
       "head": "fe25287c7d4dfd9158a919157210db5ebdfcee4c",
       "updatedAt": "2026-09-28T06:56:48.126Z"
+    },
+    {
+      "id": "cart-repeat-combo",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-repeat-combo",
+      "scopes": [
+        "apps/mobile/src",
+        "apps/mobile/assets",
+        "tests/mobile",
+        "docs/design/dodo-drinkit-ux-study.md",
+        "docs/operations/product-photo-pilot.md",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "fe25287c7d4dfd9158a919157210db5ebdfcee4c",
+      "updatedAt": "2026-09-28T06:59:19.076Z"
     }
   ]
 }
