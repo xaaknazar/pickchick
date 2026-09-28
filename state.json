@@ -822,6 +822,23 @@
       "updatedAt": "2026-09-28T04:39:47.800Z",
       "summary": "Unified close buttons; typecheck, lint/format, detector, iOS Dev HTTP200 and CUA393 passed. PR https://github.com/xaaknazar/pickchick/pull/123. No VPS/TestFlight/roadmap deployment.",
       "nextAction": "Physical iPhone acceptance; separate guarded server release remains pending."
+    },
+    {
+      "id": "dodo-orange-ux",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/dodo-orange-ux",
+      "scopes": [
+        "apps/mobile/src",
+        "packages/design-tokens",
+        "docs/design/ai-design-workflow.md",
+        "docs/design/dodo-drinkit-ux-study.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "a414eb2515ad4359bb29c553aa4585e751d2684b",
+      "updatedAt": "2026-09-28T06:28:01.229Z"
     }
   ]
 }
