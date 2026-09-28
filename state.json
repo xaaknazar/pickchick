@@ -803,6 +803,23 @@
       "updatedAt": "2026-09-27T17:13:55.445Z",
       "summary": "Cart displays selected modifiers only; no generic descriptions. Typecheck/lint/format, detector, iOS Dev and CUA393 water/combo passed. PR122. No VPS/TestFlight/online roadmap deploy.",
       "nextAction": "Confirm on physical iPhone; release separately after green CI."
+    },
+    {
+      "id": "unified-close-buttons",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/unified-close-buttons",
+      "scopes": [
+        "apps/mobile/src/components",
+        "apps/mobile/src/screens",
+        "apps/mobile/src/loyalty/PeakScreens.tsx",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/product-photo-pilot.md"
+      ],
+      "status": "active",
+      "head": "361b238af8923cfe8b1a46964a78c07973513df5",
+      "updatedAt": "2026-09-28T04:33:10.703Z"
     }
   ]
 }
