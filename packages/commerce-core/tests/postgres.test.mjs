@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URLSearchParams } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { CommerceRepository, digest } from '../dist/index.js';
@@ -32,7 +32,7 @@ const observation = (attempt, outcome = 'captured', extra = {}) => ({
   ...extra,
 });
 
-async function fixture(run) {
+async function fixture(run, options = {}) {
   const schema = 'commerce_' + randomUUID().replaceAll('-', '');
   const admin = createPool(connection, 12);
   await admin.query(`CREATE SCHEMA ${schema}`);
@@ -71,8 +71,16 @@ async function fixture(run) {
       [fiscal, 'fiscal'],
     ])
       await pool.query(
-        "INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,kind,provider,external_reference,enabled,legal_entity_id) VALUES($1,$2,$3,$4,'synthetic-test',$5,true,$6)",
-        [id, org, branch, kind, id, legal],
+        'INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,kind,provider,external_reference,enabled,legal_entity_id) VALUES($1,$2,$3,$4,$7,$5,true,$6)',
+        [
+          id,
+          org,
+          branch,
+          kind,
+          kind === 'payment' ? (options.publicId ?? id) : id,
+          legal,
+          kind === 'payment' ? (options.paymentProvider ?? 'synthetic-test') : 'synthetic-test',
+        ],
       );
     const scope = {
       organizationId: org,
@@ -87,6 +95,7 @@ async function fixture(run) {
     const repo = new CommerceRepository(pool);
     const priced = () => ({
       releaseId: release,
+      customerId: options.customerId ?? null,
       channel: 'mobile',
       serviceMode: 'takeaway',
       currency: 'KZT',
@@ -1040,3 +1049,72 @@ test('catalog quote command rollback is atomic and database reference guards rej
     }
     assert.equal(await f.count('commerce_quotes'), 1);
   }));
+
+test('TipTopPay signed callbacks commit one capture and one fiscal document under concurrent retries', async () => {
+  const { createHmac } = await import('node:crypto');
+  const { TipTopPayReceiver } = await import('../dist/index.js');
+  const customer = randomUUID();
+  await fixture(
+    async ({ pool, payment, ready, count, repo, scope }) => {
+      const value = await ready();
+      const secret = 'synthetic-test-secret-only';
+      const receiver = new TipTopPayReceiver(pool, {
+        publicId: 'pk_synthetic',
+        apiSecret: secret,
+        accountId: payment,
+        acceptNewPayments: false,
+      });
+      const fields = {
+        TransactionId: '87654321',
+        Amount: '1000.00',
+        Currency: 'KZT',
+        TestMode: '0',
+        Status: 'Completed',
+        OperationType: 'Payment',
+        DateTime: '2026-09-28 08:00:00',
+        InvoiceId: value.attempt.attemptId,
+        AccountId: customer,
+      };
+      const send = async (patch = {}, kind = 'pay') => {
+        const raw = Buffer.from(new URLSearchParams({ ...fields, ...patch }).toString());
+        return receiver.receive(
+          kind,
+          raw,
+          createHmac('sha256', secret).update(raw).digest('base64'),
+        );
+      };
+      for (const patch of [
+        { TestMode: '1' },
+        { AccountId: randomUUID() },
+        { Amount: '1000.01' },
+        { Currency: 'USD' },
+      ])
+        await assert.rejects(send(patch));
+      assert.equal(await count('commerce_captures'), 0);
+      assert.deepEqual(await send({}, 'check'), { code: 13 });
+      const replies = await Promise.all(Array.from({ length: 5 }, () => send()));
+      assert.ok(replies.every((r) => r.code === 0));
+      assert.equal(await count('commerce_captures'), 1);
+      assert.equal(await count('commerce_provider_inbox'), 1);
+      assert.equal(await count('commerce_fiscal_documents'), 1);
+      const before = await count('commerce_outbox');
+      await pool.query('UPDATE commerce_provider_accounts SET enabled=false WHERE id=$1', [
+        payment,
+      ]);
+      assert.deepEqual(
+        await send(),
+        { code: 0 },
+        'late retry after account disabled remains acknowledged',
+      );
+      assert.equal(await count('commerce_outbox'), before);
+      const view = await repo.readOrder(scope, value.order.orderId);
+      assert.equal(view.captures.length, 1);
+      assert.equal(
+        view.fiscalDocuments[0].state,
+        'queued',
+        'bank capture does not invent a receipt',
+      );
+    },
+    { customerId: customer, paymentProvider: 'tiptoppay', publicId: 'pk_synthetic' },
+  );
+});

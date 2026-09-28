@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/unit.test.mjs",
+    "test": "node --test tests/unit.test.mjs ../../tests/payments/tiptoppay.test.mjs",
     "test:integration": "node --test tests/postgres.test.mjs"
   },
   "dependencies": {

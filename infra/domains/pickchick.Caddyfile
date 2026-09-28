@@ -1,0 +1,20 @@
+# Candidate site block, not a replacement for the live shared Caddyfile.
+# Apply only after DNS, full CI and the owned VPS release lock/backup checks.
+# Retain the existing nip.io site throughout migration and webhook retries.
+pickchick.kz, api.pickchick.kz {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+	reverse_proxy pickchick-public-gateway:8080 {
+		# Preserve the existing gateway/kitchen host allowlist during the alias rollout.
+		header_up Host pickchick.185.129.51.103.nip.io
+		transport http {
+			dial_timeout 2s
+			response_header_timeout 32s
+		}
+	}
+}
+www.pickchick.kz {
+	redir https://pickchick.kz{uri} permanent
+}

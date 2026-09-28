@@ -1,3 +1,5 @@
+import type { IncomingMessage } from 'node:http';
+import { TipTopPayController } from './tiptoppay-controller.js';
 import {
   BadRequestException,
   Controller,
@@ -152,6 +154,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   @Module({
     controllers: [
       HealthController,
+      TipTopPayController,
       CapabilitiesController,
       BranchesController,
       MenuSyncController,
@@ -196,5 +199,13 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     ],
   })
   class ApiModule {}
-  return createHttpApplication(ApiModule);
+  const app = await createHttpApplication(ApiModule);
+  app.useBodyParser('raw', {
+    limit: 16 * 1024,
+    type: (request: IncomingMessage) =>
+      request.method === 'POST' &&
+      /^\/v1\/integrations\/tiptoppay\/[^/?]+\/?$/.test(request.url?.split('?')[0] ?? '') &&
+      /^application\/x-www-form-urlencoded(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+  });
+  return app;
 }
