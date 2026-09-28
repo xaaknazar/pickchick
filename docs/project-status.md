@@ -11,7 +11,6 @@ callback-маршруты пока 503; служебные страницы ве
 Локальный pnpm check, Caddy validate и 4 release guards прошли; новая CI ожидается.
 [Подготовка и текущий baseline](operations/deployments/2026-09-28-domain.md).
 
-
 ### TipTopPay, домен и действующая Webkassa - 28 сентября
 
 Подготовлен отключённый по умолчанию приём Check/Pay: raw HMAC, точные тиыны,

@@ -75,8 +75,9 @@ with sync_playwright() as p:
     # Owner update, 24 September: lift the storefront by 48px at this size.
     assert abs(hero['height'] - 756) < 1
     assert abs(title['x'] + title['width']/2 - 201) < 1, title
-    selected = page.get_by_test_id('dining-takeaway')
-    assert selected.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(255, 255, 255)'
+    # Owner decision: service mode is selected at checkout, never on the menu.
+    expect(page.get_by_test_id('dining-takeaway')).to_have_count(0)
+    expect(page.get_by_test_id('dining-dine_in')).to_have_count(0)
     # Owner update: loyalty precedes categories, which still pin below the header.
     header = page.get_by_test_id('storefront-header')
     branch = header.get_by_role('button', name='Выбрать ресторан', exact=True)
@@ -93,10 +94,6 @@ with sync_playwright() as p:
     assert loyalty['y'] + loyalty['height'] < tab['y'], (tab, loyalty)
     assert category.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgba(0, 0, 0, 0)'
     page.screenshot(path=str(output / 'menu.png'))
-    page.get_by_test_id('dining-dine_in').click()
-    expect(page.get_by_test_id('dining-dine_in')).to_have_css('background-color', 'rgb(255, 255, 255)')
-    page.get_by_test_id('dining-takeaway').click()
-    expect(selected).to_have_css('background-color', 'rgb(255, 255, 255)')
     notifications.click()
     expect(page.get_by_test_id('notifications-screen')).to_be_visible()
     page.get_by_test_id('notifications-back').click()
@@ -106,7 +103,7 @@ with sync_playwright() as p:
     # intentionally opens the fallback combo route instead of a selected product.
     expect(page.locator('[data-testid^="product-"][role="button"]').first).to_be_visible()
     page.get_by_test_id('hero-promotion').click()
-    expect(page.get_by_test_id('screen-M07')).to_be_visible()
+    expect(page.get_by_test_id('photo-product-pick-combo')).to_be_visible()
     page.get_by_role('button', name='Закрыть блюдо', exact=True).click()
     expect(page.get_by_test_id('screen-M06')).to_be_visible()
     page.get_by_test_id('category-Комбо').click()
@@ -117,11 +114,13 @@ with sync_playwright() as p:
     expect(page.get_by_test_id('product-pick-combo').get_by_text('Выбрать', exact=True)).to_be_visible()
     page.screenshot(path=str(output / 'catalog.png'))
     page.get_by_test_id('product-pick-combo').click()
-    expect(page.get_by_test_id('screen-M07')).to_be_visible()
+    expect(page.get_by_test_id('photo-product-pick-combo')).to_be_visible()
     assert page.get_by_test_id('hero-video-toggle').count() == 0
     expect(page.get_by_test_id('product-add')).to_be_visible()
     page.screenshot(path=str(output / 'product.png'))
     page.get_by_test_id('product-add').click()
+    expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+    page.get_by_test_id('open-cart').click()
     expect(page.get_by_test_id('cart-checkout')).to_be_visible()
     page.screenshot(path=str(output / 'cart.png'))
     page.goto(url + '/profile')
