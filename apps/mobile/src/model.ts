@@ -87,6 +87,7 @@ export interface MobileModel {
   setCatalogMode(mode: CatalogMode): void;
   selectProduct(id: string): void;
   addToCart(id: string, selections?: Selection[], quantity?: number): void;
+  appendCartLines(lines: CartLine[]): boolean;
   setPaymentMethod(method: PaymentMethod): void;
   setQuantity(id: string, quantity: number): void;
   replaceCartLine(original: CartLine, selections: Selection[], quantity: number): void;

@@ -144,6 +144,7 @@ export function Button({
   disabled = false,
   icon,
   testID,
+  accessibilityLabel,
   style,
   textStyle,
 }: {
@@ -153,6 +154,7 @@ export function Button({
   disabled?: boolean;
   icon?: IconName;
   testID?: string;
+  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 }) {
@@ -163,6 +165,7 @@ export function Button({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,

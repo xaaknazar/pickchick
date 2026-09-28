@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { mergeCartLines } from './cart-actions';
 import { AppState } from 'react-native';
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -41,6 +43,17 @@ import type {
 const STORAGE_KEY = 'pickchick.mobile.preferences.v1';
 const Context = createContext<{ live: MobileModel; preview: MobileModel } | null>(null);
 
+// Keep sequential cart commands atomic even when React batches their renders.
+function useCartState() {
+  const [value, render] = useState<CartLine[]>([]);
+  const current = useRef<CartLine[]>([]);
+  const update = useCallback((action: CartLine[] | ((previous: CartLine[]) => CartLine[])) => {
+    current.current = typeof action === 'function' ? action(current.current) : action;
+    render(current.current);
+  }, []);
+  return [value, update] as const;
+}
+
 export function MobileProvider({ children }: { children: ReactNode }) {
   const [catalogMode, setMode] = useState<CatalogMode>('server');
   const [diningMode, setDiningMode] = useState<DiningMode>('takeaway');
@@ -54,8 +67,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [menu, setMenu] = useState<MenuSnapshot | null>(null);
   const [unpaidAvailable, setUnpaidAvailable] = useState(false);
   const [connectedCatalog, setConnectedCatalog] = useState<TestCatalog | null>(null);
-  const [cart, setCart] = useState<CartLine[]>([]);
-  const [previewCart, setPreviewCart] = useState<CartLine[]>([]);
+  const [cart, setCart] = useCartState();
+  const [previewCart, setPreviewCart] = useCartState();
   const [previewSelectedId, setPreviewSelectedId] = useState<string | null>(null);
   const [previewDiningMode, setPreviewDiningMode] = useState<DiningMode>('takeaway');
   const [previewPaymentMethod, setPreviewPaymentMethod] = useState<PaymentMethod>('kaspi');
@@ -297,6 +310,16 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setMode(mode);
     },
     selectProduct: setSelectedId,
+    appendCartLines: (lines) => {
+      restoration.current = null;
+      let accepted = false;
+      setCart((previous) => {
+        const next = mergeCartLines(previous, lines, products);
+        accepted = next !== null;
+        return next ?? previous;
+      });
+      return accepted;
+    },
     addToCart: (id, selections, quantity = 1) => {
       const product = products.find((candidate) => candidate.id === id);
       if (!product) return;
@@ -370,6 +393,15 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setCatalogMode: () => {},
     setBranch: () => {},
     selectProduct: setPreviewSelectedId,
+    appendCartLines: (lines) => {
+      let accepted = false;
+      setPreviewCart((previous) => {
+        const next = mergeCartLines(previous, lines, designProducts);
+        accepted = next !== null;
+        return next ?? previous;
+      });
+      return accepted;
+    },
     addToCart: (id, selections, quantity = 1) => {
       const product = designProducts.find((candidate) => candidate.id === id);
       if (!product) return;

@@ -1,4 +1,5 @@
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
+import { RepeatOrder } from '../components/RepeatOrder';
 import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
 import { unpaidTestOrdersEnabled } from '../order-simulator';
 import { MotionPressable } from '../components/Motion';
@@ -306,54 +307,58 @@ export function ConnectedHistory(props: ScreenProps) {
                 {group.title}
               </Heading>
               {group.orders.map((order) => (
-                <MotionPressable
-                  key={order.order_id}
-                  testID={`history-order-${order.order_id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Заказ номер ${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
-                  onPress={() => {
-                    flow.select(order.order_id);
-                    props.navigate('M20');
-                  }}
-                  style={s.orderCard}
-                >
-                  <Row>
-                    <View style={ui.flex}>
-                      <Heading small style={orderUI.title}>
-                        Заказ №{order.number}
-                      </Heading>
-                      <Caption style={orderUI.detail}>{orderDate(order.created_at)}</Caption>
-                    </View>
-                    <Icon name="chevron-forward" size={20} color={colors.muted} />
-                  </Row>
-                  <Row>
-                    <Icon
-                      name={
-                        order.state === 'ready' || order.state === 'fulfilled'
-                          ? 'checkmark-circle-outline'
-                          : order.state === 'cancelled'
-                            ? 'close-circle-outline'
-                            : 'time-outline'
-                      }
-                      color={order.state === 'ready' ? colors.success : colors.accent}
-                      size={20}
-                    />
-                    <Body style={[orderUI.label, { fontFamily: font.bold }]}>
-                      {orderStage(order)}
+                <View key={order.order_id} style={s.orderCard}>
+                  <MotionPressable
+                    testID={`history-order-${order.order_id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Заказ номер ${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
+                    onPress={() => {
+                      flow.select(order.order_id);
+                      props.navigate('M20');
+                    }}
+                    style={{ gap: 12 }}
+                  >
+                    <Row>
+                      <View style={ui.flex}>
+                        <Heading small style={orderUI.title}>
+                          Заказ №{order.number}
+                        </Heading>
+                        <Caption style={orderUI.detail}>{orderDate(order.created_at)}</Caption>
+                      </View>
+                      <Icon name="chevron-forward" size={20} color={colors.muted} />
+                    </Row>
+                    <Row>
+                      <Icon
+                        name={
+                          order.state === 'ready' || order.state === 'fulfilled'
+                            ? 'checkmark-circle-outline'
+                            : order.state === 'cancelled'
+                              ? 'close-circle-outline'
+                              : 'time-outline'
+                        }
+                        color={order.state === 'ready' ? colors.success : colors.accent}
+                        size={20}
+                      />
+                      <Body style={[orderUI.label, { fontFamily: font.bold }]}>
+                        {orderStage(order)}
+                      </Body>
+                    </Row>
+                    <Body style={[orderUI.detail, { color: colors.muted }]}>
+                      {order.snapshot.lines
+                        .map(
+                          (line) => `${line.name}${line.quantity > 1 ? ` ×${line.quantity}` : ''}`,
+                        )
+                        .join(' · ')}
                     </Body>
-                  </Row>
-                  <Body style={[orderUI.detail, { color: colors.muted }]}>
-                    {order.snapshot.lines
-                      .map((line) => `${line.name}${line.quantity > 1 ? ` ×${line.quantity}` : ''}`)
-                      .join(' · ')}
-                  </Body>
-                  <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                    <Caption style={orderUI.detail}>
-                      {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
-                    </Caption>
-                    <Body style={orderUI.amount}>{money(order.snapshot.total_minor)}</Body>
-                  </Row>
-                </MotionPressable>
+                    <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                      <Caption style={orderUI.detail}>
+                        {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
+                      </Caption>
+                      <Body style={orderUI.amount}>{money(order.snapshot.total_minor)}</Body>
+                    </Row>
+                  </MotionPressable>
+                  {completed(order) ? <RepeatOrder order={order} props={props} /> : null}
+                </View>
               ))}
             </View>
           ) : null,

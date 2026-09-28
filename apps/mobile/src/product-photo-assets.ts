@@ -1,3 +1,4 @@
+import { catalogCutouts } from './catalog-cutouts';
 import type { ImageSourcePropType } from 'react-native';
 export const photoHeroes: Record<string, ImageSourcePropType> = {
   'pick-combo': require('../assets/catalog-hd/pick-combo.png'),
@@ -11,7 +12,7 @@ export const photoHeroes: Record<string, ImageSourcePropType> = {
   'fingers-50': require('../assets/catalog-hd/fingers-50.png'),
   'fingers-75': require('../assets/catalog-hd/fingers-75.png'),
   'fingers-100': require('../assets/catalog-hd/fingers-100.png'),
-  fingers: require('../assets/catalog-hd/fingers.png'),
+  fingers: catalogCutouts['fingers']!,
   sauce: require('../assets/catalog-hd/sauce.png'),
   'sauce-hot': require('../assets/catalog-hd/sauce-hot.png'),
   toast: require('../assets/catalog-hd/toast.png'),
@@ -21,24 +22,24 @@ export const photoHeroes: Record<string, ImageSourcePropType> = {
   lemonade: require('../assets/catalog-hd/lemonade.png'),
   cola: require('../assets/catalog-hd/cola.png'),
   piko: require('../assets/catalog-options/piko.png'),
-  'fuse-peach': require('../assets/catalog-options/fuse-peach.png'),
+  'fuse-peach': catalogCutouts['fuse-peach']!,
   'iced-tea': require('../assets/catalog-hd/iced-tea.png'),
   water: require('../assets/catalog-hd/water.png'),
 };
 // No invented packaging: missing catalog references keep an explicit placeholder.
 export const optionPhotos: Record<string, ImageSourcePropType> = {
-  fanta: require('../assets/catalog-options/fanta.png'),
-  sprite: require('../assets/catalog-options/sprite.png'),
-  'cola-zero': require('../assets/catalog-options/cola-zero.png'),
-  'fuse-berry': require('../assets/catalog-options/fuse-berry.png'),
-  'fuse-mango': require('../assets/catalog-options/fuse-mango.png'),
-  'fuse-watermelon': require('../assets/catalog-options/fuse-watermelon.png'),
+  fanta: catalogCutouts['fanta']!,
+  sprite: catalogCutouts['sprite']!,
+  'cola-zero': catalogCutouts['cola-zero']!,
+  'fuse-berry': catalogCutouts['fuse-berry']!,
+  'fuse-mango': catalogCutouts['fuse-mango']!,
+  'fuse-watermelon': catalogCutouts['fuse-watermelon']!,
   piko: require('../assets/catalog-options/piko.png'),
 
-  'cola-bottle': require('../assets/catalog-hd/cola-bottle.png'),
+  'cola-bottle': catalogCutouts['cola-bottle']!,
   lemonade: require('../assets/catalog-hd/lemonade.png'),
   'cola-can': require('../assets/catalog-hd/cola.png'),
-  'fuse-peach': require('../assets/catalog-options/fuse-peach.png'),
+  'fuse-peach': catalogCutouts['fuse-peach']!,
   'iced-tea-sweet': require('../assets/catalog-hd/iced-tea.png'),
   'iced-tea-unsweet': require('../assets/catalog-hd/iced-tea.png'),
   water: require('../assets/catalog-hd/water.png'),
@@ -46,7 +47,7 @@ export const optionPhotos: Record<string, ImageSourcePropType> = {
   hot: require('../assets/catalog-hd/sauce-hot.png'),
 };
 export const extraPhotos: Record<string, ImageSourcePropType> = {
-  fingers: require('../assets/catalog-hd/fingers.png'),
+  fingers: catalogCutouts['fingers']!,
   sauce: require('../assets/catalog-hd/signature-small.png'),
   'sauce-hot': require('../assets/catalog-hd/sauce-hot.png'),
   toast: require('../assets/catalog-hd/toast.png'),

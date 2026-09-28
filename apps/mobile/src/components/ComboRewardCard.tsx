@@ -5,7 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font } from '../theme';
 import { MotionModal, MotionPressable } from './Motion';
 import { Body, Button, Heading, Icon, CloseButton } from './UI';
-import { comboProgressView, type ComboProgressState } from '../loyalty/combo-progress';
+import {
+  comboProgressView,
+  comboNextStep,
+  type ComboProgressState,
+} from '../loyalty/combo-progress';
 
 // Read-only progress. Undefined means not connected, never an invented zero balance.
 export function ComboRewardCard({
@@ -24,6 +28,7 @@ export function ComboRewardCard({
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { count, text: progressText } = comboProgressView(progress, preview);
+  const nextStep = comboNextStep(progress, preview);
 
   return (
     <View testID={testID} style={s.card}>
@@ -92,7 +97,7 @@ export function ComboRewardCard({
                 style={s.detailsText}
                 accessibilityLiveRegion="polite"
               >
-                {progressText}
+                {nextStep.title}
               </Text>
               <Icon name="arrow-forward" size={16} color={colors.white} />
             </View>
@@ -128,6 +133,10 @@ export function ComboRewardCard({
               </Heading>
             </View>
             <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={s.rules}>
+              <View style={{ gap: 8 }}>
+                <Heading small>{nextStep.title}</Heading>
+                <Body muted>{nextStep.detail}</Body>
+              </View>
               {[
                 [
                   '1',
@@ -159,7 +168,7 @@ export function ComboRewardCard({
               ))}
             </ScrollView>
             <Button
-              title="Открыть меню"
+              title={nextStep.action}
               testID="combo-reward-menu"
               onPress={() => {
                 setOpen(false);

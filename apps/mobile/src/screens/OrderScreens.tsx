@@ -1,3 +1,7 @@
+import { money } from '../domain';
+import { menuPhotos } from '../menu-photo-assets';
+import { RepeatOrder } from '../components/RepeatOrder';
+import { previewOrder } from './OrderStatusPreview';
 import { MotionPressable as Pressable } from '../components/Motion';
 import { Image } from 'expo-image';
 import {
@@ -273,37 +277,44 @@ export function History(props: ScreenProps) {
       <Caption>Демонстрационная история</Caption>
       {[
         { number: '083', state: 'Готовим', date: 'Сегодня · 14:32' },
-        { number: '071', state: 'Выдан', date: 'Вчера · 18:15' },
+        { number: '12', state: 'Выдан', date: 'Вчера · 18:15' },
       ].map((order) => (
-        <Pressable
-          key={order.number}
-          accessibilityRole="button"
-          onPress={() => props.navigate('M20')}
-        >
-          <Card>
-            <Row>
-              <Heading small style={ui.flex}>
-                №{order.number}
-              </Heading>
-              <Pill>{order.state}</Pill>
-            </Row>
-            <Caption>
-              {order.date} · {props.model.branch?.name ?? 'Ресторан PickChick'}
-            </Caption>
-            <Row>
-              <Image source={assets.combo} style={s.historyImage} contentFit="cover" />
-              <View style={ui.flex}>
-                <Body>Pick Combo</Body>
-                <Caption>1 блюдо · с собой</Caption>
-              </View>
-              <Body style={{ fontFamily: font.bold }}>3 490 ₸</Body>
-            </Row>
-            <Row>
-              <Caption style={ui.flex}>Пример заказа</Caption>
-              <Icon name="chevron-forward" />
-            </Row>
-          </Card>
-        </Pressable>
+        <Card key={order.number}>
+          <Pressable accessibilityRole="button" onPress={() => props.navigate('M20')}>
+            <View style={{ gap: 12 }}>
+              <Row>
+                <Heading small style={ui.flex}>
+                  №{order.number}
+                </Heading>
+                <Pill>{order.state}</Pill>
+              </Row>
+              <Caption>
+                {order.date} · {props.model.branch?.name ?? 'Ресторан PickChick'}
+              </Caption>
+              <Row>
+                <Image
+                  source={menuPhotos[props.model.products[0]?.id ?? ''] ?? assets.combo}
+                  style={s.historyImage}
+                  contentFit="cover"
+                />
+                <View style={ui.flex}>
+                  <Body>Pick Combo</Body>
+                  <Caption>1 блюдо · с собой</Caption>
+                </View>
+                <Body style={{ fontFamily: font.bold }}>
+                  {money(previewOrder(props).snapshot.total_minor)}
+                </Body>
+              </Row>
+              <Row>
+                <Caption style={ui.flex}>Пример заказа</Caption>
+                <Icon name="chevron-forward" />
+              </Row>
+            </View>
+          </Pressable>
+          {order.state === 'Выдан' ? (
+            <RepeatOrder props={props} order={{ ...previewOrder(props), state: 'fulfilled' }} />
+          ) : null}
+        </Card>
       ))}
     </Page>
   );

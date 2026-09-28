@@ -1,3 +1,4 @@
+import { catalogCutouts } from '../catalog-cutouts';
 import { useRef, useState } from 'react';
 import {
   Platform,
@@ -309,7 +310,16 @@ export function PhotoProduct(props: Props) {
               choicesY.current = e.nativeEvent.layout.y;
             }}
           >
-            {combo ? <Text style={s.sectionTitle}>Соберите своё комбо</Text> : null}
+            {combo ? (
+              <View style={{ gap: 6 }}>
+                <Text style={s.sectionTitle}>Ваше комбо</Text>
+                <Text style={s.choiceLabel}>
+                  {groups.length
+                    ? 'Включённые позиции уже выбраны. Можно заменить каждую отдельно.'
+                    : 'Настройте состав под себя.'}
+                </Text>
+              </View>
+            ) : null}
             {otherGroups.map((group) => {
               const total = selections
                 .filter((v) => v.group_id === group.id)
@@ -419,11 +429,15 @@ export function PhotoProduct(props: Props) {
                     <OptionImage id={optionId} size={82} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <Text style={s.choiceLabel}>
-                        {group.id === 'drink' ? 'Напиток' : 'Соус'} {index + 1}
+                        {group.id === 'drink' ? 'Напиток' : 'Соус'} {index + 1} из {group.min}
                       </Text>
                       <Text style={s.choiceName}>{option?.label ?? 'Выберите'}</Text>
-                      {option && option.price_delta_minor !== '0' ? (
-                        <Text style={s.choiceLabel}>+{money(option.price_delta_minor)}</Text>
+                      {option ? (
+                        <Text style={s.choiceLabel}>
+                          {option.price_delta_minor === '0'
+                            ? 'Входит в комбо'
+                            : `Доплата +${money(option.price_delta_minor)}`}
+                        </Text>
                       ) : null}
                     </View>
                     <Text style={s.replace}>Заменить</Text>
@@ -551,7 +565,8 @@ export function PhotoProduct(props: Props) {
             <Row style={s.modalHeader}>
               <CloseButton label="Закрыть замену без сохранения" onPress={() => setPicker(null)} />
               <Text style={s.modalTitle}>
-                Заменить {picker.group.id === 'drink' ? 'напиток' : 'соус'}
+                {picker.group.id === 'drink' ? 'Напиток' : 'Соус'} {picker.index + 1} из{' '}
+                {picker.group.min}
               </Text>
             </Row>
             <ScrollView contentContainerStyle={s.grid} showsVerticalScrollIndicator={false}>
@@ -602,6 +617,24 @@ export function PhotoProduct(props: Props) {
               })}
             </ScrollView>
             <View style={[s.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              {replacement ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={{ fontFamily: font.medium, color: colors.text, textAlign: 'center' }}
+                >
+                  Комбо с выбором ·{' '}
+                  {money(
+                    (
+                      BigInt(lineUnitPrice({ product, selections: replacement })) *
+                        BigInt(quantity) +
+                      selectedCompanions.reduce(
+                        (sum, line) => sum + BigInt(lineUnitPrice(line)) * BigInt(line.quantity),
+                        0n,
+                      )
+                    ).toString(),
+                  )}
+                </Text>
+              ) : null}
               {replacementReason ? (
                 <Text accessibilityLiveRegion="polite" style={s.reason}>
                   {replacementReason}
@@ -673,7 +706,13 @@ function OptionImage({
   const s = warmStyles;
   const source = id ? (extra ? extraPhotos[id] : optionPhotos[id]) : undefined;
   return (
-    <View style={[s.optionPhoto, { width: size, height: height ?? size }]}>
+    <View
+      style={[
+        s.optionPhoto,
+        { width: size, height: height ?? size },
+        id && catalogCutouts[id] ? { backgroundColor: 'transparent' } : null,
+      ]}
+    >
       {source ? (
         <Image
           source={source}

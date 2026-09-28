@@ -19,6 +19,7 @@ import {
 } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
 import { OrderActions } from '../components/OrderActions';
+import { RepeatOrder } from '../components/RepeatOrder';
 import { OrderChef } from '../components/OrderChef';
 import { assets } from '../assets';
 import { menuPhotos } from '../menu-photo-assets';
@@ -232,6 +233,11 @@ export function OrderStatusScreen({
               />
             </View>
           )}
+          {order.state === 'fulfilled' || order.state === 'cancelled' ? (
+            <View style={s.inset}>
+              <RepeatOrder order={order} props={props} />
+            </View>
+          ) : null}
           {order.state === 'fulfilled' ? (
             <View style={s.inset}>
               <Button

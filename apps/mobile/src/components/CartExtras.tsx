@@ -8,7 +8,69 @@ import { PromotionDialog } from '../backoffice/PromotionDialog';
 import type { PublishedContent } from '../backoffice/content-model';
 import type { ScreenProps } from '../model';
 import { orderUI } from './OrderPresentation';
+import { Image } from 'expo-image';
+import { cartRecommendations } from '../cart-actions';
+import { lineUnitPrice, money, selectionDescription } from '../domain';
+import { menuPhotos } from '../menu-photo-assets';
+import { photoHeroes } from '../product-photo-assets';
 import { colors, font } from '../theme';
+
+export function CartRecommendations({ props }: { props: ScreenProps }) {
+  const recommendations = cartRecommendations(props.model.cart, props.model.products);
+  const [added, setAdded] = useState('');
+  return (
+    <View style={{ gap: 12 }}>
+      {recommendations.length ? (
+        <>
+          <Heading small style={orderUI.section}>
+            К вашему заказу
+          </Heading>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 12 }}
+            testID="cart-recommendations"
+          >
+            {recommendations.map((line) => (
+              <View key={line.product.id} style={s.extra}>
+                <Image
+                  source={
+                    menuPhotos[line.product.id] ??
+                    photoHeroes[line.product.id] ??
+                    line.product.image
+                  }
+                  contentFit="contain"
+                  style={s.extraPhoto}
+                  accessible={false}
+                />
+                <Body style={orderUI.label}>{line.product.name}</Body>
+                <Caption>{selectionDescription(line) || line.product.servingLabel}</Caption>
+                <View style={{ flex: 1 }} />
+                <Button
+                  title={`+ ${money(lineUnitPrice(line))}`}
+                  testID={`cart-recommend-${line.product.id}`}
+                  accessibilityLabel={`Добавить ${line.product.name}, ${money(lineUnitPrice(line))}`}
+                  onPress={() => {
+                    setAdded(
+                      props.model.appendCartLines([line])
+                        ? `${line.product.name} добавлен в корзину`
+                        : 'Меню или корзина изменились. Попробуйте ещё раз.',
+                    );
+                  }}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
+      {added ? (
+        <Caption accessibilityLiveRegion="polite" testID="cart-recommend-added">
+          {added}
+        </Caption>
+      ) : null}
+    </View>
+  );
+}
 
 export function CartOffers({ props }: { props: ScreenProps }) {
   const { content } = usePublishedContent(props.preview ? null : props.model.branch?.id);
@@ -176,6 +238,8 @@ export function CheckoutPayments() {
   );
 }
 const s = StyleSheet.create({
+  extra: { width: 160, padding: 12, gap: 8, borderRadius: 16, backgroundColor: colors.surface },
+  extraPhoto: { width: 136, height: 116, borderRadius: 12, backgroundColor: '#FFF8EE' },
   promotion: {
     width: 260,
     padding: 18,

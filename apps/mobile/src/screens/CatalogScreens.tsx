@@ -29,7 +29,8 @@ import {
   selectionDescription,
 } from '../domain';
 import { OrderHeader, OrderTotal, orderUI } from '../components/OrderPresentation';
-import { CartOffers, PromoCodeEntry } from '../components/CartExtras';
+import { CartOffers, CartRecommendations, PromoCodeEntry } from '../components/CartExtras';
+import { mergeCartLines } from '../cart-actions';
 import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
 import { colors, font } from '../theme';
@@ -604,6 +605,8 @@ export {
 } from './ProductConfiguration';
 export function Cart(props: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const [removed, setRemoved] = useState<CartLine[]>([]);
+  useEffect(() => setRemoved([]), [props.model.branch?.id, props.model.catalogMode]);
   const [clearSnapshot, setClearSnapshot] = useState<{ id: string; quantity: number }[] | null>(
     null,
   );
@@ -696,12 +699,47 @@ export function Cart(props: ScreenProps) {
               testID="cart-clear-confirm"
               onPress={() => {
                 if (clearSnapshot) props.model.clearCart(clearSnapshot);
+                setRemoved([]);
                 setClearSnapshot(null);
               }}
             />
           </View>
         </ScrollView>
       </MotionModal>
+      {removed.map((line) => {
+        const canRestore = !!mergeCartLines(props.model.cart, [line], props.model.products);
+        return (
+          <View
+            key={cartLineKey(line)}
+            style={{ gap: 8, paddingVertical: 12 }}
+            testID={`cart-removed-${line.product.id}`}
+          >
+            <Row style={{ alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <Body>{line.product.name} удалён</Body>
+                <Caption>
+                  {canRestore
+                    ? 'Вернём с теми же настройками'
+                    : 'Меню или лимит корзины изменились'}
+                </Caption>
+              </View>
+              <Button
+                title="Вернуть"
+                secondary
+                disabled={!canRestore}
+                testID={`cart-undo-${line.product.id}`}
+                onPress={() => {
+                  if (!mergeCartLines(props.model.cart, [line], props.model.products)) return;
+                  if (!props.model.appendCartLines([line])) return;
+                  setRemoved((previous) =>
+                    previous.filter((l) => cartLineKey(l) !== cartLineKey(line)),
+                  );
+                }}
+              />
+            </Row>
+          </View>
+        );
+      })}
       {!props.model.cart.length ? (
         <Empty
           title="Здесь пока тихо"
@@ -769,7 +807,14 @@ export function Cart(props: ScreenProps) {
                         : `Уменьшить ${line.product.name}`
                     }
                     testID={`cart-minus-${line.product.id}`}
-                    onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity - 1)}
+                    onPress={() => {
+                      if (line.quantity === 1)
+                        setRemoved((previous) => [
+                          ...previous.filter((l) => cartLineKey(l) !== cartLineKey(line)),
+                          line,
+                        ]);
+                      props.model.setQuantity(cartLineKey(line), line.quantity - 1);
+                    }}
                   />
                   <Body
                     testID={`cart-quantity-${line.product.id}`}
@@ -802,6 +847,7 @@ export function Cart(props: ScreenProps) {
             icon="arrow-back"
             onPress={() => props.navigate('M06')}
           />
+          <CartRecommendations props={props} />
           <CartOffers props={props} />
           <PromoCodeEntry />
           <View style={{ gap: 12, paddingVertical: 8 }}>
