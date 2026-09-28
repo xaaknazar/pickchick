@@ -87,12 +87,14 @@ class MobileLayout(unittest.TestCase):
             expect(page.get_by_test_id('product-add')).to_be_visible()
             for height in [844, 568]:
                 page.set_viewport_size({'width': 320, 'height': height})
-                self.fixed(page, 'product-add', 'scroll-M07', height)
+                self.fixed(page, 'product-add', 'photo-product-scroll', height)
             page.get_by_test_id('product-add').click()
+            expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+            page.get_by_test_id('open-cart').click()
             expect(page.get_by_test_id('screen-M09')).to_be_visible()
             self.fixed(page, 'cart-checkout', 'scroll-M09', 568)
-            page.get_by_role('button', name='Назад', exact=True).click()
-            page.get_by_role('button', name='Закрыть блюдо', exact=True).click()
+            page.get_by_test_id('cart-close').click()
+            expect(page.get_by_test_id('screen-M06')).to_be_visible()
             for width, height in [(320, 568), (390, 667), (390, 844), (430, 932), (844, 390)]:
                 page.set_viewport_size({'width': width, 'height': height})
                 self.fixed(page, 'tab-menu', 'scroll-M06', height, bottom_gap=0)

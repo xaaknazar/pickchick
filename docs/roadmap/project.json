@@ -1823,6 +1823,10 @@
         {
           "label": "TipTopPay: код, DNS и проверка доступа без списания - 28 сентября",
           "path": "docs/operations/payment-domain-pilot.md"
+        },
+        {
+          "label": "Действующий кабинет, паспорта и несовпадение продавца - 28 сентября",
+          "path": "docs/integrations/webkassa-live-access-2026-09-28.md"
         }
       ],
       "acceptance": [
@@ -2016,7 +2020,7 @@
       "id": "fiscal-choice",
       "workstream": "fiscal",
       "title": "Выбрать ККМ и подтвердить действующую схему",
-      "summary": "В iiko на двух кассах зарегистрирован DN.WebKassaPlugin 1.4.4. Модель/регистрация ККМ, ОФД, налоговый режим, API-права и допустимый новый адаптер ещё требуют сверки.",
+      "summary": "Webkassa 3.0 и WOFD подтверждены паспортами и действующим кабинетом. Касса №2 работает на точке 4-го микрорайона. ККМ принадлежат ИП Peak Group; владелец подтвердил продавцом mobile ИП «PICK CHICK ALA AP». API-доступ и допустимая привязка ещё не подтверждены.",
       "status": "blocked",
       "owner": "joint",
       "phase": "discovery",
@@ -2037,12 +2041,16 @@
         {
           "label": "Обследование iikoWeb 23 сентября 2026",
           "path": "docs/operations/iiko-web-audit-2026-09-23.md"
+        },
+        {
+          "label": "Действующий кабинет, паспорта и несовпадение продавца - 28 сентября",
+          "path": "docs/integrations/webkassa-live-access-2026-09-28.md"
         }
       ],
       "acceptance": [
         "Бухгалтер и поставщик подтвердили зарегистрированное решение, налоги и допустимые режимы."
       ],
-      "nextAction": "Сверить WebKassa и ОФД с бухгалтером и конфигурацией касс, получить тестовый контур.",
+      "nextAction": "Согласовать с бухгалтером и провайдерами кассу и получателя оплаты для продавца mobile; получить API/Postman/sandbox. Существующие смены не менять.",
       "checks": {
         "implemented": false,
         "verified": false,
@@ -2055,7 +2063,7 @@
       "id": "fiscal-adapter",
       "workstream": "fiscal",
       "title": "Реализовать чек, возврат и повторную печать",
-      "summary": "Выбрана действующая Webkassa точки; iikoWeb подтверждает плагин 1.4.4, но не предоставляет API-ключи. Fiscal intent есть, настоящий адаптер ждёт спецификацию, тестовую кассу и правила совместной работы с iiko.",
+      "summary": "Коммерческое ядро и очередь документов готовы; адаптер Webkassa не реализован без актуальной спецификации и sandbox. Production-вход проверен только на чтение. Предоставленные ККМ другого продавца не подключаются автоматически.",
       "status": "blocked",
       "owner": "development",
       "phase": "integration",
@@ -2080,13 +2088,17 @@
         {
           "label": "Read-only аудит Webkassa со второго Mac",
           "path": "docs/integrations/webkassa-access-audit-2026-09-28.md"
+        },
+        {
+          "label": "Действующий кабинет, паспорта и несовпадение продавца - 28 сентября",
+          "path": "docs/integrations/webkassa-live-access-2026-09-28.md"
         }
       ],
       "acceptance": [
         "AC-08/09/10: unknown ККМ не вызывает повтор оплаты или второй чек.",
         "Без бумаги повторяется печать уже выпущенного документа."
       ],
-      "nextAction": "Реализовать адаптер по выданной документации и пройти sandbox.",
+      "nextAction": "Получить комплект интегратора и кассу нужного продавца; начать с чтения реквизитов и существующего чека, затем sandbox sale/reconcile/refund.",
       "checks": {
         "implemented": false,
         "verified": false,
@@ -2150,6 +2162,10 @@
         {
           "label": "TipTopPay: код, DNS и проверка доступа без списания - 28 сентября",
           "path": "docs/operations/payment-domain-pilot.md"
+        },
+        {
+          "label": "Действующий кабинет, паспорта и несовпадение продавца - 28 сентября",
+          "path": "docs/integrations/webkassa-live-access-2026-09-28.md"
         }
       ],
       "acceptance": [
@@ -3657,6 +3673,34 @@
       "checks": {
         "implemented": true,
         "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "platform-domain-https",
+      "workstream": "platform",
+      "title": "Настроить HTTPS pickchick.kz и api.pickchick.kz",
+      "summary": "DNS PS.kz применён и подтверждён внешними resolver. Подготовлены HTTPS aliases и guarded выпуск с CAS, backup, сохранением контейнеров и rollback. Локальные проверки прошли; полная CI ещё не зелёная из-за устаревших browser-сценариев. На VPS не применено.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["platform-foundation"],
+      "evidence": [
+        {
+          "label": "Подготовка, проверки и журнал выпуска",
+          "path": "docs/operations/deployments/2026-09-28-domain.md"
+        }
+      ],
+      "acceptance": [
+        "Доверенный HTTPS всех трёх имён; прежние сервисы и доступы продолжают работать.",
+        "Полная CI точного source SHA зелёная перед выпуском.",
+        "Платежи и fiscal не включаются изменением домена."
+      ],
+      "nextAction": "Завершить browser-регрессии и полный CI, затем inspect/apply с актуальными guards; проверить TLS и исходные сервисы.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
         "deployed": false,
         "accepted": false
       }

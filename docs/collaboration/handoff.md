@@ -1,5 +1,11 @@
 # Контекст для нового компьютера
 
+Webkassa, продолжение 28 сентября: production-вход выполнен на чтение.
+Продавец mobile подтверждён как ИП «PICK CHICK ALA AP», просмотренные ККМ
+относятся к ИП Peak Group. Нельзя подменять эту привязку. Владелец вводит PIN
+программирования сам; API-KEY/Postman ещё нет. Пароли не сохранены в Git/документах.
+См. `docs/integrations/webkassa-live-access-2026-09-28.md`.
+
 ## Продолжение HTTPS - 28 сентября
 
 `codex/domain-https-rollout`: подготовлен `infra/domains/release-alias.py`.
