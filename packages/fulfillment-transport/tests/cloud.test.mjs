@@ -647,3 +647,29 @@ test('paused binding blocks new payment but preserves an existing exact retry', 
       '1',
     );
   }));
+
+test('deferred fiscal pilot still needs authenticated edge admission and actual capture to reach kitchen', () =>
+  fixture(
+    async (f) => {
+      const v = await f.reserve();
+      await f.confirm(v);
+      assert.equal((await f.pull()).event, null);
+      const paid = await f.capture(v);
+      assert.equal(paid.fiscalDocuments.length, 0);
+      const delivery = (await f.pull()).event;
+      assert.equal(delivery.command.type, 'edge.kitchen_admission_requested');
+      await f.edge.repo.acceptCloud(f.edge.scope, delivery.command);
+      await receiveFulfillment(f.pool, f.auth, (await f.events(v.orderId)).at(-1));
+      await f.ack(delivery);
+      assert.equal((await f.pull()).event, null);
+      assert.equal(
+        (
+          await f.pool.query('SELECT state FROM cloud_fulfillment_projection WHERE order_id=$1', [
+            v.orderId,
+          ])
+        ).rows[0].state,
+        'accepted',
+      );
+    },
+    { deferred: true },
+  ));

@@ -108,7 +108,7 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
          AND e.payload->>'reservationId'=o.admission_reservation_id::text
          AND NOT EXISTS(SELECT 1 FROM commerce_refunds r WHERE r.order_id=o.id AND r.state<>'failed')
          AND COALESCE((SELECT SUM(amount_minor) FROM commerce_captures c WHERE c.order_id=o.id),0)=o.total_minor
-         AND EXISTS(SELECT 1 FROM commerce_fiscal_documents f WHERE f.order_id=o.id AND f.kind='sale' AND f.state='issued')
+         AND (o.fiscal_policy='deferred_pilot' OR EXISTS(SELECT 1 FROM commerce_fiscal_documents f WHERE f.order_id=o.id AND f.kind='sale' AND f.state='issued'))
        ))
        ORDER BY e.attempts,e.sequence LIMIT 1 FOR UPDATE OF e,o SKIP LOCKED)
        UPDATE commerce_outbox e SET lease_worker=$4,lease_token=$5,lease_until=clock_timestamp()+$6*interval '1 second',attempts=attempts+1

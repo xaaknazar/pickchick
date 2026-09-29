@@ -63,7 +63,7 @@ class FakeBridge {
   }
 }
 
-async function fixture(run) {
+async function fixture(run, deferred = false) {
   const schema = 'kaspi_' + randomUUID().replaceAll('-', '');
   const admin = createPool(connection, 4);
   await admin.query(`CREATE SCHEMA ${schema}`);
@@ -112,7 +112,12 @@ async function fixture(run) {
       role: 'sales',
     };
     const edge = { organizationId: org, branchId: branch, deviceId: device };
-    const repo = new CommerceRepository(pool);
+    const repo = new CommerceRepository(
+      pool,
+      deferred
+        ? { organizationId: org, branchId: branch, approvalReference: 'Synthetic approved pilot' }
+        : undefined,
+    );
     const phones = new Map();
     let clock = Date.now();
     const bridge = new FakeBridge();
@@ -159,10 +164,12 @@ async function fixture(run) {
           },
         ],
       });
-      const created = await repo.createOrder(scope, randomUUID(), {
-        quoteId: quote.quoteId,
-        fiscalAccountId: fiscal,
-      });
+      const created = deferred
+        ? await repo.createDeferredFiscalOrder(scope, randomUUID(), quote.quoteId)
+        : await repo.createOrder(scope, randomUUID(), {
+            quoteId: quote.quoteId,
+            fiscalAccountId: fiscal,
+          });
       await repo.confirmAdmission(edge, {
         eventId: randomUUID(),
         orderId: created.orderId,
@@ -663,4 +670,57 @@ test('session eviction pauses new invoices until the worker is restarted', () =>
     f.bridge.create = null;
     assert.equal((await f.processor().tick()).submitted, 1);
     assert.equal(f.bridge.count('create'), 2);
+  }));
+
+test('explicit deferred pilot: trusted capture admits once, without a fictional fiscal document', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    assert.equal((await f.view(orderId)).kitchenEffectId, null);
+    const worker = f.processor();
+    await worker.tick();
+    const invoice = await f.invoice(attempt.attemptId);
+    f.bridge.status.set(invoice.operation_id, 'Processed');
+    await f.due();
+    await worker.tick();
+    await f.due();
+    await worker.tick();
+    const paid = await f.view(orderId);
+    assert.equal(paid.fiscalPolicy, 'deferred_pilot');
+    assert.equal(paid.captures.length, 1);
+    assert.equal(paid.fiscalDocuments.length, 0);
+    assert.ok(paid.kitchenEffectId);
+    assert.equal(f.bridge.count('create'), 1);
+    assert.equal(
+      (
+        await f.pool.query(
+          "SELECT count(*)::int count FROM commerce_outbox WHERE order_id=$1 AND event_type='edge.kitchen_admission_requested'",
+          [orderId],
+        )
+      ).rows[0].count,
+      1,
+    );
+    await assert.rejects(
+      f.pool.query("UPDATE commerce_orders SET fiscal_deferral_reference='changed' WHERE id=$1", [
+        orderId,
+      ]),
+      /Fiscal policy cannot change/,
+    );
+    await assert.rejects(
+      new CommerceRepository(f.pool).createDeferredFiscalOrder(f.scope, randomUUID(), randomUUID()),
+      /FORBIDDEN/,
+    );
+  }, true));
+
+test('ordinary Kaspi orders still wait for a real fiscal receipt before kitchen admission', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    const worker = f.processor();
+    await worker.tick();
+    f.bridge.status.set((await f.invoice(attempt.attemptId)).operation_id, 'Processed');
+    await f.due();
+    await worker.tick();
+    const paid = await f.view(orderId);
+    assert.equal(paid.fiscalPolicy, 'required');
+    assert.equal(paid.fiscalDocuments.length, 1);
+    assert.equal(paid.kitchenEffectId, null);
   }));

@@ -423,3 +423,5 @@ export type CashShift = z.infer<typeof CashShiftSchema>;
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);
 
 export * from './fulfillment.js';
+
+export * from './customer-commerce.js';

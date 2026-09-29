@@ -1880,7 +1880,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "Присланный отключённый kaspi-remote адаптер проверен и исправлен: доставка ledger после сбоя, сумма банка, lease/отмена, исходный TTL, проверка сессии. 22 Kaspi PostgreSQL-сценария прошли локально с FakeBridge; реальный счёт, commercial mobile API/экран и Webkassa ещё не выполнены.",
+      "summary": "Реализован отключённый по умолчанию customer checkout: серверная цена, восстановление заказа, Kaspi UI, long poll, явный deferred fiscal pilot. Локально 48 commerce + 15 transport сценариев и UI 320/393/768. Реальный денежный прогон и выкладка checkout ещё не выполнены.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1911,9 +1911,9 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Мост установлен на VPS из 5dd66c5 после полной CI 36604951618; банк подтвердил сессию до/после рестарта. Единственная точка Abay Plaza подтверждена владельцем, Webkassa отложена. Первый счёт 100 ₸ разрешён, но НЕ выставлен. API VPS schema020: accounts/identity/commercial orders/catalog publications=0, ordering=false. Дальше: guarded commercial checkout/ledger, явный пилот без чека. Подтверждение: infra/payments/kaspi-bridge/vps-installation-2026-09-29.md. Вся mobile-интеграция ещё не принята.",
+      "nextAction": "Guarded schema020→027/API/worker grants, публикация коммерческого меню, identity владельца и штатный edge transport. Затем один согласованный счёт 100 ₸ через ledger. Мост на VPS активен; checkout ещё не установлен. Webkassa отложена; обычная фискальная защита сохранена.",
       "checks": {
-        "implemented": false,
+        "implemented": true,
         "verified": false,
         "deployed": false,
         "accepted": false

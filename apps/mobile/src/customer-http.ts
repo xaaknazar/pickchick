@@ -5,6 +5,7 @@ import { ErrorSchema } from '@pickchick/contracts';
 export function createCustomerRequest(
   baseUrl: string,
   fetcher: typeof fetch = fetch,
+  boundary?: { allowed: RegExp; timeoutMs: number; maxBytes: number; signal?: AbortSignal },
 ): CustomerRequest {
   const url = new URL(baseUrl);
   if (
@@ -16,11 +17,16 @@ export function createCustomerRequest(
     url.pathname !== '/'
   )
     throw new CustomerSessionError('INVALID_API_URL');
-  const allowed = /^\/v1\/(auth\/(config|otp\/request|otp\/verify|refresh|logout)|customers\/me)$/;
+  const allowed =
+    boundary?.allowed ??
+    /^\/v1\/(auth\/(config|otp\/request|otp\/verify|refresh|logout)|customers\/me)$/;
   return async (path, method, body, accessToken) => {
     if (!allowed.test(path)) throw new CustomerSessionError('INVALID_API_PATH');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const abort = () => controller.abort();
+    boundary?.signal?.addEventListener('abort', abort, { once: true });
+    if (boundary?.signal?.aborted) abort();
+    const timeout = setTimeout(() => controller.abort(), boundary?.timeoutMs ?? 10000);
     try {
       const response = await fetcher(`${url.origin}${path}`, {
         method,
@@ -37,7 +43,7 @@ export function createCustomerRequest(
       });
       if (
         !response.headers.get('content-type')?.includes('application/json') ||
-        Number(response.headers.get('content-length') ?? 0) > 16000
+        Number(response.headers.get('content-length') ?? 0) > (boundary?.maxBytes ?? 16000)
       )
         throw new CustomerSessionError('INVALID_RESPONSE');
       if (!response.body?.getReader) throw new CustomerSessionError('INVALID_RESPONSE');
@@ -49,7 +55,7 @@ export function createCustomerRequest(
           const next = await reader.read();
           if (next.done) break;
           size += next.value.byteLength;
-          if (size > 16000) {
+          if (size > (boundary?.maxBytes ?? 16000)) {
             controller.abort();
             void reader.cancel().catch(() => undefined);
             throw new CustomerSessionError('INVALID_RESPONSE');
@@ -84,6 +90,7 @@ export function createCustomerRequest(
       throw new CustomerSessionError('NETWORK_UNAVAILABLE');
     } finally {
       clearTimeout(timeout);
+      boundary?.signal?.removeEventListener('abort', abort);
     }
   };
 }

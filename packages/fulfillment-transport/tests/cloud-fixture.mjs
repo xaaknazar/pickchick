@@ -34,7 +34,7 @@ export const eventOf = (row) => ({
   type: row.event_type,
   payload: row.payload,
 });
-export function fixture(run, { bind = true } = {}) {
+export function fixture(run, { bind = true, deferred = false } = {}) {
   return edgeFixture(async (edge) => {
     const schema = 'transport_cloud_' + randomUUID().replaceAll('-', ''),
       admin = createPool(connection, 2);
@@ -84,7 +84,12 @@ export function fixture(run, { bind = true } = {}) {
           "INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,legal_entity_id,kind,provider,external_reference,enabled) VALUES($1,$2,$3,$4,$5,'synthetic-test',$6,true)",
           [id, org, branch, legal, kind, id],
         );
-      const commerce = new CommerceRepository(pool),
+      const commerce = new CommerceRepository(
+          pool,
+          deferred
+            ? { organizationId: org, branchId: branch, approvalReference: 'Synthetic pilot' }
+            : undefined,
+        ),
         scope = { organizationId: org, branchId: branch, principalId: randomUUID(), role: 'sales' },
         manager = { ...scope, role: 'manager' };
       const workerId = randomUUID();
@@ -123,10 +128,12 @@ export function fixture(run, { bind = true } = {}) {
             },
           ],
         });
-        const order = await commerce.createOrder(scope, randomUUID(), {
-          quoteId: quote.quoteId,
-          fiscalAccountId: fiscal,
-        });
+        const order = deferred
+          ? await commerce.createDeferredFiscalOrder(scope, randomUUID(), quote.quoteId)
+          : await commerce.createOrder(scope, randomUUID(), {
+              quoteId: quote.quoteId,
+              fiscalAccountId: fiscal,
+            });
         return { ...order, quote };
       }
       async function reserve() {

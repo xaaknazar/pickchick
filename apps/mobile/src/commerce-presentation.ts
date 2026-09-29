@@ -1,0 +1,75 @@
+import type { CustomerCommerceOrder } from '@pickchick/contracts';
+export const paymentCopy: Record<
+  CustomerCommerceOrder['phase'],
+  { title: string; detail: string; step: number }
+> = {
+  awaiting_restaurant: {
+    title: 'Связываемся с рестораном',
+    detail: 'Проверяем, что кухня может принять заказ. Счёт ещё не выставлен.',
+    step: 0,
+  },
+  ready_to_pay: {
+    title: 'Ресторан принял заказ',
+    detail: 'Можно отправить счёт в Kaspi. Сумма заказа уже зафиксирована.',
+    step: 0,
+  },
+  sending: {
+    title: 'Отправляем счёт',
+    detail: 'Подождите немного. Можно закрыть этот экран - заказ сохранён.',
+    step: 1,
+  },
+  awaiting_payment: {
+    title: 'Счёт отправлен в Kaspi',
+    detail: 'Откройте Kaspi.kz и оплатите счёт от PickChick. После оплаты вернитесь сюда.',
+    step: 1,
+  },
+  checking: {
+    title: 'Уточняем оплату',
+    detail: 'Ответ банка задерживается. Не оплачивайте повторно - проверим этот же счёт.',
+    step: 1,
+  },
+  failed: {
+    title: 'Счёт не оплачен',
+    detail:
+      'Банк завершил эту попытку без оплаты. Корзина сохранена. Если деньги списались, обратитесь в ресторан.',
+    step: 1,
+  },
+  paid: {
+    title: 'Оплата получена',
+    detail: 'Передаём заказ кухне. Статус изменится, когда ресторан подтвердит приготовление.',
+    step: 2,
+  },
+  preparing: {
+    title: 'Готовим для вас',
+    detail: 'Кухня приняла заказ. Сообщим здесь, когда можно будет забрать.',
+    step: 2,
+  },
+  ready: {
+    title: 'Заказ готов',
+    detail: 'Подойдите к выдаче и назовите номер заказа. Приятного аппетита!',
+    step: 3,
+  },
+  handed_over: {
+    title: 'Заказ у вас',
+    detail: 'Спасибо, что выбрали PickChick. Будем ждать снова!',
+    step: 3,
+  },
+  attention: {
+    title: 'Проверяем заказ',
+    detail: 'Нужна проверка ресторана. Заказ и платёж сохранены, повторно оплачивать не нужно.',
+    step: 1,
+  },
+};
+export const paymentReceived = (phase: CustomerCommerceOrder['phase']) =>
+  ['paid', 'preparing', 'ready', 'handed_over'].includes(phase);
+export function checkoutError(error: unknown) {
+  const code = error instanceof Error ? error.message : '';
+  if (code === 'CHECKOUT_STORAGE')
+    return 'Не удалось сохранить оформление на устройстве. Счёт не отправлен. Освободите место и попробуйте снова.';
+  if (['CONFLICT', 'QUOTE_EXPIRED'].includes(code))
+    return 'Меню или цена изменились. Вернитесь в корзину и проверьте заказ.';
+  if (['NOT_READY', 'FORBIDDEN'].includes(code))
+    return 'Оплата Kaspi пока недоступна для этого заказа. Корзина сохранена.';
+  if (code === 'UNAUTHORIZED') return 'Войдите в аккаунт снова, чтобы продолжить свой заказ.';
+  return 'Связь прервалась. Заказ сохранён - повторно оплачивать не нужно.';
+}

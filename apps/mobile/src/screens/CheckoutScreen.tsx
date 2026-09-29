@@ -28,12 +28,14 @@ export function CheckoutDetails({
   restaurantName,
   address,
   details,
+  paymentContent,
 }: {
   props: ScreenProps;
   lockedMode?: 'takeaway' | 'dine_in';
   restaurantName?: string;
   address?: string;
   details?: ReactNode;
+  paymentContent?: ReactNode;
 }) {
   const { model } = props;
   const location = restaurantLocation(model.branch?.id);
@@ -119,7 +121,7 @@ export function CheckoutDetails({
           </Row>
         ) : null}
       </View>
-      <CheckoutPayments />
+      {paymentContent ?? <CheckoutPayments />}
       <View style={s.section}>
         <Heading small style={orderUI.section}>
           Детали

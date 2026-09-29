@@ -34,7 +34,8 @@ interface OrderRow {
   principal_id: string;
   customer_id: string | null;
   quote_id: string;
-  fiscal_account_id: string;
+  fiscal_account_id: string | null;
+  fiscal_policy: 'required' | 'deferred_pilot';
   snapshot: Record<string, unknown>;
   total_minor: string;
   currency: string;
@@ -168,6 +169,8 @@ async function fiscalDocument(
   operationId: string,
   amount: string,
 ) {
+  // Deferred pilots record real money, but never manufacture a fiscal receipt.
+  if (row.fiscal_policy === 'deferred_pilot') return;
   const sale =
     kind === 'refund'
       ? (
@@ -256,7 +259,7 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
   }
   if (
     captured === total &&
-    saleIssued &&
+    (saleIssued || row.fiscal_policy === 'deferred_pilot') &&
     row.admission_reservation_id &&
     !row.attention_required &&
     BigInt(money.refunded) === 0n &&
@@ -305,7 +308,34 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
 }
 
 export class CommerceRepository {
-  constructor(private readonly pool: DatabasePool) {}
+  constructor(
+    private readonly pool: DatabasePool,
+    private readonly fiscalPilot?: {
+      organizationId: string;
+      branchId: string;
+      approvalReference: string;
+    },
+  ) {}
+
+  /** Server-only opt-in. No client parameter can turn fiscalization off. */
+  async createDeferredFiscalOrder(scope: CommerceScope, key: string, quoteId: string) {
+    const policy = this.fiscalPilot;
+    if (
+      !policy ||
+      policy.organizationId !== scope.organizationId ||
+      policy.branchId !== scope.branchId ||
+      policy.approvalReference.trim().length < 3 ||
+      policy.approvalReference.length > 250
+    )
+      throw new CommerceError('FORBIDDEN');
+    parse(UUIDSchema, quoteId);
+    return this.createOrderWithPolicy(
+      scope,
+      key,
+      { quoteId, fiscalAccountId: null },
+      policy.approvalReference,
+    );
+  }
 
   private async command<T>(
     scopeInput: CommerceScope,
@@ -473,8 +503,17 @@ export class CommerceRepository {
     });
   }
   async createOrder(scope: CommerceScope, key: string, input: unknown) {
-    const request = parse(CreateOrderSchema, input);
-    return this.command(scope, key, 'order', request, async (client, actor) => {
+    return this.createOrderWithPolicy(scope, key, parse(CreateOrderSchema, input), null);
+  }
+  private async createOrderWithPolicy(
+    scope: CommerceScope,
+    key: string,
+    request: { quoteId: string; fiscalAccountId: string | null },
+    deferral: string | null,
+  ) {
+    // Preserve the pre-pilot command hash for replay of existing fiscal orders.
+    const commandInput = deferral ? { ...request, deferral } : request;
+    return this.command(scope, key, 'order', commandInput, async (client, actor) => {
       // Quotes are immutable. Serialize consumption without granting UPDATE
       // merely to SELECT FOR UPDATE an immutable financial snapshot.
       await lock(client, ['consume-quote', request.quoteId]);
@@ -501,17 +540,37 @@ export class CommerceRepository {
         return { orderId: old.id, quoteId: old.quote_id };
       }
       if (!quote.valid) throw new CommerceError('EXPIRED');
-      await account(
-        client,
-        actor,
-        request.fiscalAccountId,
-        'fiscal',
-        true,
-        quote.snapshot.legalEntityId,
-      );
+      if (deferral) {
+        // First live pilot is explicitly limited to one order per admitted customer.
+        // Serialize inside this transaction so two different quotes cannot race it.
+        await lock(client, [
+          'pilot-budget',
+          actor.organizationId,
+          actor.branchId,
+          actor.principalId,
+        ]);
+        if (
+          (
+            await client.query(
+              "SELECT 1 FROM commerce_orders WHERE organization_id=$1 AND branch_id=$2 AND principal_id=$3 AND fiscal_policy='deferred_pilot' LIMIT 1",
+              [actor.organizationId, actor.branchId, actor.principalId],
+            )
+          ).rowCount
+        )
+          throw new CommerceError('NOT_READY');
+      }
+      if (request.fiscalAccountId)
+        await account(
+          client,
+          actor,
+          request.fiscalAccountId,
+          'fiscal',
+          true,
+          quote.snapshot.legalEntityId,
+        );
       const id = randomUUID();
       await client.query(
-        `INSERT INTO commerce_orders(id,organization_id,branch_id,principal_id,customer_id,quote_id,fiscal_account_id,snapshot,total_minor,currency,quote_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        `INSERT INTO commerce_orders(id,organization_id,branch_id,principal_id,customer_id,quote_id,fiscal_account_id,snapshot,total_minor,currency,quote_digest,fiscal_policy,fiscal_deferral_reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
         [
           id,
           actor.organizationId,
@@ -524,6 +583,8 @@ export class CommerceRepository {
           quote.total_minor,
           quote.currency,
           quote.digest,
+          deferral ? 'deferred_pilot' : 'required',
+          deferral,
         ],
       );
       await client.query(
@@ -1269,6 +1330,7 @@ export class CommerceRepository {
         snapshot: row.snapshot,
         attentionRequired: row.attention_required,
         kitchenEffectId: row.kitchen_effect_id,
+        fiscalPolicy: row.fiscal_policy,
         money: await totals(client, id),
         attempts: (
           await client.query<AttemptRow>(

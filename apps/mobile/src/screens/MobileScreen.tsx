@@ -1,3 +1,5 @@
+import { kaspiCheckoutEnabled } from '../commerce-checkout';
+import { KaspiCheckoutScreen } from './KaspiCheckoutScreen';
 import { OrderStatusPreview } from './OrderStatusPreview';
 import { ConnectedFeedback } from './ConnectedFeedback';
 import { connectedTestOrdersEnabled } from '../order-simulator';
@@ -57,6 +59,12 @@ export function MobileScreen(props: ScreenProps) {
 function ScreenContent(props: ScreenProps) {
   if (props.preview && ['M17', 'M18', 'M20'].includes(props.screenId))
     return <OrderStatusPreview {...props} />;
+  if (
+    !props.preview &&
+    kaspiCheckoutEnabled &&
+    ['M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20', 'M21'].includes(props.screenId)
+  )
+    return <KaspiCheckoutScreen {...props} key={props.screenId} />;
   if (!props.preview && connectedTestOrdersEnabled) {
     if (['M31', 'M35'].includes(props.screenId) && props.model.testFlow.current)
       return (

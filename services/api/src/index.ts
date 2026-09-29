@@ -1,3 +1,4 @@
+import { CustomerCheckoutController } from './customer-checkout-controller.js';
 import type { IncomingMessage } from 'node:http';
 import { TipTopPayController } from './tiptoppay-controller.js';
 import { KaspiRemoteController } from './kaspi-remote-controller.js';
@@ -161,6 +162,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       BranchesController,
       MenuSyncController,
       CustomerAuthController,
+      CustomerCheckoutController,
       CatalogAdminController,
       BackofficeController,
       BackofficeContentController,

@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath, URLSearchParams } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { fixtureMenu } from '@pickchick/test-fixtures';
-import { CommerceRepository, digest } from '../dist/index.js';
+import { CommerceRepository, CustomerCheckout, digest } from '../dist/index.js';
 import { publishCatalog } from './catalog-fixture.mjs';
 
 // Only disposable schemas in explicitly local development PostgreSQL. Never
@@ -1118,3 +1118,94 @@ test('TipTopPay signed callbacks commit one capture and one fiscal document unde
     { customerId: customer, paymentProvider: 'tiptoppay', publicId: 'pk_synthetic' },
   );
 });
+
+test('customer checkout uses published prices, enforces ownership, and recovers the same order', () =>
+  fixture(
+    async (f) => {
+      await publishCatalog(f);
+      await f.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+      );
+      const customer = f.scope.principalId;
+      const otherCustomer = randomUUID();
+      const service = new CustomerCheckout(f.pool, {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [customer, otherCustomer],
+        maxOrderMinor: '1000000',
+        approvalReference: 'Synthetic approved pilot',
+      });
+      assert.equal((await service.config(customer)).enabled, true);
+      const quote = await service.quote(customer, {
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'dine_in',
+        items: [
+          {
+            productId: 'burger',
+            quantity: 1,
+            selections: [{ group_id: 'extra', option_id: 'sauce', quantity: 1 }],
+          },
+        ],
+      });
+      assert.equal(quote.totalMinor, '11000');
+      const capped = new CustomerCheckout(f.pool, {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [customer, otherCustomer],
+        maxOrderMinor: '10000',
+        approvalReference: 'Synthetic approved pilot',
+      });
+      await assert.rejects(
+        capped.quote(customer, {
+          key: randomUUID(),
+          branchId: f.scope.branchId,
+          serviceMode: 'takeaway',
+          items: [{ productId: 'burger', quantity: 2, selections: [] }],
+        }),
+        /NOT_READY/,
+      );
+      const request = { key: randomUUID(), quoteId: quote.quoteId };
+      await assert.rejects(capped.create(customer, request), /NOT_READY/);
+      const [a, b] = await Promise.all([
+        service.create(customer, request),
+        service.create(customer, request),
+      ]);
+      assert.equal(a.orderId, b.orderId);
+      assert.equal(a.phase, 'awaiting_restaurant');
+      assert.equal(a.receipt, 'deferred');
+      assert.deepEqual(a.items[0].modifiers, ['Synthetic sauce']);
+      await assert.rejects(service.read(randomUUID(), a.orderId), /FORBIDDEN/);
+      await assert.rejects(service.read(otherCustomer, a.orderId), /NOT_FOUND/);
+      assert.equal((await service.list(otherCustomer)).orders.length, 0);
+      await assert.rejects(service.pay(customer, a.orderId), /NOT_READY/);
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      assert.equal((await service.list(customer)).orders.length, 1);
+      const otherQuote = await service.quote(customer, {
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'takeaway',
+        items: [{ productId: 'burger', quantity: 1, selections: [] }],
+      });
+      await assert.rejects(
+        service.create(customer, { key: randomUUID(), quoteId: otherQuote.quoteId }),
+        /NOT_READY/,
+      );
+      const forged = {
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'dine_in',
+        items: [{ productId: 'burger', quantity: 1, selections: [] }],
+        totalMinor: '100',
+      };
+      await assert.rejects(service.quote(customer, forged), /INVALID/);
+      await assert.rejects(
+        service.quote(customer, { ...forged, totalMinor: undefined }),
+        /INVALID/,
+      );
+      const disabled = new CustomerCheckout(f.pool, null);
+      await assert.rejects(disabled.config(customer), /FORBIDDEN/);
+    },
+    { paymentProvider: 'kaspi-remote' },
+  ));
