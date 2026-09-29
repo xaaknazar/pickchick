@@ -1065,11 +1065,11 @@
         ".github/workflows/ci.yml",
         "@mobile/metro"
       ],
-      "status": "active",
-      "head": "347fac6db1f639e160fc8ad84aa467f429f4de64",
-      "updatedAt": "2026-09-29T18:51:47.449Z",
-      "summary": "347fac6: customer Kaspi checkout, mobile UI, deferred fiscal pilot; pnpm check, commerce48, transport15, mobile215+30, browser320/393/768 passed; CI pending; real invoice not sent",
-      "nextAction": "Monoblock is off. Next: review full CI and guarded VPS schema020→027/API/grants, published commercial catalog and authenticated owner, real edge transport, then one approved 100 KZT invoice. Do not enable public checkout or fake fiscal receipt."
+      "status": "available",
+      "head": "369c0f9f00052ff14180c3e134e7fa0f4c28d28e",
+      "updatedAt": "2026-09-29T18:55:57.285Z",
+      "summary": "369c0f9: LAN Metro with Kaspi UI and server auth running; iOS bundle HTTP200; device launch blocked by locked iPhone; API checkout404; no bank invoice",
+      "nextAction": "Unlock iPhone and open PickChick Dev on current LAN. Next guarded API/schema/catalog/edge setup; cashier off. Online roadmap publication pending."
     }
   ]
 }
