@@ -1048,11 +1048,22 @@
         "docs/collaboration/handoff.md",
         "docs/architecture/adr/0012-kaspi-remote-bridge.md",
         "@vps",
-        "tests/payments/kaspi-remote.test.mjs"
+        "tests/payments/kaspi-remote.test.mjs",
+        "packages/commerce-core",
+        "packages/contracts",
+        "packages/customer-identity",
+        "services/api",
+        "apps/mobile",
+        "tests/payments",
+        "tests/mobile",
+        "db/cloud/migrations",
+        "infra/payments",
+        "infra/staging",
+        "docs/operations/mobile-payment-design.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "5a9ed7110d682a45c7f74c48f1bfbf7be0fa11f1",
-      "updatedAt": "2026-09-29T18:04:23.981Z",
+      "updatedAt": "2026-09-29T18:07:36.731Z",
       "summary": "VPS bridge deployed from 5dd66c5 after 6/6 Foundation CI; bank session active before/after restart. No invoices, no DB/API changes. Docs checkpoint 5a9ed71; roadmap tests 7/7. Final docs CI and online roadmap publication pending.",
       "nextAction": "Continue commercial order/payment linkage with explicit deferred fiscal pilot. Owner approved first 100 KZT invoice to own verified number, not sent. VPS schema020: no provider accounts, identities, commercial catalog publications or transport bindings; do not activate worker against old schema. See installation evidence."
     }
