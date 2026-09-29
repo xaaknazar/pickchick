@@ -1029,11 +1029,11 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "active",
-      "head": "8761d705ddc52739d86d56d1177345bf45b03fa4",
-      "updatedAt": "2026-09-29T13:37:00.585Z",
-      "summary": "Регистрация кассира завершена; повтор снова вернул KPEnterLoginPassword. Коммит 8761d70; 7 roadmap tests passed; сессии и счетов нет, локальный мост остановлен.",
-      "nextAction": "Проверить поддержку парольного входа или отдельный адаптер; пароль пока не собирать. Онлайн-пульт не обновлён."
+      "status": "available",
+      "head": "d752c65b94fdb3b4ce88126d84fcf1eaba17759e",
+      "updatedAt": "2026-09-29T13:44:16.678Z",
+      "summary": "d752c65 / PR134: GitHub-мост получил парольный шаг; реальный пароль и SMS приняты, далее UniversalKaspiIdTakePhoto. Сессии/счетов нет. 18 unit, 7 roadmap, fake-bank HTTP, lint/format прошли. Мост остановлен; password/OTP очищены. VPS/онлайн-пульт не обновлены; полная CI ожидается.",
+      "nextAction": "Нужен штатный нативный Kaspi ID для этого входа; не повторять регистрацию/пароль без основания. Далее merchant, commercial mobile checkout, Webkassa и guarded deployment. Аудит docs/operations/kaspi-bridge-audit-2026-09-29.md."
     }
   ]
 }
