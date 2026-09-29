@@ -1,4 +1,15 @@
-# Продолжение: Kaspi GitHub bridge
+# Продолжение: перенос Kaspi на VPS
+
+Текущая задача kaspi-payment-pilot, ветка codex/kaspi-payment-pilot.
+Владелец подтвердил единственную точку Abay Plaza, Webkassa отложена.
+Подготовлен изолированный Docker bridge: infra/payments/kaspi-bridge/README.md.
+21 unit/HTTP проверка passed, контекст не содержит приватных файлов. Установка
+и банковская проверка на VPS пока не выполнены; API VPS остаётся 4ee0b80.
+Следующее: полная CI точного SHA, штатный @vps lock, перенос комплекта
+ключей/сессии, контейнерная проверка и перезапуск. Не включать worker на старой
+схеме. Затем commercial checkout + явный пилот без чека; не fake fiscal provider.
+
+## Предыдущий этап: Kaspi GitHub bridge
 
 Актуально: вход НОВОГО кассира успешно завершён через SMS без пароля/лица.
 Банк: finished, isCashier=true, ИП PICK CHICK ALA AP; active=true до и после

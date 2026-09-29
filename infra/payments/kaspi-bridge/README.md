@@ -23,7 +23,42 @@
 - `kaspi-check.mjs` - только проверка сессии, без создания счетов.
 - `pickchick-kaspi-*.service` - шаблоны systemd.
 
-29 сентября пароль и SMS реально приняты банком. Следующий экран -
-`UniversalKaspiIdTakePhoto`: сессия ещё не получена. Подробности и источники:
+29 сентября вход нового кассира завершён через SMS: банк подтвердил роль,
+ИП PICK CHICK ALA AP и активную сессию до/после перезапуска. Единственную
+точку Abay Plaza подтвердил владелец. Подробности и источники:
 [аудит](../../../docs/operations/kaspi-bridge-audit-2026-09-29.md).
 Обновление не включает оплаты на VPS или в мобильной корзине.
+
+## Контейнер для VPS без установленного Node.js
+
+`prepare-container.mjs UPSTREAM_CHECKOUT NEW_DIRECTORY` собирает контекст из
+закреплённого Git commit upstream и двух проверенных патчей. Незаписанные в Git
+файлы исходного checkout (в том числе секреты устройства) не копируются.
+`manifest.json` содержит хеши файлов. `Dockerfile` использует Node 24.16.0 по
+digest; npm lifecycle scripts выключены. Build context не содержит сессию.
+
+`container.compose.yaml` запускает только мост: без worker, доступа к БД,
+публичных портов, UI, автоматического входа и запросов счетов. Четыре файла
+`bridge.env`, `session.env`, `keypair.json`, `device.json` передаются защищённым
+каналом в отдельный каталог 0700, сами файлы 0600, владелец 1000:1000. Сохранять
+именно комплект успешного входа, не генерировать ключи заново. Данные монтируются
+read-only, отсутствующие файлы не создаются Docker как каталоги. `BRIDGE_POLLING=off`.
+
+Перед установкой: свежие refs, claim `@vps`, чистый опубликованный SHA,
+успешные все шесть Foundation CI jobs для этого SHA, штатный
+`/opt/pickchick-staging/.market-release.lock` с owner.json. При неопределённом
+результате SSH lock сохраняется. Не менять API, БД, gateway или другие контейнеры.
+После сборки: сверить label SHA, mounts, loopback и отсутствие published ports;
+проверить `/health`, затем один read-only запрос `session-check.mjs`, перезапуск
+и повторную проверку. Проверка запускается так:
+
+```sh
+docker exec pickchick-kaspi-bridge node --env-file=/run/kaspi/session.env session-check.mjs
+```
+
+В stdout только active/reason/invoiceAttempted, ответ банка не выводится.
+Healthcheck проверяет процесс локально, не опрашивает банк каждые 30 секунд.
+Для остановки использовать compose stop только этого release. Файлы ключей
+и сессии сохраняются. Запуск будущего worker возможен в network namespace
+моста (`network_mode: service:bridge`), после отдельной миграции/проверки ledger;
+нельзя подменять loopback публичным адресом.

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import '../../infra/payments/kaspi-bridge/container.test.mjs';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
