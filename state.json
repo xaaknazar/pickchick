@@ -1029,11 +1029,11 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "active",
-      "head": "d752c65b94fdb3b4ce88126d84fcf1eaba17759e",
-      "updatedAt": "2026-09-29T14:26:17.576Z",
-      "summary": "d752c65 / PR134: GitHub-мост получил парольный шаг; реальный пароль и SMS приняты, далее UniversalKaspiIdTakePhoto. Сессии/счетов нет. 18 unit, 7 roadmap, fake-bank HTTP, lint/format прошли. Мост остановлен; password/OTP очищены. VPS/онлайн-пульт не обновлены; полная CI ожидается.",
-      "nextAction": "Нужен штатный нативный Kaspi ID для этого входа; не повторять регистрацию/пароль без основания. Далее merchant, commercial mobile checkout, Webkassa и guarded deployment. Аудит docs/operations/kaspi-bridge-audit-2026-09-29.md."
+      "status": "available",
+      "head": "2cb25a6d6a3d8fc702af5440c49d4ff69b0a8e57",
+      "updatedAt": "2026-09-29T14:29:33.260Z",
+      "summary": "2cb25a6 / PR135: documentation research only; official cashier phone, 81 fork auth routes (8 variants), Kaspi ID unsupported. 7 roadmap tests and diff/format passed. No new bank requests; VPS/online roadmap not updated; release CI unconfirmed.",
+      "nextAction": "Obtain supported handling of UniversalKaspiIdTakePhoto; anonymized upstream question prepared, not sent. No evidence to change cashier phone or auth flags. Continue commercial checkout/Webkassa after verified session."
     }
   ]
 }
