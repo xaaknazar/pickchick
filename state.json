@@ -988,9 +988,11 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md"
       ],
-      "status": "active",
-      "head": "e71ef81e4e3336e2828c25bb78840d146889d518",
-      "updatedAt": "2026-09-29T06:52:11.619Z"
+      "status": "done",
+      "head": "ea5816ded124f2ed63159226d411c40b4f30a97e",
+      "updatedAt": "2026-09-29T07:09:23.323Z",
+      "summary": "PR131, ea5816ded124f2ed63159226d411c40b4f30a97e опубликован и включён в общий срез. Проверен архив e71ef81, исправлены terminal delivery, сумма банка, lease/отмена/TTL/session. Локальный pnpm check, 45 PostgreSQL (22 Kaspi), 8 unit+1HTTP Kaspi, 4 release guards, 7 roadmap прошли. Мост/Kaspi не вызывались. Foundation CI36534883997 ещё выполняется; база CI36404546441 красная browser recovery. VPS/online-roadmap не обновлены.",
+      "nextAction": "Владелец создаёт отдельного кассира Kaspi Pay; далее commercial mobile endpoints/экран счёта, Webkassa и соответствие merchant/ККМ продавцу PICK CHICK ALA AP. Оба ИП свои, бизнес перешёл с Peak Group. Никаких реальных счетов до готовности пути ledger/чека. Дождаться CI, устранить browser regressions, готовить отдельный guarded release migration026."
     }
   ]
 }
