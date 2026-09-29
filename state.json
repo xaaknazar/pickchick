@@ -1024,11 +1024,12 @@
         "docs/roadmap/project.json",
         "infra/payments/kaspi-bridge",
         "@vps",
-        "apps/mobile/src/ScreenHost.tsx"
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/components/AccountGate.tsx"
       ],
       "status": "active",
       "head": "b1c1166b4d8c90ce35b633f13725b26c258e4225",
-      "updatedAt": "2026-09-29T12:16:12.897Z"
+      "updatedAt": "2026-09-29T12:20:26.048Z"
     }
   ]
 }
