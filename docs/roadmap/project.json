@@ -1911,7 +1911,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "GitHub-мост tapter-dev сохранён по решению владельца. Парольный шаг добавлен и реально пройден вместе с SMS; следующий шаг банка UniversalKaspiIdTakePhoto требует нативного Kaspi ID. Сессии/счетов нет. 18 unit и HTTP fake-bank проверки патчей прошли; см. docs/operations/kaspi-bridge-audit-2026-09-29.md. VPS и онлайн-пульт не обновлены. Далее штатное подтверждение личности, merchant/ККМ, commercial checkout, Webkassa; не повторять регистрацию без новых фактов. Повторная сверка 81 auth-маршрута не нашла Kaspi ID; номер кассира соответствует документации. Причина дополнительной проверки неизвестна; получить подтверждённый сценарий вместо смены номера/флагов наугад. Обезличенный запрос автору подготовлен, не отправлен.",
+      "nextAction": "Личное прохождение Kaspi ID разрешено владельцем, но native handoff для серверного процесса не найден: SPA требует window.auth.send. До нового SMS получить поддерживаемый способ. CLI сохранения сессии подготовлен: finished, cashier role, read-only bank check, атомарная запись 0600; 19 unit passed. Сессии/счетов нет, VPS/онлайн-пульт не обновлены. После входа: merchant/ККМ, commercial checkout, Webkassa, guarded deployment. План в docs/operations/kaspi-bridge-audit-2026-09-29.md.",
       "checks": {
         "implemented": false,
         "verified": false,

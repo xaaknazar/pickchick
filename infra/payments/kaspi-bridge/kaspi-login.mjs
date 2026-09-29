@@ -3,7 +3,7 @@
 // to a 0600 env file. Nothing secret is printed. Usage:
 //   node infra/payments/kaspi-bridge/kaspi-login.mjs [--bridge http://127.0.0.1:3931] [--out FILE]
 import { createInterface } from 'node:readline/promises';
-import { writeFile, rename, open } from 'node:fs/promises';
+import { writeFile, rename, open, unlink } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
@@ -99,6 +99,29 @@ export async function privateFile(path) {
   }
 }
 
+// Persist only a completed cashier session that the same bridge can still use.
+// A face-check challenge, success flag or token shape alone is insufficient.
+export async function saveVerifiedSession(result, { out, verifySession }) {
+  if (result?.success !== true || result?.nextStep !== 'finished')
+    throw new Error('SESSION_NOT_FINISHED');
+  if (result.isCashier !== true) throw new Error('CASHIER_ROLE_NOT_CONFIRMED');
+  const env = sessionEnv(result);
+  let active = false;
+  try {
+    active = (await verifySession(result))?.active === true;
+  } catch {
+    // Provider responses may contain credentials. Do not propagate their text.
+  }
+  if (!active) throw new Error('SESSION_NOT_VERIFIED');
+  const temporary = out + '.' + randomUUID() + '.tmp';
+  try {
+    await writeFile(temporary, env, { mode: 0o600, flag: 'wx' });
+    await rename(temporary, out);
+  } finally {
+    await unlink(temporary).catch(() => {});
+  }
+}
+
 async function hiddenQuestion(prompt) {
   if (!process.stdin.isTTY) throw new Error('SECRET_REQUIRES_TERMINAL');
   process.stderr.write(prompt);
@@ -152,10 +175,21 @@ async function main() {
           : hiddenQuestion('Пароль кассира Kaspi Pay, ввод скрыт: '),
       readOtp: () => hiddenQuestion('Код из SMS, ввод скрыт: '),
     });
-    const env = sessionEnv(verified);
-    const temporary = out + '.' + randomUUID() + '.tmp';
-    await writeFile(temporary, env, { mode: 0o600, flag: 'wx' });
-    await rename(temporary, out);
+    await saveVerifiedSession(verified, {
+      out,
+      verifySession: async (result) => {
+        const response = await fetch(base + '/api/session/check', {
+          headers: {
+            'X-Token-SN': result.tokenSN,
+            'X-Vtoken-Secret': result.vtokenSecret,
+            'X-Profile-Id': String(result.profileId),
+          },
+          redirect: 'error',
+          signal: AbortSignal.timeout(30_000),
+        });
+        return response.ok ? response.json() : { active: false };
+      },
+    });
     console.log(
       JSON.stringify({
         loggedIn: true,

@@ -513,3 +513,59 @@ test('Kaspi ID after OTP is explicit and never invokes native finish', async () 
   assert.equal(finishes.length, 0);
   assert.equal(flow.session, null);
 });
+
+test('session persistence preserves prior credentials until bank and cashier role are confirmed', async () => {
+  const { mkdtemp, readFile, writeFile, stat, readdir, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { saveVerifiedSession, sessionEnv } =
+    await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
+  const dir = await mkdtemp(join(tmpdir(), 'pickchick-session-test-'));
+  const out = join(dir, 'session.env');
+  const result = {
+    success: true,
+    nextStep: 'finished',
+    isCashier: true,
+    tokenSN: session.KASPI_SESSION_TOKEN_SN,
+    vtokenSecret: session.KASPI_SESSION_VTOKEN_SECRET,
+    profileId: session.KASPI_SESSION_PROFILE_ID,
+  };
+  try {
+    await writeFile(out, 'previous-session', { mode: 0o600 });
+    for (const invalid of [
+      { ...result, nextStep: 'identity_verification' },
+      { ...result, isCashier: false },
+      { ...result, isCashier: undefined },
+    ]) {
+      await assert.rejects(
+        saveVerifiedSession(invalid, {
+          out,
+          verifySession: () => assert.fail('must not contact bank'),
+        }),
+      );
+      assert.equal(await readFile(out, 'utf8'), 'previous-session');
+    }
+    for (const reply of [{ active: false }, { active: 'true' }, {}, null]) {
+      await assert.rejects(
+        saveVerifiedSession(result, { out, verifySession: async () => reply }),
+        /SESSION_NOT_VERIFIED/,
+      );
+      assert.equal(await readFile(out, 'utf8'), 'previous-session');
+    }
+    await assert.rejects(
+      saveVerifiedSession(result, {
+        out,
+        verifySession: async () => {
+          throw new Error('secret-provider-body');
+        },
+      }),
+      /^Error: SESSION_NOT_VERIFIED$/,
+    );
+    await saveVerifiedSession(result, { out, verifySession: async () => ({ active: true }) });
+    assert.equal(await readFile(out, 'utf8'), sessionEnv(result));
+    assert.equal((await stat(out)).mode & 0o777, 0o600);
+    assert.deepEqual(await readdir(dir), ['session.env']);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

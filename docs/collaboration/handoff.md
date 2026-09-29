@@ -1,5 +1,13 @@
 # Продолжение: Kaspi GitHub bridge
 
+Личное подтверждение поручено владельцем. До нового SMS нужен проверенный native
+handoff: публичный JS требует window.auth.send, browser URL/SDK не найден.
+Спросили, проходил ли пользователь лицо при регистрации, ответ пока ожидается.
+CLI saveVerifiedSession теперь требует finished + isCashier===true + active===true
+от read-only session check; атомарный файл 0600, прежняя сессия при отказе сохраняется.
+19 Kaspi unit passed; новые запросы в банк и установка на VPS не выполнялись.
+Подробный план хранения device/keypair/шифроключа/session в аудите ниже.
+
 Владелец выбрал именно tapter-dev/kaspi-pos-automation. Добавлен парольный шаг.
 Реально пройдены пароль и SMS; банк вернул UniversalKaspiIdTakePhoto.
 Нет сессии/счёта/списания. Не просить повторно регистрацию или пароль без
