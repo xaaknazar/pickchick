@@ -1029,9 +1029,9 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "7a730170107ae82facf2137ea98b26354c7f7335",
-      "updatedAt": "2026-09-29T17:07:52.372Z",
+      "updatedAt": "2026-09-29T17:12:24.631Z",
       "summary": "7a73017 PR140: new cashier SMS login finished, bank confirmed cashier and expected organization. Session active before and after restart; private 0600 session saved, OTP cleared, bridge stopped. Roadmap test/format/diff passed.",
       "nextAction": "Use .local/kaspi-cashier-active.json and .local/kaspi-session.env, not old cashier config. Preserve device/encryption keys. Verify trade point and merchant/fiscal alignment before ledger payment pilot. VPS/mobile checkout/online roadmap unchanged; full release CI needed."
     }
