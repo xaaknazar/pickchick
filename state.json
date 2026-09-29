@@ -1029,9 +1029,9 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "1db85216e76d6af4c39a0f882fa8e1b6e2b6e392",
-      "updatedAt": "2026-09-29T14:41:22.900Z",
+      "updatedAt": "2026-09-29T15:00:52.613Z",
       "summary": "1db8521 / PR136: saveVerifiedSession requires completed cashier role and active bank check, atomic 0600 replacement; 19 Kaspi + 7 roadmap tests, lint/format/diff passed. Personal verification plan documented. No new bank calls or VPS/online-roadmap deployment; full CI unconfirmed.",
       "nextAction": "Await clarification whether face was completed during official cashier registration. Native window.auth handoff for this server process remains unavailable; do not request another OTP or fabricate callback. Need supported handoff before login, then merchant validation, restart check, commercial checkout and Webkassa."
     }
