@@ -3,11 +3,19 @@
 Текущая задача kaspi-payment-pilot, ветка codex/kaspi-payment-pilot.
 Владелец подтвердил единственную точку Abay Plaza, Webkassa отложена.
 Подготовлен изолированный Docker bridge: infra/payments/kaspi-bridge/README.md.
-21 unit/HTTP проверка passed, контекст не содержит приватных файлов. Установка
-и банковская проверка на VPS пока не выполнены; API VPS остаётся 4ee0b80.
-Следующее: полная CI точного SHA, штатный @vps lock, перенос комплекта
-ключей/сессии, контейнерная проверка и перезапуск. Не включать worker на старой
-схеме. Затем commercial checkout + явный пилот без чека; не fake fiscal provider.
+Мост установлен на VPS из 5dd66c58b6f29ccdfe3cbde6359d278f55bd4961 после полной
+Foundation CI 36604951618 (6/6). Банк подтвердил active=true до/после рестарта.
+Порт только внутри container loopback, секреты 0600 отдельно; API/БД/gateway
+не менялись. Штатный deployment lock освобождён после проверок.
+Подробности: infra/payments/kaspi-bridge/vps-installation-2026-09-29.md.
+
+Владелец разрешил один первый проверочный счёт на 100 ₸ на свой номер.
+НЕ выставлен: API VPS остаётся 4ee0b80/schema020, accounts=0, identity=0,
+commercial orders=0, catalog publications=0, ordering=false, bindings=0.
+Дальше отдельный guarded выпуск коммерческого пилота: серверные цена/customer,
+ledger, admission, явный deferred fiscal mode, checkout. Не включать worker
+на старой схеме и не отправлять прямой счёт вне ledger. Webkassa не ждать для
+подготовки Kaspi; не имитировать чек. Онлайн-пульт пока старый.
 
 ## Предыдущий этап: Kaspi GitHub bridge
 

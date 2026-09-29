@@ -1911,7 +1911,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Abay Plaza подтверждена владельцем как единственная точка. Webkassa отложена. Сессия кассира подтверждена банком; подготовлен контейнер без публичных портов/секретов в образе. 21 unit/HTTP проверка passed. Следующее: полная CI, guarded установка на VPS, read-only проверка/перезапуск; commercial mobile checkout и отдельный пилот без чека. Счетов/списаний нет, deployment ещё не подтверждён.",
+      "nextAction": "Мост установлен на VPS из 5dd66c5 после полной CI 36604951618; банк подтвердил сессию до/после рестарта. Единственная точка Abay Plaza подтверждена владельцем, Webkassa отложена. Первый счёт 100 ₸ разрешён, но НЕ выставлен. API VPS schema020: accounts/identity/commercial orders/catalog publications=0, ordering=false. Дальше: guarded commercial checkout/ledger, явный пилот без чека. Подтверждение: infra/payments/kaspi-bridge/vps-installation-2026-09-29.md. Вся mobile-интеграция ещё не принята.",
       "checks": {
         "implemented": false,
         "verified": false,

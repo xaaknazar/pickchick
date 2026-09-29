@@ -1,5 +1,22 @@
 # PickChick — состояние проекта
 
+## 29 сентября: сессия Kaspi перенесена на VPS и подтверждена банком
+
+Установлен изолированный `pickchick-kaspi-bridge`, исходники PickChick
+`5dd66c58b6f29ccdfe3cbde6359d278f55bd4961`. Все шесть групп Foundation CI
+[36604951618](https://github.com/xaaknazar/pickchick/actions/runs/36604951618) прошли.
+Банк подтвердил active=true на VPS до и после перезапуска контейнера.
+Ключи и сессия сохранены отдельно 0600; публичных портов нет, worker выключен.
+Существующие API/БД/gateway и соседние контейнеры не изменены.
+
+Владелец согласовал первый счёт 100 ₸ на свой номер и отложил Webkassa.
+Счёт **не выставлялся**. На VPS пока schema020, нет payment account,
+commercial orders, customer identity и опубликованного commercial catalog;
+ordering=false. Следующий этап - отдельный коммерческий checkout/ledger и
+явный режим пилота без фискализации; не подменять его TEST-оплатой или fake-чеком.
+Онлайн-пульт ещё не опубликован с этим новым фактом.
+[Подтверждение установки](../infra/payments/kaspi-bridge/vps-installation-2026-09-29.md).
+
 ## 29 сентября: подготовлен изолированный контейнер Kaspi для VPS
 
 Владелец подтвердил единственную точку Abay Plaza и отложил Webkassa.
