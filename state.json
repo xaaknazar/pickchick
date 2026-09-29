@@ -1028,9 +1028,9 @@
         "apps/mobile/src/components/AccountGate.tsx",
         "tests/payments/kaspi-remote.test.mjs"
       ],
-      "status": "available",
+      "status": "active",
       "head": "8761d705ddc52739d86d56d1177345bf45b03fa4",
-      "updatedAt": "2026-09-29T13:15:17.515Z",
+      "updatedAt": "2026-09-29T13:19:19.888Z",
       "summary": "Регистрация кассира завершена; повтор снова вернул KPEnterLoginPassword. Коммит 8761d70; 7 roadmap tests passed; сессии и счетов нет, локальный мост остановлен.",
       "nextAction": "Проверить поддержку парольного входа или отдельный адаптер; пароль пока не собирать. Онлайн-пульт не обновлён."
     }
