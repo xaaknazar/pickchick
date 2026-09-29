@@ -195,30 +195,6 @@ test('payment phone is read only for an active customer with auth enabled', asyn
   assert.equal(await readCustomerPaymentPhone(pool, options, id), null);
 });
 
-test('cashier login stops before OTP on an obsolete client without printing provider data', async () => {
-  const { requireSmsSent } = await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
-  assert.doesNotThrow(() => requireSmsSent({ success: true }));
-  assert.throws(() => requireSmsSent({ success: false, view: 'KPEnterLoginPassword' }), {
-    message: 'CASHIER_PASSWORD_LOGIN_NOT_SUPPORTED',
-  });
-  assert.throws(
-    () =>
-      requireSmsSent({
-        success: false,
-        body: {
-          view: {
-            onOpenAlarm: {
-              error: { code: 'OldVersionToUpdate', label: 'private provider response' },
-            },
-          },
-        },
-      }),
-    { message: 'KASPI_CLIENT_UPDATE_REQUIRED' },
-  );
-  for (const result of [null, {}, { success: 'true' }, { success: false }])
-    assert.throws(() => requireSmsSent(result), { message: 'SMS_NOT_SENT' });
-});
-
 test('cashier login helper accepts only a KZ mobile and writes only the three session values', async () => {
   const { cashierPhone, sessionEnv } =
     await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
@@ -251,4 +227,289 @@ test('session check rejects invoice arguments before any bridge request', () => 
   assert.match(result.stderr, /READ_ONLY_CHECK_NO_ARGUMENTS/);
   assert.ok(!result.stderr.includes('77011234567'));
   assert.equal(result.stdout, '');
+});
+
+const authModule = '../../infra/payments/kaspi-bridge/entrance-flow.mjs';
+const authBody = (step, extra = {}) => {
+  const mapping = {
+    phone: ['KPUniversalEnterPhoneNumber', 'EnterPhoneNumber'],
+    password: ['KPEnterLoginPassword', 'ViewEnterLoginPassword'],
+    sms: ['EnterOtp', 'ViewEnterOtp'],
+  };
+  const [view, sn] = mapping[step];
+  return {
+    meta: { pId: 'synthetic-process', sn },
+    view: { code: view },
+    isClosed: false,
+    ...extra,
+  };
+};
+async function entranceFixture(replies) {
+  const { EntranceFlow } = await import(authModule);
+  const calls = [],
+    finishes = [];
+  let clock = 0;
+  const flow = new EntranceFlow({
+    init: async () => ({ session: { processId: 'synthetic-process' }, body: authBody('phone') }),
+    submit: async (_session, payload) => {
+      calls.push(payload);
+      const next = replies.shift();
+      return typeof next === 'function' ? next() : next;
+    },
+    finish: async () => {
+      finishes.push(true);
+      return {
+        tokenSN: 'synthetic-token-sn',
+        vtokenSecret: Buffer.from('synthetic-encrypted-secret').toString('base64'),
+        profileId: 12345,
+      };
+    },
+    now: () => clock,
+  });
+  return {
+    flow,
+    calls,
+    finishes,
+    expire: () => {
+      clock = 600001;
+    },
+  };
+}
+
+test('password entrance follows server metadata, then OTP, without retaining password', async () => {
+  const { flow, calls, finishes } = await entranceFixture([
+    authBody('password'),
+    authBody('sms'),
+    { view: { code: 'KPMobileCall' }, data: { type: 'kpDeviceRegistration' } },
+  ]);
+  assert.equal((await flow.start()).nextStep, 'phone');
+  assert.equal(
+    (await flow.credential('phone', 'synthetic-process', '7011234567')).nextStep,
+    'password',
+  );
+  const reply = await flow.credential('password', 'synthetic-process', 'synthetic-password');
+  assert.equal(reply.nextStep, 'sms');
+  assert.deepEqual(calls[1], {
+    meta: { pId: 'synthetic-process', sn: 'ViewEnterLoginPassword' },
+    data: { password: 'synthetic-password' },
+    actType: 'Success',
+  });
+  assert.ok(!JSON.stringify(flow.session).includes('synthetic-password'));
+  assert.ok(!JSON.stringify(reply).includes('synthetic-password'));
+  const result = await flow.credential('sms', 'synthetic-process', '123456');
+  assert.equal(result.nextStep, 'finished');
+  assert.equal(finishes.length, 1);
+  assert.equal(flow.session, null);
+});
+
+test('SMS-only cashier still works; no password is requested', async () => {
+  const { loginThroughBridge } = await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
+  const { flow } = await entranceFixture([
+    authBody('sms'),
+    { data: { type: 'kpDeviceRegistration' } },
+  ]);
+  const result = await loginThroughBridge({
+    phone: '7011234567',
+    readPassword: () => assert.fail('unexpected password'),
+    readOtp: async () => '123456',
+    request: (path, data) =>
+      path.endsWith('/init')
+        ? flow.start()
+        : flow.credential(
+            path.endsWith('send-phone') ? 'phone' : 'sms',
+            data.processId,
+            data.phoneNumber ?? data.otp,
+          ),
+  });
+  assert.equal(result.success, true);
+});
+
+test('password helper asks each credential once and never treats unknown challenge as success', async () => {
+  const { loginThroughBridge } = await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
+  let passwordReads = 0,
+    otpReads = 0;
+  const { flow, finishes } = await entranceFixture([
+    authBody('password'),
+    { view: { code: 'KPMobileCall' }, data: { type: 'kpDeviceRegistration' } },
+  ]);
+  await assert.rejects(
+    loginThroughBridge({
+      phone: '7011234567',
+      readPassword: async () => {
+        passwordReads++;
+        return 'synthetic-password';
+      },
+      readOtp: () => {
+        otpReads++;
+        return '123456';
+      },
+      request: (path, data) =>
+        path.endsWith('/init')
+          ? flow.start()
+          : flow.credential(
+              path.endsWith('send-phone') ? 'phone' : 'password',
+              data.processId,
+              data.phoneNumber ?? data.password,
+            ),
+    }),
+    /ADDITIONAL_CONFIRMATION_REQUIRED/,
+  );
+  assert.equal(passwordReads, 1);
+  assert.equal(otpReads, 0);
+  assert.equal(finishes.length, 0);
+});
+
+test('wrong process, expired process, wrong step and concurrent attempts never reach bank', async () => {
+  let resolve;
+  const pending = new Promise((r) => {
+    resolve = r;
+  });
+  const { flow, calls, expire } = await entranceFixture([authBody('password'), () => pending]);
+  await flow.start();
+  await assert.rejects(flow.credential('phone', 'wrong', '7011234567'), /PROCESS_INVALID/);
+  await assert.rejects(
+    flow.credential('password', 'synthetic-process', 'pw'),
+    /CHALLENGE_MISMATCH/,
+  );
+  assert.equal(calls.length, 0);
+  await flow.credential('phone', 'synthetic-process', '7011234567');
+  const first = flow.credential('password', 'synthetic-process', 'pw');
+  await assert.rejects(flow.credential('password', 'synthetic-process', 'pw'), /ENTRANCE_BUSY/);
+  await assert.rejects(flow.start(), /ENTRANCE_BUSY/);
+  assert.equal(calls.length, 2);
+  resolve(authBody('sms'));
+  await first;
+  expire();
+  await assert.rejects(flow.credential('sms', 'synthetic-process', '123456'), /PROCESS_EXPIRED/);
+  assert.equal(calls.length, 2);
+});
+
+test('bank refusal or lost password response stops flow without automatic retry or secret exposure', async () => {
+  for (const reply of [
+    () => {
+      throw new Error('private provider payload: secret');
+    },
+    authBody('password', {
+      actType: 'Alarm',
+      error: { code: 'AccountTemporaryBlocked', desc: 'secret' },
+    }),
+    authBody('password', { isClosed: true }),
+    authBody('sms', { meta: { pId: 'wrong', sn: 'ViewEnterOtp' } }),
+  ]) {
+    const { flow, calls, finishes } = await entranceFixture([authBody('password'), reply]);
+    await flow.start();
+    await flow.credential('phone', 'synthetic-process', '7011234567');
+    let result;
+    try {
+      result = await flow.credential('password', 'synthetic-process', 'synthetic-password');
+    } catch (e) {
+      result = e.message;
+    }
+    assert.ok(!JSON.stringify(result).includes('secret'));
+    assert.ok(!JSON.stringify(result).includes('synthetic-password'));
+    await assert.rejects(
+      flow.credential('password', 'synthetic-process', 'synthetic-password'),
+      /PROCESS_INVALID/,
+    );
+    assert.equal(calls.length, 2);
+    assert.equal(finishes.length, 0);
+  }
+});
+
+test('phone / password / SMS validators reject malformed inputs before bank request', async () => {
+  const { flow, calls } = await entranceFixture([authBody('password'), authBody('sms')]);
+  await flow.start();
+  await assert.rejects(
+    flow.credential('phone', 'synthetic-process', '77011234567'),
+    /CREDENTIAL_INVALID/,
+  );
+  await flow.credential('phone', 'synthetic-process', '7011234567');
+  for (const bad of ['', ' ', {}, 'x'.repeat(257)])
+    await assert.rejects(
+      flow.credential('password', 'synthetic-process', bad),
+      /CREDENTIAL_INVALID/,
+    );
+  await flow.credential('password', 'synthetic-process', 'pw');
+  await assert.rejects(flow.credential('sms', 'synthetic-process', '12ab'), /CREDENTIAL_INVALID/);
+  assert.equal(calls.length, 2);
+});
+
+test('unknown native actions and biometric challenges are not bypassed after OTP', async () => {
+  for (const code of ['KPMobileCall', 'FaceVerification', 'Unknown']) {
+    const { flow, finishes } = await entranceFixture([
+      authBody('sms'),
+      {
+        view: { code },
+        data: { type: 'unknown' },
+      },
+    ]);
+    await flow.start();
+    await flow.credential('phone', 'synthetic-process', '7011234567');
+    assert.equal(
+      (await flow.credential('sms', 'synthetic-process', '123456')).nextStep,
+      'unsupported',
+    );
+    assert.equal(finishes.length, 0);
+  }
+});
+
+test('password file must be a private regular file and not a symlink', async () => {
+  const { mkdtemp, writeFile, chmod, symlink, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { privateFile } = await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
+  const dir = await mkdtemp(join(tmpdir(), 'kaspi-private-test-'));
+  try {
+    const file = join(dir, 'password');
+    await writeFile(file, 'synthetic-password', { mode: 0o600 });
+    assert.equal(await privateFile(file), 'synthetic-password');
+    await chmod(file, 0o644);
+    await assert.rejects(privateFile(file), /PRIVATE_FILE_PERMISSIONS/);
+    await chmod(file, 0o600);
+    await symlink(file, join(dir, 'link'));
+    await assert.rejects(privateFile(join(dir, 'link')));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('bank request timestamp preserves the instant in Almaty, UTC and fractional-offset zones', () => {
+  const url = new URL('../../infra/payments/kaspi-bridge/bank-time.mjs', import.meta.url).href;
+  for (const timezone of ['Asia/Almaty', 'UTC', 'Asia/Kolkata', 'America/New_York']) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import { bankTimestamp } from ${JSON.stringify(url)};
+       const d = new Date('2026-09-29T08:34:56.123Z');
+       if (Date.parse(bankTimestamp(d)) !== d.getTime()) process.exit(1);
+       console.log(bankTimestamp(d));`,
+      ],
+      { env: { ...process.env, TZ: timezone }, encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, timezone);
+    if (timezone === 'Asia/Almaty')
+      assert.equal(result.stdout.trim(), '2026-09-29T13:34:56.123+0500');
+  }
+});
+
+test('Kaspi ID after OTP is explicit and never invokes native finish', async () => {
+  const { flow, finishes } = await entranceFixture([
+    authBody('sms'),
+    {
+      meta: { pId: 'synthetic-process', sn: 'ViewKaspiIdTakePhoto' },
+      view: { code: 'UniversalKaspiIdTakePhoto' },
+      data: { verificationId: 'private-verification-id', attemptNo: 1 },
+    },
+  ]);
+  await flow.start();
+  await flow.credential('phone', 'synthetic-process', '7011234567');
+  assert.deepEqual(await flow.credential('sms', 'synthetic-process', '123456'), {
+    success: false,
+    nextStep: 'identity_verification',
+    errorCode: 'KASPI_ID_REQUIRED',
+  });
+  assert.equal(finishes.length, 0);
+  assert.equal(flow.session, null);
 });

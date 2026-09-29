@@ -1907,7 +1907,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "ИП PICK CHICK ALA AP, Pick Chick Abay Plaza подтверждены. 26.0921 / 1115 из upstream PR11 устранили отказ версии; auth в 10-значном формате открывает KPEnterLoginPassword. Мост не поддерживает парольный вход; владелец подтвердил отдельный номер и завершил регистрацию. Повтор после регистрации снова дал KPEnterLoginPassword. SMS/сессии/счетов нет; нужен поддерживаемый парольный сценарий или иной адаптер. QazBoom использует amoTEAM. 9 Kaspi unit и оба browser-сценария прошли локально; полная CI требуется до VPS. Далее merchant/ККМ, commercial checkout, Webkassa.",
+      "nextAction": "GitHub-мост tapter-dev сохранён по решению владельца. Парольный шаг добавлен и реально пройден вместе с SMS; следующий шаг банка UniversalKaspiIdTakePhoto требует нативного Kaspi ID. Сессии/счетов нет. 18 unit и HTTP fake-bank проверки патчей прошли; см. docs/operations/kaspi-bridge-audit-2026-09-29.md. VPS и онлайн-пульт не обновлены. Далее штатное подтверждение личности, merchant/ККМ, commercial checkout, Webkassa; не повторять регистрацию без новых фактов.",
       "checks": {
         "implemented": false,
         "verified": false,

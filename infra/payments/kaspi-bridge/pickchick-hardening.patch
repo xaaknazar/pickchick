@@ -1,43 +1,41 @@
-diff --git a/src/routes/session.js b/src/routes/session.js
---- a/src/routes/session.js
-+++ b/src/routes/session.js
-@@ -46,7 +46,7 @@
-     const body = await resp.json().catch(() => ({}));
-
-     // Kaspi may return HTTP 200 but with error StatusCode in body
--    if (resp.ok && (!body.StatusCode || body.StatusCode === 0)) {
-+    if (resp.ok && body.StatusCode === 0 && body.Data !== null && typeof body.Data === 'object') {
-       return res.json({ active: true });
-     }
-
 diff --git a/server.js b/server.js
+index 606a9a9..9a629fe 100644
 --- a/server.js
 +++ b/server.js
-@@ -1,11 +1,9 @@
+@@ -1,30 +1,35 @@
  import express from 'express';
 -import path from 'path';
 -import { PORT, ROOT_DIR } from './src/config.js';
 +import { PORT } from './src/config.js';
  import authRoutes from './src/routes/auth.js';
  import invoiceRoutes from './src/routes/invoice.js';
- import qrRoutes from './src/routes/qr.js';
+-import qrRoutes from './src/routes/qr.js';
  import historyRoutes from './src/routes/history.js';
 -import refundRoutes from './src/routes/refund.js';
  import sessionRoutes from './src/routes/session.js';
  import { startPolling } from './src/polling.js';
  import 'dotenv/config';
-@@ -13,7 +11,7 @@
+
  const app = express();
 
- app.use(express.json());
+-app.use(express.json());
 -app.use(express.static(path.join(ROOT_DIR, 'public')));
++// This bridge is a private CLI/worker port, never a browser API.
++app.use((req, res, next) => {
++  if (!['127.0.0.1', 'localhost', '[::1]'].includes(req.hostname) ||
++      req.headers.origin || req.headers['sec-fetch-site'])
++    return res.status(403).json({ error: 'PRIVATE_BRIDGE_ONLY' });
++  res.set('Cache-Control', 'no-store');
++  next();
++});
++app.use(express.json({ limit: '8kb' }));
 +// PickChick: no demo UI on a server that holds a cashier session.
 
  app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-@@ -21,10 +19,11 @@
+ app.use('/api/auth', authRoutes);
  app.use('/api/invoice', invoiceRoutes);
- app.use('/api/qr', qrRoutes);
+-app.use('/api/qr', qrRoutes);
  app.use('/api/history', historyRoutes);
 -app.use('/api/refund', refundRoutes);
 +// PickChick: refunds are not exposed through the bridge.
@@ -52,9 +50,35 @@ diff --git a/server.js b/server.js
 +  if (process.env.BRIDGE_POLLING === 'on') startPolling();
  });
 diff --git a/src/helpers.js b/src/helpers.js
+index 81937ec..c478c96 100644
 --- a/src/helpers.js
 +++ b/src/helpers.js
-@@ -47,30 +47,9 @@
+@@ -7,22 +7,8 @@ import { computeTokenSnMac, computeXSign } from './crypto.js';
+
+ export const generateUUID = () => crypto.randomUUID().toUpperCase();
+
+-export const nowISO = () => {
+-  const d = new Date();
+-  const off = -d.getTimezoneOffset();
+-  const sign = off >= 0 ? '+' : '-';
+-  const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
+-  const mm = String(Math.abs(off) % 60).padStart(2, '0');
+-  return (
+-    d
+-      .toISOString()
+-      .replace('Z', '')
+-      .replace(/\.\d{3}/, `.${String(d.getMilliseconds()).padStart(3, '0')}`) +
+-    sign +
+-    hh +
+-    mm
+-  );
+-};
++export { bankTimestamp as nowISO } from './bank-time.mjs';
++import { bankTimestamp as nowISO } from './bank-time.mjs';
+
+ // ─── Cookie builder ───
+
+@@ -47,30 +33,9 @@ export const extractUserToken = (resp) => {
 
  export const loggedFetch = async (url, options = {}) => {
    const method = (options.method || 'GET').toUpperCase();
@@ -88,9 +112,10 @@ diff --git a/src/helpers.js b/src/helpers.js
  };
 
 diff --git a/src/routes/invoice.js b/src/routes/invoice.js
+index 3fbedf3..9c893d1 100644
 --- a/src/routes/invoice.js
 +++ b/src/routes/invoice.js
-@@ -60,7 +60,7 @@
+@@ -60,7 +60,7 @@ router.post('/create', async (req, res) => {
      });
      const kaspiResponse = await resp.json();
      const d = kaspiResponse.Data;
@@ -99,7 +124,7 @@ diff --git a/src/routes/invoice.js b/src/routes/invoice.js
        trackPayment(
          d.QrOperationId,
          'invoice',
-@@ -124,7 +124,9 @@
+@@ -124,7 +124,9 @@ router.post('/cancel', async (req, res) => {
  router.post('/history', async (req, res) => {
    try {
      const url = `${KASPI_QRPAY_URL}/v01/remote/history`;
@@ -110,3 +135,17 @@ diff --git a/src/routes/invoice.js b/src/routes/invoice.js
      const headers = { ...signedQrPayHeaders(url, req.session, payload), 'Content-Type': 'application/json' };
      const resp = await loggedFetch(url, {
        method: 'POST',
+diff --git a/src/routes/session.js b/src/routes/session.js
+index d285fa3..95356ca 100644
+--- a/src/routes/session.js
++++ b/src/routes/session.js
+@@ -46,7 +46,7 @@ router.get('/check', async (req, res) => {
+     const body = await resp.json().catch(() => ({}));
+
+     // Kaspi may return HTTP 200 but with error StatusCode in body
+-    if (resp.ok && (!body.StatusCode || body.StatusCode === 0)) {
++    if (resp.ok && body.StatusCode === 0 && body.Data !== null && typeof body.Data === 'object') {
+       return res.json({ active: true });
+     }
+
+# End of reviewed overlay.

@@ -1,3 +1,17 @@
+# Продолжение: Kaspi GitHub bridge
+
+Владелец выбрал именно tapter-dev/kaspi-pos-automation. Добавлен парольный шаг.
+Реально пройдены пароль и SMS; банк вернул UniversalKaspiIdTakePhoto.
+Нет сессии/счёта/списания. Не просить повторно регистрацию или пароль без
+нового основания. Нативный faceCheck не реализован; обычный вход на телефоне
+не доказан как подтверждение текущего server process. Файлы password/OTP очищены.
+Мост остановлен. Новый код: infra/payments/kaspi-bridge/entrance-flow.mjs,
+два патча и install-overlays.mjs. 18 unit + изолированный HTTP fake-bank passed.
+VPS/online roadmap/mobile checkout прежние. Полная CI ещё требуется.
+Подробности: docs/operations/kaspi-bridge-audit-2026-09-29.md.
+
+Предыдущая история ниже (ограничение «SMS-only» уже исправлено):
+
 # Контекст для нового компьютера
 
 Kaspi, продолжение 29 сентября: подтверждены ИП PICK CHICK ALA AP и точка

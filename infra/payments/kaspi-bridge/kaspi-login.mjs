@@ -1,9 +1,11 @@
 // Interactive cashier login through the local bridge (run on the server that hosts it).
-// The owner types the cashier phone and the SMS code; the resulting session is written
+// The owner types the cashier phone, optional password and SMS code; the session is written
 // to a 0600 env file. Nothing secret is printed. Usage:
 //   node infra/payments/kaspi-bridge/kaspi-login.mjs [--bridge http://127.0.0.1:3931] [--out FILE]
 import { createInterface } from 'node:readline/promises';
-import { writeFile, rename } from 'node:fs/promises';
+import { writeFile, rename, open } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
@@ -32,14 +34,6 @@ export function cashierPhone(input) {
   return /^7[0-9]{9}$/.test(body) ? body : null;
 }
 
-export function requireSmsSent(result) {
-  if (result?.body?.view?.onOpenAlarm?.error?.code === 'OldVersionToUpdate')
-    throw new Error('KASPI_CLIENT_UPDATE_REQUIRED');
-  if (result?.view === 'KPEnterLoginPassword')
-    throw new Error('CASHIER_PASSWORD_LOGIN_NOT_SUPPORTED');
-  if (result?.success !== true) throw new Error('SMS_NOT_SENT');
-}
-
 async function post(bridge, path, body) {
   const response = await fetch(bridge + path, {
     method: 'POST',
@@ -53,6 +47,77 @@ async function post(bridge, path, body) {
   return json;
 }
 
+export async function loginThroughBridge({ request, phone, readPassword, readOtp }) {
+  const init = await request('/api/auth/init');
+  if (init?.success !== true || init?.nextStep !== 'phone' || !init.processId)
+    throw new Error('ENTRANCE_INIT_FAILED');
+  let result = await request('/api/auth/send-phone', {
+    processId: init.processId,
+    phoneNumber: phone,
+  });
+  if (result?.nextStep === 'password') {
+    const password = await readPassword();
+    result = await request('/api/auth/submit-password', { processId: init.processId, password });
+  }
+  if (result?.nextStep !== 'sms' || result?.success !== true)
+    throw new Error(
+      result?.nextStep === 'identity_verification'
+        ? 'KASPI_ID_REQUIRED'
+        : result?.nextStep === 'unsupported'
+          ? 'ADDITIONAL_CONFIRMATION_REQUIRED'
+          : 'LOGIN_STOPPED',
+    );
+  const otp = (await readOtp()).trim();
+  if (!/^[0-9]{4,8}$/.test(otp)) throw new Error('OTP_INVALID');
+  result = await request('/api/auth/verify-otp', { processId: init.processId, otp });
+  if (result?.success !== true || result?.nextStep !== 'finished')
+    throw new Error(
+      result?.nextStep === 'identity_verification'
+        ? 'KASPI_ID_REQUIRED'
+        : result?.nextStep === 'unsupported'
+          ? 'ADDITIONAL_CONFIRMATION_REQUIRED'
+          : 'LOGIN_STOPPED',
+    );
+  sessionEnv(result); // A successful flag alone is not a usable session.
+  return result;
+}
+
+export async function privateFile(path) {
+  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const stat = await file.stat();
+    if (
+      !stat.isFile() ||
+      stat.size > 4096 ||
+      (stat.mode & 0o077) !== 0 ||
+      (process.getuid && stat.uid !== process.getuid())
+    )
+      throw new Error('PRIVATE_FILE_PERMISSIONS');
+    return await file.readFile('utf8');
+  } finally {
+    await file.close();
+  }
+}
+
+async function hiddenQuestion(prompt) {
+  if (!process.stdin.isTTY) throw new Error('SECRET_REQUIRES_TERMINAL');
+  process.stderr.write(prompt);
+  const output = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback();
+    },
+  });
+  const secret = createInterface({ input: process.stdin, output, terminal: true });
+  const abort = new AbortController();
+  secret.on('SIGINT', () => abort.abort());
+  try {
+    return await secret.question('', { signal: abort.signal });
+  } finally {
+    secret.close();
+    process.stderr.write('\n');
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const option = (name, fallback) => {
@@ -60,24 +125,33 @@ async function main() {
     return index >= 0 ? args[index + 1] : fallback;
   };
   const bridge = new URL(option('--bridge', 'http://127.0.0.1:3931'));
-  if (!['127.0.0.1', 'localhost', '[::1]'].includes(bridge.hostname))
+  if (
+    !['127.0.0.1', 'localhost', '[::1]'].includes(bridge.hostname) ||
+    bridge.protocol !== 'http:' ||
+    bridge.username ||
+    bridge.password
+  )
     throw new Error('BRIDGE_MUST_BE_LOOPBACK');
   const base = bridge.origin;
   const out = option('--out', '/opt/pickchick-staging/secrets/kaspi-session.env');
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    const phone = cashierPhone(await rl.question('Номер кассира Kaspi Pay (+7 7XX XXX XX XX): '));
+  {
+    const phoneFile = option('--phone-file', null);
+    const phone = cashierPhone(
+      phoneFile
+        ? JSON.parse(await privateFile(phoneFile)).cashier_phone
+        : await hiddenQuestion('Номер кассира Kaspi Pay (+7 7XX XXX XX XX), ввод скрыт: '),
+    );
     if (!phone) throw new Error('PHONE_INVALID');
-    const init = await post(base, '/api/auth/init');
-    const sent = await post(base, '/api/auth/send-phone', {
-      phoneNumber: phone,
-      processId: init.processId,
+    const passwordFile = option('--password-file', null);
+    const verified = await loginThroughBridge({
+      phone,
+      request: (path, body) => post(base, path, body),
+      readPassword: async () =>
+        passwordFile
+          ? (await privateFile(passwordFile)).replace(/\r?\n$/, '')
+          : hiddenQuestion('Пароль кассира Kaspi Pay, ввод скрыт: '),
+      readOtp: () => hiddenQuestion('Код из SMS, ввод скрыт: '),
     });
-    requireSmsSent(sent);
-    const otp = (await rl.question('Код из SMS: ')).trim();
-    if (!/^[0-9]{4,8}$/.test(otp)) throw new Error('OTP_INVALID');
-    const verified = await post(base, '/api/auth/verify-otp', { otp, processId: init.processId });
-    if (!verified.success) throw new Error('OTP_REJECTED');
     const env = sessionEnv(verified);
     const temporary = out + '.' + randomUUID() + '.tmp';
     await writeFile(temporary, env, { mode: 0o600, flag: 'wx' });
@@ -87,11 +161,9 @@ async function main() {
         loggedIn: true,
         organization: String(verified.orgName ?? '').slice(0, 120),
         sessionFile: out,
-        next: 'restart pickchick-kaspi-worker',
+        next: 'verify cashier session, merchant and fiscal readiness before enabling worker',
       }),
     );
-  } finally {
-    rl.close();
   }
 }
 

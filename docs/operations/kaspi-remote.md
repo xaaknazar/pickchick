@@ -1,6 +1,11 @@
 # Kaspi: счёт на номер телефона (kaspi-remote)
 
 Решение и риски: [ADR 0012](../architecture/adr/0012-kaspi-remote-bridge.md).
+Актуальный результат входа 29 сентября: парольный шаг добавлен, реальный банк
+принял пароль и SMS, затем потребовал Kaspi ID. Сессии пока нет. Подробный
+[аудит](kaspi-bridge-audit-2026-09-29.md) заменяет прежний вывод «пароль не поддерживается».
+Для установки применять оба патча через install-overlays.mjs, не один старый hardening patch.
+
 Это адаптер финансового ядра. Реальных счетов из PickChick ещё не выставлялось.
 
 ## Как это работает
@@ -57,7 +62,7 @@
    который больше нигде не входит в Kaspi Pay.
 2. Мост: `git clone https://github.com/tapter-dev/kaspi-pos-automation
 /opt/pickchick-staging/kaspi-bridge && git -C ... checkout 28c9167 &&
-git apply .../pickchick-hardening.patch && npm ci --omit=dev`, пользователь
+node .../install-overlays.mjs /opt/pickchick-staging/kaspi-bridge && npm ci --omit=dev --ignore-scripts`, пользователь
    `pickchick-kaspi`, `secrets/kaspi-bridge.env` по примеру (0600),
    unit `pickchick-kaspi-bridge.service`. Порт наружу не открывать.
 3. Миграция `026_cloud_kaspi_remote.sql`. Строка `commerce_provider_accounts`:
