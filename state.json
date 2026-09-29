@@ -1010,6 +1010,24 @@
       "updatedAt": "2026-09-29T07:22:47.766Z",
       "summary": "PR132 b1c1166: исправлен cwd-зависимый CLI-test, 23 package/8 root/7 roadmap прошли. Кассир создан со слов владельца; уточняются ИП/точка. VPS read-only: моста нет, службы inactive, API4ee0b80. Денежных запросов/деплоя не было. CI36534883997 падал на исправленном тесте; новая CI не завершена.",
       "nextAction": "Уточнить назначение кассира. Проверить новую полную CI, затем готовить guarded bridge install и приватный SMS-вход без счета. Commercial mobile API/экран и Webkassa остаются. Онлайн-roadmap не опубликован."
+    },
+    {
+      "id": "kaspi-cashier-setup",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-cashier-setup",
+      "scopes": [
+        "tests/mobile/browser_pick_blocks.py",
+        "tests/mobile/browser_account_required.py",
+        "docs/operations/kaspi-remote.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "infra/payments/kaspi-bridge",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "b1c1166b4d8c90ce35b633f13725b26c258e4225",
+      "updatedAt": "2026-09-29T12:14:40.621Z"
     }
   ]
 }
