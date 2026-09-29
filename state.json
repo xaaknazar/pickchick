@@ -1029,11 +1029,11 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "active",
-      "head": "a77eb45c2403a6d68b13de32fe4bd570c54c0afe",
-      "updatedAt": "2026-09-29T17:01:09.452Z",
-      "summary": "a77eb45 PR139: сравнение шести сервисов; владелец SIM подтвердил собственное ИП/ТОО в Kaspi Pay. Совпадает с гипотезой ApiPay, причина банком не подтверждена. Документация/roadmap test/format/diff passed.",
-      "nextAction": "Нужен поддерживаемый вход для текущего профиля или подтверждённый native handoff. Уточнить различие с первоначальной привязкой amoTEAM без передачи секретов. Новых банковских вызовов/развёртываний не было, лицо не обходить, SMS без основания не повторять."
+      "status": "available",
+      "head": "7a730170107ae82facf2137ea98b26354c7f7335",
+      "updatedAt": "2026-09-29T17:07:52.372Z",
+      "summary": "7a73017 PR140: new cashier SMS login finished, bank confirmed cashier and expected organization. Session active before and after restart; private 0600 session saved, OTP cleared, bridge stopped. Roadmap test/format/diff passed.",
+      "nextAction": "Use .local/kaspi-cashier-active.json and .local/kaspi-session.env, not old cashier config. Preserve device/encryption keys. Verify trade point and merchant/fiscal alignment before ledger payment pilot. VPS/mobile checkout/online roadmap unchanged; full release CI needed."
     }
   ]
 }
