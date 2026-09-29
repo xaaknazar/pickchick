@@ -198,6 +198,9 @@ test('payment phone is read only for an active customer with auth enabled', asyn
 test('cashier login stops before OTP on an obsolete client without printing provider data', async () => {
   const { requireSmsSent } = await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
   assert.doesNotThrow(() => requireSmsSent({ success: true }));
+  assert.throws(() => requireSmsSent({ success: false, view: 'KPEnterLoginPassword' }), {
+    message: 'CASHIER_PASSWORD_LOGIN_NOT_SUPPORTED',
+  });
   assert.throws(
     () =>
       requireSmsSent({
@@ -219,9 +222,9 @@ test('cashier login stops before OTP on an obsolete client without printing prov
 test('cashier login helper accepts only a KZ mobile and writes only the three session values', async () => {
   const { cashierPhone, sessionEnv } =
     await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
-  assert.equal(cashierPhone('+7 701 123 45 67'), '77011234567');
-  assert.equal(cashierPhone('87011234567'), '77011234567');
-  assert.equal(cashierPhone('7011234567'), '77011234567');
+  assert.equal(cashierPhone('+7 701 123 45 67'), '7011234567');
+  assert.equal(cashierPhone('87011234567'), '7011234567');
+  assert.equal(cashierPhone('7011234567'), '7011234567');
   assert.equal(cashierPhone('+7 601 123 45 67'), null);
   const env = sessionEnv({
     tokenSN: 'synthetic-token-sn',

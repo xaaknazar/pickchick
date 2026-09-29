@@ -27,12 +27,16 @@ export function sessionEnv(result) {
 export function cashierPhone(input) {
   const digits = String(input).replace(/\D+/g, '');
   const body = digits.length === 11 && /^[78]/.test(digits) ? digits.slice(1) : digits;
-  return /^7[0-9]{9}$/.test(body) ? '7' + body : null;
+  // Auth uses the ten digits entered after the fixed +7 in upstream's UI.
+  // Invoice/customer APIs have a separate eleven-digit phone format.
+  return /^7[0-9]{9}$/.test(body) ? body : null;
 }
 
 export function requireSmsSent(result) {
   if (result?.body?.view?.onOpenAlarm?.error?.code === 'OldVersionToUpdate')
     throw new Error('KASPI_CLIENT_UPDATE_REQUIRED');
+  if (result?.view === 'KPEnterLoginPassword')
+    throw new Error('CASHIER_PASSWORD_LOGIN_NOT_SUPPORTED');
   if (result?.success !== true) throw new Error('SMS_NOT_SENT');
 }
 
