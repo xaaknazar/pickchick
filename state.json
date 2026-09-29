@@ -1023,11 +1023,12 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
         "infra/payments/kaspi-bridge",
-        "@vps"
+        "@vps",
+        "apps/mobile/src/ScreenHost.tsx"
       ],
       "status": "active",
       "head": "b1c1166b4d8c90ce35b633f13725b26c258e4225",
-      "updatedAt": "2026-09-29T12:14:40.621Z"
+      "updatedAt": "2026-09-29T12:16:12.897Z"
     }
   ]
 }
