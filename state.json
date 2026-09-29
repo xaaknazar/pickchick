@@ -966,6 +966,31 @@
       "updatedAt": "2026-09-29T06:51:33.724Z",
       "summary": "Подготовка HTTPS и Webkassa-аудит опубликованы в общем срезе 6891e41, PR130. CI36404546441: 5 jobs green, основной job failure в Browser recovery regressions. VPS/HTTPS/онлайн-roadmap не обновлены. Оба ИП принадлежат владельцу; переход реквизитов/API Webkassa требует проверки.",
       "nextAction": "Отдельно устранить browser CI и выполнить guarded HTTPS по runbook с зелёным exact SHA. Следующая текущая задача - проверить присланный Kaspi-адаптер; реальные счета не создавались."
+    },
+    {
+      "id": "kaspi-remote",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-remote",
+      "scopes": [
+        "packages/commerce-core",
+        "packages/customer-identity",
+        "packages/platform",
+        "services/api/src",
+        "db/cloud/migrations/026_cloud_kaspi_remote.sql",
+        "tests/payments",
+        "tests/operations/test_server_pilot_release.py",
+        ".github/workflows/ci.yml",
+        "package.json",
+        "infra/payments/kaspi-bridge",
+        "docs/architecture/adr/0012-kaspi-remote-bridge.md",
+        "docs/operations/kaspi-remote.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "e71ef81e4e3336e2828c25bb78840d146889d518",
+      "updatedAt": "2026-09-29T06:52:11.619Z"
     }
   ]
 }
