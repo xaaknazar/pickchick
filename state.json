@@ -1029,9 +1029,9 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "2cb25a6d6a3d8fc702af5440c49d4ff69b0a8e57",
-      "updatedAt": "2026-09-29T14:29:33.260Z",
+      "updatedAt": "2026-09-29T14:37:12.945Z",
       "summary": "2cb25a6 / PR135: documentation research only; official cashier phone, 81 fork auth routes (8 variants), Kaspi ID unsupported. 7 roadmap tests and diff/format passed. No new bank requests; VPS/online roadmap not updated; release CI unconfirmed.",
       "nextAction": "Obtain supported handling of UniversalKaspiIdTakePhoto; anonymized upstream question prepared, not sent. No evidence to change cashier phone or auth flags. Continue commercial checkout/Webkassa after verified session."
     }
