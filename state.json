@@ -1034,6 +1034,24 @@
       "updatedAt": "2026-09-29T17:13:22.557Z",
       "summary": "Cashier login complete in shared 7a73017.",
       "nextAction": "Continue VPS integration in kaspi-payment-pilot."
+    },
+    {
+      "id": "kaspi-payment-pilot",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-payment-pilot",
+      "scopes": [
+        "infra/payments/kaspi-bridge",
+        "docs/operations/kaspi-remote.md",
+        "docs/operations/kaspi-bridge-audit-2026-09-29.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "docs/architecture/adr/0012-kaspi-remote-bridge.md",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "7a730170107ae82facf2137ea98b26354c7f7335",
+      "updatedAt": "2026-09-29T17:13:28.695Z"
     }
   ]
 }
