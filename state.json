@@ -1029,9 +1029,9 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "d752c65b94fdb3b4ce88126d84fcf1eaba17759e",
-      "updatedAt": "2026-09-29T13:44:16.678Z",
+      "updatedAt": "2026-09-29T14:26:17.576Z",
       "summary": "d752c65 / PR134: GitHub-мост получил парольный шаг; реальный пароль и SMS приняты, далее UniversalKaspiIdTakePhoto. Сессии/счетов нет. 18 unit, 7 roadmap, fake-bank HTTP, lint/format прошли. Мост остановлен; password/OTP очищены. VPS/онлайн-пульт не обновлены; полная CI ожидается.",
       "nextAction": "Нужен штатный нативный Kaspi ID для этого входа; не повторять регистрацию/пароль без основания. Далее merchant, commercial mobile checkout, Webkassa и guarded deployment. Аудит docs/operations/kaspi-bridge-audit-2026-09-29.md."
     }
