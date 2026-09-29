@@ -1880,7 +1880,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "Реализован отключённый по умолчанию customer checkout: серверная цена, восстановление заказа, Kaspi UI, long poll, явный deferred fiscal pilot. Локально 48 commerce + 15 transport сценариев и UI 320/393/768. Реальный денежный прогон и выкладка checkout ещё не выполнены.",
+      "summary": "Реализован отключённый по умолчанию customer checkout: серверная цена, восстановление заказа, Kaspi UI, long poll, явный deferred fiscal pilot. Локально 48 commerce + 15 transport сценариев и UI 320/393/768. PickChick Dev запущен с Kaspi UI; iOS bundle HTTP 200, открытие телефона остановлено блокировкой устройства. Backend checkout пока HTTP 404; реальный денежный прогон и выкладка checkout ещё не выполнены.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",

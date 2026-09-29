@@ -124,3 +124,16 @@ edge transport. TEST kitchen portal сам по себе не подтвержд
 - [Счёт и ожидание оплаты, 393 px](../../apps/mobile/design/kaspi-checkout/invoice-393.png)
 
 Физический прогон отложен: владелец подтвердил, что моноблок сейчас выключен.
+
+## 29 сентября: PickChick Dev запущен с Kaspi checkout
+
+На основном Mac запущен LAN Metro с `EXPO_PUBLIC_KASPI_CHECKOUT=1`,
+`EXPO_PUBLIC_CUSTOMER_AUTH=server`, `EXPO_PUBLIC_UNPAID_TEST_ORDERS=0` и Fast Refresh.
+Проверка `node scripts/mobile/check-dev-bundle.mjs`: iOS manifest/bundle HTTP 200,
+11 280 089 байт. Автоматическое открытие на iPhone не выполнено: devicectl вернул
+`kAMDMobileImageMounterDeviceLocked`. Нужны разблокировка и открытие PickChick Dev
+в одной LAN с Mac. Запуск Metro не означает установку нового нативного клиента.
+
+Публичный `/v1/customer-checkout/config` пока возвращает HTTP 404: backend checkout
+не выложен, счёт отправить нельзя. Банковских запросов/списаний не было.
+Приёмка экрана на телефоне и онлайн-публикация roadmap ещё не выполнены.
