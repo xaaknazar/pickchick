@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import { TipTopPayController } from './tiptoppay-controller.js';
+import { KaspiRemoteController } from './kaspi-remote-controller.js';
 import {
   BadRequestException,
   Controller,
@@ -155,6 +156,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     controllers: [
       HealthController,
       TipTopPayController,
+      KaspiRemoteController,
       CapabilitiesController,
       BranchesController,
       MenuSyncController,
@@ -199,7 +201,10 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     ],
   })
   class ApiModule {}
-  const app = await createHttpApplication(ApiModule);
+  const app = await createHttpApplication(ApiModule, {
+    // The Kaspi bridge signs the exact JSON bytes it sends.
+    rawJsonRoutes: [/^\/v1\/integrations\/kaspi-remote\/webhook\/?$/],
+  });
   app.useBodyParser('raw', {
     limit: 16 * 1024,
     type: (request: IncomingMessage) =>

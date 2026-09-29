@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-28T07:48:07Z",
+  "updatedAt": "2026-09-29T06:25:07Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -1880,8 +1880,8 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "Требуется банковский канал с привязкой суммы и заказа, переходом в Kaspi и серверным подтверждением. Возможность ещё не подтверждена договором.",
-      "status": "blocked",
+      "summary": "Владелец выбрал мост кассира Kaspi Pay (неофициальный, tapter-dev/kaspi-pos-automation). Адаптер kaspi-remote в финансовом ядре готов и проверен на PostgreSQL с имитацией моста; реальный счёт, экран mobile и Webkassa ещё не выполнены.",
+      "status": "active",
       "owner": "joint",
       "phase": "integration",
       "dependsOn": ["payments-core", "payments-provider-approval"],
@@ -1893,13 +1893,21 @@
         {
           "label": "mobile payment design",
           "path": "docs/operations/mobile-payment-design.md"
+        },
+        {
+          "label": "Kaspi kaspi-remote: адаптер и установка",
+          "path": "docs/operations/kaspi-remote.md"
+        },
+        {
+          "label": "ADR 0012 мост кассира Kaspi",
+          "path": "docs/architecture/adr/0012-kaspi-remote-bridge.md"
         }
       ],
       "acceptance": [
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Получить разрешённый remote API и реализовать сквозной адаптер.",
+      "nextAction": "Установить мост на VPS, войти кассиром на отдельный номер, выставить пробный счёт 100 ₸ владельцу и подтвердить статусы/историю; затем экран mobile после открытия checkout.",
       "checks": {
         "implemented": false,
         "verified": false,

@@ -12,8 +12,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/unit.test.mjs ../../tests/payments/tiptoppay.test.mjs",
-    "test:integration": "node --test tests/postgres.test.mjs"
+    "test": "node --test tests/unit.test.mjs ../../tests/payments/tiptoppay.test.mjs ../../tests/payments/kaspi-remote.test.mjs",
+    "test:integration": "node --test --test-concurrency=1 tests/postgres.test.mjs tests/kaspi-remote.postgres.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",

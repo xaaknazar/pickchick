@@ -1,0 +1,24 @@
+# Template: WorkingDirectory must point at the deployed release that contains services/api/dist.
+[Unit]
+Description=PickChick Kaspi invoice worker
+After=network-online.target pickchick-kaspi-bridge.service postgresql.service
+Wants=pickchick-kaspi-bridge.service
+
+[Service]
+User=pickchick
+WorkingDirectory=/opt/pickchick-staging/current
+# API database/customer-auth settings, then Kaspi settings, then the cashier session.
+EnvironmentFile=/opt/pickchick-staging/secrets/staging.env
+EnvironmentFile=/opt/pickchick-staging/secrets/kaspi-remote.env
+EnvironmentFile=-/opt/pickchick-staging/secrets/kaspi-session.env
+ExecStart=/usr/bin/node services/api/dist/kaspi-remote-worker.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

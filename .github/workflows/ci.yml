@@ -49,7 +49,7 @@ jobs:
       - name: Verify commerce transactions and delivery invariants
         run: |
           pnpm test:commerce
-          node --test tests/payments/tiptoppay-http.test.mjs
+          node --test tests/payments/tiptoppay-http.test.mjs tests/payments/kaspi-remote-http.test.mjs
           python3 -m unittest discover -s infra/domains -p 'test_*.py'
       - name: Verify Chiki ledger, reservations and refund debt
         run: pnpm test:loyalty

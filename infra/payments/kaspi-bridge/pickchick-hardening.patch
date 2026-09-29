@@ -1,0 +1,103 @@
+diff --git a/server.js b/server.js
+index 606a9a9..f7bb2e3 100644
+--- a/server.js
++++ b/server.js
+@@ -1,11 +1,9 @@
+ import express from 'express';
+-import path from 'path';
+-import { PORT, ROOT_DIR } from './src/config.js';
++import { PORT } from './src/config.js';
+ import authRoutes from './src/routes/auth.js';
+ import invoiceRoutes from './src/routes/invoice.js';
+ import qrRoutes from './src/routes/qr.js';
+ import historyRoutes from './src/routes/history.js';
+-import refundRoutes from './src/routes/refund.js';
+ import sessionRoutes from './src/routes/session.js';
+ import { startPolling } from './src/polling.js';
+ import 'dotenv/config';
+@@ -13,7 +11,7 @@ import 'dotenv/config';
+ const app = express();
+ 
+ app.use(express.json());
+-app.use(express.static(path.join(ROOT_DIR, 'public')));
++// PickChick: no demo UI on a server that holds a cashier session.
+ 
+ app.get('/health', (req, res) => res.json({ status: 'ok' }));
+ 
+@@ -21,10 +19,11 @@ app.use('/api/auth', authRoutes);
+ app.use('/api/invoice', invoiceRoutes);
+ app.use('/api/qr', qrRoutes);
+ app.use('/api/history', historyRoutes);
+-app.use('/api/refund', refundRoutes);
++// PickChick: refunds are not exposed through the bridge.
+ app.use('/api/session', sessionRoutes);
+ 
+-app.listen(PORT, () => {
+-  console.log(`\n  🟢 Kaspi Pay App running at http://localhost:${PORT}\n`);
+-  startPolling();
++// PickChick: loopback only. The session headers grant full cashier access.
++app.listen(PORT, '127.0.0.1', () => {
++  console.log(`Kaspi bridge listening on 127.0.0.1:${PORT}`);
++  if (process.env.BRIDGE_POLLING === 'on') startPolling();
+ });
+diff --git a/src/helpers.js b/src/helpers.js
+index 81937ec..b32ecce 100644
+--- a/src/helpers.js
++++ b/src/helpers.js
+@@ -47,30 +47,9 @@ export const extractUserToken = (resp) => {
+ 
+ export const loggedFetch = async (url, options = {}) => {
+   const method = (options.method || 'GET').toUpperCase();
+-  console.log(`\n>>> ${method} ${url}`);
+-  if (options.headers) console.log('>>> Headers:', JSON.stringify(options.headers, null, 2));
+-  if (options.body) {
+-    try {
+-      console.log('>>> Body:', JSON.parse(options.body));
+-    } catch {
+-      console.log('>>> Body:', options.body);
+-    }
+-  }
+-
+   const resp = await fetch(url, options);
+-  const cloned = resp.clone();
+-  let body;
+-  try {
+-    body = await cloned.json();
+-  } catch {
+-    try {
+-      body = await cloned.text();
+-    } catch {
+-      body = '[unreadable]';
+-    }
+-  }
+-  console.log(`<<< ${resp.status} ${resp.statusText}`);
+-  console.log('<<< Response:', typeof body === 'object' ? JSON.stringify(body, null, 2) : body);
++  // PickChick: method, path and status only - no headers, bodies, phones or tokens.
++  console.log(`${method} ${new URL(url).pathname} ${resp.status}`);
+   return resp;
+ };
+ 
+diff --git a/src/routes/invoice.js b/src/routes/invoice.js
+index 3fbedf3..9c893d1 100644
+--- a/src/routes/invoice.js
++++ b/src/routes/invoice.js
+@@ -60,7 +60,7 @@ router.post('/create', async (req, res) => {
+     });
+     const kaspiResponse = await resp.json();
+     const d = kaspiResponse.Data;
+-    if (d && d.QrOperationId) {
++    if (process.env.BRIDGE_POLLING === 'on' && d && d.QrOperationId) {
+       trackPayment(
+         d.QrOperationId,
+         'invoice',
+@@ -124,7 +124,9 @@ router.post('/cancel', async (req, res) => {
+ router.post('/history', async (req, res) => {
+   try {
+     const url = `${KASPI_QRPAY_URL}/v01/remote/history`;
+-    const payload = JSON.stringify({ MaxResult: 20 });
++    // PickChick: callers may look further back (default 20, at most 200).
++    const max = Math.min(Math.max(Number.parseInt(req.body?.maxResult, 10) || 20, 1), 200);
++    const payload = JSON.stringify({ MaxResult: max });
+     const headers = { ...signedQrPayHeaders(url, req.session, payload), 'Content-Type': 'application/json' };
+     const resp = await loggedFetch(url, {
+       method: 'POST',

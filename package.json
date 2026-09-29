@@ -47,6 +47,7 @@
     "test:fulfillment-transport": "pnpm --filter @pickchick/fulfillment-transport test && pnpm --filter @pickchick/fulfillment-transport test:integration",
     "test:pos-order-sync": "pnpm --filter @pickchick/pos-order-sync test && pnpm --filter @pickchick/pos-order-sync test:integration",
     "pos:sync": "node --env-file=.env scripts/pos-order-sync-worker.mjs",
+    "kaspi:worker": "node --env-file=.env services/api/dist/kaspi-remote-worker.js",
     "pos:sync:setup": "node --env-file=.env scripts/pos-order-sync-setup.mjs",
     "project:check": "node scripts/project-sync.mjs check",
     "project:sync": "node scripts/project-sync.mjs sync",

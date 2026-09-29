@@ -126,7 +126,15 @@ export class HealthController {
   }
 }
 
-export async function createHttpApplication(module: Type<unknown>) {
+export interface HttpApplicationOptions {
+  /** POST JSON routes whose exact bytes are signed by a provider: kept as a raw Buffer. */
+  rawJsonRoutes?: readonly RegExp[];
+}
+
+export async function createHttpApplication(
+  module: Type<unknown>,
+  options: HttpApplicationOptions = {},
+) {
   const app = await NestFactory.create<NestExpressApplication>(module, {
     logger: false,
     abortOnError: false,
@@ -171,6 +179,16 @@ export async function createHttpApplication(module: Type<unknown>) {
       limit: 2 * 1024,
       type: (request: IncomingMessage) =>
         /^\/edge\/v1\/staff\/(?:login|pin)\/?$/i.test(request.url?.split('?')[0] ?? '') &&
+        /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+    });
+  const rawJsonRoutes = options.rawJsonRoutes ?? [];
+  // Must precede the generic JSON parser, which would otherwise consume the bytes.
+  if (rawJsonRoutes.length)
+    app.useBodyParser('raw', {
+      limit: 64 * 1024,
+      type: (request: IncomingMessage) =>
+        request.method === 'POST' &&
+        rawJsonRoutes.some((route) => route.test(request.url?.split('?')[0] ?? '')) &&
         /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
     });
   app.useBodyParser('json', { limit: 100 * 1024 });

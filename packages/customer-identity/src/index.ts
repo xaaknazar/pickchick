@@ -688,3 +688,23 @@ export class CustomerIdentity {
     });
   }
 }
+
+/**
+ * Server-side payment use only (Kaspi invoice to the verified phone). Returns the
+ * active customer's phone in E.164 or null; never logs or returns it elsewhere.
+ */
+export async function readCustomerPaymentPhone(
+  pool: DatabasePool,
+  options: CustomerIdentityOptions,
+  customerId: string,
+): Promise<string | null> {
+  if (!options.enabled || !/^[0-9a-f-]{36}$/.test(customerId)) return null;
+  const row = (
+    await pool.query<{ phone_cipher: string | null; deleted_at: Date | null }>(
+      'SELECT phone_cipher,deleted_at FROM identity_customers WHERE id=$1',
+      [customerId],
+    )
+  ).rows[0];
+  if (!row || row.deleted_at || !row.phone_cipher) return null;
+  return decrypt<string>(options.piiKey, `phone:${customerId}`, row.phone_cipher);
+}

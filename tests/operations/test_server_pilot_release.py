@@ -10,7 +10,10 @@ r=importlib.util.module_from_spec(spec);sys.modules[spec.name]=r;spec.loader.exe
 
 class ServerPilotGuards(unittest.TestCase):
  def test_exact_additive_migrations(self):
-  self.assertEqual([p.name for p in sorted((ROOT/'db/cloud/migrations').glob('*.sql'))][20:],list(r.MIGRATIONS))
+  names=[p.name for p in sorted((ROOT/'db/cloud/migrations').glob('*.sql'))]
+  # The 020->025 pilot applies exactly 021-025; later migrations need their own release profile.
+  self.assertEqual(names[20:20+len(r.MIGRATIONS)],list(r.MIGRATIONS))
+  self.assertEqual(names[20+len(r.MIGRATIONS):],['026_cloud_kaspi_remote.sql'])
   self.assertEqual(set(r.ADDITIONS),{'test_order_numbers','identity_otp_challenges'})
  def test_gateway_preserves_every_existing_handler(self):
   old=(ROOT/'infra/public-staging/gateway.Caddyfile').read_text()
