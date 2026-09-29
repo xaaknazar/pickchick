@@ -1064,11 +1064,11 @@
         "tests/operations/test_server_pilot_release.py",
         ".github/workflows/ci.yml"
       ],
-      "status": "active",
-      "head": "5a9ed7110d682a45c7f74c48f1bfbf7be0fa11f1",
-      "updatedAt": "2026-09-29T18:39:06.844Z",
-      "summary": "VPS bridge deployed from 5dd66c5 after 6/6 Foundation CI; bank session active before/after restart. No invoices, no DB/API changes. Docs checkpoint 5a9ed71; roadmap tests 7/7. Final docs CI and online roadmap publication pending.",
-      "nextAction": "Continue commercial order/payment linkage with explicit deferred fiscal pilot. Owner approved first 100 KZT invoice to own verified number, not sent. VPS schema020: no provider accounts, identities, commercial catalog publications or transport bindings; do not activate worker against old schema. See installation evidence."
+      "status": "available",
+      "head": "347fac6db1f639e160fc8ad84aa467f429f4de64",
+      "updatedAt": "2026-09-29T18:47:11.824Z",
+      "summary": "347fac6: customer Kaspi checkout, mobile UI, deferred fiscal pilot; pnpm check, commerce48, transport15, mobile215+30, browser320/393/768 passed; CI pending; real invoice not sent",
+      "nextAction": "Monoblock is off. Next: review full CI and guarded VPS schema020→027/API/grants, published commercial catalog and authenticated owner, real edge transport, then one approved 100 KZT invoice. Do not enable public checkout or fake fiscal receipt."
     }
   ]
 }
