@@ -80,6 +80,7 @@ with sync_playwright() as p:
             expect(visible(page, target)).to_be_enabled()
             expect(visible(page, 'screen-M12').get_by_text('Блюда · 1 шт.', exact=True)).to_be_visible()
             visible(page, 'checkout-edit-cart').click()
+            expect(visible(page, 'confirm-otp')).to_have_count(0)
             expect(visible(page, 'screen-M09').get_by_text('Pick Combo', exact=True)).to_be_visible()
             expect(visible(page, 'cart-quantity-pick-combo')).to_have_text('1')
             visible(page, 'cart-checkout').click()

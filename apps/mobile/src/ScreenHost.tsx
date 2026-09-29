@@ -60,9 +60,16 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       return;
     }
     if (!preview && returnTo && id === 'M04' && (next === 'M06' || next === 'M30')) {
-      if (returnTo === 'pick-man') router.replace('/games/pick-man');
-      else if (returnTo === 'pick-blocks') router.replace('/games/pick-blocks');
-      else router.replace({ pathname: '/screen/[id]', params: { id: returnTo } });
+      // Return to the protected route beneath the whole login flow. Replacing
+      // only M04 leaves the OTP screen underneath checkout's transparent sheet.
+      if (returnTo === 'pick-man') router.dismissTo('/games/pick-man');
+      else if (returnTo === 'pick-blocks') router.dismissTo('/games/pick-blocks');
+      else if (returnTo === 'M12') router.dismissTo('/checkout');
+      else if (['M17', 'M18', 'M20'].includes(returnTo))
+        router.dismissTo({ pathname: '/order-status', params: { id: returnTo } });
+      else if (returnTo in tabRoutes)
+        router.dismissTo(tabRoutes[returnTo as keyof typeof tabRoutes]);
+      else router.dismissTo({ pathname: '/screen/[id]', params: { id: returnTo } });
       return;
     }
     if (!preview && next in tabRoutes) router.navigate(tabRoutes[next as keyof typeof tabRoutes]);

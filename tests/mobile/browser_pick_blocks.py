@@ -72,11 +72,18 @@ def resume(page):
 
 def assert_still_paused(page):
     expect(page.get_by_test_id('blocks-resume')).to_be_visible()
+    geometry(page)
     before = saved(page)
-    board_before = page.get_by_test_id('blocks-board').inner_html()
+    # The board's lazy logo can finish loading after resume becomes visible.
+    # Compare the piece itself, including its animated position, not that image.
+    piece = page.get_by_test_id('blocks-falling-piece')
+    origin = page.get_by_test_id('blocks-piece-origin')
+    piece_before = piece.inner_html()
+    bounds_before = (origin.bounding_box(), piece.bounding_box())
     page.wait_for_timeout(1100)
     assert saved(page) == before, 'Paused game must not advance or auto-save another move'
-    assert page.get_by_test_id('blocks-board').inner_html() == board_before, 'Paused piece moved'
+    assert piece.inner_html() == piece_before, 'Paused piece cells changed'
+    assert (origin.bounding_box(), piece.bounding_box()) == bounds_before, 'Paused piece moved'
     expect(page.get_by_test_id('blocks-resume')).to_be_visible()
 
 
