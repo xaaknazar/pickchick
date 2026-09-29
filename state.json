@@ -1029,11 +1029,11 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "active",
-      "head": "2cb25a6d6a3d8fc702af5440c49d4ff69b0a8e57",
-      "updatedAt": "2026-09-29T14:37:12.945Z",
-      "summary": "2cb25a6 / PR135: documentation research only; official cashier phone, 81 fork auth routes (8 variants), Kaspi ID unsupported. 7 roadmap tests and diff/format passed. No new bank requests; VPS/online roadmap not updated; release CI unconfirmed.",
-      "nextAction": "Obtain supported handling of UniversalKaspiIdTakePhoto; anonymized upstream question prepared, not sent. No evidence to change cashier phone or auth flags. Continue commercial checkout/Webkassa after verified session."
+      "status": "available",
+      "head": "1db85216e76d6af4c39a0f882fa8e1b6e2b6e392",
+      "updatedAt": "2026-09-29T14:41:22.900Z",
+      "summary": "1db8521 / PR136: saveVerifiedSession requires completed cashier role and active bank check, atomic 0600 replacement; 19 Kaspi + 7 roadmap tests, lint/format/diff passed. Personal verification plan documented. No new bank calls or VPS/online-roadmap deployment; full CI unconfirmed.",
+      "nextAction": "Await clarification whether face was completed during official cashier registration. Native window.auth handoff for this server process remains unavailable; do not request another OTP or fabricate callback. Need supported handoff before login, then merchant validation, restart check, commercial checkout and Webkassa."
     }
   ]
 }
