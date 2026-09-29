@@ -30,6 +30,12 @@ export function cashierPhone(input) {
   return /^7[0-9]{9}$/.test(body) ? '7' + body : null;
 }
 
+export function requireSmsSent(result) {
+  if (result?.body?.view?.onOpenAlarm?.error?.code === 'OldVersionToUpdate')
+    throw new Error('KASPI_CLIENT_UPDATE_REQUIRED');
+  if (result?.success !== true) throw new Error('SMS_NOT_SENT');
+}
+
 async function post(bridge, path, body) {
   const response = await fetch(bridge + path, {
     method: 'POST',
@@ -63,7 +69,7 @@ async function main() {
       phoneNumber: phone,
       processId: init.processId,
     });
-    if (!sent.success) throw new Error('SMS_NOT_SENT');
+    requireSmsSent(sent);
     const otp = (await rl.question('Код из SMS: ')).trim();
     if (!/^[0-9]{4,8}$/.test(otp)) throw new Error('OTP_INVALID');
     const verified = await post(base, '/api/auth/verify-otp', { otp, processId: init.processId });

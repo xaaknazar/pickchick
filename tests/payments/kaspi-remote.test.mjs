@@ -195,6 +195,27 @@ test('payment phone is read only for an active customer with auth enabled', asyn
   assert.equal(await readCustomerPaymentPhone(pool, options, id), null);
 });
 
+test('cashier login stops before OTP on an obsolete client without printing provider data', async () => {
+  const { requireSmsSent } = await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');
+  assert.doesNotThrow(() => requireSmsSent({ success: true }));
+  assert.throws(
+    () =>
+      requireSmsSent({
+        success: false,
+        body: {
+          view: {
+            onOpenAlarm: {
+              error: { code: 'OldVersionToUpdate', label: 'private provider response' },
+            },
+          },
+        },
+      }),
+    { message: 'KASPI_CLIENT_UPDATE_REQUIRED' },
+  );
+  for (const result of [null, {}, { success: 'true' }, { success: false }])
+    assert.throws(() => requireSmsSent(result), { message: 'SMS_NOT_SENT' });
+});
+
 test('cashier login helper accepts only a KZ mobile and writes only the three session values', async () => {
   const { cashierPhone, sessionEnv } =
     await import('../../infra/payments/kaspi-bridge/kaspi-login.mjs');

@@ -1907,7 +1907,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Кассир подтверждён: ИП PICK CHICK ALA AP, Pick Chick Abay Plaza. Kaspi в CI36536227038 прошёл; два browser-сбоя исправлены и проверены локально. Ждём полную CI нового SHA до установки/входа. SMS/счетов нет. Далее merchant/ККМ, commercial mobile API/экран, Webkassa и пилот. Migration 026 требует собственного выпуска.",
+      "nextAction": "Кассир подтверждён: ИП PICK CHICK ALA AP, Pick Chick Abay Plaza. Локальный вход остановлен Kaspi до SMS: OldVersionToUpdate. Нужен актуальный совместимый мост; сессии/счетов нет. 9 Kaspi unit и оба исправленных browser-сценария прошли локально; полная CI ещё требуется. Далее VPS, merchant/ККМ, commercial mobile API/экран, Webkassa и пилот.",
       "checks": {
         "implemented": false,
         "verified": false,

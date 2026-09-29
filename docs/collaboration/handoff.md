@@ -2,7 +2,11 @@
 
 Kaspi, продолжение 29 сентября: подтверждены ИП PICK CHICK ALA AP и точка
 Pick Chick Abay Plaza. Номер только в .local/kaspi-cashier.json, не в Git.
-Моста на VPS нет, SMS/счетов нет. CI36536227038 на b1c1166 прошёл Kaspi,
+Моста на VPS нет. Локальный вход дошёл до банка: OldVersionToUpdate до SMS,
+сессии/счетов нет. Не повторять запросы с прежней версией. Нужен актуальный мост
+другого проекта/поддерживаемый банком путь; upstream/main всё ещё 28c9167.
+Helper распознаёт отказ, 9 Kaspi unit passed. Мост на Mac остановлен.
+CI36536227038 на b1c1166 прошёл Kaspi,
 но упал на browser checkout/back и ложном сравнении HTML паузы Pick Blocks.
 Исправлены auth dismissTo и сравнение геометрии фигуры вместо фонового логотипа.
 Оба browser-сценария + mobile typecheck прошли локально. Нужна зелёная полная CI
