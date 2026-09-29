@@ -1062,11 +1062,12 @@
         "docs/operations/mobile-payment-design.md",
         "packages/fulfillment-transport",
         "tests/operations/test_server_pilot_release.py",
-        ".github/workflows/ci.yml"
+        ".github/workflows/ci.yml",
+        "@mobile/metro"
       ],
-      "status": "available",
+      "status": "active",
       "head": "347fac6db1f639e160fc8ad84aa467f429f4de64",
-      "updatedAt": "2026-09-29T18:47:11.824Z",
+      "updatedAt": "2026-09-29T18:51:47.449Z",
       "summary": "347fac6: customer Kaspi checkout, mobile UI, deferred fiscal pilot; pnpm check, commerce48, transport15, mobile215+30, browser320/393/768 passed; CI pending; real invoice not sent",
       "nextAction": "Monoblock is off. Next: review full CI and guarded VPS schema020→027/API/grants, published commercial catalog and authenticated owner, real edge transport, then one approved 100 KZT invoice. Do not enable public checkout or fake fiscal receipt."
     }
