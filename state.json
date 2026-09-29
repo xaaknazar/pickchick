@@ -1028,9 +1028,9 @@
         "apps/mobile/src/components/AccountGate.tsx",
         "tests/payments/kaspi-remote.test.mjs"
       ],
-      "status": "available",
+      "status": "active",
       "head": "8a040b803c23d700adc10cad3363e2fa43112bc0",
-      "updatedAt": "2026-09-29T12:58:47.380Z",
+      "updatedAt": "2026-09-29T13:09:18.333Z",
       "summary": "PR133: auth return and pause tests fixed; Kaspi client 26.0921/1115 passes init; 10-digit auth opens KPEnterLoginPassword; 9 Kaspi unit + 7 roadmap + both browser tests passed. No session, invoice or VPS changes. Full latest CI pending.",
       "nextAction": "Owner confirmed dedicated cashier number. Await whether official Kaspi Pay registration is complete and Abay Plaza visible. Password login is unsupported by upstream; do not collect password or repeat role question. Private phone/device files only in .local on this Mac."
     }
