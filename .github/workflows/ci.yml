@@ -122,6 +122,17 @@ jobs:
             sleep 1
           done
           .local/design-venv/bin/python tests/mobile/browser_customer_account.py
+      - name: Verify Kaspi invoice checkout screens (isolated HTTP fixtures)
+        run: |
+          EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/kaspi-checkout-web
+          PICKCHICK_PREVIEW_OUTPUT=kaspi-checkout MOBILE_PREVIEW_PORT=4197 node scripts/mobile/preview-server.mjs > .local/kaspi-checkout-server.log 2>&1 &
+          kaspi_pid=$!
+          trap 'kill "$kaspi_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4197/ > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
       - name: Check dependency advisories
         run: pnpm audit --audit-level=high
       - name: Stop test infrastructure

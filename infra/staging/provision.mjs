@@ -6,6 +6,7 @@ import { backofficeGrants } from './backoffice-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 import { cloudPosSyncGrants } from './pos-sync-grants.mjs';
+import { customerCheckoutGrants } from './customer-checkout-grants.mjs';
 
 async function provision() {
   const config = loadConfig('api');
@@ -91,6 +92,13 @@ async function provision() {
       );
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
+      // Mobile Kaspi checkout; applied last so a disabled checkout only drops its own inserts.
+      await client.query(
+        customerCheckoutGrants(
+          'pickchick_app',
+          process.env.CUSTOMER_KASPI_CHECKOUT_ENABLED === 'true',
+        ),
+      );
       if (config.testOrderFlowEnabled)
         await client.query('GRANT INSERT ON bo_records TO pickchick_app');
     });

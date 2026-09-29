@@ -3,7 +3,7 @@ import { RepeatOrder } from '../components/RepeatOrder';
 import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
 import { unpaidTestOrdersEnabled } from '../order-simulator';
 import { MotionPressable } from '../components/Motion';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Text, TextInput, View, StyleSheet } from 'react-native';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
@@ -24,7 +24,9 @@ import {
 } from '../components/UI';
 import { colors, font } from '../theme';
 import { paymentName } from '../components/PaymentChoice';
-import { money, cartTotal } from '../domain';
+import { money, cartTotal, cartLineKey } from '../domain';
+import { useKaspiCheckout, type KaspiCheckoutModel } from '../useKaspiCheckout';
+import { KaspiPaymentStatus } from '../components/KaspiPayment';
 import { cartMatchesOrder } from '../test-order-session';
 import { restaurantLocation } from '../restaurant-location';
 
@@ -166,8 +168,92 @@ function StageTrack({ order }: { order: TestOrder }) {
   );
 }
 
+/** Commercial order paid by a Kaspi invoice; replaces the checkout while in progress. */
+function KaspiCheckoutPage({
+  props,
+  kaspi,
+  paidCart,
+}: {
+  props: ScreenProps;
+  kaspi: KaspiCheckoutModel;
+  paidCart: { id: string; quantity: number }[] | null;
+}) {
+  const view = kaspi.view!;
+  const done = async () => {
+    if (paidCart) props.model.clearCart(paidCart);
+    await kaspi.dismiss();
+    props.navigate('M06');
+  };
+  return (
+    <Page
+      props={props}
+      title="Оплата"
+      footer={
+        view.stage === 'paid' ? (
+          <Button
+            style={orderUI.action}
+            textStyle={orderUI.actionText}
+            testID="kaspi-done"
+            title="Готово"
+            onPress={() => void done()}
+          />
+        ) : view.stage === 'invoice_closed' ? (
+          <>
+            <Button
+              style={orderUI.action}
+              textStyle={orderUI.actionText}
+              testID="kaspi-retry"
+              title={kaspi.busy ? 'Отправляем…' : 'Отправить новый счёт'}
+              disabled={kaspi.busy || !view.can_retry}
+              onPress={() => void kaspi.retry()}
+            />
+            <Button
+              secondary
+              testID="kaspi-back-to-cart"
+              title="Вернуться в корзину"
+              onPress={() => void kaspi.dismiss()}
+            />
+          </>
+        ) : (
+          <Button
+            secondary
+            testID="kaspi-refresh"
+            title="Обновить статус"
+            disabled={kaspi.busy}
+            onPress={() => void kaspi.refresh()}
+          />
+        )
+      }
+    >
+      <KaspiPaymentStatus view={view} phoneMasked={kaspi.phoneMasked} />
+      {kaspi.error ? (
+        <Notice warning title="Не удалось обновить">
+          {kaspi.error}
+        </Notice>
+      ) : null}
+    </Page>
+  );
+}
+
 export function ConnectedCheckout(props: ScreenProps) {
+  const kaspi = useKaspiCheckout(props.model.cart, props.model.diningMode);
+  const paidCart = useRef<{ id: string; quantity: number }[] | null>(null);
+  if (kaspi.view)
+    return <KaspiCheckoutPage props={props} kaspi={kaspi} paidCart={paidCart.current} />;
+  return <TestOrCommercialCheckout props={props} kaspi={kaspi} paidCart={paidCart} />;
+}
+
+function TestOrCommercialCheckout({
+  props,
+  kaspi,
+  paidCart,
+}: {
+  props: ScreenProps;
+  kaspi: KaspiCheckoutModel;
+  paidCart: { current: { id: string; quantity: number }[] | null };
+}) {
   const flow = props.model.testFlow;
+  const kaspiCheckout = kaspi.available && props.model.paymentMethod === 'kaspi';
   const unknown = flow.orders.find((order) => order.payment_state === 'simulated_unknown');
   const matching = flow.orders.find(
     (order) =>
@@ -181,7 +267,16 @@ export function ConnectedCheckout(props: ScreenProps) {
   const branchId = pending?.branch_id ?? props.model.branch?.id;
   const branch = props.model.branches.find((candidate) => candidate.id === branchId);
   const location = restaurantLocation(branchId);
+  const payWithKaspi = kaspiCheckout && !pending;
+  const startKaspi = async () => {
+    paidCart.current = props.model.cart.map((line) => ({
+      id: cartLineKey(line),
+      quantity: line.quantity,
+    }));
+    await kaspi.checkout();
+  };
   const submit = async () => {
+    if (payWithKaspi) return startKaspi();
     if (pending) flow.select(pending.order_id);
     const order = pending ?? (await flow.submit());
     if (order) {
@@ -213,17 +308,25 @@ export function ConnectedCheckout(props: ScreenProps) {
           <Button
             style={orderUI.action}
             textStyle={orderUI.actionText}
-            testID="test-checkout-create"
+            testID={payWithKaspi ? 'kaspi-checkout-pay' : 'test-checkout-create'}
             title={
-              flow.busy
-                ? 'Сохраняем заказ…'
-                : pending
-                  ? `Продолжить ${pending.number}`
-                  : unpaidTestOrdersEnabled
-                    ? 'Отправить на кухню'
-                    : 'Продолжить оформление'
+              payWithKaspi
+                ? kaspi.busy
+                  ? 'Создаём заказ…'
+                  : 'Оплатить через Kaspi'
+                : flow.busy
+                  ? 'Сохраняем заказ…'
+                  : pending
+                    ? `Продолжить ${pending.number}`
+                    : unpaidTestOrdersEnabled
+                      ? 'Отправить на кухню'
+                      : 'Продолжить оформление'
             }
-            disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
+            disabled={
+              payWithKaspi
+                ? kaspi.busy || props.model.cart.length === 0
+                : flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))
+            }
             onPress={() => {
               void submit();
             }}
@@ -237,9 +340,15 @@ export function ConnectedCheckout(props: ScreenProps) {
         restaurantName={location?.name ?? branch?.name}
         address={location ? `${location.city}, ${location.address}` : undefined}
         details={pending ? <OrderLines order={pending} /> : undefined}
+        kaspi={payWithKaspi ? { phoneMasked: kaspi.phoneMasked } : undefined}
       />
-      <FlowNotice props={props} />
-      {!flow.available ? (
+      {kaspi.error && payWithKaspi ? (
+        <Notice warning title="Не удалось оформить">
+          {kaspi.error}
+        </Notice>
+      ) : null}
+      {!payWithKaspi ? <FlowNotice props={props} /> : null}
+      {!flow.available && !payWithKaspi ? (
         <Button title="Обновить меню" secondary onPress={props.model.refresh} />
       ) : null}
       {unknown ? (
@@ -261,7 +370,7 @@ export function ConnectedCheckout(props: ScreenProps) {
           onPress={() => props.navigate('M20')}
         />
       ) : null}
-      {!unpaidTestOrdersEnabled ? <Caption>Деньги не списываются.</Caption> : null}
+      {!unpaidTestOrdersEnabled && !payWithKaspi ? <Caption>Деньги не списываются.</Caption> : null}
     </Page>
   );
 }

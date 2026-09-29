@@ -1,5 +1,21 @@
 # PickChick — состояние проекта
 
+## 29 сентября: mobile checkout с оплатой Kaspi-счётом (выключен)
+
+По поручению владельца сделана сторона приложения: корзина, кнопка «Оплатить через
+Kaspi», счёт на номер аккаунта, экран ожидания и «Оплачено». API `v1/customer/checkout`:
+цена только из опубликованного каталога, customer и телефон только из identity,
+заказ и попытка оплаты через commerce-core, счёт выставляет прежний Kaspi worker.
+Стадии из фактов ledger; «Оплачено» только по capture; при неизвестном результате
+новый счёт не создаётся. Grants роли API добавлены в provision (INSERT только при флаге).
+Проверки: 4 PostgreSQL и 3 unit commerce-core, 3 HTTP/integration (полный путь с
+identity, выключенный режим, ограниченная роль), 7 mobile unit, typecheck, lint,
+prettier; прежние 45 commerce PostgreSQL и все 219 mobile node-тестов прошли.
+Выключено флагами `CUSTOMER_KASPI_CHECKOUT_ENABLED` и `EXPO_PUBLIC_KASPI_CHECKOUT`.
+Живой банк не вызывался: сессии кассира нет (KASPI_ID_REQUIRED). Кухня после оплаты
+ждёт Webkassa; витрина на опубликованном каталоге - отдельная задача. CI, VPS,
+телефон и онлайн-пульт не обновлены. [Подробности и включение](operations/kaspi-remote.md).
+
 ## 29 сентября: сравнены amoTEAM, ApiPay и другие платёжные сервисы
 
 Проверены публичные инструкции шести сервисов. ApiPay/Tole прямо ограничивают

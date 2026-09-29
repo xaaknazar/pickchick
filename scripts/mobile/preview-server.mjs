@@ -7,13 +7,13 @@ const app = process.env.PICKCHICK_PREVIEW_APP ?? 'mobile';
 if (!['mobile', 'kiosk'].includes(app)) throw new Error('Unsupported preview app');
 const output = process.env.PICKCHICK_PREVIEW_OUTPUT ?? 'default';
 if (
-  !['default', 'customer-auth'].includes(output) ||
-  (output === 'customer-auth' && app !== 'mobile')
+  !['default', 'customer-auth', 'kaspi-checkout'].includes(output) ||
+  (output !== 'default' && app !== 'mobile')
 )
   throw new Error('Unsupported preview output');
 const root = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  output === 'customer-auth' ? '../../.local/customer-auth-web' : `../../apps/${app}/dist`,
+  output === 'default' ? `../../apps/${app}/dist` : `../../.local/${output}-web`,
 );
 const port = Number(
   app === 'kiosk'

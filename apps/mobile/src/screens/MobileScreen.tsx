@@ -1,6 +1,7 @@
 import { OrderStatusPreview } from './OrderStatusPreview';
 import { ConnectedFeedback } from './ConnectedFeedback';
 import { connectedTestOrdersEnabled } from '../order-simulator';
+import { kaspiCheckoutBuildEnabled } from '../kaspi-checkout-client';
 import type { ScreenProps } from '../model';
 import { requiresAccount } from '../account-access';
 import { AccountGate } from '../components/AccountGate';
@@ -57,6 +58,9 @@ export function MobileScreen(props: ScreenProps) {
 function ScreenContent(props: ScreenProps) {
   if (props.preview && ['M17', 'M18', 'M20'].includes(props.screenId))
     return <OrderStatusPreview {...props} />;
+  // Kaspi checkout builds use the connected checkout even without TEST order switches.
+  if (!props.preview && !connectedTestOrdersEnabled && kaspiCheckoutBuildEnabled)
+    if (props.screenId === 'M12') return <ConnectedCheckout {...props} />;
   if (!props.preview && connectedTestOrdersEnabled) {
     if (['M31', 'M35'].includes(props.screenId) && props.model.testFlow.current)
       return (

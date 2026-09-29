@@ -28,12 +28,14 @@ export function CheckoutDetails({
   restaurantName,
   address,
   details,
+  kaspi,
 }: {
   props: ScreenProps;
   lockedMode?: 'takeaway' | 'dine_in';
   restaurantName?: string;
   address?: string;
   details?: ReactNode;
+  kaspi?: { phoneMasked: string | null };
 }) {
   const { model } = props;
   const location = restaurantLocation(model.branch?.id);
@@ -119,7 +121,7 @@ export function CheckoutDetails({
           </Row>
         ) : null}
       </View>
-      <CheckoutPayments />
+      <CheckoutPayments kaspi={kaspi} />
       <View style={s.section}>
         <Heading small style={orderUI.section}>
           Детали

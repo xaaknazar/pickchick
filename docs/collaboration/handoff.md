@@ -1,4 +1,19 @@
-# Продолжение: Kaspi GitHub bridge
+# Продолжение: Kaspi mobile checkout
+
+29 сентября сделан коммерческий checkout с оплатой Kaspi-счётом, выключен флагами.
+Сервер: `packages/commerce-core/src/customer-checkout.ts`,
+`services/api/src/customer-checkout-controller.ts`, grants
+`infra/staging/customer-checkout-grants.mjs`. Mobile: `apps/mobile/src/kaspi-checkout.ts`,
+`useKaspiCheckout.ts`, `components/KaspiPayment.tsx`, M12. Тесты:
+`packages/commerce-core/tests/customer-checkout*.mjs`,
+`tests/integration/customer-kaspi-checkout.test.mjs`, `tests/mobile/kaspi-checkout.test.mjs`.
+Дальше: полная CI; после входа кассира - согласованный пилот 100 ₸ (env и шаги в
+docs/operations/kaspi-remote.md); Webkassa для кухни; витрина на опубликованном
+каталоге; браузерный сценарий экрана оплаты.
+
+Предыдущий этап:
+
+## Kaspi GitHub bridge
 
 Новое исследование: сравнение amoTEAM, ApiPay, Tole, xpayment, qrapi, KazPayment
 сохранено в конце аудита. ApiPay связывает пароль/видео с дополнительными ролями

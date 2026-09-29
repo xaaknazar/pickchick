@@ -3,6 +3,7 @@ import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import { MotionPressable } from './Motion';
 import { Body, Button, Caption, Heading, Icon } from './UI';
 import { ComboRewardCard } from './ComboRewardCard';
+import { PaymentMark } from './PaymentChoice';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
 import type { PublishedContent } from '../backoffice/content-model';
@@ -182,14 +183,35 @@ export function PromoCodeEntry() {
 }
 
 /** Provider enrollment is still pending. Never collect PAN/CVC in our own form. */
-export function CheckoutPayments() {
+export function CheckoutPayments({ kaspi }: { kaspi?: { phoneMasked: string | null } }) {
   const [cardInfo, setCardInfo] = useState(false);
+  // Non-breaking spaces keep the masked number on one line.
+  const phone = kaspi?.phoneMasked?.replace(/ /g, '\u00a0') ?? null;
   return (
     <View style={{ gap: 12 }}>
       <Heading small style={orderUI.section}>
         Оплата
       </Heading>
       <View style={s.methods}>
+        {kaspi ? (
+          <View
+            testID="checkout-kaspi"
+            accessible
+            accessibilityRole="radio"
+            accessibilityState={{ selected: true, checked: true }}
+            accessibilityLabel={`Kaspi.kz, счёт на номер ${kaspi.phoneMasked ?? 'из профиля'}`}
+            style={[s.method, s.methodSelected]}
+          >
+            <PaymentMark method="kaspi" size={34} />
+            <View style={s.methodText}>
+              <Body style={orderUI.label}>Kaspi.kz</Body>
+              <Caption style={orderUI.detail} testID="kaspi-checkout-phone">
+                Счёт на {phone ?? 'номер из профиля'}
+              </Caption>
+            </View>
+            <Icon name="checkmark" size={20} color={colors.accent} />
+          </View>
+        ) : null}
         <View
           testID="checkout-apple-pay"
           accessible
@@ -233,7 +255,11 @@ export function CheckoutPayments() {
           Добавление карты появится после подключения банка. Сейчас вводить реквизиты не нужно.
         </Caption>
       ) : null}
-      <Caption style={orderUI.detail}>Оплата и чеки - в процессе подключения.</Caption>
+      <Caption style={orderUI.detail}>
+        {kaspi
+          ? 'Счёт придёт в приложение Kaspi. Сумма рассчитывается по актуальному меню ресторана.'
+          : 'Оплата и чеки - в процессе подключения.'}
+      </Caption>
     </View>
   );
 }
@@ -259,6 +285,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   methods: { gap: 8 },
+  methodSelected: { borderWidth: 1, borderColor: colors.accent },
   method: {
     flexDirection: 'row',
     alignItems: 'center',
