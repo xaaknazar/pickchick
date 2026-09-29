@@ -24,6 +24,9 @@ CREATE TABLE commerce_kaspi_invoices (
   next_check_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   -- Worker lease for one status check; independent of next_check_at (webhook hints).
   lease_until timestamptz,
+  lease_token uuid,
+  -- State delivery to the commerce inbox is retried after a crash.
+  delivered_at timestamptz,
   checks integer NOT NULL DEFAULT 0 CHECK(checks>=0),
   CHECK(state NOT IN ('issued','paid') OR operation_id IS NOT NULL),
   CHECK((issued_at IS NULL)=(operation_id IS NULL)),
@@ -31,5 +34,5 @@ CREATE TABLE commerce_kaspi_invoices (
   CHECK((state='paid')=(paid_minor IS NOT NULL))
 );
 CREATE INDEX commerce_kaspi_invoices_due_idx ON commerce_kaspi_invoices(account_id,next_check_at)
-  WHERE state IN ('issuing','issued','unknown');
+  WHERE state IN ('issuing','issued','unknown') OR delivered_at IS NULL;
 CREATE INDEX commerce_kaspi_invoices_order_idx ON commerce_kaspi_invoices(order_id);

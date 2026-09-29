@@ -17,6 +17,9 @@ import {
 const kaspi = kaspiRemoteConfig(process.env);
 if (!kaspi) {
   console.log(JSON.stringify({ event: 'kaspi_remote', state: 'disabled' }));
+} else if (!kaspi.session) {
+  console.error(JSON.stringify({ event: 'kaspi_remote', state: 'no_cashier_session' }));
+  process.exitCode = 1;
 } else {
   const config = loadConfig('api');
   const identity = createCustomerIdentityOptions(process.env);
@@ -30,8 +33,6 @@ if (!kaspi) {
     new KaspiBridgeClient(kaspi),
     (customerId: string) => readCustomerPaymentPhone(pool, identity, customerId),
   );
-  if (!kaspi.session)
-    console.error(JSON.stringify({ event: 'kaspi_remote', state: 'no_cashier_session' }));
   let lastSessionAlert = 0;
   try {
     do {

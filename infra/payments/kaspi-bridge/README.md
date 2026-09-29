@@ -8,5 +8,5 @@
   без записи сессии на диск (`BRIDGE_POLLING=off`).
 - `kaspi-bridge.env.example`, `kaspi-remote.env.example` - шаблоны приватных env (0600).
 - `kaspi-login.mjs` - вход кассира по SMS, пишет сессию в приватный файл.
-- `kaspi-check.mjs` - проверка сессии; с `--invoice-phone` один настоящий счёт.
+- `kaspi-check.mjs` - только проверка сессии, без создания счетов.
 - `pickchick-kaspi-*.service` - шаблоны systemd.

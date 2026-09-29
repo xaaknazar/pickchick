@@ -3,7 +3,8 @@
 // to a 0600 env file. Nothing secret is printed. Usage:
 //   node infra/payments/kaspi-bridge/kaspi-login.mjs [--bridge http://127.0.0.1:3931] [--out FILE]
 import { createInterface } from 'node:readline/promises';
-import { writeFile, rename, chmod } from 'node:fs/promises';
+import { writeFile, rename } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export function sessionEnv(result) {
@@ -68,9 +69,8 @@ async function main() {
     const verified = await post(base, '/api/auth/verify-otp', { otp, processId: init.processId });
     if (!verified.success) throw new Error('OTP_REJECTED');
     const env = sessionEnv(verified);
-    const temporary = out + '.tmp';
-    await writeFile(temporary, env, { mode: 0o600 });
-    await chmod(temporary, 0o600);
+    const temporary = out + '.' + randomUUID() + '.tmp';
+    await writeFile(temporary, env, { mode: 0o600, flag: 'wx' });
     await rename(temporary, out);
     console.log(
       JSON.stringify({

@@ -1880,7 +1880,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "Владелец выбрал мост кассира Kaspi Pay (неофициальный, tapter-dev/kaspi-pos-automation). Адаптер kaspi-remote в финансовом ядре готов и проверен на PostgreSQL с имитацией моста; реальный счёт, экран mobile и Webkassa ещё не выполнены.",
+      "summary": "Присланный отключённый kaspi-remote адаптер проверен и исправлен: доставка ledger после сбоя, сумма банка, lease/отмена, исходный TTL, проверка сессии. 22 Kaspi PostgreSQL-сценария прошли локально с FakeBridge; реальный счёт, commercial mobile API/экран и Webkassa ещё не выполнены.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1907,7 +1907,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Установить мост на VPS, войти кассиром на отдельный номер, выставить пробный счёт 100 ₸ владельцу и подтвердить статусы/историю; затем экран mobile после открытия checkout.",
+      "nextAction": "Владелец создаёт отдельного кассира Kaspi Pay. Затем merchant/ККМ, commercial mobile API/экран, Webkassa и контролируемый пилот; сейчас счета не создавать. Выпуск после зелёной CI, с rollback и собственной migration 026.",
       "checks": {
         "implemented": false,
         "verified": false,

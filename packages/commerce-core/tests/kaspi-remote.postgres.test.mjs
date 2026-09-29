@@ -383,7 +383,7 @@ test('unknown invoice not present in history stays unknown for manual resolution
 
 test('definite refusals fail at once: rejected create, lost session, missing phone, tiyn total', () =>
   fixture(async (f) => {
-    const worker = f.processor();
+    let worker = f.processor();
     const rejected = await f.order();
     f.bridge.create = () => ({ kind: 'rejected', statusCode: 5 });
     await worker.tick();
@@ -393,6 +393,7 @@ test('definite refusals fail at once: rejected create, lost session, missing pho
     assert.equal((await worker.tick()).sessionProblem, true);
     assert.equal((await f.view(session.orderId)).attempts[0].state, 'failed');
     f.bridge.create = null;
+    worker = f.processor(); // session re-login and worker restart
     const noPhone = await f.order({ phone: null });
     await worker.tick();
     assert.equal((await f.view(noPhone.orderId)).attempts[0].state, 'failed');
@@ -516,4 +517,150 @@ test('a webhook hint never releases an invoice leased by another worker', () =>
     const before = f.bridge.count('details');
     await f.processor().tick();
     assert.equal(f.bridge.count('details'), before);
+  }));
+
+test('terminal payment survives a crash between invoice state and ledger delivery', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    await f.processor().tick();
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    f.bridge.status.set(id, 'Processed');
+    await f.pool.query(`CREATE FUNCTION interrupt_capture() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'synthetic ledger outage'; END; $$;
+      CREATE TRIGGER interrupt_capture BEFORE INSERT ON commerce_captures
+      FOR EACH ROW EXECUTE FUNCTION interrupt_capture()`);
+    await f.due();
+    assert.equal((await f.processor().tick()).errors, 1);
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'paid');
+    assert.equal((await f.invoice(attempt.attemptId)).delivered_at, null);
+    assert.equal((await f.view(orderId)).captures.length, 0);
+    await f.pool.query('DROP TRIGGER interrupt_capture ON commerce_captures');
+    await f.due();
+    await f.processor().tick();
+    assert.equal((await f.view(orderId)).captures.length, 1);
+    assert.ok((await f.invoice(attempt.attemptId)).delivered_at);
+    // Simulate loss of delivery acknowledgement after the ledger commit as well.
+    await f.pool.query('UPDATE commerce_kaspi_invoices SET delivered_at=NULL');
+    await f.due();
+    await f.processor().tick();
+    assert.equal((await f.view(orderId)).captures.length, 1);
+    assert.equal(f.bridge.count('create'), 1);
+  }));
+
+test('Processed without a valid bank amount never fabricates a capture', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    await f.processor().tick();
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    f.bridge.status.set(id, 'Processed');
+    for (const amount of [undefined, null, 'invalid', -1, 0]) {
+      f.bridge.invoices.get(id).Amount = amount;
+      await f.pool.query('UPDATE commerce_kaspi_invoices SET lease_until=NULL');
+      await f.due();
+      assert.equal((await f.processor().tick()).errors, 1);
+      assert.equal((await f.view(orderId)).captures.length, 0);
+      assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
+    }
+  }));
+
+test('recovery requires an exact reference and bank amount, and preserves original expiry', () =>
+  fixture(async (f) => {
+    const { attempt } = await f.order();
+    f.bridge.create = (phone, amount, comment) => {
+      const reply = f.bridge.issue(amount, comment);
+      delete f.bridge.invoices.get(String(reply.data.QrOperationId)).Amount;
+      return { kind: 'uncertain' };
+    };
+    await f.processor().tick();
+    await f.age(500);
+    await f.processor().tick();
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'unknown');
+    f.bridge.invoices.get('700000').Amount = 1000;
+    await f.due();
+    await f.processor().tick();
+    const row = await f.invoice(attempt.attemptId);
+    assert.equal(row.state, 'issued');
+    assert.equal(row.expires_at.getTime() - row.issue_started_at.getTime(), 600_000);
+  }));
+
+test('a crash after cancellation does not cause another cancellation', () =>
+  fixture(async (f) => {
+    const { attempt } = await f.order();
+    await f.processor().tick();
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    f.bridge.cancel = async (op) => {
+      f.bridge.calls.push(['cancel', op]);
+      throw new Error('process stopped after sending cancel');
+    };
+    f.advance(601_000);
+    await f.due();
+    assert.equal((await f.processor().tick()).errors, 1);
+    await f.pool.query('UPDATE commerce_kaspi_invoices SET lease_until=NULL');
+    await f.due();
+    await f.processor().tick();
+    assert.equal(f.bridge.count('cancel'), 1);
+    f.bridge.status.set(id, 'RemotePaymentCanceled');
+    await f.due();
+    await f.processor().tick();
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'failed');
+  }));
+
+test('stale worker cannot overwrite a newer leased result or send cancellation', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    await f.processor().tick();
+    let respond, started;
+    const waiting = new Promise((r) => {
+      started = r;
+    });
+    const details = f.bridge.details.bind(f.bridge);
+    f.bridge.details = async () => {
+      started();
+      return new Promise((r) => {
+        respond = r;
+      });
+    };
+    await f.due();
+    const first = f.processor().tick(1);
+    await waiting;
+    await f.pool.query(
+      "UPDATE commerce_kaspi_invoices SET lease_until=clock_timestamp()-interval '1 second'",
+    );
+    f.bridge.details = details;
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    f.bridge.status.set(id, 'Processed');
+    await f.processor().tick(1);
+    respond({ kind: 'ok', data: { Status: 'RemotePaymentRejected' } });
+    await first;
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'paid');
+    assert.equal((await f.view(orderId)).captures.length, 1);
+    assert.equal(f.bridge.count('cancel'), 0);
+  }));
+
+test('an answer for a different operation cannot pay this order', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    await f.processor().tick();
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    f.bridge.status.set(id, {
+      kind: 'ok',
+      data: { QrOperationId: 123, Status: 'Processed', Amount: 1000 },
+    });
+    await f.due();
+    assert.equal((await f.processor().tick()).errors, 1);
+    assert.equal((await f.view(orderId)).captures.length, 0);
+  }));
+
+test('session eviction pauses new invoices until the worker is restarted', () =>
+  fixture(async (f) => {
+    await f.order();
+    await f.order();
+    f.bridge.create = () => ({ kind: 'session' });
+    const worker = f.processor();
+    assert.equal((await worker.tick()).submitted, 1);
+    assert.equal((await worker.tick()).submitted, 0);
+    assert.equal(f.bridge.count('create'), 1);
+    f.bridge.create = null;
+    assert.equal((await f.processor().tick()).submitted, 1);
+    assert.equal(f.bridge.count('create'), 2);
   }));

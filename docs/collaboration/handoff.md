@@ -6,11 +6,24 @@ Webkassa, продолжение 28 сентября: production-вход вып
 программирования сам; API-KEY/Postman ещё нет. Пароли не сохранены в Git/документах.
 См. `docs/integrations/webkassa-live-access-2026-09-28.md`.
 
+## Kaspi - проверка 29 сентября
+
+Ветка `codex/kaspi-remote`, база 6891e41 уже в shared. Присланный e71ef81
+проверен и исправлен: terminal delivery retry, подтверждённая сумма, fenced lease,
+намерение отмены до запроса, исходный TTL, остановка отправок при потере сессии.
+22 Kaspi + 23 прежних PostgreSQL проверок прошли локально; банк - FakeBridge.
+См. `docs/operations/kaspi-remote.md`: нет отдельного кассира (владелец создаёт),
+commercial mobile API/экран и Webkassa не готовы. Мост/банк не запускались,
+реальных счетов нет. Не переносить TEST-заказы в коммерческий ledger.
+Оба ИП свои; владелец перешёл с Peak Group на PICK CHICK ALA AP.
+
 ## Продолжение HTTPS - 28 сентября
 
 `codex/domain-https-rollout`: подготовлен `infra/domains/release-alias.py`.
 Нужен зелёный точный CI перед inspect/apply; секреты не передавать со скриптом.
-Локальный pnpm check и четыре release guards прошли. VPS по-прежнему API4ee0b80,
+Локальный pnpm check и четыре release guards прошли. CI36404546441 на
+6891e41 завершился failure в browser recovery, остальные 5 jobs green.
+VPS по-прежнему API4ee0b80,
 новый OTP pilot не установлен. Факты и baseline в
 `docs/operations/deployments/2026-09-28-domain.md`. Прежние CI ошибки уточнены
 по настоящим логам; не считать их общим инфраструктурным сбоем GitHub.

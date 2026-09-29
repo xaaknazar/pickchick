@@ -1,5 +1,16 @@
+diff --git a/src/routes/session.js b/src/routes/session.js
+--- a/src/routes/session.js
++++ b/src/routes/session.js
+@@ -46,7 +46,7 @@
+     const body = await resp.json().catch(() => ({}));
+
+     // Kaspi may return HTTP 200 but with error StatusCode in body
+-    if (resp.ok && (!body.StatusCode || body.StatusCode === 0)) {
++    if (resp.ok && body.StatusCode === 0 && body.Data !== null && typeof body.Data === 'object') {
+       return res.json({ active: true });
+     }
+
 diff --git a/server.js b/server.js
-index 606a9a9..f7bb2e3 100644
 --- a/server.js
 +++ b/server.js
 @@ -1,11 +1,9 @@
@@ -15,23 +26,23 @@ index 606a9a9..f7bb2e3 100644
  import sessionRoutes from './src/routes/session.js';
  import { startPolling } from './src/polling.js';
  import 'dotenv/config';
-@@ -13,7 +11,7 @@ import 'dotenv/config';
+@@ -13,7 +11,7 @@
  const app = express();
- 
+
  app.use(express.json());
 -app.use(express.static(path.join(ROOT_DIR, 'public')));
 +// PickChick: no demo UI on a server that holds a cashier session.
- 
+
  app.get('/health', (req, res) => res.json({ status: 'ok' }));
- 
-@@ -21,10 +19,11 @@ app.use('/api/auth', authRoutes);
+
+@@ -21,10 +19,11 @@
  app.use('/api/invoice', invoiceRoutes);
  app.use('/api/qr', qrRoutes);
  app.use('/api/history', historyRoutes);
 -app.use('/api/refund', refundRoutes);
 +// PickChick: refunds are not exposed through the bridge.
  app.use('/api/session', sessionRoutes);
- 
+
 -app.listen(PORT, () => {
 -  console.log(`\n  🟢 Kaspi Pay App running at http://localhost:${PORT}\n`);
 -  startPolling();
@@ -41,11 +52,10 @@ index 606a9a9..f7bb2e3 100644
 +  if (process.env.BRIDGE_POLLING === 'on') startPolling();
  });
 diff --git a/src/helpers.js b/src/helpers.js
-index 81937ec..b32ecce 100644
 --- a/src/helpers.js
 +++ b/src/helpers.js
-@@ -47,30 +47,9 @@ export const extractUserToken = (resp) => {
- 
+@@ -47,30 +47,9 @@
+
  export const loggedFetch = async (url, options = {}) => {
    const method = (options.method || 'GET').toUpperCase();
 -  console.log(`\n>>> ${method} ${url}`);
@@ -76,12 +86,11 @@ index 81937ec..b32ecce 100644
 +  console.log(`${method} ${new URL(url).pathname} ${resp.status}`);
    return resp;
  };
- 
+
 diff --git a/src/routes/invoice.js b/src/routes/invoice.js
-index 3fbedf3..9c893d1 100644
 --- a/src/routes/invoice.js
 +++ b/src/routes/invoice.js
-@@ -60,7 +60,7 @@ router.post('/create', async (req, res) => {
+@@ -60,7 +60,7 @@
      });
      const kaspiResponse = await resp.json();
      const d = kaspiResponse.Data;
@@ -90,7 +99,7 @@ index 3fbedf3..9c893d1 100644
        trackPayment(
          d.QrOperationId,
          'invoice',
-@@ -124,7 +124,9 @@ router.post('/cancel', async (req, res) => {
+@@ -124,7 +124,9 @@
  router.post('/history', async (req, res) => {
    try {
      const url = `${KASPI_QRPAY_URL}/v01/remote/history`;

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { spawnSync } from 'node:child_process';
 import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   KaspiBridgeClient,
@@ -84,6 +85,10 @@ test('bridge webhook requires the exact-byte HMAC and yields only an operation i
   assert.throws(() => verifyKaspiBridgeWebhook(body, undefined, secret), { code: 'SIGNATURE' });
   const qr = Buffer.from(JSON.stringify({ paymentId: '1', type: 'qr' }));
   assert.throws(() => verifyKaspiBridgeWebhook(qr, sign(qr), secret), { code: 'INVALID' });
+  for (const value of ['null', '[]', 'true']) {
+    const raw = Buffer.from(value);
+    assert.throws(() => verifyKaspiBridgeWebhook(raw, sign(raw), secret), { code: 'INVALID' });
+  }
   const junk = Buffer.from('not json');
   assert.throws(() => verifyKaspiBridgeWebhook(junk, sign(junk), secret), { code: 'INVALID' });
 });
@@ -94,6 +99,7 @@ test('history search needs the reference in a text field and an operation id', (
       { QrOperationId: 11, Comment: 'PickChick ABCDEFGH23', Amount: 1000 },
       { QrOperationId: 12, Comment: 'PickChick ZZZZZZZZZZ', Amount: 1000 },
       { Comment: 'PickChick ABCDEFGH23' },
+      { QrOperationId: 13, Comment: 'PickChick ABCDEFGH234' },
     ],
   };
   const found = findByReference(history, 'ABCDEFGH23');
@@ -204,4 +210,16 @@ test('cashier login helper accepts only a KZ mobile and writes only the three se
   assert.equal(env.split('\n').filter(Boolean).length, 3);
   assert.ok(!env.includes('77011234567'));
   assert.throws(() => sessionEnv({ tokenSN: 'x\nINJECT=1', vtokenSecret: 'y', profileId: 1 }));
+});
+
+test('session check rejects invoice arguments before any bridge request', () => {
+  const result = spawnSync(
+    process.execPath,
+    ['infra/payments/kaspi-bridge/kaspi-check.mjs', '--invoice-phone', '+77011234567'],
+    { encoding: 'utf8', env: { ...process.env, ...base, ...session } },
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /READ_ONLY_CHECK_NO_ARGUMENTS/);
+  assert.ok(!result.stderr.includes('77011234567'));
+  assert.equal(result.stdout, '');
 });

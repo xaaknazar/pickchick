@@ -135,6 +135,8 @@ export function verifyKaspiBridgeWebhook(
   } catch {
     throw new KaspiRemoteError('INVALID');
   }
+  if (!body || typeof body !== 'object' || Array.isArray(body))
+    throw new KaspiRemoteError('INVALID');
   const value = body as { type?: unknown; paymentId?: unknown };
   const id = typeof value.paymentId === 'number' ? String(value.paymentId) : value.paymentId;
   if (value.type !== 'invoice' || typeof id !== 'string' || !/^[1-9][0-9]{0,19}$/.test(id))
@@ -256,7 +258,7 @@ export function findByReference(data: unknown, reference: string): Record<string
     }
     const record = node as Record<string, unknown>;
     const mentions = Object.values(record).some(
-      (v) => typeof v === 'string' && v.includes(reference),
+      (v) => typeof v === 'string' && v.trim() === `PickChick ${reference}`,
     );
     if (mentions && operationIdOf(record)) found.push(record);
     else for (const v of Object.values(record)) walk(v, depth + 1);
@@ -292,6 +294,8 @@ interface InvoiceRow {
   reference: string;
   operation_id: string | null;
   paid_minor: string | null;
+  delivered_at: Date | null;
+  lease_token: string | null;
   issue_started_at: Date;
   issued_at: Date | null;
   expires_at: Date | null;
@@ -320,6 +324,7 @@ const SELECT_ROW = `SELECT k.*,k.amount_minor::text amount_minor,k.paid_minor::t
 export class KaspiRemoteProcessor {
   private readonly repo: CommerceRepository;
   private readonly workerId = randomUUID();
+  private submissionsPaused = false;
   constructor(
     private readonly pool: DatabasePool,
     private readonly config: KaspiRemoteConfig,
@@ -336,21 +341,31 @@ export class KaspiRemoteProcessor {
       submitted: 0,
       checked: 0,
       errors: 0,
-      sessionProblem: false,
+      sessionProblem: this.submissionsPaused,
       unknownOverdue: 0,
     };
     // One broken item must not stall the rest; its lease expires and it is retried.
-    for (const event of await this.claimSubmissions(limit)) {
+    for (let i = 0; i < limit && !this.submissionsPaused; i++) {
+      const [event] = await this.claimSubmissions(1);
+      if (!event) break;
       try {
-        if ((await this.submit(event)) === 'session') result.sessionProblem = true;
+        if ((await this.submit(event)) === 'session') {
+          this.submissionsPaused = true;
+          result.sessionProblem = true;
+        }
       } catch {
         result.errors++;
       }
       result.submitted++;
     }
-    for (const row of await this.claimDue(limit)) {
+    for (let i = 0; i < limit; i++) {
+      const [row] = await this.claimDue(1);
+      if (!row) break;
       try {
-        if ((await this.check(row)) === 'session') result.sessionProblem = true;
+        if ((await this.check(row)) === 'session') {
+          this.submissionsPaused = true;
+          result.sessionProblem = true;
+        }
       } catch {
         result.errors++;
       }
@@ -484,18 +499,19 @@ export class KaspiRemoteProcessor {
   private async claimDue(limit: number): Promise<InvoiceRow[]> {
     // A separate lease: a webhook hint may move next_check_at but never frees a row
     // that another worker is checking. A crashed worker's rows return in 60s.
+    const token = randomUUID();
     const { rows } = await this.pool.query<{ attempt_id: string }>(
-      `UPDATE commerce_kaspi_invoices SET lease_until=clock_timestamp()+interval '60 seconds',checks=checks+1
+      `UPDATE commerce_kaspi_invoices SET lease_until=clock_timestamp()+interval '60 seconds',lease_token=$3,checks=checks+1
        WHERE attempt_id IN (SELECT attempt_id FROM commerce_kaspi_invoices
-         WHERE account_id=$1 AND state IN ('issuing','issued','unknown') AND next_check_at<=clock_timestamp()
+         WHERE account_id=$1 AND (state IN ('issuing','issued','unknown') OR delivered_at IS NULL) AND next_check_at<=clock_timestamp()
            AND (lease_until IS NULL OR lease_until<clock_timestamp())
            AND (state<>'issuing' OR issue_started_at<clock_timestamp()-interval '60 seconds')
          ORDER BY next_check_at LIMIT $2 FOR UPDATE SKIP LOCKED)
        RETURNING attempt_id`,
-      [this.config.accountId, limit],
+      [this.config.accountId, limit, token],
     );
     const loaded = await Promise.all(rows.map((r) => this.row(r.attempt_id)));
-    return loaded.filter((r): r is InvoiceRow => r !== null);
+    return loaded.filter((r): r is InvoiceRow => r !== null && r.lease_token === token);
   }
 
   private async row(attemptId: string): Promise<InvoiceRow | null> {
@@ -507,6 +523,10 @@ export class KaspiRemoteProcessor {
 
   /** Re-check one invoice. Always re-delivers its current outcome (idempotent inbox). */
   private async check(row: InvoiceRow): Promise<'done' | 'session'> {
+    if (row.state === 'paid' || row.state === 'failed') {
+      await this.deliver(row);
+      return this.later(row, 3, 'done');
+    }
     if (row.state === 'issuing' || row.state === 'unknown') {
       const history = await this.client.history(200);
       if (history.kind === 'session') return this.later(row, 60, 'session');
@@ -514,7 +534,7 @@ export class KaspiRemoteProcessor {
         const matches = findByReference(history.data, row.reference);
         const match = matches.length === 1 ? matches[0]! : null;
         const amount = match ? kaspiMinor(match.Amount) : null;
-        if (match && (amount === null || amount === row.amount_minor)) {
+        if (match && amount === row.amount_minor) {
           await this.transition(row, 'issued', {
             operationId: operationIdOf(match)!,
             remoteStatus: match.Status,
@@ -530,10 +550,14 @@ export class KaspiRemoteProcessor {
     const answer = await this.client.details(row.operation_id!);
     if (answer.kind === 'session') return this.later(row, 60, 'session');
     if (answer.kind !== 'ok') return this.later(row, this.backoff(row), 'done');
+    const returnedId = operationIdOf(answer.data);
+    if (returnedId && returnedId !== row.operation_id) throw new KaspiRemoteError('INVALID');
     const status = answer.data.Status;
     const outcome = kaspiInvoiceOutcome(status);
     if (outcome === 'captured') {
-      const paid = kaspiMinor(answer.data.Amount) ?? row.amount_minor;
+      const paid = kaspiMinor(answer.data.Amount);
+      // A status alone cannot establish how much money the bank received.
+      if (paid === null) throw new KaspiRemoteError('INVALID');
       await this.transition(row, 'paid', { remoteStatus: status, paidMinor: paid });
       return 'done';
     }
@@ -542,21 +566,29 @@ export class KaspiRemoteProcessor {
       return 'done';
     }
     await this.pool.query(
-      'UPDATE commerce_kaspi_invoices SET remote_status=$2 WHERE attempt_id=$1 AND state=$3',
-      [row.attempt_id, safeStatus(status), row.state],
+      'UPDATE commerce_kaspi_invoices SET remote_status=$2 WHERE attempt_id=$1 AND state=$3 AND lease_token=$4',
+      [row.attempt_id, safeStatus(status), row.state, row.lease_token],
     );
     // A fast-food order must not wait for Kaspi's own long expiry: cancel once, then keep checking
     // until Kaspi reports the cancellation (or a payment that raced it).
     if (row.expires_at && this.now() >= row.expires_at && !row.cancel_requested_at) {
-      const cancelled = await this.client.cancel(row.operation_id!);
-      if (cancelled.kind === 'session') return this.later(row, 60, 'session');
-      if (cancelled.kind === 'unsent') return this.later(row, this.backoff(row), 'done');
-      // Sent once is enough: repeated cancels could get the cashier session throttled.
-      // Status checks continue until Kaspi reports the cancellation or a racing payment.
-      await this.pool.query(
-        'UPDATE commerce_kaspi_invoices SET cancel_requested_at=clock_timestamp() WHERE attempt_id=$1',
-        [row.attempt_id],
+      // Persist the intent BEFORE the network call. If the reply/process is lost,
+      // the next worker only reads status; it must not send another cancellation.
+      const claimed = await this.pool.query(
+        `UPDATE commerce_kaspi_invoices SET cancel_requested_at=clock_timestamp()
+         WHERE attempt_id=$1 AND state='issued' AND cancel_requested_at IS NULL
+           AND lease_token=$2 RETURNING attempt_id`,
+        [row.attempt_id, row.lease_token],
       );
+      if (!claimed.rowCount) return 'done';
+      const cancelled = await this.client.cancel(row.operation_id!);
+      if (cancelled.kind === 'session' || cancelled.kind === 'unsent') {
+        await this.pool.query(
+          'UPDATE commerce_kaspi_invoices SET cancel_requested_at=NULL WHERE attempt_id=$1 AND lease_token=$2',
+          [row.attempt_id, row.lease_token],
+        );
+        return this.later(row, 60, cancelled.kind === 'session' ? 'session' : 'done');
+      }
       return this.later(row, 3, 'done');
     }
     return this.later(row, this.backoff(row), 'done');
@@ -574,8 +606,8 @@ export class KaspiRemoteProcessor {
   private async later(row: InvoiceRow, seconds: number, result: 'done' | 'session') {
     await this.pool.query(
       `UPDATE commerce_kaspi_invoices SET next_check_at=clock_timestamp()+$2*interval '1 second',
-       lease_until=NULL WHERE attempt_id=$1 AND state IN ('issuing','issued','unknown')`,
-      [row.attempt_id, seconds],
+       lease_until=NULL,lease_token=NULL WHERE attempt_id=$1 AND lease_token=$3`,
+      [row.attempt_id, seconds, row.lease_token],
     );
     return result;
   }
@@ -587,12 +619,12 @@ export class KaspiRemoteProcessor {
   ) {
     const updated = await transaction(this.pool, async (client) => {
       const current = (
-        await client.query<{ state: string }>(
-          'SELECT state FROM commerce_kaspi_invoices WHERE attempt_id=$1 FOR UPDATE',
+        await client.query<{ state: string; lease_token: string | null }>(
+          'SELECT state,lease_token FROM commerce_kaspi_invoices WHERE attempt_id=$1 FOR UPDATE',
           [row.attempt_id],
         )
       ).rows[0];
-      if (!current) return false;
+      if (!current || (row.lease_token && current.lease_token !== row.lease_token)) return false;
       const allowed: Record<string, string[]> = {
         issuing: ['issued', 'failed', 'unknown'],
         unknown: ['issued', 'failed'],
@@ -604,9 +636,9 @@ export class KaspiRemoteProcessor {
           operation_id=COALESCE(operation_id,$3),
           issued_at=CASE WHEN $3::text IS NOT NULL AND issued_at IS NULL THEN clock_timestamp() ELSE issued_at END,
           expires_at=CASE WHEN $3::text IS NOT NULL AND expires_at IS NULL
-            THEN clock_timestamp()+$6*interval '1 second' ELSE expires_at END,
+            THEN issue_started_at+$6*interval '1 second' ELSE expires_at END,
           remote_status=COALESCE($4,remote_status),paid_minor=$5,
-          next_check_at=clock_timestamp()+interval '3 seconds',lease_until=NULL
+          next_check_at=clock_timestamp()+interval '3 seconds',lease_until=NULL,lease_token=NULL,delivered_at=NULL
          WHERE attempt_id=$1`,
         [
           row.attempt_id,
@@ -647,6 +679,12 @@ export class KaspiRemoteProcessor {
         ...base,
         outcome: row.state === 'issued' ? 'pending' : row.state,
       });
+    // Mark only after the ledger commits. A crash here safely replays its inbox key.
+    if (row.state !== 'issuing')
+      await this.pool.query(
+        'UPDATE commerce_kaspi_invoices SET delivered_at=clock_timestamp() WHERE attempt_id=$1 AND state=$2',
+        [row.attempt_id, row.state],
+      );
   }
 }
 
