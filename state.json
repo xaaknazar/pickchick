@@ -1029,11 +1029,11 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "active",
-      "head": "117719afbaf8e43c33e9047460a07c4efa34860a",
-      "updatedAt": "2026-09-29T15:17:13.901Z",
-      "summary": "Исследование pykaspi/upstream и повтор init/send-phone сохранены в 117719a, PR137, shared. Банк снова просит пароль; roadmap evidence test passed, код не менялся.",
-      "nextAction": "Ожидается приватный ввод пароля пользователя. Loopback3931 запущен, process в .local/kaspi-retry-state.json, проверить TTL10min. Отправить пароль один раз, очистить файл; при Kaspi ID остановиться. Сессий/счетов нет, VPS/online не менялись."
+      "status": "available",
+      "head": "976a59e2de4c38509d181397e99501e8144a5b9a",
+      "updatedAt": "2026-09-29T15:21:06.342Z",
+      "summary": "976a59e: повторный пароль/SMS снова дал KASPI_ID_REQUIRED. Секретные файлы очищены, мост остановлен. Roadmap evidence test/format/diff passed, код не менялся. PR138.",
+      "nextAction": "Для продолжения нужен поддерживаемый способ личной проверки того же банковского процесса. Сессии и счетов нет; новый пароль/SMS без основания не запрашивать. VPS/онлайн-пульт не менялись."
     }
   ]
 }
