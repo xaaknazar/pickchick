@@ -1047,11 +1047,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "docs/architecture/adr/0012-kaspi-remote-bridge.md",
-        "@vps"
+        "@vps",
+        "tests/payments/kaspi-remote.test.mjs"
       ],
       "status": "active",
       "head": "7a730170107ae82facf2137ea98b26354c7f7335",
-      "updatedAt": "2026-09-29T17:13:28.695Z"
+      "updatedAt": "2026-09-29T17:22:14.629Z"
     }
   ]
 }
