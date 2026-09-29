@@ -1059,11 +1059,12 @@
         "db/cloud/migrations",
         "infra/payments",
         "infra/staging",
-        "docs/operations/mobile-payment-design.md"
+        "docs/operations/mobile-payment-design.md",
+        "packages/fulfillment-transport"
       ],
       "status": "active",
       "head": "5a9ed7110d682a45c7f74c48f1bfbf7be0fa11f1",
-      "updatedAt": "2026-09-29T18:07:36.731Z",
+      "updatedAt": "2026-09-29T18:12:53.607Z",
       "summary": "VPS bridge deployed from 5dd66c5 after 6/6 Foundation CI; bank session active before/after restart. No invoices, no DB/API changes. Docs checkpoint 5a9ed71; roadmap tests 7/7. Final docs CI and online roadmap publication pending.",
       "nextAction": "Continue commercial order/payment linkage with explicit deferred fiscal pilot. Owner approved first 100 KZT invoice to own verified number, not sent. VPS schema020: no provider accounts, identities, commercial catalog publications or transport bindings; do not activate worker against old schema. See installation evidence."
     }
