@@ -1029,9 +1029,9 @@
         "tests/payments/kaspi-remote.test.mjs",
         "docs/operations/kaspi-bridge-audit-2026-09-29.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "976a59e2de4c38509d181397e99501e8144a5b9a",
-      "updatedAt": "2026-09-29T15:21:06.342Z",
+      "updatedAt": "2026-09-29T15:34:00.171Z",
       "summary": "976a59e: повторный пароль/SMS снова дал KASPI_ID_REQUIRED. Секретные файлы очищены, мост остановлен. Roadmap evidence test/format/diff passed, код не менялся. PR138.",
       "nextAction": "Для продолжения нужен поддерживаемый способ личной проверки того же банковского процесса. Сессии и счетов нет; новый пароль/SMS без основания не запрашивать. VPS/онлайн-пульт не менялись."
     }
