@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   KaspiBridgeClient,
@@ -215,7 +216,11 @@ test('cashier login helper accepts only a KZ mobile and writes only the three se
 test('session check rejects invoice arguments before any bridge request', () => {
   const result = spawnSync(
     process.execPath,
-    ['infra/payments/kaspi-bridge/kaspi-check.mjs', '--invoice-phone', '+77011234567'],
+    [
+      fileURLToPath(new URL('../../infra/payments/kaspi-bridge/kaspi-check.mjs', import.meta.url)),
+      '--invoice-phone',
+      '+77011234567',
+    ],
     { encoding: 'utf8', env: { ...process.env, ...base, ...session } },
   );
   assert.equal(result.status, 1);
