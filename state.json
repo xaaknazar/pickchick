@@ -1050,9 +1050,11 @@
         "@vps",
         "tests/payments/kaspi-remote.test.mjs"
       ],
-      "status": "active",
-      "head": "7a730170107ae82facf2137ea98b26354c7f7335",
-      "updatedAt": "2026-09-29T17:22:14.629Z"
+      "status": "available",
+      "head": "5a9ed7110d682a45c7f74c48f1bfbf7be0fa11f1",
+      "updatedAt": "2026-09-29T18:04:23.981Z",
+      "summary": "VPS bridge deployed from 5dd66c5 after 6/6 Foundation CI; bank session active before/after restart. No invoices, no DB/API changes. Docs checkpoint 5a9ed71; roadmap tests 7/7. Final docs CI and online roadmap publication pending.",
+      "nextAction": "Continue commercial order/payment linkage with explicit deferred fiscal pilot. Owner approved first 100 KZT invoice to own verified number, not sent. VPS schema020: no provider accounts, identities, commercial catalog publications or transport bindings; do not activate worker against old schema. See installation evidence."
     }
   ]
 }
