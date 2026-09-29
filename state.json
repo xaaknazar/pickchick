@@ -1025,11 +1025,12 @@
         "infra/payments/kaspi-bridge",
         "@vps",
         "apps/mobile/src/ScreenHost.tsx",
-        "apps/mobile/src/components/AccountGate.tsx"
+        "apps/mobile/src/components/AccountGate.tsx",
+        "tests/payments/kaspi-remote.test.mjs"
       ],
       "status": "active",
-      "head": "b1c1166b4d8c90ce35b633f13725b26c258e4225",
-      "updatedAt": "2026-09-29T12:20:26.048Z"
+      "head": "fa0f09966244657cd84841b2037e6a84604a9293",
+      "updatedAt": "2026-09-29T12:37:24.876Z"
     }
   ]
 }
