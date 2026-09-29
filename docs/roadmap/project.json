@@ -1901,13 +1901,17 @@
         {
           "label": "ADR 0012 мост кассира Kaspi",
           "path": "docs/architecture/adr/0012-kaspi-remote-bridge.md"
+        },
+        {
+          "label": "Kaspi ID: реальные шаги и сверка 81 форка - 29 сентября",
+          "path": "docs/operations/kaspi-bridge-audit-2026-09-29.md"
         }
       ],
       "acceptance": [
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "GitHub-мост tapter-dev сохранён по решению владельца. Парольный шаг добавлен и реально пройден вместе с SMS; следующий шаг банка UniversalKaspiIdTakePhoto требует нативного Kaspi ID. Сессии/счетов нет. 18 unit и HTTP fake-bank проверки патчей прошли; см. docs/operations/kaspi-bridge-audit-2026-09-29.md. VPS и онлайн-пульт не обновлены. Далее штатное подтверждение личности, merchant/ККМ, commercial checkout, Webkassa; не повторять регистрацию без новых фактов.",
+      "nextAction": "GitHub-мост tapter-dev сохранён по решению владельца. Парольный шаг добавлен и реально пройден вместе с SMS; следующий шаг банка UniversalKaspiIdTakePhoto требует нативного Kaspi ID. Сессии/счетов нет. 18 unit и HTTP fake-bank проверки патчей прошли; см. docs/operations/kaspi-bridge-audit-2026-09-29.md. VPS и онлайн-пульт не обновлены. Далее штатное подтверждение личности, merchant/ККМ, commercial checkout, Webkassa; не повторять регистрацию без новых фактов. Повторная сверка 81 auth-маршрута не нашла Kaspi ID; номер кассира соответствует документации. Причина дополнительной проверки неизвестна; получить подтверждённый сценарий вместо смены номера/флагов наугад. Обезличенный запрос автору подготовлен, не отправлен.",
       "checks": {
         "implemented": false,
         "verified": false,
