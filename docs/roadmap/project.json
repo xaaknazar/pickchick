@@ -1911,7 +1911,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Личное прохождение Kaspi ID разрешено владельцем, но native handoff для серверного процесса не найден: SPA требует window.auth.send. До нового SMS получить поддерживаемый способ. CLI сохранения сессии подготовлен: finished, cashier role, read-only bank check, атомарная запись 0600; 19 unit passed. Сессии/счетов нет, VPS/онлайн-пульт не обновлены. После входа: merchant/ККМ, commercial checkout, Webkassa, guarded deployment. План в docs/operations/kaspi-bridge-audit-2026-09-29.md.",
+      "nextAction": "По просьбе владельца повторены init/send-phone: снова password, ожидается приватный ввод. Пароль/SMS новой попытки ещё не отправлены; TTL 10 минут. В pykaspi и upstream PR11 решения Kaspi ID не найдено. На телефоне владелец вошёл без проверки лица. Нет серверной сессии/счетов; VPS/онлайн-пульт не обновлены. После штатного входа нужны merchant/ККМ, commercial checkout и Webkassa. Источники: docs/operations/kaspi-bridge-audit-2026-09-29.md.",
       "checks": {
         "implemented": false,
         "verified": false,
