@@ -62,3 +62,12 @@ Audit с порогом high проходит; четыре moderate advisory о
    фискальный чек не имитируется; обычные заказы сохраняют политику required.
 
 Приватные proof, backup identity, настройки и журналы остаются вне Git.
+
+## Публикация пульта и общий срез
+
+Roadmap опубликован из `70298fae0e17bc47f4f51920229e09c24a1d24d6`;
+публичный health подтвердил SHA. Сохранены заметки команды; API `2f3c3f3`,
+банк-мост, кухня, обе базы и соседние сервисы не менялись. Public pointer
+теперь указывает на overlay70298fa, gateway hash остался
+`af729c3faa9b4db0c27b70e1cd75a40f835ecb51eff959860ced0b314baa175c`.
+Код и отчёт включены fast-forward в `codex/shared-development`; main не менялся.
