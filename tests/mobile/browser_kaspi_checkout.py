@@ -16,7 +16,7 @@ envelope={'version':1,'device_id':'40000000-0000-4000-8000-000000000004','tokens
 errors=[]
 with sync_playwright() as p:
  browser=p.chromium.launch()
- for width,height in [(320,568),(393,852),(768,1024)]:
+ for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
   state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False}
@@ -56,33 +56,58 @@ with sync_playwright() as p:
   context.route('**/v1/**',route)
   page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
   page.get_by_test_id('product-pick-combo').click(timeout=25000);page.get_by_test_id('product-add').click()
-  page.get_by_test_id('open-cart').click();page.get_by_test_id('cart-checkout').click()
+  page.get_by_test_id('open-cart').click()
+  page.screenshot(path=str(OUT/f'cart-{width}.png'))
+  page.get_by_test_id('cart-checkout').click()
   button=page.get_by_test_id('kaspi-checkout-submit')
   try:expect(button).to_be_enabled(timeout=10000)
   except Exception:
    print(page.locator('body').inner_text());print(errors);page.screenshot(path=str(OUT/'failure.png'));raise
+  with page.expect_response(lambda response: urlparse(response.url).path=='/v1/customer-checkout/quotes' and response.request.post_data_json['serviceMode']=='dine_in'):
+   page.get_by_role('radio',name='В зале',exact=True).click()
+  expect(button).to_be_enabled(timeout=10000)
+  expect(page.get_by_role('radio',name='В зале',exact=True)).to_have_attribute('aria-checked','true')
   page.screenshot(path=str(OUT/f'checkout-{width}.png'))
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
   box=button.bounding_box();assert box['height']>=48 and box['y']+box['height']<=height+1,box
   button.click();expect(page.get_by_role('button',name='Проверить соединение')).to_be_visible()
   page.get_by_role('button',name='Проверить соединение').click()
-  expect(page.get_by_text('Счёт отправлен в Kaspi',exact=True)).to_be_visible(timeout=10000)
+  expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
   assert len(state['keys'])==2 and state['keys'][0]==state['keys'][1], state
   assert state['payments']==1
+  # An ambiguous bank response must never expose a second payment command.
+  state['phase']='checking';state['revision']+=1
+  page.wait_for_timeout(100);state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Уточняем оплату')
+  expect(page.get_by_test_id('kaspi-retry-payment')).to_have_count(0)
+  state['phase']='failed';state['revision']+=1
+  page.wait_for_timeout(100);state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  expect(page.get_by_test_id('kaspi-failed')).to_contain_text('Счёт не оплачен')
+  page.screenshot(path=str(OUT/f'failed-{width}.png'))
+  page.get_by_test_id('kaspi-retry-payment').click()
+  expect(button).to_be_enabled(timeout=10000)
+  state['phase']='awaiting_restaurant';state['revision']+=1
+  button.click()
+  expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
+  assert len(state['keys'])==3 and state['keys'][2]!=state['keys'][0] and state['payments']==2,state
   state['phase']='paid';state['paid']=True;state['revision']+=1
   page.wait_for_timeout(100)
   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  expect(page.get_by_test_id('kaspi-paid')).to_contain_text('Оплачено')
+  page.screenshot(path=str(OUT/f'confirmation-{width}.png'))
+  if width != 393:page.get_by_test_id('kaspi-track-order').click()
   expect(page.get_by_text('Оплата получена',exact=True)).to_be_visible()
   expect(page.get_by_test_id('connected-order-number')).to_contain_text('№ 2')
   expect(page.get_by_test_id('order-chef-cooking')).to_be_visible()
   page.screenshot(path=str(OUT/f'paid-{width}.png'))
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-  for phase,scene in [('preparing','assembly'),('ready','ready-takeaway')]:
+  for phase,scene in [('preparing','assembly'),('ready','ready-takeaway'),('handed_over','ready-takeaway')]:
    page.wait_for_timeout(150)
    state['phase']=phase;state['revision']+=1
    state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
    expect(page.get_by_test_id('order-chef-'+scene)).to_be_visible()
+  expect(page.get_by_text('Приятного аппетита!',exact=True)).to_be_visible()
   page.get_by_test_id('order-status-close').click()
   expect(page.get_by_test_id('screen-M12')).not_to_be_visible()
   state['teardown']=True
@@ -94,4 +119,4 @@ with sync_playwright() as p:
   context.close()
  browser.close()
 assert not errors,errors
-print('PASS: 3 sizes, touch targets, persisted recovery, single payment command, no horizontal overflow')
+print('PASS: 4 sizes, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen stages, no overflow')

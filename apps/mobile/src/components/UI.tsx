@@ -286,6 +286,8 @@ export function Page({
   footer,
   noBack = false,
   header,
+  contentStyle,
+  footerStyle,
 }: {
   props: ScreenProps;
   title: string;
@@ -293,6 +295,8 @@ export function Page({
   footer?: ReactNode;
   noBack?: boolean;
   header?: ReactNode;
+  contentStyle?: StyleProp<ViewStyle>;
+  footerStyle?: StyleProp<ViewStyle>;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -317,6 +321,7 @@ export function Page({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.pageContent,
+          contentStyle,
           {
             paddingBottom: footer
               ? 24
@@ -328,7 +333,11 @@ export function Page({
         {props.preview ? <ReviewBadge /> : null}
         {children}
       </ScrollView>
-      {footer ? <BottomActions safeArea={!props.inTabLayout}>{footer}</BottomActions> : null}
+      {footer ? (
+        <BottomActions safeArea={!props.inTabLayout} style={footerStyle}>
+          {footer}
+        </BottomActions>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

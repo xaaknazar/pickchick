@@ -1,3 +1,8 @@
+import {
+  CheckoutSheetHeader,
+  CheckoutAction,
+  checkoutStyle,
+} from '../components/CheckoutPresentation';
 import { menuPhotos } from '../menu-photo-assets';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
@@ -21,14 +26,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CartLine, Product, ScreenProps } from '../model';
 import { assets } from '../assets';
 import { restaurantLocation } from '../restaurant-location';
-import {
-  cartLineKey,
-  cartTotal,
-  lineUnitPrice,
-  preparationMinutes,
-  selectionDescription,
-} from '../domain';
-import { OrderHeader, OrderTotal, orderUI } from '../components/OrderPresentation';
+import { cartLineKey, cartTotal, lineUnitPrice, selectionDescription } from '../domain';
+import { OrderTotal, orderUI } from '../components/OrderPresentation';
 import { CartOffers, CartRecommendations, PromoCodeEntry } from '../components/CartExtras';
 import { mergeCartLines } from '../cart-actions';
 import { ConfiguredProduct } from './ProductConfiguration';
@@ -616,13 +615,17 @@ export function Cart(props: ScreenProps) {
     <Page
       props={props}
       title="Корзина"
+      contentStyle={checkoutStyle.content}
+      footerStyle={checkoutStyle.cartFooter}
       header={
-        <OrderHeader
+        <CheckoutSheetHeader
           title="Корзина"
+          subtitle={restaurantLocation(props.model.branch?.id)?.name ?? props.model.branch?.name}
           testID="cart-close"
-          onClose={props.goBack}
+          onBack={props.goBack}
           action={
             <IconButton
+              style={checkoutStyle.control}
               name="trash-outline"
               label="Очистить корзину"
               testID="cart-clear"
@@ -643,12 +646,11 @@ export function Cart(props: ScreenProps) {
       footer={
         props.model.cart.length ? (
           <>
-            <Button
-              title={`Оформить заказ на ${MinorMoney(total).replace(/ /g, '\u00a0')}`}
+            <CheckoutAction
+              title="Оформить заказ"
+              amount={MinorMoney(total)}
               onPress={() => props.navigate('M12')}
               testID="cart-checkout"
-              style={orderUI.action}
-              textStyle={orderUI.actionText}
             />
           </>
         ) : null
@@ -748,97 +750,92 @@ export function Cart(props: ScreenProps) {
         />
       ) : (
         <>
-          <Row style={s.cartFulfilment}>
-            <Icon name="time-outline" size={18} color={colors.accent} />
-            <Body style={[orderUI.detail, { fontFamily: font.medium, flexShrink: 1 }]}>
-              Приготовим примерно за {preparationMinutes(props.model.cart)} мин
-            </Body>
-          </Row>
           {props.model.catalogMode === 'design' ? (
             <Notice warning>Это корзина из образцов дизайна. Заказ и оплата недоступны.</Notice>
           ) : null}
           {props.model.cart.map((line) => (
             <View key={cartLineKey(line)} style={s.cartLine}>
-              <View style={s.cartProduct}>
+              <Pressable
+                onPress={() => setEditing(line)}
+                accessibilityRole="button"
+                accessibilityLabel={`Изменить ${line.product.name}`}
+                testID={`cart-edit-${line.product.id}`}
+              >
                 <Image
                   source={menuPhotos[line.product.id] ?? line.product.image}
                   style={s.cartImage}
                   contentFit="contain"
                 />
-                <View style={ui.flex}>
+              </Pressable>
+              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                <Pressable
+                  onPress={() => setEditing(line)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Настроить ${line.product.name}`}
+                  style={{ minHeight: 48 }}
+                >
                   <Heading small style={s.cartName}>
                     {line.product.name}
                   </Heading>
                   {selectionDescription(line) ? (
-                    <Caption style={s.cartDescription}>{selectionDescription(line)}</Caption>
+                    <Caption numberOfLines={2} style={s.cartDescription}>
+                      {selectionDescription(line)}
+                    </Caption>
                   ) : null}
-                  <Pressable
-                    testID={`cart-edit-${line.product.id}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Изменить ${line.product.name}`}
-                    onPress={() => setEditing(line)}
-                    style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' }}
-                  >
+                </Pressable>
+                <Row
+                  style={{
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    gap: 4,
+                    marginTop: 'auto',
+                  }}
+                >
+                  <Row style={s.stepper}>
+                    <IconButton
+                      name="remove"
+                      label={
+                        line.quantity === 1
+                          ? `Удалить ${line.product.name}`
+                          : `Уменьшить ${line.product.name}`
+                      }
+                      testID={`cart-minus-${line.product.id}`}
+                      onPress={() => {
+                        if (line.quantity === 1)
+                          setRemoved((previous) => [
+                            ...previous.filter((l) => cartLineKey(l) !== cartLineKey(line)),
+                            line,
+                          ]);
+                        props.model.setQuantity(cartLineKey(line), line.quantity - 1);
+                      }}
+                    />
                     <Body
-                      style={[
-                        orderUI.detail,
-                        { color: colors.accentText, fontFamily: font.medium },
-                      ]}
+                      testID={`cart-quantity-${line.product.id}`}
+                      style={{
+                        fontFamily: font.heading,
+                        fontSize: 17,
+                        minWidth: 16,
+                        textAlign: 'center',
+                      }}
                     >
-                      Изменить
+                      {line.quantity}
                     </Body>
-                  </Pressable>
-                </View>
-              </View>
-              <Row
-                style={{
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 8,
-                  marginTop: 0,
-                }}
-              >
-                <Row style={s.stepper}>
-                  <IconButton
-                    name="remove"
-                    label={
-                      line.quantity === 1
-                        ? `Удалить ${line.product.name}`
-                        : `Уменьшить ${line.product.name}`
-                    }
-                    testID={`cart-minus-${line.product.id}`}
-                    onPress={() => {
-                      if (line.quantity === 1)
-                        setRemoved((previous) => [
-                          ...previous.filter((l) => cartLineKey(l) !== cartLineKey(line)),
-                          line,
-                        ]);
-                      props.model.setQuantity(cartLineKey(line), line.quantity - 1);
-                    }}
-                  />
-                  <Body
-                    testID={`cart-quantity-${line.product.id}`}
-                    style={[
-                      orderUI.label,
-                      { minWidth: 24, textAlign: 'center', fontVariant: ['tabular-nums'] },
-                    ]}
-                  >
-                    {line.quantity}
+                    <IconButton
+                      name="add"
+                      label={`Добавить ещё ${line.product.name}`}
+                      testID={`cart-plus-${line.product.id}`}
+                      disabled={line.quantity >= 20}
+                      onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity + 1)}
+                    />
+                  </Row>
+                  <Body style={{ fontFamily: font.heading, fontSize: 18, lineHeight: 24 }}>
+                    {MinorMoney(BigInt(lineUnitPrice(line)) * BigInt(line.quantity))}
                   </Body>
-                  <IconButton
-                    name="add"
-                    label={`Добавить ещё ${line.product.name}`}
-                    testID={`cart-plus-${line.product.id}`}
-                    disabled={line.quantity >= 20}
-                    onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity + 1)}
-                  />
                 </Row>
-                <Body style={orderUI.amount}>
-                  {MinorMoney(BigInt(lineUnitPrice(line)) * BigInt(line.quantity))}
-                </Body>
-              </Row>
+              </View>
             </View>
           ))}
+          <CartRecommendations props={props} />
           <Button
             title="Добавить ещё что-нибудь"
             testID="cart-add-more"
@@ -847,7 +844,6 @@ export function Cart(props: ScreenProps) {
             icon="arrow-back"
             onPress={() => props.navigate('M06')}
           />
-          <CartRecommendations props={props} />
           <CartOffers props={props} />
           <PromoCodeEntry />
           <View style={{ gap: 12, paddingVertical: 8 }}>
@@ -1137,23 +1133,25 @@ const s = StyleSheet.create({
     gap: 8,
   },
   cartLine: {
-    gap: 8,
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    gap: 14,
+    padding: 12,
+    borderRadius: 24,
+    backgroundColor: '#0B2255',
+    borderWidth: 1,
+    borderColor: '#FFFFFF0F',
   },
-  cartProduct: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  cartName: { fontFamily: font.bold, fontSize: 17, lineHeight: 24 },
+  cartName: { fontFamily: font.heading, fontSize: 18, lineHeight: 22 },
   cartDescription: {
     fontFamily: font.body,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 4,
-    color: '#C0CDE6',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 3,
+    color: '#A3B4D6',
   },
   upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
-  cartImage: { width: 88, height: 88, borderRadius: 14 },
-  stepper: { backgroundColor: colors.raised, borderRadius: 22, alignSelf: 'flex-start', gap: 0 },
+  cartImage: { width: 84, height: 84, borderRadius: 18, backgroundColor: '#FFF8EE' },
+  stepper: { backgroundColor: '#14306B', borderRadius: 24, alignSelf: 'flex-start', gap: 0 },
   largeIcon: {
     width: 94,
     height: 94,

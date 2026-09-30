@@ -1,32 +1,24 @@
+import { CheckoutSheetHeader, checkoutStyle } from '../components/CheckoutPresentation';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
-import { cartTotal, money, preparationMinutes } from '../domain';
+import { cartTotal, money } from '../domain';
 import { MotionPressable } from '../components/Motion';
 import { CheckoutPayments } from '../components/CartExtras';
-import { OrderHeader, OrderTotal, orderUI } from '../components/OrderPresentation';
-import {
-  Body,
-  Button,
-  Caption,
-  Empty,
-  Heading,
-  Icon,
-  Page,
-  Row,
-  SummaryRow,
-} from '../components/UI';
+import { OrderTotal, orderUI } from '../components/OrderPresentation';
+import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
 import { colors, font } from '../theme';
 
 export function CheckoutHeader({ props }: { props: ScreenProps }) {
-  return <OrderHeader title="Оформление" testID="checkout-close" onClose={props.goBack} back />;
+  return (
+    <CheckoutSheetHeader title="Оформление" testID="checkout-close" onBack={props.goBack} back />
+  );
 }
 export function CheckoutDetails({
   props,
   lockedMode,
   restaurantName,
-  address,
   details,
   paymentContent,
 }: {
@@ -39,107 +31,71 @@ export function CheckoutDetails({
 }) {
   const { model } = props;
   const location = restaurantLocation(model.branch?.id);
-  const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   return (
-    <>
-      <View style={s.section}>
-        <Heading style={orderUI.title}>Как заберёте заказ?</Heading>
-        {lockedMode ? (
-          <Body style={orderUI.label}>{lockedMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
-        ) : (
-          <View
-            style={s.modes}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Способ получения"
-          >
-            {(['takeaway', 'dine_in'] as const).map((mode) => {
-              const selected = model.diningMode === mode;
-              const label = mode === 'takeaway' ? 'С собой' : 'В зале';
-              return (
-                <MotionPressable
-                  key={mode}
-                  accessibilityRole="radio"
-                  accessibilityLabel={label}
-                  aria-checked={selected}
-                  accessibilityState={{ selected, checked: selected }}
-                  onPress={() => model.setDiningMode(mode)}
-                  style={[s.mode, selected && s.modeSelected]}
-                >
-                  <Icon
-                    name={mode === 'takeaway' ? 'bag-handle-outline' : 'restaurant-outline'}
-                    size={20}
-                    color={selected ? colors.orangeInk : colors.muted}
-                  />
-                  <Body
-                    style={[
-                      orderUI.label,
-                      { color: selected ? colors.orangeInk : colors.text, flexShrink: 1 },
-                    ]}
-                  >
-                    {label}
-                  </Body>
-                  {selected ? <Icon name="checkmark" size={16} color={colors.orangeInk} /> : null}
-                </MotionPressable>
-              );
-            })}
-          </View>
-        )}
-      </View>
+    <View style={s.layout}>
+      <Caption style={s.sectionLabel}>КАК ЗАБЕРЁТЕ</Caption>
+      {lockedMode ? (
+        <Body>{lockedMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
+      ) : (
+        <View style={s.modes} accessibilityRole="radiogroup" accessibilityLabel="Способ получения">
+          {(['dine_in', 'takeaway'] as const).map((mode) => {
+            const selected = model.diningMode === mode;
+            return (
+              <MotionPressable
+                key={mode}
+                accessibilityRole="radio"
+                accessibilityLabel={mode === 'dine_in' ? 'В зале' : 'С собой'}
+                aria-checked={selected}
+                accessibilityState={{ selected, checked: selected }}
+                onPress={() => model.setDiningMode(mode)}
+                style={[s.mode, selected && s.modeSelected]}
+              >
+                <Icon
+                  name={mode === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline'}
+                  size={26}
+                  color={selected ? colors.accent : '#A3B4D6'}
+                />
+                {selected ? (
+                  <View style={s.selected}>
+                    <Icon name="checkmark" size={14} color={colors.orangeInk} />
+                  </View>
+                ) : null}
+                <Body style={s.modeTitle}>{mode === 'dine_in' ? 'В зале' : 'С собой'}</Body>
+                <Caption style={[s.modeHint, selected && { color: '#FFC9A3' }]}>
+                  {mode === 'dine_in' ? 'Подадим на подносе' : 'Упакуем в пакет'}
+                </Caption>
+              </MotionPressable>
+            );
+          })}
+        </View>
+      )}
       <View style={s.restaurant}>
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={s.icon}>
-            <Icon name="location-outline" color={colors.accent} size={22} />
-          </View>
+        <Row style={s.placeRow}>
+          <Icon name="location-outline" color="#A3B4D6" size={20} />
           <View style={s.place}>
-            <Body style={[orderUI.label, { fontFamily: font.bold }]}>
+            <Body style={s.placeName}>
               {restaurantName ?? location?.name ?? model.branch?.name ?? 'Ресторан PickChick'}
             </Body>
-            {(address ?? location?.address) ? (
-              <Caption style={orderUI.detail}>
-                {address ?? `${location?.city}, ${location?.address}`}
-              </Caption>
-            ) : null}
-            <Caption style={orderUI.detail}>
-              {lockedMode
-                ? 'Способ получения сохранён в заказе'
-                : 'Заказ приготовят в этом ресторане'}
-            </Caption>
+            <Caption style={s.modeHint}>Выдача по номеру заказа</Caption>
           </View>
         </Row>
-        {!lockedMode ? (
-          <Row style={s.timing}>
-            <View style={s.icon}>
-              <Icon name="time-outline" size={22} color={colors.muted} />
-            </View>
-            <View style={s.place}>
-              <Caption style={orderUI.detail}>Когда приготовить</Caption>
-              <Body style={orderUI.label}>Как можно скорее</Body>
-              <Caption style={orderUI.detail}>
-                Ориентир - около {preparationMinutes(model.cart)} мин
-              </Caption>
-            </View>
-          </Row>
-        ) : null}
+        <View
+          style={s.commentRow}
+          accessible
+          accessibilityLabel="Комментарий к заказу, скоро"
+          accessibilityState={{ disabled: true }}
+        >
+          <Icon name="chatbubble-outline" size={20} color="#A3B4D6" />
+          <View style={s.place}>
+            <Body style={s.commentLabel}>Комментарий к заказу</Body>
+            <Caption style={s.modeHint}>Передача на кухню подключается</Caption>
+          </View>
+        </View>
       </View>
+      <Caption style={[s.sectionLabel, { marginTop: 10 }]}>ОПЛАТА</Caption>
       {paymentContent ?? <CheckoutPayments />}
-      <View style={s.section}>
-        <Heading small style={orderUI.section}>
-          Детали
-        </Heading>
-        {details ?? (
-          <>
-            <SummaryRow label={`Блюда · ${count} шт.`} value={money(cartTotal(model.cart))} />
-            <Button
-              testID="checkout-edit-cart"
-              title="Изменить заказ"
-              secondary
-              textStyle={orderUI.actionText}
-              onPress={props.goBack}
-            />
-          </>
-        )}
-      </View>
-    </>
+      {details ? <View style={s.section}>{details}</View> : null}
+    </View>
   );
 }
 
@@ -149,6 +105,8 @@ export function Checkout(props: ScreenProps) {
     <Page
       props={props}
       title="Оформление"
+      contentStyle={checkoutStyle.content}
+      footerStyle={checkoutStyle.footer}
       header={<CheckoutHeader props={props} />}
       footer={
         props.model.cart.length ? (
@@ -178,28 +136,60 @@ export function Checkout(props: ScreenProps) {
   );
 }
 const s = StyleSheet.create({
-  section: { gap: 12 },
-  modes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  layout: { gap: 10 },
+  section: { gap: 10, paddingVertical: 12 },
+  sectionLabel: {
+    fontFamily: font.bold,
+    fontSize: 12,
+    lineHeight: 18,
+    letterSpacing: 1.2,
+    color: '#A3B4D6',
+    marginHorizontal: 8,
+  },
+  modes: { flexDirection: 'row', gap: 10 },
   mode: {
-    flexGrow: 1,
-    flexBasis: 120,
-    minHeight: 56,
-    flexDirection: 'row',
+    flex: 1,
+    minHeight: 102,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF0F',
+    backgroundColor: '#0B2255',
+    gap: 3,
+  },
+  modeSelected: { borderColor: colors.accent, backgroundColor: '#FF69001F' },
+  selected: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
   },
-  modeSelected: { backgroundColor: colors.accent },
-  restaurant: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, gap: 16 },
-  icon: { width: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
-  place: { flex: 1, minWidth: 0, gap: 4 },
-  timing: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: 16,
-    alignItems: 'flex-start',
+  modeTitle: { fontFamily: font.heading, fontSize: 18, lineHeight: 23, marginTop: 4 },
+  modeHint: { fontSize: 12, lineHeight: 18, color: '#A3B4D6' },
+  restaurant: {
+    backgroundColor: '#0B2255',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#FFFFFF0F',
+    marginTop: 2,
   },
+  placeRow: { minHeight: 62, padding: 14, gap: 12 },
+  place: { flex: 1, minWidth: 0, gap: 2 },
+  placeName: { fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
+  commentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 54,
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#FFFFFF0A',
+  },
+  commentLabel: { fontSize: 15, lineHeight: 21, color: '#A3B4D6' },
 });

@@ -1,8 +1,14 @@
+import { KaspiPaymentState } from '../components/KaspiPaymentState';
+import {
+  CheckoutSheetHeader,
+  CheckoutAction,
+  UpcomingPayments,
+  checkoutStyle,
+} from '../components/CheckoutPresentation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
-import { Image } from 'expo-image';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
@@ -24,23 +30,12 @@ import {
   commerceStatus,
 } from '../commerce-presentation';
 import { CheckoutDetails } from './CheckoutScreen';
-import { OrderHeader, OrderTotal, orderUI } from '../components/OrderPresentation';
+import { OrderHeader } from '../components/OrderPresentation';
 import { PaymentMark } from '../components/PaymentChoice';
-import {
-  Body,
-  Button,
-  Caption,
-  Empty,
-  Heading,
-  Icon,
-  Page,
-  Row,
-  SummaryRow,
-} from '../components/UI';
+import { Body, Button, Caption, Empty, Heading, Icon, Page, Row } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
 import { cartTotal, cartLineKey, money } from '../domain';
 import { colors, font } from '../theme';
-import { menuPhotos } from '../menu-photo-assets';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
 type Pending = {
@@ -69,6 +64,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const [loaded, setLoaded] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const [paidMoment, setPaidMoment] = useState(false);
+  const paidSeen = useRef(new Set<string>());
   const [watchCycle, setWatchCycle] = useState(0);
   const orderRef = useRef<CustomerCommerceOrder | null>(null);
   const [refresh, setRefresh] = useState(0),
@@ -94,8 +91,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const accept = useCallback(
     async (value: unknown) => {
       const current = CustomerCommerceOrderSchema.parse(value);
-      orderRef.current = current;
-      setOrder(current);
+      if (
+        orderRef.current &&
+        !paymentReceived(orderRef.current.phase) &&
+        paymentReceived(current.phase) &&
+        !paidSeen.current.has(current.orderId)
+      ) {
+        paidSeen.current.add(current.orderId);
+        setPaidMoment(true);
+      }
       if (pending.current && (paymentReceived(current.phase) || current.phase === 'failed')) {
         // A newer cart or changed modifiers are never cleared by an older payment.
         if (paymentReceived(current.phase) && pending.current.signature === signatureRef.current)
@@ -105,6 +109,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
         await AsyncStorage.removeItem(key);
         pending.current = null;
       }
+      orderRef.current = current;
+      setOrder(current);
       return current;
     },
     [key, props.model.clearCart],
@@ -243,8 +249,18 @@ function KaspiCheckoutSession(props: ScreenProps) {
     };
     // Errors stop the stream until an explicit retry. No rapid network retry loop.
   }, [request, order?.orderId, order?.revision, foreground, error, watchCycle]);
+  useEffect(() => {
+    if (!paidMoment || !foreground) return;
+    const timer = setTimeout(() => setPaidMoment(false), 2000);
+    return () => clearTimeout(timer);
+  }, [paidMoment, foreground]);
   const submit = async () => {
-    if (lock.current || !quote || Date.parse(quote.expiresAt) <= Date.now()) {
+    if (
+      lock.current ||
+      !quote ||
+      quote.serviceMode !== props.model.diningMode ||
+      Date.parse(quote.expiresAt) <= Date.now()
+    ) {
       if (quote) setError('Цена требует обновления. Нажмите «Проверить соединение».');
       return;
     }
@@ -297,32 +313,62 @@ function KaspiCheckoutSession(props: ScreenProps) {
     else setRefresh((c) => c + 1);
   };
   const total = quote ? quote.totalMinor : cartTotal(props.model.cart);
-  const footer = order ? (
-    <>
-      {order.phase === 'ready_to_pay' && !pending.current?.sendInvoice ? (
-        <Button
-          title={`Отправить счёт на ${money(order.totalMinor)}`}
-          onPress={() => void pay()}
-          disabled={busy}
-          style={orderUI.action}
+  const footer =
+    props.screenId !== 'M19' && props.model.cart.length ? (
+      <>
+        <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Body style={{ fontFamily: font.heading, fontSize: 20 }}>
+            Итого{' '}
+            <Caption>· {props.model.cart.reduce((n, line) => n + line.quantity, 0)} шт.</Caption>
+          </Body>
+          <Body style={{ fontFamily: font.heading, fontSize: 24 }}>{money(total)}</Body>
+        </Row>
+        <CheckoutAction
+          testID="kaspi-checkout-submit"
+          title={busy ? 'Готовим счёт…' : 'Оплатить через'}
+          kaspi={!busy}
+          onPress={() => void submit()}
+          disabled={
+            !loaded || !quote || quote.serviceMode !== props.model.diningMode || busy || !!error
+          }
         />
-      ) : null}
-      <Button title="В меню" secondary onPress={() => props.navigate('M06')} />
-    </>
-  ) : props.screenId !== 'M19' && props.model.cart.length ? (
-    <>
-      <OrderTotal value={money(total)} />
-      <Button
-        testID="kaspi-checkout-submit"
-        title={busy ? 'Готовим счёт…' : `Получить счёт в Kaspi · ${money(total)}`}
-        onPress={() => void submit()}
-        disabled={!loaded || !quote || busy || !!error}
-        style={orderUI.action}
-        textStyle={orderUI.actionText}
+      </>
+    ) : undefined;
+  if (order && (!paymentReceived(order.phase) || paidMoment))
+    return (
+      <KaspiPaymentState
+        order={order}
+        paid={paidMoment && paymentReceived(order.phase)}
+        onContinue={() => setPaidMoment(false)}
+        onCart={() => props.navigate('M09')}
+        onRetry={() => {
+          if (order.phase !== 'failed') return;
+          orderRef.current = null;
+          setOrder(null);
+          setQuote(null);
+          setError('');
+          setLoaded(false);
+          setRefresh((c) => c + 1);
+        }}
+        extraAction={
+          order.phase === 'ready_to_pay' && !pending.current?.sendInvoice ? (
+            <Button
+              title={`Отправить счёт на ${money(order.totalMinor)}`}
+              onPress={() => void pay()}
+              disabled={busy}
+            />
+          ) : undefined
+        }
+        notice={
+          error ? (
+            <View style={s.warning}>
+              <Body>{error}</Body>
+              <Button secondary title="Проверить соединение" onPress={retry} />
+            </View>
+          ) : undefined
+        }
       />
-      <Caption style={s.center}>Списание подтвердите в Kaspi.kz</Caption>
-    </>
-  ) : undefined;
+    );
   if (order && paymentReceived(order.phase))
     return (
       <OrderStatusView
@@ -353,17 +399,25 @@ function KaspiCheckoutSession(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title={order ? 'Ваш заказ' : 'Способ оплаты'}
+      title={props.screenId === 'M19' ? 'Заказы' : 'Оформление'}
+      contentStyle={checkoutStyle.content}
+      footerStyle={checkoutStyle.footer}
       footer={footer}
       header={
-        order || props.screenId === 'M19' ? (
-          <OrderHeader
-            title={order?.restaurant ?? 'Заказы'}
-            onClose={props.goBack}
-            testID="kaspi-order-close"
-          />
+        props.screenId === 'M19' ? (
+          <OrderHeader title="Заказы" onClose={props.goBack} testID="kaspi-order-close" />
         ) : (
-          <OrderHeader title="Способ оплаты" testID="checkout-close" onClose={props.goBack} back />
+          <CheckoutSheetHeader
+            title="Оформление"
+            testID="checkout-close"
+            onBack={props.goBack}
+            action={
+              !loaded ? (
+                <ActivityIndicator color={colors.accent} accessibilityLabel="Проверяем ваш заказ" />
+              ) : undefined
+            }
+            back
+          />
         )
       }
     >
@@ -373,15 +427,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
           <Button secondary title="Проверить соединение" onPress={retry} />
         </View>
       ) : null}
-      {!loaded && !order ? (
+      {!loaded && props.screenId === 'M19' ? (
         <View style={s.loading}>
           <ActivityIndicator color={colors.accent} />
           <Caption>Проверяем ваш заказ</Caption>
         </View>
       ) : null}
-      {order ? (
-        <KaspiOrderContent order={order} props={props} phone={auth.account?.phone} />
-      ) : props.screenId === 'M19' ? (
+      {props.screenId === 'M19' ? (
         <>
           {!history.length && loaded && !error ? (
             <Empty
@@ -414,37 +466,29 @@ function KaspiCheckoutSession(props: ScreenProps) {
           props={props}
           restaurantName={config?.restaurant}
           details={
-            <>
-              <SummaryRow label="Блюда" value={money(total)} />
-              {quote && quote.totalMinor !== cartTotal(props.model.cart) ? (
-                <Caption>
-                  Сумма обновлена по меню ресторана. Проверьте её перед продолжением.
-                </Caption>
-              ) : null}
-              <Button title="Изменить заказ" secondary onPress={props.goBack} />
-            </>
+            quote && quote.totalMinor !== cartTotal(props.model.cart) ? (
+              <Caption>Сумма обновлена по меню ресторана. Проверьте её перед оплатой.</Caption>
+            ) : undefined
           }
           paymentContent={
-            <View style={s.card}>
-              <Heading small>Оплата</Heading>
-              <Row>
-                <PaymentMark method="kaspi" size={44} />
-                <View style={s.flex}>
-                  <Body style={s.bold}>Kaspi.kz</Body>
-                  <Caption>{maskedPhone(auth.account?.phone)}</Caption>
-                </View>
-                <Icon name="checkmark-circle" color={colors.accent} />
-              </Row>
-              <Caption>
-                Пришлём счёт на номер вашего аккаунта. После оплаты статус обновится здесь.
-              </Caption>
-              <View style={s.note}>
-                <Icon name="receipt-outline" size={18} color={colors.muted} />
-                <Caption style={s.flex}>
-                  Фискальный чек пока не выпускается - Webkassa подключается.
-                </Caption>
+            <>
+              <View style={checkoutStyle.paymentPanel}>
+                <Row style={{ minHeight: 64, padding: 14, gap: 12 }}>
+                  <PaymentMark method="kaspi" size={36} />
+                  <View style={s.flex}>
+                    <Body style={{ fontFamily: font.medium, fontSize: 15 }}>Kaspi.kz</Body>
+                    <Caption style={{ fontSize: 12, lineHeight: 18 }}>
+                      Счёт придёт на {maskedPhone(auth.account?.phone)}
+                    </Caption>
+                  </View>
+                  <Icon name="checkmark-circle" color={colors.accent} size={22} />
+                </Row>
+                <UpcomingPayments />
               </View>
-            </View>
+              <Caption style={{ fontSize: 12, lineHeight: 18, marginHorizontal: 8 }}>
+                Фискальный чек пока не выпускается - Webkassa подключается.
+              </Caption>
+            </>
           }
         />
       ) : (
@@ -458,117 +502,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
   );
 }
 
-export function KaspiOrderContent({
-  order,
-  props,
-  phone,
-}: {
-  order: CustomerCommerceOrder;
-  props: ScreenProps;
-  phone?: string;
-}) {
-  const copy = paymentCopy[order.phase],
-    paid = paymentReceived(order.phase);
-  return (
-    <>
-      <View style={s.hero}>
-        <View style={s.mark}>
-          {paid ? (
-            <Icon name="checkmark" size={36} color={colors.success} />
-          ) : (
-            <PaymentMark method="kaspi" size={52} />
-          )}
-        </View>
-        {order.displayNumber ? <Body style={s.number}>№ {order.displayNumber}</Body> : null}
-        <Heading style={s.title}>{copy.title}</Heading>
-        <Caption style={s.center}>{copy.detail}</Caption>
-        <Body style={s.amount}>{money(order.totalMinor)}</Body>
-        {!paid ? <Caption>{maskedPhone(phone)}</Caption> : null}
-      </View>
-      <View style={s.steps} accessibilityLabel={`Шаг ${Math.min(copy.step + 1, 3)} из 3`}>
-        {['Счёт', 'Оплата', 'Кухня'].map((label, i) => (
-          <View key={label} style={s.step}>
-            <View style={[s.rail, i <= copy.step && s.railActive]} />
-            <Caption style={s.center}>{label}</Caption>
-          </View>
-        ))}
-      </View>
-      <View style={s.card}>
-        <Row>
-          <Heading small>Ваш заказ</Heading>
-          <Caption>{order.serviceMode === 'takeaway' ? 'С собой' : 'В зале'}</Caption>
-        </Row>
-        {order.items.map((item, i) => {
-          const product = props.model.products.find((p) => p.id === item.productId);
-          return (
-            <Row key={`${item.productId}:${i}`} style={s.item}>
-              {product ? (
-                <Image
-                  source={menuPhotos[product.id] ?? product.image}
-                  contentFit="contain"
-                  style={s.photo}
-                />
-              ) : (
-                <View style={s.photo}>
-                  <Icon name="restaurant-outline" color={colors.muted} />
-                </View>
-              )}
-              <View style={s.flex}>
-                <Body style={s.bold}>{item.title}</Body>
-                {item.modifiers.length ? <Caption>{item.modifiers.join(' · ')}</Caption> : null}
-                <Caption>{item.quantity} шт.</Caption>
-              </View>
-            </Row>
-          );
-        })}
-      </View>
-      <View style={s.note}>
-        <Icon name="receipt-outline" size={20} color={colors.muted} />
-        <View style={s.flex}>
-          <Body>Чек</Body>
-          <Caption>
-            {order.receipt === 'deferred'
-              ? 'Webkassa в процессе подключения. Фискальный чек не выпущен.'
-              : order.receipt === 'issued'
-                ? 'Чек выпущен. Получить его можно в ресторане.'
-                : 'Ожидаем фискальный чек.'}
-          </Caption>
-        </View>
-      </View>
-    </>
-  );
-}
 const s = StyleSheet.create({
-  flex: { flex: 1, minWidth: 0, gap: 4 },
-  bold: { fontFamily: font.bold },
-  card: { backgroundColor: colors.surface, borderRadius: 22, padding: 18, gap: 16 },
-  note: { flexDirection: 'row', gap: 10, paddingTop: 12, alignItems: 'flex-start' },
-  warning: { backgroundColor: colors.warningSurface, borderRadius: 18, padding: 16, gap: 12 },
-  loading: { padding: 24, gap: 12, alignItems: 'center' },
-  hero: { alignItems: 'center', paddingVertical: 20, paddingHorizontal: 8, gap: 12 },
-  mark: {
-    height: 88,
-    width: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 28,
-    backgroundColor: colors.surface,
-  },
-  title: { fontSize: 28, lineHeight: 36, textAlign: 'center', fontFamily: font.heading },
-  center: { textAlign: 'center' },
-  number: { color: colors.accent, fontFamily: font.bold, fontSize: 20 },
-  amount: { fontFamily: font.bold, fontSize: 34, lineHeight: 44, fontVariant: ['tabular-nums'] },
-  steps: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  step: { flex: 1, gap: 8 },
-  rail: { height: 4, borderRadius: 2, backgroundColor: colors.border },
-  railActive: { backgroundColor: colors.accent },
-  item: { alignItems: 'flex-start', gap: 12 },
-  photo: {
-    width: 68,
-    height: 68,
-    borderRadius: 14,
-    backgroundColor: '#FFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  flex: { flex: 1, minWidth: 0, gap: 3 },
+  card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
+  loading: { padding: 24, alignItems: 'center', gap: 12 },
+  warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },
+  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
 });

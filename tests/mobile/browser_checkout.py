@@ -49,8 +49,8 @@ with sync_playwright() as p:
   page.get_by_test_id('scroll-M12').evaluate('(e)=>e.scrollTop=e.scrollHeight')
   assert abs(pay.bounding_box()['y']-before['y'])<1
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-  checkout.get_by_test_id('checkout-add-card').click()
-  expect(checkout.get_by_test_id('checkout-card-info')).to_contain_text('после подключения банка')
+  expect(checkout.get_by_test_id('checkout-add-card')).to_have_attribute('aria-disabled','true')
+  expect(checkout.get_by_test_id('checkout-add-card')).to_contain_text('СКОРО')
   expect(checkout.locator('input')).to_have_count(0)
   page.get_by_test_id('scroll-M12').evaluate('(e)=>e.scrollTop=0')
   page.screenshot(path=str(OUT/f'payment-{width}.png'))

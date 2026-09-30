@@ -1,3 +1,5 @@
+import { UpcomingPayments, checkoutStyle } from './CheckoutPresentation';
+import { PaymentMark } from './PaymentChoice';
 import { useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { MotionPressable } from './Motion';
@@ -22,8 +24,20 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
     <View style={{ gap: 12 }}>
       {recommendations.length ? (
         <>
-          <Heading small style={orderUI.section}>
-            К вашему заказу
+          <Heading
+            small
+            style={[
+              orderUI.section,
+              {
+                fontFamily: font.display,
+                fontSize: 22,
+                lineHeight: 28,
+                marginTop: 18,
+                marginLeft: 8,
+              },
+            ]}
+          >
+            Всегда кстати
           </Heading>
           <ScrollView
             horizontal
@@ -43,11 +57,14 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   style={s.extraPhoto}
                   accessible={false}
                 />
-                <Body style={orderUI.label}>{line.product.name}</Body>
-                <Caption>{selectionDescription(line) || line.product.servingLabel}</Caption>
+                <Body style={s.extraName}>{line.product.name}</Body>
+                <Caption numberOfLines={1} style={s.extraDetail}>
+                  {selectionDescription(line) || line.product.servingLabel}
+                </Caption>
                 <View style={{ flex: 1 }} />
-                <Button
-                  title={`+ ${money(lineUnitPrice(line))}`}
+                <MotionPressable
+                  style={s.extraAdd}
+                  accessibilityRole="button"
                   testID={`cart-recommend-${line.product.id}`}
                   accessibilityLabel={`Добавить ${line.product.name}, ${money(lineUnitPrice(line))}`}
                   onPress={() => {
@@ -57,7 +74,10 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                         : 'Меню или корзина изменились. Попробуйте ещё раз.',
                     );
                   }}
-                />
+                >
+                  <Body style={s.extraPrice}>{money(lineUnitPrice(line))}</Body>
+                  <Icon name="add" size={19} color={colors.accent} />
+                </MotionPressable>
               </View>
             ))}
           </ScrollView>
@@ -181,65 +201,55 @@ export function PromoCodeEntry() {
   );
 }
 
-/** Provider enrollment is still pending. Never collect PAN/CVC in our own form. */
+/** Provider enrollment is still pending. No card details are collected. */
 export function CheckoutPayments() {
-  const [cardInfo, setCardInfo] = useState(false);
   return (
-    <View style={{ gap: 12 }}>
-      <Heading small style={orderUI.section}>
-        Оплата
-      </Heading>
-      <View style={s.methods}>
+    <View style={{ gap: 10 }}>
+      <View style={checkoutStyle.paymentPanel}>
         <View
-          testID="checkout-apple-pay"
-          accessible
-          accessibilityLabel="Apple Pay, в процессе подключения"
-          accessibilityState={{ disabled: true }}
           style={s.method}
+          accessible
+          accessibilityLabel="Kaspi, подключается"
+          accessibilityState={{ disabled: true }}
         >
-          <View style={s.methodIcon}>
-            <Icon name="logo-apple" size={24} />
-          </View>
-          <View style={s.methodText}>
-            <Body style={orderUI.label}>Apple Pay</Body>
-            <Caption style={orderUI.detail}>Подключается</Caption>
+          <PaymentMark method="kaspi" size={36} />
+          <View style={{ flex: 1 }}>
+            <Body style={orderUI.label}>Kaspi.kz</Body>
+            <Caption>Подключается</Caption>
           </View>
         </View>
-        <MotionPressable
-          testID="checkout-add-card"
-          accessibilityRole="button"
-          accessibilityLabel="Добавить карту, информация о подключении"
-          aria-expanded={cardInfo}
-          accessibilityState={{ expanded: cardInfo }}
-          onPress={() => setCardInfo(!cardInfo)}
-          style={s.method}
-        >
-          <View style={s.methodIcon}>
-            <Icon name="card-outline" size={24} />
-          </View>
-          <View style={s.methodText}>
-            <Body style={orderUI.label}>Добавить карту</Body>
-            <Caption style={orderUI.detail}>Скоро</Caption>
-          </View>
-          <Icon name={cardInfo ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
-        </MotionPressable>
+        <UpcomingPayments />
       </View>
-      {cardInfo ? (
-        <Caption
-          style={orderUI.detail}
-          testID="checkout-card-info"
-          accessibilityLiveRegion="polite"
-        >
-          Добавление карты появится после подключения банка. Сейчас вводить реквизиты не нужно.
-        </Caption>
-      ) : null}
       <Caption style={orderUI.detail}>Оплата и чеки - в процессе подключения.</Caption>
     </View>
   );
 }
 const s = StyleSheet.create({
-  extra: { width: 160, padding: 12, gap: 8, borderRadius: 16, backgroundColor: colors.surface },
-  extraPhoto: { width: 136, height: 116, borderRadius: 12, backgroundColor: '#FFFFFF' },
+  extra: {
+    width: 136,
+    padding: 12,
+    paddingTop: 0,
+    gap: 3,
+    borderRadius: 22,
+    backgroundColor: '#0B2255',
+    borderWidth: 1,
+    borderColor: '#FFFFFF0F',
+  },
+  extraPhoto: { width: 110, height: 96, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  extraName: { fontFamily: font.heading, fontSize: 15, lineHeight: 19, marginTop: 6 },
+  extraDetail: { fontSize: 12, lineHeight: 17, color: '#A3B4D6' },
+  extraAdd: {
+    minHeight: 48,
+    paddingHorizontal: 10,
+    marginTop: 8,
+    borderRadius: 24,
+    backgroundColor: '#14306B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
+  extraPrice: { fontFamily: font.heading, fontSize: 15, lineHeight: 20 },
   promotion: {
     width: 260,
     padding: 18,

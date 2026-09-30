@@ -274,9 +274,9 @@ with sync_playwright() as p:
         assert saved(page) == preferences
         page.get_by_test_id('cart-checkout').click()
         checkout = page.get_by_test_id('screen-M12')
-        expect(checkout.get_by_test_id('checkout-apple-pay')).to_contain_text('Подключается')
-        checkout.get_by_test_id('checkout-add-card').click()
-        expect(checkout.get_by_test_id('checkout-card-info')).to_be_visible()
+        expect(checkout.get_by_test_id('checkout-apple-pay')).to_contain_text('СКОРО')
+        expect(checkout.get_by_test_id('checkout-add-card')).to_have_attribute('aria-disabled','true')
+        expect(checkout.get_by_test_id('checkout-add-card')).to_contain_text('СКОРО')
         expect(checkout.get_by_test_id('test-checkout-create')).to_be_enabled()
         with page.expect_response(lambda response: urlparse(response.url).path == '/v1/test/quotes'):
             checkout.get_by_test_id('test-checkout-create').click()
