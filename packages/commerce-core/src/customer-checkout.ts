@@ -11,6 +11,7 @@ export const CheckoutOptionsSchema = z.strictObject({
   branchId: z.uuid(),
   paymentAccountId: z.uuid(),
   customerIds: z.array(z.uuid()).min(1).max(10),
+  repeatOrdersEnabled: z.boolean().optional(),
   maxOrderMinor: z
     .string()
     .regex(/^[1-9][0-9]{0,8}$/)
@@ -25,6 +26,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
     branchId: env.CUSTOMER_KASPI_BRANCH_ID,
     paymentAccountId: env.KASPI_REMOTE_ACCOUNT_ID,
     customerIds: env.CUSTOMER_KASPI_PILOT_CUSTOMER_IDS?.split(','),
+    repeatOrdersEnabled: env.CUSTOMER_KASPI_PILOT_REPEAT_ORDERS === 'true',
     maxOrderMinor: env.CUSTOMER_KASPI_PILOT_MAX_MINOR ?? '10000',
     approvalReference: env.CUSTOMER_KASPI_FISCAL_DEFERRAL_REFERENCE,
   });

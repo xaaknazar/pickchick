@@ -172,7 +172,10 @@ export function OrderStatusView({
     );
   });
   return (
-    <View style={s.root} testID={`screen-${props.screenId}`}>
+    <View
+      style={[s.root, !props.inSheet && { paddingTop: insets.top + 12 }]}
+      testID={`screen-${props.screenId}`}
+    >
       <View
         style={{ flex: 1 }}
         aria-hidden={more}

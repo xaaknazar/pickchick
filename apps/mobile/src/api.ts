@@ -132,8 +132,12 @@ export async function loadCatalog(
     response.branches.length > 100
   )
     throw new Error('Invalid branches');
-  const branches = response.branches.map((branch: unknown) => BranchSchema.parse(branch));
-  if (branches.some((branch) => branch.ordering_enabled)) throw new Error('Unsupported ordering');
+  // This public catalog remains the read-only storefront. A separately enabled
+  // payment branch must not invalidate it or replace its menu. Authenticated
+  // checkout resolves its own server-approved branch/account independently.
+  const branches = response.branches
+    .map((branch: unknown) => BranchSchema.parse(branch))
+    .filter((branch: Branch) => !branch.ordering_enabled);
   const branch = branches.find((candidate) => candidate.id === branchId) ?? branches[0];
   if (!branch) throw new Error('No branches');
   const menu = MenuSnapshotSchema.parse(

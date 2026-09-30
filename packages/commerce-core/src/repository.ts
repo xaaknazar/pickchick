@@ -316,6 +316,7 @@ export class CommerceRepository {
       organizationId: string;
       branchId: string;
       approvalReference: string;
+      repeatOrdersEnabled?: boolean | undefined;
     },
   ) {}
 
@@ -542,7 +543,7 @@ export class CommerceRepository {
         return { orderId: old.id, quoteId: old.quote_id };
       }
       if (!quote.valid) throw new CommerceError('EXPIRED');
-      if (deferral) {
+      if (deferral && !this.fiscalPilot?.repeatOrdersEnabled) {
         // First live pilot is explicitly limited to one order per admitted customer.
         // Serialize inside this transaction so two different quotes cannot race it.
         await lock(client, [

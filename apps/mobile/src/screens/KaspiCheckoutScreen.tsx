@@ -6,7 +6,7 @@ import {
   checkoutStyle,
 } from '../components/CheckoutPresentation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
@@ -32,6 +32,7 @@ import {
 } from '../commerce-presentation';
 import { CheckoutDetails } from './CheckoutScreen';
 import { OrderHeader } from '../components/OrderPresentation';
+import { OrderSheet } from '../components/OrderSheet';
 import { PaymentMark } from '../components/PaymentChoice';
 import { Body, Button, Caption, Empty, Heading, Icon, Page, Row } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
@@ -188,7 +189,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       const priced = CustomerQuoteSchema.parse(
         await request('/quotes', 'POST', {
           key: randomUUID(),
-          branchId: props.model.branch?.id,
+          branchId: setup.branchId,
           serviceMode: props.model.diningMode,
           items: checkoutItems(cart.current),
         }),
@@ -361,10 +362,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
         }
       />
     );
-  if (order && paymentReceived(order.phase))
-    return (
+  if (order && paymentReceived(order.phase)) {
+    const status = (statusProps: ScreenProps) => (
       <OrderStatusView
-        props={props}
+        props={statusProps}
         order={commerceStatus(order)}
         notice={
           statusError ? (
@@ -388,6 +389,20 @@ function KaspiCheckoutSession(props: ScreenProps) {
         }
       />
     );
+    if (props.inSheet) return status(props);
+    const close = () => {
+      orderRef.current = null;
+      setOrder(null);
+      setRefresh((value) => value + 1);
+    };
+    return (
+      <Modal transparent animationType="none" visible onRequestClose={close}>
+        <OrderSheet raised name="Статус заказа" onClose={close}>
+          {(dismiss) => status({ ...props, inSheet: true, goBack: dismiss })}
+        </OrderSheet>
+      </Modal>
+    );
+  }
   return (
     <Page
       props={props}

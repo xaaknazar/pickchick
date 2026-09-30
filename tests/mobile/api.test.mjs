@@ -107,6 +107,36 @@ test('HTTP failure and malformed data never produce a successful catalog', async
   await assert.rejects(loadCatalog(null, controller.signal), /Aborted/);
 });
 
+test('enabling a payment branch does not hide or replace the public storefront menu', async (t) => {
+  const paymentBranch = {
+    ...branch,
+    id: '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1',
+    ordering_enabled: true,
+  };
+  const calls = [];
+  let available = [paymentBranch, branch];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const path = new URL(url).pathname;
+    calls.push(path);
+    const body =
+      path === '/v1/capabilities'
+        ? capabilities
+        : path === '/v1/branches'
+          ? { branches: available }
+          : menu;
+    return new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+  });
+  for (const requested of [null, branchId, paymentBranch.id]) {
+    const result = await loadCatalog(requested);
+    assert.equal(result.branch.id, branchId);
+    assert.deepEqual(result.branches, [branch]);
+    assert.equal(result.menu.branch_id, branchId);
+  }
+  assert.equal(calls.includes(`/v1/branches/${paymentBranch.id}/menu`), false);
+  available = [paymentBranch];
+  await assert.rejects(loadCatalog(null), /No branches/);
+});
+
 test('only transport failures and temporary HTTP statuses permit automatic catalog retries', async (t) => {
   const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
     throw new TypeError('Network request failed');

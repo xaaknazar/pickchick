@@ -1197,6 +1197,30 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
         service.create(customer, { key: randomUUID(), quoteId: otherQuote.quoteId }),
         /NOT_READY/,
       );
+      const repeat = new CustomerCheckout(f.pool, {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [customer],
+        maxOrderMinor: '1000000',
+        approvalReference: 'Synthetic approved repeated owner pilot',
+        repeatOrdersEnabled: true,
+      });
+      const repeatedRequest = { key: randomUUID(), quoteId: otherQuote.quoteId };
+      const [second, replay] = await Promise.all([
+        repeat.create(customer, repeatedRequest),
+        repeat.create(customer, repeatedRequest),
+      ]);
+      assert.notEqual(second.orderId, a.orderId);
+      assert.equal(second.orderId, replay.orderId);
+      assert.equal(second.totalMinor, '10000');
+      assert.equal((await repeat.list(customer)).orders.length, 2);
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      await assert.rejects(repeat.config(otherCustomer), /FORBIDDEN/);
+      // A client cannot opt itself into the repeated-order server policy.
+      await assert.rejects(
+        service.create(customer, { ...repeatedRequest, repeatOrdersEnabled: true }),
+        /INVALID/,
+      );
       const forged = {
         key: randomUUID(),
         branchId: f.scope.branchId,

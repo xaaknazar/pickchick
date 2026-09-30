@@ -44,6 +44,8 @@ def checkout_environment(raw):
 
 class Release(base.Release):
     snapshot = market.Release.snapshot
+    checkout_file = CHECKOUT_FILE
+    validate_checkout = staticmethod(checkout_environment)
 
     def __init__(self, args):
         require(args.expected_api_sha == BASELINE and args.expected_public_sha == PUBLIC_BASELINE and
@@ -65,7 +67,7 @@ class Release(base.Release):
         require(path.is_file() and not path.is_symlink() and path.stat().st_mode & 0o077 == 0,
                 'Protected owner checkout environment required')
         raw = path.read_text()
-        checkout_environment(raw)
+        self.validate_checkout(raw)
         self.remote('python3 -c ' + quote('''from pathlib import Path
 import os,sys
 p=Path(sys.argv[1]);raw=sys.stdin.buffer.read()
@@ -73,7 +75,7 @@ if p.exists():
  assert p.is_file() and not p.is_symlink() and p.stat().st_mode&0o077==0 and p.read_bytes()==raw
 else:
  with p.open('xb') as f: os.fchmod(f.fileno(),0o600);f.write(raw)
-''') + ' ' + quote(CHECKOUT_FILE), input=raw)
+''') + ' ' + quote(self.checkout_file), input=raw)
         program = '''from pathlib import Path
 import sys
 p=Path(sys.argv[1]);s=p.read_text()
@@ -90,11 +92,11 @@ s=s.replace(old,'      CLOUD_FULFILLMENT_TRANSPORT_ENABLED: "true"')
 p.write_text(s)
 '''
         self.remote('python3 -c ' + quote(program) + ' ' + quote(target + '/infra/staging/compose.yaml') +
-                    ' ' + quote(base.pilot.AUTH_FILE) + ' ' + quote(CHECKOUT_FILE))
+                    ' ' + quote(base.pilot.AUTH_FILE) + ' ' + quote(self.checkout_file))
 
     def prepared_artifacts(self, manifest):
         artifacts = super().prepared_artifacts(manifest)
-        artifacts['checkout_environment'] = self.file_hashes([CHECKOUT_FILE])
+        artifacts['checkout_environment'] = self.file_hashes([self.checkout_file])
         return artifacts
 
     def verify_data(self, before):

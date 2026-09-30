@@ -34,9 +34,10 @@ with sync_playwright() as p:
    elif path=='/v1/branches/'+BRANCH+'/menu':data={'schema_version':1,'branch_id':BRANCH,'release_id':'10000000-0000-4000-8000-000000000008','version':1,'published_at':'2026-09-07T00:00:00Z','items':[]}
    elif path=='/v1/test/catalog':data=CATALOG
    elif path=='/v1/content/branches/'+BRANCH:data={'schema_version':1,'branch_id':BRANCH,'promos':[],'games':[]}
-   elif path=='/v1/customer-checkout/config':data={'enabled':True,'branchId':BRANCH,'restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot'}
+   elif path=='/v1/customer-checkout/config':data={'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot'}
    elif path=='/v1/customer-checkout/quotes':
     assert 'totalMinor' not in body
+    assert body['branchId']=='7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
     data={'quoteId':'40000000-0000-4000-8000-000000000005','totalMinor':'419000','expiresAt':future,'serviceMode':body['serviceMode']}
    elif path=='/v1/customer-checkout/orders':
     if state['blocked']:
@@ -128,6 +129,17 @@ with sync_playwright() as p:
   expect(page.get_by_text('Приятного аппетита!',exact=True)).to_be_visible()
   page.get_by_test_id('order-status-close').click()
   expect(page.get_by_test_id('screen-M12')).not_to_be_visible()
+  page.goto(URL+'/orders')
+  page.get_by_role('button',name='Открыть заказ 2',exact=True).click()
+  sheet=page.get_by_test_id('order-sheet')
+  close=page.get_by_test_id('order-status-close')
+  expect(close).to_be_visible()
+  page.wait_for_timeout(450)
+  sb=sheet.bounding_box();cb=close.bounding_box()
+  assert sb['y']>=20 and cb['y']>=sb['y']+20 and cb['height']>=44,(sb,cb)
+  page.screenshot(path=str(OUT/f'history-status-{width}.png'))
+  close.click()
+  expect(page.get_by_role('button',name='Открыть заказ 2',exact=True)).to_be_visible()
   state['teardown']=True
   for held in state['held_routes']:
    try:held.abort()
