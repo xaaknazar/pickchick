@@ -1,5 +1,15 @@
 # Продолжение: перенос Kaspi на VPS
 
+Решение владельца: Kaspi invoice только mobile; iPad-киоск позднее. На кассе будет
+отдельный физический Kaspi POS-терминал позднее. Сейчас моноблок связывается с VPS
+как edge кухни для мобильных заказов; `unpaid_service` на POS не менять.
+
+SSH кассы восстановлен. Local scope прочитан, schema014/5orders. Проверенный
+backup+restore38tables с отпечатками данных сохранён на кассе. Продолжать
+kaspi-live-activation: защищённый transport, commercial scope, owner pilot100₸.
+Не переустанавливать foundation/schema009 и не сбрасывать PIN/историю.
+В CI31226c2 устаревшее ожидание QR; browser_mockup_fidelity исправлен и прошёл локально.
+
 ## Текущий этап: kaspi-live-activation
 
 Области @vps/@windows/cashier заняты этой задачей. Касса включена, новый IP в приватном контексте; SSH fingerprint совпал, ключ для «Админ» отклонён, ожидается whoami. Bank session active. Новое решение владельца: цены/доплаты текущего Dev, снимок hash-pinned. Подготовлены checkout/worker grants и Docker companion; локально проверены. Не включать pilot без физического admission и настройки scope. [Продолжение](../operations/kaspi-live-activation.md).

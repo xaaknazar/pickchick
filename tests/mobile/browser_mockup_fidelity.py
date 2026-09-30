@@ -126,7 +126,10 @@ with sync_playwright() as p:
     expect(page.get_by_test_id('cart-checkout')).to_be_visible()
     page.screenshot(path=str(output / 'cart.png'))
     page.goto(url + '/profile')
-    expect(page.get_by_text('QR для кассы', exact=True)).to_be_visible()
+    expect(page.get_by_test_id('profile-identity')).to_be_visible()
+    expect(page.get_by_role('button', name='Редактировать профиль', exact=True)).to_be_visible()
+    # Cashier identification is by phone; the removed QR must not return.
+    expect(page.get_by_text('QR для кассы', exact=True)).to_have_count(0)
     expect(page.get_by_test_id('profile-combo-reward')).to_be_visible()
     page.screenshot(path=str(output / 'profile.png'))
     page.get_by_text('Мои Чики и уровни', exact=True).click()

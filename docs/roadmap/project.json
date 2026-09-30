@@ -1939,7 +1939,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Восстановить SSH кассы (TCP22 доступен, ключ отклонён), прочитать local scope, настроить seller/account/catalog/transport. После admission - согласованный100₸ через ledger. Webkassa отложена.",
+      "nextAction": "SSH и local scope подтверждены, backup/restore38таблиц прошёл. Настроить seller/account/catalog/transport и пройти CI после исправления QR-теста. После admission - согласованный100₸ через ledger. Webkassa отложена.",
       "checks": {
         "implemented": true,
         "verified": false,
