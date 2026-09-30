@@ -1252,9 +1252,11 @@
         "apps/mobile/src/useDemoAccount.tsx",
         "packages/contracts/openapi.json"
       ],
-      "status": "active",
-      "head": "99020d0c2b97b36bed5db9a24f707576409b3cd9",
-      "updatedAt": "2026-09-30T09:22:07.280Z"
+      "status": "done",
+      "head": "4403c265b781609a8c686221338d6e5b36e4e37b",
+      "updatedAt": "2026-09-30T10:01:52.104Z",
+      "summary": "Telegram 4 цифры, обязательный пол и дата выровнены. API83faf7b/schema028 установлен: CI36695994356 все6 jobs, backup/restore, данные/ACL, публичный контракт проверены. Shared и онлайн-roadmap4403c26. PR150.",
+      "nextAction": "Приёмка нового кода и анкеты владельцем на iPhone; действующие сессии сохранены. Оплаты остаются отдельным этапом."
     }
   ]
 }
