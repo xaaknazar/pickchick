@@ -1118,6 +1118,21 @@
       "updatedAt": "2026-09-30T08:02:54.001Z",
       "summary": "Telegram включён на VPS: API2661877, full CI36683302808, 73 release tests, публичные проверки200/401/400. Владелец подтвердил код, вход и сохранение сессии на телефоне. Roadmap dbfd974 опубликован: CI36686932801, 7 app+17 deploy tests, health SHA совпал. PR https://github.com/xaaknazar/pickchick/pull/144, shared08d9d58. Последние docs-only коммиты не меняют установленный API; их общий CI отдельно выполняется.",
       "nextAction": "Проверить logout и доставку на другие номера/баланс. Оплаты, Webkassa и физическая кухня - отдельный этап. Ключи identity на VPS сохранять, не перегенерировать."
+    },
+    {
+      "id": "auth-games-copy",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/auth-games-copy",
+      "scopes": [
+        "apps/mobile/src/components/AuthWelcome.tsx",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/design/auth-sheet-v3.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "08d9d5829f7e96dc77ce0976cda03d4293d7bcd7",
+      "updatedAt": "2026-09-30T08:04:08.827Z"
     }
   ]
 }
