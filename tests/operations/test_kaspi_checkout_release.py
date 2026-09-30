@@ -16,6 +16,13 @@ class CheckoutRelease(unittest.TestCase):
   self.assertEqual(r.Release.new_tables-r.pilot.NEW_TABLES,{'commerce_kaspi_invoices'})
   self.assertEqual(r.Release.additions['commerce_orders'],['fiscal_policy','fiscal_deferral_reference'])
   self.assertEqual(len(r.pilot.MIGRATIONS),5)
+ def test_overlay_provenance_is_pinned_not_ignored(self):
+  from types import SimpleNamespace
+  obj=object.__new__(r.Release)
+  obj.profile=SimpleNamespace(old_web='bcf4fe624ba587208afb37e212bc8a49df6f6dea')
+  self.assertEqual(obj.web_manifest_source(),r.pilot.BASELINE)
+  obj.profile.old_web='0'*40
+  with self.assertRaises(r.market.GuardFailure):obj.web_manifest_source()
  def test_gateway_keeps_existing_routes_and_bounded_wait(self):
   old=(ROOT/'infra/public-staging/gateway.Caddyfile').read_text()
   auth=r.pilot.extend_gateway(old,'172.18.0.4')

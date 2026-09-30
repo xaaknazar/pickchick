@@ -65,6 +65,12 @@ class Release(pilot.Release):
             frozenset({'test_service_shifts_sequence_seq'}), 'kaspi-checkout-release', (), exact_ci_jobs=True)
         market.Release.__init__(self, args, profile)
 
+    def web_manifest_source(self):
+        # bcf4fe6 is the reviewed public overlay (kitchen/roadmap); its preserved
+        # base bundle is 4ee0b80. Do not equate overlay provenance with old assets.
+        require(self.profile.old_web == 'bcf4fe624ba587208afb37e212bc8a49df6f6dea', 'Unreviewed public overlay')
+        return pilot.BASELINE
+
     def prepare_api(self, target):
         super().prepare_api(target)
         # Explicitly disabled until a separately reviewed owner/merchant/edge activation.

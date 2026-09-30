@@ -494,6 +494,9 @@ print(json.dumps(result,sort_keys=True))
         return [self.http_json('/v1/test/catalog?catalog_version=' + version)
                 for version in ['mockup-v0.2', 'mockup-v0.3']]
 
+    def web_manifest_source(self):
+        return self.profile.old_web
+
     def runtime_old(self):
         role = json.loads(self.psql(DB, "SELECT json_build_object('superuser',rolsuper,'createdb',rolcreatedb,"
             "'createrole',rolcreaterole,'replication',rolreplication,'bypassrls',rolbypassrls,"
@@ -507,7 +510,7 @@ print(json.dumps(result,sort_keys=True))
         require(self.remote('readlink -f ' + REMOTE + '/current') == f'{REMOTE}/releases/{self.profile.old_api}', 'API pointer changed')
         require(self.remote('readlink -f ' + REMOTE + '/public-https/current') ==
                 f'{REMOTE}/public-https/releases/{self.profile.old_web}', 'Web pointer changed')
-        require(json.loads(self.remote(f'docker exec {GATEWAY} cat /srv/public/.release.json'))['source_sha'] == self.profile.old_web,
+        require(json.loads(self.remote(f'docker exec {GATEWAY} cat /srv/public/.release.json'))['source_sha'] == self.web_manifest_source(),
                 'Actual gateway bundle differs from its pointer')
         require(self.remote('docker image inspect --format ' + quote('{{index .Config.Labels "org.opencontainers.image.revision"}}')
                             + ' pickchick-api:' + self.profile.old_api) == self.profile.old_api, 'Rollback API image missing')
