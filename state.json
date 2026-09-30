@@ -1248,11 +1248,12 @@
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
-        "@vps"
+        "@vps",
+        "apps/mobile/src/useDemoAccount.tsx"
       ],
       "status": "active",
       "head": "14e95c4fdb72f58d700a6fc61638e57133dfeef7",
-      "updatedAt": "2026-09-30T09:06:40.918Z"
+      "updatedAt": "2026-09-30T09:16:43.759Z"
     }
   ]
 }
