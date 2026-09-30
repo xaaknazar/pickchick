@@ -1217,11 +1217,12 @@
         "tests/mobile/commerce-watch.test.mjs",
         "tests/mobile/browser_kaspi_checkout.py",
         "scripts/customer-commerce-readiness.mjs",
-        "tests/unit/customer-commerce-readiness.test.mjs"
+        "tests/unit/customer-commerce-readiness.test.mjs",
+        "apps/mobile"
       ],
-      "status": "available",
+      "status": "active",
       "head": "14e95c4fdb72f58d700a6fc61638e57133dfeef7",
-      "updatedAt": "2026-09-30T09:02:41.414Z",
+      "updatedAt": "2026-09-30T09:06:27.768Z",
       "summary": "Проверенный checkpoint 14e95c4, PR https://github.com/xaaknazar/pickchick/pull/149, включён в shared-development; SHA сверены. Исправлено автоматическое восстановление GET-статуса без повторного payment POST; readiness-диагностика. 220 Node+30 Python mobile, 30 identity PG, commerce unit+48 PG, browser4size, typecheck/lint/format, roadmap7, Dev iOS200. Roadmap опубликован14e95c4; API/DB/bridge сохранены. Foundation CI36693380986 ещё выполняется, release main не заявлен. Live: Telegram enabled, Kaspi active, identity/commercial records0, банк-счетов нет.",
       "nextAction": "Задача полного запуска остаётся незавершённой: пользователь включит кассу позже; ожидается повторный Telegram-вход в текущем Dev (VPSidentity0 против прежней приёмки). Затем проверенный commercial AILILLU catalog/provider account/grants/owner allowlist, edge transport/admission и согласованная контрольная корзина100₸. Не включать пилот одним флагом; ключи не регенерировать. Документ docs/operations/auth-payment-readiness.md."
     }
