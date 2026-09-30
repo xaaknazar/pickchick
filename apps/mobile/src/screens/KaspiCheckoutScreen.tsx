@@ -306,12 +306,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const footer =
     props.screenId !== 'M19' && props.model.cart.length ? (
       <>
-        <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Body style={{ fontFamily: font.heading, fontSize: 20 }}>
+        <Row style={s.total}>
+          <Body style={s.totalLabel}>
             Итого{' '}
             <Caption>· {props.model.cart.reduce((n, line) => n + line.quantity, 0)} шт.</Caption>
           </Body>
-          <Body style={{ fontFamily: font.heading, fontSize: 24 }}>{money(total)}</Body>
+          <Body testID="kaspi-checkout-total" style={s.totalAmount}>
+            {money(total)}
+          </Body>
         </Row>
         <CheckoutAction
           testID="kaspi-checkout-submit"
@@ -493,6 +495,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
 }
 
 const s = StyleSheet.create({
+  total: { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
+  totalLabel: { fontFamily: font.heading, fontSize: 20, lineHeight: 28 },
+  totalAmount: { fontFamily: font.heading, fontSize: 24, lineHeight: 34 },
   flex: { flex: 1, minWidth: 0, gap: 3 },
   card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
   loading: { padding: 24, alignItems: 'center', gap: 12 },

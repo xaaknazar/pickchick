@@ -1888,7 +1888,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "API/schema027 установлен, auth включён; банковская сессия active. Коммерческие accounts/catalog/bindings/orders/invoices пока отсутствуют, pilot выключен. Автовосстановление GET-статуса после обрыва проверено без повторного payment POST. Реальная оплата и физическая кухня не приняты.",
+      "summary": "API83faf7b/schema028 установлен, auth включён: 1 реальный профиль/1 сессия. Pilot=false, commercial accounts/catalog/bindings/orders/invoices отсутствуют. UI различает отсутствие допуска и неготовность ресторана. Реальная оплата и физическая кухня не приняты.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1921,13 +1921,17 @@
         {
           "label": "Повторная проверка auth/payment и восстановление статуса",
           "path": "docs/operations/auth-payment-readiness.md"
+        },
+        {
+          "label": "Итог оформления и фактическая причина блокировки Kaspi",
+          "path": "docs/operations/checkout-kaspi-total.md"
         }
       ],
       "acceptance": [
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Зарегистрировать реального pilot customer; подготовить проверенный AILILLU catalog, provider account/grants/allowlist и включённый edge. Для согласованного счета100₸ нужна контрольная корзина без молчаливой подмены цен. Владелец включит моноблок позже. Webkassa отложена.",
+      "nextAction": "Подготовить проверенный AILILLU catalog, provider account/grants/allowlist существующего customer и включённый edge. Для согласованного счёта100₸ нужна контрольная корзина без подмены цен. Владелец включит моноблок позже. Webkassa отложена.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -3811,7 +3815,7 @@
       "id": "mobile-cart-checkout-mockup",
       "workstream": "mobile",
       "title": "Корзина и оплата по архиву дизайнера",
-      "summary": "Перенесены корзина, получение в зале/с собой, оформление, ожидание Kaspi, оплачено и отказ. Старый герой/статусы сохранены. 216 Node + 30 Python, typecheck/lint, браузерные фикстуры и iOS Dev bundle. Серверные комментарии и автоматическая ссылка на банковский счёт пока отсутствуют; реальный банк и физическая приёмка отдельно.",
+      "summary": "Перенесены корзина, получение в зале/с собой, оформление, ожидание Kaspi, оплачено и отказ. Старый герой/статусы сохранены. 216 Node + 30 Python, typecheck/lint, браузерные фикстуры и iOS Dev bundle. Серверные комментарии и автоматическая ссылка на банковский счёт пока отсутствуют; реальный банк и физическая приёмка отдельно. Исправлено обрезание цены Итого; отказ допуска и восстановление проверены на 4 размерах.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -3820,6 +3824,10 @@
         {
           "label": "Перенос, проверки и ограничения",
           "path": "docs/operations/cart-checkout-design.md"
+        },
+        {
+          "label": "Итог оформления и фактическая причина блокировки Kaspi",
+          "path": "docs/operations/checkout-kaspi-total.md"
         }
       ],
       "acceptance": [

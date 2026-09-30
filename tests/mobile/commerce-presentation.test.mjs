@@ -119,3 +119,12 @@ test('commercial status reuses chef scenes without fabricating TEST authority', 
   assert.equal(commerceStatus(base).snapshot.lines[0].line_total_minor, '10000');
   assert.throws(() => commerceStatus({ ...base, phase: 'checking' }), /PAYMENT_NOT_CONFIRMED/);
 });
+
+test('checkout availability is not presented as a broken connection or an invalid cart', () => {
+  assert.match(checkoutError(new Error('FORBIDDEN')), /не открыта для вашего аккаунта/);
+  assert.match(checkoutError(new Error('NOT_READY')), /Ресторан пока не готов/);
+  for (const code of ['FORBIDDEN', 'NOT_READY']) {
+    assert.match(checkoutError(new Error(code)), /Корзина сохранена/);
+    assert.doesNotMatch(checkoutError(new Error(code)), /Связь прервалась|этого заказа/);
+  }
+});
