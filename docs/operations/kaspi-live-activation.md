@@ -406,3 +406,31 @@ release-all-kaspi.py использует отдельный immutable customer-
 данных/ACL. Локально проверены два разных подтверждённых клиента, повторный заказ,
 изоляция quotes/history и отказ для неизвестной/удалённой identity. На момент
 этой записи all-customer выпуск ещё не установлен; owner-only уже работает.
+
+### Все подтверждённые клиенты: установленный выпуск
+
+[Foundation CI36758419556](https://github.com/xaaknazar/pickchick/actions/runs/36758419556)
+для `8ecdc134839608d388bd5920287777d026d72962` прошла6/6 jobs. Профиль
+release-all-kaspi.py подготовлен и применён: новый API, отдельный защищённый env,
+allVerifiedCustomers=true; Telegram auth=true/provider=telegram_gateway/1000 кодов
+в сутки, SMS fallback=false. Repeat, суммы, продавец, точка и банковский аккаунт
+сохранены. Worker e752c8e не заменялся; session-check подтвердил active/verified
+без попытки выставить счёт.
+
+Перед применением pending_attempts=0,unsettled_invoices=0. Encrypted backup
+восстановлен отдельно, все данные/права/schema028 и сессии сохранены; прежний
+image проверен для отката. Backup SHA256
+`abb5b83cf41500b2311ca85a267aff1533df20552d792fe15def0a42fa7171aa`.
+
+Проверка под действующей runtime-ролью: allVerifiedCustomers=true,repeatOrders=true,
+единственный текущий active customer допущен, неизвестная identity запрещена,
+quote бургера239000minor рассчитан. До/после одинаковы2orders/2attempts/2invoices/
+1capture. Дополнительный счёт появился ещё после owner rollout и был отменён
+штатным worker через10 минут без оплаты; это не новая подтверждённая оплата.
+Проверка all-verified не создавала orders/invoices и не отправляла OTP. Два разных
+подтверждённых клиента проверены в локальной БД, не выданы за реальных пользователей.
+Анонимный checkout/config=401, публичный Telegram config enabled/telegram.
+
+После установки kitchen health вернул edgeConnected:false при прежнем source b8821d5;
+контейнеры портала/банка/БД и Windows приложение не заменялись. Владелец подтвердил: моноблок выключен. Доступ всех клиентов к Kaspi не подменяет подтверждение
+физической кухни: счёт по-прежнему требует trusted Edge admission. Webkassa отложена.
