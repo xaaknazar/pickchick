@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T05:31:21.772926Z",
+  "updatedAt": "2026-09-30T06:04:45.669521Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -1880,7 +1880,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "30 сентября: задание дизайнеру, единый прежний экран героя после оплаты и одна отправка счёта после согласия/admission. Guarded release020→027 подготовлен; apply не запускался: CI36671326401 прошла функциональные проверки, но остановилась на high advisory brace-expansion. Закреплена исправленная 5.0.11, локальный audit high проходит (4 moderate остаются). Нужна повторная полная CI. 48 commerce + 15 transport сценариев, UI320/393/768, iOS Dev bundle HTTP200. API checkout пока404; реальные счета не создавались.",
+      "summary": "30 сентября: задание дизайнеру и прежний экран героя после оплаты. API/schema027 установлен на VPS из 2f3c3f3, CI36673841187: все шесть jobs прошли. Backup+restore/data/ACL/rollback проверены; checkout401 вместо404. Auth и счета выключены. UI320/393/768, одна отправка и восстановление проверены с подставным банком. Реальный платёж и физическая кухня ещё не приняты.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1905,13 +1905,17 @@
         {
           "label": "Kaspi ID: реальные шаги и сверка 81 форка - 29 сентября",
           "path": "docs/operations/kaspi-bridge-audit-2026-09-29.md"
+        },
+        {
+          "label": "API/schema027 установлен без активации счетов - 30 сентября",
+          "path": "docs/operations/deployments/2026-09-30-kaspi-checkout.md"
         }
       ],
       "acceptance": [
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Получить green exact-SHA CI и установить отключённый API/schema027. Затем завершить legal/identity, каталог, grants/owner allowlist и edge transport; кассовый моноблок выключен. Один согласованный счёт100 ₸ - только после готовности кухни. Webkassa отложена; обычная фискальная защита сохранена.",
+      "nextAction": "Подготовить legal/identity, коммерческий каталог AILILLU, provider account/grants/owner allowlist и включённый edge. Затем один согласованный счёт100 ₸ через ledger и физическую кухню. Webkassa отложена, обычная фискальная защита сохранена; HTTPS новых доменов ещё не выпущен.",
       "checks": {
         "implemented": true,
         "verified": false,
