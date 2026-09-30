@@ -62,6 +62,14 @@ function AppLayout() {
                 }}
               >
                 <Stack.Screen
+                  name="auth"
+                  options={{
+                    presentation: 'transparentModal',
+                    animation: 'none',
+                    contentStyle: { backgroundColor: 'transparent' },
+                  }}
+                />
+                <Stack.Screen
                   name="product-photo"
                   options={{
                     presentation: 'modal',

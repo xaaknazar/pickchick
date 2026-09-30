@@ -48,7 +48,7 @@ with sync_playwright() as p:
             status = 200
             if path == '/v1/auth/config':
                 response = {'enabled': True, 'delivery_consent_required': True,
-                            'consent_version': policy['version'],
+                            'consent_version': policy['version'], 'channels': ['telegram'],
                             'terms_url': 'https://example.test/terms',
                             'privacy_url': 'https://example.test/privacy'}
             elif path == '/v1/auth/otp/request':
@@ -59,7 +59,7 @@ with sync_playwright() as p:
                 response = {'challenge_id': '40000000-0000-4000-8000-000000000003',
                             'expires_at': (now + timedelta(minutes=3)).isoformat(),
                             'resend_at': (now + timedelta(minutes=1)).isoformat(),
-                            'delivery_status': 'submitted'}
+                            'delivery_status': 'submitted', 'channel': 'telegram'}
             elif path == '/v1/auth/otp/verify':
                 assert body['consents'] == {'terms_version': 'fixture-v1',
                                             'privacy_version': 'fixture-v1', 'marketing_opt_in': False}
@@ -101,26 +101,28 @@ with sync_playwright() as p:
         context.route('**/v1/**', intercept)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
-        page.goto(URL + '/screen/M02')
+        page.goto(URL + '/menu')
+        visible(page, 'tab-profile').click()
+        expect(visible(page, 'auth-welcome')).to_be_visible()
+        visible(page, 'auth-close').click(trial=True)
+        page.screenshot(path=str(OUTPUT / f'welcome-{width}.png'))
+        visible(page, 'account-required-login').click()
         expect(visible(page, 'phone-input')).to_be_editable()
         visible(page, 'phone-input').fill(PHONE)
-        expect(visible(page, 'request-otp')).to_be_disabled()
+        expect(visible(page, 'request-otp')).to_be_enabled()
         assert not any(call['path'] == '/v1/auth/otp/request' for call in calls)
-        visible(page, 'delivery-consent').click()
         expect(visible(page, 'request-otp')).to_be_enabled()
         expect(page.get_by_text('Код входа 123456. SMS не отправляется.', exact=True)).to_have_count(0)
         page.screenshot(path=str(OUTPUT / f'phone-{width}.png'))
         visible(page, 'request-otp').click()
         expect(visible(page, 'screen-M03')).to_be_visible()
-        visible(page, 'otp-input').fill('938174')
-        expect(visible(page, 'confirm-otp')).to_be_disabled()
-        visible(page, 'auth-consent').click()
-        expect(visible(page, 'confirm-otp')).to_be_enabled()
-        rect = visible(page, 'confirm-otp').bounding_box()
-        assert rect['y'] + rect['height'] <= height + 1, rect
+        assert page.get_by_test_id('phone-keypad').count() == 0
+        assert page.get_by_test_id('auth-channel-sms').count() == 0
+        visible(page, 'otp-input').fill('938')
+        assert not any(call['path'] == '/v1/auth/otp/verify' for call in calls)
         assert page.evaluate('document.documentElement.scrollWidth') <= width + 1
-        page.screenshot(path=str(OUTPUT / f'otp-consent-{width}.png'))
-        visible(page, 'confirm-otp').click()
+        page.screenshot(path=str(OUTPUT / f'otp-{width}.png'))
+        visible(page, 'otp-input').fill('938174')
         if width == 390:
             expect(page.get_by_text('Нет связи с сервером. Сохранённый вход останется на устройстве. Попробуйте ещё раз.', exact=True).filter(visible=True)).to_be_visible()
             pending = json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))
@@ -130,23 +132,23 @@ with sync_playwright() as p:
             pending['challenge']['resend_at'] = (now - timedelta(minutes=12)).isoformat()
             policy['version'] = 'fixture-v2'
             page.evaluate('([key, value]) => sessionStorage.setItem(key, value)', [KEY, json.dumps(pending)])
-            page.reload()
+            page.goto(URL + '/auth?step=M03&returnTo=M30')
             expect(visible(page, 'otp-input')).to_be_editable()
             expect(visible(page, 'auth-consent')).to_have_count(0)
             visible(page, 'otp-input').fill('938174')
-            expect(visible(page, 'confirm-otp')).to_be_enabled()
-            visible(page, 'confirm-otp').click()
+
         expect(visible(page, 'screen-M04')).to_be_visible()
         if width == 390:
             assert len(verify_attempts) == 2
             assert verify_attempts[0] == verify_attempts[1]
         visible(page, 'nickname-input').fill('Проверка аккаунта')
-        visible(page, 'birthday-day').click()
+        visible(page, 'birthday-open').click()
         visible(page, 'birthday-picker-cancel').click(trial=True)
         visible(page, 'birthday-native-input').fill('2000-02-29')
         visible(page, 'birthday-picker-confirm').click()
+        page.screenshot(path=str(OUTPUT / f'registration-{width}.png'))
         visible(page, 'nickname-save').click()
-        expect(visible(page, 'screen-M06')).to_be_visible()
+        expect(visible(page, 'screen-M30')).to_be_visible()
         stored = json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))
         assert stored['tokens']['customer']['nickname'] == 'Проверка аккаунта'
         assert stored['tokens']['customer']['birth_date'] == '2000-02-29'
@@ -159,7 +161,7 @@ with sync_playwright() as p:
         assert json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))['tokens']['session_id'] == session_id
         page.screenshot(path=str(OUTPUT / f'profile-{width}.png'))
         visible(page, 'demo-sign-out').click()
-        expect(visible(page, 'profile-sign-in')).to_be_visible()
+        expect(visible(page, 'account-required-login')).to_be_visible()
         assert json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))['tokens'] is None
         assert len([x for x in calls if x['path'] == '/v1/auth/otp/request']) == 1
         assert len([x for x in calls if x['path'] == '/v1/auth/logout']) == 1

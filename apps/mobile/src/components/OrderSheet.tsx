@@ -27,22 +27,26 @@ export function OrderSheet({
   onClose,
   raised = false,
   productHeight = false,
+  auth = false,
 }: {
   children(close: () => void): ReactNode;
   name: string;
   onClose(): void;
   raised?: boolean;
   productHeight?: boolean;
+  auth?: boolean;
 }) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
-  const top = productHeight
-    ? Math.max(20, insets.top + 8)
-    : Math.max(
-        insets.top + (raised ? 12 : 16),
-        Math.min(raised ? 76 : 116, height * (width > height ? 0.08 : raised ? 0.085 : 0.13)),
-      );
+  const top = auth
+    ? Math.max(insets.top + 10, Math.min(62, height * 0.08))
+    : productHeight
+      ? Math.max(20, insets.top + 8)
+      : Math.max(
+          insets.top + (raised ? 12 : 16),
+          Math.min(raised ? 76 : 116, height * (width > height ? 0.08 : raised ? 0.085 : 0.13)),
+        );
   const travel = height - top;
   const y = useSharedValue(reduced ? 0 : travel);
   const gestureStart = useSharedValue(0);
@@ -145,18 +149,25 @@ export function OrderSheet({
       />
       <Animated.View
         ref={dialog}
-        testID="order-sheet"
+        testID={auth ? 'auth-sheet' : 'order-sheet'}
         accessibilityViewIsModal
         accessibilityLabel={name}
         role="dialog"
         aria-modal
-        style={[s.sheet, { height: travel }, position]}
+        style={[
+          s.sheet,
+          { height: travel },
+          auth && { maxWidth: 520, borderTopLeftRadius: 36, borderTopRightRadius: 36 },
+          position,
+        ]}
       >
-        <GestureDetector gesture={pan}>
-          <View testID="sheet-handle" style={s.handleArea} accessible={false}>
-            <View style={s.handle} />
-          </View>
-        </GestureDetector>
+        {!auth ? (
+          <GestureDetector gesture={pan}>
+            <View testID="sheet-handle" style={s.handleArea} accessible={false}>
+              <View style={s.handle} />
+            </View>
+          </GestureDetector>
+        ) : null}
         {children(close)}
       </Animated.View>
     </GestureHandlerRootView>

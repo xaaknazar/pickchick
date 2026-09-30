@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useRef, type ReactNode } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAccount } from '../useAccount';
@@ -17,6 +17,15 @@ export function AccountGate({
 }) {
   const account = useAccount();
   const router = useRouter();
+  const prompted = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (account.ready && !account.account && !prompted.current) {
+        prompted.current = true;
+        router.push({ pathname: '/auth', params: { returnTo: destination } });
+      }
+    }, [account.ready, account.account, router, destination]),
+  );
   if (accountCanAct(account)) return children;
   const game =
     destination === 'pick-man' ||
@@ -43,12 +52,12 @@ export function AccountGate({
                 : 'Войдите в свой аккаунт, чтобы продолжить. Ваша корзина сохранится.'}
             </Body>
             <Button
-              testID="account-required-login"
+              testID="account-required-reopen"
               title="Войти в аккаунт"
               onPress={() =>
                 router.push({
-                  pathname: '/screen/[id]',
-                  params: { id: 'M02', returnTo: destination },
+                  pathname: '/auth',
+                  params: { returnTo: destination },
                 })
               }
             />

@@ -39,6 +39,7 @@ interface AccountContextValue {
   deliveryUnknown: boolean;
   pendingVerify: boolean;
   pendingOtp: boolean;
+  pendingPhone: string | null;
   legal: { version: string; termsUrl: string; privacyUrl: string } | null;
   ready: boolean;
   busy: boolean;
@@ -235,6 +236,7 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
         deliveryUnknown,
         pendingVerify,
         pendingOtp,
+        pendingPhone: core.pendingPhone,
         legal,
         ready,
         busy,
@@ -282,6 +284,7 @@ export function useAccount(): AccountContextValue {
     deliveryUnknown: false,
     pendingVerify: false,
     pendingOtp: false,
+    pendingPhone: null,
     legal: null,
     deleteAccount: demo.signOut,
   };

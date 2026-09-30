@@ -1,5 +1,6 @@
 import { useReducedMotion } from '../../components/Motion';
-import { Tabs } from 'expo-router';
+import { useAccount } from '../../useAccount';
+import { Tabs, useRouter } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabIcon } from '../../components/UI';
@@ -8,6 +9,16 @@ const activeColor = '#4A85F0';
 const inactiveColor = '#93A6C9';
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const account = useAccount();
+  const router = useRouter();
+  const gate = (returnTo: string) => ({
+    tabPress: (event: { preventDefault(): void }) => {
+      if (!account.account) {
+        event.preventDefault();
+        router.push({ pathname: '/auth', params: { returnTo } });
+      }
+    },
+  });
   const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
   return (
@@ -47,6 +58,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="events"
+        listeners={gate('M26')}
         options={{
           title: 'События',
           tabBarButtonTestID: 'tab-events',
@@ -57,6 +69,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="orders"
+        listeners={gate('M19')}
         options={{
           title: 'Заказы',
           tabBarButtonTestID: 'tab-orders',
@@ -67,6 +80,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="profile"
+        listeners={gate('M30')}
         options={{
           title: 'Профиль',
           tabBarButtonTestID: 'tab-profile',

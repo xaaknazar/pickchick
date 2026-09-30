@@ -214,11 +214,13 @@ test('lost SMS request reply reuses its persisted key after restart rather than 
   const pending = JSON.parse(f.raw()).otp_request;
   assert.ok(pending.request_id);
   await f.restart();
+  assert.equal(f.core.pendingPhone, f.customer.phone, 'restored sheet can retry the same phone');
   await f.core.requestCode(f.customer.phone);
   const requests = f.calls.filter((x) => x.path.endsWith('/otp/request'));
   assert.deepEqual(requests[0].body, requests[1].body);
   assert.equal(f.core.challenge.phone, f.customer.phone);
   assert.equal(JSON.parse(f.raw()).otp_request, null);
+  assert.equal(f.core.pendingPhone, null);
 });
 
 test('wrong OTP never creates a local account or falls back to a demo code', async () => {

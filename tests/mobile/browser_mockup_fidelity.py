@@ -4,6 +4,7 @@ import sys
 import time
 from pathlib import Path
 from urllib.parse import urlparse
+from account_fixture import signed_in
 from playwright.sync_api import expect, sync_playwright
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'operations'))
 from kiosk_recovery import Fixture, BRANCH
@@ -60,6 +61,7 @@ def settled_catalog_geometry(page):
 with sync_playwright() as p:
     browser = p.chromium.launch()
     context = browser.new_context(viewport={'width': 402, 'height': 874})
+    signed_in(context)
     context.route('**/v1/**', fixture_read)
     page = context.new_page()
     errors = []

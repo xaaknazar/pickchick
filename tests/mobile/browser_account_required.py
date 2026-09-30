@@ -45,7 +45,6 @@ def login(page):
     visible(page, 'phone-input').fill('7000000000')
     visible(page, 'request-otp').click()
     visible(page, 'otp-input').fill('123456')
-    visible(page, 'confirm-otp').click()
     visible(page, 'profile-fill-later').click()
 
 
@@ -103,7 +102,7 @@ with sync_playwright() as p:
         assert page.get_by_test_id('test-payment-approve').count() == 0
     for path in ['/screen/M27', '/screen/M28', '/screen/M27?preview=1', '/screen/M28?preview=1']:
         page.goto(URL + path)
-        expect(page.get_by_test_id('events-games')).to_be_visible(timeout=20000)
+        expect(visible(page, 'account-required-login')).to_be_visible(timeout=20000)
         expect(page.get_by_test_id('pickrun-open')).to_have_count(0)
         expect(page.get_by_test_id('game-start')).to_have_count(0)
     context.close()

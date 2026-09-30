@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T06:04:45.669521Z",
+  "updatedAt": "2026-09-30T06:35:12.734416Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3717,6 +3717,34 @@
       "checks": {
         "implemented": true,
         "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-auth-sheet-v3",
+      "workstream": "mobile",
+      "title": "Вход и регистрация нижним листом по макету v3",
+      "summary": "Перенесён исходный HTML v3: герой, телефон, OTP и знакомство внутри одного листа; гость собирает корзину, после входа продолжается выбранное действие. Telegram по реальной конфигурации, без обещания WhatsApp. 216 Node + 30 Python, typecheck/lint и browser server/demo 320/390/430, возврат к корзине и profile 320/393. Физическая приёмка впереди.",
+      "status": "active",
+      "owner": "joint",
+      "phase": "product",
+      "dependsOn": ["identity-core", "mobile-design"],
+      "evidence": [
+        {
+          "label": "Источник, реализация и проверенные снимки",
+          "path": "docs/design/auth-sheet-v3.md"
+        }
+      ],
+      "acceptance": [
+        "Соответствие предоставленному v3 подтверждено владельцем на Dev.",
+        "Системная клавиатура, OTP autofill, reduced motion и доступность приняты на iOS/Android.",
+        "Форма согласия утверждена перед включением реального входа."
+      ],
+      "nextAction": "Приёмка на телефоне; включение реального OTP отдельным серверным этапом.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
         "deployed": false,
         "accepted": false
       }

@@ -269,6 +269,9 @@ export class CustomerSessionCore {
   get pendingChannel(): CustomerChannel | null {
     return this.state?.otp_request ? (this.state.otp_request.channel ?? 'sms') : null;
   }
+  get pendingPhone(): string | null {
+    return this.state?.otp_request?.phone ?? null;
+  }
   get pendingOtp(): boolean {
     return Boolean(this.state?.otp_request);
   }

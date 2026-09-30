@@ -16,3 +16,8 @@ catalog-hd. Images do not change availability, prices, weights or nutrition.
 Existing cans, house drinks, sauces and other food photos are preserved.
 Packaging/labels should be approved against actual restaurant stock before a
 commercial release; generation is not proof of manufacturer label accuracy.
+
+30 September: burger.png, signature-small.png, sauce-hot.png and sauce.png are
+copied unchanged from the owner's PickChick mockup archive for auth v3. They are
+supplied design assets, not newly generated product photography. Source/provenance:
+`docs/design/auth-sheet-v3.md`.

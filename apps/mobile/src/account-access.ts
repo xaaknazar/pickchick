@@ -16,12 +16,19 @@ const orderScreens: readonly string[] = [
 export type AccountDestination = ScreenId | 'pick-blocks' | 'pick-man';
 
 export function requiresAccount(id: ScreenId, preview: boolean): boolean {
-  return id === 'M27' || id === 'M28' || (!preview && orderScreens.includes(id));
+  return (
+    (!preview && ['M30', 'M26'].includes(id)) ||
+    id === 'M27' ||
+    id === 'M28' ||
+    (!preview && orderScreens.includes(id))
+  );
 }
 
 export function accountDestination(value: unknown): AccountDestination | null {
   return typeof value === 'string' &&
-    (value === 'pick-man' ||
+    (value === 'M30' ||
+      value === 'M26' ||
+      value === 'pick-man' ||
       value === 'pick-blocks' ||
       value === 'M27' ||
       value === 'M28' ||

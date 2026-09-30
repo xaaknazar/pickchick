@@ -2,7 +2,8 @@ import { OrderSheet } from './components/OrderSheet';
 import { useCallback, useState } from 'react';
 import { ScreenTransition } from './components/Motion';
 import { Redirect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { accountDestination } from './account-access';
+import { useAccount } from './useAccount';
+import { accountDestination, requiresAccount } from './account-access';
 import { Pressable, Text } from 'react-native';
 import type { ScreenId } from './model';
 import { useMobile } from './store';
@@ -22,6 +23,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   const params = useLocalSearchParams();
   const returnTo = accountDestination(params.returnTo);
   const model = useMobile(preview);
+  const account = useAccount();
   const activeTab =
     segments[0] === '(tabs)' &&
     id in tabRoutes &&
@@ -33,6 +35,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     [router],
   );
   const navigate = (next: ScreenId) => {
+    if (!preview && (next === 'M02' || (!account.account && requiresAccount(next, false)))) {
+      router.push({ pathname: '/auth', params: { returnTo: next === 'M02' ? 'M30' : next } });
+      return;
+    }
     if (id === 'M09' && next === 'M06') {
       router.dismissTo({
         pathname: '/(tabs)/menu',
@@ -83,6 +89,12 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
         },
       });
   };
+  if (!preview && ['M01', 'M02', 'M03'].includes(id))
+    return (
+      <Redirect
+        href={{ pathname: '/auth', params: { step: id, ...(returnTo ? { returnTo } : {}) } }}
+      />
+    );
   // Temporarily removed from the customer arcade by the owner. Old links return to events.
   if (id === 'M27' || id === 'M28') return <Redirect href="/(tabs)/events" />;
   const screen = (goBack = back) => (

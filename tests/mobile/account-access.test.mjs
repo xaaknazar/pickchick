@@ -20,8 +20,12 @@ test('all order operations and playable game screens require login, including pr
     assert.equal(requiresAccount(id, false), true);
     assert.equal(requiresAccount(id, true), true);
   }
-  for (const id of ['M02', 'M03', 'M04', 'M06', 'M07', 'M08', 'M09', 'M26']) {
+  for (const id of ['M02', 'M03', 'M04', 'M06', 'M07', 'M08', 'M09']) {
     assert.equal(requiresAccount(id, false), false);
+  }
+  for (const id of ['M26', 'M30']) {
+    assert.equal(requiresAccount(id, false), true);
+    assert.equal(requiresAccount(id, true), false);
   }
   assert.equal(requiresAccount('M12', true), false);
 });

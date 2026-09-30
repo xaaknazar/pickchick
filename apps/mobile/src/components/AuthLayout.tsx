@@ -8,18 +8,21 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ScreenProps } from '../model';
-import { font } from '../theme';
+import { CloseButton, Icon } from './UI';
+import { colors, font } from '../theme';
 import { ProfileRestoreNotice } from './ProfileRestoreNotice';
 
 // Brand theme from the supplied mobile-v2 source, scoped to its auth screens.
 export const authColors = {
   background: '#04143A',
-  surface: '#0A2050',
+  surface: '#0B2255',
   text: '#F2F6FF',
-  muted: '#93A6C9',
+  muted: '#A3B4D6',
   blue: '#2E6FE8',
   blueInk: '#9DC0FF',
   blueSoft: '#12305F',
@@ -51,11 +54,13 @@ export function AuthButton({
   onPress,
   disabled = false,
   testID,
+  icon,
 }: {
   title: string;
   onPress(): void;
   disabled?: boolean;
   testID?: string;
+  icon?: 'phone-portrait-outline';
 }) {
   return (
     <Pressable
@@ -66,7 +71,8 @@ export function AuthButton({
       onPress={onPress}
       style={({ pressed }) => [s.button, disabled && s.disabled, pressed && !disabled && s.pressed]}
     >
-      <Text style={s.buttonText}>{title}</Text>
+      {icon ? <Icon name={icon} color="#251609" size={18} /> : null}
+      <Text style={[s.buttonText, disabled && { color: authColors.muted }]}>{title}</Text>
     </Pressable>
   );
 }
@@ -92,11 +98,21 @@ export function AuthLayout({
 }) {
   const insets = useSafeAreaInsets();
   const keyboardVisible = useAuthKeyboardVisible();
+  const { height } = useWindowDimensions();
+  const top = props.inSheet ? Math.max(insets.top + 10, Math.min(62, height * 0.08)) : 0;
+  const gradient = 'linear-gradient(180deg, #0A2257 0%, #04143A 300px)';
   return (
     <KeyboardAvoidingView
       testID={`screen-${props.screenId}`}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[s.page, { paddingTop: Math.max(insets.top, 44) }]}
+      keyboardVerticalOffset={top}
+      style={[
+        s.page,
+        { paddingTop: props.inSheet ? 16 : Math.max(insets.top, 44) },
+        (Platform.OS === 'web'
+          ? { backgroundImage: gradient }
+          : { experimental_backgroundImage: gradient }) as ViewStyle,
+      ]}
     >
       <ScrollView
         ref={scrollRef}
@@ -107,20 +123,27 @@ export function AuthLayout({
         keyboardDismissMode="interactive"
         showsVerticalScrollIndicator={false}
       >
-        {topAction ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={topAction.onPress}
-            style={({ pressed }) => [s.topAction, pressed && s.pressed]}
-          >
-            <Text style={s.topActionText}>{topAction.label}</Text>
-          </Pressable>
+        {props.screenId !== 'M04' ? (
+          <View style={s.topAction}>
+            {props.screenId === 'M03' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Изменить номер"
+                onPress={topAction?.onPress ?? props.goBack}
+                style={s.back}
+              >
+                <Icon name="chevron-back" size={24} color={authColors.text} />
+              </Pressable>
+            ) : (
+              <CloseButton label="Закрыть вход" onPress={props.goBack} />
+            )}
+          </View>
         ) : null}
         <Text
           accessibilityRole="header"
           style={[
             s.title,
-            !topAction && s.titleWithoutAction,
+            props.screenId === 'M04' && s.titleWithoutAction,
             props.screenId === 'M04' && s.registrationTitle,
           ]}
         >
@@ -161,10 +184,20 @@ const s = StyleSheet.create({
     maxWidth: 480,
     alignSelf: 'center',
     flexGrow: 1,
-    paddingHorizontal: 22,
+    paddingHorizontal: 24,
     paddingBottom: 2,
   },
-  topAction: { minHeight: 48, alignSelf: 'flex-start', justifyContent: 'center' },
+  topAction: { minHeight: 48, marginLeft: -8, marginBottom: 16 },
+  back: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
   topActionText: {
     fontFamily: font.medium,
     fontSize: 15,
@@ -173,13 +206,13 @@ const s = StyleSheet.create({
   },
   title: {
     fontFamily: font.display,
-    fontSize: 32,
-    lineHeight: 40,
+    fontSize: 28,
+    lineHeight: 34,
     letterSpacing: -0.68,
     color: authColors.text,
-    marginTop: 14,
+    marginTop: 8,
   },
-  titleWithoutAction: { marginTop: 18 },
+  titleWithoutAction: { marginTop: 64 },
   registrationTitle: { fontSize: 30, lineHeight: 38 },
   subtitleContainer: { marginTop: 10 },
   subtitle: { fontFamily: font.body, fontSize: 15, lineHeight: 23, color: authColors.muted },
@@ -188,22 +221,20 @@ const s = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
-    paddingHorizontal: 22,
+    paddingHorizontal: 24,
     paddingTop: 14,
     flexShrink: 0,
     gap: 12,
   },
-  registrationFooter: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-    marginTop: 12,
-  },
+  registrationFooter: { marginTop: 12 },
   button: {
-    minHeight: 54,
+    minHeight: 56,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 16,
-    backgroundColor: authColors.blue,
+    borderRadius: 28,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    gap: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -211,9 +242,9 @@ const s = StyleSheet.create({
     fontFamily: font.heading,
     fontSize: 18,
     lineHeight: 26,
-    color: '#FFFFFF',
+    color: '#251609',
     textAlign: 'center',
   },
-  disabled: { opacity: 0.5 },
+  disabled: { backgroundColor: '#16295A', opacity: 0.5 },
   pressed: { opacity: 0.75 },
 });
