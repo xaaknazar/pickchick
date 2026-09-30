@@ -17,9 +17,9 @@ jobs:
   verify:
     name: Build, contracts and PostgreSQL integration
     runs-on: ubuntu-24.04
-    # Run 36100220136 reached browser recovery at 14 minutes; remaining browser,
-    # POS/backoffice and native-account export checks need their own headroom.
-    timeout-minutes: 30
+    # Run 36729039488 hit 30 minutes during account/checkout browser checks.
+    # Keep the entire suite and allow both exports and UI recovery checks to finish.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
