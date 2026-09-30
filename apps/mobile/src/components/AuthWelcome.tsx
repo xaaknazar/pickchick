@@ -104,8 +104,8 @@ export function AuthWelcome(props: ScreenProps) {
     flow?.destination === 'M12'
       ? 'Чтобы оформить заказ и оплатить его через Kaspi'
       : game
-        ? 'Чтобы играть в Pick Man и Pick Blocks и участвовать в событиях'
-        : 'Чтобы оформлять заказы, копить Чики и играть в Pick Man';
+        ? 'Чтобы играть в игры и участвовать в событиях'
+        : 'Чтобы оформлять заказы, копить Чики и играть в игры';
   const glow =
     'radial-gradient(circle, rgba(0,71,187,0.9) 0%, rgba(0,71,187,0.3) 38%, rgba(4,20,58,0) 68%)';
   return (
