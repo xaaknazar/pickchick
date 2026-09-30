@@ -1320,11 +1320,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "docs/operations/profile-cleanup.md",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "docs/01-technical-spec.md"
       ],
       "status": "active",
       "head": "4ddfbcffae50e9098becb7adb933f331fbf2d5e3",
-      "updatedAt": "2026-09-30T10:27:46.904Z"
+      "updatedAt": "2026-09-30T10:30:20.635Z"
     }
   ]
 }
