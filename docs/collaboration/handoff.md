@@ -1,5 +1,11 @@
 # Продолжение: перенос Kaspi на VPS
 
+Новый checkpoint: подготовлены `update-native-active-app.ps1` и
+`release-mobile-kaspi.py`, без применения. Parser Windows5.1 и3 теста границ
+профиля прошли. Bank session active; API черезтуннель ready. Новый профиль
+требует отдельный приватный owner checkout env, прежние auth/backup/CI доказательства.
+Лимит100₸ сохраняется; нормальный прайс не уменьшается.
+
 30 сентября, продолжение: биллинг GitHub восстановлен. Foundation CI36711175581
 точного a9e488a прошла все6 jobs. После этого установлен постоянный
 PickChickFulfillmentTunnel (LocalService, delayed automatic, loopback43100).

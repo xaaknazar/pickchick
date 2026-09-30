@@ -199,3 +199,24 @@ checkout, запрет платежа до edge admission, единственн�
 На этой контрольной точке реальные счета не выставлялись, worker не установлен,
 приём оплаты не объявлен готовым. Продолжать эту же задачу с обновления runtime
 и коммерческого onboarding; повторять выполненную установку туннеля не требуется.
+
+
+### Guarded activation tools
+
+`update-native-active-app.ps1` prepares a same-schema014 application update: exact
+source CI and restore evidence, unchanged migration hashes, immutable new directory,
+protected ACL, compare-and-swap of the two WinSW app fields. PostgreSQL, other
+services, environment and data are not modified. On readiness failure it can restore
+only its own XML; partial directories are retained for inspection. PowerShell5.1
+parser passed on the cashier. Actual installation is a separate checkpoint.
+
+`release-mobile-kaspi.py` preserves the schema028 identity configuration and uses
+the existing maintenance, backup/restore and exact-source CI release workflow.
+Only one named customer and10000 minor units are accepted in the protected pilot
+config. It enables private fulfillment and authenticated checkout, without starting
+the bank worker or issuing an invoice. It verifies the exact expected ACL in a
+rollback-only transaction, preserving all data and rejecting money-write privileges
+for the HTTP application. Three release-boundary tests passed.
+
+The100₸ limit is lower than normal menu prices. A separately recorded control
+quote is still required; do not change all menu prices or silently raise the cap.

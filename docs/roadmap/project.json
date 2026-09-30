@@ -1892,7 +1892,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "Постоянный приватный туннель касса-VPS установлен из a9e488a после зелёной CI; health и восстановление17,2с проверены. Подготовлены маршруты24 mobile +24 POS, whole-product комбо и отдельный worker. Реальные счета, commercial onboarding и кухня ещё не приняты.",
+      "summary": "Постоянный приватный туннель касса-VPS установлен из a9e488a после зелёной CI; health и восстановление17,2с проверены. Подготовлены маршруты24 mobile +24 POS, whole-product комбо и отдельный worker. Подготовлены app-only update и guarded owner-pilot release. Реальные счета, commercial onboarding и кухня ещё не приняты.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
