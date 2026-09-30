@@ -1097,6 +1097,23 @@
       "updatedAt": "2026-09-30T06:40:16.544Z",
       "summary": "PR143, shared f7c9b83. Вход v3 одним листом, нативная клавиатура/OTP auto verify, возврат к корзине, profile once. 216 Node + 30 Python, 7 roadmap, typecheck/lint/format, server/demo 320/390/430 и gate/cart/profile/fidelity browser passed. Dev iOS bundle HTTP200. Roadmap bda246f опубликован, health SHA подтверждён. Полная CI ещё выполняется; реальных OTP/оплат не было.",
       "nextAction": "Приёмка владельцем на PickChick Dev, нативные клавиатуры/autofill/VoiceOver/крупный шрифт. Юридическая проверка формы согласия; реальная авторизация включается отдельным серверным этапом. Проверить итог CI36679254851. Исходник и снимки: docs/design/auth-sheet-v3.md."
+    },
+    {
+      "id": "telegram-auth-vps",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/telegram-auth-vps",
+      "scopes": [
+        "infra/staging",
+        "docs/operations",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "tests/operations",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "f7c9b830cff4f96084d85109dc28241d83d3a29a",
+      "updatedAt": "2026-09-30T06:49:04.936Z"
     }
   ]
 }
