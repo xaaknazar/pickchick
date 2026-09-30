@@ -1,3 +1,13 @@
+# Продолжение: открыть Kaspi всем подтверждённым клиентам
+
+Владелец после успешного owner rollout прямо поручил доступ всем пользователям.
+Telegram уже без allowlist; код подготовлен для allVerifiedCustomers=true с
+проверкой active identity и сохранением bearer/ownership. Новый профиль
+release-all-kaspi.py: API baseline e752c8e, public0c60024, прежний gateway hash.
+Нужны CI нового исходника, prepare/apply и чтение config/quote реальных active
+customers без нового счёта. Worker e752c8e уже понимает bank Amount и не требует
+замены. Не создавать новых реальных заказов от имени пользователей.
+
 # Актуально: повторные Kaspi-заказы владельцу включены
 
 30 сентября, VPS API/банковский worker `e752c8e` установлены после полной

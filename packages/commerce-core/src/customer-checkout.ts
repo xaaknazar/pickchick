@@ -5,13 +5,14 @@ import { CatalogPricing, CatalogPricingError } from '@pickchick/catalog-pricing'
 import { CommerceRepository } from './repository.js';
 import { CommerceError, digest, parse, UUIDSchema } from './model.js';
 
-/** Deliberately server-owned and limited to named pilot customers. No public rollout switch. */
+/** Server-owned audience; all-customer access still requires a verified active identity. */
 export const CheckoutOptionsSchema = z.strictObject({
   organizationId: z.uuid(),
   branchId: z.uuid(),
   paymentAccountId: z.uuid(),
   customerIds: z.array(z.uuid()).min(1).max(10),
   repeatOrdersEnabled: z.boolean().optional(),
+  allVerifiedCustomers: z.boolean().optional(),
   maxOrderMinor: z
     .string()
     .regex(/^[1-9][0-9]{0,8}$/)
@@ -27,6 +28,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
     paymentAccountId: env.KASPI_REMOTE_ACCOUNT_ID,
     customerIds: env.CUSTOMER_KASPI_PILOT_CUSTOMER_IDS?.split(','),
     repeatOrdersEnabled: env.CUSTOMER_KASPI_PILOT_REPEAT_ORDERS === 'true',
+    allVerifiedCustomers: env.CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS === 'true',
     maxOrderMinor: env.CUSTOMER_KASPI_PILOT_MAX_MINOR ?? '10000',
     approvalReference: env.CUSTOMER_KASPI_FISCAL_DEFERRAL_REFERENCE,
   });
@@ -68,9 +70,18 @@ export class CustomerCheckout {
   ) {
     this.repository = new CommerceRepository(pool, options ?? undefined);
   }
-  private scope(customerId: string) {
+  private async scope(customerId: string) {
     parse(UUIDSchema, customerId);
-    if (!this.options?.customerIds.includes(customerId)) throw new CommerceError('FORBIDDEN');
+    if (!this.options) throw new CommerceError('FORBIDDEN');
+    if (this.options.allVerifiedCustomers) {
+      // Identity rows are created only after OTP verification. The HTTP controller
+      // independently requires a live bearer session; arbitrary UUIDs are not users.
+      const identity = await this.pool.query(
+        'SELECT 1 FROM identity_customers WHERE id=$1 AND deleted_at IS NULL',
+        [customerId],
+      );
+      if (!identity.rowCount) throw new CommerceError('FORBIDDEN');
+    } else if (!this.options.customerIds.includes(customerId)) throw new CommerceError('FORBIDDEN');
     return {
       organizationId: this.options.organizationId,
       branchId: this.options.branchId,
@@ -79,7 +90,7 @@ export class CustomerCheckout {
     };
   }
   async config(customerId: string) {
-    const scope = this.scope(customerId);
+    const scope = await this.scope(customerId);
     const row = (
       await this.pool.query<{ name: string; ready: boolean }>(
         `
@@ -105,7 +116,7 @@ export class CustomerCheckout {
     };
   }
   async quote(customerId: string, input: unknown) {
-    const scope = this.scope(customerId),
+    const scope = await this.scope(customerId),
       request = parse(QuoteInput, input);
     if (request.branchId !== scope.branchId) throw new CommerceError('FORBIDDEN');
     if (!(await this.config(customerId)).enabled) throw new CommerceError('NOT_READY');
@@ -166,7 +177,7 @@ export class CustomerCheckout {
     }
   }
   async create(customerId: string, input: unknown) {
-    const scope = this.scope(customerId),
+    const scope = await this.scope(customerId),
       request = parse(CreateInput, input);
     const quote = (
       await this.pool.query<{ total_minor: string; order_id: string | null }>(
@@ -189,7 +200,7 @@ export class CustomerCheckout {
     return this.read(customerId, created.orderId);
   }
   async pay(customerId: string, orderId: string) {
-    const scope = this.scope(customerId);
+    const scope = await this.scope(customerId);
     const current = await this.repository.readOrder(scope, orderId);
     if (current.attempts.length || BigInt(current.money.captured) > 0n)
       return this.read(customerId, orderId);
@@ -201,7 +212,7 @@ export class CustomerCheckout {
     return this.read(customerId, orderId);
   }
   async list(customerId: string) {
-    const scope = this.scope(customerId);
+    const scope = await this.scope(customerId);
     const rows = await this.pool.query<{ id: string }>(
       'SELECT id FROM commerce_orders WHERE principal_id=$1 AND organization_id=$2 AND branch_id=$3 ORDER BY created_at DESC,id DESC LIMIT 30',
       [customerId, scope.organizationId, scope.branchId],
@@ -209,7 +220,7 @@ export class CustomerCheckout {
     return { orders: await Promise.all(rows.rows.map((row) => this.read(customerId, row.id))) };
   }
   async read(customerId: string, orderId: string) {
-    const scope = this.scope(customerId);
+    const scope = await this.scope(customerId);
     // Ownership is checked before consulting any provider/fulfillment projection.
     const order = await this.repository.readOrder(scope, orderId);
     const [invoice, projection, branch] = await Promise.all([

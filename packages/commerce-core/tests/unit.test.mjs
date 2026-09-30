@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { digest, priceSnapshot, MinorSchema } from '../dist/index.js';
+import { digest, priceSnapshot, MinorSchema, customerCheckoutOptions } from '../dist/index.js';
 import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
 import { catalogPayloadHash } from '@pickchick/catalog-pricing';
 
@@ -103,4 +103,34 @@ test('published arithmetic validates input totals and copies selected details wi
   }
   for (const field of ['subtotalMinor', 'totalMinor'])
     assert.throws(() => priceSnapshot({ ...published(), [field]: '1' }), { code: 'INVALID' });
+});
+
+test('all verified customer audience requires an explicit server environment switch', () => {
+  const env = {
+    CUSTOMER_KASPI_PILOT_ENABLED: 'true',
+    CUSTOMER_KASPI_ORGANIZATION_ID: randomUUID(),
+    CUSTOMER_KASPI_BRANCH_ID: randomUUID(),
+    KASPI_REMOTE_ACCOUNT_ID: randomUUID(),
+    CUSTOMER_KASPI_PILOT_CUSTOMER_IDS: randomUUID(),
+    CUSTOMER_KASPI_FISCAL_DEFERRAL_REFERENCE: 'Synthetic approval',
+  };
+  assert.equal(customerCheckoutOptions(env).allVerifiedCustomers, false);
+  assert.equal(
+    customerCheckoutOptions({ ...env, CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS: 'true' })
+      .allVerifiedCustomers,
+    true,
+  );
+  assert.equal(
+    customerCheckoutOptions({ ...env, CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS: 'false' })
+      .allVerifiedCustomers,
+    false,
+  );
+  assert.equal(
+    customerCheckoutOptions({
+      ...env,
+      CUSTOMER_KASPI_PILOT_ENABLED: 'false',
+      CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS: 'true',
+    }),
+    null,
+  );
 });

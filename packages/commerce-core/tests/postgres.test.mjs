@@ -1243,6 +1243,8 @@ test('checkout runtime can quote/create/read but cannot forge payment or publish
   fixture(
     async (f) => {
       const { customerCheckoutGrants } = await import('../../../infra/staging/checkout-grants.mjs');
+      const { customerAuthGrants } =
+        await import('../../../infra/staging/customer-auth-grants.mjs');
       await publishCatalog(f);
       await f.pool.query(
         'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
@@ -1259,6 +1261,11 @@ test('checkout runtime can quote/create/read but cannot forge payment or publish
         await f.pool.query(fulfillmentTransportGrants(role, true));
         await f.pool.query(backofficeGrants(role, false));
         await f.pool.query(customerCheckoutGrants(role, true));
+        await f.pool.query(customerAuthGrants(role, true));
+        await f.pool.query(
+          "INSERT INTO identity_customers(id,phone_lookup,phone_cipher,profile_cipher,created_at) VALUES($1,$2,'synthetic-cipher','synthetic-profile',clock_timestamp())",
+          [f.scope.principalId, digest(f.scope.principalId)],
+        );
         await f.pool.query(orderRecipeGrants(role));
         const url = new URL(f.url);
         url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
@@ -1266,7 +1273,8 @@ test('checkout runtime can quote/create/read but cannot forge payment or publish
         const service = new CustomerCheckout(runtime, {
           ...f.scope,
           paymentAccountId: f.payment,
-          customerIds: [f.scope.principalId],
+          customerIds: [randomUUID()],
+          allVerifiedCustomers: true,
           maxOrderMinor: '10000',
           approvalReference: 'Synthetic pilot',
         });
@@ -1334,6 +1342,69 @@ test('checkout runtime can quote/create/read but cannot forge payment or publish
         await f.pool.query(`DROP OWNED BY ${role}`);
         await f.admin.query(`DROP ROLE ${role}`);
       }
+    },
+    { paymentProvider: 'kaspi-remote' },
+  ));
+
+test('all-customer checkout admits active verified identities but isolates each customer', () =>
+  fixture(
+    async (f) => {
+      await publishCatalog(f);
+      await f.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+      );
+      const first = randomUUID(),
+        second = randomUUID(),
+        deleted = randomUUID();
+      for (const id of [first, second])
+        await f.pool.query(
+          "INSERT INTO identity_customers(id,phone_lookup,phone_cipher,profile_cipher,created_at) VALUES($1,$2,'synthetic-cipher','synthetic-profile',clock_timestamp())",
+          [id, digest(id)],
+        );
+      await f.pool.query(
+        'INSERT INTO identity_customers(id,created_at,deleted_at) VALUES($1,clock_timestamp(),clock_timestamp())',
+        [deleted],
+      );
+      const options = {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [f.scope.principalId],
+        maxOrderMinor: '1000000',
+        approvalReference: 'Synthetic all-customer approval',
+        repeatOrdersEnabled: true,
+      };
+      const limited = new CustomerCheckout(f.pool, options);
+      await assert.rejects(limited.config(first), /FORBIDDEN/);
+      const service = new CustomerCheckout(f.pool, { ...options, allVerifiedCustomers: true });
+      for (const id of [first, second]) assert.equal((await service.config(id)).enabled, true);
+      for (const id of [randomUUID(), deleted, f.scope.principalId]) {
+        await assert.rejects(service.config(id), /FORBIDDEN/);
+        await assert.rejects(service.list(id), /FORBIDDEN/);
+      }
+      const request = () => ({
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'takeaway',
+        items: [{ productId: 'burger', quantity: 1, selections: [] }],
+      });
+      const quote = await service.quote(first, request());
+      await assert.rejects(
+        service.create(second, { key: randomUUID(), quoteId: quote.quoteId }),
+        /NOT_FOUND/,
+      );
+      const order = await service.create(first, { key: randomUUID(), quoteId: quote.quoteId });
+      await assert.rejects(service.read(second, order.orderId), /NOT_FOUND/);
+      assert.equal((await service.list(second)).orders.length, 0);
+      const nextQuote = await service.quote(first, request());
+      const again = await service.create(first, { key: randomUUID(), quoteId: nextQuote.quoteId });
+      assert.notEqual(order.orderId, again.orderId);
+      const secondQuote = await service.quote(second, request());
+      assert.equal(secondQuote.totalMinor, '10000');
+      for (const extra of [{ allVerifiedCustomers: true }, { customerId: first }])
+        await assert.rejects(service.quote(second, { ...request(), ...extra }), /INVALID/);
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      assert.equal(await f.count('commerce_captures'), 0);
     },
     { paymentProvider: 'kaspi-remote' },
   ));
