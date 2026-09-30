@@ -1302,6 +1302,29 @@
       "updatedAt": "2026-09-30T10:17:42.860Z",
       "summary": "4ddfbcf/PR152 в shared: календарь внутри анкеты, форма защищена от ввода под ним, сохранение после пола и Готово; нет автозакрытия при обновлении профиля. 12 unit, 7 roadmap, browser3sizes,typecheck/lint,Dev bundle200. Roadmap опубликован; API сохранён. Полная CI выполняется.",
       "nextAction": "Приёмка закрытия календаря и выбора пола на физическом iPhone. Оплата Kaspi остаётся отдельным незавершённым этапом."
+    },
+    {
+      "id": "profile-cleanup",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/profile-cleanup",
+      "scopes": [
+        "apps/mobile/src/screens/ProfileScreen.tsx",
+        "apps/mobile/src/screens/ProfileScreens.tsx",
+        "apps/mobile/src/screens/MobileScreen.tsx",
+        "apps/mobile/src/loyalty/PeakScreens.tsx",
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/app",
+        "tests/mobile",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "docs/operations/profile-cleanup.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "4ddfbcffae50e9098becb7adb933f331fbf2d5e3",
+      "updatedAt": "2026-09-30T10:27:46.904Z"
     }
   ]
 }
