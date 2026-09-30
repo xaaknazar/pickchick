@@ -12,7 +12,14 @@ kaspi-live-activation: защищённый transport, commercial scope, owner p
 
 ## Текущий этап: kaspi-live-activation
 
-Области @vps/@windows/cashier заняты этой задачей. Касса включена, новый IP в приватном контексте; SSH fingerprint совпал, ключ для «Админ» отклонён, ожидается whoami. Bank session active. Новое решение владельца: цены/доплаты текущего Dev, снимок hash-pinned. Подготовлены checkout/worker grants и Docker companion; локально проверены. Не включать pilot без физического admission и настройки scope. [Продолжение](../operations/kaspi-live-activation.md).
+Области @vps/@windows/cashier заняты этой задачей. SSH работает, IDs прочитаны,
+backup/restore активной кассы подтверждён. Bank session active, счета не создавались.
+Следующий шаг - root-консоль VPS: install-edge-tunnel-account.sh подготовлен и
+проверен sshd -T, но операторский SSH не имеет sudo. Команда отправлена владельцу.
+Цены/доплаты текущего Dev закреплены. Checkout/worker grants и Docker companion
+локально проверены; pilot не включать без admission и commercial scope.
+CI6ea2d60 упала до запуска шагов всех jobs; не считать её зелёной.
+[Продолжение](../operations/kaspi-live-activation.md).
 
 ## Текущий этап: profile-cleanup
 

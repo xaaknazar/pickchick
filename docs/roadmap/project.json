@@ -1939,7 +1939,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "SSH и local scope подтверждены, backup/restore38таблиц прошёл. Настроить seller/account/catalog/transport и пройти CI после исправления QR-теста. После admission - согласованный100₸ через ledger. Webkassa отложена.",
+      "nextAction": "SSH и local scope подтверждены, backup/restore38таблиц прошёл. Ожидается запуск подготовленного tunnel installer из root-консоли VPS. Настроить seller/account/catalog/transport; CI6ea2d60 завершилась до старта шагов. После admission - согласованный100₸ через ledger. Webkassa отложена.",
       "checks": {
         "implemented": true,
         "verified": false,
