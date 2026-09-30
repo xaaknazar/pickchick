@@ -72,7 +72,7 @@ export class TelegramCodeDelivery implements PhoneCodeDelivery {
       typeof input.phoneE164 !== 'string' ||
       !/^\+77[0-9]{9}$/.test(input.phoneE164) ||
       typeof input.code !== 'string' ||
-      !/^[0-9]{6}$/.test(input.code)
+      !/^(?:[0-9]{4}|[0-9]{6})$/.test(input.code)
     )
       return { kind: 'rejected', reason: 'invalid_input' };
     const parsed = input;

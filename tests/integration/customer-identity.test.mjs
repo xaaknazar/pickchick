@@ -261,7 +261,7 @@ test('mobile session client survives committed verify and rotation response loss
       await client.saveProfile({
         nickname: 'Проверка клиента',
         birthDate: '2000-02-29',
-        gender: null,
+        gender: 'male',
       });
       const saved = JSON.parse(raw);
       saved.tokens.access_expires_at = new Date(Date.now() - 1000).toISOString();
@@ -637,12 +637,12 @@ test('profile updates validate calendar, preserve parallel fields and roll back 
       await ctx.identity.patchMe(session.access_token, {
         nickname: '',
         birth_date: null,
-        gender: null,
+        gender: 'male',
       })
     ).customer;
     assert.equal(cleared.nickname, '');
     assert.equal(cleared.birth_date, null);
-    assert.equal(cleared.gender, null);
+    assert.equal(cleared.gender, 'male');
     const raw = JSON.stringify((await ctx.pool.query('SELECT * FROM identity_customers')).rows);
     assert.equal(raw.includes('2000-02-29'), false);
   }));
@@ -1107,6 +1107,8 @@ test('channel is durable and immutable for replay; fallback shares budget/cooldo
     assert.deepEqual(identity.config().channels, ['telegram', 'sms']);
     const first = await identity.requestOtp(body, ip);
     assert.equal(first.channel, 'telegram');
+    assert.equal(first.code_length, 4);
+    assert.match(calls[0].code, /^[0-9]{4}$/);
     const restart = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
     assert.deepEqual(await restart.requestOtp(body, ip), first);
     assert.equal(calls.length, 1);
@@ -1121,6 +1123,8 @@ test('channel is durable and immutable for replay; fallback shares budget/cooldo
       ip,
     );
     assert.equal(second.channel, 'sms');
+    assert.equal(second.code_length, 6);
+    assert.match(calls[1].code, /^[0-9]{6}$/);
     assert.deepEqual(
       calls.map((c) => c.channel),
       ['telegram', 'sms'],
@@ -1257,3 +1261,64 @@ test('approved 1000 daily cap survives competing reservations and a service rest
       1000,
     );
   }, 1000));
+
+test('four-digit Telegram challenge survives restart, enforces attempt budget and completes only once', async () =>
+  fixture(async (ctx) => {
+    let sent;
+    const delivery = {
+      provider: 'telegram_gateway',
+      async sendCode(input) {
+        sent = input.code;
+        return {
+          kind: 'submitted',
+          provider: 'telegram_gateway',
+          submission: 'accepted',
+          messageId: 'fixture',
+          campaignId: 'fixture',
+        };
+      },
+    };
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    const device_id = randomUUID();
+    const request = {
+      phone,
+      device_id,
+      request_id: randomUUID(),
+      channel: 'telegram',
+      delivery_consent: { privacy_version: version, accepted: true },
+    };
+    const first = await identity.requestOtp(request, ip);
+    assert.equal(first.code_length, 4);
+    assert.match(sent, /^\d{4}$/);
+    const restart = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    assert.deepEqual(await restart.requestOtp(request, ip), first);
+    const verify = {
+      challenge_id: first.challenge_id,
+      device_id,
+      request_id: randomUUID(),
+      code: sent,
+      consents: consent,
+    };
+    await assert.rejects(
+      restart.verifyOtp({ ...verify, code: sent + '00' }),
+      error('UNAUTHORIZED'),
+    );
+    assert.equal(
+      (
+        await ctx.pool.query('SELECT attempts FROM identity_otp_challenges WHERE id=$1', [
+          first.challenge_id,
+        ])
+      ).rows[0].attempts,
+      1,
+    );
+    const session = await restart.verifyOtp(verify);
+    assert.deepEqual(await restart.verifyOtp(verify), session);
+    await restart.patchMe(session.access_token, { nickname: 'Имя' });
+    assert.equal((await restart.me(session.access_token)).customer.profile_completed_at, null);
+    await assert.rejects(
+      restart.patchMe(session.access_token, { gender: null }),
+      error('INVALID_REQUEST'),
+    );
+    await restart.patchMe(session.access_token, { gender: 'female' });
+    assert.ok((await restart.me(session.access_token)).customer.profile_completed_at);
+  }));

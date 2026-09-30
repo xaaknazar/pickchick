@@ -243,12 +243,14 @@ export function Otp(props: ScreenProps) {
   }, [challenge?.phone, challenge?.resendAt]);
   const remaining = Math.max(0, Math.ceil(((challenge?.resendAt ?? 0) - now) / 1000));
   const expired = !!challenge && now >= challenge.expiresAt && !account.pendingVerify;
+  const codeLength = challenge?.codeLength ?? 4;
   const canVerify =
     !!challenge &&
     !account.pendingOtp &&
     !expired &&
     challenge.attemptsLeft > 0 &&
-    /^\d{6}$/.test(code) &&
+    /^\d+$/.test(code) &&
+    code.length === codeLength &&
     accepted;
   const verify = useCallback(async () => {
     if (props.preview || !canVerify || account.busy || lock.current) return;
@@ -324,7 +326,7 @@ export function Otp(props: ScreenProps) {
     >
       <View style={s.otpRow}>
         <View pointerEvents="none" accessible={false} style={s.otpCells}>
-          {Array.from({ length: 6 }, (_, index) => (
+          {Array.from({ length: codeLength }, (_, index) => (
             <View key={index} style={[s.otpCell, index === code.length && s.focused]}>
               <Text style={s.otpDigit}>{code[index] ?? (index === code.length ? '│' : '')}</Text>
             </View>
@@ -333,7 +335,7 @@ export function Otp(props: ScreenProps) {
         <TextInput
           ref={input}
           testID="otp-input"
-          accessibilityLabel="Код подтверждения, 6 цифр"
+          accessibilityLabel={`Код подтверждения, ${codeLength} цифр`}
           value={code}
           autoFocus={!props.preview && readyForInput}
           editable={
@@ -344,10 +346,10 @@ export function Otp(props: ScreenProps) {
             challenge.attemptsLeft > 0
           }
           onChangeText={(value) => {
-            const next = value.replace(/\D/g, '').slice(0, 6);
+            const next = value.replace(/\D/g, '').slice(0, codeLength);
             setCode(next);
             setSubmitted(false);
-            if (next.length < 6) attempted.current = null;
+            if (next.length < codeLength) attempted.current = null;
           }}
           keyboardType="number-pad"
           textContentType="oneTimeCode"
@@ -355,7 +357,7 @@ export function Otp(props: ScreenProps) {
           autoCorrect={false}
           spellCheck={false}
           autoCapitalize="none"
-          maxLength={6}
+          maxLength={codeLength}
           caretHidden
           selectionColor="transparent"
           underlineColorAndroid="transparent"

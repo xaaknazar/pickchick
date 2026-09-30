@@ -457,7 +457,7 @@ test('Telegram rejects invalid configuration/input and does not leak upstream re
       return Response.json({ ok: false, error: 'ACCESS_TOKEN_INVALID', details: input });
     },
   });
-  assert.deepEqual(await delivery.sendCode({ ...input, code: '1234' }), {
+  assert.deepEqual(await delivery.sendCode({ ...input, code: '12345' }), {
     kind: 'rejected',
     reason: 'invalid_input',
   });
@@ -555,4 +555,25 @@ test('Gateway owner response uses digits-only phone and zero cost, still bound t
       }),
   });
   assert.equal((await adapter.sendCode(input)).kind, 'submitted');
+});
+
+test('Telegram sends all four digits including leading zero, while accepting legacy six', async () => {
+  const sent = [];
+  const delivery = createPhoneCodeDelivery(telegramEnv, {
+    fetch: async (_url, options) => {
+      sent.push(JSON.parse(options.body));
+      return Response.json(telegramSuccess);
+    },
+  });
+  for (const code of ['0123', '012345']) await delivery.sendCode({ ...input, code });
+  assert.deepEqual(
+    sent.map((body) => body.code),
+    ['0123', '012345'],
+  );
+  for (const code of ['123', '12345', '1234567'])
+    assert.deepEqual(await delivery.sendCode({ ...input, code }), {
+      kind: 'rejected',
+      reason: 'invalid_input',
+    });
+  assert.equal(sent.length, 2);
 });

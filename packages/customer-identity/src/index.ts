@@ -56,6 +56,7 @@ interface ChallengeRow {
   phone_cipher: string | null;
   device_hash: string;
   code_hash: string | null;
+  code_length: 4 | 6;
   attempts: number;
   receipt_failed_attempts: number;
   state: string;
@@ -142,7 +143,8 @@ export class CustomerIdentity {
       deviceHash = hmac(config.lookupKey, 'device', body.device_id),
       ipHash = hmac(config.lookupKey, 'ip', ip);
     const id = randomUUID(),
-      code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      codeLength: 4 | 6 = channel === 'telegram' ? 4 : 6,
+      code = String(randomInt(0, 10 ** codeLength)).padStart(codeLength, '0');
     const reservation = await transaction(this.pool, async (db) => {
       // The budget lock serializes only this short reservation transaction, never the provider call.
       await db.query('SELECT pg_advisory_xact_lock(90827001)');
@@ -172,6 +174,7 @@ export class CustomerIdentity {
         return {
           replay: true,
           challenge_id: replay.id,
+          code_length: replay.code_length,
           expires_at: iso(replay.expires_at),
           resend_at: iso(new Date(replay.created_at.getTime() + 60_000)),
           delivery_status:
@@ -232,8 +235,8 @@ export class CustomerIdentity {
       );
       const expires = new Date(now.getTime() + CHALLENGE_MS);
       await db.query(
-        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel,delivery_consent_version)
-         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10,$11)`,
+        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel,delivery_consent_version,code_length)
+         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10,$11,$12)`,
         [
           id,
           phoneHash,
@@ -246,11 +249,13 @@ export class CustomerIdentity {
           body.request_id,
           channel,
           body.delivery_consent.privacy_version,
+          codeLength,
         ],
       );
       return {
         replay: false,
         challenge_id: id,
+        code_length: codeLength,
         expires_at: iso(expires),
         resend_at: iso(new Date(now.getTime() + 60_000)),
         delivery_status: 'unknown' as const,
@@ -259,6 +264,7 @@ export class CustomerIdentity {
     const response = {
       ...(body.channel ? { channel } : {}),
       challenge_id: reservation.challenge_id,
+      code_length: reservation.code_length,
       expires_at: reservation.expires_at,
       resend_at: reservation.resend_at,
     };
@@ -586,7 +592,12 @@ export class CustomerIdentity {
       const updated = (
         await db.query<CustomerRow>(
           'UPDATE identity_customers SET profile_cipher=$2,profile_completed_at=CASE WHEN $3 THEN $4 ELSE profile_completed_at END WHERE id=$1 RETURNING *',
-          [customer.id, encrypt(config.piiKey, `profile:${customer.id}`, profile), hasProfile, now],
+          [
+            customer.id,
+            encrypt(config.piiKey, `profile:${customer.id}`, profile),
+            hasProfile && profile.gender !== null,
+            now,
+          ],
         )
       ).rows[0]!;
       if (body.marketing_opt_in !== undefined)

@@ -168,7 +168,7 @@ test('the phone is a local label: separate device storage never discovers anothe
   await firstDevice.core.saveProfile({
     nickname: 'Первое устройство',
     birthDate: '2000-02-29',
-    gender: null,
+    gender: 'female',
   });
   const secondDevice = fixture();
   await secondDevice.core.restore();
@@ -248,18 +248,18 @@ test('profile saves one complete trimmed snapshot and survives restart without a
   assert.deepEqual(JSON.parse(f.raw()), restarted.account);
 });
 
-test('empty optional details can be explicitly completed and later edited without retaining removed DOB', async () => {
+test('empty optional name and birthday can be completed and later edited without retaining removed DOB', async () => {
   const f = fixture();
   f.core.requestCode(phone);
   await f.core.verifyCode(DEMO_LOGIN_CODE);
   await f.core.saveProfile({ nickname: 'Имя', birthDate: '1996-11-09', gender: 'male' });
   const firstCompletedAt = f.core.account.profile.completedAt;
   f.tick(5000);
-  await f.core.saveProfile({ nickname: '  ', birthDate: null, gender: null });
+  await f.core.saveProfile({ nickname: '  ', birthDate: null, gender: 'female' });
   assert.deepEqual(f.core.account.profile, {
     nickname: '',
     birthDate: null,
-    gender: null,
+    gender: 'female',
     completedAt: f.io.now(),
   });
   assert(f.core.account.profile.completedAt > firstCompletedAt);
@@ -296,7 +296,11 @@ test('profile storage failure preserves previous fields and completedAt, allowin
   const f = fixture();
   f.core.requestCode(phone);
   await f.core.verifyCode(DEMO_LOGIN_CODE);
-  await f.core.saveProfile({ nickname: 'Сохранённое имя', birthDate: '2000-02-29', gender: null });
+  await f.core.saveProfile({
+    nickname: 'Сохранённое имя',
+    birthDate: '2000-02-29',
+    gender: 'female',
+  });
   const previous = f.core.account;
   const raw = f.raw();
   const changes = { nickname: 'Новое имя', birthDate: '1999-01-01', gender: 'male' };
@@ -328,7 +332,11 @@ test('profile success is not published until its one storage write has completed
       }),
   });
   await core.restore();
-  const pending = core.saveProfile({ nickname: 'Новый профиль', birthDate: null, gender: null });
+  const pending = core.saveProfile({
+    nickname: 'Новый профиль',
+    birthDate: null,
+    gender: 'female',
+  });
   assert.deepEqual(core.account, previous);
   assert.equal(persisted.length, 0);
   release();
@@ -342,7 +350,7 @@ test('verifying the same local phone preserves profile, but a different phone st
   const f = fixture();
   f.core.requestCode(phone);
   await f.core.verifyCode(DEMO_LOGIN_CODE);
-  await f.core.saveProfile({ nickname: 'Чики', birthDate: '1999-03-20', gender: null });
+  await f.core.saveProfile({ nickname: 'Чики', birthDate: '1999-03-20', gender: 'female' });
   const previous = f.core.account;
   f.tick(1000);
   f.core.requestCode(local);
@@ -436,7 +444,7 @@ test('temporary cold-start read failure cannot replace the saved phone/DOB with 
   assert.equal(f.core.account, null);
   assert.throws(() => f.core.requestCode(phone), { code: 'restore_required' });
   await assert.rejects(f.core.verifyCode(DEMO_LOGIN_CODE), { code: 'restore_required' });
-  await assert.rejects(f.core.saveProfile({ nickname: '', birthDate: null, gender: null }), {
+  await assert.rejects(f.core.saveProfile({ nickname: '', birthDate: null, gender: 'female' }), {
     code: 'restore_required',
   });
   await assert.rejects(f.core.signOut(), { code: 'restore_required' });
@@ -458,7 +466,7 @@ test('failed reread keeps the cached account/challenge and blocks all mutations 
   const f = fixture();
   f.core.requestCode(phone);
   await f.core.verifyCode(DEMO_LOGIN_CODE);
-  await f.core.saveProfile({ nickname: 'Чики', birthDate: '1999-03-20', gender: null });
+  await f.core.saveProfile({ nickname: 'Чики', birthDate: '1999-03-20', gender: 'female' });
   f.core.requestCode(phone);
   const account = f.core.account;
   const challenge = f.core.challenge;
@@ -469,9 +477,12 @@ test('failed reread keeps the cached account/challenge and blocks all mutations 
   const callCount = f.calls.length;
   assert.throws(() => f.core.requestCode(phone), { code: 'restore_required' });
   await assert.rejects(f.core.verifyCode(DEMO_LOGIN_CODE), { code: 'restore_required' });
-  await assert.rejects(f.core.saveProfile({ nickname: 'Новый', birthDate: null, gender: null }), {
-    code: 'restore_required',
-  });
+  await assert.rejects(
+    f.core.saveProfile({ nickname: 'Новый', birthDate: null, gender: 'female' }),
+    {
+      code: 'restore_required',
+    },
+  );
   await assert.rejects(f.core.signOut(), { code: 'restore_required' });
   f.core.cancelChallenge();
   assert.equal(f.core.account, account);
@@ -483,7 +494,7 @@ test('failed reread keeps the cached account/challenge and blocks all mutations 
   await f.core.saveProfile({
     nickname: 'После восстановления',
     birthDate: account.profile.birthDate,
-    gender: null,
+    gender: 'female',
   });
   assert.equal(f.core.account.profile.birthDate, '1999-03-20');
 });
@@ -511,4 +522,18 @@ test('a pending restoration blocks writes before it has determined whether an ac
   core.requestCode(phone);
   await core.verifyCode(DEMO_LOGIN_CODE);
   assert.equal(core.account.phone, phone);
+});
+
+test('profile completion requires gender, but new and legacy accounts remain readable', async () => {
+  const f = fixture();
+  f.core.requestCode(phone);
+  assert.equal(f.core.challenge.codeLength, 4);
+  await f.core.verifyCode(DEMO_LOGIN_CODE);
+  const previous = f.raw();
+  await assert.rejects(f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: null }), {
+    code: 'invalid_profile',
+  });
+  assert.equal(f.raw(), previous);
+  await f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: 'male' });
+  assert.equal(f.core.account.profile.gender, 'male');
 });

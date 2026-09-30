@@ -61,6 +61,7 @@ export function Onboarding(props: ScreenProps) {
     Boolean(demo.account) &&
     !props.preview &&
     !dateError &&
+    gender !== null &&
     nameLength <= 32;
   const editing = profile?.completedAt !== null && profile?.completedAt !== undefined;
   const openPicker = () => {
@@ -91,34 +92,20 @@ export function Onboarding(props: ScreenProps) {
             disabled={!canSave}
             onPress={() => void save()}
           />
-          <Pressable
-            testID="profile-fill-later"
-            accessibilityRole="button"
-            disabled={demo.busy}
-            accessibilityState={{ disabled: demo.busy }}
-            onPress={() => {
-              Keyboard.dismiss();
-              if (props.preview) {
-                props.navigate('M06');
-                return;
-              }
-              setSubmitted(true);
-              if (editing) props.navigate('M30');
-              else
-                void demo
-                  .saveProfile({
-                    nickname: profile?.nickname ?? '',
-                    birthDate: profile?.birthDate ?? null,
-                    gender: profile?.gender ?? null,
-                  })
-                  .then((ok) => {
-                    if (ok) props.navigate('M06');
-                  });
-            }}
-            style={({ pressed }) => [s.later, pressed && s.pressed]}
-          >
-            <Body style={s.laterText}>{editing ? 'Отмена' : 'Заполню позже'}</Body>
-          </Pressable>
+          {editing ? (
+            <Pressable
+              testID="profile-fill-later"
+              accessibilityRole="button"
+              disabled={demo.busy}
+              onPress={() => {
+                Keyboard.dismiss();
+                props.navigate('M30');
+              }}
+              style={({ pressed }) => [s.later, pressed && s.pressed]}
+            >
+              <Body style={s.laterText}>Отмена</Body>
+            </Pressable>
+          ) : null}
         </>
       }
     >
@@ -160,8 +147,10 @@ export function Onboarding(props: ScreenProps) {
           style={[s.formRow, s.dateRow]}
         >
           <Body style={s.rowLabel}>Дата рождения</Body>
-          <Body style={s.dateValue}>{dateLabel}</Body>
-          <Icon name="chevron-forward" size={18} color={authColors.muted} />
+          <View style={s.dateContent}>
+            <Body style={s.dateValue}>{dateLabel}</Body>
+            <Icon name="chevron-forward" size={18} color={authColors.muted} />
+          </View>
         </Pressable>
       </View>
       {pickerOpen ? (
@@ -197,7 +186,7 @@ export function Onboarding(props: ScreenProps) {
       {nameLength > 32 ? <Body style={s.error}>Никнейм - не больше 32 символов.</Body> : null}
 
       <View style={s.field}>
-        <Caption style={s.label}>ПОЛ · НЕОБЯЗАТЕЛЬНО</Caption>
+        <Caption style={s.label}>ПОЛ · ОБЯЗАТЕЛЬНО</Caption>
         <View style={[s.genderRow, fontScale > 1.3 && { flexDirection: 'column' }]}>
           {(
             [
@@ -211,7 +200,7 @@ export function Onboarding(props: ScreenProps) {
               accessibilityRole="button"
               accessibilityState={{ selected: gender === item.value, disabled: demo.busy }}
               disabled={demo.busy}
-              onPress={() => setGender((previous) => (previous === item.value ? null : item.value))}
+              onPress={() => setGender(item.value)}
               style={({ pressed }) => [
                 s.gender,
                 gender === item.value && s.selectedOption,
@@ -267,11 +256,23 @@ const s = StyleSheet.create({
     color: authColors.text,
     fontFamily: font.heading,
     fontSize: 17,
+    lineHeight: 24,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   dateRow: { borderTopWidth: 1, borderTopColor: '#203561' },
-  dateValue: {
+  dateContent: {
     flex: 1,
     minWidth: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+  dateValue: {
+    flexShrink: 1,
+    lineHeight: 24,
+    includeFontPadding: false,
     textAlign: 'right',
     fontFamily: font.heading,
     fontSize: 17,

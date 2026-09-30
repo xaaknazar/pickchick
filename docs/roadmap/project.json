@@ -58,7 +58,8 @@
     "docs/operations/order-status-sheet.md",
     "docs/operations/telegram-login.md",
     "docs/legal/customer-documents-draft.md",
-    "docs/operations/server-pilot.md"
+    "docs/operations/server-pilot.md",
+    "docs/operations/auth-four-digit.md"
   ],
   "workstreams": [
     {
@@ -3827,6 +3828,34 @@
         "Владелец принимает интерфейс на физическом телефоне."
       ],
       "nextAction": "Принять новый интерфейс в PickChick Dev; отдельно связать комментарии с кухней и подтвердить банковский deep link. Реальный платёж и native-приёмку не подменять фикстурами.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "auth-four-digit",
+      "workstream": "mobile",
+      "title": "Четырёхзначный Telegram-код и обязательный пол",
+      "summary": "Новые Telegram-коды из 4 цифр, сохранение старых 6-значных challenge и сессий; дата выровнена, пол обязателен при заполнении анкеты.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Реализация и проверки",
+          "path": "docs/operations/auth-four-digit.md"
+        }
+      ],
+      "acceptance": [
+        "Новый код Telegram и ввод содержат четыре цифры.",
+        "Выбор пола обязателен, дата по центру строки.",
+        "Старые сессии и отправленные коды сохраняются."
+      ],
+      "nextAction": "Guarded release schema028 после exact-SHA CI, затем реальный вход в Dev.",
       "checks": {
         "implemented": true,
         "verified": true,

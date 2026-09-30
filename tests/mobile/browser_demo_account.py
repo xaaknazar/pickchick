@@ -47,6 +47,8 @@ def footer_geometry(page, width, height, previous=None):
     result = {}
     for identifier in ['nickname-save', 'profile-fill-later']:
         control = visible_element(page, identifier)
+        if identifier == 'profile-fill-later' and control.count() == 0:
+            continue
         expect(control).to_be_visible()
         rect = control.bounding_box()
         assert rect and rect['x'] >= 0 and rect['y'] >= 0, (identifier, rect)
@@ -129,10 +131,10 @@ with sync_playwright() as p:
         request.click()
         expect(visible_element(page, 'screen-M03')).to_be_visible()
         expect(visible_element(page, 'resend-otp')).to_be_disabled()
-        visible_element(page, 'otp-input').fill('000000')
+        visible_element(page, 'otp-input').fill('0000')
         expect(visible_element(page, 'screen-M03').get_by_test_id('demo-auth-error')).to_contain_text('Код не подошёл')
         assert stored_account(page) is None
-        visible_element(page, 'otp-input').fill('123456')
+        visible_element(page, 'otp-input').fill('1234')
         expect(visible_element(page, 'screen-M04')).to_be_visible()
         expect(visible_element(page, 'screen-M04').get_by_text('@', exact=True)).to_have_count(0)
         visible_element(page, 'nickname-input').fill('Тестовый гость')
@@ -217,7 +219,7 @@ with sync_playwright() as p:
         visible_element(page, 'birthday-clear').click()
         expect(visible_element(page, 'birthday-error')).to_have_count(0)
         expect(visible_element(page, 'birthday-open')).to_have_attribute('aria-label', 'Дата рождения: Выбрать')
-        # Deselect gender too: both fields are optional, including when editing.
+        # Re-selecting gender retains it; birthday remains optional.
         visible_element(page, 'profile-gender-female').click()
         expect(visible_element(page, 'nickname-save')).to_be_enabled()
         footer_geometry(page, width, height, footer)
@@ -225,7 +227,7 @@ with sync_playwright() as p:
         expect(profile).to_be_visible()
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('Добавить')
         cleared = stored_account(page)
-        assert cleared['profile']['birthDate'] is None and cleared['profile']['gender'] is None
+        assert cleared['profile']['birthDate'] is None and cleared['profile']['gender'] == 'female'
         assert cleared['profile']['nickname'] == 'Тестовый гость'
         page.reload()
         expect(profile.get_by_test_id('profile-birthday')).to_contain_text('Добавить')
@@ -243,24 +245,20 @@ with sync_playwright() as p:
         expect(visible_element(page, 'account-required-login')).to_be_visible()
         assert stored_account(page) is None
 
-        # Postponing a new profile keeps login without silently saving fields.
+        # A new profile cannot complete without an explicit gender choice.
         visible_element(page, 'account-required-login').click()
         visible_element(page, 'phone-input').fill(PHONE)
         visible_element(page, 'request-otp').click()
-        visible_element(page, 'otp-input').fill('123456')
+        visible_element(page, 'otp-input').fill('1234')
         expect(visible_element(page, 'screen-M04')).to_be_visible()
-        untouched = stored_account(page)
-        assert untouched['profile'] == {
-            'nickname': '', 'birthDate': None, 'gender': None, 'completedAt': None,
-        }
-        visible_element(page, 'nickname-input').fill('Отложенный профиль')
-        footer = footer_geometry(page, width, height)
-        choose_birthday(page, width, height, footer, '2003-01-01')
-        visible_element(page, 'profile-fill-later').click()
+        expect(visible_element(page, 'nickname-save')).to_be_disabled()
+        expect(visible_element(page, 'profile-fill-later')).to_have_count(0)
+        visible_element(page, 'profile-gender-male').click()
+        visible_element(page, 'nickname-save').click()
         expect(visible_element(page, 'screen-M30')).to_be_visible()
         after_skip = stored_account(page)
-        assert after_skip['profile']['nickname'] == '' and after_skip['profile']['birthDate'] is None
-        assert after_skip['profile']['gender'] is None and after_skip['profile']['completedAt'] is not None
+        assert after_skip['profile']['gender'] == 'male'
+        assert after_skip['profile']['completedAt'] is not None
         page.reload()
         expect(visible_element(page, 'screen-M30')).to_be_visible()
         page.goto(URL + '/profile')
@@ -278,7 +276,7 @@ with sync_playwright() as p:
         checks.append({'viewport': f'{width}x{height}', 'login_restore_logout': True,
                        'wrong_code_rejected': True, 'birthday_saved_and_cleared': True,
                        'native_date_bounds_and_future_guard': True, 'date_picker_cancel': True,
-                       'optional_gender': True,
+                       'required_gender': True,
                        'skip_and_cancel_preserve_profile': True, 'fixed_registration_actions': True,
                        'no_horizontal_overflow': True, 'preview_mutations_disabled': True,
                        'server_identity_preserved': True})

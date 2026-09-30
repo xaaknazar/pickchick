@@ -25,6 +25,7 @@ export interface CustomerTokens {
   customer: Customer;
 }
 export interface CustomerChallenge {
+  code_length: 4 | 6;
   channel: CustomerChannel;
   deliveryConsentVersion?: string;
   challenge_id: string;
@@ -149,6 +150,7 @@ function parseChallenge(
     (v.deliveryConsentVersion !== undefined &&
       (typeof v.deliveryConsentVersion !== 'string' ||
         !/^[A-Za-z0-9._-]{1,100}$/.test(v.deliveryConsentVersion))) ||
+    (v.code_length !== undefined && v.code_length !== 4 && v.code_length !== 6) ||
     (v.channel !== undefined && !isChannel(v.channel)) ||
     (v.channel ?? 'sms') !== expectedChannel ||
     typeof v.challenge_id !== 'string' ||
@@ -160,6 +162,7 @@ function parseChallenge(
     throw new CustomerSessionError('INVALID_RESPONSE');
   return {
     challenge_id: v.challenge_id,
+    code_length: v.code_length === 4 ? 4 : 6,
     channel: expectedChannel,
     ...(typeof v.deliveryConsentVersion === 'string'
       ? { deliveryConsentVersion: v.deliveryConsentVersion }
@@ -443,7 +446,8 @@ export class CustomerSessionCore {
     return this.serial(async () => {
       let s = this.current();
       if (!s.challenge) throw new CustomerSessionError('NO_CHALLENGE');
-      if (!/^\d{6}$/.test(code)) throw new CustomerSessionError('INVALID_CODE');
+      if (!/^\d+$/.test(code) || code.length !== s.challenge.code_length)
+        throw new CustomerSessionError('INVALID_CODE');
       if (!s.verify_intent) {
         if (!acceptedVersion || acceptedVersion !== this.config.consent_version)
           throw new CustomerSessionError('CONSENT_REQUIRED');
@@ -615,7 +619,7 @@ export class CustomerSessionCore {
     return this.serial(async () => {
       if (this.current().closing) throw new CustomerSessionError('LOGOUT_PENDING');
       const profile = normalizeProfileDetails(input, this.io.now());
-      if (!profile) throw new CustomerSessionError('INVALID_PROFILE');
+      if (!profile || profile.gender === null) throw new CustomerSessionError('INVALID_PROFILE');
       const v = object(
         await this.authenticated('/v1/customers/me', 'PATCH', {
           nickname: profile.nickname,

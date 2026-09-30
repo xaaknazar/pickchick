@@ -358,7 +358,7 @@ test('network errors keep the cached profile while authoritative refresh revocat
 test('birthday and nickname are saved on the server, then restored from secure storage', async () => {
   const f = fixture();
   await f.login();
-  await f.core.saveProfile({ nickname: 'Чики', birthDate: '2000-02-29', gender: null });
+  await f.core.saveProfile({ nickname: 'Чики', birthDate: '2000-02-29', gender: 'female' });
   await f.restart();
   await f.core.sync();
   assert.equal(f.core.customer.birth_date, '2000-02-29');
@@ -680,4 +680,40 @@ test('expired order access uses the current refreshed token and revoked identity
   );
   assert.equal(attempts, 1);
   assert.equal(f.core.customer, null);
+});
+
+test('four-digit Telegram code length persists across restart and legacy responses keep six', async () => {
+  const f = fixture();
+  const base = f.io.request;
+  f.io.request = async (path, method, body, token) => {
+    if (path === '/v1/auth/config')
+      return { ...(await base(path, method, body, token)), channels: ['telegram'] };
+    if (path.endsWith('/otp/request'))
+      return { ...(await base(path, method, body, token)), channel: 'telegram', code_length: 4 };
+    if (path.endsWith('/otp/verify')) {
+      assert.equal(body.code, '0123');
+      return base(path, method, { ...body, code: '938174' }, token);
+    }
+    return base(path, method, body, token);
+  };
+  await f.core.restore();
+  await f.core.requestCode(f.customer.phone, 'telegram');
+  await f.restart();
+  await f.core.sync();
+  assert.equal(f.core.challenge.code_length, 4);
+  await assert.rejects(f.core.verifyCode('012345', 'fixture-v1'), code('INVALID_CODE'));
+  await f.core.verifyCode('0123', 'fixture-v1');
+  await f.restart();
+  assert.equal(f.core.customer.id, f.customer.id);
+  await assert.rejects(
+    f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: null }),
+    code('INVALID_PROFILE'),
+  );
+  const legacy = fixture();
+  await legacy.core.restore();
+  await legacy.core.requestCode(legacy.customer.phone);
+  await legacy.restart();
+  await legacy.core.sync();
+  assert.equal(legacy.core.challenge.code_length, 6);
+  await legacy.core.verifyCode('938174', 'fixture-v1');
 });

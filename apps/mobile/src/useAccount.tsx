@@ -80,7 +80,7 @@ function message(error: unknown): string {
     return 'Не удалось прочитать или сохранить доступ на устройстве. Попробуйте ещё раз.';
   const messages: Record<string, string> = {
     INVALID_PHONE: 'Введите мобильный номер Казахстана.',
-    INVALID_CODE: 'Введите код из шести цифр.',
+    INVALID_CODE: 'Введите код полностью.',
     UNAUTHORIZED: 'Код не подошёл или доступ был отозван. Проверьте код либо войдите снова.',
     RATE_LIMITED:
       'Подождите перед повторным запросом. Лимит защищает ваш номер от лишних сообщений.',
@@ -138,6 +138,7 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
       core.challenge
         ? {
             phone: core.challenge.phone,
+            codeLength: core.challenge.code_length,
             expiresAt: Date.parse(core.challenge.expires_at),
             resendAt: Date.parse(core.challenge.resend_at),
             attemptsLeft: 5,

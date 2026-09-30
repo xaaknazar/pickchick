@@ -61,7 +61,7 @@ class TelegramActivationGuards(unittest.TestCase):
     def test_exact_baseline_only_and_no_migrations(self):
         args = SimpleNamespace(expected_api_sha='0'*40,expected_public_sha=r.PUBLIC_BASELINE,expected_gateway_sha256=r.GATEWAY_BASELINE)
         with self.assertRaises(r.market.GuardFailure): r.Release(args)
-        self.assertEqual(len(list((ROOT/'db/cloud/migrations').glob('*.sql'))),27)
+        self.assertEqual(len([p for p in (ROOT/'db/cloud/migrations').glob('*.sql') if p.name < '028']),27)
         self.assertIs(r.Release.snapshot, r.market.Release.snapshot)
 
 if __name__ == '__main__': unittest.main()

@@ -7,7 +7,7 @@ import {
 
 /** Local rehearsal only. This code never authenticates a phone with the API. */
 export const DEMO_ACCOUNT_KEY = 'pickchick.demo.profile.v1';
-export const DEMO_LOGIN_CODE = '123456';
+export const DEMO_LOGIN_CODE = '1234';
 export const DEMO_CODE_TTL_MS = 180_000;
 export const DEMO_RESEND_MS = 60_000;
 export const DEMO_CODE_ATTEMPTS = 5;
@@ -20,6 +20,7 @@ export interface DemoAccount {
   profile: DemoProfile;
 }
 export interface DemoChallenge {
+  codeLength: 4 | 6;
   phone: string;
   expiresAt: number;
   resendAt: number;
@@ -163,6 +164,7 @@ export class DemoAccountCore {
       throw new DemoLoginError('wait_to_resend');
     this.challenge = {
       phone,
+      codeLength: 4,
       expiresAt: now + DEMO_CODE_TTL_MS,
       resendAt: now + DEMO_RESEND_MS,
       attemptsLeft: DEMO_CODE_ATTEMPTS,
@@ -200,7 +202,7 @@ export class DemoAccountCore {
     if (!this.account) throw new DemoLoginError('no_account');
     const now = this.io.now();
     const details = normalizeProfileDetails(input, now);
-    if (!details || !Number.isSafeInteger(now) || now <= 0)
+    if (!details || details.gender === null || !Number.isSafeInteger(now) || now <= 0)
       throw new DemoLoginError('invalid_profile');
     const next: DemoAccount = { ...this.account, profile: { ...details, completedAt: now } };
     // The complete account is one storage write. Failure leaves the prior in-memory

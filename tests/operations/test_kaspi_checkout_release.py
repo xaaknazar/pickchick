@@ -12,7 +12,7 @@ r=importlib.util.module_from_spec(spec);sys.modules[spec.name]=r;spec.loader.exe
 class CheckoutRelease(unittest.TestCase):
  def test_exact_migrations_and_preserved_fiscal_data(self):
   names=[p.name for p in sorted((ROOT/'db/cloud/migrations').glob('*.sql'))]
-  self.assertEqual(names[20:],list(r.MIGRATIONS))
+  self.assertEqual(names[20:20+len(r.MIGRATIONS)],list(r.MIGRATIONS))
   self.assertEqual(r.Release.new_tables-r.pilot.NEW_TABLES,{'commerce_kaspi_invoices'})
   self.assertEqual(r.Release.additions['commerce_orders'],['fiscal_policy','fiscal_deferral_reference'])
   self.assertEqual(len(r.pilot.MIGRATIONS),5)

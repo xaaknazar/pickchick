@@ -59,11 +59,11 @@ with sync_playwright() as p:
                 response = {'challenge_id': '40000000-0000-4000-8000-000000000003',
                             'expires_at': (now + timedelta(minutes=3)).isoformat(),
                             'resend_at': (now + timedelta(minutes=1)).isoformat(),
-                            'delivery_status': 'submitted', 'channel': 'telegram'}
+                            'delivery_status': 'submitted', 'channel': 'telegram', 'code_length': 4}
             elif path == '/v1/auth/otp/verify':
                 assert body['consents'] == {'terms_version': 'fixture-v1',
                                             'privacy_version': 'fixture-v1', 'marketing_opt_in': False}
-                if body['code'] != '938174':
+                if body['code'] != '9381':
                     status = 401
                     response = {'code': 'UNAUTHORIZED', 'message_key': 'errors.unauthorized',
                                 'trace_id': '40000000-0000-4000-8000-000000000004', 'retryable': False}
@@ -122,7 +122,7 @@ with sync_playwright() as p:
         assert not any(call['path'] == '/v1/auth/otp/verify' for call in calls)
         assert page.evaluate('document.documentElement.scrollWidth') <= width + 1
         page.screenshot(path=str(OUTPUT / f'otp-{width}.png'))
-        visible(page, 'otp-input').fill('938174')
+        visible(page, 'otp-input').fill('9381')
         if width == 390:
             expect(page.get_by_text('Нет связи с сервером. Сохранённый вход останется на устройстве. Попробуйте ещё раз.', exact=True).filter(visible=True)).to_be_visible()
             pending = json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))
@@ -135,13 +135,16 @@ with sync_playwright() as p:
             page.goto(URL + '/auth?step=M03&returnTo=M30')
             expect(visible(page, 'otp-input')).to_be_editable()
             expect(visible(page, 'auth-consent')).to_have_count(0)
-            visible(page, 'otp-input').fill('938174')
+            visible(page, 'otp-input').fill('9381')
 
         expect(visible(page, 'screen-M04')).to_be_visible()
         if width == 390:
             assert len(verify_attempts) == 2
             assert verify_attempts[0] == verify_attempts[1]
         visible(page, 'nickname-input').fill('Проверка аккаунта')
+        expect(visible(page, 'nickname-save')).to_be_disabled()
+        visible(page, 'profile-gender-female').click()
+        page.screenshot(path=str(OUTPUT / f'profile-{width}.png'))
         visible(page, 'birthday-open').click()
         visible(page, 'birthday-picker-cancel').click(trial=True)
         visible(page, 'birthday-native-input').fill('2000-02-29')

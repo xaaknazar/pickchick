@@ -51,7 +51,7 @@ export const OtpRequestSchema = z
 export const OtpVerifySchema = z
   .object({
     challenge_id: Uuid,
-    code: z.string().regex(/^[0-9]{6}$/),
+    code: z.string().regex(/^(?:[0-9]{4}|[0-9]{6})$/),
     device_id: Uuid,
     request_id: Uuid,
     consents: z
@@ -78,7 +78,7 @@ export const CustomerPatchSchema = z
       )
       .optional(),
     birth_date: z.string().nullable().optional(),
-    gender: z.enum(['female', 'male']).nullable().optional(),
+    gender: z.enum(['female', 'male']).optional(),
     marketing_opt_in: z.boolean().optional(),
   })
   .strict()
@@ -109,6 +109,7 @@ export const OtpResponseSchema = z
     expires_at: z.iso.datetime(),
     resend_at: z.iso.datetime(),
     delivery_status: z.enum(['submitted', 'unknown']),
+    code_length: z.union([z.literal(4), z.literal(6)]).optional(),
     channel: OtpChannelSchema.optional(),
   })
   .strict();
