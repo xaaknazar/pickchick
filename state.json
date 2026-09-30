@@ -1350,9 +1350,9 @@
         "@vps",
         "@windows/cashier"
       ],
-      "status": "available",
+      "status": "active",
       "head": "31226c2ce6c54bfd34c9ed94914d8b287abaa9e5",
-      "updatedAt": "2026-09-30T10:55:55.183Z",
+      "updatedAt": "2026-09-30T11:08:01.048Z",
       "summary": "31226c2/PR154: exact Windows account supplied; pinned SSH endpoint reachable but domain-qualified login rejects operator public key too. No payment issued.",
       "nextAction": "Owner must reinstall the existing Mac public operator key on Windows, then retry SSH and continue commercial activation. Approved catalog/permissions checkpoint preserved."
     }
