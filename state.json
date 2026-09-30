@@ -1350,11 +1350,11 @@
         "@vps",
         "@windows/cashier"
       ],
-      "status": "active",
-      "head": "31226c2ce6c54bfd34c9ed94914d8b287abaa9e5",
-      "updatedAt": "2026-09-30T11:08:01.048Z",
-      "summary": "31226c2/PR154: exact Windows account supplied; pinned SSH endpoint reachable but domain-qualified login rejects operator public key too. No payment issued.",
-      "nextAction": "Owner must reinstall the existing Mac public operator key on Windows, then retry SSH and continue commercial activation. Approved catalog/permissions checkpoint preserved."
+      "status": "available",
+      "head": "8030295fe27bd0ec1c79e40ab1d541459a654391",
+      "updatedAt": "2026-09-30T11:27:21.034Z",
+      "summary": "8030295/PR154: cashier SSH restored; active schema014 backup restored and fingerprints of all38 tables verified, five orders retained. Mobile invoice vs later physical POS terminal separation recorded. Root-only tunnel installer prepared and checked against VPS sshd; owner console action pending. No invoices issued.",
+      "nextAction": "After owner runs prepared VPS tunnel installer, configure protected Windows fulfillment service and cloud commercial scope/catalog/account, pass release CI, then one approved100 KZT invoice. CI6ea2d60 failed before steps; do not report green. Preserve POS unpaid_service, PINs and history."
     }
   ]
 }
