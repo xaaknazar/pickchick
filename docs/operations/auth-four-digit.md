@@ -22,11 +22,15 @@
 
 ## Проверки
 
-31 PostgreSQL-сценарий identity; 222 Node и 30 Python mobile; 21 проверка доставки.
+31 PostgreSQL-сценарий identity; 222 Node и 30 Python mobile; 113 unit (включая
+21 проверку доставки); 58 release guard проверок. Build/typecheck/lint/format,
+генерируемые контракты и дизайн-каталог согласованы.
 Browser HTTP fixtures 320/390/430: четыре ячейки, автопроверка, повтор после потерянного
 ответа, обязательный пол, сохранение даты, повторное открытие с той же сессией, выход.
 Скриншоты проверены: `.local/customer-auth-ui/registration-{width}.png`, `otp-390.png`.
+Также прошли demo onboarding и guest-gate/возврат в корзину после входа.
 Это локальные синтетические проверки, без отправки кода реальному клиенту.
+PickChick Dev iOS manifest/bundle HTTP 200; физическая приёмка отдельно.
 
 ## Выпуск
 
