@@ -47,7 +47,7 @@ def swipe(page, dx, dy, outside_board=False):
 
 with sync_playwright() as p:
     b=p.chromium.launch()
-    page=open_page(b,'/events',guest=True)
+    page=open_page(b,'/events')
     expect(page.get_by_test_id('events-games')).to_be_visible(timeout=20000)
     def y(test):return page.get_by_test_id(test).bounding_box()['y']
     assert y('events-combo-reward')<y('events-games')<y('pick-blocks-open')<y('pick-man-open')
@@ -58,9 +58,16 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     page.screenshot(path=str(OUTPUT/'events-games.png'))
     page.get_by_test_id('pick-man-open').click()
-    expect(page.get_by_test_id('account-required-login')).to_be_visible()
-    assert page.get_by_test_id('pick-man-start').count()==0
+    expect(page.get_by_test_id('pick-man-start')).to_be_visible()
     page.context.close()
+
+    # Auth v3 protects Events as well as the direct game route. Keep guest
+    # coverage separate from the signed-in Events composition assertion.
+    for route in ['/events', '/games/pick-man']:
+        page=open_page(b,route,guest=True)
+        expect(page.get_by_test_id('account-required-login')).to_be_visible(timeout=20000)
+        assert page.get_by_test_id('pick-man-start').count()==0
+        page.context.close()
 
     page=open_page(b)
     expect(page.get_by_test_id('pick-man-start')).to_be_visible(timeout=20000)
