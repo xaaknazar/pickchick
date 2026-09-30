@@ -1348,11 +1348,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps",
-        "@windows/cashier"
+        "@windows/cashier",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
-      "head": "eeff0003d2a8bae22d0e3ff35c840bacb6cace2c",
-      "updatedAt": "2026-09-30T14:30:36.364Z",
+      "head": "4e5520aea7d4510e6d507e46995ec9ec4785662b",
+      "updatedAt": "2026-09-30T14:59:16.907Z",
       "summary": "eeff000 в shared; API/Edge1c9d9d4 установлены после CI36721976510. 38 таблиц/5 POS заказов сохранены; routingv2/workers работают. Реальный100₸ оплачен, один capture, №6 preparing. pnpm check,46 Kaspi,4 deployment,guest browser прошли. Parser суммы100₸ исправлен; его постоянная установка ожидает CI.",
       "nextAction": "Не повторять счет/onboarding/installers. После CIeeff000 заменить только Kaspi worker image, API/Edge1c сохранить. Подтвердить №6 на физических экранах. Checkout пока owner100₸/один заказ, Webkassa deferred. См. docs/operations/kaspi-live-activation.md."
     }
