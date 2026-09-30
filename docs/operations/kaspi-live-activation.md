@@ -215,7 +215,22 @@ Only one named customer and10000 minor units are accepted in the protected pilot
 config. It enables private fulfillment and authenticated checkout, without starting
 the bank worker or issuing an invoice. It verifies the exact expected ACL in a
 rollback-only transaction, preserving all data and rejecting money-write privileges
-for the HTTP application. Three release-boundary tests passed.
+for the HTTP application. Four release-boundary tests passed.
 
 The100₸ limit is lower than normal menu prices. A separately recorded control
 quote is still required; do not change all menu prices or silently raise the cap.
+
+### Вход при быстром заполнении номера
+
+Foundation CI36717990315 и36718049101 остановились на `browser_account_required`:
+при быстром заполнении номера challenge создавался до завершения анимации,
+а заблокированный переход терял открытие OTP. На обычном локальном прогоне
+ошибка не повторилась; принудительное раннее автозаполнение воспроизвело её
+в обоих режимах анимации, повтор возвращал ожидание нового кода.
+
+Кнопка отправки теперь учитывает `readyForInput`; номер сохраняется, отправка
+доступна после перехода. Добавлена браузерная проверка раннего автозаполнения
+и единственной успешной отправки для обычного и reduced motion режимов.
+Полный локальный `browser_account_required` прошёл, API-запросов на запись нет.
+Новый исходный коммит должен пройти полный CI до установки. Предыдущая
+подготовка immutable API/Windows ZIP не означает выполненную активацию.

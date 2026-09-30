@@ -78,6 +78,7 @@ export function Phone(props: ScreenProps) {
   const valid = !!canonical;
   const canContinue =
     account.ready &&
+    readyForInput &&
     !account.busy &&
     valid &&
     available &&

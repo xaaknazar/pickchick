@@ -1,7 +1,11 @@
 # Продолжение: перенос Kaspi на VPS
 
+CI bbe0b8c не прошла browser_account_required: подтверждена гонка автозаполнения
+и анимации. Исправлен readyForInput, локальный browser прошёл; ждать полного CI
+нового коммита. Подготовленные bbe artifacts не установлены, счета отсутствуют.
+
 Новый checkpoint: подготовлены `update-native-active-app.ps1` и
-`release-mobile-kaspi.py`, без применения. Parser Windows5.1 и3 теста границ
+`release-mobile-kaspi.py`, без применения. Parser Windows5.1 и4 теста границ
 профиля прошли. Bank session active; API черезтуннель ready. Новый профиль
 требует отдельный приватный owner checkout env, прежние auth/backup/CI доказательства.
 Лимит100₸ сохраняется; нормальный прайс не уменьшается.

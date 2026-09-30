@@ -83,6 +83,43 @@ with sync_playwright() as p:
             assert all(frame['transform'] in ['none', 'matrix(1, 0, 0, 1, 0, 0)'] for frame in frames), frames
         expect(page.get_by_test_id('phone-input')).to_have_count(1)
         context.close()
+    # Autofill may complete before the sheet entry animation. Sending then used
+    # to create a challenge while navigation was still locked, stranding login.
+    for preference in ['no-preference', 'reduce']:
+        context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion=preference)
+        context.route('**/v1/**', route_api)
+        page = context.new_page()
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.goto(URL + '/auth?returnTo=M30')
+        expect(visible(page, 'account-required-login')).to_be_visible()
+        page.evaluate('''() => {
+          window.earlySubmit = null;
+          const timer = setInterval(() => {
+            const phone = document.querySelector('[data-testid="phone-input"]');
+            if (!phone) return;
+            clearInterval(timer);
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')
+              .set.call(phone, '7000000000');
+            phone.dispatchEvent(new Event('input', {bubbles: true}));
+            requestAnimationFrame(() => {
+              const button = document.querySelector('[data-testid="request-otp"]');
+              window.earlySubmit = {
+                opacity: Number(getComputedStyle(document.querySelector('[data-testid="auth-step-transition"]')).opacity),
+                disabled: button.getAttribute('aria-disabled')
+              };
+              button.click();
+            });
+          }, 1);
+          document.querySelector('[data-testid="account-required-login"]').click();
+        }''')
+        page.wait_for_function('window.earlySubmit !== null')
+        early = page.evaluate('window.earlySubmit')
+        assert early['opacity'] < .99 and early['disabled'] == 'true', early
+        expect(visible(page, 'request-otp')).to_be_enabled()
+        visible(page, 'request-otp').click()
+        expect(visible(page, 'otp-input')).to_be_visible()
+        expect(visible(page, 'demo-auth-error')).to_have_count(0)
+        context.close()
     for destination, target in [('/games/pick-man', 'pick-man-start'), ('/games/pick-blocks', 'blocks-start'),
                                 ('/screen/M12', 'test-checkout-create')]:
         context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
