@@ -1109,11 +1109,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "tests/operations",
-        "@vps"
+        "@vps",
+        "tests/mobile/browser_pick_man.py"
       ],
       "status": "active",
-      "head": "f7c9b830cff4f96084d85109dc28241d83d3a29a",
-      "updatedAt": "2026-09-30T06:49:04.936Z"
+      "head": "5287675ffce7cfd7629f780dff76444383be79ba",
+      "updatedAt": "2026-09-30T07:20:58.676Z"
     }
   ]
 }
