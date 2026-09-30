@@ -1214,3 +1214,102 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
     },
     { paymentProvider: 'kaspi-remote' },
   ));
+
+test('checkout runtime can quote/create/read but cannot forge payment or publish prices', () =>
+  fixture(
+    async (f) => {
+      const { customerCheckoutGrants } = await import('../../../infra/staging/checkout-grants.mjs');
+      await publishCatalog(f);
+      await f.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+      );
+      const role = 'checkout_' + randomUUID().replaceAll('-', '');
+      await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+      let runtime;
+      try {
+        await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+        const { fulfillmentTransportGrants } =
+          await import('../../../infra/staging/fulfillment-transport-grants.mjs');
+        const { backofficeGrants } = await import('../../../infra/staging/backoffice-grants.mjs');
+        await f.pool.query(fulfillmentTransportGrants(role, true));
+        await f.pool.query(backofficeGrants(role, false));
+        await f.pool.query(customerCheckoutGrants(role, true));
+        await f.pool.query(orderRecipeGrants(role));
+        const url = new URL(f.url);
+        url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
+        runtime = createPool(url.toString(), 2);
+        const service = new CustomerCheckout(runtime, {
+          ...f.scope,
+          paymentAccountId: f.payment,
+          customerIds: [f.scope.principalId],
+          maxOrderMinor: '10000',
+          approvalReference: 'Synthetic pilot',
+        });
+        const customer = f.scope.principalId;
+        assert.equal((await service.config(customer)).enabled, true);
+        const quote = await service.quote(customer, {
+          key: randomUUID(),
+          branchId: f.scope.branchId,
+          serviceMode: 'takeaway',
+          items: [{ productId: 'burger', quantity: 1, selections: [] }],
+        });
+        const request = { key: randomUUID(), quoteId: quote.quoteId };
+        const a = await service.create(customer, request);
+        assert.equal(a.phase, 'awaiting_restaurant');
+        assert.equal((await service.create(customer, request)).orderId, a.orderId);
+        assert.equal((await service.list(customer)).orders.length, 1);
+        await assert.rejects(service.pay(customer, a.orderId), /NOT_READY/);
+        // Trusted edge fixture; the customer role cannot assert admission.
+        const stored = await f.repo.readOrder(f.scope, a.orderId);
+        const reservationId = randomUUID();
+        await f.repo.confirmAdmission(f.edge, {
+          eventId: randomUUID(),
+          orderId: a.orderId,
+          reservationId,
+          quoteDigest: digest(stored.snapshot),
+        });
+        await f.pool.query(
+          `INSERT INTO cloud_fulfillment_projection(order_id,branch_id,organization_id,device_id,reservation_id,quote_id,quote_hash,owner_hash,version,state,routing_version,payload)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,'held',1,'{}')`,
+          [
+            a.orderId,
+            f.scope.branchId,
+            f.scope.organizationId,
+            f.edge.deviceId,
+            reservationId,
+            quote.quoteId,
+            digest(stored.snapshot),
+          ],
+        );
+        assert.equal((await service.pay(customer, a.orderId)).phase, 'sending');
+        await service.pay(customer, a.orderId);
+        assert.equal(await f.count('commerce_payment_attempts'), 1);
+        for (const sql of [
+          'DELETE FROM commerce_orders',
+          'UPDATE commerce_quotes SET total_minor=1',
+          'UPDATE commerce_provider_accounts SET enabled=false',
+          'INSERT INTO commerce_captures DEFAULT VALUES',
+          'INSERT INTO commerce_provider_inbox DEFAULT VALUES',
+          'UPDATE catalog_branch_heads SET published_version=1',
+          "UPDATE commerce_kaspi_invoices SET state='paid'",
+        ])
+          await assert.rejects(runtime.query(sql), /permission denied/);
+        await f.pool.query(customerCheckoutGrants(role, false));
+        await assert.rejects(
+          service.quote(customer, {
+            key: randomUUID(),
+            branchId: f.scope.branchId,
+            serviceMode: 'takeaway',
+            items: [{ productId: 'burger', quantity: 1, selections: [] }],
+          }),
+          /permission denied/,
+        );
+      } finally {
+        await runtime?.end();
+        await f.pool.query(`DROP OWNED BY ${role}`);
+        await f.admin.query(`DROP ROLE ${role}`);
+      }
+    },
+    { paymentProvider: 'kaspi-remote' },
+  ));

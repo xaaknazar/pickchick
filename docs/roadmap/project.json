@@ -1892,7 +1892,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "API83faf7b/schema028 установлен, auth включён: 1 реальный профиль/1 сессия. Pilot=false, commercial accounts/catalog/bindings/orders/invoices отсутствуют. UI различает отсутствие допуска и неготовность ресторана. Реальная оплата и физическая кухня не приняты.",
+      "summary": "Bank session active подтверждена; владелец включил кассу и утвердил цены/доплаты текущего Dev. Подготовлены checkout/worker runtime grants, Docker companion и закреплённый каталог24/31. Реальная оплата и физическая доставка ещё не приняты.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1929,13 +1929,17 @@
         {
           "label": "Итог оформления и фактическая причина блокировки Kaspi",
           "path": "docs/operations/checkout-kaspi-total.md"
+        },
+        {
+          "label": "Активация, одобренный прайс и runtime права",
+          "path": "docs/operations/kaspi-live-activation.md"
         }
       ],
       "acceptance": [
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Подготовить проверенный AILILLU catalog, provider account/grants/allowlist существующего customer и включённый edge. Для согласованного счёта100₸ нужна контрольная корзина без подмены цен. Владелец включит моноблок позже. Webkassa отложена.",
+      "nextAction": "Восстановить SSH кассы (TCP22 доступен, ключ отклонён), прочитать local scope, настроить seller/account/catalog/transport. После admission - согласованный100₸ через ledger. Webkassa отложена.",
       "checks": {
         "implemented": true,
         "verified": false,

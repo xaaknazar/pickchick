@@ -1,5 +1,9 @@
 # Продолжение: перенос Kaspi на VPS
 
+## Текущий этап: kaspi-live-activation
+
+Области @vps/@windows/cashier заняты этой задачей. Касса включена, новый IP в приватном контексте; SSH fingerprint совпал, ключ для «Админ» отклонён, ожидается whoami. Bank session active. Новое решение владельца: цены/доплаты текущего Dev, снимок hash-pinned. Подготовлены checkout/worker grants и Docker companion; локально проверены. Не включать pilot без физического admission и настройки scope. [Продолжение](../operations/kaspi-live-activation.md).
+
 ## Текущий этап: profile-cleanup
 
 По решению владельца убраны QR кассы, приглашение друга и review-галерея.

@@ -1,0 +1,29 @@
+# Use an exact CI-verified API image. Connect the existing bridge to the private
+# staging network before starting this companion; never publish port 3931.
+name: pickchick-kaspi-worker
+services:
+  worker:
+    image: pickchick-api:${API_RELEASE_SHA:?Set verified API SHA}
+    container_name: pickchick-kaspi-worker
+    network_mode: container:pickchick-kaspi-bridge
+    user: '1000:1000'
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    command:
+      - node
+      - --env-file=/run/pickchick/worker.env
+      - --env-file=/run/pickchick/session.env
+      - services/api/dist/kaspi-remote-worker.js
+    volumes:
+      - ${KASPI_SECRETS_DIR:?Set protected directory}/worker.env:/run/pickchick/worker.env:ro
+      - ${KASPI_SECRETS_DIR:?Set protected directory}/session.env:/run/pickchick/session.env:ro
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }

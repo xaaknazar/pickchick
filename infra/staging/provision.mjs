@@ -6,6 +6,8 @@ import { backofficeGrants } from './backoffice-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 import { cloudPosSyncGrants } from './pos-sync-grants.mjs';
+import { customerCheckoutGrants } from './checkout-grants.mjs';
+import { customerCheckoutOptions } from '../../packages/commerce-core/dist/index.js';
 
 async function provision() {
   const config = loadConfig('api');
@@ -91,6 +93,10 @@ async function provision() {
       );
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
+      // Validate the complete owner/branch policy before enabling checkout privileges.
+      await client.query(
+        customerCheckoutGrants('pickchick_app', customerCheckoutOptions(process.env) !== null),
+      );
       if (config.testOrderFlowEnabled)
         await client.query('GRANT INSERT ON bo_records TO pickchick_app');
     });

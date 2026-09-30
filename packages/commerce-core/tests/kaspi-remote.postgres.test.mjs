@@ -202,6 +202,10 @@ async function fixture(run, deferred = false) {
         [seconds],
       );
     await run({
+      schema,
+      url,
+      admin,
+      config,
       pool,
       repo,
       scope,
@@ -724,3 +728,58 @@ test('ordinary Kaspi orders still wait for a real fiscal receipt before kitchen 
     assert.equal(paid.fiscalDocuments.length, 1);
     assert.equal(paid.kitchenEffectId, null);
   }));
+
+test('restricted bank worker records one capture and cannot rewrite money or customer sessions', () =>
+  fixture(async (f) => {
+    const { kaspiWorkerGrants } = await import('../../../infra/staging/checkout-grants.mjs');
+    const role = 'kaspi_worker_' + randomUUID().replaceAll('-', '');
+    await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      await f.pool.query(kaspiWorkerGrants(role, true));
+      const url = new URL(f.url);
+      url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 2);
+      const { orderId, attempt } = await f.order();
+      const worker = new KaspiRemoteProcessor(
+        runtime,
+        f.config,
+        f.bridge,
+        async () => '+77011234567',
+      );
+      const submitted = await worker.tick();
+      assert.equal(submitted.errors, 0);
+      assert.equal(submitted.submitted, 1);
+      assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
+      f.bridge.status.set('700000', 'Processed');
+      await f.due();
+      assert.equal((await worker.tick()).errors, 0);
+      assert.equal((await f.view(orderId)).captures.length, 1);
+      assert.equal((await f.view(orderId)).fiscalDocuments.length, 0);
+      await worker.tick();
+      assert.equal(f.bridge.count('create'), 1);
+      for (const sql of [
+        'UPDATE commerce_captures SET amount_minor=1',
+        'DELETE FROM commerce_captures',
+        'INSERT INTO commerce_orders DEFAULT VALUES',
+        'UPDATE commerce_orders SET total_minor=1',
+        'UPDATE commerce_provider_accounts SET enabled=false',
+        'SELECT * FROM identity_sessions',
+        'SELECT * FROM identity_customers',
+        'UPDATE identity_customers SET deleted_at=clock_timestamp()',
+        'INSERT INTO commerce_refund_effects DEFAULT VALUES',
+      ])
+        await assert.rejects(runtime.query(sql), /permission denied/);
+      await f.pool.query(kaspiWorkerGrants(role, false));
+      await assert.rejects(
+        runtime.query('SELECT phone_cipher FROM identity_customers'),
+        /permission denied/,
+      );
+      await assert.rejects(worker.tick(), /permission denied/);
+    } finally {
+      await runtime?.end();
+      await f.pool.query(`DROP OWNED BY ${role}`);
+      await f.admin.query(`DROP ROLE ${role}`);
+    }
+  }, true));
