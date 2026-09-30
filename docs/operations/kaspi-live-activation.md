@@ -346,3 +346,42 @@ Processed/10000 тиын, нормализовала формат и испол�
 CI36729039488 остановлена лимитом30 минут на account/checkout browser step,
 не является зелёной. Лимит основного job увеличен до45 минут без пропуска тестов.
 Новый source checkpoint должен пройти полный прогон до установки.
+
+### Повторная оплата установлена и доступна владельцу
+
+30 сентября, после [Foundation CI36733310517](https://github.com/xaaknazar/pickchick/actions/runs/36733310517)
+(все6 jobs success) установлен точный исходник
+`e752c8ea92784ecf5716a3e26c384a39ab3e63bc`. Windows package и roadmap проверки
+этого исходника тоже успешны. Подготовленные 4e5520a артефакты не устанавливались.
+
+Сначала заменён только `pickchick-kaspi-worker` на immutable API image
+`sha256:6eda692f2ad300d2acfb021b5d421d49560e09153d897d28782055c93e9eb37f`.
+Сохранились банк/сессия/сеть и соседние container IDs. `--once`: submitted0,
+checked0,errors0,sessionProblem:false; read-only банковский ответ Processed/100₸
+прошёл новый kaspiMinor=10000. Ledger остался1attempt/1invoice/1capture10000.
+Worker compose/completed proof находятся в отдельном kaspi-companion каталоге
+этого SHA. Не возвращать worker к1c9d9d4: он не понимает этот формат Amount.
+
+Затем `release-owner-kaspi.py apply` включил API того же SHA с отдельным
+customer-kaspi-repeat.env: прежний allowlist одного владельца, продавец/точка,
+цены Dev, repeat=true, максимум100000₸ за заказ. Перед переключением выполнены
+maintenance, encrypted backup и изолированное восстановление; совпали все
+отпечатки данных, schema028 и права. Backup SHA256
+`998025b134c4abecc112d2fe1a8f00cf16c541c3e5340ccacdeb032961749942`.
+Старый API image проверен на совместимость для отката. Соседние сервисы и Windows
+не переустанавливались; публичный gateway проверен по реальным mounts и хешам.
+
+Проверка на живом API под штатной ограниченной ролью подтвердила
+ownerCheckoutEnabled:true,repeatOrders:true и quoteTotalMinor=239000 (бургер2390₸).
+Создан только расчёт цены; новых заказов, попыток оплаты или счетов нет.
+История сохранила первую оплату100₸. Telegram config enabled:true/channels:[telegram],
+анонимный customer-checkout/config возвращает401, kitchen health edgeConnected:true.
+Общий public checkout/payments=false сохраняется: включён именно owner-пилот.
+Webkassa отложена; банковская оплата не выдаётся за фискальный чек.
+
+Владелец отдельно подтвердил на физическом iPhone: крестик слева и меню справа
+в статусе заказа теперь полностью видны и удобны. Новый обычный платёж по полной
+цене пользователь ещё не подтвердил. Для него закрыть/открыть оформление в Dev
+и выбрать Kaspi; повторного входа не требуется. Не выставлять второй контрольный
+счёт автоматически. Результаты сборки/выдачи первого commercial №6 всё ещё требуют
+сверки: ранее пользователь мог переключать другой заказ с тем же номером.

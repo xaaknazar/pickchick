@@ -1,13 +1,24 @@
-# Продолжение: открыть обычную оплату владельцу
+# Актуально: повторные Kaspi-заказы владельцу включены
 
-Подготовлен release-owner-kaspi.py: repeat opt-in только существующему owner,
-100000₸ на заказ, прежний продавец/точка, без Webkassa. Пока НЕ установлен.
-Меню исправлено (смешанные read-only/commercial branches), quote использует
-server config branchId, история статуса открывается в безопасном OrderSheet.
-Нужны полная CI нового исходника, prepare/apply профиля и повторное чтение
-owner config/quote. Первый счёт не повторять. Моноблок по VPS kitchen health
-подключён; локальный SSH с Mac временно недоступен. Пользователь уточнил,
-что подтверждения сборки/готовности могли относиться к другому №6.
+30 сентября, VPS API/банковский worker `e752c8e` установлены после полной
+CI36733310517 (6/6); Windows Edge остаётся1c9d9d4, routing v2 сохранён.
+Owner repeat включён отдельным customer-kaspi-repeat.env: прежний один customer,
+продавец/Abay Plaza, цены Dev, максимум100000₸. Webkassa отложена, общий checkout
+закрыт. Живой owner config.enabled=true; quote бургера239000minor прошёл.
+Новых счетов/заказов не создано: ledger1order/1attempt/1invoice/1capture10000minor.
+Worker принял реальный bank Processed/100₸ новой строгой нормализацией; ошибок0.
+
+Guarded apply сохранил schema028, все данные/ACL/сессии; encrypted backup +
+isolated restore passed. Kitchen health edgeConnected:true. Worker companion:
+/opt/pickchick-staging/kaspi-companion/e752c8ea92784ecf5716a3e26c384a39ab3e63bc.
+Не повторять onboarding, первый платёж, установку туннеля или старые apply-профили:
+их baseline уже устарел. Секреты и банковская сессия остаются на текущих местах.
+
+Меню и commercial quote branch исправлены; владелец на iPhone подтвердил
+положение кнопок статуса. Следующий шаг - инициированный владельцем обычный заказ
+в Dev, сверка именно его bank/order/edge IDs до выдачи; не путать одинаковые №6
+в прежней тестовой и коммерческой истории. Фискализация и публичное открытие отдельно.
+Подробности: ../operations/kaspi-live-activation.md. Нижние записи исторические.
 
 # Продолжение: первый Kaspi-платёж подтверждён
 
