@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-29T06:25:07Z",
+  "updatedAt": "2026-09-30T05:31:21.772926Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -1880,7 +1880,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "30 сентября: единый экран героя после оплаты и автоматическая отправка одного счёта после согласия/admission. Подготовлен guarded release020→027 (ещё не установлен). Реализован отключённый по умолчанию customer checkout: серверная цена, восстановление заказа, Kaspi UI, long poll, явный deferred fiscal pilot. Локально 48 commerce + 15 transport сценариев и UI 320/393/768. PickChick Dev запущен с Kaspi UI; iOS bundle HTTP 200, открытие телефона остановлено блокировкой устройства. Backend checkout пока HTTP 404; реальный денежный прогон и выкладка checkout ещё не выполнены.",
+      "summary": "30 сентября: задание дизайнеру, единый прежний экран героя после оплаты и одна отправка счёта после согласия/admission. Guarded release020→027 подготовлен; apply не запускался: CI36671326401 прошла функциональные проверки, но остановилась на high advisory brace-expansion. Закреплена исправленная 5.0.11, локальный audit high проходит (4 moderate остаются). Нужна повторная полная CI. 48 commerce + 15 transport сценариев, UI320/393/768, iOS Dev bundle HTTP200. API checkout пока404; реальные счета не создавались.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1911,7 +1911,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Guarded schema020→027/API/worker grants, публикация коммерческого меню, identity владельца и штатный edge transport. Затем один согласованный счёт 100 ₸ через ledger. Мост на VPS активен; checkout ещё не установлен. Webkassa отложена; обычная фискальная защита сохранена.",
+      "nextAction": "Получить green exact-SHA CI и установить отключённый API/schema027. Затем завершить legal/identity, каталог, grants/owner allowlist и edge transport; кассовый моноблок выключен. Один согласованный счёт100 ₸ - только после готовности кухни. Webkassa отложена; обычная фискальная защита сохранена.",
       "checks": {
         "implemented": true,
         "verified": false,
