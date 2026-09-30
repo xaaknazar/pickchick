@@ -102,7 +102,7 @@ def extend_gateway(text, outer_ip):
     return text.replace('\t@health {',block+'\n\t@health {',1)
 
 
-def verify_acl(before, after):
+def verify_acl(before, after, auth_enabled=True):
     require(all(row in after for row in before),'Existing runtime privilege removed')
     expected = {'test_service_shifts':{'SELECT'},
                 'test_service_shifts_sequence_seq':{'USAGE'},
@@ -116,6 +116,8 @@ def verify_acl(before, after):
                 'identity_deletions':{'SELECT','INSERT'},
                 'identity_customer_test_actors':{'SELECT','INSERT'},
                 'test_combo_stamps':{'SELECT','INSERT'}}
+    if not auth_enabled:
+        expected = {k:v for k,v in expected.items() if not k.startswith('identity_')}
     allowed = {(name,p) for name,ps in expected.items() for p in ps}|{('bo_records','INSERT')}
     for row in after:
         if row not in before:
@@ -221,11 +223,14 @@ p.write_text(json.dumps(m,indent=2)+'\\n');print(json.dumps(m))
                    'sequences':[s for s in after['sequences'] if s['sequencename'] not in self.profile.new_sequences]}
         preserved['tables']['schema_migrations']=before['data']['tables']['schema_migrations']
         market.compare_existing(before['data'],preserved)
-        verify_acl(before['acl'],self.acl())
+        self.verify_runtime_acl(before['acl'],self.acl())
         require(self.psql(market.DB,"SELECT count(*) FROM test_combo_stamps")=='0','Historical practice stamps adopted')
         require(self.psql(market.DB,"SELECT count(*) FROM identity_customer_test_actors")=='0','Anonymous customer ownership adopted')
         require(self.psql(market.DB,"SELECT count(*) FROM identity_otp_challenges WHERE delivery_channel<>'sms' OR delivery_provider IS NOT NULL OR delivery_reference IS NOT NULL OR delivery_consent_version IS NOT NULL")=='0','Historical OTP consent or channel fabricated')
         require(self.psql(market.DB,"SELECT count(*) FROM test_order_numbers n JOIN test_service_shifts s ON s.id=n.shift_id WHERE s.state<>'closed' OR s.branch_id<>n.branch_id OR (s.opened_at AT TIME ZONE (SELECT timezone FROM branches WHERE id=n.branch_id))::date<>n.business_date OR n.number>s.last_number")=='0','Historical shift numbering changed')
+
+    def verify_runtime_acl(self, before, after):
+        verify_acl(before, after)
 
     def verify_capabilities(self,caps):
         require(caps['data_mode']=='pilot' and caps['features']['phone_auth'] is True and caps['features'].get('unpaid_test_orders') is True and caps['ordering_enabled'] is False,'Wrong pilot capabilities')

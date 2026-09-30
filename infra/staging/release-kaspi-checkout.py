@@ -19,7 +19,9 @@ MIGRATIONS = pilot.MIGRATIONS + ('026_cloud_kaspi_remote.sql', '027_cloud_deferr
 
 def extend_checkout(text):
     require('@customer_checkout' not in text and text.count('\t@health {') == 1, 'Checkout gateway baseline differs')
-    text = text.replace('not path /v1/auth/*', 'not path /v1/customer-checkout/* /v1/auth/*', 1)
+    marker = 'not path /v1/auth/*' if 'not path /v1/auth/*' in text else 'not path /v1/content/*'
+    require(text.count(marker) == 1, 'Data header boundary differs')
+    text = text.replace(marker, marker.replace('not path ', 'not path /v1/customer-checkout/* '), 1)
     block = '''
 \t@customer_checkout_preflight {
 \t\tmethod OPTIONS
@@ -72,13 +74,33 @@ class Release(pilot.Release):
         return pilot.BASELINE
 
     def prepare_api(self, target):
-        super().prepare_api(target)
+        if self.args.enable_customer_auth:
+            super().prepare_api(target)
+        else:
+            # Preserve disabled identity; do not publish unfinished legal documents.
+            source=(market.REPO/'infra/staging/compose.yaml').read_text()
+            self.remote('python3 -c '+pilot.quote('from pathlib import Path;import sys;Path(sys.argv[1]).write_text(sys.stdin.read())')+' '+pilot.quote(target+'/infra/staging/compose.yaml'),input=source)
         # Explicitly disabled until a separately reviewed owner/merchant/edge activation.
         command = "from pathlib import Path;import sys;p=Path(sys.argv[1]);s=p.read_text();assert s.count('      APP_ENV: staging')==2;p.write_text(s.replace('      APP_ENV: staging','      CUSTOMER_KASPI_PILOT_ENABLED: \\\"false\\\"\\n      APP_ENV: staging'))"
         self.remote('python3 -c '+pilot.quote(command)+' '+pilot.quote(target+'/infra/staging/compose.yaml'))
 
     def gateway_candidate(self, text):
-        return extend_checkout(super().gateway_candidate(text))
+        return extend_checkout(super().gateway_candidate(text) if self.args.enable_customer_auth else text)
+
+    def prepare_public(self, target, manifest):
+        return super().prepare_public(target, manifest) if self.args.enable_customer_auth else manifest
+
+    def prepared_artifacts(self, manifest):
+        return super().prepared_artifacts(manifest) if self.args.enable_customer_auth else market.Release.prepared_artifacts(self, manifest)
+
+    def verify_runtime_acl(self, before, after):
+        pilot.verify_acl(before, after, self.args.enable_customer_auth)
+
+    def verify_capabilities(self, caps):
+        if self.args.enable_customer_auth:
+            super().verify_capabilities(caps)
+        else:
+            pilot.daily.Release.verify_capabilities(self, caps)
 
     def verify_data(self, before):
         super().verify_data(before)
@@ -86,7 +108,10 @@ class Release(pilot.Release):
         require(self.psql(market.DB, "SELECT count(*) FROM commerce_orders WHERE fiscal_policy<>'required' OR fiscal_deferral_reference IS NOT NULL") == '0', 'Existing fiscal protection changed')
 
     def verify_public(self):
-        super().verify_public()
+        if self.args.enable_customer_auth:
+            super().verify_public()
+        else:
+            require(self.http_json('/kitchen-live/health')['sourceSha']==self.kitchen_before['sourceSha'],'Kitchen bridge was replaced')
         for path in ['/v1/customer-checkout/config', '/v1/customer-checkout/orders']:
             require(self.http(path)[0] == 401, 'Anonymous checkout access or missing route')
         require(self.http('/v1/customer-checkout/orders', method='POST')[0] == 401, 'Anonymous order accepted')
@@ -98,9 +123,12 @@ def main():
     for name in ['sha','branch','expected-api-sha','expected-public-sha','expected-gateway-sha256']:
         parser.add_argument('--'+name, required=True)
     for name in ['ssh-key','backup-identity','ci-proof','auth-env','legal-dir']:
-        parser.add_argument('--'+name, type=Path, required=name in ['ssh-key','auth-env','legal-dir'])
+        parser.add_argument('--'+name, type=Path, required=name == 'ssh-key')
     parser.add_argument('--ci-run')
+    parser.add_argument('--enable-customer-auth', action='store_true', help='Requires completed approved legal pages; off by default')
     args = parser.parse_args()
+    if args.enable_customer_auth:
+        require(args.auth_env is not None and args.legal_dir is not None, 'Identity needs approved documents and protected settings')
     release = Release(args)
     try:
         with release.deployment_lock():

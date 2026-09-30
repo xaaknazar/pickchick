@@ -33,6 +33,16 @@ class CheckoutRelease(unittest.TestCase):
   for marker in ['\t@health {','\t@test_post {']:
    self.assertEqual(auth[auth.index(marker):],new[new.index(marker):])
   with self.assertRaises(r.market.GuardFailure):r.extend_checkout(new)
+ def test_disabled_auth_does_not_publish_legal_or_secret_files(self):
+  from types import SimpleNamespace
+  obj=object.__new__(r.Release);obj.args=SimpleNamespace(enable_customer_auth=False)
+  manifest={'source_sha':'a'*40}
+  self.assertIs(obj.prepare_public('/unused',manifest),manifest)
+  old=(ROOT/'infra/public-staging/gateway.Caddyfile').read_text()
+  new=obj.gateway_candidate(old)
+  self.assertNotIn('@pilot_auth',new)
+  self.assertIn('@customer_checkout',new)
+  self.assertIn('not path /v1/customer-checkout/* /v1/content/*',new)
  def test_preparation_cannot_activate_payments(self):
   # Execute the actual remote text transformer on a disposable compose; no SSH.
   from unittest.mock import patch
@@ -40,6 +50,8 @@ class CheckoutRelease(unittest.TestCase):
    p=Path(tmp)/'infra/staging/compose.yaml';p.parent.mkdir(parents=True)
    p.write_text('      APP_ENV: staging\n      APP_ENV: staging\n')
    obj=object.__new__(r.Release)
+   from types import SimpleNamespace
+   obj.args=SimpleNamespace(enable_customer_auth=True)
    obj.remote=lambda command:subprocess.check_output(shlex.split(command),text=True)
    with patch.object(r.pilot.Release,'prepare_api',lambda *a:None):obj.prepare_api(tmp)
    self.assertEqual(p.read_text().count('CUSTOMER_KASPI_PILOT_ENABLED: "false"'),2)

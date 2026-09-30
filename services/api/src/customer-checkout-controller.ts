@@ -33,10 +33,10 @@ export class CustomerCheckoutController {
     authorization: string | undefined,
     run: (customerId: string) => Promise<T>,
   ) {
+    const token = authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
+    if (!token) throw new HttpException({ code: 'UNAUTHORIZED' }, 401);
     try {
-      const { customer } = await this.identity.me(
-        authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
-      );
+      const { customer } = await this.identity.me(token);
       return await run(customer.id);
     } catch (error) {
       if (error instanceof CustomerIdentityError)
