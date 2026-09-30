@@ -3,6 +3,10 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
+import subprocess
+import shlex
 
 ROOT=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('tested_mobile_kaspi',ROOT/'infra/staging/release-mobile-kaspi.py')
@@ -29,6 +33,27 @@ class OwnerPilot(unittest.TestCase):
     def test_duplicate_and_unknown_fields_refused(self):
         for extra in ['CUSTOMER_KASPI_PILOT_MAX_MINOR=10000\n','CLOUD_DATABASE_URL=anything\n','broken-line\n']:
             with self.assertRaises(m.market.GuardFailure):m.checkout_environment(self.raw(self.env())+extra)
+    def test_compose_passes_scope_to_both_api_and_provision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);target=root/'infra/staging';target.mkdir(parents=True)
+            env=root/'checkout.env';env.write_text(self.raw(self.env()));env.chmod(0o600)
+            release=object.__new__(m.Release);release.args=SimpleNamespace(checkout_env=env)
+            commands=[]
+            def prepare_parent(obj, location):
+                source=(ROOT/'infra/staging/compose.yaml').read_text()
+                source=source.replace('  api:\n','  api:\n    env_file: ['+m.base.pilot.AUTH_FILE+']\n',1)
+                (target/'compose.yaml').write_text(source)
+            def remote(command,**kw):
+                commands.append(command)
+                if len(commands)==2:subprocess.run(shlex.split(command),check=True,capture_output=True)
+            release.remote=remote
+            with patch.object(m.base.pilot.Release,'prepare_api',prepare_parent):release.prepare_api(str(root))
+            result=(target/'compose.yaml').read_text()
+            self.assertEqual(result.count('env_file: ['+m.base.pilot.AUTH_FILE+', '+m.CHECKOUT_FILE+']'),2)
+            self.assertEqual(result.count('CUSTOMER_KASPI_PILOT_ENABLED: "true"'),2)
+            self.assertEqual(result.count('CLOUD_FULFILLMENT_TRANSPORT_ENABLED: "true"'),2)
+            self.assertIn('CLOUD_POS_ORDER_SYNC_ENABLED: ${CLOUD_POS_ORDER_SYNC_ENABLED:-false}',result)
+
     def test_acl_verification_rolls_back_and_rejects_extra_privilege(self):
         release=object.__new__(m.Release)
         release.ledger=lambda: []

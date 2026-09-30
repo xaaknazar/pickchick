@@ -78,7 +78,9 @@ else:
 import sys
 p=Path(sys.argv[1]);s=p.read_text()
 auth=sys.argv[2];checkout=sys.argv[3]
-assert s.count('    env_file: ['+auth+']')==2
+assert s.count('    env_file: ['+auth+']')==1
+assert s.count('  provision:\\n')==1
+s=s.replace('  provision:\\n','  provision:\\n    env_file: ['+auth+']\\n',1)
 s=s.replace('    env_file: ['+auth+']','    env_file: ['+auth+', '+checkout+']')
 assert s.count('      APP_ENV: staging')==2
 s=s.replace('      APP_ENV: staging','      CUSTOMER_KASPI_PILOT_ENABLED: "true"\\n      APP_ENV: staging')
