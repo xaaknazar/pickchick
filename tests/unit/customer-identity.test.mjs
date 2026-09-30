@@ -38,17 +38,18 @@ test('birthday calendar uses Almaty current day, validates leap dates and reject
   ])
     assert.equal(isValidCustomerBirthDate(value, now), false);
 });
-test('profile schema preserves explicit clears, counts unicode codepoints, rejects hidden fields', () => {
+test('profile schema allows clearing optional fields, requires non-null gender and rejects hidden fields', () => {
   assert.deepEqual(
     CustomerPatchSchema.parse({
       nickname: '  ' + '😀'.repeat(32) + '  ',
       birth_date: null,
-      gender: null,
+      gender: 'female',
     }),
-    { nickname: '😀'.repeat(32), birth_date: null, gender: null },
+    { nickname: '😀'.repeat(32), birth_date: null, gender: 'female' },
   );
   for (const body of [
     {},
+    { gender: null },
     { nickname: '😀'.repeat(33) },
     { nickname: 'a\nb' },
     { phone: '+77010000001' },

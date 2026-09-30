@@ -44,8 +44,9 @@ def login(page):
     visible(page, 'account-required-login').click()
     visible(page, 'phone-input').fill('7000000000')
     visible(page, 'request-otp').click()
-    visible(page, 'otp-input').fill('123456')
-    visible(page, 'profile-fill-later').click()
+    visible(page, 'otp-input').fill('1234')
+    visible(page, 'profile-gender-female').click()
+    visible(page, 'nickname-save').click()
 
 
 with sync_playwright() as p:
