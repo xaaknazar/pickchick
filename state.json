@@ -1070,11 +1070,11 @@
         "pnpm-lock.yaml",
         "docs/operations/deployments/2026-09-30-kaspi-checkout.md"
       ],
-      "status": "active",
-      "head": "2f3c3f3ddf8e09eea76a5ab4831e297a718572ed",
-      "updatedAt": "2026-09-30T06:05:00.683Z",
-      "summary": "369c0f9: LAN Metro with Kaspi UI and server auth running; iOS bundle HTTP200; device launch blocked by locked iPhone; API checkout404; no bank invoice",
-      "nextAction": "Unlock iPhone and open PickChick Dev on current LAN. Next guarded API/schema/catalog/edge setup; cashier off. Online roadmap publication pending."
+      "status": "done",
+      "head": "28761e40003ab59cd22168b00457a1acfdaaf2e3",
+      "updatedAt": "2026-09-30T06:07:26.784Z",
+      "summary": "Этап кода/установки завершён: shared28761e4, PR142. VPS API/schema027 из2f3c3f3, все6 Foundation CI jobs36673841187 зелёные; backup/restore/data/ACL/rollback проверены. Roadmap70298fa опубликован, healthSHA подтверждён. ТЗ дизайнеру и прежний герой для коммерческого статуса готовы; Dev bundle200. Счета/auth выключены, реальных платежей не было. Документационные CI новых checkpoint ещё не заявлены завершёнными.",
+      "nextAction": "Следующий этап активации: завершить legal/identity, коммерческий каталог AILILLU, provider account/grants/owner allowlist, включить кассовый edge и проверить transport/admission. Затем один ранее согласованный счёт100₸ и физическая кухня. HTTPS новых доменов/Webkassa не установлены. Для работы занять новую область, читать handoff; общий код актуален."
     }
   ]
 }
