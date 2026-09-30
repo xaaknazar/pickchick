@@ -65,10 +65,12 @@ class OwnerPilot(unittest.TestCase):
             calls.append(sql)
             return '[]' if 'json_agg' in sql else 'f'
         release.psql=psql
-        before={'ledger':[],'data':{'tables':{},'sequences':[]},'acl':[]}
+        before={'ledger':[],'data':{'tables':{},'sequences':[]},'acl':[
+            {'name':'bo_records','kind':'r','column':None,'privilege':'INSERT','grantable':False}]}
         release.verify_data(before)
         self.assertTrue(calls[0].endswith(';ROLLBACK;'))
         self.assertNotIn('COMMIT;',calls[0])
+        with self.assertRaises(m.market.GuardFailure):release.verify_data({**before,'acl':[]})
         release.acl=lambda:[{'name':'identity_sessions','kind':'r','column':None,'privilege':'DELETE','grantable':False}]
         with self.assertRaises(m.market.GuardFailure):release.verify_data(before)
 

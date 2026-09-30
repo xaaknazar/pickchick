@@ -58,6 +58,25 @@ test('phones, amounts and statuses are mapped conservatively', () => {
     assert.equal(kaspiPhone(bad), null);
   assert.equal(kaspiMinor(1500), '150000');
   assert.equal(kaspiMinor('1500.5'), '150050');
+  for (const [amount, minor] of [
+    ['100 ₸', '10000'],
+    ['1 500 ₸', '150000'],
+    ['1\u00a0500,50\u00a0₸', '150050'],
+    ['1\u202f500.5 ₸', '150050'],
+  ])
+    assert.equal(kaspiMinor(amount), minor);
+  for (const bad of [
+    '100 $',
+    '100 KZT',
+    '-100 ₸',
+    '1 00 ₸',
+    '1,000 ₸',
+    '100₸',
+    '100 ₸ extra',
+    '1e3 ₸',
+    '0 ₸',
+  ])
+    assert.equal(kaspiMinor(bad), null);
   for (const bad of [0, -1, '1e3', 1.234, 'abc', null]) assert.equal(kaspiMinor(bad), null);
   assert.equal(kaspiInvoiceOutcome('Processed'), 'captured');
   assert.equal(kaspiInvoiceOutcome('RemotePaymentCreated'), 'pending');

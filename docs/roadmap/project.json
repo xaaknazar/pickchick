@@ -1892,7 +1892,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "Постоянный приватный туннель касса-VPS установлен из a9e488a после зелёной CI; health и восстановление17,2с проверены. Подготовлены маршруты24 mobile +24 POS, whole-product комбо и отдельный worker. Подготовлены app-only update и guarded owner-pilot release. CI выявила гонку быстрого входа; исправление прошло локальный browser, новая полная CI ожидается. Реальные счета, commercial onboarding и кухня ещё не приняты.",
+      "summary": "API/Edge1c9d9d4 установлены после полной CI36721976510; routing v2 и отдельные workers работают. Первый реальный счёт100₸ оплачен: Processed, один capture, №6 preparing на кухне. Банковский формат суммы потребовал ограниченной сверки; постоянный parser исправлен локально, CI/установка впереди. Только owner-пилот100₸/один заказ, Webkassa отложена.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1939,11 +1939,11 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Обновить активный Edge schema014 без сброса данных, установить worker и routing v2 после CI, настроить seller/account/catalog/transport. Затем один согласованный100₸ через ledger. Туннель уже установлен; Webkassa отложена.",
+      "nextAction": "После CI установить исправленный parser суммы в Kaspi worker; подтвердить №6 на физических экранах и путь приготовления/сборки/выдачи. Не выставлять повторный счёт. Общий rollout и полные цены checkout ещё отдельно.",
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },

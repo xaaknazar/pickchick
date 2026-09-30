@@ -105,12 +105,16 @@ p.write_text(s)
         # inside a rollback-only transaction. No broad prefix whitelist.
         sql = market.acl_restore_sql(before['acl'], after)
         require(sql.endswith('COMMIT;'), 'ACL restore format differs')
+        require({'name': 'bo_records', 'kind': 'r', 'column': None,
+                 'privilege': 'INSERT', 'grantable': False} in before['acl'],
+                'Existing TEST feedback grant is missing from baseline')
         grants = self.execute(['node', '--input-type=module', '-e', '''
 import {fulfillmentTransportGrants as t} from './infra/staging/fulfillment-transport-grants.mjs';
 import {cloudPosSyncGrants as p} from './infra/staging/pos-sync-grants.mjs';
 import {backofficeGrants as b} from './infra/staging/backoffice-grants.mjs';
 import {customerCheckoutGrants as c} from './infra/staging/checkout-grants.mjs';
-console.log(t('pickchick_app',true)+p('pickchick_app',false)+b('pickchick_app',false)+c('pickchick_app',true));
+// provision.mjs restores the existing TEST feedback grant after module grants.
+console.log(t('pickchick_app',true)+p('pickchick_app',false)+b('pickchick_app',false)+c('pickchick_app',true)+'GRANT INSERT ON bo_records TO pickchick_app;');
 ''']).decode()
         expected = market.Release.acl(SimpleNamespace(psql=lambda db, query:
             self.psql(db, sql[:-len('COMMIT;')] + grants + query + ';ROLLBACK;')))

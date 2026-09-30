@@ -105,9 +105,19 @@ export function kaspiInvoiceOutcome(status: unknown): KaspiOutcome {
   return 'unknown';
 }
 
-/** Whole tenge from the bridge (number or numeric string) → exact tiyn string. */
+/** Numeric API amounts or Kaspi's displayed KZT amount → exact tiyn string. */
 export function kaspiMinor(amount: unknown): string | null {
-  const text = typeof amount === 'number' ? String(amount) : amount;
+  let text = typeof amount === 'number' ? String(amount) : amount;
+  if (typeof text === 'string' && text.endsWith('₸')) {
+    // Payment details return e.g. "100 ₸". Validate grouping/currency before
+    // normalization; never strip arbitrary non-digits from a bank amount.
+    const display =
+      /^((?:0|[1-9][0-9]{0,12}|[1-9][0-9]{0,2}(?:[ \u00a0\u202f][0-9]{3}){1,4})(?:[.,][0-9]{1,2})?)[ \u00a0\u202f]₸$/.exec(
+        text,
+      );
+    if (!display) return null;
+    text = display[1]!.replace(/[ \u00a0\u202f]/g, '').replace(',', '.');
+  }
   if (typeof text !== 'string' || !/^(0|[1-9][0-9]{0,12})(\.[0-9]{1,2})?$/.test(text)) return null;
   const [whole, fraction = ''] = text.split('.');
   const minor = BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, '0'));

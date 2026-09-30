@@ -265,6 +265,24 @@ test('invoice to the customer phone, Processed status records exactly one captur
     assert.equal(f.bridge.count('create'), 1);
   }));
 
+test('displayed KZT bank amount recovers an issued invoice exactly once', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    const worker = f.processor();
+    await worker.tick();
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    f.bridge.invoices.get(id).Amount = '1 000 ₸';
+    f.bridge.status.set(id, 'Processed');
+    await f.due();
+    assert.equal((await worker.tick()).errors, 0);
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'paid');
+    assert.equal((await f.view(orderId)).captures[0].amount_minor, '100000');
+    await f.due();
+    await f.processor().tick();
+    assert.equal((await f.view(orderId)).captures.length, 1);
+    assert.equal(f.bridge.count('create'), 1);
+  }));
+
 test('customer rejection and Kaspi expiry fail the attempt without capture', () =>
   fixture(async (f) => {
     const a = await f.order();
