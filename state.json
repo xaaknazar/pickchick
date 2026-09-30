@@ -1356,6 +1356,25 @@
       "updatedAt": "2026-09-30T19:00:01.062Z",
       "summary": "API 8ecdc13 deployed after full green CI 36758419556: Kaspi enabled for all active verified app customers; Telegram enabled globally, 1000 codes/day. Read-only checks passed; no new invoice/OTP. Docs checkpoint 85084d4 published to shared development and online roadmap. User confirmed monoblock is off.",
       "nextAction": "Turn on cashier monoblock for physical kitchen acceptance; Webkassa remains deferred. Existing bank worker e752c8e and bank session preserved."
+    },
+    {
+      "id": "kaspi-item-message",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-item-message",
+      "scopes": [
+        "packages/commerce-core",
+        "tests",
+        "infra/payments",
+        "infra/staging",
+        "docs/operations",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "85084d423525932f2f0fbff4aa674d0fddce19ad",
+      "updatedAt": "2026-09-30T19:00:54.164Z"
     }
   ]
 }
