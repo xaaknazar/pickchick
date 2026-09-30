@@ -1297,9 +1297,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "fa09cc26cf8bb4fe45800c67ad077351567da0f1",
-      "updatedAt": "2026-09-30T10:12:39.777Z"
+      "status": "done",
+      "head": "4ddfbcffae50e9098becb7adb933f331fbf2d5e3",
+      "updatedAt": "2026-09-30T10:17:42.860Z",
+      "summary": "4ddfbcf/PR152 в shared: календарь внутри анкеты, форма защищена от ввода под ним, сохранение после пола и Готово; нет автозакрытия при обновлении профиля. 12 unit, 7 roadmap, browser3sizes,typecheck/lint,Dev bundle200. Roadmap опубликован; API сохранён. Полная CI выполняется.",
+      "nextAction": "Приёмка закрытия календаря и выбора пола на физическом iPhone. Оплата Kaspi остаётся отдельным незавершённым этапом."
     }
   ]
 }
