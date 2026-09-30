@@ -1147,9 +1147,11 @@
         "docs/design/auth-sheet-v3.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "8647e62c942bb37b2be6edd7f0b1823c6228aec5",
-      "updatedAt": "2026-09-30T08:07:29.540Z"
+      "status": "done",
+      "head": "e9ab21fde5e517afa1ab28f044a87c6d1a2fbeb2",
+      "updatedAt": "2026-09-30T08:09:24.954Z",
+      "summary": "Кнопка входа переименована в «По номеру телефона». PR146, e9ab21f. Lint/format, iOS Dev bundle HTTP200, 7 roadmap tests прошли. Roadmap опубликован, SHA проверен. Общая CI выполняется отдельно; нового нативного релиза нет.",
+      "nextAction": "Открыть приглашение в PickChick Dev и проверить подпись."
     }
   ]
 }
