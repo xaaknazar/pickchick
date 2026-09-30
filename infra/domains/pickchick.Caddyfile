@@ -1,0 +1,34 @@
+# Additional aliases. Preserve the original shared Caddyfile byte for byte.
+# Payment callbacks remain unavailable until their independent server rollout.
+(pickchick_alias) {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+	@payment_callback path /v1/integrations/tiptoppay/*
+	handle @payment_callback {
+		respond "PAYMENT_INTEGRATION_PENDING" 503
+	}
+	@staff path /roadmap /roadmap/* /backoffice /backoffice/* /kitchen /kitchen/* /kitchen-live /kitchen-live/* /display /display/*
+	handle @staff {
+		redir https://pickchick.185.129.51.103.nip.io{uri} 308
+	}
+	handle {
+		reverse_proxy pickchick-public-gateway:8080 {
+			header_up Host pickchick.185.129.51.103.nip.io
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
+}
+pickchick.kz {
+	import pickchick_alias
+}
+api.pickchick.kz {
+	import pickchick_alias
+}
+www.pickchick.kz {
+	redir https://pickchick.kz{uri} permanent
+}

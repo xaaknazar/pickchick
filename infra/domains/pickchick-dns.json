@@ -1,0 +1,27 @@
+{
+  "domain": "pickchick.kz",
+  "registrar": "ps.kz",
+  "status": "applied-authoritative-verified-https-pending",
+  "records": [
+    {
+      "type": "A",
+      "name": "@",
+      "value": "185.129.51.103",
+      "ttl": 3600
+    },
+    {
+      "type": "A",
+      "name": "api",
+      "value": "185.129.51.103",
+      "ttl": 300
+    },
+    {
+      "type": "CNAME",
+      "name": "www",
+      "value": "pickchick.kz.",
+      "ttl": 3600
+    }
+  ],
+  "verifiedAt": "2026-09-28",
+  "notes": "PS.kz wizard also created mail A, MX and SPF defaults; no email service configured. New HTTPS hostnames not deployed."
+}

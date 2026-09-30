@@ -1,0 +1,27 @@
+# Add this separate site after the unchanged existing idrink Caddyfile content.
+pickchick.185.129.51.103.nip.io {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+	@order_watch {
+		method POST
+		path /v1/test/orders/watch
+	}
+	handle @order_watch {
+		reverse_proxy pickchick-public-gateway:8080 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
+	handle {
+		reverse_proxy pickchick-public-gateway:8080 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 8s
+			}
+		}
+	}
+}

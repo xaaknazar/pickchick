@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-08",
+  "source_html_sha256": "4cc129416b2631b86d0c26f78ec935fa63668a2d1f951696c534ee851e5b4644",
+  "data": "Synthetic isolated PostgreSQL schemas, real HTTP commands/publications",
+  "capture": "tests/backoffice/browser_operations.py and content_browser.py",
+  "images": {
+    "dash-1680.png": "90a91c12a6720b69b36fd2081da0cc89786199858fdc138d25399d32223b921d",
+    "stock-1024.png": "40727cd7591c8faf5d9372b1bc4f0370a1f170e8ede65e6de6903b44f57d4a44",
+    "dash-1024.png": "1a3cf02936631ce33e5822d4b7301bcb157e420bed25e25ca5397c753b68d7fc",
+    "stock-1680.png": "8d119057dd5bde3ae5a1a173cc98a9688a3d45d0076f3de7266f6fcf1eb6dc3f",
+    "promotion-393.png": "e750ecac142a11c46966ad2c44a0f110ad4a7decf6530751886ef5ffd5614117"
+  }
+}

@@ -1,0 +1,50 @@
+name: Project roadmap
+
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'apps/roadmap/**'
+      - 'docs/roadmap/**'
+      - 'infra/roadmap/**'
+      - '.github/workflows/roadmap.yml'
+  pull_request:
+    paths:
+      - 'apps/roadmap/**'
+      - 'docs/roadmap/**'
+      - 'infra/roadmap/**'
+      - '.github/workflows/roadmap.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: roadmap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Validate sources, dependencies and build
+        run: node apps/roadmap/build.mjs
+      - name: Sessions, shared reviews, restart and concurrent updates
+        run: node --test apps/roadmap/test/*.test.mjs
+      - name: Check application syntax
+        run: node --check apps/roadmap/public/app.js && node --check apps/roadmap/server.mjs
+      - name: Deployment guards
+        run: python3 -m unittest discover -s infra/roadmap -p 'test_*.py'
+      - name: Install browser test runtime
+        run: |
+          python3 -m pip install -r tests/design/requirements.txt
+          python3 -m playwright install --with-deps chromium
+      - name: Desktop, mobile, concurrent reviews and connection recovery
+        run: node apps/roadmap/test/run-browser.mjs

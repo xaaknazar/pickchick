@@ -1,0 +1,11 @@
+# Explicit opt-in overlay, never included by the ordinary TEST deploy command.
+# The protected env file must supply approved legal URLs, sender, budget and four independent keys.
+services:
+  api:
+    env_file:
+      - ${CUSTOMER_AUTH_ENV_FILE:?Set absolute path to the protected customer-auth env file}
+    environment:
+      CUSTOMER_AUTH_ENABLED: 'true'
+  provision:
+    environment:
+      CUSTOMER_AUTH_ENABLED: 'true'

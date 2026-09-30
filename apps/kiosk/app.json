@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "PickChick Kiosk",
+    "slug": "pickchick-kiosk",
+    "version": "0.1.0",
+    "icon": "../../design/prototype/assets/mockup/logo.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "isTabletOnly": true,
+      "requireFullScreen": true,
+      "bundleIdentifier": "kz.pickchick.kiosk",
+      "buildNumber": "1",
+      "appleTeamId": "DAJTP6MC3Q",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleLocalizations": ["ru", "kk"],
+        "UIRequiresFullScreen": true,
+        "UIStatusBarHidden": true,
+        "UIViewControllerBasedStatusBarAppearance": false
+      }
+    },
+    "web": { "bundler": "metro", "output": "single" },
+    "plugins": [
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0047BB",
+          "image": "../../design/prototype/assets/mockup/logo.png",
+          "imageWidth": 180
+        }
+      ],
+      ["expo-video", { "supportsBackgroundPlayback": false, "supportsPictureInPicture": false }]
+    ],
+    "extra": {
+      "environment": "staging",
+      "apiUrl": "https://pickchick.185.129.51.103.nip.io",
+      "customerOperationsEnabled": false,
+      "distribution": "internal-testflight",
+      "requiresManagedSingleAppMode": true
+    }
+  }
+}

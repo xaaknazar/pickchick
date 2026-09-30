@@ -1,0 +1,40 @@
+{
+  "verified_at": "2026-09-06T20:21:52.305770+00:00",
+  "checks": [
+    {
+      "path": "/kitchen/prep",
+      "html_status": 200,
+      "role_login": true,
+      "scope": "read_only_TEST"
+    },
+    {
+      "path": "/kitchen/assembly",
+      "html_status": 200,
+      "role_login": true,
+      "scope": "read_only_TEST"
+    },
+    {
+      "path": "/display",
+      "html_status": 200,
+      "role_login": true,
+      "scope": "read_only_TEST"
+    },
+    {
+      "path": "/manager",
+      "html_status": 200,
+      "role_login": true,
+      "scope": "read_only_TEST"
+    },
+    {
+      "path": "/kiosk",
+      "welcome_visible": true,
+      "pause_button": false
+    },
+    {
+      "path": "/design/prototype/index.html#B02",
+      "design_only": true
+    }
+  ],
+  "page_errors": [],
+  "orders_created": 0
+}

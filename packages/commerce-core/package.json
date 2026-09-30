@@ -1,0 +1,30 @@
+{
+  "name": "@pickchick/commerce-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test tests/unit.test.mjs ../../tests/payments/tiptoppay.test.mjs ../../tests/payments/kaspi-remote.test.mjs",
+    "test:integration": "node --test --test-concurrency=1 tests/postgres.test.mjs tests/kaspi-remote.postgres.test.mjs"
+  },
+  "dependencies": {
+    "@pickchick/database": "workspace:*",
+    "@pickchick/menu-sync": "workspace:*",
+    "zod": "4.5.4",
+    "@pickchick/catalog-pricing": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.13.3",
+    "@pickchick/test-fixtures": "workspace:*",
+    "@pickchick/catalog-admin": "workspace:*"
+  }
+}
