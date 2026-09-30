@@ -1135,6 +1135,21 @@
       "updatedAt": "2026-09-30T08:06:47.996Z",
       "summary": "В приглашении в профиль заменены названия игр на «играть в игры». PR145, commit8647e62. ESLint/Prettier, detector, live iOS Dev bundle HTTP200 и 7 roadmap tests прошли. Пульт опубликован, source SHA проверен. Полная CI ещё выполняется; нативная визуальная приёмка отдельно.",
       "nextAction": "Открыть окно входа в PickChick Dev после обновления экрана."
+    },
+    {
+      "id": "auth-phone-copy",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/auth-phone-copy",
+      "scopes": [
+        "apps/mobile/src/components/AuthWelcome.tsx",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/design/auth-sheet-v3.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "8647e62c942bb37b2be6edd7f0b1823c6228aec5",
+      "updatedAt": "2026-09-30T08:07:29.540Z"
     }
   ]
 }
