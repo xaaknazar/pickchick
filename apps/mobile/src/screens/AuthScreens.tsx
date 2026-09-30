@@ -51,12 +51,13 @@ export function Phone(props: ScreenProps) {
   const input = useRef<TextInput>(null);
   const requestLock = useRef(false);
   const initiallyFocused = useRef(false);
+  const readyForInput = flow?.readyForInput !== false;
   useEffect(() => {
-    if (account.ready && !props.preview && !initiallyFocused.current) {
+    if (account.ready && readyForInput && !props.preview && !initiallyFocused.current) {
       initiallyFocused.current = true;
       input.current?.focus();
     }
-  }, [account.ready, props.preview]);
+  }, [account.ready, props.preview, readyForInput]);
   useEffect(() => {
     if (account.pendingPhone) setPhone(account.pendingPhone.slice(2));
   }, [account.pendingPhone]);
@@ -127,7 +128,7 @@ export function Phone(props: ScreenProps) {
           accessibilityLabel="Мобильный номер Казахстана, 10 цифр после +7"
           value={displayPhone(phone)}
           editable={account.ready && !account.busy && !account.pendingOtp}
-          autoFocus={!props.preview}
+          autoFocus={!props.preview && readyForInput}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onChangeText={(value) => {
@@ -203,6 +204,14 @@ export function Otp(props: ScreenProps) {
   const account = useAccount();
   const flow = useAuthFlow();
   const input = useRef<TextInput>(null);
+  const readyForInput = flow?.readyForInput !== false;
+  const initiallyFocused = useRef(false);
+  useEffect(() => {
+    if (readyForInput && !props.preview && !initiallyFocused.current) {
+      initiallyFocused.current = true;
+      input.current?.focus();
+    }
+  }, [props.preview, readyForInput]);
   const [code, setCode] = useState('');
   const [now, setNow] = useState(Date.now);
   const [submitted, setSubmitted] = useState(false);
@@ -326,7 +335,7 @@ export function Otp(props: ScreenProps) {
           testID="otp-input"
           accessibilityLabel="Код подтверждения, 6 цифр"
           value={code}
-          autoFocus={!props.preview}
+          autoFocus={!props.preview && readyForInput}
           editable={
             !!challenge &&
             !account.pendingOtp &&

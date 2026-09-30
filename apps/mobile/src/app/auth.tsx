@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Keyboard, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Keyboard, StyleSheet, View } from 'react-native';
+import { useReducedMotion } from '../components/Motion';
 import { OrderSheet } from '../components/OrderSheet';
 import { AuthWelcome } from '../components/AuthWelcome';
 import { Phone, Otp } from '../screens/AuthScreens';
@@ -23,6 +24,26 @@ export default function Auth() {
     ['M02', 'M03', 'M04'].includes(String(params.step)) ? (String(params.step) as ScreenId) : 'M01',
   );
   const [auxiliary, setAuxiliary] = useState<ScreenId | null>(null);
+  const reducedMotion = useReducedMotion();
+  const transition = useRef(new Animated.Value(1)).current;
+  const transitioning = useRef(false);
+  const [changingStep, setChangingStep] = useState(false);
+  useEffect(() => () => transition.stopAnimation(), [transition]);
+  useEffect(() => {
+    if (step === 'M01' || !transitioning.current) return;
+    const animation = Animated.timing(transition, {
+      toValue: 1,
+      duration: reducedMotion ? 100 : 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (!finished) return;
+      transitioning.current = false;
+      setChangingStep(false);
+    });
+    return () => animation.stop();
+  }, [step, transition, reducedMotion]);
   const [accepted, setAccepted] = useState<{ phone: string; version: string } | null>(null);
   const dismiss = useCallback(() => {
     Keyboard.dismiss();
@@ -62,13 +83,32 @@ export default function Auth() {
       return;
     }
     if (id === 'M02' || id === 'M03' || id === 'M04') {
+      if (transitioning.current) return;
+      if (step === 'M01') {
+        transitioning.current = true;
+        setChangingStep(true);
+        Animated.timing(transition, {
+          toValue: 0,
+          duration: reducedMotion ? 80 : 100,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (finished) setStep(id);
+        });
+        return;
+      }
       setStep(id);
       return;
     }
   };
   return (
     <AuthFlowContext.Provider
-      value={{ destination, accepted, accept: (phone, version) => setAccepted({ phone, version }) }}
+      value={{
+        destination,
+        accepted,
+        readyForInput: !changingStep,
+        accept: (phone, version) => setAccepted({ phone, version }),
+      }}
     >
       <OrderSheet auth name="Вход в PickChick" onClose={dismiss}>
         {(close) => {
@@ -82,8 +122,23 @@ export default function Auth() {
           };
           return (
             <View style={{ flex: 1 }}>
-              <View
-                style={{ flex: 1 }}
+              <Animated.View
+                testID="auth-step-transition"
+                pointerEvents={changingStep ? 'none' : 'auto'}
+                style={{
+                  flex: 1,
+                  opacity: transition,
+                  transform: [
+                    {
+                      translateX: reducedMotion
+                        ? 0
+                        : transition.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [step === 'M01' ? -16 : 16, 0],
+                          }),
+                    },
+                  ],
+                }}
                 accessibilityElementsHidden={!!auxiliary}
                 importantForAccessibility={auxiliary ? 'no-hide-descendants' : 'auto'}
                 aria-hidden={!!auxiliary}
@@ -97,7 +152,7 @@ export default function Auth() {
                 ) : (
                   <Onboarding {...props} />
                 )}
-              </View>
+              </Animated.View>
               {auxiliary ? (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: '#04143A' }]}>
                   {auxiliary === 'M33' ? (

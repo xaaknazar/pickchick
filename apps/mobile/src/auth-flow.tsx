@@ -5,6 +5,7 @@ import type { AccountDestination } from './account-access';
 export const AuthFlowContext = createContext<{
   destination: AccountDestination | null;
   accepted: { phone: string; version: string } | null;
+  readyForInput?: boolean;
   accept(phone: string, version: string): void;
 } | null>(null);
 export const useAuthFlow = () => useContext(AuthFlowContext);

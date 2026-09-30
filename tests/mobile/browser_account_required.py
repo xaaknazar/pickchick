@@ -50,6 +50,38 @@ def login(page):
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
+    # The welcome-to-input transition must finish before focusing the input;
+    # repeated taps cannot skip steps or leave the content transparent.
+    for preference in ['no-preference', 'reduce']:
+        context = browser.new_context(viewport={'width': 390, 'height': 844}, reduced_motion=preference)
+        context.route('**/v1/**', route_api)
+        page = context.new_page()
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.goto(URL + '/auth?returnTo=M30')
+        expect(visible(page, 'account-required-login')).to_be_visible(timeout=20000)
+        page.evaluate('''() => {
+          window.authFrames = [];
+          window.authSampler = setInterval(() => {
+            const layer = document.querySelector('[data-testid="auth-step-transition"]');
+            const phone = document.querySelector('[data-testid="phone-input"]');
+            if (layer) window.authFrames.push({
+              opacity: Number(getComputedStyle(layer).opacity),
+              transform: getComputedStyle(layer).transform,
+              focused: !!phone && document.activeElement === phone
+            });
+          }, 16);
+          const button = document.querySelector('[data-testid="account-required-login"]');
+          button.click(); button.click();
+        }''')
+        expect(visible(page, 'phone-input')).to_be_focused()
+        expect(visible(page, 'auth-step-transition')).to_have_css('opacity', '1')
+        frames = page.evaluate('() => {clearInterval(window.authSampler); return window.authFrames;}')
+        assert any(0 < frame['opacity'] < .95 for frame in frames), frames
+        assert not any(frame['focused'] and frame['opacity'] < .99 for frame in frames), frames
+        if preference == 'reduce':
+            assert all(frame['transform'] in ['none', 'matrix(1, 0, 0, 1, 0, 0)'] for frame in frames), frames
+        expect(page.get_by_test_id('phone-input')).to_have_count(1)
+        context.close()
     for destination, target in [('/games/pick-man', 'pick-man-start'), ('/games/pick-blocks', 'blocks-start'),
                                 ('/screen/M12', 'test-checkout-create')]:
         context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
