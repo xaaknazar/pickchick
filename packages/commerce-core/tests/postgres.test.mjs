@@ -1175,6 +1175,11 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
       assert.equal(a.orderId, b.orderId);
       assert.equal(a.phase, 'awaiting_restaurant');
       assert.equal(a.receipt, 'deferred');
+      assert.equal(a.branchId, f.scope.branchId);
+      assert.equal(a.items[0].totalMinor, '11000');
+      assert.equal(a.kitchenStage, null);
+      assert.ok(Number.isFinite(Date.parse(a.createdAt)));
+      assert.ok(Number.isFinite(Date.parse(a.updatedAt)));
       assert.deepEqual(a.items[0].modifiers, ['Synthetic sauce']);
       await assert.rejects(service.read(randomUUID(), a.orderId), /FORBIDDEN/);
       await assert.rejects(service.read(otherCustomer, a.orderId), /NOT_FOUND/);

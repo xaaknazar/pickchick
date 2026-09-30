@@ -128,6 +128,10 @@ def verify_acl(before, after):
 
 
 class Release(daily.Release):
+    migrations = MIGRATIONS
+    new_tables = NEW_TABLES
+    additions = ADDITIONS
+
     def __init__(self,args):
         require(args.expected_api_sha==BASELINE,'Unexpected schema020 baseline')
         profile=market.ReleaseProfile('customer-pilot-020-025',BASELINE,args.expected_public_sha,20,MIGRATIONS,
@@ -204,16 +208,16 @@ p.write_text(json.dumps(m,indent=2)+'\\n');print(json.dumps(m))
         parts=[]
         for table in tables:
             require(re.fullmatch('[a-z][a-z0-9_]*',table),'Unexpected table')
-            expression='to_jsonb(t)'+''.join("-'"+key+"'" for key in ADDITIONS.get(table,[]))
+            expression='to_jsonb(t)'+''.join("-'"+key+"'" for key in self.additions.get(table,[]))
             parts.append("SELECT '"+table+"' AS name,count(*) AS rows,encode(sha256(convert_to(coalesce(string_agg(h,'' ORDER BY h),''),'UTF8')),'hex') AS sha256 FROM (SELECT encode(sha256(convert_to(("+expression+")::text,'UTF8')),'hex') h FROM public.\""+table+'\" t) hashes')
         return json.loads(self.psql(database,"SELECT json_build_object('tables',(SELECT json_object_agg(name,json_build_object('rows',rows,'sha256',sha256)) FROM ("+' UNION ALL '.join(parts)+") h),'sequences',(SELECT coalesce(json_agg(row_to_json(s) ORDER BY sequencename),'[]') FROM (SELECT sequencename,start_value,min_value,max_value,increment_by,cycle,cache_size,last_value FROM pg_sequences WHERE schemaname='public') s))"))
 
     def verify_data(self,before):
-        expected=before['ledger']+[{'version':n,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/n).read_bytes())} for n in MIGRATIONS]
+        expected=before['ledger']+[{'version':n,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/n).read_bytes())} for n in self.migrations]
         require(self.ledger()==expected,'Unexpected migration delta')
         after=self.snapshot()
-        require(set(after['tables'])-set(before['data']['tables'])==NEW_TABLES,'Unexpected table delta')
-        preserved={'tables':{k:v for k,v in after['tables'].items() if k not in NEW_TABLES},
+        require(set(after['tables'])-set(before['data']['tables'])==self.new_tables,'Unexpected table delta')
+        preserved={'tables':{k:v for k,v in after['tables'].items() if k not in self.new_tables},
                    'sequences':[s for s in after['sequences'] if s['sequencename'] not in self.profile.new_sequences]}
         preserved['tables']['schema_migrations']=before['data']['tables']['schema_migrations']
         market.compare_existing(before['data'],preserved)

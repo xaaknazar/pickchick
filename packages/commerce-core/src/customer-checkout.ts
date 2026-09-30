@@ -215,8 +215,16 @@ export class CustomerCheckout {
         'SELECT state,operation_id,expires_at FROM commerce_kaspi_invoices WHERE order_id=$1 ORDER BY issue_started_at DESC LIMIT 1',
         [orderId],
       ),
-      this.pool.query<{ state: string; display_number: string | null }>(
-        'SELECT state,display_number::text FROM cloud_fulfillment_projection WHERE order_id=$1',
+      this.pool.query<{
+        state: string;
+        display_number: string | null;
+        observed_at: Date;
+        assembly: boolean;
+      }>(
+        `SELECT p.state,p.display_number::text,p.observed_at,
+          EXISTS(SELECT 1 FROM cloud_fulfillment_observed_tasks t WHERE t.order_id=p.order_id
+          AND t.station_id=p.assembly_station_id AND t.state IN ('in_progress','done')) assembly
+         FROM cloud_fulfillment_projection p WHERE p.order_id=$1`,
         [orderId],
       ),
       this.pool.query<{ name: string }>('SELECT name FROM branches WHERE id=$1', [scope.branchId]),
@@ -225,7 +233,9 @@ export class CustomerCheckout {
       kitchen = projection.rows[0];
     const paid = order.money.captured === order.totalMinor && order.money.refunded === '0';
     const phase =
-      order.attentionRequired || BigInt(order.money.refunded) > 0n
+      order.attentionRequired ||
+      BigInt(order.money.refunded) > 0n ||
+      ['cancel_requested', 'cancelled', 'released'].includes(kitchen?.state ?? '')
         ? 'attention'
         : paid
           ? kitchen?.state === 'handed_over'
@@ -250,6 +260,11 @@ export class CustomerCheckout {
     // Receipt URLs are intentionally omitted until a dedicated fiscal adapter exposes a verified receipt.
     const body = {
       orderId,
+      branchId: scope.branchId,
+      createdAt: order.createdAt,
+      updatedAt: kitchen?.observed_at.toISOString() ?? order.updatedAt,
+      kitchenStage:
+        paid && phase === 'preparing' ? (kitchen?.assembly ? 'assembly' : 'cooking') : null,
       restaurant: branch.rows[0]?.name ?? 'PickChick',
       displayNumber: kitchen?.display_number ?? null,
       totalMinor: order.totalMinor,
@@ -263,12 +278,14 @@ export class CustomerCheckout {
           productId: string;
           title: string;
           quantity: number;
+          totalMinor: string;
           selectedDetails?: { modifiers?: { label: { ru: string }; quantity: number }[] };
         }[]
       ).map((line) => ({
         productId: line.productId,
         title: line.title,
         quantity: line.quantity,
+        totalMinor: line.totalMinor,
         modifiers:
           line.selectedDetails?.modifiers?.map(
             (m) => `${m.label.ru}${m.quantity > 1 ? ` × ${m.quantity}` : ''}`,

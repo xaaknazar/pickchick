@@ -21,7 +21,7 @@ with sync_playwright() as p:
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
   state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False}
   def order():
-   return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','phase':state['phase'],'expiresAt':future if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
+   return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','phase':state['phase'],'expiresAt':future if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
    if state['teardown']:r.abort();return
    path=urlparse(r.request.url).path; method=r.request.method
@@ -66,8 +66,7 @@ with sync_playwright() as p:
   box=button.bounding_box();assert box['height']>=48 and box['y']+box['height']<=height+1,box
   button.click();expect(page.get_by_role('button',name='Проверить соединение')).to_be_visible()
   page.get_by_role('button',name='Проверить соединение').click()
-  send=page.get_by_role('button',name='Отправить счёт на 4 190 ₸');expect(send).to_be_visible(timeout=15000)
-  send.click();expect(page.get_by_text('Счёт отправлен в Kaspi',exact=True)).to_be_visible(timeout=10000)
+  expect(page.get_by_text('Счёт отправлен в Kaspi',exact=True)).to_be_visible(timeout=10000)
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
   assert len(state['keys'])==2 and state['keys'][0]==state['keys'][1], state
   assert state['payments']==1
@@ -75,10 +74,16 @@ with sync_playwright() as p:
   page.wait_for_timeout(100)
   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
   expect(page.get_by_text('Оплата получена',exact=True)).to_be_visible()
-  expect(page.get_by_text('№ 2',exact=True)).to_be_visible()
+  expect(page.get_by_test_id('connected-order-number')).to_contain_text('№ 2')
+  expect(page.get_by_test_id('order-chef-cooking')).to_be_visible()
   page.screenshot(path=str(OUT/f'paid-{width}.png'))
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-  page.get_by_role('button',name='В меню',exact=True).click()
+  for phase,scene in [('preparing','assembly'),('ready','ready-takeaway')]:
+   page.wait_for_timeout(150)
+   state['phase']=phase;state['revision']+=1
+   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+   expect(page.get_by_test_id('order-chef-'+scene)).to_be_visible()
+  page.get_by_test_id('order-status-close').click()
   expect(page.get_by_test_id('screen-M12')).not_to_be_visible()
   state['teardown']=True
   for held in state['held_routes']:

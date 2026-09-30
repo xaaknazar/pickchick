@@ -46,6 +46,8 @@ interface OrderRow {
   admission_reservation_id: string | null;
   attention_required: boolean;
   kitchen_effect_id: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 interface AttemptRow {
   id: string;
@@ -1323,6 +1325,8 @@ export class CommerceRepository {
         quoteId: row.quote_id,
         branchId: row.branch_id,
         owner: 'cloud',
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
         state: row.state,
         version: row.version,
         totalMinor: row.total_minor,

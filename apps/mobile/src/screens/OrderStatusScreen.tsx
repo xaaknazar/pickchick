@@ -26,6 +26,7 @@ import { menuPhotos } from '../menu-photo-assets';
 import { colors, font } from '../theme';
 import { money } from '../domain';
 import { restaurantLocation } from '../restaurant-location';
+import type { OrderStatusData } from '../order-status';
 import { orderStage, orderTimeLabel, orderScene } from '../order-status';
 
 export function OrderStatusScreen({
@@ -36,6 +37,53 @@ export function OrderStatusScreen({
   props: ScreenProps;
   order: TestOrder;
   notice?: React.ReactNode;
+}) {
+  return (
+    <OrderStatusView
+      props={props}
+      order={order}
+      notice={notice}
+      afterItems={
+        order.state === 'fulfilled' || order.state === 'cancelled' ? (
+          <>
+            <RepeatOrder order={order} props={props} />
+            {order.state === 'fulfilled' ? (
+              <Button
+                title="Оценить заказ"
+                testID="order-rate"
+                onPress={() => props.navigate('M35')}
+              />
+            ) : null}
+          </>
+        ) : undefined
+      }
+      onSupport={() => props.navigate('M31')}
+      receipt={
+        <NavRow
+          title="Официальный чек"
+          subtitle="Чеки и оплата в процессе"
+          testID="order-receipt"
+          onPress={() => props.navigate('M21')}
+        />
+      }
+    />
+  );
+}
+
+export function OrderStatusView({
+  props,
+  order,
+  notice,
+  afterItems,
+  receipt,
+  onSupport,
+}: {
+  props: ScreenProps;
+  order: OrderStatusData;
+  notice?: React.ReactNode;
+  afterItems?: React.ReactNode;
+  receipt?: React.ReactNode;
+  onSupport?: () => void;
 }) {
   const [more, setMore] = useState(false);
   const [details, setDetails] = useState(false);
@@ -78,24 +126,22 @@ export function OrderStatusScreen({
           ? (order.cancellation_reason ?? 'Если нужна помощь, напишите нам')
           : orderStage(order) === 'На сборке'
             ? 'Всё приготовили. Проверяем, всё ли на месте'
-            : 'Жарим, собираем и следим за каждой деталью';
+            : order.state === 'paid'
+              ? 'Оплата подтверждена. Ждём подтверждение кухни'
+              : 'Жарим, собираем и следим за каждой деталью';
   const itemCount = order.snapshot.lines.reduce((sum, line) => sum + line.quantity, 0);
   const cardWidth = Math.min(380, width - (order.snapshot.lines.length > 1 ? 60 : 40));
   const lineCards = order.snapshot.lines.map((line) => {
     const product = props.model.products.find((p) => p.id === line.id);
-    const description =
-      'selections' in line && line.selections.length
-        ? line.selections
-            .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
-            .join(' · ')
-        : 'serving_label' in line
-          ? line.serving_label
-          : line.description;
+    const description = line.selections?.length
+      ? line.selections
+          .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
+          .join(' · ')
+      : 'serving_label' in line
+        ? line.serving_label
+        : line.description;
     return (
-      <View
-        key={'line_id' in line ? line.line_id : line.id}
-        style={[s.foodCard, { width: cardWidth }]}
-      >
+      <View key={line.line_id ?? line.id} style={[s.foodCard, { width: cardWidth }]}>
         <View style={s.foodMain}>
           <View style={s.foodVisual}>
             {product ? (
@@ -141,7 +187,7 @@ export function OrderStatusScreen({
           />
           <View style={s.location}>
             <Body style={s.locationName}>
-              {location?.name ?? branch?.name ?? 'Ресторан PickChick'}
+              {order.restaurant ?? location?.name ?? branch?.name ?? 'Ресторан PickChick'}
             </Body>
             <Caption style={s.mode}>
               {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
@@ -169,9 +215,9 @@ export function OrderStatusScreen({
               <Text
                 style={s.badgeText}
                 testID="connected-order-number"
-                accessibilityLabel={`Заказ номер ${order.number}${name ? `, ${name}` : ''}`}
+                accessibilityLabel={`${order.number ? `Заказ номер ${order.number}` : 'Заказ принят'}${name ? `, ${name}` : ''}`}
               >
-                № {order.number}
+                {order.number ? `№ ${order.number}` : 'Заказ принят'}
                 {name ? ` · ${name}` : ''}
               </Text>
             </View>
@@ -207,7 +253,7 @@ export function OrderStatusScreen({
               ))}
             </View>
           </View>
-          {active || details ? (
+          {active || order.state === 'paid' || details ? (
             <View style={s.itemsSection}>
               <Row style={s.itemsHeader}>
                 <Heading style={s.itemsTitle}>Ваш заказ</Heading>
@@ -233,20 +279,7 @@ export function OrderStatusScreen({
               />
             </View>
           )}
-          {order.state === 'fulfilled' || order.state === 'cancelled' ? (
-            <View style={s.inset}>
-              <RepeatOrder order={order} props={props} />
-            </View>
-          ) : null}
-          {order.state === 'fulfilled' ? (
-            <View style={s.inset}>
-              <Button
-                title="Оценить заказ"
-                testID="order-rate"
-                onPress={() => props.navigate('M35')}
-              />
-            </View>
-          ) : null}
+          {afterItems ? <View style={s.inset}>{afterItems}</View> : null}
           {active || ready ? (
             <MotionPressable
               testID="order-play-blocks"
@@ -282,18 +315,15 @@ export function OrderStatusScreen({
             </MotionPressable>
           ) : null}
           <View style={s.bottom}>
-            <NavRow
-              title="Официальный чек"
-              subtitle="Чеки и оплата в процессе"
-              testID="order-receipt"
-              onPress={() => props.navigate('M21')}
-            />
-            <NavRow
-              title="Написать в поддержку"
-              subtitle="Мы видим, по какому заказу нужна помощь"
-              testID="order-support"
-              onPress={() => props.navigate('M31')}
-            />
+            {receipt}
+            {onSupport ? (
+              <NavRow
+                title="Написать в поддержку"
+                subtitle="Мы видим, по какому заказу нужна помощь"
+                testID="order-support"
+                onPress={onSupport}
+              />
+            ) : null}
             {location ? (
               <View style={s.address}>
                 <Icon name="location-outline" color={colors.accent} />
@@ -313,12 +343,16 @@ export function OrderStatusScreen({
       </View>
       <OrderActions
         visible={more}
-        number={order.number}
+        number={order.number ?? '-'}
         onClose={() => setMore(false)}
-        onSupport={() => {
-          setMore(false);
-          props.navigate('M31');
-        }}
+        onSupport={
+          onSupport
+            ? () => {
+                setMore(false);
+                onSupport();
+              }
+            : undefined
+        }
       />
     </View>
   );

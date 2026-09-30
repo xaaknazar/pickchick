@@ -13,7 +13,7 @@ export function OrderActions({
   visible: boolean;
   number: string;
   onClose(): void;
-  onSupport(): void;
+  onSupport?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -53,12 +53,18 @@ export function OrderActions({
               <Icon name="chatbubbles-outline" color={colors.accent} size={30} />
             </View>
             <Body>Нужна помощь с заказом?</Body>
-            <Caption>Напишите управляющему. Номер заказа и ресторан добавим автоматически.</Caption>
-            <Button
-              title="Написать в поддержку"
-              testID="order-actions-support"
-              onPress={onSupport}
-            />
+            <Caption>
+              {onSupport
+                ? 'Напишите управляющему. Номер заказа и ресторан добавим автоматически.'
+                : 'Обращения по оплате подключаются. Если нужна помощь сейчас, обратитесь к сотруднику ресторана.'}
+            </Caption>
+            {onSupport ? (
+              <Button
+                title="Написать в поддержку"
+                testID="order-actions-support"
+                onPress={onSupport}
+              />
+            ) : null}
           </ScrollView>
         </View>
       </View>

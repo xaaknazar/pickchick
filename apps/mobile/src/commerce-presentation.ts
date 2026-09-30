@@ -1,3 +1,4 @@
+import type { OrderStatusData } from './order-status';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 export const paymentCopy: Record<
   CustomerCommerceOrder['phase'],
@@ -72,4 +73,39 @@ export function checkoutError(error: unknown) {
     return 'Оплата Kaspi пока недоступна для этого заказа. Корзина сохранена.';
   if (code === 'UNAUTHORIZED') return 'Войдите в аккаунт снова, чтобы продолжить свой заказ.';
   return 'Связь прервалась. Заказ сохранён - повторно оплачивать не нужно.';
+}
+
+/** View adapter only: commercial orders never become synthetic TEST orders. */
+export function commerceStatus(order: CustomerCommerceOrder): OrderStatusData {
+  if (!paymentReceived(order.phase)) throw new Error('PAYMENT_NOT_CONFIRMED');
+  return {
+    order_id: order.orderId,
+    number: order.displayNumber,
+    branch_id: order.branchId,
+    restaurant: order.restaurant,
+    created_at: order.createdAt,
+    updated_at: order.updatedAt,
+    state:
+      order.phase === 'handed_over'
+        ? 'fulfilled'
+        : order.phase === 'ready'
+          ? 'ready'
+          : order.phase === 'preparing'
+            ? 'preparing'
+            : 'paid',
+    cancellation_reason: null,
+    tasks: [{ station: 'prep', state: order.kitchenStage === 'assembly' ? 'done' : 'pending' }],
+    snapshot: {
+      service_mode: order.serviceMode,
+      total_minor: order.totalMinor,
+      lines: order.items.map((item, i) => ({
+        id: item.productId,
+        line_id: `${order.orderId}:${i}`,
+        name: item.title,
+        quantity: item.quantity,
+        line_total_minor: item.totalMinor,
+        selections: item.modifiers.map((option_label) => ({ option_label, quantity: 1 })),
+      })),
+    },
+  };
 }

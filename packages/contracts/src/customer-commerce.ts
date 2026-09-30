@@ -16,6 +16,10 @@ export const CustomerCommerceOrderSchema = z.strictObject({
   orderId: z.uuid(),
   revision: z.string().regex(/^[a-f0-9]{64}$/),
   restaurant: z.string(),
+  branchId: z.uuid(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  kitchenStage: z.enum(['cooking', 'assembly']).nullable(),
   displayNumber: z.string().nullable(),
   totalMinor: amount,
   serviceMode: z.enum(['takeaway', 'dine_in']),
@@ -41,6 +45,7 @@ export const CustomerCommerceOrderSchema = z.strictObject({
         productId: z.string(),
         title: z.string(),
         quantity: z.int().positive(),
+        totalMinor: amount,
         modifiers: z.array(z.string()),
       }),
     )

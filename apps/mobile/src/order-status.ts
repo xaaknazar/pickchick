@@ -1,6 +1,31 @@
-import type { TestOrder } from '@pickchick/test-order-flow/contracts';
+/** Read-only display data shared by TEST and bank-paid orders. No payment authority. */
+export interface OrderStatusData {
+  order_id: string;
+  number: string | null;
+  branch_id: string;
+  restaurant?: string;
+  state: 'awaiting_test_payment' | 'paid' | 'preparing' | 'ready' | 'fulfilled' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  cancellation_reason: string | null;
+  tasks: { station: string; state: string }[];
+  snapshot: {
+    service_mode: 'takeaway' | 'dine_in';
+    total_minor: string;
+    lines: {
+      id: string;
+      line_id?: string;
+      name: string;
+      description?: string;
+      serving_label?: string;
+      quantity: number;
+      line_total_minor: string;
+      selections?: { option_label: string; quantity: number }[];
+    }[];
+  };
+}
 
-export function orderStage(order: TestOrder): string {
+export function orderStage(order: OrderStatusData): string {
   if (
     order.state === 'preparing' &&
     order.tasks.length > 0 &&
@@ -9,6 +34,7 @@ export function orderStage(order: TestOrder): string {
     return 'На сборке';
   return {
     awaiting_test_payment: 'Ждёт подтверждения',
+    paid: 'Оплата получена',
     preparing: 'Готовится',
     ready: 'Можно забирать',
     fulfilled: 'Выдан',
@@ -17,8 +43,9 @@ export function orderStage(order: TestOrder): string {
 }
 
 /** Elapsed time, never an invented promise or a client-side order transition. */
-export function orderTimeLabel(order: TestOrder, now: number): string {
+export function orderTimeLabel(order: OrderStatusData, now: number): string {
   if (order.state === 'cancelled') return 'Заказ отменён';
+  if (order.state === 'paid') return 'Передаём заказ кухне';
   if (order.state === 'awaiting_test_payment') return 'Ожидаем подтверждения';
   if (order.state === 'ready' || order.state === 'fulfilled') {
     const time = new Date(order.updated_at).toLocaleTimeString('ru-RU', {
@@ -33,7 +60,7 @@ export function orderTimeLabel(order: TestOrder, now: number): string {
 }
 
 export type OrderScene = 'cooking' | 'assembly' | 'ready' | 'ready-takeaway';
-export function orderScene(order: TestOrder): OrderScene {
+export function orderScene(order: OrderStatusData): OrderScene {
   if (order.state === 'ready' || order.state === 'fulfilled')
     return order.snapshot.service_mode === 'takeaway' ? 'ready-takeaway' : 'ready';
   return orderStage(order) === 'На сборке' ? 'assembly' : 'cooking';

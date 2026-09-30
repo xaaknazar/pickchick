@@ -16,8 +16,14 @@ import {
   cartSignature,
   maskedPhone,
 } from '../commerce-checkout';
-import { checkoutError, paymentCopy, paymentReceived } from '../commerce-presentation';
-import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
+import { OrderStatusView } from './OrderStatusScreen';
+import {
+  checkoutError,
+  paymentCopy,
+  paymentReceived,
+  commerceStatus,
+} from '../commerce-presentation';
+import { CheckoutDetails } from './CheckoutScreen';
 import { OrderHeader, OrderTotal, orderUI } from '../components/OrderPresentation';
 import { PaymentMark } from '../components/PaymentChoice';
 import {
@@ -37,7 +43,13 @@ import { colors, font } from '../theme';
 import { menuPhotos } from '../menu-photo-assets';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
-type Pending = { key: string; quoteId: string; signature: string; orderId?: string };
+type Pending = {
+  key: string;
+  quoteId: string;
+  signature: string;
+  orderId?: string;
+  sendInvoice?: boolean;
+};
 const root = '/v1/customer-checkout';
 
 /** One durable create command per customer. Never reissues a bank invoice on reconnect. */
@@ -240,7 +252,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
     setBusy(true);
     setError('');
     try {
-      const draft: Pending = { key: randomUUID(), quoteId: quote.quoteId, signature };
+      const draft: Pending = {
+        key: randomUUID(),
+        quoteId: quote.quoteId,
+        signature,
+        sendInvoice: true,
+      };
       // If storage fails, no order and no payment is submitted.
       await AsyncStorage.setItem(key, JSON.stringify(draft)).catch(() => {
         throw new Error('CHECKOUT_STORAGE');
@@ -254,7 +271,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       setBusy(false);
     }
   };
-  const pay = async () => {
+  const pay = useCallback(async () => {
     if (lock.current || !order) return;
     lock.current = true;
     setBusy(true);
@@ -267,7 +284,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
       lock.current = false;
       setBusy(false);
     }
-  };
+  }, [order, request, accept]);
+  useEffect(() => {
+    // Explicit consent is persisted before order creation. Admission can arrive later.
+    // Existing pre-consent drafts retain the manual action; no charge on a passive history visit.
+    if (order?.phase === 'ready_to_pay' && pending.current?.sendInvoice && !busy && !error)
+      void pay();
+  }, [order?.phase, busy, error, pay]);
   const retry = () => {
     setError('');
     if (order) setWatchCycle((c) => c + 1);
@@ -276,7 +299,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const total = quote ? quote.totalMinor : cartTotal(props.model.cart);
   const footer = order ? (
     <>
-      {order.phase === 'ready_to_pay' ? (
+      {order.phase === 'ready_to_pay' && !pending.current?.sendInvoice ? (
         <Button
           title={`Отправить счёт на ${money(order.totalMinor)}`}
           onPress={() => void pay()}
@@ -291,7 +314,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       <OrderTotal value={money(total)} />
       <Button
         testID="kaspi-checkout-submit"
-        title={busy ? 'Сохраняем заказ…' : `Продолжить с Kaspi · ${money(total)}`}
+        title={busy ? 'Готовим счёт…' : `Получить счёт в Kaspi · ${money(total)}`}
         onPress={() => void submit()}
         disabled={!loaded || !quote || busy || !!error}
         style={orderUI.action}
@@ -300,10 +323,37 @@ function KaspiCheckoutSession(props: ScreenProps) {
       <Caption style={s.center}>Списание подтвердите в Kaspi.kz</Caption>
     </>
   ) : undefined;
+  if (order && paymentReceived(order.phase))
+    return (
+      <OrderStatusView
+        props={props}
+        order={commerceStatus(order)}
+        notice={
+          error ? (
+            <View style={s.warning}>
+              <Body>{error}</Body>
+              <Button secondary title="Проверить соединение" onPress={retry} />
+            </View>
+          ) : undefined
+        }
+        receipt={
+          <View style={s.note}>
+            <Icon name="receipt-outline" color={colors.muted} />
+            <Caption style={s.flex}>
+              {order.receipt === 'deferred'
+                ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
+                : order.receipt === 'issued'
+                  ? 'Чек выпущен. Ссылка на него уточняется.'
+                  : 'Ожидаем фискальный чек'}
+            </Caption>
+          </View>
+        }
+      />
+    );
   return (
     <Page
       props={props}
-      title={order ? 'Ваш заказ' : 'Оформление'}
+      title={order ? 'Ваш заказ' : 'Способ оплаты'}
       footer={footer}
       header={
         order || props.screenId === 'M19' ? (
@@ -313,7 +363,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
             testID="kaspi-order-close"
           />
         ) : (
-          <CheckoutHeader props={props} />
+          <OrderHeader title="Способ оплаты" testID="checkout-close" onClose={props.goBack} back />
         )
       }
     >

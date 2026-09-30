@@ -4,6 +4,7 @@ import {
   paymentReceived,
   paymentCopy,
   checkoutError,
+  commerceStatus,
 } from '../../apps/mobile/src/commerce-presentation.ts';
 import { CustomerCommerceOrderSchema } from '../../packages/contracts/dist/index.js';
 
@@ -30,6 +31,10 @@ test('customer payment contract rejects extra financial internals and invalid ph
     orderId: '40000000-0000-4000-8000-000000000003',
     revision: 'a'.repeat(64),
     restaurant: 'Synthetic',
+    branchId: '40000000-0000-4000-8000-000000000001',
+    createdAt: '2026-09-30T00:00:00.000Z',
+    updatedAt: '2026-09-30T00:00:00.000Z',
+    kitchenStage: null,
     displayNumber: null,
     totalMinor: '10000',
     serviceMode: 'takeaway',
@@ -77,4 +82,40 @@ test('closing payment status aborts its long poll without widening the auth tran
     createCustomerRequest('https://example.test', fetcher)('/v1/customer-checkout/orders', 'GET'),
     /INVALID_API_PATH/,
   );
+});
+
+test('commercial status reuses chef scenes without fabricating TEST authority', async () => {
+  const { orderScene, orderStage } = await import('../../apps/mobile/src/order-status.ts');
+  const base = {
+    orderId: 'order',
+    displayNumber: '8',
+    branchId: 'branch',
+    restaurant: 'Restaurant',
+    createdAt: '2026-09-30T00:00:00.000Z',
+    updatedAt: '2026-09-30T00:04:00.000Z',
+    serviceMode: 'takeaway',
+    totalMinor: '10000',
+    phase: 'preparing',
+    kitchenStage: 'cooking',
+    items: [
+      {
+        productId: 'burger',
+        title: 'Burger',
+        quantity: 1,
+        totalMinor: '10000',
+        modifiers: ['Extra'],
+      },
+    ],
+  };
+  assert.equal(orderScene(commerceStatus(base)), 'cooking');
+  assert.equal(orderScene(commerceStatus({ ...base, kitchenStage: 'assembly' })), 'assembly');
+  assert.equal(orderScene(commerceStatus({ ...base, phase: 'ready' })), 'ready-takeaway');
+  assert.equal(
+    orderScene(commerceStatus({ ...base, phase: 'ready', serviceMode: 'dine_in' })),
+    'ready',
+  );
+  assert.equal(orderStage(commerceStatus({ ...base, phase: 'paid' })), 'Оплата получена');
+  assert.equal('synthetic' in commerceStatus(base), false);
+  assert.equal(commerceStatus(base).snapshot.lines[0].line_total_minor, '10000');
+  assert.throws(() => commerceStatus({ ...base, phase: 'checking' }), /PAYMENT_NOT_CONFIRMED/);
 });
