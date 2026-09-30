@@ -1328,6 +1328,31 @@
       "updatedAt": "2026-09-30T10:33:02.559Z",
       "summary": "a293ef2/PR153 в shared: убраны QR кассы в профиле/Чиках и экранM29, приглашение друга и галерея. Старые ссылки возвращают в профиль/меню. POS01 телефон. typecheck/lint, browser3sizes,7 roadmap,Dev bundle прошли; roadmap опубликован. CI выполняется.",
       "nextAction": "Приёмка профиля в Dev. Поиск клиента на кассе по телефону и подтверждение бонусных операций подключать отдельным этапом; Чики и7+1 сохранены."
+    },
+    {
+      "id": "kaspi-live-activation",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-live-activation",
+      "scopes": [
+        "infra/staging",
+        "infra/windows",
+        "infra/payments",
+        "scripts",
+        "packages/commerce-core",
+        "packages/fulfillment-transport",
+        "packages/edge-fulfillment",
+        "apps/mobile",
+        "tests",
+        "docs/operations",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps",
+        "@windows/cashier"
+      ],
+      "status": "active",
+      "head": "a293ef2491da427e3eee0e81aad41e667094ebe1",
+      "updatedAt": "2026-09-30T10:33:59.058Z"
     }
   ]
 }
