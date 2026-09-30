@@ -1,0 +1,73 @@
+appId: kz.pickchick.pos
+productName: PickChick POS
+electronVersion: 44.2.0
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+directories:
+  output: release
+  buildResources: build
+files:
+  - main.mjs
+  - protocol.mjs
+  - menu-assets.mjs
+  - v2-assets.mjs
+  - renderer/v2/**/*
+  - journal.mjs
+  - preload.cjs
+  - renderer/index.html
+  - renderer/styles.css
+  - renderer/logo.png
+  - renderer/assets/menu/*.jpg
+  - renderer/app.js
+  - renderer/api.js
+  - renderer/model.js
+  - renderer/types.js
+  - renderer/auth-view.js
+  - renderer/order-view.js
+  - renderer/asset-manifest.json
+  - package.json
+extraResources:
+  - from: build/config.example.json
+    to: config.example.json
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+toolsets:
+  wine: 1.0.1
+  nsis: 1.2.1
+  winCodeSign: 1.1.0
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.png
+  executableName: PickChickPOS
+  artifactName: PickChick-POS-${version}-${arch}.${ext}
+  requestedExecutionLevel: asInvoker
+  forceCodeSigning: false
+nsis:
+  artifactName: PickChick-POS-Setup-${version}-${arch}.${ext}
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: PickChick POS
+  installerLanguages: [ru_RU, en_US]
+  packElevateHelper: false
+portable:
+  artifactName: PickChick-POS-Portable-${version}-${arch}.${ext}
+  requestExecutionLevel: user
+mac:
+  target: [dir]
+  identity: null
+  icon: build/icon.png

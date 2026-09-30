@@ -1,0 +1,174 @@
+{
+  "format": "pickchick-local-pos-photo-inventory-v2",
+  "source_directory": "design/prototype/assets/mockup",
+  "photos": [
+    {
+      "source_id": "pick-combo",
+      "filename": "i7.jpg",
+      "url": "/assets/menu/i7.jpg",
+      "sha256": "700d7ca43551019996d63d73549ba41fd5aa84f7b5e5665566e0d9f5493035e2",
+      "bytes": 94652
+    },
+    {
+      "source_id": "master-combo",
+      "filename": "i8.jpg",
+      "url": "/assets/menu/i8.jpg",
+      "sha256": "a0bcccb3f15569bfae7fe453b6251d46ac6c6956e5987c2e7a0eef0701dfb2a1",
+      "bytes": 110318
+    },
+    {
+      "source_id": "burger-combo",
+      "filename": "i9.jpg",
+      "url": "/assets/menu/i9.jpg",
+      "sha256": "47e90e35cc4c89c46c5d0a9114824b05aeb55481cb15ab0c0e95751129fecaf4",
+      "bytes": 76212
+    },
+    {
+      "source_id": "solo-combo",
+      "filename": "i10.jpg",
+      "url": "/assets/menu/i10.jpg",
+      "sha256": "6e007218b802bdb5d5988c57505abd9a4d882bc577ab3de06833e3a28701f883",
+      "bytes": 82676
+    },
+    {
+      "source_id": "finger-duo",
+      "filename": "i11.jpg",
+      "url": "/assets/menu/i11.jpg",
+      "sha256": "c9956e6e456b4345261cb87bd60eb4d22465a0e8b1fb81f73af091ef1be97819",
+      "bytes": 103772
+    },
+    {
+      "source_id": "burger-duo",
+      "filename": "i12.jpg",
+      "url": "/assets/menu/i12.jpg",
+      "sha256": "1fd832da9293543d0980dd1620d6f755a16b0a3dee308d10431ce8308d0889db",
+      "bytes": 85386
+    },
+    {
+      "source_id": "mix-duo",
+      "filename": "i13.jpg",
+      "url": "/assets/menu/i13.jpg",
+      "sha256": "496e9030e34ef9b63dac721bf99ed8a6b493e72533aaed00e8c370245b4dde4a",
+      "bytes": 102334
+    },
+    {
+      "source_id": "fingers-25",
+      "filename": "i14.jpg",
+      "url": "/assets/menu/i14.jpg",
+      "sha256": "f8ac3b0388758bfec159c25b00fba34e1b1d5c17a37fbcbffef40465713294ca",
+      "bytes": 77305
+    },
+    {
+      "source_id": "fingers-50",
+      "filename": "i15.jpg",
+      "url": "/assets/menu/i15.jpg",
+      "sha256": "94261e951f1880cc470e3d19b542586cf269becf6b9d18c58a253b675aba604a",
+      "bytes": 118391
+    },
+    {
+      "source_id": "fingers-75",
+      "filename": "i16.jpg",
+      "url": "/assets/menu/i16.jpg",
+      "sha256": "4212cb6f029d7c312885e66fcbcdf67f25a2e0531968dfcaef6fec99971fa1cb",
+      "bytes": 148140
+    },
+    {
+      "source_id": "fingers-100",
+      "filename": "i17.jpg",
+      "url": "/assets/menu/i17.jpg",
+      "sha256": "e26fae60e81df0d0db8414a88bce622ceffc5a438ee456c928aeb512ce720261",
+      "bytes": 150338
+    },
+    {
+      "source_id": "fingers",
+      "filename": "i4.jpg",
+      "url": "/assets/menu/i4.jpg",
+      "sha256": "902ed9a4267e563006a7036d6db4bc5157ceaa7a4268a91b501a77229ccc065b",
+      "bytes": 37068
+    },
+    {
+      "source_id": "sauce",
+      "filename": "i18.jpg",
+      "url": "/assets/menu/i18.jpg",
+      "sha256": "5651511d4f0e17e42a238341d3a65185bb1c4fc73ac3ee522f215ab98f2d6312",
+      "bytes": 30026
+    },
+    {
+      "source_id": "sauce-hot",
+      "filename": "i19.jpg",
+      "url": "/assets/menu/i19.jpg",
+      "sha256": "14b9224f0c1f12d459d5bba8ef2bc3ac8848eff1f7f1e544e4bc1855a476c92f",
+      "bytes": 25834
+    },
+    {
+      "source_id": "toast",
+      "filename": "i5.jpg",
+      "url": "/assets/menu/i5.jpg",
+      "sha256": "28cda0a55c7f0c8254e906f977b6cdde123881159d56e0b5088419ee0d17d5f8",
+      "bytes": 57865
+    },
+    {
+      "source_id": "coleslaw",
+      "filename": "i6.jpg",
+      "url": "/assets/menu/i6.jpg",
+      "sha256": "079c98037e3bc71b78a99e45491ce81812644310f262eecd6e80383c5a7474bc",
+      "bytes": 36693
+    },
+    {
+      "source_id": "wedges",
+      "filename": "i20.jpg",
+      "url": "/assets/menu/i20.jpg",
+      "sha256": "495b2e49f3286f643abc1d12a4caa99bb00c7b1c9c76347014c2c4013e728033",
+      "bytes": 74135
+    },
+    {
+      "source_id": "burger",
+      "filename": "shot.jpg",
+      "url": "/assets/menu/shot.jpg",
+      "sha256": "2ac52455bd4890f2613900878e2d41c218d7c88f40c33e5a4f15b1ac888acc93",
+      "bytes": 72743
+    },
+    {
+      "source_id": "lemonade",
+      "filename": "i0.jpg",
+      "url": "/assets/menu/i0.jpg",
+      "sha256": "885edc401a2f5c98c0794bef8589543ad5a6d784a9e77d618abfcc5232b6eab7",
+      "bytes": 55105
+    },
+    {
+      "source_id": "cola",
+      "filename": "i2.jpg",
+      "url": "/assets/menu/i2.jpg",
+      "sha256": "398d749bbaeba3281682074d9327de56372d6821c5cc0f6858e0cd4880557f0d",
+      "bytes": 41276
+    },
+    {
+      "source_id": "fuse-peach",
+      "filename": "i1.jpg",
+      "url": "/assets/menu/i1.jpg",
+      "sha256": "d6377af51b23212d62858e13505f750fe955b4fc180621e0a8bc8ea42f032cf5",
+      "bytes": 36012
+    },
+    {
+      "source_id": "iced-tea",
+      "filename": "i22.jpg",
+      "url": "/assets/menu/i22.jpg",
+      "sha256": "b03a13c13a7cb8b05364348d030c9bbcb730fa4f90f0baebd886c71c0ba782ab",
+      "bytes": 21277
+    },
+    {
+      "source_id": "water",
+      "filename": "i23.jpg",
+      "url": "/assets/menu/i23.jpg",
+      "sha256": "61dfb151dde96415755c26ac1c9b9c6bece86da2989534dcf7064ae37f6257b7",
+      "bytes": 30238
+    }
+  ],
+  "omitted": [
+    {
+      "source_id": "piko",
+      "source_asset_key": "generic-drink",
+      "reason": "Original product photo unavailable; no substitute image assigned"
+    }
+  ]
+}

@@ -8,46 +8,47 @@
 
 MOB/KIO/POS/KDS — идентификаторы §4.1–4.4. DSP — §4.5. BO-* — проектные обозначения разделов таблицы §4.6 (новых требований не вводят). LOY/GAME — §5. P0/P1 — порядок дизайна, согласованный scope не изменяется.
 
-| Требование / раздел | Экраны                                      |
-| ------------------- | ------------------------------------------- |
-| MOB-01              | M01, M02, M03                               |
-| MOB-06              | M04, M30, M31, M32, M33, M34                |
-| MOB-02              | M05, M11                                    |
-| MOB-03              | M06, M07, M08, M10                          |
-| MOB-04              | M09, M12, M13, M14, M15, M16                |
-| MOB-05              | M17, M18, M19, M20, M21, M22, M35           |
-| LOY                 | M23, M24, M25, M29, B27                     |
-| GAME                | M26, M27, M28                               |
-| KIO-01              | K01, K02, K03, K04, K05, K06, K12           |
-| KIO-02              | K07, K08                                    |
-| KIO-03              | K09, K10, K11                               |
-| KIO-05              | K13, K15, K16                               |
-| KIO-04              | K14                                         |
-| POS-01              | P01, P02, P03, P06, P07, P08, P20, P21, P22 |
-| POS-02              | P04, P05, P09, P10                          |
-| POS-04              | P11, P12                                    |
-| POS-03              | P13, P14, P15, P17                          |
-| POS-05              | P16, P18, P19                               |
-| KDS-01              | D01, D03                                    |
-| KDS-02              | D02, D04                                    |
-| KDS-04              | D05, D06                                    |
-| KDS-03              | D07, D08, D09                               |
-| DSP                 | T01, T02, T03, T04                          |
-| BO-STAFF            | B01, B39, B40, B41                          |
-| BO-DASHBOARD        | B02                                         |
-| BO-ORDERS           | B03, B04                                    |
-| BO-CATALOG          | B05, B06, B07, B08, B09, B10, B11           |
-| BO-STOCK            | B12, B13, B14, B15, B16, B17                |
-| BO-REPORTS          | B18                                         |
-| BO-GUESTS           | B19, B28, B29, B30, B31                     |
-| BO-FINANCE          | B20, B21, B22                               |
-| BO-PROMO            | B23, B24                                    |
-| BO-GAMES            | B25, B26                                    |
-| BO-SUPPORT          | B32, B33                                    |
-| BO-REVIEWS          | B34                                         |
-| BO-STATIONS         | B35                                         |
-| BO-DEVICES          | B36, B37, B38, B43, B44                     |
-| BO-AUDIT            | B42                                         |
+| Требование / раздел | Экраны                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| MOB-01              | M01, M02, M03                                                                           |
+| MOB-06              | M04, M30, M31, M32, M33, M34                                                            |
+| MOB-02              | M05, M11                                                                                |
+| MOB-03              | M06, M07, M08, M10                                                                      |
+| MOB-04              | M09, M12, M13, M14, M15, M16                                                            |
+| MOB-05              | M17, M18, M19, M20, M21, M22, M35                                                       |
+| LOY                 | M23, M24, M25, M29, B27                                                                 |
+| GAME                | M26, M27, M28                                                                           |
+| KIO-01              | K01, K02, K03, K04, K05, K06, K12                                                       |
+| KIO-02              | K07, K08                                                                                |
+| KIO-03              | K09, K10, K11                                                                           |
+| KIO-05              | K13, K15, K16                                                                           |
+| KIO-04              | K14                                                                                     |
+| POS-01              | P01, P02, P03, P06, P07, P08, P20, P21, P22                                             |
+| POS-02              | P04, P05, P09, P10                                                                      |
+| POS-04              | P11, P12                                                                                |
+| POS-03              | P13, P14, P15, P17                                                                      |
+| POS-05              | P16, P18, P19                                                                           |
+| KDS-01              | D01, D03                                                                                |
+| KDS-02              | D02, D04                                                                                |
+| KDS-04              | D05, D06                                                                                |
+| KDS-03              | D07, D08, D09                                                                           |
+| DSP                 | T01, T02, T03, T04                                                                      |
+| BO-STAFF            | B01, B39, B40, B41                                                                      |
+| BO-DASHBOARD        | B02                                                                                     |
+| BO-ORDERS           | B03, B04                                                                                |
+| BO-CATALOG          | B05, B06, B07, B08, B09, B10, B11                                                       |
+| BO-STOCK            | B12, B13, B14, B15, B16, B17                                                            |
+| BO-REPORTS          | B18                                                                                     |
+| BO-GUESTS           | B19, B28, B29, B30, B31                                                                 |
+| BO-FINANCE          | B20, B21, B22                                                                           |
+| BO-PROMO            | B23, B24                                                                                |
+| BO-GAMES            | B25, B26                                                                                |
+| BO-SUPPORT          | B32, B33                                                                                |
+| BO-REVIEWS          | B34                                                                                     |
+| BO-STATIONS         | B35                                                                                     |
+| BO-DEVICES          | B36, B37, B38, B43, B44                                                                 |
+| BO-AUDIT            | B42                                                                                     |
+| KIO-06              | Приёмка устройства и распространения: [процедура](../operations/ipad-kiosk-lockdown.md) |
 
 ## Приложение — 35 экранов
 
@@ -1332,7 +1333,7 @@ OTP→quote→оплата→выдача; DAU/MAU, когорты и дедуп
 | ink / surface           | 17.38:1  |
 | muted / surface         | 6.00:1   |
 | surface / brandBlue     | 8.02:1   |
-| ink / brandOrange       | 5.97:1   |
+| ink / brandOrange       | 6.02:1   |
 | success / successSoft   | 5.67:1   |
 | warning / warningSoft   | 6.07:1   |
 | danger / dangerSoft     | 5.43:1   |

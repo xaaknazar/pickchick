@@ -1,0 +1,205 @@
+{
+  "format": "pickchick-windows-workstations-package-evidence-v1",
+  "sourceCommit": "719d1d75d265bb13e391e009cb19c17dd2691b60",
+  "scope": "local_static_package_verification",
+  "desktopReports": {
+    "pos": {
+      "sourceCommit": "719d1d75d265bb13e391e009cb19c17dd2691b60",
+      "sourceDirty": false,
+      "inputCount": 47,
+      "entryHashesMatch": true,
+      "artifacts": {
+        "release/PickChick-POS-Setup-0.3.0-x64.exe": {
+          "bytes": 121797207,
+          "sha256": "e165e6014516eb55d20efa4650eb2cbf06276b5b2403814606e17c35227380c6",
+          "peMachine": 332,
+          "certificateTableBytes": 0
+        },
+        "release/PickChick-POS-Portable-0.3.0-x64.exe": {
+          "bytes": 121633071,
+          "sha256": "8ed5f17b830d80d0bc9746bca5c1862ceee6d2356c0d9b476b9b7f4d68280d60",
+          "peMachine": 332,
+          "certificateTableBytes": 0
+        },
+        "release/win-unpacked/PickChickPOS.exe": {
+          "bytes": 246201856,
+          "sha256": "a8dfdeaa334ac8c08386241e75206def974d285f6e67994167d22c40fe10a4f2",
+          "peMachine": 34404,
+          "certificateTableBytes": 0
+        },
+        "release/win-unpacked/resources/app.asar": {
+          "bytes": 1952228,
+          "sha256": "127172808babc7440f507bc2eccfc9b88949d0f45aa55bded4773477be64f576"
+        }
+      },
+      "asarFiles": [
+        "/journal.mjs",
+        "/main.mjs",
+        "/menu-assets.mjs",
+        "/package.json",
+        "/preload.cjs",
+        "/protocol.mjs",
+        "/renderer",
+        "/renderer/api.js",
+        "/renderer/app.js",
+        "/renderer/asset-manifest.json",
+        "/renderer/assets",
+        "/renderer/assets/menu",
+        "/renderer/assets/menu/i0.jpg",
+        "/renderer/assets/menu/i1.jpg",
+        "/renderer/assets/menu/i10.jpg",
+        "/renderer/assets/menu/i11.jpg",
+        "/renderer/assets/menu/i12.jpg",
+        "/renderer/assets/menu/i13.jpg",
+        "/renderer/assets/menu/i14.jpg",
+        "/renderer/assets/menu/i15.jpg",
+        "/renderer/assets/menu/i16.jpg",
+        "/renderer/assets/menu/i17.jpg",
+        "/renderer/assets/menu/i18.jpg",
+        "/renderer/assets/menu/i19.jpg",
+        "/renderer/assets/menu/i2.jpg",
+        "/renderer/assets/menu/i20.jpg",
+        "/renderer/assets/menu/i22.jpg",
+        "/renderer/assets/menu/i23.jpg",
+        "/renderer/assets/menu/i4.jpg",
+        "/renderer/assets/menu/i5.jpg",
+        "/renderer/assets/menu/i6.jpg",
+        "/renderer/assets/menu/i7.jpg",
+        "/renderer/assets/menu/i8.jpg",
+        "/renderer/assets/menu/i9.jpg",
+        "/renderer/assets/menu/shot.jpg",
+        "/renderer/auth-view.js",
+        "/renderer/index.html",
+        "/renderer/logo.png",
+        "/renderer/model.js",
+        "/renderer/order-view.js",
+        "/renderer/styles.css",
+        "/renderer/types.js"
+      ],
+      "fuses": {
+        "0": 48,
+        "1": 48,
+        "2": 48,
+        "3": 48,
+        "4": 49,
+        "5": 49,
+        "6": 48,
+        "7": 48,
+        "8": 49,
+        "version": "1"
+      },
+      "windowsExecutionTested": false,
+      "authenticodeVerified": false,
+      "physicalPowerLossTested": false
+    },
+    "kitchen": {
+      "sourceCommit": "719d1d75d265bb13e391e009cb19c17dd2691b60",
+      "sourceDirty": false,
+      "inputCount": 26,
+      "entryHashesMatch": true,
+      "origin": "http://127.0.0.1:4178/",
+      "profile": "PickChickKitchen",
+      "partition": "persist:kitchen-v1",
+      "artifacts": {
+        "release/PickChick-Kitchen-Setup-0.2.0-x64.exe": {
+          "bytes": 120856652,
+          "sha256": "a72e7797b9cf1f072753f488a2dc372543b62e3f9a3c0d0fbb44d6ae5892e5c3",
+          "peMachine": 332,
+          "certificateTableBytes": 0
+        },
+        "release/PickChick-Kitchen-Portable-0.2.0-x64.exe": {
+          "bytes": 120692480,
+          "sha256": "1ac26fad725c07a62166128044a5abd683c0e4a0952bca47433b0d00f15945b2",
+          "peMachine": 332,
+          "certificateTableBytes": 0
+        },
+        "release/win-unpacked/PickChickKitchen.exe": {
+          "bytes": 246201856,
+          "sha256": "84d1206bb3db10478e8899f2d26ab56da0a1ee033f0ff35305773b487c5b0d82",
+          "peMachine": 34404,
+          "certificateTableBytes": 0
+        },
+        "release/win-unpacked/resources/app.asar": {
+          "bytes": 711373,
+          "sha256": "e083ace16f9532ba60abe06ff033f5b102ae6204e48d2a441bfbebec55ba460c"
+        }
+      },
+      "asarFiles": [
+        "/gateway.mjs",
+        "/main.mjs",
+        "/package.json",
+        "/renderer",
+        "/renderer/api.js",
+        "/renderer/app.js",
+        "/renderer/asset-manifest.json",
+        "/renderer/bg-blue.png",
+        "/renderer/fonts",
+        "/renderer/fonts/golos-text-2f175b8fc40e.woff2",
+        "/renderer/fonts/golos-text-f8d71091110f.woff2",
+        "/renderer/fonts/montserrat-0b00fbd6edcc.woff2",
+        "/renderer/fonts/montserrat-6438d7b8ea9c.woff2",
+        "/renderer/index.html",
+        "/renderer/logo.png",
+        "/renderer/model.js",
+        "/renderer/runtime.js",
+        "/renderer/styles.css",
+        "/renderer/types.js",
+        "/security.mjs"
+      ],
+      "fuses": {
+        "0": 48,
+        "1": 48,
+        "2": 48,
+        "3": 48,
+        "4": 49,
+        "5": 49,
+        "6": 48,
+        "7": 48,
+        "8": 49,
+        "version": "1"
+      },
+      "windowsExecutionTested": false,
+      "authenticodeVerified": false,
+      "physicalPowerLossTested": false
+    }
+  },
+  "kitchenLanArchive": {
+    "filename": "kitchen-lan-operator-719d1d7.zip",
+    "bytes": 19066,
+    "sha256": "0c644ee9973071a8841985f7b4f42676d5bddd5241681237b558b7bea2b652fc",
+    "entries": {
+      "install-kitchen-lan.ps1": {
+        "bytes": 14153,
+        "sha256": "a280215776e80fd7715b7ddfccad1b669d0ca073867e2f0283a38ab3d41dc187",
+        "sourcePath": "infra/windows/install-kitchen-lan.ps1"
+      },
+      "kitchen-lan-gateway.mjs": {
+        "bytes": 9245,
+        "sha256": "5c78b78161a68261ad9871b15616dcce392a9242463c09f77efcd8650b4face1",
+        "sourcePath": "infra/windows/kitchen-lan-gateway.mjs"
+      },
+      "kitchen-lan-check.mjs": {
+        "bytes": 3049,
+        "sha256": "03fb0e4f3f9b85d6319038cdd18b99eea649bdc2826e0df08487aeed70bf5cef",
+        "sourcePath": "infra/windows/kitchen-lan-check.mjs"
+      },
+      "install-native-foundation.ps1": {
+        "bytes": 18653,
+        "sha256": "6addec134f3c5aa548406286ccf061722360cc968dee1d34743365ad61d62af5",
+        "sourcePath": "infra/windows/install-native-foundation.ps1"
+      },
+      "README.md": {
+        "bytes": 7504,
+        "sha256": "c7699b565991158e90f757004868388b738692e95ef919d4c546a49b948445cd",
+        "sourcePath": "Generated bundle header + exact infra/windows/kitchen-lan.md"
+      }
+    },
+    "exactGitSources": true,
+    "foundationPinVerified": true,
+    "zipEntriesVerified": true,
+    "privateMaterialIncluded": false
+  },
+  "windowsExecutionConfirmed": false,
+  "physicalInstallationConfirmed": false,
+  "remoteActionsPerformed": false
+}

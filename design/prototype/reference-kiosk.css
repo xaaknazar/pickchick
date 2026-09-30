@@ -529,7 +529,7 @@
   background: linear-gradient(
     180deg,
     #050a16ad 0%,
-    #050a161f 24%,
+    #050a16b8 28%,
     #050a1685 46%,
     #050a16eb 72%,
     #050a16fa 100%
@@ -613,6 +613,14 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+.kiosk .rk-combo-back {
+  min-height: 64px;
+  margin-bottom: 20px;
+  padding: 12px 24px;
+  color: white;
+  border: 2px solid #ffffff80;
+  background: #070c1699;
 }
 .rk-option {
   display: flex;
@@ -766,7 +774,21 @@
   background: white;
   border: 2px solid #dfe4ec;
 }
-.kiosk .rk-body .status-hero {
+.kiosk .rk-body .stepper button {
+  width: 64px;
+  height: 64px;
+  font-size: 30px;
+}
+.kiosk .rk-body .checkline {
+  min-height: 64px;
+  align-items: center;
+}
+.rk-attract-controls {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.kiosk .kiosk .rk-body .status-hero {
   padding: 35px 30px;
 }
 .kiosk .rk-body .status-hero h2 {

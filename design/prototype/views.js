@@ -1,5 +1,5 @@
 import { mobileReferenceView, mobileReferenceShell } from './reference-mobile.js';
-import { kioskView, kioskShell } from './reference-kiosk.js';
+import { kioskView, kioskShell, kioskCartDescription } from './reference-kiosk.js';
 import { operationsView, operationsShell } from './reference-operations.js';
 import {
   icon,
@@ -57,9 +57,9 @@ const links = (s) =>
         };
 const card = (html) => `<div class="card">${html}</div>`;
 const amount = (model) => products[model.product].price * model.qty;
-const cartLine = (model) => {
+const cartLine = (model, surface = '') => {
   const p = products[model.product];
-  return `<div class="cart-line">${photo(p.image, p.name)}<div><h3>${p.name}</h3><small class="muted">Фирменный соус · стандарт</small><div class="stepper"><button data-action="decrement" aria-label="Уменьшить количество">−</button><strong>${model.qty}</strong><button data-action="increment" aria-label="Увеличить количество">+</button></div></div><strong class="line-amount" style="margin-left:auto">${money(amount(model))}</strong></div>`;
+  return `<div class="cart-line">${photo(p.image, p.name)}<div><h3>${p.name}</h3><small class="muted">${surface === 'kiosk' ? esc(kioskCartDescription(model)) : 'Фирменный соус · стандарт'}</small><div class="stepper"><button data-action="decrement" aria-label="Уменьшить количество">−</button><strong>${model.qty}</strong><button data-action="increment" aria-label="Увеличить количество">+</button></div></div><strong class="line-amount" style="margin-left:auto">${money(amount(model))}</strong></div>`;
 };
 const checkoutSummary = (model) =>
   summary([
@@ -80,11 +80,11 @@ function mobileView(s, m) {
     case 'welcome':
       return `<div class="phone-welcome"><div class="row"><span class="eyebrow">Хруст начинается здесь</span><button class="btn secondary small" data-action="language">RU / KZ</button></div>${photo('brand-logo.png', 'Логотип PickChick', 'welcome-logo')}<h1>Твой выбор.<br>Твой хруст.</h1><p>Заказывай без очереди, забирай горячим и открывай больше с Чиками.</p><div class="welcome-bottom">${go(s.surface === 'kiosk' ? 'Начать заказ' : 'Выбрать вкусное', s.surface === 'kiosk' ? 'K02' : 'M06', 'orange full')}${go(s.surface === 'kiosk' ? 'Қазақша' : 'Войти по номеру', s.surface === 'kiosk' ? 'K02' : 'M02', 'secondary full')}<p class="fineprint" style="color:#dbe8ff">${s.surface === 'kiosk' ? 'Заказ без регистрации · Тапсырыс тіркелусіз' : 'Меню можно смотреть без входа'}</p></div></div>`;
     case 'phone':
-      return `<div class="content"><p class="muted">Номер нужен, чтобы видеть заказы и пользоваться Чиками.</p>${field('Казахстанский номер', '', 'tel', '+7 (7••) ••• •• ••')}<p class="fineprint">Код придёт в SMS. Регистрация и вход — один шаг.</p>${go('Получить код', 'M03', 'full')}${go('Пока посмотреть меню', 'M06', 'secondary full')}<p class="fineprint">Продолжая, вы принимаете условия оферты и обработки данных.</p>${go('Прочитать документы', 'M33', 'secondary full')}</div>`;
+      return `<div class="content"><p class="muted">Номер нужен, чтобы видеть заказы и пользоваться Чиками.</p>${field('Казахстанский номер', '', 'tel', '+7 (7••) ••• •• ••')}<p class="fineprint">Код придёт в SMS. Регистрация и вход - один шаг.</p>${go('Получить код', 'M03', 'full')}${go('Пока посмотреть меню', 'M06', 'secondary full')}<p class="fineprint">Продолжая, вы принимаете условия оферты и обработки данных.</p>${go('Прочитать документы', 'M33', 'secondary full')}</div>`;
     case 'otp':
       return `<div class="content"><p class="muted">Введите код из SMS или выберите его над клавиатурой.</p><label class="form-field">Код из SMS<input class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······" aria-label="Шестизначный код из SMS" /></label>${go('Подтвердить · демопереход', 'M12', 'full')}${act('Отправить снова через 00:43', 'limited', 'secondary full', 'disabled')}<p class="fineprint">Если код не пришёл, дождитесь повторной отправки или проверьте номер.</p>${go('Изменить номер', 'M02', 'secondary full')}</div>`;
     case 'branches':
-      return `<div class="content"><p class="muted">Выберите, где заберёте заказ. Корзина пересчитается для этой точки.</p><div class="illustrated-map"><span class="map-pin">${icon('pin')} PickChick</span></div>${card(`<div class="row"><h3>Тестовая точка</h3>${pill('Открыто', 'green')}</div><p class="muted" style="margin:12px 0">Алматы · адрес предоставит PickChick</p><p class="fineprint">Часы работы — из справочника точки</p>${go('Выбрать этот ресторан', 'M06', 'full')}`)}${notice('При смене ресторана проверим цены и доступность блюд.')}</div>`;
+      return `<div class="content"><p class="muted">Выберите, где заберёте заказ. Корзина пересчитается для этой точки.</p><div class="illustrated-map"><span class="map-pin">${icon('pin')} PickChick</span></div>${card(`<div class="row"><h3>Тестовая точка</h3>${pill('Открыто', 'green')}</div><p class="muted" style="margin:12px 0">Алматы · адрес предоставит PickChick</p><p class="fineprint">Часы работы - из справочника точки</p>${go('Выбрать этот ресторан', 'M06', 'full')}`)}${notice('При смене ресторана проверим цены и доступность блюд.')}</div>`;
     case 'menu':
       return `<div class="content"><div class="row"><div><span class="eyebrow muted">Сегодня хочется</span><h2>Чего-то хрустящего</h2></div>${go(icon('pin'), s.surface === 'kiosk' ? 'K02' : 'M05', 'secondary', 'aria-label="Выбрать ресторан"')}</div><div class="brand-hero"><div class="hero-copy"><small>ВКУСНО В КОМПАНИИ</small><h2>Два бургера.<br>Один план.</h2>${go('Собрать комбо', l.combo, 'orange small')}</div>${photo('duo.jpg', 'Комбо на двоих')}</div>${categories(m.category)}<div class="section-head"><h2>Наши хиты</h2><span class="fineprint">Готовим после заказа</span></div>${productGrid(l.product, m.category)}${go(`${icon('bag')} Корзина · ${money(amount(m))}`, l.cart, 'full')}</div>`;
     case 'product':
@@ -92,7 +92,7 @@ function mobileView(s, m) {
     case 'combo':
       return `<div class="content"><div class="step-head"><span class="on"></span><span class="${m.comboStep > 1 ? 'on' : ''}"></span><span class="${m.comboStep > 2 ? 'on' : ''}"></span></div><p class="eyebrow muted">Шаг ${m.comboStep} из 3 · ${['', 'Основа', 'Соус', 'Напиток'][m.comboStep]}</p>${photo('duo.jpg', 'Комбо на двоих', 'product-hero')}<h2>${['', 'Выберите основу', 'Добавьте соус', 'И напиток'][m.comboStep]}</h2>${(m.comboStep === 1 ? ['Два Чик Бургера', 'Стрипсы на двоих'] : m.comboStep === 2 ? ['Фирменный', 'Томатный'] : ['Cola · 0,5 л', 'Вода · 0,5 л']).map((name, i) => `<label class="choice ${i === 0 ? 'selected' : ''}"><span>${name}<small>Входит в комбо</small></span><input type="radio" name="combo" ${i === 0 ? 'checked' : ''}/></label>`).join('')}${m.comboStep < 3 ? act('Далее', 'combo-next', 'full') : go('Добавить выбранное комбо', l.cart, 'full')}${notice('Подтверждение доступно после обязательного выбора в каждой группе.')}</div>`;
     case 'cart':
-      return `<div class="content">${card(cartLine(m))}${card(`<h3>Есть промокод?</h3><div style="margin-top:12px">${field('Промокод', '', 'text', 'Введите код')}</div>${act('Применить', 'promo', 'secondary full')}`)}${card(checkoutSummary(m))}<p class="fineprint">Чики за покупку появятся после подтверждённой оплаты и выдачи. Правила начисления ещё согласуются.</p>${go('Продолжить', s.surface === 'kiosk' ? 'K07' : 'M12', 'full')}${go('Добавить ещё', l.menu, 'secondary full')}</div>`;
+      return `<div class="content">${card(cartLine(m, s.surface))}${card(`<h3>Есть промокод?</h3><div style="margin-top:12px">${field('Промокод', '', 'text', 'Введите код')}</div>${act('Применить', 'promo', 'secondary full')}`)}${card(checkoutSummary(m))}<p class="fineprint">Чики за покупку появятся после подтверждённой оплаты и выдачи. Правила начисления ещё согласуются.</p>${go('Продолжить', s.surface === 'kiosk' ? 'K07' : 'M12', 'full')}${go('Добавить ещё', l.menu, 'secondary full')}</div>`;
     case 'changed':
       return `<div class="content">${notice('Пока вы выбирали, меню обновилось. Проверьте изменения перед оплатой.', 'warning')}${card(
         summary([
@@ -177,7 +177,7 @@ function mobileView(s, m) {
         ) + go('Посмотреть заказ', 'M20', 'full'),
       );
     case 'tracker':
-      return `<div class="content"><div class="status-hero"><span class="pill">С собой · тестовая точка</span><div class="number-hero">083</div><h2>Готовим для вас</h2><p class="muted">Ориентировочно ещё 6–9 минут</p></div>${card(
+      return `<div class="content"><div class="status-hero"><span class="pill">С собой · тестовая точка</span><div class="number-hero">083</div><h2>Готовим для вас</h2><p class="muted">Ориентировочно ещё 6-9 минут</p></div>${card(
         timeline([
           ['Оплата подтверждена', '16:42 · ответ банка', 'done'],
           ['Ресторан принял', '16:42 · кухня получила заказ', 'done'],
@@ -239,7 +239,7 @@ function mobileView(s, m) {
           ['Шаг 3 · Любимый вкус', 'Текущий прогресс', 'M23'],
           ['Шаг 5 · Награда', 'Условия награды на согласовании', 'M33'],
         ],
-      )}${notice('Дорога наград, уровень и расходуемые Чики — разные показатели.')}</div>`;
+      )}${notice('Дорога наград, уровень и расходуемые Чики - разные показатели.')}</div>`;
     case 'events':
       return `<div class="content"><div class="game-poster">${photo('pick-run.jpg', 'Брендовый постер Pick Run')}<div><span class="pill orange">Короткая игра · 2D</span><h2>Pick Run</h2><p>Лови момент. Собирай хруст.</p></div></div>${go('Открыть игру', 'M27', 'full')}${notice('Игра в деморежиме. Условия наград появятся перед запуском.')}${card(`<h3>Новые события впереди</h3><p class="muted" style="margin-top:10px">Следите за анонсами PickChick.</p>`)}</div>`;
     case 'game':
@@ -248,7 +248,7 @@ function mobileView(s, m) {
       return status(
         'clock',
         'Проверяем результат',
-        'Игра завершена. Проверяем результат — награда пока не начислена.',
+        'Игра завершена. Проверяем результат - награда пока не начислена.',
         card(
           summary([
             ['Собрано в демо', String(m.score)],
@@ -470,7 +470,7 @@ const datasets = {
     rows: [
       ['Продажи по каналам', 'Сегодня', 'CSV', '16:44', pill('В очереди', 'orange')],
       ['Сверка банк / ККМ', 'Вчера', 'CSV', '09:10', pill('Обработано', 'green')],
-      ['Обмен с 1С', 'Текущая смена', 'По договору', '—', 'Не подключён'],
+      ['Обмен с 1С', 'Текущая смена', 'По договору', '-', 'Не подключён'],
     ],
   },
   promotions: {
@@ -496,7 +496,7 @@ const datasets = {
         'На согласовании',
         pill('Прототип'),
       ],
-      ['Следующее событие', '—', '—', '—', 'Планируется'],
+      ['Следующее событие', '-', '-', '-', 'Планируется'],
     ],
   },
   guests: {
@@ -517,7 +517,7 @@ const datasets = {
     cols: ['Кампания', 'Отправлено', 'Доставка известна', 'Открыто', 'Заказ в окне'],
     rows: [
       ['Время хруста · демо', '120', '96', '28', '7'],
-      ['Новое событие · черновик', '—', '—', '—', '—'],
+      ['Новое событие · черновик', '-', '-', '-', '-'],
     ],
   },
   tickets: {
@@ -641,7 +641,7 @@ function operational(s, m) {
     case 'pos-sale':
       return `<div class="pos-layout"><div class="stack">${categories(m.category)}${productGrid('P20', m.category)}${notice('Проверьте состав и сумму после изменения заказа.')}</div><aside class="pos-cart"><div class="row"><h2>Новый заказ</h2>${pill('Касса')}</div><div class="row"><button class="chip ${m.mode === 'В зале' ? 'selected' : ''}" data-mode="В зале">В зале</button><button class="chip ${m.mode === 'С собой' ? 'selected' : ''}" data-mode="С собой">С собой</button></div><div class="pos-cart-lines">${cartLine(m)}<div class="pos-actions">${go('Добавки', 'P20', 'secondary')}${go('Комбо', 'P21', 'secondary')}</div>${go('Телефон / QR гостя', 'P06', 'secondary')}</div>${checkoutSummary(m)}<div class="pos-actions">${go('Наличные', 'P07', 'full')}${go('Терминал', 'P08', 'secondary full')}</div><p class="fineprint">Демонстрационные цены.</p></aside></div>`;
     case 'cash':
-      return `<div class="two-columns"><div class="card stack"><h2>К оплате ${money(amount(m))}</h2>${field('Получено от гостя, ₸', String(m.cash), 'number').replace('<input', '<input data-cash-input')}<div class="keypad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', '←'].map((n) => `<button data-cash="${n}">${n}</button>`).join('')}</div>${act('Получено 5 000 ₸', 'cash-5000', 'secondary')}</div><div class="card stack"><h2>Сдача</h2><div class="cash-number">${money(Math.max(0, m.cash - amount(m)))}</div>${notice(m.cash < amount(m) ? 'Полученная сумма меньше стоимости заказа.' : 'Сдачу выдаёт кассир. Подтверждение приёма наличных — отдельное действие.', m.cash < amount(m) ? 'warning' : '')}${act('Подтвердить приём наличных', 'cash-confirm', 'full', m.cash < amount(m) ? 'disabled' : '')}${go('Вернуться к заказу', 'P03', 'secondary full')}</div></div>`;
+      return `<div class="two-columns"><div class="card stack"><h2>К оплате ${money(amount(m))}</h2>${field('Получено от гостя, ₸', String(m.cash), 'number').replace('<input', '<input data-cash-input')}<div class="keypad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', '←'].map((n) => `<button data-cash="${n}">${n}</button>`).join('')}</div>${act('Получено 5 000 ₸', 'cash-5000', 'secondary')}</div><div class="card stack"><h2>Сдача</h2><div class="cash-number">${money(Math.max(0, m.cash - amount(m)))}</div>${notice(m.cash < amount(m) ? 'Полученная сумма меньше стоимости заказа.' : 'Сдачу выдаёт кассир. Подтверждение приёма наличных - отдельное действие.', m.cash < amount(m) ? 'warning' : '')}${act('Подтвердить приём наличных', 'cash-confirm', 'full', m.cash < amount(m) ? 'disabled' : '')}${go('Вернуться к заказу', 'P03', 'secondary full')}</div></div>`;
     case 'approval':
       return `<div class="feedback-form stack">${notice('Нужно личное подтверждение управляющего.', 'warning')}${card(
         summary([
@@ -738,7 +738,7 @@ function operational(s, m) {
         ]) + go('Проверить заказ', 'B04', 'secondary full'),
       )}</div></div>`;
     case 'stations':
-      return `<div class="content">${notice('Предложение распределения: экран A — приготовление; экран B — сборка, напитки и выдача. Подтвердить на точке.')}<div class="two-columns">${card(
+      return `<div class="content">${notice('Предложение распределения: экран A - приготовление; экран B - сборка, напитки и выдача. Подтвердить на точке.')}<div class="two-columns">${card(
         `<span class="pill">Экран A</span><h2 style="margin:15px 0">Фритюр и приготовление</h2>${summary(
           [
             ['Стрипсы', 'queued → in_progress → done'],
@@ -859,7 +859,7 @@ function kitchen(s, m) {
 function board(s, m) {
   const idle = s.kind === 'board-idle',
     lost = s.kind === 'board-offline';
-  return `<div class="board"><header class="board-header">${brands('Тапсырыстар / Заказы')}<span class="muted">${lost ? 'Нет связи с точкой' : 'Горячее уже близко'}</span></header>${idle || lost ? `<div class="board-offline">${photo('brand-logo.png', 'PickChick', 'welcome-logo')}<h1>${lost ? 'Обновления временно недоступны' : 'Выбирай свой хруст'}</h1><p>${lost ? 'Уточните готовность у сотрудника.' : 'Ваш номер появится здесь после принятия заказа.'}</p><p style="margin-top:25px">${lost ? 'Дайындығын қызметкерден сұраңыз.' : 'Тапсырыс нөмірі осында көрсетіледі.'}</p></div>` : `<div class="board-columns"><section class="board-column"><h1>Готовится</h1><p>Дайындалып жатыр</p><div class="board-numbers">${(s.kind === 'board-overflow' ? ['091', '090', '089', '088', '087', '086'] : ['083', '077', '081', '076', '073', '072']).map((n) => `<div class="board-number">${n}</div>`).join('')}</div></section><section class="board-column ready-column"><h1>Можно забирать</h1><p>Алып кетуге болады</p><div class="board-numbers">${['080', '078', '075'].map((n) => `<div class="board-number">${n}</div>`).join('')}</div></section></div>`}<footer class="board-footer"><strong>Твой выбор. Твой хруст.</strong><span>${s.kind === 'board-overflow' ? `Страница ${m.page} из 3 · смена без потери заказов` : lost ? 'Последние данные: 16:42' : 'Номер заказа — без личных данных'}</span></footer></div>`;
+  return `<div class="board"><header class="board-header">${brands('Тапсырыстар / Заказы')}<span class="muted">${lost ? 'Нет связи с точкой' : 'Горячее уже близко'}</span></header>${idle || lost ? `<div class="board-offline">${photo('brand-logo.png', 'PickChick', 'welcome-logo')}<h1>${lost ? 'Обновления временно недоступны' : 'Выбирай свой хруст'}</h1><p>${lost ? 'Уточните готовность у сотрудника.' : 'Ваш номер появится здесь после принятия заказа.'}</p><p style="margin-top:25px">${lost ? 'Дайындығын қызметкерден сұраңыз.' : 'Тапсырыс нөмірі осында көрсетіледі.'}</p></div>` : `<div class="board-columns"><section class="board-column"><h1>Готовится</h1><p>Дайындалып жатыр</p><div class="board-numbers">${(s.kind === 'board-overflow' ? ['091', '090', '089', '088', '087', '086'] : ['083', '077', '081', '076', '073', '072']).map((n) => `<div class="board-number">${n}</div>`).join('')}</div></section><section class="board-column ready-column"><h1>Можно забирать</h1><p>Алып кетуге болады</p><div class="board-numbers">${['080', '078', '075'].map((n) => `<div class="board-number">${n}</div>`).join('')}</div></section></div>`}<footer class="board-footer"><strong>Твой выбор. Твой хруст.</strong><span>${s.kind === 'board-overflow' ? `Страница ${m.page} из 3 · смена без потери заказов` : lost ? 'Последние данные: 16:42' : 'Номер заказа - без личных данных'}</span></footer></div>`;
 }
 export function offline(s) {
   const local = ['pos', 'kiosk', 'kitchen'].includes(s.surface);

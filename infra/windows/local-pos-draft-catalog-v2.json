@@ -1,0 +1,2392 @@
+{
+  "format": "pickchick-local-pos-draft-catalog-v2",
+  "content_reviewed": false,
+  "source": {
+    "design_path": "design/reference-source/mobile-v2.html.txt",
+    "design_sha256": "63ed692aaf314b3161870efb22a8680e1db679e62e7d1fd169c2626d04e42eb5",
+    "dataset_path": "packages/test-order-flow/src/complete-catalog.ts",
+    "dataset_sha256": "4195d24891954dc261e0b296d91423f07f32d2ff204f634da49b74c4af550c97"
+  },
+  "products": [
+    {
+      "source_id": "pick-combo",
+      "category": "Комбо",
+      "name_ru": "Pick Combo",
+      "price_minor": "419000",
+      "image_asset_key": "i7.jpg",
+      "image_url": "/assets/menu/i7.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "drink",
+          "name_ru": "Напиток на выбор",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "cola-bottle",
+              "name_ru": "Coca-Cola 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "lemonade",
+              "name_ru": "Фирменный лимонад 0.5 л",
+              "price_minor": "20000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-peach",
+              "name_ru": "Fuse Tea Персик 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-can",
+              "name_ru": "Coca-Cola 0.5 л, банка",
+              "price_minor": "10000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fanta",
+              "name_ru": "Fanta 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sprite",
+              "name_ru": "Sprite 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-zero",
+              "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-sweet",
+              "name_ru": "Фирменный холодный чай, сладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-unsweet",
+              "name_ru": "Фирменный холодный чай, несладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-berry",
+              "name_ru": "Fuse Tea Ягода 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-watermelon",
+              "name_ru": "Fuse Tea Арбуз 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": false
+            },
+            {
+              "source_id": "fuse-mango",
+              "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "water",
+              "name_ru": "Bonaqua негазированная 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "piko",
+              "name_ru": "Piko 0.2 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        },
+        {
+          "source_id": "sauce",
+          "name_ru": "Соус на выбор",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "master-combo",
+      "category": "Комбо",
+      "name_ru": "Master Combo",
+      "price_minor": "549000",
+      "image_asset_key": "i8.jpg",
+      "image_url": "/assets/menu/i8.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "drink",
+          "name_ru": "Напиток на выбор",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "cola-bottle",
+              "name_ru": "Coca-Cola 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "lemonade",
+              "name_ru": "Фирменный лимонад 0.5 л",
+              "price_minor": "20000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-peach",
+              "name_ru": "Fuse Tea Персик 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-can",
+              "name_ru": "Coca-Cola 0.5 л, банка",
+              "price_minor": "10000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fanta",
+              "name_ru": "Fanta 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sprite",
+              "name_ru": "Sprite 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-zero",
+              "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-sweet",
+              "name_ru": "Фирменный холодный чай, сладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-unsweet",
+              "name_ru": "Фирменный холодный чай, несладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-berry",
+              "name_ru": "Fuse Tea Ягода 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-watermelon",
+              "name_ru": "Fuse Tea Арбуз 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": false
+            },
+            {
+              "source_id": "fuse-mango",
+              "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "water",
+              "name_ru": "Bonaqua негазированная 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "piko",
+              "name_ru": "Piko 0.2 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        },
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 2 шт",
+          "min_selected": 2,
+          "max_selected": 2,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 2,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "burger-combo",
+      "category": "Комбо",
+      "name_ru": "Burger Combo",
+      "price_minor": "379000",
+      "image_asset_key": "i9.jpg",
+      "image_url": "/assets/menu/i9.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "drink",
+          "name_ru": "Напиток на выбор",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "cola-bottle",
+              "name_ru": "Coca-Cola 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "lemonade",
+              "name_ru": "Фирменный лимонад 0.5 л",
+              "price_minor": "20000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-peach",
+              "name_ru": "Fuse Tea Персик 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-can",
+              "name_ru": "Coca-Cola 0.5 л, банка",
+              "price_minor": "10000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fanta",
+              "name_ru": "Fanta 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sprite",
+              "name_ru": "Sprite 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-zero",
+              "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-sweet",
+              "name_ru": "Фирменный холодный чай, сладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-unsweet",
+              "name_ru": "Фирменный холодный чай, несладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-berry",
+              "name_ru": "Fuse Tea Ягода 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-watermelon",
+              "name_ru": "Fuse Tea Арбуз 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": false
+            },
+            {
+              "source_id": "fuse-mango",
+              "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "water",
+              "name_ru": "Bonaqua негазированная 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "piko",
+              "name_ru": "Piko 0.2 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        },
+        {
+          "source_id": "sauce",
+          "name_ru": "Соус на выбор",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "solo-combo",
+      "category": "Комбо",
+      "name_ru": "Solo Combo",
+      "price_minor": "349000",
+      "image_asset_key": "i10.jpg",
+      "image_url": "/assets/menu/i10.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "drink",
+          "name_ru": "Напиток на выбор",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "cola-bottle",
+              "name_ru": "Coca-Cola 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "lemonade",
+              "name_ru": "Фирменный лимонад 0.5 л",
+              "price_minor": "20000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-peach",
+              "name_ru": "Fuse Tea Персик 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-can",
+              "name_ru": "Coca-Cola 0.5 л, банка",
+              "price_minor": "10000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fanta",
+              "name_ru": "Fanta 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sprite",
+              "name_ru": "Sprite 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-zero",
+              "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-sweet",
+              "name_ru": "Фирменный холодный чай, сладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-unsweet",
+              "name_ru": "Фирменный холодный чай, несладкий",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-berry",
+              "name_ru": "Fuse Tea Ягода 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-watermelon",
+              "name_ru": "Fuse Tea Арбуз 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": false
+            },
+            {
+              "source_id": "fuse-mango",
+              "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "water",
+              "name_ru": "Bonaqua негазированная 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "piko",
+              "name_ru": "Piko 0.2 л",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        },
+        {
+          "source_id": "sauce",
+          "name_ru": "Соус на выбор",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "finger-duo",
+      "category": "На двоих",
+      "name_ru": "Фингер Дуо",
+      "price_minor": "799000",
+      "image_asset_key": "i11.jpg",
+      "image_url": "/assets/menu/i11.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "drink",
+          "name_ru": "Напитки на выбор · 2 шт",
+          "min_selected": 2,
+          "max_selected": 2,
+          "options": [
+            {
+              "source_id": "cola-bottle",
+              "name_ru": "Coca-Cola 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 2,
+              "available": true
+            },
+            {
+              "source_id": "lemonade",
+              "name_ru": "Фирменный лимонад 0.5 л",
+              "price_minor": "20000",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-peach",
+              "name_ru": "Fuse Tea Персик 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-can",
+              "name_ru": "Coca-Cola 0.5 л, банка",
+              "price_minor": "10000",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fanta",
+              "name_ru": "Fanta 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sprite",
+              "name_ru": "Sprite 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-zero",
+              "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-sweet",
+              "name_ru": "Фирменный холодный чай, сладкий",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-unsweet",
+              "name_ru": "Фирменный холодный чай, несладкий",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-berry",
+              "name_ru": "Fuse Tea Ягода 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-watermelon",
+              "name_ru": "Fuse Tea Арбуз 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": false
+            },
+            {
+              "source_id": "fuse-mango",
+              "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "water",
+              "name_ru": "Bonaqua негазированная 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "piko",
+              "name_ru": "Piko 0.2 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        },
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 2 шт",
+          "min_selected": 2,
+          "max_selected": 2,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 2,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "burger-duo",
+      "category": "На двоих",
+      "name_ru": "Бургер Дуо",
+      "price_minor": "699000",
+      "image_asset_key": "i12.jpg",
+      "image_url": "/assets/menu/i12.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "drink",
+          "name_ru": "Напитки на выбор · 2 шт",
+          "min_selected": 2,
+          "max_selected": 2,
+          "options": [
+            {
+              "source_id": "cola-bottle",
+              "name_ru": "Coca-Cola 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 2,
+              "available": true
+            },
+            {
+              "source_id": "lemonade",
+              "name_ru": "Фирменный лимонад 0.5 л",
+              "price_minor": "20000",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-peach",
+              "name_ru": "Fuse Tea Персик 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-can",
+              "name_ru": "Coca-Cola 0.5 л, банка",
+              "price_minor": "10000",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fanta",
+              "name_ru": "Fanta 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sprite",
+              "name_ru": "Sprite 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-zero",
+              "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-sweet",
+              "name_ru": "Фирменный холодный чай, сладкий",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-unsweet",
+              "name_ru": "Фирменный холодный чай, несладкий",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-berry",
+              "name_ru": "Fuse Tea Ягода 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-watermelon",
+              "name_ru": "Fuse Tea Арбуз 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": false
+            },
+            {
+              "source_id": "fuse-mango",
+              "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "water",
+              "name_ru": "Bonaqua негазированная 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "piko",
+              "name_ru": "Piko 0.2 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        },
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 2 шт",
+          "min_selected": 2,
+          "max_selected": 2,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 2,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "mix-duo",
+      "category": "На двоих",
+      "name_ru": "Микс Дуо",
+      "price_minor": "749000",
+      "image_asset_key": "i13.jpg",
+      "image_url": "/assets/menu/i13.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "drink",
+          "name_ru": "Напитки на выбор · 2 шт",
+          "min_selected": 2,
+          "max_selected": 2,
+          "options": [
+            {
+              "source_id": "cola-bottle",
+              "name_ru": "Coca-Cola 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 2,
+              "available": true
+            },
+            {
+              "source_id": "lemonade",
+              "name_ru": "Фирменный лимонад 0.5 л",
+              "price_minor": "20000",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-peach",
+              "name_ru": "Fuse Tea Персик 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-can",
+              "name_ru": "Coca-Cola 0.5 л, банка",
+              "price_minor": "10000",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fanta",
+              "name_ru": "Fanta 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sprite",
+              "name_ru": "Sprite 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cola-zero",
+              "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-sweet",
+              "name_ru": "Фирменный холодный чай, сладкий",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "iced-tea-unsweet",
+              "name_ru": "Фирменный холодный чай, несладкий",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-berry",
+              "name_ru": "Fuse Tea Ягода 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "fuse-watermelon",
+              "name_ru": "Fuse Tea Арбуз 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": false
+            },
+            {
+              "source_id": "fuse-mango",
+              "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "water",
+              "name_ru": "Bonaqua негазированная 0.5 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "piko",
+              "name_ru": "Piko 0.2 л",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        },
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 2 шт",
+          "min_selected": 2,
+          "max_selected": 2,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 2,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 2,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "fingers-25",
+      "category": "На компанию",
+      "name_ru": "25 фингерсов",
+      "price_minor": "1399000",
+      "image_asset_key": "i14.jpg",
+      "image_url": "/assets/menu/i14.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 8 шт",
+          "min_selected": 8,
+          "max_selected": 8,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 8,
+              "default_quantity": 8,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 8,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 8,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 8,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "fingers-50",
+      "category": "На компанию",
+      "name_ru": "50 фингерсов",
+      "price_minor": "2699000",
+      "image_asset_key": "i15.jpg",
+      "image_url": "/assets/menu/i15.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 16 шт",
+          "min_selected": 16,
+          "max_selected": 16,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 16,
+              "default_quantity": 16,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 16,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 16,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 16,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "fingers-75",
+      "category": "На компанию",
+      "name_ru": "75 фингерсов",
+      "price_minor": "3999000",
+      "image_asset_key": "i16.jpg",
+      "image_url": "/assets/menu/i16.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 24 шт",
+          "min_selected": 24,
+          "max_selected": 24,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 24,
+              "default_quantity": 24,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 24,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 24,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 24,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "fingers-100",
+      "category": "На компанию",
+      "name_ru": "100 фингерсов",
+      "price_minor": "5299000",
+      "image_asset_key": "i17.jpg",
+      "image_url": "/assets/menu/i17.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "sauce",
+          "name_ru": "Соусы на выбор · 32 шт",
+          "min_selected": 32,
+          "max_selected": 32,
+          "options": [
+            {
+              "source_id": "pick",
+              "name_ru": "Фирменный соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 32,
+              "default_quantity": 32,
+              "available": true
+            },
+            {
+              "source_id": "hot",
+              "name_ru": "Острый соус Pick Chick",
+              "price_minor": "0",
+              "max_quantity": 32,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "cheese",
+              "name_ru": "Heinz сырный",
+              "price_minor": "0",
+              "max_quantity": 32,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "bbq",
+              "name_ru": "Heinz барбекю",
+              "price_minor": "0",
+              "max_quantity": 32,
+              "default_quantity": 0,
+              "available": false
+            }
+          ]
+        },
+        {
+          "source_id": "extras",
+          "name_ru": "Добавить к заказу",
+          "min_selected": 0,
+          "max_selected": 80,
+          "options": [
+            {
+              "source_id": "fingers",
+              "name_ru": "Фингерс, 1 шт",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce",
+              "name_ru": "Фирменный соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-hot",
+              "name_ru": "Острый соус, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-cheese",
+              "name_ru": "Heinz сырный, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "sauce-bbq",
+              "name_ru": "Heinz барбекю, 60 мл",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "toast",
+              "name_ru": "Тост, 1 шт",
+              "price_minor": "39000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "coleslaw",
+              "name_ru": "Коулслоу, 90 г",
+              "price_minor": "69000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "wedges",
+              "name_ru": "Картофельные дольки, 90 г",
+              "price_minor": "89000",
+              "max_quantity": 10,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "fingers",
+      "category": "Допы",
+      "name_ru": "Фингерс, 1 шт",
+      "price_minor": "69000",
+      "image_asset_key": "i4.jpg",
+      "image_url": "/assets/menu/i4.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "sauce",
+      "category": "Допы",
+      "name_ru": "Соус фирменный",
+      "price_minor": "39000",
+      "image_asset_key": "i18.jpg",
+      "image_url": "/assets/menu/i18.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "size",
+          "name_ru": "Размер соуса",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "size-0",
+              "name_ru": "60 мл",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "size-1",
+              "name_ru": "0,3 л",
+              "price_minor": "80000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "size-2",
+              "name_ru": "0,4 л",
+              "price_minor": "110000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "size-3",
+              "name_ru": "0,5 л",
+              "price_minor": "140000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "sauce-hot",
+      "category": "Допы",
+      "name_ru": "Соус острый",
+      "price_minor": "39000",
+      "image_asset_key": "i19.jpg",
+      "image_url": "/assets/menu/i19.jpg",
+      "modifier_groups": [
+        {
+          "source_id": "size",
+          "name_ru": "Размер соуса",
+          "min_selected": 1,
+          "max_selected": 1,
+          "options": [
+            {
+              "source_id": "size-0",
+              "name_ru": "60 мл",
+              "price_minor": "0",
+              "max_quantity": 1,
+              "default_quantity": 1,
+              "available": true
+            },
+            {
+              "source_id": "size-1",
+              "name_ru": "0,3 л",
+              "price_minor": "80000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "size-2",
+              "name_ru": "0,4 л",
+              "price_minor": "110000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            },
+            {
+              "source_id": "size-3",
+              "name_ru": "0,5 л",
+              "price_minor": "140000",
+              "max_quantity": 1,
+              "default_quantity": 0,
+              "available": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "toast",
+      "category": "Допы",
+      "name_ru": "Тост, 1 шт",
+      "price_minor": "39000",
+      "image_asset_key": "i5.jpg",
+      "image_url": "/assets/menu/i5.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "coleslaw",
+      "category": "Допы",
+      "name_ru": "Коулслоу, 90 г",
+      "price_minor": "69000",
+      "image_asset_key": "i6.jpg",
+      "image_url": "/assets/menu/i6.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "wedges",
+      "category": "Допы",
+      "name_ru": "Картофельные дольки, 90 г",
+      "price_minor": "89000",
+      "image_asset_key": "i20.jpg",
+      "image_url": "/assets/menu/i20.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "burger",
+      "category": "Допы",
+      "name_ru": "Бургер, 1 шт",
+      "price_minor": "239000",
+      "image_asset_key": "shot.jpg",
+      "image_url": "/assets/menu/shot.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "lemonade",
+      "category": "Напитки",
+      "name_ru": "Фирменный лимонад 0.5 л",
+      "price_minor": "119000",
+      "image_asset_key": "i0.jpg",
+      "image_url": "/assets/menu/i0.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "cola",
+      "category": "Напитки",
+      "name_ru": "Coca-Cola 0.5 л, банка",
+      "price_minor": "99000",
+      "image_asset_key": "i2.jpg",
+      "image_url": "/assets/menu/i2.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "fuse-peach",
+      "category": "Напитки",
+      "name_ru": "Fuse Tea Персик 0.5 л",
+      "price_minor": "79000",
+      "image_asset_key": "i1.jpg",
+      "image_url": "/assets/menu/i1.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "iced-tea",
+      "category": "Напитки",
+      "name_ru": "Холодный чай 0.5 л",
+      "price_minor": "49000",
+      "image_asset_key": "i22.jpg",
+      "image_url": "/assets/menu/i22.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "water",
+      "category": "Напитки",
+      "name_ru": "Bonaqua негаз. 0.5 л",
+      "price_minor": "59000",
+      "image_asset_key": "i23.jpg",
+      "image_url": "/assets/menu/i23.jpg",
+      "modifier_groups": []
+    },
+    {
+      "source_id": "piko",
+      "category": "Напитки",
+      "name_ru": "Piko 0.2 л",
+      "price_minor": "59000",
+      "image_asset_key": "generic-drink",
+      "modifier_groups": []
+    }
+  ]
+}

@@ -4,7 +4,10 @@ import { createPool, migrate } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 
-export async function withSyncDatabases(run) {
+export async function withSyncDatabases(
+  run,
+  { cloudMigrationDirectory, edgeMigrationDirectory } = {},
+) {
   const instances = [];
   try {
     for (const [service, scope] of [
@@ -21,7 +24,11 @@ export async function withSyncDatabases(run) {
       instances.push({ pool, admin, schema, config: { ...config, databaseUrl: url.toString() } });
       await migrate(
         pool,
-        fileURLToPath(new URL(`../../db/${scope}/migrations/`, import.meta.url)),
+        scope === 'cloud' && cloudMigrationDirectory
+          ? cloudMigrationDirectory
+          : scope === 'edge' && edgeMigrationDirectory
+            ? edgeMigrationDirectory
+            : fileURLToPath(new URL(`../../db/${scope}/migrations/`, import.meta.url)),
         scope,
       );
     }

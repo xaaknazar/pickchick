@@ -1,0 +1,23 @@
+[Unit]
+Description=PickChick Kaspi bridge (loopback only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pickchick-kaspi
+Group=pickchick-kaspi
+WorkingDirectory=/opt/pickchick-staging/kaspi-bridge
+EnvironmentFile=/opt/pickchick-staging/secrets/kaspi-bridge.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+# keypair.json, device.json and logs stay inside the working directory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/pickchick-staging/kaspi-bridge
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

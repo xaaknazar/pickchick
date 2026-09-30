@@ -1,0 +1,15 @@
+[Unit]
+Description=PickChick expired OTP secret cleanup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=pickchick-ops
+Group=pickchick-ops
+WorkingDirectory=/opt/pickchick-staging/current
+ExecStart=/usr/bin/docker compose --env-file /opt/pickchick-staging/secrets/staging.env --env-file /opt/pickchick-staging/current/release.env -f /opt/pickchick-staging/current/infra/staging/compose.yaml run --rm --no-deps provision node scripts/customer-identity-maintenance.mjs cleanup
+TimeoutStartSec=120
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

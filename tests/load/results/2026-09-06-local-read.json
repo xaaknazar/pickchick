@@ -1,0 +1,22 @@
+{
+  "scenario": "local synthetic menu/branches GET only; no orders created",
+  "timestamp": "2026-09-06T18:36:43.414Z",
+  "node": "v24.16.0",
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M5"
+  },
+  "requests": 2000,
+  "concurrency": 16,
+  "errors": 0,
+  "seconds": 0.32,
+  "requests_per_second": 6215,
+  "p95_ms": 4.91,
+  "p99_ms": 6.77,
+  "db_pool_max": 5,
+  "db_pool_total": 5,
+  "db_pool_waiting_after": 0,
+  "http_in_flight_after": 0,
+  "production_capacity_proven": false
+}

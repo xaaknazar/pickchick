@@ -1,0 +1,26 @@
+<!-- Template only. Verify paths, service identity and PostgreSQL service name on Windows. -->
+<service>
+  <id>PickChickEdge</id>
+  <name>PickChick Edge</name>
+  <description>Local PickChick edge API. Payment and fiscal adapters are configured separately.</description>
+  <executable>%BASE%\node\node.exe</executable>
+  <arguments>--env-file="C:\ProgramData\PickChick\Edge\config\edge.env" "%BASE%\app\dist\main.js"</arguments>
+  <workingdirectory>%BASE%\app</workingdirectory>
+  <serviceaccount>
+    <domain>NT AUTHORITY</domain>
+    <user>LocalService</user>
+  </serviceaccount>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart/>
+  <depend>PickChickPostgres</depend>
+  <stoptimeout>30 sec</stoptimeout>
+  <onfailure action="restart" delay="5 sec"/>
+  <onfailure action="restart" delay="15 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <logpath>C:\ProgramData\PickChick\Edge\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>
