@@ -189,6 +189,8 @@ def verify_public_asset(item):
     """Hash complete public files, including videos, without buffering their contents."""
     name, expected = item
     path = '/kiosk' if name == 'operations/index.html' else '/' + name.removeprefix('operations/')
+    if name in ('legal/terms.html', 'legal/privacy.html'):
+        path = '/' + name.removesuffix('.html')
     request = urllib.request.Request(ORIGIN + path)
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
