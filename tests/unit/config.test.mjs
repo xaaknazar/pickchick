@@ -47,6 +47,11 @@ test('private staging only permits cloud API with dedicated service hosts and se
     REDIS_URL: `redis://default:${secret}@redis-cache:6379/0`,
   };
   assert.equal(loadConfig('api', staging).environment, 'staging');
+  assert.equal(loadConfig('api', staging).testOrderFlowEnabled, false);
+  assert.equal(
+    loadConfig('api', { ...staging, TEST_ORDER_FLOW_ENABLED: 'true' }).testOrderFlowEnabled,
+    true,
+  );
   assert.throws(() => loadConfig('edge', { ...env, ...staging }));
   for (const changes of [
     { CLOUD_DATABASE_URL: env.CLOUD_DATABASE_URL },
@@ -64,4 +69,69 @@ test('private staging only permits cloud API with dedicated service hosts and se
         return true;
       },
     );
+});
+
+test('TEST flow gate defaults closed and needs exact opt-in on a non-production cloud API', () => {
+  for (const APP_ENV of ['local', 'test']) {
+    assert.equal(loadConfig('api', { ...env, APP_ENV }).testOrderFlowEnabled, false);
+    assert.equal(
+      loadConfig('api', { ...env, APP_ENV, TEST_ORDER_FLOW_ENABLED: 'false' }).testOrderFlowEnabled,
+      false,
+    );
+    assert.equal(
+      loadConfig('api', { ...env, APP_ENV, TEST_ORDER_FLOW_ENABLED: 'true' }).testOrderFlowEnabled,
+      true,
+    );
+    assert.throws(() => loadConfig('edge', { ...env, APP_ENV, TEST_ORDER_FLOW_ENABLED: 'true' }));
+  }
+  for (const value of ['', '1', 'TRUE', 'False', ' true ', 'yes']) {
+    assert.throws(() => loadConfig('api', { ...env, TEST_ORDER_FLOW_ENABLED: value }));
+  }
+  assert.throws(() =>
+    loadConfig('api', { ...env, APP_ENV: 'production', TEST_ORDER_FLOW_ENABLED: 'true' }),
+  );
+});
+
+test('database and HTTP limits are bounded and default to conservative per-process budgets', () => {
+  assert.equal(loadConfig('api', env).databasePoolMax, 5);
+  assert.equal(loadConfig('api', env).httpMaxInFlight, 32);
+  assert.equal(loadConfig('api', { ...env, DB_POOL_MAX: '12' }).databasePoolMax, 12);
+  for (const [key, invalid] of [
+    ['DB_POOL_MAX', ['0', '65', '-1', '1.5', 'Infinity', ' 5', 'secret-do-not-print']],
+    ['HTTP_MAX_IN_FLIGHT', ['0', '1025', '1e3', '', 'secret-do-not-print']],
+  ]) {
+    for (const value of invalid)
+      assert.throws(
+        () => loadConfig('api', { ...env, [key]: value }),
+        (e) => {
+          assert(!e.message.includes('secret-do-not-print'));
+          return true;
+        },
+      );
+  }
+});
+
+test('customer SMS auth needs exact cloud opt-in and trusts only explicitly configured proxy addresses', () => {
+  assert.equal(loadConfig('api', env).customerAuthEnabled, undefined);
+  assert.equal(
+    loadConfig('api', { ...env, CUSTOMER_AUTH_ENABLED: 'true' }).customerAuthEnabled,
+    true,
+  );
+  assert.throws(() => loadConfig('edge', { ...env, CUSTOMER_AUTH_ENABLED: 'true' }));
+  for (const value of ['', '1', 'TRUE', ' true '])
+    assert.throws(() => loadConfig('api', { ...env, CUSTOMER_AUTH_ENABLED: value }));
+  assert.deepEqual(
+    loadConfig('api', { ...env, TRUSTED_PROXY_IPS: '127.0.0.1,::1' }).trustedProxyIps,
+    ['127.0.0.1', '::1'],
+  );
+  for (const value of [
+    'true',
+    '*',
+    '0.0.0.0',
+    '::',
+    '10.0.0.0/8',
+    'gateway.example',
+    Array(9).fill('127.0.0.1').join(','),
+  ])
+    assert.throws(() => loadConfig('api', { ...env, TRUSTED_PROXY_IPS: value }));
 });

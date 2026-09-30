@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="can"><stop stop-color="#AA1021"/><stop offset=".25" stop-color="#F6484A"/><stop offset=".48" stop-color="#E31C34"/><stop offset=".8" stop-color="#C20826"/><stop offset="1" stop-color="#710B22"/></linearGradient>
+<linearGradient id="metal" x2=".4" y2="1"><stop stop-color="#FFFFFF"/><stop offset=".4" stop-color="#DDE6ED"/><stop offset="1" stop-color="#7B91A6"/></linearGradient>
+</defs>
+<path d="M16 12h32l2 7v34c0 10-36 10-36 0V19Z" fill="url(#can)" stroke="#7E1829" stroke-width="1.2"/>
+<path d="M19 17v32" stroke="#FF8B89" stroke-opacity=".7" stroke-width="3" stroke-linecap="round"/>
+<ellipse cx="32" cy="11" rx="16" ry="6" fill="url(#metal)" stroke="#8C9CAB" stroke-width="1.3"/>
+<ellipse cx="32" cy="11" rx="12" ry="3.5" fill="#B5C3CC" stroke="#EEF5FA"/>
+<ellipse cx="33" cy="11" rx="5" ry="2" fill="#455766"/>
+<path d="M28 9h8l1 3-8 1Z" fill="none" stroke="#F9FCFF" stroke-width="1.6"/>
+<path d="M17 51c7 5 23 5 30 0v5c-7 5-24 5-30 0Z" fill="url(#metal)"/>
+<path d="M19 43c5-16 17-20 27-17-14 2-20 11-20 17 4-1 10-6 15-7-8 6-15 11-22 7Z" fill="#FFF6E8"/>
+<path d="M22 24c4-3 9-4 14-3" stroke="#FFF6E8" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>

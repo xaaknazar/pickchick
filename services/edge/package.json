@@ -18,7 +18,9 @@
     "@pickchick/platform": "workspace:*",
     "@pickchick/contracts": "workspace:*",
     "@pickchick/database": "workspace:*",
-    "@pickchick/local-orders": "workspace:*"
+    "@pickchick/local-orders": "workspace:*",
+    "@pickchick/edge-fulfillment": "workspace:*",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "typescript": "5.9.3",

@@ -1,0 +1,115 @@
+{
+  "mode": "built-in image_gen",
+  "assets": [
+    {
+      "id": "burger-combo",
+      "prompt": "Original Burger Combo, professional square retouch preserving exact product on #0047BB. 82% framing, studio upper-left key light."
+    },
+    {
+      "id": "pick-combo",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset pick-combo. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "solo-combo",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset solo-combo. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "master-combo",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset master-combo. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "finger-duo",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset finger-duo. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "burger-duo",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset burger-duo. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "mix-duo",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset mix-duo. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "fingers-25",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset fingers-25. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "fingers-50",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset fingers-50. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "fingers-75",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset fingers-75. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "fingers-100",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset fingers-100. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless matte royal-blue #0047BB background across the square, no horizon, product arrangement centered occupying 82% of square, 9% breathing room on every edge. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "toast",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset toast. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Product centered occupying 78% of square width, with proportional height and generous breathing room. Keep original food and authentic packaging. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "fingers",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset fingers. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Product centered occupying 78% of square width, with proportional height and generous breathing room. Keep original food and authentic packaging. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "wedges",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset wedges. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Product centered occupying 78% of square width, with proportional height and generous breathing room. Keep original food and authentic packaging. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "coleslaw",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset coleslaw. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Product centered occupying 78% of square width, with proportional height and generous breathing room. Keep original food and authentic packaging. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "sauce",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset sauce. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Product centered occupying 78% of square width, with proportional height and generous breathing room. Keep original food and authentic packaging. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "sauce-hot",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset sauce-hot. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Product centered occupying 78% of square width, with proportional height and generous breathing room. Keep original food and authentic packaging. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "lemonade",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset lemonade. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Upright drink centered; top at 12%, bottom at 88% of square. All bottles/cans/cups in this collection must have identical 76% frame-height with accurate proportions. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "burger",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset burger. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Product centered occupying 78% of square width, with proportional height and generous breathing room. Keep original food and authentic packaging. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "cola",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset cola. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Upright drink centered; top at 12%, bottom at 88% of square. All bottles/cans/cups in this collection must have identical 76% frame-height with accurate proportions. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "iced-tea",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset iced-tea. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Upright drink centered; top at 12%, bottom at 88% of square. All bottles/cans/cups in this collection must have identical 76% frame-height with accurate proportions. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "fuse-peach",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset fuse-peach. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Upright drink centered; top at 12%, bottom at 88% of square. All bottles/cans/cups in this collection must have identical 76% frame-height with accurate proportions. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "water",
+      "prompt": "Use case: precise-object-edit. Edit the supplied original PickChick product photograph, asset water. Make ONE square high definition 1536x1536 professional catalog photograph. Preserve the exact original products, quantity, ingredients, packaging, labels and logos; do NOT invent food or alter the recipe. Improve realistic appetizing microtexture, controlled natural highlights, sharpness and clean professional lighting, like a full-frame 85mm lens at f/8. Same soft studio key light upper left, gentle contact shadow, all edges visible, no props or added garnish, no new text, no CGI. Seamless warm ivory #FFF8EE background. Upright drink centered; top at 12%, bottom at 88% of square. All bottles/cans/cups in this collection must have identical 76% frame-height with accurate proportions. Natural food colors, no excessive saturation. Output single photo only, not a collage."
+    },
+    {
+      "id": "reward-seven-plus-one",
+      "prompt": "Use case ads-marketing. Create a wide 3:2 professional photographic background for PickChick's existing buy 7 combos get the 8th gift campaign card. Use the attached original food/packaging photograph as exact product identity reference: golden chicken fingers, toast, wedges and signature dip on PickChick branded paper tray, bottle. Preserve identity, no invented food. Put one appetizing authentic combo on the RIGHT half with all food readable and realistic, left 55% quiet negative space for text drawn by the app. Soft editorial studio lighting, subdued warm greige/tabletop and deep warm charcoal shadows, calm muted colors, understated premium style. Not saturated orange, not bright blue, no neon, no 3D illustration. No text, numbers, captions, people or gift boxes. Output high definition."
+    },
+    {
+      "id": "cola-bottle",
+      "prompt": "Use case precise-object-edit. Retouch this exact Coca-Cola bottle preserving the complete label, gold cap and proportions. One square high definition 1536x1536 professional product photograph on seamless warm ivory #FFF8EE, soft key light upper left and slight contact shadow. Centered bottle top at 12% bottom at 88% of canvas. Identical 76% frame-height to our other drinks. Keep all text/logos exact, crisp photographic detail, natural reflections, no props, no new text, no CGI, no crop."
+    },
+    {
+      "id": "signature-small",
+      "prompt": "Use case precise-object-edit. Retouch this exact small clear cup of peach-colored PickChick signature sauce. Preserve its shape, clear packaging and sauce texture, do not change ingredients. One square high definition 1536x1536 professional studio photograph on seamless warm ivory #FFF8EE, soft key light upper left and small contact shadow. Cup centered occupying78% of frame width, proportional height, all edges visible. Photorealistic rich detail, no extra objects, no garnish, no text, no CGI."
+    }
+  ],
+  "corrections": [
+    {
+      "id": "water",
+      "prompt": "Edit this Bonaqua water product photo. Use image 1 as the studio photo to correct and image 2 as authoritative original packaging reference. Preserve the 1254x1254 square composition, warm ivory background, realistic bottle, cyan cap and label and crisp professional lighting. Essential correction: this product is STILL NON-CARBONATED water. The generated Russian word ГАЗИРОВАННАЯ is WRONG. Replace only that word with the original Kazakh label text exactly ГАЗДАЛМАҒАН, as on image 2. It must never say carbonated / газированная. Preserve Bonaqua brand and 0.5 л text. No other changes. Sharp truthful product retouch."
+    }
+  ]
+}

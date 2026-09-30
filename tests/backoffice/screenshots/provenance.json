@@ -1,0 +1,13 @@
+{
+  "source": "/Users/xaknazar/Downloads/PickChick - mockup/Pick Chick Бэк-офис (offline).html",
+  "source_sha256": "4cc129416b2631b86d0c26f78ec935fa63668a2d1f951696c534ee851e5b4644",
+  "method": "Original offline HTML rendered directly in Chromium; click Номенклатура. No CSS/data replacement. Web screenshots: browser_ui.py against actual local HTTP catalog controller, scoped synthetic manager and temporary PostgreSQL schema. Source 46/9 KPI and operator demo data are mockup values; implementation uses real 24/5 draft data. Final browser run used /backoffice/ static prefix with API remaining at /v1/admin/catalog/; persisted HTML-like text was verified as inert after save/reload.",
+  "not_proven": "No physical Windows/iPad acceptance or live VPS deployment. Current TEST clients are not yet switched to neutral catalog API.",
+  "images": {
+    "catalog-1024.png": "122a00184e193514d4ab62df4ded777d9860ba8f3dcc3893cd985bcbade0d117",
+    "catalog-1680.png": "2302e39bdca9563ad400e1d7dc6816d6f55943194a1918b7b694ba52868a0003",
+    "editor-modifiers-1024.png": "918d90d6603db84283f0bcdcd4e0d26156bb4fe6dcc2ef9d83a7ef6d8ad94168",
+    "editor-nutrition-1680.png": "c833ba88eeebfde0f799d0909c702ce50c6100f0ef4f462f4c6f29a39a46e704",
+    "original-catalog-1680.png": "66aff071fc09b3e7a83db351e2c1eaaeaf535b3a8dfade9d3461795e064a6fe6"
+  }
+}

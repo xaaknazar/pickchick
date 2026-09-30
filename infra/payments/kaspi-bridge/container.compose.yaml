@@ -1,0 +1,57 @@
+name: pickchick-kaspi
+services:
+  bridge:
+    image: pickchick-kaspi-bridge:${RELEASE_SHA:?Verified source SHA required}
+    container_name: pickchick-kaspi-bridge
+    init: true
+    restart: unless-stopped
+    user: '1000:1000'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    pids_limit: 64
+    mem_limit: 192m
+    cpus: 0.5
+    tmpfs: ['/tmp:size=8m,mode=1777', '/app/logs:size=8m,uid=1000,gid=1000,mode=0700']
+    volumes:
+      - type: bind
+        source: ${KASPI_SECRETS_DIR:?Protected directory required}/bridge.env
+        target: /run/kaspi/bridge.env
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${KASPI_SECRETS_DIR}/session.env
+        target: /run/kaspi/session.env
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${KASPI_SECRETS_DIR}/keypair.json
+        target: /app/keypair.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${KASPI_SECRETS_DIR}/device.json
+        target: /app/device.json
+        read_only: true
+        bind: { create_host_path: false }
+    # No ports, host network or public gateway. The process binds only the
+    # container's loopback. A future ledger worker shares this network namespace.
+    networks: [egress]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3931/health',{signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 4s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options: { max-size: '5m', max-file: '2' }
+networks:
+  egress:
+    driver: bridge

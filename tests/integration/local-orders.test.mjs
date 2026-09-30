@@ -169,7 +169,7 @@ test('HTTP role enforcement denies kitchen checkout and cashier manager commands
         ['ordering/close', ctx.cashier, { expected_version: 2 }],
         [
           'availability/stops',
-          ctx.cashier,
+          kitchen,
           {
             variant_id: ctx.cart.items[0].variant_id,
             stopped: true,

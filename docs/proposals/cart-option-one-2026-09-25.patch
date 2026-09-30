@@ -1,0 +1,205 @@
+diff --git a/apps/mobile/src/components/CartShortcut.tsx b/apps/mobile/src/components/CartShortcut.tsx
+index a933d63..9170f2e 100644
+--- a/apps/mobile/src/components/CartShortcut.tsx
++++ b/apps/mobile/src/components/CartShortcut.tsx
+@@ -1,6 +1,5 @@
+ import { useCallback, useRef } from 'react';
+ import { useFocusEffect } from 'expo-router';
+-import { Image } from 'expo-image';
+ import {
+   Animated,
+   AppState,
+@@ -11,7 +10,6 @@ import {
+   useWindowDimensions,
+ } from 'react-native';
+ import { MotionPressable as Pressable, useReducedMotion } from './Motion';
+-import { assets } from '../assets';
+ import { cartTotal } from '../domain';
+ import type { MobileModel } from '../model';
+ import { brandColors, colors, font } from '../theme';
+@@ -34,32 +32,32 @@ export function CartShortcut({
+   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
+   const total = cartTotal(model.cart);
+   const reduced = useReducedMotion();
+-  const { width, fontScale } = useWindowDimensions();
+-  const compact = width < 360 || fontScale > 1.25 || MinorMoney(total).length > 11;
+-  const nod = useRef(new Animated.Value(0)).current;
++  const { fontScale } = useWindowDimensions();
++  const compact = fontScale > 1.25 || MinorMoney(total).length > 11;
++  const feedback = useRef(new Animated.Value(0)).current;
+   const previousCount = useRef(0);
+   useFocusEffect(
+     useCallback(() => {
+       const added = count > previousCount.current;
+       previousCount.current = count;
+       const reset = () => {
+-        nod.stopAnimation();
+-        nod.setValue(0);
++        feedback.stopAnimation();
++        feedback.setValue(0);
+       };
+       reset();
+-      // A single greeting acknowledges a new item; no idle loop or moving tap target.
++      // Option 1: only the quantity responds; the tap target and amount stay still.
+       if (added && !reduced && AppState.currentState === 'active') {
+         Animated.sequence([
+-          Animated.timing(nod, {
++          Animated.timing(feedback, {
+             toValue: 1,
+-            duration: 180,
++            duration: 160,
+             easing: Easing.out(Easing.cubic),
+             useNativeDriver: Platform.OS !== 'web',
+             isInteraction: false,
+           }),
+-          Animated.timing(nod, {
++          Animated.timing(feedback, {
+             toValue: 0,
+-            duration: 300,
++            duration: 240,
+             easing: Easing.inOut(Easing.cubic),
+             useNativeDriver: Platform.OS !== 'web',
+             isInteraction: false,
+@@ -73,7 +71,7 @@ export function CartShortcut({
+         subscription.remove();
+         reset();
+       };
+-    }, [count, reduced, nod]),
++    }, [count, reduced, feedback]),
+   );
+   if (!count) return null;
+   return (
+@@ -96,35 +94,28 @@ export function CartShortcut({
+           accessible={false}
+           accessibilityElementsHidden
+           importantForAccessibility="no-hide-descendants"
+-          style={s.mascotFrame}
++          style={s.bag}
+         >
+-          <Animated.View
+-            testID="cart-mascot"
+-            style={{
+-              transform: [
+-                { translateY: nod.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) },
+-                {
+-                  rotate: nod.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-10deg'] }),
+-                },
+-              ],
+-            }}
+-          >
+-            <Image
+-              source={assets.pickManChick}
+-              contentFit="contain"
+-              cachePolicy="memory-disk"
+-              style={s.mascot}
+-            />
+-          </Animated.View>
++          <Icon name="bag-handle-outline" size={20} color={colors.orangeInk} />
+         </View>
+         <View style={[s.content, compact && s.contentCompact]}>
+           <View style={s.labelRow}>
+             <Body style={s.label}>Корзина</Body>
+-            <View style={s.count}>
++            <Animated.View
++              testID="cart-count-feedback"
++              style={[
++                s.count,
++                {
++                  transform: [
++                    { scale: feedback.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) },
++                  ],
++                },
++              ]}
++            >
+               <Body testID="cart-count" style={s.countText}>
+                 {count}
+               </Body>
+-            </View>
++            </Animated.View>
+           </View>
+           <Body testID="cart-total" style={[s.total, compact && s.totalCompact]}>
+             {MinorMoney(total)}
+@@ -146,30 +137,30 @@ const s = StyleSheet.create({
+   dock: { paddingTop: 10, borderTopWidth: 0, backgroundColor: 'transparent' },
+   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+   pill: {
+-    minHeight: 64,
+-    borderRadius: 28,
++    minHeight: 58,
++    borderRadius: 22,
+     backgroundColor: brandColors.brandBlue,
+-    paddingVertical: 10,
+-    paddingLeft: 10,
++    paddingVertical: 12,
++    paddingLeft: 16,
+     paddingRight: 16,
+     flexDirection: 'row',
+     alignItems: 'center',
+-    gap: 12,
++    gap: 10,
+     shadowColor: colors.background,
+     shadowOpacity: 0.3,
+     shadowOffset: { width: 0, height: 5 },
+     shadowRadius: 12,
+     elevation: 5,
+   },
+-  mascotFrame: {
+-    width: 44,
+-    height: 44,
+-    borderRadius: 22,
+-    backgroundColor: colors.background,
+-    overflow: 'hidden',
++  bag: {
++    width: 32,
++    height: 32,
++    borderRadius: 10,
++    backgroundColor: brandColors.brandOrange,
++    alignItems: 'center',
++    justifyContent: 'center',
+     flexShrink: 0,
+   },
+-  mascot: { width: 44, height: 44 },
+   content: {
+     flex: 1,
+     minWidth: 0,
+@@ -181,14 +172,8 @@ const s = StyleSheet.create({
+   contentCompact: { flexDirection: 'column', alignItems: 'flex-start', gap: 0 },
+   labelRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, flexWrap: 'wrap', gap: 6 },
+   label: { fontFamily: font.heading, fontSize: 16, lineHeight: 23, color: colors.white },
+-  count: {
+-    minWidth: 24,
+-    borderRadius: 12,
+-    paddingHorizontal: 6,
+-    backgroundColor: brandColors.brandOrange,
+-    alignItems: 'center',
+-  },
+-  countText: { fontFamily: font.bold, fontSize: 12, lineHeight: 22, color: colors.orangeInk },
++  count: { minWidth: 12, alignItems: 'center', paddingHorizontal: 2 },
++  countText: { fontFamily: font.bold, fontSize: 12, lineHeight: 22, color: colors.text },
+   total: {
+     fontFamily: font.display,
+     fontSize: 18,
+diff --git a/tests/mobile/browser_cart_shortcut.py b/tests/mobile/browser_cart_shortcut.py
+index bd3b4a9..b650ebd 100644
+--- a/tests/mobile/browser_cart_shortcut.py
++++ b/tests/mobile/browser_cart_shortcut.py
+@@ -99,7 +99,7 @@ with sync_playwright() as p:
+       window.cartMotionFrames = [];
+       const start = performance.now();
+       function tick() {
+-        document.querySelectorAll('[data-testid="cart-mascot"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
++        document.querySelectorAll('[data-testid="cart-count-feedback"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
+         if (performance.now() - start < 650) requestAnimationFrame(tick);
+       }
+       requestAnimationFrame(tick);
+@@ -111,8 +111,8 @@ with sync_playwright() as p:
+     page.emulate_media(reduced_motion='reduce')
+     page.get_by_test_id('tab-profile').click()
+     page.wait_for_timeout(100)
+-    for mascot in page.get_by_test_id('cart-mascot').all():
+-        assert mascot.evaluate('(e) => getComputedStyle(e).transform') in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
++    for counter in page.get_by_test_id('cart-count-feedback').all():
++        assert counter.evaluate('(e) => getComputedStyle(e).transform') in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
+     context.close()
+     browser.close()
+ assert not errors, errors

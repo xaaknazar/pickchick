@@ -1,8 +1,16 @@
 packages:
   - apps/*
+  - '!apps/pos-desktop'
+  - '!apps/kitchen-desktop'
   - services/*
   - packages/*
 
 strictPeerDependencies: true
 saveExact: true
 blockExoticSubdeps: true
+
+overrides:
+  # Nest's upload dependency: upstream security fixes, without changing its API.
+  'multer@2.2.0': 2.3.0
+  # GHSA-qhr7-859c-m2p7 / GHSA-6j4f-fj2g-mc7p: bounded brace nesting.
+  'brace-expansion@5.0.9': 5.0.11

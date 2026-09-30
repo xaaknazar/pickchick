@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&amp;family=Golos+Text:wght@400;500;600;700&amp;display=swap">
+<style>
+:root{--blue:#0047BB;--orange:#FF671F;--green:#0047BB;--red:#FF671F}
+body{margin:0;background:#060B14;font-family:'Golos Text',system-ui,sans-serif}
+a{color:#8CB8FF;text-decoration:none}
+a:hover{color:#FF671F}
+@keyframes kIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes kLate{0%,100%{border-color:rgba(255,103,31,1)}50%{border-color:rgba(255,103,31,.3)}}
+@keyframes kDot{0%,100%{opacity:1}50%{opacity:.2}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#060B14;display:flex;align-items:flex-start;justify-content:center;padding:40px 0">
+  <div data-screen-label="Кухонная станция" style="width:1920px;height:1080px;flex:none;position:relative;overflow:hidden;color:#0E1524;background:radial-gradient(1100px 640px at 6% -10%,rgba(0,71,187,.07),transparent 62%),radial-gradient(900px 620px at 104% 110%,rgba(255,103,31,.07),transparent 60%),linear-gradient(rgba(226,232,242,.96),rgba(219,226,239,.97)),url('assets/bg-blue.png') center/cover no-repeat,#E3E9F4">
+
+    <div style="position:absolute;top:0;left:0;right:0;height:130px;display:flex;align-items:center;gap:26px;padding:0 40px;color:#fff;border-bottom:3px solid var(--orange);background:radial-gradient(800px 280px at 6% 120%,rgba(255,103,31,.22),transparent 60%),linear-gradient(90deg,rgba(0,44,124,.97),rgba(0,24,76,.99)),url('assets/bg-blue.png') center/1400px auto no-repeat,#0047BB">
+      <div style="width:78px;height:78px;border-radius:22px;overflow:hidden;background:#0047BB;flex:none">
+        <img src="uploads/%D0%B1%D0%B5%D0%BB%D1%8B%D0%B8%CC%86%20%D0%BB%D0%BE%D0%B3%D0%BE%20%D1%81%20%D1%81%D0%B8%D0%BD%D0%B8%D0%BC%20%D1%84%D0%BE%D0%BD%D0%BE%D0%BC-760a0d13.png" alt="Pick Chick" style="width:170%;height:170%;object-fit:contain;margin:-35% 0 0 -35%">
+      </div>
+      <div style="min-width:0">
+        <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:32px;letter-spacing:.02em">Кухня · станция сборки</div>
+        <div style="margin-top:2px;font-size:19px;color:rgba(255,255,255,.78)">Алматы · смена {{ shift }}</div>
+      </div>
+      <div style="flex:1"></div>
+      <sc-for list="{{ stats }}" as="k" hint-placeholder-count="4">
+        <div style="min-width:170px;padding:14px 22px;border-radius:20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)">
+          <div style="font-size:15px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.45)">{{ k.label }}</div>
+          <div style="margin-top:4px;font-family:Montserrat,sans-serif;font-weight:800;font-size:34px;color:{{ k.fg }}">{{ k.value }}</div>
+        </div>
+      </sc-for>
+      <div style="min-width:150px;text-align:right">
+        <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:44px;line-height:1">{{ clock }}</div>
+      </div>
+    </div>
+
+    <div style="position:absolute;top:130px;left:0;right:0;bottom:0;overflow:hidden;padding:26px 40px;display:grid;grid-template-columns:repeat({{ cols }},minmax(0,1fr));grid-auto-rows:min-content;gap:22px;align-content:start">
+      <sc-for list="{{ tickets }}" as="o" hint-placeholder-count="8">
+        <div style="border-radius:26px;background:{{ o.bg }};border:3px solid {{ o.border }};box-shadow:0 10px 26px rgba(14,21,36,.14);animation:{{ o.anim }};display:flex;flex-direction:column;min-width:0;overflow:hidden">
+          <div style="padding:18px 22px;display:flex;align-items:center;gap:14px;background:{{ o.headBg }}">
+            <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:46px;line-height:1;letter-spacing:-.02em;color:{{ o.noFg }}">{{ o.no }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:20px;font-weight:700;color:#0E1524;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
+              <div style="margin-top:3px;display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:14px;background:{{ o.modeBg }};font-size:15px;font-weight:800;letter-spacing:.08em;color:{{ o.modeFg }}">{{ o.mode }}</div>
+            </div>
+            <div style="text-align:right;flex:none">
+              <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:30px;color:{{ o.timeFg }}">{{ o.timer }}</div>
+              <div style="font-size:15px;font-weight:700;letter-spacing:.06em;color:{{ o.stageFg }}">{{ o.stage }}</div>
+            </div>
+          </div>
+          <div style="padding:16px 22px 6px;display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ o.lines }}" as="l" hint-placeholder-count="3">
+              <div style="display:flex;gap:14px;align-items:flex-start">
+                <div style="min-width:46px;height:34px;padding:0 10px;border-radius:10px;background:#EEF2F9;color:#0E1524;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:19px;flex:none">{{ l.qty }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:22px;font-weight:700;line-height:1.2;color:#0E1524">{{ l.name }}</div>
+                  <sc-if value="{{ l.mods }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:4px;font-size:19px;color:#0047BB;font-weight:700">{{ l.mods }}</div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-height:10px"></div>
+          <div style="padding:14px 18px 18px;display:flex;gap:12px">
+            <div onClick="{{ o.advance }}" style="flex:1;height:74px;border-radius:20px;background:{{ o.btnBg }};color:{{ o.btnFg }};display:flex;align-items:center;justify-content:center;gap:12px;font-family:Montserrat,sans-serif;font-weight:700;font-size:24px;cursor:pointer">{{ o.btn }}</div>
+            <div onClick="{{ o.bump }}" style="width:74px;height:74px;border-radius:20px;background:#EEF2F9;border:1px solid #E1E7F2;display:flex;align-items:center;justify-content:center;cursor:pointer" title="Отложить">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:130px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#8A93A5">
+        <svg width="90" height="90" viewBox="0 0 24 24" fill="none" stroke="#C3CBDA" stroke-width="1.2" stroke-linecap="round"><path d="M4 12.5 9.5 18 20 6.5"></path></svg>
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:34px">Все заказы собраны</div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+
+<div style="background:#060B14;padding:8px 0 44px;display:flex;justify-content:center">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:14px 26px;border-radius:16px;background:#0D1522;border:1px solid #1A2436;font-family:'Golos Text',system-ui,sans-serif;font-size:15px;font-weight:600">
+    <a href="Pick Chick App v2.dc.html" style="color:#8CB8FF">Приложение</a><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Kiosk v2.dc.html" style="color:#8CB8FF">Киоск</a><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Табло.dc.html" style="color:#8CB8FF">Табло</a><span style="color:#3A4252">·</span>
+    <span style="color:#FF671F">Кухня</span><span style="color:#3A4252">·</span>
+    <a href="Pick Chick Бэк-офис.dc.html" style="color:#8CB8FF">Бэк-офис</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:2000,&quot;height&quot;:1160},&quot;columns&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:4,&quot;min&quot;:2,&quot;max&quot;:5,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Станция&quot;,&quot;label&quot;:&quot;Колонок с заказами&quot;},&quot;newOrderSeconds&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:14,&quot;min&quot;:4,&quot;max&quot;:60,&quot;step&quot;:2,&quot;unit&quot;:&quot;с&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Станция&quot;,&quot;label&quot;:&quot;Как часто падает новый заказ&quot;},&quot;lateMinutes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:8,&quot;min&quot;:3,&quot;max&quot;:20,&quot;step&quot;:1,&quot;unit&quot;:&quot;мин&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Станция&quot;,&quot;label&quot;:&quot;Порог опоздания&quot;},&quot;maxTickets&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:8,&quot;min&quot;:4,&quot;max&quot;:12,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Станция&quot;,&quot;label&quot;:&quot;Максимум тикетов на экране&quot;}}">
+class Component extends DCLogic {
+  NAMES = ['Азамат', 'Айгерим', 'Данияр', 'Мадина', 'Ерлан', 'Аружан', 'Тимур', 'Алина', 'Санжар', 'Диана'];
+  POOL = [
+    { name: 'Pick Combo', mods: 'Фирменный соус · Coca-Cola 0.5' },
+    { name: 'Master Combo', mods: 'Острый соус · Фирменный лимонад' },
+    { name: 'Burger Combo', mods: 'Heinz сырный · Fanta 0.5' },
+    { name: 'Solo Combo', mods: 'Фирменный соус · Холодный чай' },
+    { name: 'Фингер Дуо', mods: '2 фирменных соуса · 2 Coca-Cola' },
+    { name: 'Микс Дуо', mods: 'Острый + фирменный · 2 Bonaqua' },
+    { name: '25 фингерсов', mods: 'Фирменный ×6, Острый ×2' },
+    { name: 'Фингерс, 1 шт', mods: '' },
+    { name: 'Картофельные дольки, 90 г', mods: '' },
+    { name: 'Коулслоу, 90 г', mods: '' },
+    { name: 'Тост, 1 шт', mods: '' },
+    { name: 'Соус фирменный', mods: '300 г' }
+  ];
+
+  state = { now: Date.now(), list: [], seq: 148, doneCount: 12 };
+
+  componentDidMount() {
+    const list = [];
+    for (let i = 0; i < 6; i++) list.push(this.make(148 + i, (6 - i) * 55));
+    list[0].stage = 1; list[1].stage = 1;
+    this.setState({ list, seq: 154 });
+    this.clock = setInterval(() => this.setState({ now: Date.now() }), 1000);
+    this.feed = setInterval(this.incoming, (this.props.newOrderSeconds || 14) * 1000);
+  }
+  componentWillUnmount() { clearInterval(this.clock); clearInterval(this.feed); }
+
+  make(no, ageSec) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    const lines = [];
+    for (let i = 0; i < n; i++) {
+      const p = this.POOL[Math.floor(Math.random() * this.POOL.length)];
+      lines.push({ qty: 1 + (Math.random() < 0.22 ? 1 : 0), name: p.name, mods: p.mods });
+    }
+    return {
+      no: String(no), name: this.NAMES[no % this.NAMES.length],
+      dine: Math.random() < 0.55, start: Date.now() - (ageSec || 0) * 1000, stage: 0, lines
+    };
+  }
+  incoming = () => {
+    const s = this.state;
+    if (s.list.length >= (this.props.maxTickets || 8)) return;
+    this.setState({ list: s.list.concat(this.make(s.seq)), seq: s.seq + 1 });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const late = (this.props.lateMinutes || 8) * 60;
+    const two = n => String(n).padStart(2, '0');
+    const d = new Date(s.now);
+    const list = s.list.slice().sort((a, b) => a.start - b.start);
+    const waits = list.map(o => (s.now - o.start) / 1000);
+    const avg = waits.length ? Math.round(waits.reduce((x, y) => x + y, 0) / waits.length / 60) : 0;
+    const lateCount = waits.filter(w => w > late).length;
+
+    return {
+      clock: two(d.getHours()) + ':' + two(d.getMinutes()),
+      shift: d.getHours() < 16 ? 'дневная' : 'вечерняя',
+      cols: this.props.columns || 4,
+      empty: list.length === 0,
+      stats: [
+        { label: 'В РАБОТЕ', value: list.length, fg: '#FFFFFF' },
+        { label: 'ОПАЗДЫВАЕТ', value: lateCount, fg: lateCount ? 'var(--red)' : 'rgba(255,255,255,.5)' },
+        { label: 'СРЕДНЕЕ ВРЕМЯ', value: avg + ' мин', fg: avg > (this.props.lateMinutes || 8) ? 'var(--orange)' : '#FFFFFF' },
+        { label: 'ГОТОВО ЗА СМЕНУ', value: s.doneCount, fg: 'var(--green)' }
+      ],
+      tickets: list.map(o => {
+        const w = (s.now - o.start) / 1000;
+        const isLate = w > late, warn = !isLate && w > late * 0.6;
+        const border = isLate ? 'var(--orange)' : (warn ? 'rgba(255,103,31,.55)' : (o.stage ? 'var(--blue)' : '#E1E7F2'));
+        return {
+          no: o.no, name: o.name,
+          mode: o.dine ? 'В ЗАЛЕ' : 'С СОБОЙ',
+          modeFg: o.dine ? '#FFFFFF' : '#FFFFFF',
+          modeBg: o.dine ? 'var(--blue)' : 'var(--orange)',
+          noFg: o.stage ? 'var(--blue)' : '#0E1524',
+          stageFg: o.stage ? 'var(--blue)' : '#5A6478',
+          timer: Math.floor(w / 60) + ':' + two(Math.floor(w % 60)),
+          timeFg: isLate ? 'var(--orange)' : (warn ? 'var(--orange)' : '#0E1524'),
+          stage: o.stage ? 'готовится' : 'новый',
+          bg: '#FFFFFF',
+          headBg: o.stage ? '#DCE7FB' : '#EFF3FA',
+          border,
+          anim: isLate ? 'kLate 1.4s ease-in-out infinite' : 'kIn .3s ease both',
+          lines: o.lines.map(l => ({ qty: '×' + l.qty, name: l.name, mods: l.mods || false })),
+          btn: o.stage ? 'Готово' : 'Взять в работу',
+          btnBg: o.stage ? '#0047BB' : '#D9520F',
+          btnFg: '#FFFFFF',
+          advance: () => {
+            if (!o.stage) {
+              this.setState({ list: s.list.map(x => x === o ? { ...x, stage: 1 } : x) });
+            } else {
+              this.setState({ list: s.list.filter(x => x !== o), doneCount: s.doneCount + 1 });
+            }
+          },
+          bump: () => this.setState({ list: s.list.map(x => x === o ? { ...x, start: x.start + 60000 } : x) })
+        };
+      })
+    };
+  }
+}
+
+</script>
+</body>
+</html>
