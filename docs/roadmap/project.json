@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T06:35:12.734416Z",
+  "updatedAt": "2026-09-30T07:55:29.358144Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -725,16 +725,20 @@
         {
           "label": "Проверки входа и сессий",
           "path": "docs/operations/customer-identity.md"
+        },
+        {
+          "label": "Установка Telegram-входа на VPS",
+          "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
         }
       ],
       "acceptance": [
         "AC-36-38: обычный рестарт/обновление и транспортный сбой не требуют нового SMS."
       ],
-      "nextAction": "Подключить утверждённые условия и проверить настоящую доставку OTP.",
+      "nextAction": "Вход и сохранение сессии подтверждены владельцем. Проверить выход, мобильную сеть и доставку на другие номера.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -802,8 +806,8 @@
       "id": "identity-privacy",
       "workstream": "identity",
       "title": "Принять согласия и удаление аккаунта",
-      "summary": "Текст согласован владельцем26.09; пилот бесплатный для всех до эквайринга. hoster.kz/Алматы подтверждены владельцем. Согласие перед отправкой реализовано; публикация документов и фактические сроки хранения ещё открыты.",
-      "status": "planned",
+      "summary": "Документы пилота согласованы владельцем 26.09 и опубликованы на VPS 30.09. Заполнены сведения об операторе, Hoster.kz/Алматы, Telegram и фактических сроках очистки/резервирования. Удаление аккаунта и коммерческие языковые версии требуют отдельной приёмки.",
+      "status": "active",
       "owner": "joint",
       "phase": "product",
       "dependsOn": ["identity-core"],
@@ -827,19 +831,22 @@
         {
           "label": "Согласованные условия, лимит1000, consent023 и границы выпуска",
           "path": "docs/operations/telegram-pilot.md"
+        },
+        {
+          "label": "Установка Telegram-входа на VPS",
+          "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
         }
       ],
       "acceptance": [
         "AC-27/38: удаление отзывает устройства, финансовая история обрабатывается по утверждённой политике."
       ],
-      "nextAction": "Опубликовать согласованные документы, заполнить сведения о получателях/хранении и проверить языковые версии; повторного согласования тех же решений не требуется.",
+      "nextAction": "Правовая проверка коммерческих условий и языковых версий перед платным запуском.",
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
-      },
-      "customerInput": "Текст уже согласован. Нужны фактические сроки хранения и данные получателей/обработчиков."
+      }
     },
     {
       "id": "mobile-design",
@@ -3549,16 +3556,20 @@
         {
           "label": "Согласованные условия, лимит1000, consent023 и границы выпуска",
           "path": "docs/operations/telegram-pilot.md"
+        },
+        {
+          "label": "Установка Telegram-входа на VPS",
+          "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
         }
       ],
       "acceptance": [
         "Канал и идемпотентность сохраняются при потере ответа; код проверяется сервером."
       ],
-      "nextAction": "Пройти CI и согласованный выпуск021/022/023, изоляцию аккаунтов и приёмку на устройствах.",
+      "nextAction": "Вход и сохранение сессии подтверждены владельцем. Проверить выход, мобильную сеть и доставку на другие номера.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -3566,8 +3577,8 @@
       "id": "identity-telegram-release",
       "workstream": "identity",
       "title": "Включить Telegram-вход для клиентов",
-      "summary": "Подготовлены server-owned история клиента, migration024, mobile token binding и guarded выпуск020→024. Изоляция аккаунтов, logout и путь кухни проверены локально. VPS ещё не обновлён; требуются полный CI и публикационные документы.",
-      "status": "blocked",
+      "summary": "Telegram-вход включён на VPS: config 200, Telegram-only, условия по HTTPS, профиль 401 без входа. Identity ACL и данные проверены, backup восстановлен в отдельной БД. Лимит 1000/UTC-день. Владелец подтвердил реальный вход и сохранение сессии после повторного открытия PickChick Dev.",
+      "status": "active",
       "owner": "joint",
       "phase": "integration",
       "dependsOn": ["identity-telegram-login", "identity-privacy"],
@@ -3583,19 +3594,22 @@
         {
           "label": "Серверный пилот: реализация и выпуск",
           "path": "docs/operations/server-pilot.md"
+        },
+        {
+          "label": "Установка Telegram-входа на VPS",
+          "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
         }
       ],
       "acceptance": [
         "Канал и идемпотентность сохраняются при потере ответа; код проверяется сервером."
       ],
-      "nextAction": "Завершить конкретный срок хранения истории, получить зелёную CI, применить guarded release и принять поток на устройстве. Физическая кухня сейчас offline.",
+      "nextAction": "Проверить выход и доставку на другие номера; заказ и физическая кухня - отдельный этап.",
       "checks": {
-        "implemented": false,
-        "verified": false,
-        "deployed": false,
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
         "accepted": false
-      },
-      "customerInput": "Утверждённые условия/конфиденциальность, версия согласий и дневной лимит сообщений."
+      }
     },
     {
       "id": "loyalty-combo-practice",
@@ -3747,6 +3761,33 @@
         "verified": true,
         "deployed": false,
         "accepted": false
+      }
+    },
+    {
+      "id": "identity-telegram-vps-activation",
+      "workstream": "identity",
+      "title": "Включить Telegram-вход на действующем VPS",
+      "summary": "Telegram-вход включён на VPS: config 200, Telegram-only, условия по HTTPS, профиль 401 без входа. Identity ACL и данные проверены, backup восстановлен в отдельной БД. Лимит 1000/UTC-день. Владелец подтвердил реальный вход и сохранение сессии после повторного открытия PickChick Dev.",
+      "status": "done",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["identity-core"],
+      "evidence": [
+        {
+          "label": "Установка Telegram-входа на VPS",
+          "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
+        }
+      ],
+      "acceptance": [
+        "Публичный config отдаёт Telegram, профиль закрыт от анонимного доступа.",
+        "Реальный вход и сохранение сессии после повторного открытия приняты в PickChick Dev."
+      ],
+      "nextAction": "Проверить выход и доставку на другие номера; заказ и физическая кухня - отдельный этап.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": true
       }
     }
   ]

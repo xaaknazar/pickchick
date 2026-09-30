@@ -1,5 +1,17 @@
 # Продолжение: перенос Kaspi на VPS
 
+## Текущий этап: Telegram на VPS
+
+Telegram-вход включён на VPS: config 200, Telegram-only, условия по HTTPS, профиль 401 без входа. Identity ACL и данные проверены, backup восстановлен в отдельной БД. Лимит 1000/UTC-день. Владелец подтвердил реальный вход и сохранение сессии после повторного открытия PickChick Dev.
+
+API `2661877b981ed5ecc77f265892c836f10d4bd3ee`, PR #144. Публичный auth включён, не возвращать
+старые compose без identity env и доверенного IP proxy. Защищённый env лежит
+на VPS в `/opt/pickchick-staging/secrets/customer-auth.env`; четыре ключа нельзя
+перегенерировать после появления профилей. Public legal и gateway входят в
+проверенный immutable выпуск. Cleanup каждые 15 минут остаётся на прежнем проверенном SHA.
+Вход на телефоне подтверждён владельцем; баланс и доставка для других номеров не проверены.
+См. [протокол](../operations/deployments/2026-09-30-telegram-auth.md).
+
 ## Текущий этап: auth-sheet-v3
 
 Новый источник для входа: `design/reference-source/auth-v3.html.txt` из архива
