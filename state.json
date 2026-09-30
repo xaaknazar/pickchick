@@ -1323,9 +1323,11 @@
         "@vps/roadmap",
         "docs/01-technical-spec.md"
       ],
-      "status": "active",
-      "head": "4ddfbcffae50e9098becb7adb933f331fbf2d5e3",
-      "updatedAt": "2026-09-30T10:30:20.635Z"
+      "status": "done",
+      "head": "a293ef2491da427e3eee0e81aad41e667094ebe1",
+      "updatedAt": "2026-09-30T10:33:02.559Z",
+      "summary": "a293ef2/PR153 в shared: убраны QR кассы в профиле/Чиках и экранM29, приглашение друга и галерея. Старые ссылки возвращают в профиль/меню. POS01 телефон. typecheck/lint, browser3sizes,7 roadmap,Dev bundle прошли; roadmap опубликован. CI выполняется.",
+      "nextAction": "Приёмка профиля в Dev. Поиск клиента на кассе по телефону и подтверждение бонусных операций подключать отдельным этапом; Чики и7+1 сохранены."
     }
   ]
 }
