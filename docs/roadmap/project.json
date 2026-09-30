@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T08:38:16.758914Z",
+  "updatedAt": "2026-09-30",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -1887,7 +1887,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "30 сентября: задание дизайнеру и прежний экран героя после оплаты. API/schema027 установлен на VPS из 2f3c3f3, CI36673841187: все шесть jobs прошли. Backup+restore/data/ACL/rollback проверены; checkout401 вместо404. Auth и счета выключены. UI320/393/768, одна отправка и восстановление проверены с подставным банком. Реальный платёж и физическая кухня ещё не приняты.",
+      "summary": "API/schema027 установлен, auth включён; банковская сессия active. Коммерческие accounts/catalog/bindings/orders/invoices пока отсутствуют, pilot выключен. Автовосстановление GET-статуса после обрыва проверено без повторного payment POST. Реальная оплата и физическая кухня не приняты.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1916,13 +1916,17 @@
         {
           "label": "API/schema027 установлен без активации счетов - 30 сентября",
           "path": "docs/operations/deployments/2026-09-30-kaspi-checkout.md"
+        },
+        {
+          "label": "Повторная проверка auth/payment и восстановление статуса",
+          "path": "docs/operations/auth-payment-readiness.md"
         }
       ],
       "acceptance": [
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Подготовить legal/identity, коммерческий каталог AILILLU, provider account/grants/owner allowlist и включённый edge. Затем один согласованный счёт100 ₸ через ledger и физическую кухню. Webkassa отложена, обычная фискальная защита сохранена; HTTPS новых доменов ещё не выпущен.",
+      "nextAction": "Зарегистрировать реального pilot customer; подготовить проверенный AILILLU catalog, provider account/grants/allowlist и включённый edge. Для согласованного счета100₸ нужна контрольная корзина без молчаливой подмены цен. Владелец включит моноблок позже. Webkassa отложена.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -3543,7 +3547,7 @@
       "id": "identity-telegram-login",
       "workstream": "identity",
       "title": "Подготовить Telegram-вход и ручной SMS-резерв",
-      "summary": "Telegram transport и mobile готовы в коде. Добавлены обязательное согласие до отправки, migration023 и проверка предела1000. Доставка одного реального кода ранее подтверждена; новая версия ещё не выпущена.",
+      "summary": "Telegram включён на VPS, config200/Telegram-only/no-store; постоянные сессии без календарного expiry проверены на PostgreSQL. Повторный аудит cloud показал 0 клиентов/сессий, несмотря на прежнее подтверждение владельца: требуется повторная проверка именно текущего Dev; причина расхождения не установлена.",
       "status": "done",
       "owner": "development",
       "phase": "integration",
@@ -3560,12 +3564,16 @@
         {
           "label": "Установка Telegram-входа на VPS",
           "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
+        },
+        {
+          "label": "Повторная проверка auth/payment и восстановление статуса",
+          "path": "docs/operations/auth-payment-readiness.md"
         }
       ],
       "acceptance": [
         "Канал и идемпотентность сохраняются при потере ответа; код проверяется сервером."
       ],
-      "nextAction": "Вход и сохранение сессии подтверждены владельцем. Проверить выход, мобильную сеть и доставку на другие номера.",
+      "nextAction": "Завершить Telegram-вход в текущем Dev и сверить сохранение реального профиля на VPS; затем выход/восстановление и другие номера.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -3577,7 +3585,7 @@
       "id": "identity-telegram-release",
       "workstream": "identity",
       "title": "Включить Telegram-вход для клиентов",
-      "summary": "Telegram-вход включён на VPS: config 200, Telegram-only, условия по HTTPS, профиль 401 без входа. Identity ACL и данные проверены, backup восстановлен в отдельной БД. Лимит 1000/UTC-день. Владелец подтвердил реальный вход и сохранение сессии после повторного открытия PickChick Dev.",
+      "summary": "Telegram включён на VPS, config200/Telegram-only/no-store; постоянные сессии без календарного expiry проверены на PostgreSQL. Повторный аудит cloud показал 0 клиентов/сессий, несмотря на прежнее подтверждение владельца: требуется повторная проверка именно текущего Dev; причина расхождения не установлена.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -3598,12 +3606,16 @@
         {
           "label": "Установка Telegram-входа на VPS",
           "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
+        },
+        {
+          "label": "Повторная проверка auth/payment и восстановление статуса",
+          "path": "docs/operations/auth-payment-readiness.md"
         }
       ],
       "acceptance": [
         "Канал и идемпотентность сохраняются при потере ответа; код проверяется сервером."
       ],
-      "nextAction": "Проверить выход и доставку на другие номера; заказ и физическая кухня - отдельный этап.",
+      "nextAction": "Завершить Telegram-вход в текущем Dev и сверить сохранение реального профиля на VPS; затем выход/восстановление и другие номера.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -3767,7 +3779,7 @@
       "id": "identity-telegram-vps-activation",
       "workstream": "identity",
       "title": "Включить Telegram-вход на действующем VPS",
-      "summary": "Telegram-вход включён на VPS: config 200, Telegram-only, условия по HTTPS, профиль 401 без входа. Identity ACL и данные проверены, backup восстановлен в отдельной БД. Лимит 1000/UTC-день. Владелец подтвердил реальный вход и сохранение сессии после повторного открытия PickChick Dev.",
+      "summary": "Telegram включён на VPS, config200/Telegram-only/no-store; постоянные сессии без календарного expiry проверены на PostgreSQL. Повторный аудит cloud показал 0 клиентов/сессий, несмотря на прежнее подтверждение владельца: требуется повторная проверка именно текущего Dev; причина расхождения не установлена.",
       "status": "done",
       "owner": "joint",
       "phase": "integration",
@@ -3776,18 +3788,22 @@
         {
           "label": "Установка Telegram-входа на VPS",
           "path": "docs/operations/deployments/2026-09-30-telegram-auth.md"
+        },
+        {
+          "label": "Повторная проверка auth/payment и восстановление статуса",
+          "path": "docs/operations/auth-payment-readiness.md"
         }
       ],
       "acceptance": [
         "Публичный config отдаёт Telegram, профиль закрыт от анонимного доступа.",
         "Реальный вход и сохранение сессии после повторного открытия приняты в PickChick Dev."
       ],
-      "nextAction": "Проверить выход и доставку на другие номера; заказ и физическая кухня - отдельный этап.",
+      "nextAction": "Завершить Telegram-вход в текущем Dev и сверить сохранение реального профиля на VPS; затем выход/восстановление и другие номера.",
       "checks": {
         "implemented": true,
         "verified": true,
         "deployed": true,
-        "accepted": true
+        "accepted": false
       }
     },
     {

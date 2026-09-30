@@ -1,5 +1,11 @@
 # Продолжение: перенос Kaspi на VPS
 
+## 30 сентября: текущая проверка auth/payment имеет приоритет над ранней приёмкой
+
+[Доказательства и продолжение](../operations/auth-payment-readiness.md). На VPS API2661877/schema027, auth Telegram включён, Kaspi session active. Но read-only `pickchick_cloud` сейчас показывает identity customers/sessions=0 и commercial orders/invoices/accounts/catalog/bindings=0. Владелец раньше подтвердил вход; запрошена новая проверка текущего Dev, не считать это доказанной потерей данных или завершённой регистрацией. Моноблок выключен («Включу позже»). Реальных счетов не было, пилот выключен.
+
+Mobile watch автоматически восстанавливается после сетевого обрыва с backoff1..30s; только GET, bank commands отдельно. Новый read-only readiness script не включает оплату. Локальные mobile/identity/commerce/browser проверки прошли, Dev iOS bundle200. Следующий шаг: реальный identity на текущем API, проверенный AILILLU catalog/provider/grants/owner allowlist, commercial edge admission и согласованная контрольная корзина100₸. Не перегенерировать ключи identity/Kaspi; не включать оплату флагом без этих предпосылок.
+
 ## Текущий этап: Telegram на VPS
 
 Telegram-вход включён на VPS: config 200, Telegram-only, условия по HTTPS, профиль 401 без входа. Identity ACL и данные проверены, backup восстановлен в отдельной БД. Лимит 1000/UTC-день. Владелец подтвердил реальный вход и сохранение сессии после повторного открытия PickChick Dev.

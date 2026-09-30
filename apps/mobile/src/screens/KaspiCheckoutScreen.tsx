@@ -13,6 +13,7 @@ import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { CustomerSessionError } from '../customer-session';
+import { watchCommerceOrder } from '../commerce-watch';
 import {
   commerceRequest,
   CustomerCommerceOrderSchema,
@@ -67,6 +68,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const [paidMoment, setPaidMoment] = useState(false);
   const paidSeen = useRef(new Set<string>());
   const [watchCycle, setWatchCycle] = useState(0);
+  const [watchError, setWatchError] = useState('');
   const orderRef = useRef<CustomerCommerceOrder | null>(null);
   const [refresh, setRefresh] = useState(0),
     [foreground, setForeground] = useState(AppState.currentState !== 'background');
@@ -100,6 +102,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
         paidSeen.current.add(current.orderId);
         setPaidMoment(true);
       }
+      // Publish the accepted identity before cart/storage changes can trigger another recovery.
+      orderRef.current = current;
       if (pending.current && (paymentReceived(current.phase) || current.phase === 'failed')) {
         // A newer cart or changed modifiers are never cleared by an older payment.
         if (paymentReceived(current.phase) && pending.current.signature === signatureRef.current)
@@ -109,7 +113,6 @@ function KaspiCheckoutSession(props: ScreenProps) {
         await AsyncStorage.removeItem(key);
         pending.current = null;
       }
-      orderRef.current = current;
       setOrder(current);
       return current;
     },
@@ -214,41 +217,26 @@ function KaspiCheckoutSession(props: ScreenProps) {
   ]);
 
   useEffect(() => {
-    if (
-      error ||
-      !order ||
-      !foreground ||
-      ['failed', 'handed_over', 'attention'].includes(order.phase)
-    )
+    if (!order || !foreground || ['failed', 'handed_over', 'attention'].includes(order.phase))
       return;
-    let active = true;
     const controller = new AbortController();
-    const watch = async () => {
-      try {
-        const next = await request(
-          `/orders/${order.orderId}/watch?after=${order.revision}`,
-          'GET',
-          undefined,
-          controller.signal,
-        );
-        if (active) {
-          setError('');
-          await acceptRef.current(next);
-        }
-      } catch (e) {
-        if (active) setError(checkoutError(e));
-      }
-    };
-    // A new long poll starts when the previous one completes, even if unchanged.
-    void watch().finally(() => {
-      if (active) setWatchCycle((c) => c + 1);
+    void watchCommerceOrder({
+      signal: controller.signal,
+      read: (signal) =>
+        request(`/orders/${order.orderId}/watch?after=${order.revision}`, 'GET', undefined, signal),
+      accept: async (next) => {
+        await acceptRef.current(next);
+      },
+      onError: (cause, reconnecting) =>
+        setWatchError(
+          reconnecting
+            ? 'Связь прервалась. Восстанавливаем статус заказа автоматически.'
+            : checkoutError(cause),
+        ),
+      onRecovered: () => setWatchError(''),
     });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-    // Errors stop the stream until an explicit retry. No rapid network retry loop.
-  }, [request, order?.orderId, order?.revision, foreground, error, watchCycle]);
+    return () => controller.abort();
+  }, [request, order?.orderId, order?.revision, order?.phase, foreground, watchCycle]);
   useEffect(() => {
     if (!paidMoment || !foreground) return;
     const timer = setTimeout(() => setPaidMoment(false), 2000);
@@ -309,10 +297,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
   }, [order?.phase, busy, error, pay]);
   const retry = () => {
     setError('');
+    setWatchError('');
     if (order) setWatchCycle((c) => c + 1);
     else setRefresh((c) => c + 1);
   };
   const total = quote ? quote.totalMinor : cartTotal(props.model.cart);
+  const statusError = error || watchError;
   const footer =
     props.screenId !== 'M19' && props.model.cart.length ? (
       <>
@@ -360,9 +350,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
           ) : undefined
         }
         notice={
-          error ? (
+          statusError ? (
             <View style={s.warning}>
-              <Body>{error}</Body>
+              <Body>{statusError}</Body>
               <Button secondary title="Проверить соединение" onPress={retry} />
             </View>
           ) : undefined
@@ -375,9 +365,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
         props={props}
         order={commerceStatus(order)}
         notice={
-          error ? (
+          statusError ? (
             <View style={s.warning}>
-              <Body>{error}</Body>
+              <Body>{statusError}</Body>
               <Button secondary title="Проверить соединение" onPress={retry} />
             </View>
           ) : undefined

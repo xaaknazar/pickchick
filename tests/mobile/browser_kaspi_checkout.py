@@ -76,6 +76,14 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
   assert len(state['keys'])==2 and state['keys'][0]==state['keys'][1], state
   assert state['payments']==1
+  # Lost status connection recovers without a tap or another bank payment command.
+  page.wait_for_timeout(150)
+  previous_watch=state['held']
+  previous_watch.abort()
+  expect(page.get_by_text('Связь прервалась. Восстанавливаем статус заказа автоматически.',exact=True)).to_be_visible()
+  page.wait_for_timeout(1500)
+  assert state['held'] is not previous_watch
+  assert state['payments']==1
   # An ambiguous bank response must never expose a second payment command.
   state['phase']='checking';state['revision']+=1
   page.wait_for_timeout(100);state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})

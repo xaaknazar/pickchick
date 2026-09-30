@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { customerAuthGrants } from '../../infra/staging/customer-auth-grants.mjs';
+import { customerCommerceReadiness } from '../../scripts/customer-commerce-readiness.mjs';
 import {
   CustomerIdentity,
   CustomerIdentityError,
@@ -17,6 +18,24 @@ const phone = '+77010000001',
 const consent = { terms_version: version, privacy_version: version, marketing_opt_in: false };
 const error = (expected) => (value) =>
   value instanceof CustomerIdentityError && value.code === expected;
+
+test('operator readiness reads real identity records without exposing profiles or issuing payments', async () =>
+  fixture(async (ctx) => {
+    const { session } = await ctx.login();
+    const before = ctx.deliveries.length;
+    const report = await customerCommerceReadiness(ctx.pool, {});
+    assert.equal(report.counts.customers, 1);
+    assert.equal(report.counts.sessions, 1);
+    assert.equal(report.counts.orders, 0);
+    assert.equal(report.counts.invoices, 0);
+    assert.equal(report.configurationReady, false);
+    assert.ok(report.blockers.includes('pilot_configured'));
+    assert.equal(report.realPaymentVerified, false);
+    assert.equal(ctx.deliveries.length, before);
+    for (const secret of [phone, session.customer.id, session.access_token, session.refresh_token])
+      assert.ok(!JSON.stringify(report).includes(secret));
+    assert.equal((await ctx.identity.me(session.access_token)).customer.id, session.customer.id);
+  }));
 const config = (budget) => ({
   enabled: true,
   consentVersion: version,
