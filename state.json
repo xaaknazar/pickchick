@@ -1225,6 +1225,34 @@
       "updatedAt": "2026-09-30T09:06:34.519Z",
       "summary": "Завершён опубликованный этап диагностики и исправления reconnect:14e95c4/PR149 в shared. Остаток полноценной активации оплаты сохранён в docs/operations/auth-payment-readiness.md. Области освобождены для новой задачи владельца о четырёхзначном OTP и анкете.",
       "nextAction": "Продолжить отдельной задачей auth-four-digit; полная активация оплаты по-прежнему ждёт каталога/provider/identity/включённого edge, не считать её завершённой."
+    },
+    {
+      "id": "auth-four-digit",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/auth-four-digit",
+      "scopes": [
+        "packages/customer-identity",
+        "packages/phone-verification/src/telegram.ts",
+        "db/cloud/migrations",
+        "apps/mobile/src/customer-session.ts",
+        "apps/mobile/src/useAccount.tsx",
+        "apps/mobile/src/demo-account.ts",
+        "apps/mobile/src/screens/AuthScreens.tsx",
+        "apps/mobile/src/screens/RegistrationScreen.tsx",
+        "tests/mobile",
+        "tests/integration/customer-identity.test.mjs",
+        "tests/unit",
+        "tests/operations",
+        "infra/staging",
+        "docs/operations/auth-four-digit.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "14e95c4fdb72f58d700a6fc61638e57133dfeef7",
+      "updatedAt": "2026-09-30T09:06:40.918Z"
     }
   ]
 }
