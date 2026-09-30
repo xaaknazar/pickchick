@@ -1277,6 +1277,29 @@
       "updatedAt": "2026-09-30T10:11:20.112Z",
       "summary": "fa09cc2/PR151 в shared: исправлена высота строки Итого и сообщения допуска Kaspi. 5 unit, 7 roadmap, browser4sizes, typecheck/lint, Dev bundle прошли. VPS read-only:1 profile/session,pilot=false,catalog/account/binding/order/invoice=0. Roadmap опубликован, API83faf7b/schema028 сохранён. CI нового коммита ещё выполняется.",
       "nextAction": "Приёмка суммы на iPhone. Завершить commercial catalog/provider/allowlist и подключить включённую кассу; затем один согласованный счёт100₸. Реальная оплата этим этапом не включена."
+    },
+    {
+      "id": "registration-date-flow",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/registration-date-flow",
+      "scopes": [
+        "apps/mobile/src/app/auth.tsx",
+        "apps/mobile/src/screens/RegistrationScreen.tsx",
+        "apps/mobile/src/components/AuthLayout.tsx",
+        "apps/mobile/src/components/BirthDatePicker.tsx",
+        "apps/mobile/src/components/BirthDatePicker.web.tsx",
+        "apps/mobile/src/components/BirthDatePickerSheet.tsx",
+        "apps/mobile/src/components/birth-date-picker.ts",
+        "tests/mobile",
+        "docs/operations/registration-date-flow.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "fa09cc26cf8bb4fe45800c67ad077351567da0f1",
+      "updatedAt": "2026-09-30T10:12:39.777Z"
     }
   ]
 }
