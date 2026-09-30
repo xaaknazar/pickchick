@@ -1257,6 +1257,24 @@
       "updatedAt": "2026-09-30T10:01:52.104Z",
       "summary": "Telegram 4 цифры, обязательный пол и дата выровнены. API83faf7b/schema028 установлен: CI36695994356 все6 jobs, backup/restore, данные/ACL, публичный контракт проверены. Shared и онлайн-roadmap4403c26. PR150.",
       "nextAction": "Приёмка нового кода и анкеты владельцем на iPhone; действующие сессии сохранены. Оплаты остаются отдельным этапом."
+    },
+    {
+      "id": "checkout-kaspi-total",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-kaspi-total",
+      "scopes": [
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/commerce-presentation.ts",
+        "tests/mobile",
+        "docs/operations/checkout-kaspi-total.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "4403c265b781609a8c686221338d6e5b36e4e37b",
+      "updatedAt": "2026-09-30T10:05:29.241Z"
     }
   ]
 }
