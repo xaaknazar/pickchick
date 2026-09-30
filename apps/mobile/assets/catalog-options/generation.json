@@ -1,0 +1,34 @@
+[
+  {
+    "id": "sprite",
+    "prompt": "Use case: precise-object-edit. Retouch this official Kazakhstan sprite product photograph. Preserve this exact bottle and its brand, flavor, label design, all readable text, cap color and volume 0.5 L. Do not invent a new packaging. Square 1254x1254, bottle upright centrally, full bottle visible, height exactly 82% of canvas and evenly padded top/bottom. Warm near-white ivory #FFF8EE background, soft studio lighting upper left and subtle contact shadow. Improve clarity and natural realistic texture while preserving identity. No props, fruit outside bottle, decorative elements, or added text."
+  },
+  {
+    "id": "fanta",
+    "prompt": "Use case: precise-object-edit. Retouch this official Kazakhstan fanta product photograph. Preserve this exact bottle and its brand, flavor, label design, all readable text, cap color and volume 0.5 L. Do not invent a new packaging. Square 1254x1254, bottle upright centrally, full bottle visible, height exactly 82% of canvas and evenly padded top/bottom. Warm near-white ivory #FFF8EE background, soft studio lighting upper left and subtle contact shadow. Improve clarity and natural realistic texture while preserving identity. No props, fruit outside bottle, decorative elements, or added text."
+  },
+  {
+    "id": "fuse-berry",
+    "prompt": "Use case: precise-object-edit. Retouch this official Kazakhstan fuse-berry product photograph. Preserve this exact bottle and its brand, flavor, label design, all readable text, cap color and volume 0.5 L. Do not invent a new packaging. Square 1254x1254, bottle upright centrally, full bottle visible, height exactly 82% of canvas and evenly padded top/bottom. Warm near-white ivory #FFF8EE background, soft studio lighting upper left and subtle contact shadow. Improve clarity and natural realistic texture while preserving identity. No props, fruit outside bottle, decorative elements, or added text."
+  },
+  {
+    "id": "fuse-mango",
+    "prompt": "Use case: precise-object-edit. Retouch this official Kazakhstan fuse-mango product photograph. Preserve this exact bottle and its brand, flavor, label design, all readable text, cap color and volume 0.5 L. Do not invent a new packaging. Square 1254x1254, bottle upright centrally, full bottle visible, height exactly 82% of canvas and evenly padded top/bottom. Warm near-white ivory #FFF8EE background, soft studio lighting upper left and subtle contact shadow. Improve clarity and natural realistic texture while preserving identity. No props, fruit outside bottle, decorative elements, or added text."
+  },
+  {
+    "id": "piko",
+    "prompt": "Use case: precise-object-edit. This reference is the correct small 200 ml Piko carton, NOT a one litre bottle. Retouch for a high resolution square 1254x1254 menu photo on warm ivory #FFF8EE. Preserve EXACT reference silhouette, width-to-height proportion, cap/neck/body proportions, label size, text and flavor, volume, packaging. Do NOT stretch, elongate or slim the bottle. Preserve the clearly printed 200 мл where visible. Keep the entire product in view, centered, same upper-left soft studio light and subtle contact shadow as other catalog photos; 82% of frame height. Photographic realistic material, no added props or text."
+  },
+  {
+    "id": "fuse-peach",
+    "prompt": "Use case: precise-object-edit. This reference is the correct small 500 ml (0.5 litre) Fuse Tea bottle, NOT a one litre bottle. Retouch for a high resolution square 1254x1254 menu photo on warm ivory #FFF8EE. Preserve EXACT reference silhouette, width-to-height proportion, cap/neck/body proportions, label size, text and flavor, volume, packaging. Do NOT stretch, elongate or slim the bottle. Preserve the clearly printed 500 мл where visible. Keep the entire product in view, centered, same upper-left soft studio light and subtle contact shadow as other catalog photos; 82% of frame height. Photographic realistic material, no added props or text."
+  },
+  {
+    "id": "fuse-watermelon",
+    "prompt": "Use case: precise-object-edit. This reference is the correct small 500 ml (0.5 litre) Fuse Tea bottle, NOT a one litre bottle. Retouch for a high resolution square 1254x1254 menu photo on warm ivory #FFF8EE. Preserve EXACT reference silhouette, width-to-height proportion, cap/neck/body proportions, label size, text and flavor, volume, packaging. Do NOT stretch, elongate or slim the bottle. Preserve the clearly printed 500 мл where visible. Keep the entire product in view, centered, same upper-left soft studio light and subtle contact shadow as other catalog photos; 82% of frame height. Photographic realistic material, no added props or text."
+  },
+  {
+    "id": "cola-zero",
+    "prompt": "Edit the reference into a premium photorealistic e-commerce packshot of exactly this Coca-Cola Zero Sugar 0.5 L PET bottle. Preserve its exact short 500 ml bottle silhouette, aspect ratio, cap, red label with black lettering and 0.5 L packaging, do not elongate it or substitute a 1 litre bottle. One intact upright bottle, centered fully visible, 80 percent of square image height, consistent warm ivory #FFF8EE studio backdrop and soft subtle grounded shadow, professional sharp commercial lighting, no extra typography, no props, square 1254x1254."
+  }
+]

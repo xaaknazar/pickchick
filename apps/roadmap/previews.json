@@ -1,0 +1,44 @@
+[
+  {
+    "id": "design",
+    "title": "Галерея интерфейсов",
+    "url": "https://pickchick.185.129.51.103.nip.io/design/prototype/index.html",
+    "kind": "design",
+    "description": "130 экранов с демонстрационными данными. Макет не подтверждает готовность функции."
+  },
+  {
+    "id": "backoffice",
+    "title": "Бэк-офис на VPS",
+    "url": "https://pickchick.185.129.51.103.nip.io/backoffice/",
+    "kind": "live",
+    "description": "Установленный редактор каталога. Нужен отдельный доступ управляющего. Новая BO-02 ещё не установлена."
+  },
+  {
+    "id": "kiosk",
+    "title": "Киоск - тестовый заказ",
+    "url": "https://pickchick.185.129.51.103.nip.io/kiosk",
+    "kind": "test",
+    "description": "Синтетический заказ без списания денег. Общая TEST-очередь; не физический кассовый пилот."
+  },
+  {
+    "id": "kitchen-a",
+    "title": "TEST-кухня: приготовление",
+    "url": "https://pickchick.185.129.51.103.nip.io/kitchen/prep",
+    "kind": "test",
+    "description": "Нужен ключ TEST-кухни A. Проверка облачного тестового заказа."
+  },
+  {
+    "id": "kitchen-b",
+    "title": "TEST-кухня: сборка и выдача",
+    "url": "https://pickchick.185.129.51.103.nip.io/kitchen/assembly",
+    "kind": "test",
+    "description": "Нужен ключ TEST-кухни B. Проверка сборки и выдачи тестового заказа."
+  },
+  {
+    "id": "display",
+    "title": "Табло заказов",
+    "url": "https://pickchick.185.129.51.103.nip.io/display",
+    "kind": "test",
+    "description": "Нужен ключ TEST-табло. LED пока не подключён."
+  }
+]

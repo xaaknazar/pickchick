@@ -1,6 +1,6 @@
 :root {
   --blue: #0047bb;
-  --orange: #ff671f;
+  --orange: #ff6900;
   --ink: #121a2b;
   --muted: #56647a;
   --canvas: #edf0f6;
@@ -34,7 +34,8 @@
   --mobile-text: #f2f6ff;
   --mobile-muted: #93a6c9;
   --mobile-action: #2e6fe8;
-  --mobile-accent: #ff7a3d;
+  --mobile-accent: #ff6900;
+  --mobile-accent-text: #ff8a3d;
   --kiosk-background: #f4f6fa;
   --kiosk-text: #0e1524;
   --kiosk-muted: #5a6478;

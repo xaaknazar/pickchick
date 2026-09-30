@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadType</key><string>Configuration</string>
+  <key>PayloadVersion</key><integer>1</integer>
+  <key>PayloadIdentifier</key><string>kz.pickchick.configuration.kiosk</string>
+  <key>PayloadUUID</key><string>CB778310-777F-44AF-8D45-B7AC6FDE6E1E</string>
+  <key>PayloadDisplayName</key><string>PickChick Kiosk — Single App Mode</string>
+  <key>PayloadDescription</key><string>For supervised restaurant iPads only. Install kz.pickchick.kiosk first. Remove this profile through the administrator's MDM or Configurator to service the device.</string>
+  <key>PayloadOrganization</key><string>PickChick</string>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadType</key><string>com.apple.app.lock</string>
+      <key>PayloadVersion</key><integer>1</integer>
+      <key>PayloadIdentifier</key><string>kz.pickchick.configuration.kiosk.applock</string>
+      <key>PayloadUUID</key><string>37EB8948-0B29-49CB-9C32-E34B2EB81F61</string>
+      <key>PayloadDisplayName</key><string>PickChick Kiosk</string>
+      <key>App</key>
+      <dict>
+        <key>Identifier</key><string>kz.pickchick.kiosk</string>
+        <key>Options</key>
+        <dict>
+          <key>DisableTouch</key><false/>
+          <key>DisableDeviceRotation</key><true/>
+          <key>DisableSleepWakeButton</key><true/>
+          <key>DisableAutoLock</key><true/>
+        </dict>
+        <key>UserEnabledOptions</key>
+        <dict>
+          <key>VoiceOver</key><true/>
+          <key>Zoom</key><true/>
+        </dict>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>
