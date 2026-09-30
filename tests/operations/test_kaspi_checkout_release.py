@@ -43,6 +43,11 @@ class CheckoutRelease(unittest.TestCase):
   self.assertNotIn('@pilot_auth',new)
   self.assertIn('@customer_checkout',new)
   self.assertIn('not path /v1/customer-checkout/* /v1/content/*',new)
+ def test_schema020_catalog_gateway_preserves_existing_boundary(self):
+  old="\t@synthetic_surfaces {\n\t\tnot path /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*\n\t}\n\t@health {\n\t}"
+  new=r.extend_checkout(old)
+  self.assertIn('not path /v1/customer-checkout/* /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*',new)
+  with self.assertRaises(r.market.GuardFailure):r.extend_checkout(old.replace('/v1/catalog/*','/unknown/*'))
  def test_preparation_cannot_activate_payments(self):
   # Execute the actual remote text transformer on a disposable compose; no SSH.
   from unittest.mock import patch

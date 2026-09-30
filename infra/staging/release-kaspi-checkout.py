@@ -19,7 +19,12 @@ MIGRATIONS = pilot.MIGRATIONS + ('026_cloud_kaspi_remote.sql', '027_cloud_deferr
 
 def extend_checkout(text):
     require('@customer_checkout' not in text and text.count('\t@health {') == 1, 'Checkout gateway baseline differs')
-    marker = 'not path /v1/auth/*' if 'not path /v1/auth/*' in text else 'not path /v1/content/*'
+    # Reviewed generations of the public bundle: schema020 predates content/auth.
+    markers = ['not path /v1/auth/*', 'not path /v1/content/*',
+               'not path /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*']
+    found = [marker for marker in markers if marker in text]
+    require(len(found) == 1, 'Data header baseline is unknown or ambiguous')
+    marker = found[0]
     require(text.count(marker) == 1, 'Data header boundary differs')
     text = text.replace(marker, marker.replace('not path ', 'not path /v1/customer-checkout/* '), 1)
     block = '''
