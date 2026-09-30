@@ -1249,11 +1249,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps",
-        "apps/mobile/src/useDemoAccount.tsx"
+        "apps/mobile/src/useDemoAccount.tsx",
+        "packages/contracts/openapi.json"
       ],
       "status": "active",
-      "head": "14e95c4fdb72f58d700a6fc61638e57133dfeef7",
-      "updatedAt": "2026-09-30T09:16:43.759Z"
+      "head": "99020d0c2b97b36bed5db9a24f707576409b3cd9",
+      "updatedAt": "2026-09-30T09:22:07.280Z"
     }
   ]
 }
