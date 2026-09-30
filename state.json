@@ -1075,6 +1075,24 @@
       "updatedAt": "2026-09-30T06:07:26.784Z",
       "summary": "Этап кода/установки завершён: shared28761e4, PR142. VPS API/schema027 из2f3c3f3, все6 Foundation CI jobs36673841187 зелёные; backup/restore/data/ACL/rollback проверены. Roadmap70298fa опубликован, healthSHA подтверждён. ТЗ дизайнеру и прежний герой для коммерческого статуса готовы; Dev bundle200. Счета/auth выключены, реальных платежей не было. Документационные CI новых checkpoint ещё не заявлены завершёнными.",
       "nextAction": "Следующий этап активации: завершить legal/identity, коммерческий каталог AILILLU, provider account/grants/owner allowlist, включить кассовый edge и проверить transport/admission. Затем один ранее согласованный счёт100₸ и физическая кухня. HTTPS новых доменов/Webkassa не установлены. Для работы занять новую область, читать handoff; общий код актуален."
+    },
+    {
+      "id": "auth-sheet-v3",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/auth-sheet-v3",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "design/reference-source/auth-v3.html.txt",
+        "docs/design/auth-sheet-v3.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "28761e40003ab59cd22168b00457a1acfdaaf2e3",
+      "updatedAt": "2026-09-30T06:16:08.474Z"
     }
   ]
 }
