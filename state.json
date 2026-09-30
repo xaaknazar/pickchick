@@ -1192,6 +1192,30 @@
       "updatedAt": "2026-09-30T08:44:17.791Z",
       "summary": "PR https://github.com/xaaknazar/pickchick/pull/148; ea6fac8 в shared-development. Перенесены корзина, оформление, ожидание/оплачено/отказ Kaspi, прежний статус с героем сохранён. 216 Node + 30 Python, 7 roadmap, typecheck/lint/format; browser корзина/checkout и Kaspi 4 размера, recovery/unknown/failure/retry/paid/kitchen. iOS Dev manifest/bundle HTTP200. Roadmap опубликован с сохранением API и соседей. Физическая приёмка и полная CI отдельно; checks API вернул403. Комментарий и банковский deep link пока не подключены.",
       "nextAction": "Обновить PickChick Dev, принять дизайн на iPhone/Android. Проверить CI; отдельным этапом связать комментарии с кухней и подтвердить ссылку на счёт Kaspi. Реальных платежей этот этап не выполнял."
+    },
+    {
+      "id": "auth-payment-readiness",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/auth-payment-readiness",
+      "scopes": [
+        "packages/customer-identity",
+        "apps/mobile/src/customer-session.ts",
+        "tests/mobile/customer-session.test.mjs",
+        "tests/integration/customer-identity.test.mjs",
+        "packages/commerce-core",
+        "services/api",
+        "infra/staging",
+        "infra/payments/kaspi-bridge",
+        "docs/operations/customer-identity.md",
+        "docs/operations/auth-payment-readiness.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "ea6fac8e28076f2be0165ec7553f6ddf9dc052c0",
+      "updatedAt": "2026-09-30T08:48:21.244Z"
     }
   ]
 }
