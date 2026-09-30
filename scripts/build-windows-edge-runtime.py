@@ -16,6 +16,10 @@ import subprocess
 import zipfile
 
 ADMIN_FILES = (
+    'infra/windows/native-fulfillment-worker.mjs',
+    'infra/windows/native-pos-sync-worker.mjs',
+    'infra/windows/native-pos-sync-permissions.ps1',
+    'infra/windows/fulfillment-worker-grants.mjs',
     'scripts/edge-migrate.mjs',
     'scripts/edge-runtime-grants.mjs',
     'scripts/staff-setup.mjs',
@@ -49,7 +53,8 @@ def build_package(source, output, commit):
     root = (source / 'services/edge').resolve()
     graph = {}
     # Operator sync services run separately but share the isolated package tree.
-    queue = collections.deque([root, (source / 'packages/pos-order-sync').resolve()])
+    queue = collections.deque([root, (source / 'packages/pos-order-sync').resolve(),
+                               (source / 'packages/fulfillment-transport').resolve()])
 
     def resolve_package(start, name):
         for parent in [start, *start.parents]:

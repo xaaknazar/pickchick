@@ -168,7 +168,7 @@ export async function syncFulfillmentOnce(
       if (!owned) throw new TransportHttpError('NETWORK_UNKNOWN');
       return (
         await client.query(
-          `WITH chosen AS (SELECT o.event_id FROM fulfillment_outbox o WHERE o.branch_id=$1 AND o.acknowledged_at IS NULL AND (o.lease_until IS NULL OR o.lease_until<clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM fulfillment_transport_reverse_failures f WHERE f.event_id=o.event_id AND f.resolved_at IS NULL AND f.retry_after>clock_timestamp()) ORDER BY o.attempts,o.sequence LIMIT 1 FOR UPDATE SKIP LOCKED) UPDATE fulfillment_outbox o SET lease_worker=$2,lease_token=$3,lease_until=clock_timestamp()+interval '30 seconds',attempts=attempts+1 FROM chosen c WHERE o.event_id=c.event_id RETURNING o.*`,
+          `WITH chosen AS (SELECT o.event_id FROM fulfillment_outbox o WHERE o.branch_id=$1 AND EXISTS(SELECT 1 FROM fulfillment_reservations r WHERE r.order_id=o.order_id AND r.branch_id=o.branch_id AND r.commercial_owner='cloud') AND o.acknowledged_at IS NULL AND (o.lease_until IS NULL OR o.lease_until<clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM fulfillment_transport_reverse_failures f WHERE f.event_id=o.event_id AND f.resolved_at IS NULL AND f.retry_after>clock_timestamp()) ORDER BY o.attempts,o.sequence LIMIT 1 FOR UPDATE SKIP LOCKED) UPDATE fulfillment_outbox o SET lease_worker=$2,lease_token=$3,lease_until=clock_timestamp()+interval '30 seconds',attempts=attempts+1 FROM chosen c WHERE o.event_id=c.event_id RETURNING o.*`,
           [branchId, workerId, randomUUID()],
         )
       ).rows[0];

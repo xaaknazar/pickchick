@@ -30,6 +30,12 @@ class WindowsEdgePackageTests(unittest.TestCase):
         (sync / 'dist/index.js').write_text(
             "import only from 'sync-only'; import bar from 'bar'; console.log(only + ':' + bar);\n"
         )
+        transport = self.source / 'packages/fulfillment-transport'
+        self.package(transport, '@pickchick/fulfillment-transport', '0.1.0', {'sync-only': '1'})
+        (transport / 'dist').mkdir()
+        (transport / 'dist/index.js').write_text(
+            "import only from 'sync-only'; console.log(only);\n"
+        )
         self.package(self.source / 'node_modules/sync-only', 'sync-only', '1', value='sync-only')
         self.package(self.source / 'node_modules/bar', 'bar', '1', value='root-v1')
         foo = self.source / 'node_modules/foo'
@@ -71,6 +77,9 @@ class WindowsEdgePackageTests(unittest.TestCase):
         worker = subprocess.run(['node', 'node_modules/@pickchick/pos-order-sync/dist/index.js'],
                                 cwd=self.base / 'output', capture_output=True, text=True, check=True)
         self.assertEqual(worker.stdout.strip(), 'sync-only:root-v1')
+        transport = subprocess.run(['node', 'node_modules/@pickchick/fulfillment-transport/dist/index.js'],
+                                   cwd=self.base / 'output', capture_output=True, text=True, check=True)
+        self.assertEqual(transport.stdout.strip(), 'sync-only')
         with zipfile.ZipFile(first['archive']) as archive:
             self.assertIsNone(archive.testzip())
             self.assertFalse(any('.local' in name for name in archive.namelist()))

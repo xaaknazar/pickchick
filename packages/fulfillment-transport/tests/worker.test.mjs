@@ -1,9 +1,157 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { provisionFulfillment, digest } from '@pickchick/edge-fulfillment';
+import { provisionFulfillment, digest, localUnpaidExecution } from '@pickchick/edge-fulfillment';
 import { randomUUID } from 'node:crypto';
 import { fixture } from './worker-fixture.mjs';
 import { syncFulfillmentOnce } from '../dist/index.js';
+import { createPool, transaction } from '@pickchick/database';
+import { fulfillmentWorkerGrants } from '../../../infra/windows/fulfillment-worker-grants.mjs';
+
+async function restrictedWorker(f, run) {
+  const role = 'transport_' + randomUUID().replaceAll('-', '');
+  const schema = (await f.pool.query('SELECT current_schema() AS name')).rows[0].name;
+  await f.pool.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`);
+  let pool;
+  try {
+    await f.pool.query(fulfillmentWorkerGrants(role, schema));
+    const url = new URL(f.url);
+    url.searchParams.set('options', `-c search_path=${schema} -c role=${role}`);
+    pool = createPool(url.toString(), 4);
+    assert.equal((await pool.query('SELECT current_user AS name')).rows[0].name, role);
+    await run(pool, () => syncFulfillmentOnce(pool, f.options));
+  } finally {
+    if (pool) await pool.end();
+    await f.pool.query(`DROP OWNED BY ${role}; DROP ROLE ${role}`);
+  }
+}
+
+test('commercial transport leaves local cashier events untouched while delivering mobile order', () =>
+  fixture(async (f) => {
+    const branch = f.scope.branchId,
+      orderId = randomUUID(),
+      quoteId = randomUUID(),
+      release = randomUUID();
+    const quote = {
+      quote_id: quoteId,
+      branch_id: branch,
+      release_id: release,
+      currency: 'KZT',
+      total_minor: '10000',
+      service_mode: 'dine_in',
+      lines: [{ product_id: 'burger', name: { ru: 'Synthetic POS' }, quantity: 1 }],
+    };
+    await transaction(f.pool, async (c) => {
+      await c.query("UPDATE branch_config SET pos_service_mode='unpaid_service'");
+      const menu = {
+        release_id: release,
+        branch_id: branch,
+        schema_version: 1,
+        version: 1,
+        items: [],
+      };
+      await c.query(
+        'INSERT INTO menu_snapshots(id,branch_id,version,schema_version,payload,checksum,published_at) VALUES($1,$2,1,1,$3,$4,now())',
+        [release, branch, menu, digest(menu)],
+      );
+      await c.query(
+        "INSERT INTO checkout_quotes(id,branch_id,staff_id,terminal_id,release_id,total_minor,snapshot,created_at,expires_at) VALUES($1,$2,$3,$4,$5,10000,$6,now(),now()+interval '5 minutes')",
+        [quoteId, branch, f.cashier.staff_id, f.cashier.terminal_id, release, quote],
+      );
+      const shiftId = randomUUID();
+      await c.query(
+        'INSERT INTO local_cash_shifts(id,branch_id,staff_id,terminal_id,opening_cash_minor) VALUES($1,$2,$3,$4,0)',
+        [shiftId, branch, f.cashier.staff_id, f.cashier.terminal_id],
+      );
+      await c.query(
+        "INSERT INTO local_orders(id,branch_id,quote_id,total_minor,execution_mode,cash_shift_id) VALUES($1,$2,$3,10000,'unpaid_service',$4)",
+        [orderId, branch, quoteId, shiftId],
+      );
+      await localUnpaidExecution({ enabled: true, deviceId: f.scope.deviceId }).admit(
+        c,
+        { orderId, branchId: branch, quote },
+        { staff_id: f.cashier.staff_id },
+        randomUUID(),
+      );
+    });
+    const before = (
+      await f.pool.query('SELECT * FROM fulfillment_outbox WHERE order_id=$1', [orderId])
+    ).rows;
+    assert.equal(before.length, 1);
+    await restrictedWorker(f, async (_pool, tick) => {
+      assert.equal((await tick()).state, 'applied');
+      assert.equal((await tick()).state, 'acknowledged');
+      assert.equal((await tick()).state, 'idle');
+    });
+    assert.deepEqual(
+      (await f.pool.query('SELECT * FROM fulfillment_outbox WHERE order_id=$1', [orderId])).rows,
+      before,
+    );
+    assert.equal(await f.counts(f.pool, 'fulfillment_transport_reverse_failures'), '0');
+    assert.equal(
+      (
+        await f.cloud.query('SELECT count(*) FROM cloud_fulfillment_projection WHERE order_id=$1', [
+          orderId,
+        ])
+      ).rows[0].count,
+      '0',
+    );
+  }));
+
+test('dedicated Windows transport role reserves and admits only after trusted capture/fiscal gate; no staff or POS privileges', () =>
+  fixture(async (f) =>
+    restrictedWorker(f, async (pool, tick) => {
+      for (const sql of [
+        'SELECT * FROM local_staff_pins',
+        'SELECT * FROM staff_sessions',
+        'SELECT * FROM local_orders',
+        'UPDATE branch_config SET ordering_enabled=false',
+        'UPDATE fulfillment_config SET cloud_producer_id=gen_random_uuid()',
+        'DELETE FROM fulfillment_reservations',
+      ])
+        await assert.rejects(pool.query(sql), (e) => e.code === '42501');
+      assert.equal((await tick()).state, 'applied');
+      assert.equal((await tick()).state, 'acknowledged');
+      assert.equal(await f.counts(f.pool, 'fulfillment_tasks'), '0');
+      const { sale } = await f.pay();
+      assert.equal((await tick()).state, 'idle');
+      await f.fiscalize(sale);
+      assert.equal((await tick()).state, 'applied');
+      assert.equal((await tick()).state, 'acknowledged');
+      assert.equal(await f.counts(f.pool, 'fulfillment_tasks'), '1');
+      assert.equal((await tick()).state, 'idle');
+      assert.equal(await f.counts(f.pool, 'fulfillment_reservations'), '1');
+    }),
+  ));
+
+test('dedicated Windows transport role persists unpaid release results and returns them to cloud', () =>
+  fixture(async (f) =>
+    restrictedWorker(f, async (_pool, tick) => {
+      await tick();
+      await tick();
+      await f.commerce.requestUnpaidCancellation(
+        { ...f.commercialScope, role: 'manager' },
+        randomUUID(),
+        {
+          orderId: f.order.orderId,
+          reason: 'Synthetic cancellation',
+        },
+      );
+      assert.equal((await tick()).state, 'applied');
+      await tick();
+      await tick();
+      assert.equal(
+        (
+          await f.commerce.readUnpaidCancellation(
+            { ...f.commercialScope, role: 'manager' },
+            f.order.orderId,
+          )
+        ).state,
+        'cancelled',
+      );
+      assert.equal(await f.counts(f.pool, 'fulfillment_release_results'), '1');
+      assert.equal(await f.counts(f.pool, 'fulfillment_tasks'), '0');
+    }),
+  ));
 const body = (r) => r.json();
 const pending = async (f) =>
   (await f.pool.query('SELECT * FROM fulfillment_transport_state')).rows[0];
