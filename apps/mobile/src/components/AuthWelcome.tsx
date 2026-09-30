@@ -191,7 +191,7 @@ export function AuthWelcome(props: ScreenProps) {
           <Text style={s.subtitle}>{subtitle}</Text>
           <View style={s.cta}>
             <AuthButton
-              title="Указать телефон"
+              title="По номеру телефона"
               icon="phone-portrait-outline"
               testID="account-required-login"
               onPress={() =>
