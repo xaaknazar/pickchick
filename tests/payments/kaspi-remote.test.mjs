@@ -8,6 +8,7 @@ import {
   KaspiBridgeClient,
   findByReference,
   kaspiInvoiceOutcome,
+  kaspiInvoiceComment,
   kaspiMinor,
   kaspiPhone,
   kaspiRemoteConfig,
@@ -127,6 +128,45 @@ test('history search needs the reference in a text field and an operation id', (
   assert.equal(found.length, 1);
   assert.equal(found[0].QrOperationId, 11);
   assert.deepEqual(findByReference([], 'ABCDEFGH23'), []);
+});
+
+test('invoice message uses names and quantities without customer data and preserves recovery', () => {
+  const comment = kaspiInvoiceComment('ABCDEFGH23', {
+    customerId: 'private-customer',
+    customerComment: 'private note',
+    lines: [
+      { title: 'Burger Combo', quantity: 2 },
+      { title: 'Coca-Cola 0,5 л', quantity: 1 },
+    ],
+  });
+  assert.equal(comment, 'PickChick ABCDEFGH23: Burger Combo ×2; Coca-Cola 0,5 л ×1');
+  assert.equal(findByReference([{ Id: 14, Comment: comment }], 'ABCDEFGH23').length, 1);
+  for (const text of [
+    'PickChick ABCDEFGH234: Burger',
+    'prefix ' + comment,
+    'PickChick ABCDEFGH23XYZ',
+  ])
+    assert.deepEqual(findByReference([{ Id: 14, Comment: text }], 'ABCDEFGH23'), []);
+  assert.equal(kaspiInvoiceComment('ABCDEFGH23', { lines: [] }), 'PickChick ABCDEFGH23');
+  assert.equal(kaspiInvoiceComment('ABCDEFGH23', null), 'PickChick ABCDEFGH23');
+  assert.equal(
+    kaspiInvoiceComment('ABCDEFGH23', { lines: [{ title: '  Чай\n  манго\u200b ', quantity: 1 }] }),
+    'PickChick ABCDEFGH23: Чай манго ×1',
+  );
+});
+
+test('long invoice messages keep whole items where possible and never split Unicode pairs', () => {
+  for (const count of [1, 2, 10, 100]) {
+    for (const title of ['Куриный бургер', '🍔'.repeat(300)]) {
+      const comment = kaspiInvoiceComment('ABCDEFGH23', {
+        lines: Array.from({ length: count }, () => ({ title, quantity: 2 })),
+      });
+      assert.ok(comment.length <= 255);
+      assert.ok(comment.isWellFormed());
+      assert.equal(findByReference([{ Id: 14, Comment: comment }], 'ABCDEFGH23').length, 1);
+      if (count > 1 && title.length > 255) assert.ok(comment.endsWith(`ещё ${count - 1} поз.`));
+    }
+  }
 });
 
 test('bridge client separates unsent, uncertain, session, rejected and success answers', async () => {

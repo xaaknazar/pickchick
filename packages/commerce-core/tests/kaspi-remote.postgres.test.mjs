@@ -233,7 +233,7 @@ test('invoice to the customer phone, Processed status records exactly one captur
     const first = await worker.tick();
     assert.equal(first.submitted, 1);
     assert.deepEqual(f.bridge.calls[0], ['create', '77011234567', 1000, f.bridge.calls[0][3]]);
-    assert.match(f.bridge.calls[0][3], /^PickChick [A-Z0-9]{10}$/);
+    assert.match(f.bridge.calls[0][3], /^PickChick [A-Z0-9]{10}: Synthetic burger ×2$/);
     const issued = await f.invoice(attempt.attemptId);
     assert.equal(issued.state, 'issued');
     assert.equal(issued.operation_id, '700000');
@@ -365,6 +365,21 @@ test('uncertain create becomes unknown, then the invoice is adopted from history
     await worker.tick();
     const order = await f.view(orderId);
     assert.equal(order.captures.length, 1);
+    assert.equal(f.bridge.count('create'), 1);
+  }));
+
+test('legacy marker-only invoices remain recoverable after the item-message upgrade', () =>
+  fixture(async (f) => {
+    const { attempt } = await f.order();
+    f.bridge.create = (phone, amount, comment) => {
+      f.bridge.issue(amount, comment.split(': ')[0]);
+      return { kind: 'uncertain' };
+    };
+    const worker = f.processor();
+    await worker.tick();
+    await f.due();
+    await worker.tick();
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
     assert.equal(f.bridge.count('create'), 1);
   }));
 
