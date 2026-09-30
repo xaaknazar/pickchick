@@ -1,15 +1,19 @@
 import 'reflect-metadata';
+import { CapacityExceeded } from './admission.js';
 import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
 import {
   Catch,
   Controller,
   Get,
   HttpException,
+  Header,
   Inject,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ErrorSchema, HealthSchema, ReadinessSchema, UuidSchema } from '@pickchick/contracts';
 import { RESOURCE, Resources } from './resources.js';
 
@@ -54,11 +58,13 @@ class SafeExceptionFilter implements ExceptionFilter {
               ? 'CONFLICT'
               : status === 413
                 ? 'PAYLOAD_TOO_LARGE'
-                : status === 404
-                  ? 'NOT_FOUND'
-                  : status === 503
-                    ? 'SERVICE_UNAVAILABLE'
-                    : 'INTERNAL_ERROR';
+                : status === 429
+                  ? 'RATE_LIMITED'
+                  : status === 404
+                    ? 'NOT_FOUND'
+                    : status === 503
+                      ? 'SERVICE_UNAVAILABLE'
+                      : 'INTERNAL_ERROR';
     const details = error instanceof HttpException ? error.getResponse() : null;
     const declared =
       details && typeof details === 'object' && 'code' in details
@@ -66,14 +72,14 @@ class SafeExceptionFilter implements ExceptionFilter {
         : null;
     const code = declared?.success ? declared.data : defaultCode;
     const traceId = request.traceId ?? randomUUID();
-    if (status >= 500) {
+    if (status >= 500 && !(error instanceof CapacityExceeded)) {
       console.error(JSON.stringify({ event: 'request_failed', code, trace_id: traceId }));
     }
     response.status(status).json({
       code,
       message_key: `errors.${code.toLowerCase()}`,
       trace_id: traceId,
-      retryable: status === 503,
+      retryable: status === 503 || status === 429,
     });
   }
 }
@@ -87,6 +93,31 @@ export class HealthController {
     return HealthSchema.parse({ service: this.resources.config.service, alive: true });
   }
 
+  // Private network only; public gateway has an explicit route allowlist.
+  @Get('metrics')
+  @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
+  metrics() {
+    const { pool, admission } = this.resources;
+    const values = {
+      pickchick_http_in_flight: admission.active,
+      pickchick_readiness_in_flight: admission.probes,
+      pickchick_order_watches_in_flight: admission.watches,
+      pickchick_http_admission_limit: admission.limit,
+      pickchick_http_rejected_total: admission.rejected,
+      pickchick_http_completed_total: admission.completed,
+      pickchick_db_pool_total: pool.totalCount,
+      pickchick_db_pool_idle: pool.idleCount,
+      pickchick_db_pool_waiting: pool.waitingCount,
+      pickchick_process_heap_bytes: process.memoryUsage().heapUsed,
+    };
+    return Object.entries(values)
+      .map(
+        ([name, value]) =>
+          `# TYPE ${name} ${name.endsWith('_total') && name.includes('http_') ? 'counter' : 'gauge'}\n${name} ${value}\n`,
+      )
+      .join('');
+  }
+
   @Get('ready')
   async ready() {
     const status = ReadinessSchema.parse(await this.resources.readiness());
@@ -95,8 +126,19 @@ export class HealthController {
   }
 }
 
-export async function createHttpApplication(module: Type<unknown>) {
-  const app = await NestFactory.create(module, { logger: false, abortOnError: false });
+export interface HttpApplicationOptions {
+  /** POST JSON routes whose exact bytes are signed by a provider: kept as a raw Buffer. */
+  rawJsonRoutes?: readonly RegExp[];
+}
+
+export async function createHttpApplication(
+  module: Type<unknown>,
+  options: HttpApplicationOptions = {},
+) {
+  const app = await NestFactory.create<NestExpressApplication>(module, {
+    logger: false,
+    abortOnError: false,
+  });
   app.use((request: RequestContext, response: ResponseContext, next: () => void) => {
     const incoming = UuidSchema.safeParse(request.headers['x-request-id']);
     request.traceId = incoming.success ? incoming.data : randomUUID();
@@ -105,7 +147,55 @@ export async function createHttpApplication(module: Type<unknown>) {
     response.setHeader('Cache-Control', 'no-store');
     next();
   });
-  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  const instance = app.getHttpAdapter().getInstance();
+  instance.disable('x-powered-by');
+  // Full catalog drafts are larger than ordinary commands. Scope the extra bytes
+  // to this one route, while retaining Nest/Express' 100 KiB limit elsewhere.
+  app.useBodyParser('json', {
+    limit: 320 * 1024,
+    type: (request: IncomingMessage) =>
+      request.method === 'PUT' &&
+      /^\/v1\/admin\/catalog\/branches\/[a-f0-9-]{36}\/draft\/?$/.test(
+        request.url?.split('?')[0] ?? '',
+      ) &&
+      /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+  });
+  if (app.get<Resources>(RESOURCE).config.service === 'edge')
+    app.useBodyParser('json', {
+      limit: 16 * 1024,
+      type: (request: IncomingMessage) =>
+        /^\/edge\/v1\/fulfillment(?:\/|$)/i.test(request.url?.split('?')[0] ?? '') &&
+        /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+    });
+  if (app.get<Resources>(RESOURCE).config.service === 'api')
+    app.useBodyParser('json', {
+      limit: 64 * 1024,
+      type: (request: IncomingMessage) =>
+        /^\/internal\/v1\/edge\/fulfillment(?:\/|$)/i.test(request.url?.split('?')[0] ?? '') &&
+        /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+    });
+  if (app.get<Resources>(RESOURCE).config.service === 'edge')
+    app.useBodyParser('json', {
+      limit: 2 * 1024,
+      type: (request: IncomingMessage) =>
+        /^\/edge\/v1\/staff\/(?:login|pin)\/?$/i.test(request.url?.split('?')[0] ?? '') &&
+        /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+    });
+  const rawJsonRoutes = options.rawJsonRoutes ?? [];
+  // Must precede the generic JSON parser, which would otherwise consume the bytes.
+  if (rawJsonRoutes.length)
+    app.useBodyParser('raw', {
+      limit: 64 * 1024,
+      type: (request: IncomingMessage) =>
+        request.method === 'POST' &&
+        rawJsonRoutes.some((route) => route.test(request.url?.split('?')[0] ?? '')) &&
+        /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+    });
+  app.useBodyParser('json', { limit: 100 * 1024 });
+  const proxyIps = app.get<Resources>(RESOURCE).config.trustedProxyIps;
+  // Explicit hop addresses only. Trusting all forwarded headers defeats per-IP SMS limits.
+  if (proxyIps?.length) instance.set('trust proxy', proxyIps);
   app.useGlobalFilters(new SafeExceptionFilter());
+  app.useGlobalInterceptors(app.get<Resources>(RESOURCE).admission);
   return app;
 }

@@ -12,9 +12,16 @@ assert.equal(ids.size, screens.length, 'Duplicate screen IDs');
 const required = [
   ...(await read('docs/01-technical-spec.md')).matchAll(/\*\*((?:MOB|KIO|POS|KDS)-\d{2})\./g),
 ].map((m) => m[1]);
+// Device distribution/lockdown is accepted on supervised hardware, not a
+// customer-facing screen. Keep its coverage explicit instead of inventing UI.
+const operationalRequirements = new Map([['KIO-06', 'docs/operations/ipad-kiosk-lockdown.md']]);
+for (const [requirement, document] of operationalRequirements) {
+  assert(required.includes(requirement), `Unknown operational requirement: ${requirement}`);
+  assert((await read(document)).trim(), `Missing acceptance document: ${document}`);
+}
 for (const requirement of required)
   assert(
-    screens.some((s) => s.requirement === requirement),
+    screens.some((s) => s.requirement === requirement) || operationalRequirements.has(requirement),
     `Missing ${requirement}`,
   );
 for (const s of screens) {
@@ -105,6 +112,10 @@ for (const r of new Set(screens.map((s) => s.requirement)))
       .filter((s) => s.requirement === r)
       .map((s) => s.id)
       .join(', ')} |`,
+  );
+for (const [requirement, document] of operationalRequirements)
+  lines.push(
+    `| ${requirement} | Приёмка устройства и распространения: [процедура](../${document.slice(5)}) |`,
   );
 for (const [key, g] of Object.entries(groups)) {
   const list = screens.filter((s) => s.surface === key);

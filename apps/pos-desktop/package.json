@@ -1,0 +1,30 @@
+{
+  "name": "@pickchick/pos-desktop",
+  "version": "0.4.8",
+  "private": true,
+  "description": "Installed PickChick local POS pre-release client",
+  "author": "PickChick",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "main.mjs",
+  "engines": {
+    "node": ">=24.16.0 <25"
+  },
+  "packageManager": "npm@11.13.0",
+  "scripts": {
+    "runtime:install": "node node_modules/electron/install.js",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --project tsconfig.renderer.json --noEmit && node --check main.mjs && node --check protocol.mjs && node --check journal.mjs && node --check preload.cjs",
+    "start": "npm run build && electron .",
+    "dist:win": "node scripts/build.mjs --release && electron-builder --win nsis portable --x64 --publish never",
+    "verify:win": "node scripts/verify-package.mjs",
+    "pack:mac-test": "node scripts/build.mjs --release && electron-builder --mac dir --arm64 --publish never"
+  },
+  "devDependencies": {
+    "@electron/fuses": "2.1.3",
+    "electron": "44.2.0",
+    "electron-builder": "26.16.1",
+    "typescript": "5.9.3",
+    "zod": "4.5.4"
+  }
+}

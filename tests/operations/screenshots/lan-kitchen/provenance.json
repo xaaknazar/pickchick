@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-08",
+  "apiCommit": "c21404d100b7cbd5b38c22ca5b78099788ce06e9",
+  "sourceDesignProvenance": "design/reference-source/kitchen-display.provenance.json",
+  "screenshots": [
+    {
+      "path": "tests/operations/screenshots/lan-kitchen/1280-prep.png",
+      "sha256": "94043103d5ad52cd353bd0cc34ded3980a61175947fd6cdc0b8598e6fd612128",
+      "provenance": "Actual Chromium screenshot of apps/kitchen against disposable local PostgreSQL and real LAN HTTP API; synthetic test orders, not original mockup."
+    },
+    {
+      "path": "tests/operations/screenshots/lan-kitchen/1920-assembly.png",
+      "sha256": "784c813a7d8aa41b8adeb21b2a7969a3a6c13ef73c498c79e8b3277b029a6b58",
+      "provenance": "Actual Chromium screenshot of apps/kitchen against disposable local PostgreSQL and real LAN HTTP API; synthetic test orders, not original mockup."
+    },
+    {
+      "path": "tests/operations/screenshots/lan-kitchen/1280-display.png",
+      "sha256": "b4754e1609cce6540cfc585b381759c2c6f9d2bb085f4a75cda43da529835738",
+      "provenance": "Actual Chromium screenshot of apps/kitchen against disposable local PostgreSQL and real LAN HTTP API; synthetic test orders, not original mockup."
+    },
+    {
+      "path": "tests/operations/screenshots/lan-kitchen/1920-recovery.png",
+      "sha256": "649d0f40fa8bc818da2fba7c45ed872c79071a5b8ea9864cea6ab21378282dc0",
+      "provenance": "Actual Chromium screenshot of apps/kitchen against disposable local PostgreSQL and real LAN HTTP API; synthetic test orders, not original mockup."
+    }
+  ]
+}

@@ -9,6 +9,10 @@ const model = {
   category: 'Все',
   mode: 'С собой',
   comboStep: 1,
+  kioskChoices: {},
+  kioskCartKind: 'product',
+  kioskResume: 'K03',
+  kioskHelpFrom: null,
   score: 0,
   paused: false,
   rating: 0,
@@ -60,7 +64,7 @@ function previewRules(s) {
   if (s.surface === 'display')
     return [
       'Только номера заказов, без телефона, имени и состава.',
-      'Источник — edge. Нет связи: явное сообщение, без случайных обновлений.',
+      'Источник - edge. Нет связи: явное сообщение, без случайных обновлений.',
       'После выдачи убрать номер по событию сотрудника.',
     ];
   if (s.surface === 'kitchen')
@@ -129,7 +133,7 @@ function overviewHtml() {
 function render() {
   const s = byId.get(selected);
   document.body.classList.toggle('focus', focus);
-  document.title = `${overview ? 'Экосистема' : s.id + ' · ' + s.title} — PickChick`;
+  document.title = `${overview ? 'Экосистема' : s.id + ' · ' + s.title} - PickChick`;
   document.querySelector('#app').innerHTML =
     `<div class="atlas">${nav()}<main class="atlas-main"><header class="atlas-toolbar"><div><span class="eyebrow muted">${overview ? 'Дизайн экосистемы' : groups[s.surface].name + ' / ' + s.id}</span><h1>${overview ? 'Все интерфейсы PickChick' : s.title}</h1></div><div class="atlas-actions"><button class="tool" data-action="overview">Обзор</button><button class="tool ${spec ? 'active' : ''}" data-action="spec">Спецификация</button><button class="tool ${focus ? 'active' : ''}" data-action="focus">${focus ? 'Выйти из фокуса' : 'Фокус'}</button><button class="tool" data-action="copy">Ссылка</button></div></header><nav class="flow-strip" aria-label="Ключевые сценарии">${[
       ['M06', 'Заказ в приложении'],
@@ -145,7 +149,28 @@ function render() {
         '',
       )}</nav>${overview ? overviewHtml() : `<div class="workspace ${!spec ? 'no-spec' : ''}"><section class="review-stage"><div class="preview-meta"><span class="prototype-label">Дизайн-прототип · демонстрационные данные</span><label>Состояние <select id="state-select" aria-label="Состояние экрана">${s.states.map((v) => `<option value="${v}" ${state === v ? 'selected' : ''}>${stateNames[v]}</option>`).join('')}</select></label></div><div class="viewport-holder" id="holder"><div class="frame ${s.surface}" id="preview" tabindex="-1"><div class="frame-content">${appShell(s, stateView(s, state) ?? view(s, model))}</div></div></div></section>${spec ? inspector(s) : ''}</div>`}</main></div>`;
   requestAnimationFrame(fit);
+  syncDecorativeVideo();
 }
+function syncDecorativeVideo() {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('#preview video').forEach((video) => {
+    video.addEventListener(
+      'error',
+      () => {
+        video.autoplay = false;
+        video.pause();
+      },
+      { capture: true, once: true },
+    );
+    video.autoplay = !reduced && !document.hidden;
+    if (video.autoplay) void video.play().catch(() => video.pause());
+    else video.pause();
+  });
+}
+window
+  .matchMedia('(prefers-reduced-motion: reduce)')
+  .addEventListener('change', syncDecorativeVideo);
+document.addEventListener('visibilitychange', syncDecorativeVideo);
 function fit() {
   const holder = document.querySelector('#holder'),
     frame = document.querySelector('#preview');
@@ -189,8 +214,27 @@ document.addEventListener('click', async (event) => {
     model.mode = el.dataset.mode;
   }
   if (el.dataset.go) {
+    if (el.dataset.go === 'K16' && selected !== 'K16') {
+      model.kioskHelpFrom = ['K09', 'K11'].includes(selected) ? selected : null;
+    }
+    if (el.dataset.go === 'K14' && selected !== 'K14' && surface === 'kiosk') {
+      model.kioskResume = selected;
+    }
+    if (el.dataset.go === 'K06' && ['K04', 'K05'].includes(selected)) {
+      model.kioskCartKind = selected === 'K05' ? 'combo' : 'product';
+    }
     if (byId.get(el.dataset.go)?.kind === 'welcome') {
       Object.assign(model, { qty: 1, category: 'Все', comboStep: 1, score: 0, assembled: false });
+      if (el.dataset.go === 'K01') {
+        Object.assign(model, {
+          product: 0,
+          mode: 'С собой',
+          kioskChoices: {},
+          kioskCartKind: 'product',
+          kioskResume: 'K03',
+          kioskHelpFrom: null,
+        });
+      }
     }
     changeScreen(el.dataset.go);
     return;
@@ -266,6 +310,11 @@ document.addEventListener('click', async (event) => {
     render();
     return;
   }
+  if (action === 'kiosk-combo-back') {
+    model.comboStep = Math.max(1, model.comboStep - 1);
+    render();
+    return;
+  }
   if (action === 'coin') {
     if (!model.paused) model.score += 1;
     render();
@@ -288,7 +337,7 @@ document.addEventListener('click', async (event) => {
     return;
   }
   if (action === 'resume') {
-    changeScreen('K03');
+    changeScreen(model.kioskResume);
     return;
   }
   if (action === 'restore-state') {
@@ -320,24 +369,13 @@ document.addEventListener('click', async (event) => {
     sync: 'Демо: повтор обмена не должен создавать новые бизнес-операции.',
     audit: 'Журнал: сотрудник, операция, версия и причина. В макете данные демонстрационные.',
   };
-  if (action === 'video-toggle') {
-    const video = document.querySelector('#preview video');
-    if (video) {
-      if (video.paused) {
-        await video.play();
-        el.textContent = 'Ⅱ';
-        el.setAttribute('aria-label', 'Остановить фоновое видео');
-      } else {
-        video.pause();
-        el.textContent = '▶';
-        el.setAttribute('aria-label', 'Включить фоновое видео');
-      }
-    }
-    return;
-  }
   if (action) toast(messages[action] ?? 'Демонстрация действия. Внешние системы не вызываются.');
 });
 document.addEventListener('change', (event) => {
+  if (event.target.dataset.kioskChoice) {
+    model.kioskChoices[event.target.dataset.kioskChoice] =
+      event.target.type === 'checkbox' ? event.target.checked : Number(event.target.value);
+  }
   if (event.target.id === 'state-select') setState(event.target.value);
   if (event.target.dataset.action === 'assemble') {
     model.assembled = event.target.checked;

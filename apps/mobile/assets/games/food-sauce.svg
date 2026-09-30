@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="cup"><stop stop-color="#66A8FF"/><stop offset=".32" stop-color="#1765D7"/><stop offset=".72" stop-color="#0047BB"/><stop offset="1" stop-color="#092C78"/></linearGradient>
+<linearGradient id="sauce" x2=".3" y2="1"><stop stop-color="#FFE0B3"/><stop offset=".5" stop-color="#ECAE79"/><stop offset="1" stop-color="#BB794E"/></linearGradient>
+</defs>
+<path d="m10 18 6 36c2 9 30 9 32 0l6-36Z" fill="url(#cup)" stroke="#1C4786" stroke-width="1.2"/>
+<path d="m15 24 5 27" stroke="#B8DAFF" stroke-opacity=".65" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M22 57 19 37c6 3 7 11 10 10s-2-15 5-21c0 17 14 12 12 28-6 5-18 5-24 3Z" fill="#FF8A39"/>
+<path d="m30 49 4-9 5 7-2 8h-7Z" fill="#FFC16C"/>
+<ellipse cx="32" cy="18" rx="22" ry="10" fill="#FFF7DF" stroke="#F1BF83" stroke-width="1.3"/>
+<ellipse cx="32" cy="19" rx="18.5" ry="7" fill="url(#sauce)"/>
+<path d="M19 17c5-4 18-5 25-1" fill="none" stroke="#FFE5C2" stroke-width="2" stroke-linecap="round"/>
+<g fill="#AB704B" opacity=".65"><circle cx="26" cy="21" r=".8"/><circle cx="36" cy="17" r=".8"/><circle cx="40" cy="22" r=".8"/></g>
+</svg>

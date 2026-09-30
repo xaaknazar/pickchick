@@ -1,0 +1,6 @@
+{
+  "tool": "built-in image_gen",
+  "reference": "../menu-light/burger-combo.png",
+  "output": "combo-seven-plus-one.png",
+  "prompt": "Use case: ads-marketing. Create a premium photorealistic wide mobile loyalty banner for Pick Chick, aspect ratio 2.5:1, around 1536x640. Reference image is the exact product identity: retain the crispy chicken burger with coleslaw, potato wedges, single clear cup of signature peach sauce and Coca-Cola 0.5 L bottle on Pick Chick branded liner. Arrange the entire combo as an elegant compact still life concentrated in the right 45% of the banner, photographed from a three-quarter overhead angle. Calm smooth matte slate-blue tabletop and backdrop, muted blue-grey #263C55, NO brown stone, NO plants, NO props, NO neon, NO saturated gradient. Left 55% is clean dark navy-blue negative space for white app text; leave lower 25% of banner calm and uncluttered for the app stamp row. Delicious realistic food texture, broad soft studio light, natural grounded soft shadows, restrained colour grading. No captions, no numbers, no badges, no interface, no new logos; preserve existing packaging branding. Food is illustrative campaign combo, not eight duplicated meals."
+}

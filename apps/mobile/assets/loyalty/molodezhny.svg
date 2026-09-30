@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="220" viewBox="0 0 300 220" fill="none">
+  <defs>
+    <linearGradient id="face" x1="145" y1="48" x2="145" y2="207" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6495E6" />
+      <stop offset="1" stop-color="#245CC0" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="150" cy="202" rx="137" ry="8" fill="#04143A" fill-opacity=".1" />
+  <path d="m11 197 40-51 24-9 46-57 27 37 35-45 39 78 25 17 42 30-68 8-149-2Z" fill="#0D2E69" />
+  <path
+    d="m11 197 44-36 23-40 20-20 38-58 21 35 27-14 32 66 24 35 49 32-68 8-149-2Z"
+    fill="url(#face)"
+  />
+  <path
+    d="m136 43 12 59-16 36 18 28-19 37 90 2 68-8-49-32-24-35-32-66-27 14Z"
+    fill="#0D2E69"
+    fill-opacity=".66"
+  />
+  <path
+    d="m136 43-38 58-16 16 30-12 12 16 17-23 12 6 16-12 10 18 20-16-15-30-27 14Z"
+    fill="#ECF3FF"
+  />
+  <path d="m136 43 5 55 12 6 16-12-12-14Z" fill="#C9DCFB" />
+  <path d="m184 64-15 28 10 18 20-16Z" fill="#C9DCFB" />
+  <path d="m114 119-22 38 9 11-27 34 36 1 21-49Z" fill="#6495E6" fill-opacity=".7" />
+  <path d="m172 117 17 32-6 22 28 33 10 1-12-35 3-19-15-40Z" fill="#245CC0" />
+  <path
+    d="m117 132-13 21 5 9-11 22m43-66-7 17 12 19-7 16m54-50 13 23-7 11"
+    stroke="#ECF3FF"
+    stroke-opacity=".32"
+    stroke-width="1.7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path d="M136 43V19" stroke="#ECF3FF" stroke-width="1.8" stroke-linecap="round" />
+  <path d="M137 19c6-4 12 4 21 0v13c-9 4-15-4-21 0Z" fill="#FFAB72" />
+</svg>

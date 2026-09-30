@@ -1,0 +1,54 @@
+{
+  "age": "1.2.1",
+  "baseline_table_count": 75,
+  "checks": "passed",
+  "cleanup": {
+    "errors": [],
+    "removed_owned_containers": true
+  },
+  "cleanup_image": {
+    "id": "sha256:97bfd021bcca2d333ed145392c9b316c39d29b6642da870cec82666dae582cb9",
+    "revision": "7cd53b6300ad9147ddafb51cf84ed77027fb30d0"
+  },
+  "cms_draft_rows": 4,
+  "docker": "29.6.1 linux/arm64",
+  "expected_new_empty_tables": 18,
+  "limits": [
+    "Public normal gateway is a local proxy fixture, not deployment routing acceptance",
+    "SSH command transport, pointer CAS and owner journal covered separately by offline tests",
+    "No real payments, SMS, fiscal or restaurant load acceptance"
+  ],
+  "new_image": {
+    "id": "sha256:d2a4a6be09261f27e39d0deb8cf6d67b9e5290d0268187b68ac3f55f0ffb07ea",
+    "revision": "98a56b7114262d020bdddf28398c41ee18bcff73"
+  },
+  "new_profile_guard_tests": 5,
+  "offline_guard_tests": 49,
+  "old_image": {
+    "id": "sha256:b15b503ecb9f9b7b7e73f4d594e8b9088bd1ef43e98971ceefdb5a66e84f86d9",
+    "revision": "93b14e7f8491645dcf8ed2aabdd501afc6481a90"
+  },
+  "postgres": "18.3",
+  "production_data_used": false,
+  "profile": "pos-unpaid-pilot-014-018",
+  "scope": "local_synthetic_Docker_rehearsal",
+  "steps": [
+    "real_scoped_CMS_write_before_maintenance",
+    "production_compose_overlay_resolves_with_private_health_and_no_published_port",
+    "all_routes_503_and_stopped_API_include_latest_CMS_edit",
+    "encrypted_backup_restored_and_all_rows_sequences_match",
+    "Linux_cleanup_flock_held_after_launcher_exit",
+    "015_018_twice_18_empty_tables_no_new_sequences_reviewed_API_grants",
+    "disabled_receiver_revokes_write_authority_and_reenable_restores_exact_ACL",
+    "new_old93b_new_API_readiness_CMS_TEST_compatibility_behind_503",
+    "exact_column_ACL_rollback_then_reviewed_reapply_without_live_restore",
+    "explicit_BO_role_after_reopen_scoped_authenticated_read",
+    "reopened_CMS_write_persists_and_cleanup_resumes",
+    "pinned_old7cd_cleanup_executes_real_retention_on_018_without_CMS_loss"
+  ],
+  "test_order_rows": 1,
+  "tested_at_utc": "2026-09-15",
+  "tool_image": "sha256:1ed8417328f8e1b47c469f10ff59d67df4e09c247a3c02062bddf10ef4dd3e97",
+  "verification_script_sha256": "b507e460d3757924b0c0e653e82bfe9fd2b4871117e7e5c4e741873ab2b6dc71",
+  "vps_called": false
+}

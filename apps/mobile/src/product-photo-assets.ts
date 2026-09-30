@@ -1,0 +1,56 @@
+import { catalogCutouts } from './catalog-cutouts';
+import type { ImageSourcePropType } from 'react-native';
+export const photoHeroes: Record<string, ImageSourcePropType> = {
+  'pick-combo': require('../assets/catalog-hd/pick-combo.png'),
+  'master-combo': require('../assets/catalog-hd/master-combo.png'),
+  'burger-combo': require('../assets/catalog-hd/burger-combo.png'),
+  'solo-combo': require('../assets/catalog-hd/solo-combo.png'),
+  'finger-duo': require('../assets/catalog-hd/finger-duo.png'),
+  'burger-duo': require('../assets/catalog-hd/burger-duo.png'),
+  'mix-duo': require('../assets/catalog-hd/mix-duo.png'),
+  'fingers-25': require('../assets/catalog-hd/fingers-25.png'),
+  'fingers-50': require('../assets/catalog-hd/fingers-50.png'),
+  'fingers-75': require('../assets/catalog-hd/fingers-75.png'),
+  'fingers-100': require('../assets/catalog-hd/fingers-100.png'),
+  fingers: catalogCutouts['fingers']!,
+  sauce: require('../assets/catalog-hd/sauce.png'),
+  'sauce-hot': require('../assets/catalog-hd/sauce-hot.png'),
+  toast: require('../assets/catalog-hd/toast.png'),
+  coleslaw: require('../assets/catalog-hd/coleslaw.png'),
+  wedges: require('../assets/catalog-hd/wedges.png'),
+  burger: require('../assets/catalog-hd/burger.png'),
+  lemonade: require('../assets/catalog-hd/lemonade.png'),
+  cola: require('../assets/catalog-hd/cola.png'),
+  piko: require('../assets/catalog-options/piko.png'),
+  'fuse-peach': catalogCutouts['fuse-peach']!,
+  'iced-tea': require('../assets/catalog-hd/iced-tea.png'),
+  water: require('../assets/catalog-hd/water.png'),
+};
+// No invented packaging: missing catalog references keep an explicit placeholder.
+export const optionPhotos: Record<string, ImageSourcePropType> = {
+  fanta: catalogCutouts['fanta']!,
+  sprite: catalogCutouts['sprite']!,
+  'cola-zero': catalogCutouts['cola-zero']!,
+  'fuse-berry': catalogCutouts['fuse-berry']!,
+  'fuse-mango': catalogCutouts['fuse-mango']!,
+  'fuse-watermelon': catalogCutouts['fuse-watermelon']!,
+  piko: require('../assets/catalog-options/piko.png'),
+
+  'cola-bottle': catalogCutouts['cola-bottle']!,
+  lemonade: require('../assets/catalog-hd/lemonade.png'),
+  'cola-can': require('../assets/catalog-hd/cola.png'),
+  'fuse-peach': catalogCutouts['fuse-peach']!,
+  'iced-tea-sweet': require('../assets/catalog-hd/iced-tea.png'),
+  'iced-tea-unsweet': require('../assets/catalog-hd/iced-tea.png'),
+  water: require('../assets/catalog-hd/water.png'),
+  pick: require('../assets/catalog-hd/signature-small.png'),
+  hot: require('../assets/catalog-hd/sauce-hot.png'),
+};
+export const extraPhotos: Record<string, ImageSourcePropType> = {
+  fingers: catalogCutouts['fingers']!,
+  sauce: require('../assets/catalog-hd/signature-small.png'),
+  'sauce-hot': require('../assets/catalog-hd/sauce-hot.png'),
+  toast: require('../assets/catalog-hd/toast.png'),
+  coleslaw: require('../assets/catalog-hd/coleslaw.png'),
+  wedges: require('../assets/catalog-hd/wedges.png'),
+};
