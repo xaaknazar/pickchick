@@ -1064,11 +1064,12 @@
         "tests/operations/test_server_pilot_release.py",
         ".github/workflows/ci.yml",
         "@mobile/metro",
-        "docs/design"
+        "docs/design",
+        "tests/operations/test_kaspi_checkout_release.py"
       ],
       "status": "active",
       "head": "369c0f9f00052ff14180c3e134e7fa0f4c28d28e",
-      "updatedAt": "2026-09-30T04:33:45.946Z",
+      "updatedAt": "2026-09-30T04:45:55.028Z",
       "summary": "369c0f9: LAN Metro with Kaspi UI and server auth running; iOS bundle HTTP200; device launch blocked by locked iPhone; API checkout404; no bank invoice",
       "nextAction": "Unlock iPhone and open PickChick Dev on current LAN. Next guarded API/schema/catalog/edge setup; cashier off. Online roadmap publication pending."
     }
