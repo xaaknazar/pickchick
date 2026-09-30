@@ -1350,11 +1350,11 @@
         "@vps",
         "@windows/cashier"
       ],
-      "status": "active",
-      "head": "8030295fe27bd0ec1c79e40ab1d541459a654391",
-      "updatedAt": "2026-09-30T11:41:24.295Z",
-      "summary": "8030295/PR154: cashier SSH restored; active schema014 backup restored and fingerprints of all38 tables verified, five orders retained. Mobile invoice vs later physical POS terminal separation recorded. Root-only tunnel installer prepared and checked against VPS sshd; owner console action pending. No invoices issued.",
-      "nextAction": "After owner runs prepared VPS tunnel installer, configure protected Windows fulfillment service and cloud commercial scope/catalog/account, pass release CI, then one approved100 KZT invoice. CI6ea2d60 failed before steps; do not report green. Preserve POS unpaid_service, PINs and history."
+      "status": "available",
+      "head": "340b6804d74e83f78e0728a6085a02e3950c27fd",
+      "updatedAt": "2026-09-30T12:27:09.262Z",
+      "summary": "340b680/PR154 опубликован и включён в shared-development. Биллинг GitHub исправлен; полная CI a9e488a/36711175581 прошла 6 jobs. Из a9 установлен PickChickFulfillmentTunnel на кассе: loopback43100, API ready, авто-восстановление SSH17,2с, существующие службы/PID сохранены. Новая обработка целого комбо и routing24mobile+24POS подготовлены; 27 PG fulfillment,50 PG transport,pnpm check,7 roadmap прошли. Реальных счетов не было.",
+      "nextAction": "Не повторять VPS root/tunnel install. Дождаться CI340b680 и обновить онлайн-roadmap (сейчас прежний8030295). Подготовить app-only upgrade активного edge schema014 без сброса PIN/истории/unpaid_service; затем отдельный worker/DB role/device identity, реальные cloud seller/account/catalog/binding. Routing v2 применять только с новым совместимым runtime. Проверить admission и один одобренный100₸; Webkassa отложена, physical POS terminal отдельно. Подробности docs/operations/kaspi-live-activation.md."
     }
   ]
 }
