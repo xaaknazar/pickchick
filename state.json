@@ -1211,11 +1211,17 @@
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
-        "@vps"
+        "@vps",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/commerce-watch.ts",
+        "tests/mobile/commerce-watch.test.mjs",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "scripts/customer-commerce-readiness.mjs",
+        "tests/unit/customer-commerce-readiness.test.mjs"
       ],
       "status": "active",
       "head": "ea6fac8e28076f2be0165ec7553f6ddf9dc052c0",
-      "updatedAt": "2026-09-30T08:48:21.244Z"
+      "updatedAt": "2026-09-30T08:50:31.856Z"
     }
   ]
 }
