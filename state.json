@@ -1130,9 +1130,11 @@
         "docs/design/auth-sheet-v3.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "08d9d5829f7e96dc77ce0976cda03d4293d7bcd7",
-      "updatedAt": "2026-09-30T08:04:08.827Z"
+      "status": "done",
+      "head": "8647e62c942bb37b2be6edd7f0b1823c6228aec5",
+      "updatedAt": "2026-09-30T08:06:47.996Z",
+      "summary": "В приглашении в профиль заменены названия игр на «играть в игры». PR145, commit8647e62. ESLint/Prettier, detector, live iOS Dev bundle HTTP200 и 7 roadmap tests прошли. Пульт опубликован, source SHA проверен. Полная CI ещё выполняется; нативная визуальная приёмка отдельно.",
+      "nextAction": "Открыть окно входа в PickChick Dev после обновления экрана."
     }
   ]
 }
