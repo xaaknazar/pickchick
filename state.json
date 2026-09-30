@@ -1350,11 +1350,11 @@
         "@vps",
         "@windows/cashier"
       ],
-      "status": "active",
-      "head": "340b6804d74e83f78e0728a6085a02e3950c27fd",
-      "updatedAt": "2026-09-30T12:35:22.572Z",
-      "summary": "340b680/PR154 опубликован и включён в shared-development. Биллинг GitHub исправлен; полная CI a9e488a/36711175581 прошла 6 jobs. Из a9 установлен PickChickFulfillmentTunnel на кассе: loopback43100, API ready, авто-восстановление SSH17,2с, существующие службы/PID сохранены. Новая обработка целого комбо и routing24mobile+24POS подготовлены; 27 PG fulfillment,50 PG transport,pnpm check,7 roadmap прошли. Реальных счетов не было.",
-      "nextAction": "Не повторять VPS root/tunnel install. Дождаться CI340b680 и обновить онлайн-roadmap (сейчас прежний8030295). Подготовить app-only upgrade активного edge schema014 без сброса PIN/истории/unpaid_service; затем отдельный worker/DB role/device identity, реальные cloud seller/account/catalog/binding. Routing v2 применять только с новым совместимым runtime. Проверить admission и один одобренный100₸; Webkassa отложена, physical POS terminal отдельно. Подробности docs/operations/kaspi-live-activation.md."
+      "status": "available",
+      "head": "eeff0003d2a8bae22d0e3ff35c840bacb6cace2c",
+      "updatedAt": "2026-09-30T14:27:15.944Z",
+      "summary": "eeff000 в shared; API/Edge1c9d9d4 установлены после CI36721976510. 38 таблиц/5 POS заказов сохранены; routingv2/workers работают. Реальный100₸ оплачен, один capture, №6 preparing. pnpm check,46 Kaspi,4 deployment,guest browser прошли. Parser суммы100₸ исправлен; его постоянная установка ожидает CI.",
+      "nextAction": "Не повторять счет/onboarding/installers. После CIeeff000 заменить только Kaspi worker image, API/Edge1c сохранить. Подтвердить №6 на физических экранах. Checkout пока owner100₸/один заказ, Webkassa deferred. См. docs/operations/kaspi-live-activation.md."
     }
   ]
 }
