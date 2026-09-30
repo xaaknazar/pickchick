@@ -1350,11 +1350,11 @@
         "@vps",
         "@windows/cashier"
       ],
-      "status": "active",
+      "status": "available",
       "head": "31226c2ce6c54bfd34c9ed94914d8b287abaa9e5",
-      "updatedAt": "2026-09-30T10:55:16.078Z",
-      "summary": "PR154 / 31226c2: verified active bank session; prepared restricted checkout/worker permissions and owner-approved Dev catalog. 50 PostgreSQL, 2 catalog, lint/compose/reference checks passed; full CI pending. No invoice or activation.",
-      "nextAction": "Need Windows whoami/key access at owner-provided IP, inspect physical scope, provision merchant/catalog/transport, then first approved100KZT via ledger. Preserve secrets and existing histories."
+      "updatedAt": "2026-09-30T10:55:55.183Z",
+      "summary": "31226c2/PR154: exact Windows account supplied; pinned SSH endpoint reachable but domain-qualified login rejects operator public key too. No payment issued.",
+      "nextAction": "Owner must reinstall the existing Mac public operator key on Windows, then retry SSH and continue commercial activation. Approved catalog/permissions checkpoint preserved."
     }
   ]
 }
