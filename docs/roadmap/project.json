@@ -1892,7 +1892,7 @@
       "id": "payments-kaspi-mobile",
       "workstream": "payments",
       "title": "Kaspi.kz в мобильном приложении",
-      "summary": "Bank session active подтверждена; владелец включил кассу и утвердил цены/доплаты текущего Dev. Подготовлены checkout/worker runtime grants, Docker companion и закреплённый каталог24/31. Реальная оплата и физическая доставка ещё не приняты.",
+      "summary": "Постоянный приватный туннель касса-VPS установлен из a9e488a после зелёной CI; health и восстановление17,2с проверены. Подготовлены маршруты24 mobile +24 POS, whole-product комбо и отдельный worker. Реальные счета, commercial onboarding и кухня ещё не приняты.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -1939,7 +1939,7 @@
         "Возврат/закрытие приложения не теряет исходный заказ.",
         "Callback/poll/retry приводят к единственному подтверждённому результату."
       ],
-      "nextAction": "Root tunnel account создан владельцем; временный канал с кассы до API проверен. Windows worker/grants и постоянная служба подготовлены; 50 PG/HTTP прошли. После зелёной CI установить, настроить seller/account/catalog/transport, затем согласованный100₸ через ledger. Webkassa отложена.",
+      "nextAction": "Обновить активный Edge schema014 без сброса данных, установить worker и routing v2 после CI, настроить seller/account/catalog/transport. Затем один согласованный100₸ через ledger. Туннель уже установлен; Webkassa отложена.",
       "checks": {
         "implemented": true,
         "verified": false,

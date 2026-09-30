@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { fixture, errorCode } from './fixture.mjs';
-import { digest } from '../dist/index.js';
+import { digest, provisionFulfillment } from '../dist/index.js';
 import { EdgeEventSchema } from '../../fulfillment-transport/dist/model.js';
 
 const command = (order, stationId) => ({
@@ -12,6 +12,50 @@ const command = (order, stationId) => ({
   action: 'complete_station',
   stationId,
 });
+
+test('reviewed whole-product combo keeps selections through admission, kitchen, assembly and handoff', () =>
+  fixture(async (f) => {
+    const request = f.admission(true);
+    const details = request.payload.snapshot.lines[0].selectedDetails;
+    details.components = [];
+    details.modifiers[0].linkedProductId = null;
+    request.payload.quoteDigest = digest(request.payload.snapshot);
+    await assert.rejects(f.repo.acceptCloud(f.scope, request), errorCode('ROUTING_MISSING'));
+    await provisionFulfillment(f.pool, {
+      ...f.setup,
+      routing: {
+        ...f.setup.routing,
+        version: 2,
+        routes: [
+          ...f.setup.routing.routes,
+          { productId: 'combo', stationId: f.prep, kind: 'prep', unexpandedCombo: 'whole_product' },
+        ],
+      },
+    });
+    const reserved = await f.repo.acceptCloud(f.scope, request);
+    assert.equal(await f.count('fulfillment_tasks'), 0, 'reservation is not permission to cook');
+    const order = await f.repo.acceptCloud(f.scope, f.authorize(request, reserved));
+    const saved = await f.read(order.orderId);
+    const prepTasks = saved.tasks.filter((t) => t.kind === 'prep');
+    assert.equal(prepTasks.length, 1);
+    assert.equal(prepTasks[0].details.quantity, 2);
+    assert.deepEqual(prepTasks[0].details.modifiers, details.modifiers);
+    assert.equal(saved.routingVersion, 2);
+    await assert.rejects(
+      f.repo.act(f.scope.branchId, f.packer.auth, command(order, f.assembly)),
+      errorCode('NOT_READY'),
+    );
+    const cooked = await f.repo.act(f.scope.branchId, f.cook.auth, command(order, f.prep));
+    const ready = await f.repo.act(f.scope.branchId, f.packer.auth, command(cooked, f.assembly));
+    assert.equal(ready.state, 'ready');
+    assert.equal((await f.act(ready, 'handoff', f.packer)).state, 'handed_over');
+    const snapshot = (
+      await f.pool.query('SELECT snapshot FROM fulfillment_reservations WHERE order_id=$1', [
+        order.orderId,
+      ])
+    ).rows[0].snapshot;
+    assert.deepEqual(snapshot.lines[0].selectedDetails, details);
+  }));
 
 test('one station receipt completes the whole combo, gates assembly and replays exactly after handoff', () =>
   fixture(async (f) => {

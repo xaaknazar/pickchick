@@ -1,13 +1,18 @@
 # Продолжение: перенос Kaspi на VPS
 
-30 сентября, продолжение: root tunnel installer выполнен владельцем. Read-only
-sshd/account проверены; временный SSH tunnel с реальной кассы дал ответ API.
-Добавлены Windows fulfillment worker, отдельные grants и установщик постоянного
-туннеля (пока не установлен). Reverse worker исключает edge_pos; 50 PG/HTTP + 9 unit
-прошли, включая ограниченную роль и сосуществование mobile/POS. GitHub Actions
-блокировался биллингом; владелец исправил, повторный CI начал шаги. Следующий шаг:
-зелёная CI нового SHA, установка службы/worker, cloud scope/catalog/account и один
-согласованный счёт 100 ₸. Никаких счетов этим этапом ещё не создано.
+30 сентября, продолжение: биллинг GitHub восстановлен. Foundation CI36711175581
+точного a9e488a прошла все6 jobs. После этого установлен постоянный
+PickChickFulfillmentTunnel (LocalService, delayed automatic, loopback43100).
+API health ready; автоматическое восстановление только SSH child заняло17,2с.
+Касса/БД/KitchenLink сохранили PID; reboot/WAN-loss ещё не проверены.
+Root-шаг VPS уже выполнен, установку туннеля повторять нельзя.
+
+Windows fulfillment worker/grants подготовлены, не установлены. Reverse worker
+исключает edge_pos; 50 PG/HTTP прошли. Runtime ZIP a9e488a проверен на Windows
+(7908 файлов), но действует старый edge5a96ea1. Следующий этап: совместимое app-only
+обновление, worker, cloud scope/catalog/account и один согласованный счёт100₸.
+Никаких счетов этим этапом ещё не создано. Новая маршрутизация описана ниже;
+CI a9e488a не является доказательством CI последующих изменений.
 
 Решение владельца: Kaspi invoice только mobile; iPad-киоск позднее. На кассе будет
 отдельный физический Kaspi POS-терминал позднее. Сейчас моноблок связывается с VPS
@@ -23,11 +28,15 @@ kaspi-live-activation: защищённый transport, commercial scope, owner p
 
 Области @vps/@windows/cashier заняты этой задачей. SSH работает, IDs прочитаны,
 backup/restore активной кассы подтверждён. Bank session active, счета не создавались.
-Следующий шаг - root-консоль VPS: install-edge-tunnel-account.sh подготовлен и
-проверен sshd -T, но операторский SSH не имеет sudo. Команда отправлена владельцу.
+Root-команда VPS и постоянный Windows tunnel выполнены; повторять их не нужно.
+Дальше - совместимое app-only обновление Edge и отдельный worker.
 Цены/доплаты текущего Dev закреплены. Checkout/worker grants и Docker companion
 локально проверены; pilot не включать без admission и commercial scope.
-CI6ea2d60 упала до запуска шагов всех jobs; не считать её зелёной.
+Подготовлен routing v2: сохраняет 24 POS UUID и добавляет24 mobile IDs к тем же
+станциям. Комбо без BOM требуют явного `unexpandedCombo: whole_product`, все
+выбранные модификаторы остаются в чеке. На кассе routing пока v1; до обновления
+Edge новую strict schema не применять. 27 PG fulfillment, 50 PG transport и
+`pnpm check` прошли локально. CI новых изменений и фактическая установка отдельно.
 [Продолжение](../operations/kaspi-live-activation.md).
 
 ## Текущий этап: profile-cleanup

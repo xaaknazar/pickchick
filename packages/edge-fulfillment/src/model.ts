@@ -53,7 +53,14 @@ export const RoutingSchema = z.strictObject({
   assemblyStationId: uuid,
   routes: z
     .array(
-      z.strictObject({ productId: ref, stationId: uuid, kind: z.enum(['prep', 'assembly_item']) }),
+      z.strictObject({
+        productId: ref,
+        stationId: uuid,
+        kind: z.enum(['prep', 'assembly_item']),
+        // Explicit local recipe handling when the catalog has no component BOM.
+        // Never inferred from a combo title or enabled for every unknown product.
+        unexpandedCombo: z.literal('whole_product').optional(),
+      }),
     )
     .min(1)
     .max(2000),
@@ -226,7 +233,12 @@ export function taskPlan(snapshot: Snapshot, routing: Routing): TaskPlan[] {
     const components = selected?.components ?? [];
     if (new Set(components.map((c) => c.productId)).size !== components.length)
       throw new FulfillmentError('INVALID');
-    if (selected && selected.kind !== 'item' && !components.length)
+    const unexpandedCombo = selected && selected.kind !== 'item' && !components.length;
+    if (
+      unexpandedCombo &&
+      (routes.get(line.productId)?.unexpandedCombo !== 'whole_product' ||
+        selected.modifiers.some((modifier) => modifier.linkedProductId))
+    )
       throw new FulfillmentError('ROUTING_MISSING');
     // Linked additions are already expanded by catalog-pricing. Verify a route for
     // the linked product too; nested mapping must be explicit, never guessed.
@@ -234,7 +246,7 @@ export function taskPlan(snapshot: Snapshot, routing: Routing): TaskPlan[] {
       if (modifier.linkedProductId && !routes.has(modifier.linkedProductId))
         throw new FulfillmentError('ROUTING_MISSING');
     const parts = [
-      ...(!selected || selected.kind === 'item'
+      ...(!selected || selected.kind === 'item' || unexpandedCombo
         ? [
             {
               productId: line.productId,
