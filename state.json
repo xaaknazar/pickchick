@@ -1187,9 +1187,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "05a1e1ea1cf0b128dfedd5f241ff80309de19994",
-      "updatedAt": "2026-09-30T08:22:12.716Z"
+      "status": "done",
+      "head": "ea6fac8e28076f2be0165ec7553f6ddf9dc052c0",
+      "updatedAt": "2026-09-30T08:44:17.791Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/148; ea6fac8 в shared-development. Перенесены корзина, оформление, ожидание/оплачено/отказ Kaspi, прежний статус с героем сохранён. 216 Node + 30 Python, 7 roadmap, typecheck/lint/format; browser корзина/checkout и Kaspi 4 размера, recovery/unknown/failure/retry/paid/kitchen. iOS Dev manifest/bundle HTTP200. Roadmap опубликован с сохранением API и соседей. Физическая приёмка и полная CI отдельно; checks API вернул403. Комментарий и банковский deep link пока не подключены.",
+      "nextAction": "Обновить PickChick Dev, принять дизайн на iPhone/Android. Проверить CI; отдельным этапом связать комментарии с кухней и подтвердить ссылку на счёт Kaspi. Реальных платежей этот этап не выполнял."
     }
   ]
 }
