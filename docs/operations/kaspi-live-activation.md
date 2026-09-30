@@ -200,7 +200,6 @@ checkout, запрет платежа до edge admission, единственн�
 приём оплаты не объявлен готовым. Продолжать эту же задачу с обновления runtime
 и коммерческого onboarding; повторять выполненную установку туннеля не требуется.
 
-
 ### Guarded activation tools
 
 `update-native-active-app.ps1` prepares a same-schema014 application update: exact
