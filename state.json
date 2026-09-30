@@ -1350,9 +1350,9 @@
         "@vps",
         "@windows/cashier"
       ],
-      "status": "available",
+      "status": "active",
       "head": "8030295fe27bd0ec1c79e40ab1d541459a654391",
-      "updatedAt": "2026-09-30T11:27:21.034Z",
+      "updatedAt": "2026-09-30T11:41:24.295Z",
       "summary": "8030295/PR154: cashier SSH restored; active schema014 backup restored and fingerprints of all38 tables verified, five orders retained. Mobile invoice vs later physical POS terminal separation recorded. Root-only tunnel installer prepared and checked against VPS sshd; owner console action pending. No invoices issued.",
       "nextAction": "After owner runs prepared VPS tunnel installer, configure protected Windows fulfillment service and cloud commercial scope/catalog/account, pass release CI, then one approved100 KZT invoice. CI6ea2d60 failed before steps; do not report green. Preserve POS unpaid_service, PINs and history."
     }
