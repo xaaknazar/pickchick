@@ -1167,9 +1167,11 @@
         "docs/design/auth-sheet-v3.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "e9ab21fde5e517afa1ab28f044a87c6d1a2fbeb2",
-      "updatedAt": "2026-09-30T08:10:34.952Z"
+      "status": "done",
+      "head": "05a1e1ea1cf0b128dfedd5f241ff80309de19994",
+      "updatedAt": "2026-09-30T08:18:07.830Z",
+      "summary": "PR147, 05a1e1e в общей ветке. Плавный переход приглашения к телефону, native driver, фокус после перехода, Reduce Motion, защита повторов. TypeScript/lint/format, iOS Dev bundle HTTP200, browser auth/recovery с новой motion-регрессией и 7 roadmap tests прошли. Roadmap опубликован, SHA проверен. CI выполняется отдельно; физическая плавность не принята.",
+      "nextAction": "Владелец проверяет переход и системную клавиатуру в PickChick Dev. Backend не менялся."
     }
   ]
 }
