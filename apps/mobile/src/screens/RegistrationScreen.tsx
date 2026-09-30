@@ -58,6 +58,7 @@ export function Onboarding(props: ScreenProps) {
   const canSave =
     demo.ready &&
     !demo.busy &&
+    !pickerOpen &&
     Boolean(demo.account) &&
     !props.preview &&
     !dateError &&
@@ -84,6 +85,19 @@ export function Onboarding(props: ScreenProps) {
       props={props}
       title={editing ? 'Мои данные' : 'Знакомимся'}
       subtitle="Как к вам обращаться и когда поздравить"
+      overlay={
+        pickerOpen ? (
+          <BirthDatePicker
+            value={birthDate}
+            onConfirm={(selected) => {
+              setBirthDate(selected);
+              setPickerOpen(false);
+              setSubmitted(false);
+            }}
+            onCancel={() => setPickerOpen(false)}
+          />
+        ) : null
+      }
       footer={
         <>
           <AuthButton
@@ -153,17 +167,6 @@ export function Onboarding(props: ScreenProps) {
           </View>
         </Pressable>
       </View>
-      {pickerOpen ? (
-        <BirthDatePicker
-          value={birthDate}
-          onConfirm={(selected) => {
-            setBirthDate(selected);
-            setPickerOpen(false);
-            setSubmitted(false);
-          }}
-          onCancel={() => setPickerOpen(false)}
-        />
-      ) : null}
       {birthDate && !pickerOpen ? (
         <Pressable
           testID="birthday-clear"

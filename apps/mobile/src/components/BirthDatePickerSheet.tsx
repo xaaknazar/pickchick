@@ -1,6 +1,6 @@
-import { MotionPressable as Pressable, MotionModal as Modal } from './Motion';
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MotionPressable as Pressable } from './Motion';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { font } from '../theme';
 import { AuthButton, authColors } from './AuthLayout';
@@ -17,14 +17,41 @@ export function BirthDatePickerSheet({
   confirmDisabled?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const sheet = useRef<View>(null);
+  const cancel = useRef(onCancel);
+  cancel.current = onCancel;
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = sheet.current as unknown as HTMLElement;
+    const previous = document.activeElement as HTMLElement | null;
+    const controls = () =>
+      Array.from(node.querySelectorAll<HTMLElement>('input, [role="button"]')).filter(
+        (el) => el.getAttribute('aria-disabled') !== 'true',
+      );
+    controls()[0]?.focus();
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        cancel.current();
+      } else if (event.key === 'Tab') {
+        event.stopPropagation();
+        const items = controls();
+        const target = event.shiftKey ? items.at(-1) : items[0];
+        if (document.activeElement === (event.shiftKey ? items[0] : items.at(-1))) {
+          event.preventDefault();
+          target?.focus();
+        }
+      }
+    };
+    node.addEventListener('keydown', key);
+    return () => {
+      node.removeEventListener('keydown', key);
+      previous?.focus();
+    };
+  }, []);
   return (
-    <Modal
-      visible
-      transparent
-      animationType="slide"
-      presentationStyle="overFullScreen"
-      onRequestClose={onCancel}
-    >
+    <View style={StyleSheet.absoluteFill} onAccessibilityEscape={onCancel}>
       <View style={[s.overlay, { paddingTop: Math.max(insets.top, 16) }]}>
         <Pressable
           accessible={false}
@@ -32,7 +59,15 @@ export function BirthDatePickerSheet({
           onPress={onCancel}
           style={StyleSheet.absoluteFill}
         />
-        <View testID="birthday-picker" accessibilityViewIsModal style={s.sheet}>
+        <View
+          ref={sheet}
+          testID="birthday-picker"
+          accessibilityViewIsModal
+          role="dialog"
+          aria-modal
+          accessibilityLabel="Дата рождения"
+          style={s.sheet}
+        >
           <ScrollView
             bounces={false}
             keyboardShouldPersistTaps="handled"
@@ -64,7 +99,7 @@ export function BirthDatePickerSheet({
           </View>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 

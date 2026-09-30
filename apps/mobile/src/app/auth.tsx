@@ -19,6 +19,7 @@ export default function Auth() {
   const destination = accountDestination(params.returnTo);
   const preview = params.preview === '1';
   const account = useAccount();
+  const onboardingEntered = useRef(false);
   const model = useMobile(preview);
   const [step, setStep] = useState<ScreenId>(
     ['M02', 'M03', 'M04'].includes(String(params.step)) ? (String(params.step) as ScreenId) : 'M01',
@@ -70,8 +71,19 @@ export default function Auth() {
     else dismiss();
   }, [destination, dismiss, preview, router]);
   useEffect(() => {
-    if (!preview && step === 'M04' && account.account?.profile.completedAt != null) finish();
-  }, [step, account.account?.profile.completedAt, preview, finish]);
+    if (
+      preview ||
+      step !== 'M04' ||
+      !account.ready ||
+      !account.account ||
+      onboardingEntered.current
+    )
+      return;
+    // Skip the form only for an already completed profile on entry. Once shown,
+    // background account refresh must never close the user's unfinished form.
+    onboardingEntered.current = true;
+    if (account.account.profile.completedAt != null) finish();
+  }, [step, account.ready, account.account, preview, finish]);
   const navigate = (id: ScreenId) => {
     if (id === 'M06' || id === 'M30') {
       finish();

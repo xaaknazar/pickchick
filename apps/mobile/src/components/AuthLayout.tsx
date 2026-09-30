@@ -86,6 +86,7 @@ export function AuthLayout({
   footer,
   bottomContent,
   scrollRef,
+  overlay,
 }: {
   props: ScreenProps;
   topAction?: { label: string; onPress(): void };
@@ -95,6 +96,7 @@ export function AuthLayout({
   footer: ReactNode;
   bottomContent?: ReactNode;
   scrollRef?: RefObject<ScrollView | null>;
+  overlay?: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   const keyboardVisible = useAuthKeyboardVisible();
@@ -114,64 +116,73 @@ export function AuthLayout({
           : { experimental_backgroundImage: gradient }) as ViewStyle,
       ]}
     >
-      <ScrollView
-        ref={scrollRef}
-        testID={`scroll-${props.screenId}`}
-        style={s.scroll}
-        contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        showsVerticalScrollIndicator={false}
+      <View
+        style={{ flex: 1 }}
+        pointerEvents={overlay ? 'none' : 'auto'}
+        accessibilityElementsHidden={!!overlay}
+        importantForAccessibility={overlay ? 'no-hide-descendants' : 'auto'}
+        aria-hidden={!!overlay}
       >
-        {props.screenId !== 'M04' ? (
-          <View style={s.topAction}>
-            {props.screenId === 'M03' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Изменить номер"
-                onPress={topAction?.onPress ?? props.goBack}
-                style={s.back}
-              >
-                <Icon name="chevron-back" size={24} color={authColors.text} />
-              </Pressable>
-            ) : (
-              <CloseButton label="Закрыть вход" onPress={props.goBack} />
-            )}
-          </View>
-        ) : null}
-        <Text
-          accessibilityRole="header"
+        <ScrollView
+          ref={scrollRef}
+          testID={`scroll-${props.screenId}`}
+          style={s.scroll}
+          contentContainerStyle={s.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        >
+          {props.screenId !== 'M04' ? (
+            <View style={s.topAction}>
+              {props.screenId === 'M03' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Изменить номер"
+                  onPress={topAction?.onPress ?? props.goBack}
+                  style={s.back}
+                >
+                  <Icon name="chevron-back" size={24} color={authColors.text} />
+                </Pressable>
+              ) : (
+                <CloseButton label="Закрыть вход" onPress={props.goBack} />
+              )}
+            </View>
+          ) : null}
+          <Text
+            accessibilityRole="header"
+            style={[
+              s.title,
+              props.screenId === 'M04' && s.titleWithoutAction,
+              props.screenId === 'M04' && s.registrationTitle,
+            ]}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <View style={s.subtitleContainer}>
+              {typeof subtitle === 'string' || typeof subtitle === 'number' ? (
+                <Text style={s.subtitle}>{subtitle}</Text>
+              ) : (
+                subtitle
+              )}
+            </View>
+          ) : null}
+          <ProfileRestoreNotice restorationOnly />
+          {children}
+          {bottomContent ? <View style={s.bottomContent}>{bottomContent}</View> : null}
+        </ScrollView>
+        <View
+          testID="bottom-actions"
           style={[
-            s.title,
-            props.screenId === 'M04' && s.titleWithoutAction,
-            props.screenId === 'M04' && s.registrationTitle,
+            s.footer,
+            props.screenId === 'M04' && s.registrationFooter,
+            { paddingBottom: keyboardVisible ? 16 : Math.max(insets.bottom, 16) },
           ]}
         >
-          {title}
-        </Text>
-        {subtitle ? (
-          <View style={s.subtitleContainer}>
-            {typeof subtitle === 'string' || typeof subtitle === 'number' ? (
-              <Text style={s.subtitle}>{subtitle}</Text>
-            ) : (
-              subtitle
-            )}
-          </View>
-        ) : null}
-        <ProfileRestoreNotice restorationOnly />
-        {children}
-        {bottomContent ? <View style={s.bottomContent}>{bottomContent}</View> : null}
-      </ScrollView>
-      <View
-        testID="bottom-actions"
-        style={[
-          s.footer,
-          props.screenId === 'M04' && s.registrationFooter,
-          { paddingBottom: keyboardVisible ? 16 : Math.max(insets.bottom, 16) },
-        ]}
-      >
-        {footer}
+          {footer}
+        </View>
       </View>
+      {overlay}
     </KeyboardAvoidingView>
   );
 }

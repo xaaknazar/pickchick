@@ -1,5 +1,13 @@
 # Продолжение: перенос Kaspi на VPS
 
+## Текущий этап: registration-date-flow
+
+Календарь находится в overlay AuthLayout, без вложенного native Modal;
+системные контролы iOS/Android сохранены. Пока открыт календарь, анкету
+нельзя нажать или сохранить. Пол обязателен, завершение по кнопке.
+[Изменения и проверки](../operations/registration-date-flow.md). API83faf7b/schema028
+не менялся. Следующий шаг - приёмка даты/пола на iPhone; активация Kaspi остаётся отдельной задачей.
+
 ## Текущий этап: checkout-kaspi-total
 
 Исправлены метрики суммы в KaspiCheckoutScreen и тексты FORBIDDEN/NOT_READY.
