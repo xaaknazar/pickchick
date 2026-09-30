@@ -1088,11 +1088,13 @@
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "docs/design/auth-sheet-v3",
+        "docs/01-technical-spec.md"
       ],
       "status": "active",
       "head": "28761e40003ab59cd22168b00457a1acfdaaf2e3",
-      "updatedAt": "2026-09-30T06:16:08.474Z"
+      "updatedAt": "2026-09-30T06:33:29.870Z"
     }
   ]
 }
