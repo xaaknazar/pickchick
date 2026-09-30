@@ -3839,8 +3839,8 @@
       "id": "auth-four-digit",
       "workstream": "mobile",
       "title": "Четырёхзначный Telegram-код и обязательный пол",
-      "summary": "Новые Telegram-коды из 4 цифр, сохранение старых 6-значных challenge и сессий; дата выровнена, пол обязателен при заполнении анкеты.",
-      "status": "active",
+      "summary": "Новые Telegram-коды из 4 цифр, сохранение старых 6-значных challenge и сессий; дата выровнена, пол обязателен при заполнении анкеты. API 83faf7b/schema028 установлен, полный CI прошёл; физическая приёмка отдельно.",
+      "status": "done",
       "owner": "development",
       "phase": "product",
       "dependsOn": [],
@@ -3855,11 +3855,11 @@
         "Выбор пола обязателен, дата по центру строки.",
         "Старые сессии и отправленные коды сохраняются."
       ],
-      "nextAction": "Guarded release schema028 после exact-SHA CI, затем реальный вход в Dev.",
+      "nextAction": "Владелец проверяет новый четырёхзначный код и анкету в PickChick Dev; действующим сессиям повторный вход не нужен.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }
