@@ -183,7 +183,7 @@ with sync_playwright() as playwright:
         # Fixture numbers are acceptable only on the explicitly marked design route.
         page.goto(URL + '/screen/M23?preview=1')
         expect(page.get_by_text('Просмотр дизайна · пример, не операция', exact=True)).to_be_visible()
-        expect(page.get_by_test_id('open-design-review')).to_be_visible()
+        expect(page.get_by_test_id('close-design-preview')).to_be_visible()
         expect(page.get_by_test_id('peak-wallet-balance')).to_have_text('180')
         expect(page.get_by_test_id('peak-earned-progress')).to_have_text('540')
         expect(page.get_by_text('540 Чиков заработано, 360 потрачено.', exact=False)).to_be_visible()

@@ -96,6 +96,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       />
     );
   // Temporarily removed from the customer arcade by the owner. Old links return to events.
+  if (id === 'M29') return <Redirect href="/(tabs)/profile" />;
   if (id === 'M27' || id === 'M28') return <Redirect href="/(tabs)/events" />;
   const screen = (goBack = back) => (
     <MobileScreen
@@ -107,7 +108,6 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       preview={preview}
       cartBottomInset={activeTab && model.cart.length ? cartHeight : 0}
       inTabLayout={segments[0] === '(tabs)'}
-      openReview={() => router.push('/review')}
     />
   );
   if (inSheet)
@@ -134,10 +134,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       ) : null}
       {preview ? (
         <Pressable
-          testID="open-design-review"
+          testID="close-design-preview"
           accessibilityRole="button"
-          accessibilityLabel="Открыть каталог всех экранов дизайна"
-          onPress={() => router.push('/review')}
+          accessibilityLabel="Вернуться в меню"
+          onPress={() => router.replace('/(tabs)/menu')}
           style={{
             minHeight: 44,
             flexShrink: 0,
@@ -149,7 +149,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
           }}
         >
           <Text style={{ color: '#C0CDE6', fontFamily: 'Manrope_600SemiBold', fontSize: 12 }}>
-            Пример дизайна · операции не выполняются ↗
+            В меню · пример дизайна, операции не выполняются
           </Text>
         </Pressable>
       ) : null}

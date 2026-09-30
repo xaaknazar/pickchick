@@ -225,14 +225,7 @@ export function Profile(props: ScreenProps) {
             icon="ribbon-outline"
             onPress={() => props.navigate('M25')}
           />
-          <ProfileRow
-            title="QR для кассы"
-            value="Появится с программой Чиков"
-            icon="qr-code-outline"
-            onPress={() => props.navigate('M29')}
-          />
-          <ProfileRow title="Промокоды" icon="ticket-outline" />
-          <ProfileRow title="Пригласите друга" icon="people-outline" last />
+          <ProfileRow title="Промокоды" icon="ticket-outline" last />
         </Group>
 
         <Group title="Аккаунт">
@@ -302,17 +295,6 @@ export function Profile(props: ScreenProps) {
           />
         ) : null}
         <Text style={s.version}>Pick Chick · приложение</Text>
-        {!props.preview && props.openReview ? (
-          <View style={s.group}>
-            <ProfileRow
-              testID="open-design-review"
-              title="Все экраны дизайна"
-              icon="color-palette-outline"
-              onPress={props.openReview}
-              last
-            />
-          </View>
-        ) : null}
       </ScrollView>
     </View>
   );

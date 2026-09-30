@@ -2,7 +2,7 @@ import { MotionPressable as Pressable, MotionModal as Modal } from '../component
 import { useState } from 'react';
 import * as Linking from 'expo-linking';
 import { Alert, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
-import { colors, font } from '../theme';
+import { colors } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 export { Phone, Otp } from './AuthScreens';
@@ -22,34 +22,6 @@ import {
   styles as ui,
 } from '../components/UI';
 
-export function Qr(props: ScreenProps) {
-  return (
-    <Page props={props} title="Мой QR">
-      <Heading>Ваш Pick Chick{`\n`}под рукой</Heading>
-      <Body muted>Показывайте персональный QR на кассе, когда программа Чиков будет доступна.</Body>
-      <View style={s.qrCard}>
-        <View style={s.qrFrame}>
-          <View style={[s.qrCorner, { top: 0, left: 0 }]} />
-          <View style={[s.qrCorner, { top: 0, right: 0 }]} />
-          <View style={[s.qrCorner, { bottom: 0, left: 0 }]} />
-          <View style={[s.qrCorner, { bottom: 0, right: 0 }]} />
-          <Icon name="lock-closed-outline" size={58} color={colors.background} />
-        </View>
-        <Body style={{ color: colors.background, fontFamily: font.bold, textAlign: 'center' }}>
-          QR ещё не создан
-        </Body>
-        <Caption style={{ color: '#56647A', textAlign: 'center' }}>
-          Временный QR появится после подключения Чиков
-        </Caption>
-      </View>
-      <Notice warning>
-        На экране нет рабочего QR. Код создаётся сервером, действует ограниченное время и
-        обновляется при истечении.
-      </Notice>
-      <Button title="Войти по номеру" secondary onPress={() => props.navigate('M02')} />
-    </Page>
-  );
-}
 export { Profile } from './ProfileScreen';
 
 export function Support(props: ScreenProps) {
@@ -474,23 +446,6 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   authError: { color: '#FFB0AB', fontSize: 14, lineHeight: 21 },
-  qrCard: {
-    padding: 26,
-    backgroundColor: '#F2F6FF',
-    borderRadius: 26,
-    alignItems: 'center',
-    gap: 20,
-    marginVertical: 6,
-  },
-  qrFrame: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center', margin: 5 },
-  qrCorner: {
-    position: 'absolute',
-    width: 46,
-    height: 46,
-    borderWidth: 6,
-    borderRadius: 10,
-    borderColor: '#D0D9E8',
-  },
   supportIcon: {
     width: 52,
     height: 52,

@@ -100,7 +100,6 @@ export interface ScreenProps {
   model: MobileModel;
   navigate(id: ScreenId): void;
   goBack(): void;
-  openReview?(): void;
   inTabLayout?: boolean;
   inSheet?: boolean;
   cartBottomInset?: number;

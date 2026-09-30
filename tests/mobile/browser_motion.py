@@ -34,9 +34,9 @@ with sync_playwright() as p:
   c=b.new_context(viewport={'width':width,'height':height},has_touch=True,reduced_motion='no-preference');signed_in(c);c.route('**/v1/**',fixture)
   page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
   for n in range(1,36):
-   if n in (27,28): continue  # PICK RUN is temporarily removed by the owner.
+   if n in (27,28,29): continue  # PICK RUN and the cashier QR screen were removed.
    screen=f'M{n:02}'
-   page.goto(URL+f'/screen/{screen}?preview=1');page.get_by_test_id('open-design-review').wait_for(timeout=20000)
+   page.goto(URL+f'/screen/{screen}?preview=1');page.get_by_test_id('close-design-preview').wait_for(timeout=20000)
    page.wait_for_timeout(240);bounded(page)
    if screen=='M18':
     number=page.get_by_test_id('ready-order-number')

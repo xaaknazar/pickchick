@@ -38,7 +38,6 @@ import {
   Otp,
   Phone,
   Profile,
-  Qr,
   Rating,
   Settings,
   Support,
@@ -134,8 +133,6 @@ function ScreenContent(props: ScreenProps) {
       return <Game {...props} />;
     case 'M28':
       return <GameResult {...props} />;
-    case 'M29':
-      return <Qr {...props} />;
     case 'M30':
       return <Profile {...props} />;
     case 'M31':

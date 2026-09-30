@@ -283,11 +283,6 @@ export function PeakWallet(props: ScreenProps) {
         subtitle="Начисления, списания и возвраты"
         onPress={() => props.navigate('M24')}
       />
-      <NavRow
-        title="Мой QR"
-        subtitle="Для начисления на кассе"
-        onPress={() => props.navigate('M29')}
-      />
     </Page>
   );
 }

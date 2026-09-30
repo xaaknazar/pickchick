@@ -72,12 +72,12 @@ final class SmokeTests: XCTestCase {
     }
 
     @MainActor
-    func testReleaseLaunchAndAll35DesignScreens() throws {
+    func testReleaseLaunchAndAvailableDesignScreens() throws {
         let app = launchApp()
         assertScreen("M06", in: app)
         attachScreenshot("Launch-M06", of: app)
 
-        for number in 1...35 {
+        for number in 1...35 where ![27, 28, 29].contains(number) {
             let id = String(format: "M%02d", number)
             XCTContext.runActivity(named: "Open design screen \(id)") { _ in
                 openDesignScreen(id, in: app)
@@ -549,15 +549,8 @@ final class SmokeTests: XCTestCase {
 
     @MainActor
     private func openDesignScreen(_ id: String, in app: XCUIApplication) {
-        if !element("open-design-review", in: app).exists {
-            tap("tab-profile", in: app)
-        }
-        tap("open-design-review", in: app)
-        let firstScreen = element("review-M01", in: app)
-        XCTAssertTrue(firstScreen.waitForExistence(timeout: 10), "Expected the native design catalog")
-        let destination = element("review-\(id)", in: app)
-        reveal(destination, in: app)
-        destination.tap()
+        // The customer gallery is retired; previews remain explicit test-only routes.
+        app.open(URL(string: "pickchick://screen/\(id)?preview=1")!)
         assertScreen(id, in: app)
     }
 
