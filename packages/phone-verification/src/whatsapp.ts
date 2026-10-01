@@ -7,7 +7,7 @@ import type {
 
 // Official copy-code authentication contract, reviewed 2026-09-23:
 // https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/authentication-templates/copy-code-button-authentication-templates
-// Transport foundation only: deliberately not selectable by the public identity factory.
+// Enabled by the identity factory only with all approved-template configuration.
 const TIMEOUT_MS = 5_000;
 const RESPONSE_LIMIT_BYTES = 16 * 1024;
 const unknownResponse = (): PhoneCodeDeliveryResult => ({ kind: 'unknown', reason: 'response' });
@@ -36,7 +36,7 @@ function parseInput(input: unknown): PhoneCodeDeliveryInput | undefined {
       return;
     if (
       !matches(input['phoneE164'], /^\+77[0-9]{9}$/, 12) ||
-      !matches(input['code'], /^[0-9]{6}$/, 6)
+      !matches(input['code'], /^(?:[0-9]{4}|[0-9]{6})$/, 6)
     )
       return;
     return { phoneE164: input['phoneE164'], code: input['code'] };

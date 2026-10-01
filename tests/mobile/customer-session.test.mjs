@@ -569,6 +569,113 @@ test('Telegram request channel survives lost response and restart; SMS requires 
   assert.equal(f.core.challenge.channel, 'sms');
   assert.notEqual(bodies[1].request_id, bodies[2].request_id);
 });
+test('automatic request preserves one intent across restart and accepts actual WhatsApp fallback', async () => {
+  const f = fixture();
+  const base = f.io.request;
+  let lost = true;
+  const bodies = [];
+  f.io.request = async (path, method, body, token) => {
+    if (path === '/v1/auth/config')
+      return {
+        ...(await base(path, method, body, token)),
+        channel_selection: 'automatic',
+        channels: ['telegram'],
+        whatsapp_fallback_enabled: true,
+        delivery_consent_required: true,
+      };
+    if (path.endsWith('/otp/request')) {
+      bodies.push(structuredClone(body));
+      if (lost) {
+        lost = false;
+        throw new CustomerSessionError('NETWORK_UNAVAILABLE');
+      }
+      return { ...(await base(path, method, body, token)), channel: 'whatsapp', code_length: 4 };
+    }
+    return base(path, method, body, token);
+  };
+  await f.core.restore();
+  await f.core.loadConfig();
+  assert.equal(f.core.config.whatsappFallbackEnabled, true);
+  await assert.rejects(
+    f.core.requestCode(f.customer.phone, 'auto', 'fixture-v1'),
+    code('NETWORK_UNAVAILABLE'),
+  );
+  assert.equal(JSON.parse(f.raw()).otp_request.channel, 'auto');
+  await f.restart();
+  await f.core.requestCode(f.customer.phone, 'auto', 'fixture-v1');
+  assert.deepEqual(bodies[0], bodies[1]);
+  assert.equal(bodies[0].channel, 'auto');
+  assert.deepEqual(bodies[0].delivery_consent, { privacy_version: 'fixture-v1', accepted: true });
+  assert.equal(f.core.challenge.channel, 'whatsapp');
+  assert.equal(f.core.challenge.code_length, 4);
+  await f.restart();
+  assert.equal(f.core.challenge.channel, 'whatsapp');
+  assert.equal(f.core.challenge.code_length, 4);
+});
+test('automatic request reports unknown delivery honestly and rejects unsupported channel replies', async () => {
+  const f = fixture();
+  const base = f.io.request;
+  let actual = 'telegram';
+  f.io.request = async (path, method, body, token) => {
+    if (path === '/v1/auth/config')
+      return {
+        ...(await base(path, method, body, token)),
+        channel_selection: 'automatic',
+        channels: ['telegram'],
+      };
+    if (path.endsWith('/otp/request'))
+      return {
+        ...(await base(path, method, body, token)),
+        channel: actual,
+        code_length: 4,
+        delivery_status: 'unknown',
+      };
+    return base(path, method, body, token);
+  };
+  await f.core.restore();
+  assert.equal(f.core.config.automaticSelection, false);
+  await f.core.requestCode(f.customer.phone);
+  assert.equal(f.core.challenge.delivery_status, 'unknown');
+  assert.equal(f.core.challenge.channel, 'telegram');
+  await f.restart();
+  assert.equal(f.core.challenge.delivery_status, 'unknown');
+  f.tick(61000);
+  actual = 'sms';
+  await assert.rejects(f.core.requestCode(f.customer.phone, 'auto'), code('INVALID_RESPONSE'));
+  assert.equal(f.core.challenge.channel, 'telegram');
+  assert.equal(f.core.pendingOtp, true);
+});
+test('a pending legacy Telegram request keeps its intent when automatic policy appears', async () => {
+  const f = fixture();
+  const base = f.io.request;
+  let automatic = false;
+  f.io.request = async (path, method, body, token) => {
+    if (path === '/v1/auth/config')
+      return {
+        ...(await base(path, method, body, token)),
+        channels: ['telegram'],
+        ...(automatic ? { channel_selection: 'automatic' } : {}),
+      };
+    if (path.endsWith('/otp/request'))
+      return { ...(await base(path, method, body, token)), channel: 'telegram', code_length: 4 };
+    return base(path, method, body, token);
+  };
+  await f.core.restore();
+  f.loseRequest();
+  await assert.rejects(
+    f.core.requestCode(f.customer.phone, 'telegram'),
+    code('NETWORK_UNAVAILABLE'),
+  );
+  await f.restart();
+  automatic = true;
+  await f.core.sync();
+  assert.equal(f.core.pendingRequestChannel, 'telegram');
+  await f.core.requestCode(f.customer.phone, f.core.pendingRequestChannel);
+  assert.equal(f.core.challenge.channel, 'telegram');
+  const requests = f.calls.filter((call) => call.path.endsWith('/otp/request'));
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[0].body, requests[1].body);
+});
 test('legacy server supports SMS only and cannot silently accept Telegram; channel mismatch fails closed', async () => {
   const f = fixture();
   await f.core.restore();

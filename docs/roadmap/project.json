@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30",
+  "updatedAt": "2026-10-01",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3225,7 +3225,7 @@
       "id": "identity-whatsapp-transport",
       "workstream": "identity",
       "title": "Подготовить официальный транспорт WhatsApp OTP",
-      "summary": "Cloud API Authentication/Copy Code реализован и проверен локально. Не выбирается публичной фабрикой до регистрации аккаунта и подготовки UX/каналов.",
+      "summary": "Cloud API Authentication/Copy Code подключён как опциональный резерв. Полная конфигурация обязательна; локально проверены 4/6 цифр, ошибки и отсутствие повторов. Реальная отправка не включена.",
       "status": "done",
       "owner": "development",
       "phase": "integration",
@@ -3277,30 +3277,31 @@
     {
       "id": "identity-whatsapp-login",
       "workstream": "identity",
-      "title": "Включить вход через WhatsApp с резервом SMS",
-      "summary": "Telegram/SMS channel-контракт уже подготовлен. WhatsApp остаётся следующим этапом: нужны Business Platform, Authentication-шаблон, отдельное расширение каналов и реальная проверка.",
-      "status": "planned",
+      "title": "Автоматический вход: Telegram с резервом WhatsApp",
+      "summary": "Реализован автоматический Telegram -> WhatsApp: четыре цифры, фактический канал и восстановление без повторной отправки. Проверены 37 PG identity, 27 transport, browser 320/390/430 и независимое ревью. Реальный WhatsApp не включён: аккаунт, шаблон, согласие и приёмка впереди.",
+      "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "identity-whatsapp-transport",
-        "identity-whatsapp-account",
-        "identity-live-sms"
-      ],
+      "dependsOn": ["identity-whatsapp-transport", "identity-whatsapp-account"],
       "evidence": [
         {
           "label": "WhatsApp: подключение, границы и проверки",
           "path": "docs/operations/whatsapp-login.md"
+        },
+        {
+          "label": "Автоматический выбор каналов и условия включения",
+          "path": "docs/operations/automatic-auth-channels.md"
         }
       ],
       "acceptance": [
-        "AC-01: один аккаунт/действующий challenge между каналами, неверный и просроченный код не дают вход.",
-        "Поздняя доставка, дубли, timeout и SMS-резерв проверены на iOS/Android; новый вход сохраняется."
+        "Один аккаунт и действующий challenge, четыре цифры, общий бюджет и идемпотентный повтор между каналами.",
+        "Telegram первым; подтверждённый отказ адресата допускает WhatsApp; timeout/5xx не вызывают вторую отправку.",
+        "UI не предлагает выбор канала; показывает фактический канал. Реальный отрицательный сценарий, шаблон и сохранение входа проверены на iOS/Android."
       ],
-      "nextAction": "После Telegram-релиза подготовить Business Platform и добавить WhatsApp без автоматических повторных отправок.",
+      "nextAction": "Подтвердить Business Platform и шаблон, обновить согласие, выполнить guarded release после зелёной CI и проверить реальную доставку.",
       "checks": {
-        "implemented": false,
-        "verified": false,
+        "implemented": true,
+        "verified": true,
         "deployed": false,
         "accepted": false
       }

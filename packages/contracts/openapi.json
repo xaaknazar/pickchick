@@ -18290,7 +18290,8 @@
             "type": "string",
             "enum": [
               "sms",
-              "telegram"
+              "telegram",
+              "auto"
             ]
           },
           "delivery_consent": {
@@ -18420,7 +18421,8 @@
             "type": "string",
             "enum": [
               "sms",
-              "telegram"
+              "telegram",
+              "whatsapp"
             ]
           }
         },

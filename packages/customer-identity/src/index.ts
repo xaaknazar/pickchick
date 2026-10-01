@@ -50,6 +50,7 @@ interface SessionRow {
 }
 interface ChallengeRow {
   delivery_channel: PhoneDeliveryChannel;
+  requested_channel: 'sms' | 'telegram' | 'auto';
   delivery_consent_version: string | null;
   id: string;
   phone_lookup: string;
@@ -87,9 +88,13 @@ export class CustomerIdentity {
   config() {
     if (!this.options.enabled || phoneDeliveryChannels(this.delivery).length === 0)
       return { enabled: false, consent_version: null, terms_url: null, privacy_url: null };
+    const channels = phoneDeliveryChannels(this.delivery);
     return {
       enabled: true,
-      channels: phoneDeliveryChannels(this.delivery),
+      // Old mobile clients only understand the legacy direct-request channels.
+      channels: channels.filter((channel) => channel !== 'whatsapp'),
+      ...(channels.includes('telegram') ? { channel_selection: 'automatic' as const } : {}),
+      ...(channels.includes('whatsapp') ? { whatsapp_fallback_enabled: true } : {}),
       delivery_consent_required: true,
       consent_version: this.options.consentVersion,
       terms_url: this.options.termsUrl,
@@ -132,7 +137,13 @@ export class CustomerIdentity {
     if (body.delivery_consent.privacy_version !== config.consentVersion)
       throw fail('INVALID_REQUEST');
     // Missing channel belongs to legacy SMS clients, never silently reroute to Telegram.
-    if (!phoneDeliveryChannels(this.delivery).includes(channel)) throw fail('SERVICE_UNAVAILABLE');
+    const availableChannels = phoneDeliveryChannels(this.delivery);
+    if (
+      channel === 'auto'
+        ? !availableChannels.includes('telegram')
+        : !availableChannels.includes(channel)
+    )
+      throw fail('SERVICE_UNAVAILABLE');
     // Caller must supply the trusted socket/proxy-resolved address, never an untrusted forwarding header.
     if (!isIP(clientIp)) throw fail('INVALID_REQUEST');
     const ip =
@@ -143,7 +154,7 @@ export class CustomerIdentity {
       deviceHash = hmac(config.lookupKey, 'device', body.device_id),
       ipHash = hmac(config.lookupKey, 'ip', ip);
     const id = randomUUID(),
-      codeLength: 4 | 6 = channel === 'telegram' ? 4 : 6,
+      codeLength: 4 | 6 = channel === 'telegram' || channel === 'auto' ? 4 : 6,
       code = String(randomInt(0, 10 ** codeLength)).padStart(codeLength, '0');
     const reservation = await transaction(this.pool, async (db) => {
       // The budget lock serializes only this short reservation transaction, never the provider call.
@@ -166,7 +177,7 @@ export class CustomerIdentity {
         if (
           replay.phone_lookup !== phoneHash ||
           replay.device_hash !== deviceHash ||
-          replay.delivery_channel !== channel ||
+          replay.requested_channel !== channel ||
           replay.delivery_consent_version !== body.delivery_consent.privacy_version
         )
           throw fail('CONFLICT');
@@ -181,6 +192,7 @@ export class CustomerIdentity {
             replay.state === 'submitted' || replay.state === 'consumed'
               ? ('submitted' as const)
               : ('unknown' as const),
+          delivery_channel: replay.delivery_channel,
         };
       }
       const now = await this.now(db),
@@ -235,8 +247,8 @@ export class CustomerIdentity {
       );
       const expires = new Date(now.getTime() + CHALLENGE_MS);
       await db.query(
-        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel,delivery_consent_version,code_length)
-         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10,$11,$12)`,
+        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel,requested_channel,delivery_consent_version,code_length)
+         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10,$11,$12,$13)`,
         [
           id,
           phoneHash,
@@ -247,6 +259,7 @@ export class CustomerIdentity {
           now,
           expires,
           body.request_id,
+          channel === 'auto' ? 'telegram' : channel,
           channel,
           body.delivery_consent.privacy_version,
           codeLength,
@@ -259,10 +272,11 @@ export class CustomerIdentity {
         expires_at: iso(expires),
         resend_at: iso(new Date(now.getTime() + 60_000)),
         delivery_status: 'unknown' as const,
+        delivery_channel: channel === 'auto' ? ('telegram' as const) : channel,
       };
     });
     const response = {
-      ...(body.channel ? { channel } : {}),
+      ...(body.channel ? { channel: reservation.delivery_channel } : {}),
       challenge_id: reservation.challenge_id,
       code_length: reservation.code_length,
       expires_at: reservation.expires_at,
@@ -271,9 +285,36 @@ export class CustomerIdentity {
     if (reservation.replay) return { ...response, delivery_status: reservation.delivery_status };
     // A crash/timeout here leaves a durable unknown reservation. It must never be dispatched again.
     let state: 'submitted' | 'unknown' | 'rejected';
+    let actualChannel: PhoneDeliveryChannel = channel === 'auto' ? 'telegram' : channel;
     let submitted: Extract<PhoneCodeDeliveryResult, { kind: 'submitted' }> | undefined;
     try {
-      const result = await this.delivery.sendCode({ phoneE164: phone, code }, channel);
+      let result = await this.delivery.sendCode({ phoneE164: phone, code }, actualChannel);
+      if (
+        channel === 'auto' &&
+        result.kind === 'rejected' &&
+        result.reason === 'recipient_unavailable' &&
+        availableChannels.includes('whatsapp')
+      ) {
+        // This committed update is the second attempt's durable reservation. A
+        // crash or replay here returns unknown and must never dispatch again.
+        const switched = await transaction(this.pool, async (db) => {
+          await this.phoneLock(db, phoneHash);
+          return db.query(
+            `UPDATE identity_otp_challenges SET delivery_channel='whatsapp'
+             WHERE id=$1 AND state='reserved' AND delivery_channel='telegram'
+               AND requested_channel='auto' AND code_hash IS NOT NULL
+               AND expires_at>clock_timestamp()
+               AND NOT EXISTS (
+                 SELECT 1 FROM identity_otp_challenges newer
+                 WHERE newer.phone_lookup=$2 AND newer.created_at>identity_otp_challenges.created_at
+               )`,
+            [id, phoneHash],
+          );
+        });
+        if (switched.rowCount !== 1) throw fail('SERVICE_UNAVAILABLE');
+        actualChannel = 'whatsapp';
+        result = await this.delivery.sendCode({ phoneE164: phone, code }, actualChannel);
+      }
       if (result.kind === 'submitted') submitted = result;
       state =
         result.kind === 'submitted'
@@ -281,15 +322,21 @@ export class CustomerIdentity {
           : result.kind === 'unknown'
             ? 'unknown'
             : 'rejected';
-    } catch {
+    } catch (error) {
+      if (error instanceof CustomerIdentityError) throw error;
       state = 'unknown';
     }
-    await this.pool.query(
-      "UPDATE identity_otp_challenges SET state=$2,delivery_provider=$3,delivery_reference=$4,code_hash=CASE WHEN $2='rejected' THEN NULL ELSE code_hash END,phone_cipher=CASE WHEN $2='rejected' THEN NULL ELSE phone_cipher END WHERE id=$1 AND state='reserved'",
-      [id, state, submitted?.provider ?? null, submitted?.messageId ?? null],
+    const finalization = await this.pool.query(
+      "UPDATE identity_otp_challenges SET state=$2,delivery_provider=$3,delivery_reference=$4,code_hash=CASE WHEN $2='rejected' THEN NULL ELSE code_hash END,phone_cipher=CASE WHEN $2='rejected' THEN NULL ELSE phone_cipher END WHERE id=$1 AND state='reserved' AND delivery_channel=$5",
+      [id, state, submitted?.provider ?? null, submitted?.messageId ?? null, actualChannel],
     );
+    if (finalization.rowCount !== 1) throw fail('SERVICE_UNAVAILABLE');
     if (state === 'rejected') throw fail('SERVICE_UNAVAILABLE');
-    return { ...response, delivery_status: state };
+    return {
+      ...response,
+      ...(body.channel ? { channel: actualChannel } : {}),
+      delivery_status: state,
+    };
   }
   async verifyOtp(input: unknown): Promise<CustomerSession> {
     const config = this.enabled(),

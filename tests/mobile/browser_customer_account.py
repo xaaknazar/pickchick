@@ -1,4 +1,4 @@
-"""Server-account UI against isolated HTTP fixtures. No SMS, VPS or real account calls."""
+"""Server-account UI against isolated HTTP fixtures. No provider, VPS or real account calls."""
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -53,17 +53,21 @@ with sync_playwright() as p:
             if path == '/v1/auth/config':
                 response = {'enabled': True, 'delivery_consent_required': True,
                             'consent_version': policy['version'], 'channels': ['telegram'],
+                            'channel_selection': 'automatic',
+                            'whatsapp_fallback_enabled': width == 390,
                             'terms_url': 'https://example.test/terms',
                             'privacy_url': 'https://example.test/privacy'}
             elif path == '/v1/auth/otp/request':
                 assert body['phone'] == '+7' + PHONE
+                assert body['channel'] == 'auto'
                 assert body['delivery_consent'] == {'privacy_version': policy['version'], 'accepted': True}
                 assert len(body['request_id']) == 36 and len(body['device_id']) == 36
                 status = 202
                 response = {'challenge_id': '40000000-0000-4000-8000-000000000003',
                             'expires_at': (now + timedelta(minutes=3)).isoformat(),
                             'resend_at': (now + timedelta(minutes=1)).isoformat(),
-                            'delivery_status': 'submitted', 'channel': 'telegram', 'code_length': 4}
+                            'delivery_status': 'unknown' if width == 430 else 'submitted',
+                            'channel': 'whatsapp' if width == 390 else 'telegram', 'code_length': 4}
             elif path == '/v1/auth/otp/verify':
                 assert body['consents'] == {'terms_version': 'fixture-v1',
                                             'privacy_version': 'fixture-v1', 'marketing_opt_in': False}
@@ -118,14 +122,29 @@ with sync_playwright() as p:
         expect(visible(page, 'request-otp')).to_be_enabled()
         expect(page.get_by_text('Код входа 123456. SMS не отправляется.', exact=True)).to_have_count(0)
         page.screenshot(path=str(OUTPUT / f'phone-{width}.png'))
+        if width == 390:
+            expect(page.get_by_text('Telegram или WhatsApp', exact=False).filter(visible=True)).to_be_visible()
+        else:
+            expect(page.get_by_text('Telegram или WhatsApp', exact=False).filter(visible=True)).to_have_count(0)
         visible(page, 'request-otp').click()
         expect(visible(page, 'screen-M03')).to_be_visible()
         assert page.get_by_test_id('phone-keypad').count() == 0
         assert page.get_by_test_id('auth-channel-sms').count() == 0
+        if width == 430:
+            expect(page.get_by_text('Проверяем отправку', exact=True).filter(visible=True)).to_be_visible()
+            assert page.get_by_text('Код в Telegram', exact=True).filter(visible=True).count() == 0
+        else:
+            expect(page.get_by_text('Код в WhatsApp' if width == 390 else 'Код в Telegram',
+                                    exact=True).filter(visible=True)).to_be_visible()
         visible(page, 'otp-input').fill('938')
         assert not any(call['path'] == '/v1/auth/otp/verify' for call in calls)
         assert page.evaluate('document.documentElement.scrollWidth') <= width + 1
         page.screenshot(path=str(OUTPUT / f'otp-{width}.png'))
+        if width == 320:
+            page.goto(URL + '/auth?step=M03&returnTo=M30')
+            expect(visible(page, 'otp-input')).to_be_editable()
+            expect(page.get_by_text('Код в Telegram', exact=True).filter(visible=True)).to_be_visible()
+            page.get_by_text('Принимаю и продолжаю', exact=True).filter(visible=True).click()
         visible(page, 'otp-input').fill('9381')
         if width == 390:
             expect(page.get_by_text('Нет связи с сервером. Сохранённый вход останется на устройстве. Попробуйте ещё раз.', exact=True).filter(visible=True)).to_be_visible()

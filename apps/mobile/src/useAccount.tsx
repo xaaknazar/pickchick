@@ -20,6 +20,7 @@ import {
   CustomerSessionCore,
   CustomerSessionError,
   type CustomerChannel,
+  type CustomerRequestChannel,
 } from './customer-session';
 import { createCustomerRequest } from './customer-http';
 
@@ -32,7 +33,10 @@ interface AccountContextValue {
   mode: 'demo' | 'server';
   withOrderAccess?<T>(customerId: string, send: (token: string) => Promise<T>): Promise<T>;
   channels: CustomerChannel[];
+  automaticSelection: boolean;
+  whatsappFallbackEnabled: boolean;
   activeChannel: CustomerChannel | null;
+  pendingRequestChannel: CustomerRequestChannel | null;
   deliveryConsentVersion: string | null;
   account: Account | null;
   challenge: DemoChallenge | null;
@@ -47,7 +51,7 @@ interface AccountContextValue {
   retryRestore(): Promise<boolean>;
   requestCode(
     phone: string,
-    channel?: CustomerChannel,
+    channel?: CustomerRequestChannel,
     acceptedDeliveryVersion?: string | null,
   ): Promise<boolean>;
   verifyCode(code: string, acceptedVersion?: string | null): Promise<boolean>;
@@ -107,6 +111,9 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
   const [pendingOtp, setPendingOtp] = useState(false);
   const [channels, setChannels] = useState<CustomerChannel[]>([]);
   const [activeChannel, setActiveChannel] = useState<CustomerChannel | null>(null);
+  const [pendingRequestChannel, setPendingRequestChannel] = useState<CustomerRequestChannel | null>(
+    null,
+  );
   const [legal, setLegal] = useState<AccountContextValue['legal']>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(true);
@@ -150,6 +157,7 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
     setPendingOtp(core.pendingOtp);
     setChannels(core.config.channels);
     setActiveChannel(core.pendingChannel ?? core.challenge?.channel ?? null);
+    setPendingRequestChannel(core.pendingRequestChannel);
     setLegal(
       core.config.consent_version && core.config.terms_url && core.config.privacy_url
         ? {
@@ -230,7 +238,10 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
         mode: 'server',
         withOrderAccess,
         channels,
+        automaticSelection: core.config.automaticSelection,
+        whatsappFallbackEnabled: core.config.whatsappFallbackEnabled,
         activeChannel,
+        pendingRequestChannel,
         deliveryConsentVersion: core.challenge?.deliveryConsentVersion ?? null,
         account,
         challenge,
@@ -280,7 +291,10 @@ export function useAccount(): AccountContextValue {
     ...demo,
     mode: 'demo',
     channels: ['sms'],
+    automaticSelection: false,
+    whatsappFallbackEnabled: false,
     activeChannel: 'sms',
+    pendingRequestChannel: null,
     deliveryConsentVersion: null,
     deliveryUnknown: false,
     pendingVerify: false,

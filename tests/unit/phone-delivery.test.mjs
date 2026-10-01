@@ -467,6 +467,68 @@ test('Telegram rejects invalid configuration/input and does not leak upstream re
     reason: 'channel_unavailable',
   });
 });
+test('only exact recipient refusal permits automatic fallback; ambiguous errors stay unknown', async () => {
+  for (const status of [200, 400]) {
+    const delivery = createPhoneCodeDelivery(telegramEnv, {
+      fetch: async () =>
+        Response.json({ ok: false, error: 'PHONE_NUMBER_NOT_SUPPORTED' }, { status }),
+    });
+    assert.deepEqual(await delivery.sendCode({ ...input, code: '0123' }), {
+      kind: 'rejected',
+      reason: 'recipient_unavailable',
+    });
+  }
+  const ambiguous = createPhoneCodeDelivery(telegramEnv, {
+    fetch: async () => Response.json({ ok: false, error: 'OTHER_ERROR' }),
+  });
+  assert.deepEqual(await ambiguous.sendCode(input), unknown);
+  const serverError = createPhoneCodeDelivery(telegramEnv, {
+    fetch: async () =>
+      Response.json({ ok: false, error: 'PHONE_NUMBER_NOT_SUPPORTED' }, { status: 503 }),
+  });
+  assert.deepEqual(await serverError.sendCode(input), unknown);
+});
+test('WhatsApp automatic transport requires complete approved template config and sends four digits once', async () => {
+  const waEnv = {
+    WHATSAPP_CLOUD_ACCESS_TOKEN: 'synthetic-meta-token',
+    WHATSAPP_CLOUD_PHONE_NUMBER_ID: '123456789',
+    WHATSAPP_CLOUD_API_VERSION: 'v23.0',
+    WHATSAPP_CLOUD_APPROVED_AUTH_TEMPLATE: 'pickchick_auth',
+    WHATSAPP_CLOUD_TEMPLATE_LANGUAGE: 'ru',
+  };
+  for (const name of Object.keys(waEnv)) {
+    assert.throws(
+      () => createPhoneCodeDelivery({ ...telegramEnv, ...waEnv, [name]: undefined }),
+      /PHONE_DELIVERY_CONFIGURATION_INVALID/,
+    );
+  }
+  const calls = [];
+  const delivery = createPhoneCodeDelivery(
+    { ...telegramEnv, ...waEnv },
+    {
+      fetch: async (url, init) => {
+        calls.push({ url, init });
+        return Response.json({
+          messaging_product: 'whatsapp',
+          contacts: [{ input: input.phoneE164.slice(1), wa_id: input.phoneE164.slice(1) }],
+          messages: [{ id: 'wamid.fixture', message_status: 'accepted' }],
+        });
+      },
+    },
+  );
+  assert.deepEqual(delivery.channels, ['telegram', 'whatsapp']);
+  assert.deepEqual(await delivery.sendCode({ ...input, code: '0123' }, 'whatsapp'), {
+    kind: 'submitted',
+    provider: 'whatsapp_cloud',
+    submission: 'accepted',
+    messageId: 'wamid.fixture',
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://graph.facebook.com/v23.0/123456789/messages');
+  assert.equal(JSON.parse(calls[0].init.body).template.components[0].parameters[0].text, '0123');
+  assert.equal(JSON.parse(calls[0].init.body).template.components[1].parameters[0].text, '0123');
+  assert.equal(JSON.stringify(delivery).includes(waEnv.WHATSAPP_CLOUD_ACCESS_TOKEN), false);
+});
 test('Telegram malformed, mismatched, oversized and error responses never establish submission', async () => {
   for (const response of [
     Response.json({

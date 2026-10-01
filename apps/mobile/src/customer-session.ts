@@ -1,12 +1,17 @@
 import { normalizeDemoPhone } from './demo-account.ts';
 import { normalizeProfileDetails, type DemoProfileInput } from './profile-details.ts';
 
-export type CustomerChannel = 'sms' | 'telegram';
+export type CustomerChannel = 'sms' | 'telegram' | 'whatsapp';
+export type CustomerRequestChannel = 'sms' | 'telegram' | 'auto';
 export const CUSTOMER_CHANNEL_LABELS: Record<CustomerChannel, string> = {
   sms: 'SMS',
   telegram: 'Telegram',
+  whatsapp: 'WhatsApp',
 };
-const isChannel = (v: unknown): v is CustomerChannel => v === 'sms' || v === 'telegram';
+const isChannel = (v: unknown): v is CustomerChannel =>
+  v === 'sms' || v === 'telegram' || v === 'whatsapp';
+const isRequestChannel = (v: unknown): v is CustomerRequestChannel =>
+  v === 'auto' || v === 'sms' || v === 'telegram';
 export const CUSTOMER_SESSION_KEY = 'pickchick.customer.session.v1';
 export interface Customer {
   id: string;
@@ -37,6 +42,8 @@ export interface CustomerChallenge {
 export interface CustomerAuthConfig {
   channels: CustomerChannel[];
   channelSelection: boolean;
+  automaticSelection: boolean;
+  whatsappFallbackEnabled: boolean;
   deliveryConsentRequired: boolean;
   enabled: boolean;
   consent_version: string | null;
@@ -64,7 +71,7 @@ interface Envelope {
   otp_request: {
     request_id: string;
     phone: string;
-    channel?: CustomerChannel;
+    channel?: CustomerRequestChannel;
     delivery_consent?: { privacy_version: string; accepted: true };
   } | null;
   verify_intent: { request_id: string; consent_version: string } | null;
@@ -143,16 +150,20 @@ export function parseCustomerTokens(value: unknown, now = Date.now()): CustomerT
 function parseChallenge(
   value: unknown,
   phone: string,
-  expectedChannel: CustomerChannel = 'sms',
+  requestedChannel: CustomerRequestChannel | 'whatsapp' = 'sms',
 ): CustomerChallenge {
   const v = object(value);
+  const actualChannel = v.channel ?? (requestedChannel === 'auto' ? null : 'sms');
   if (
     (v.deliveryConsentVersion !== undefined &&
       (typeof v.deliveryConsentVersion !== 'string' ||
         !/^[A-Za-z0-9._-]{1,100}$/.test(v.deliveryConsentVersion))) ||
     (v.code_length !== undefined && v.code_length !== 4 && v.code_length !== 6) ||
     (v.channel !== undefined && !isChannel(v.channel)) ||
-    (v.channel ?? 'sms') !== expectedChannel ||
+    (requestedChannel === 'auto'
+      ? actualChannel !== 'telegram' && actualChannel !== 'whatsapp'
+      : actualChannel !== requestedChannel) ||
+    (requestedChannel === 'auto' && v.code_length !== 4) ||
     typeof v.challenge_id !== 'string' ||
     !uuid.test(v.challenge_id) ||
     !instant(v.expires_at) ||
@@ -163,7 +174,7 @@ function parseChallenge(
   return {
     challenge_id: v.challenge_id,
     code_length: v.code_length === 4 ? 4 : 6,
-    channel: expectedChannel,
+    channel: actualChannel as CustomerChannel,
     ...(typeof v.deliveryConsentVersion === 'string'
       ? { deliveryConsentVersion: v.deliveryConsentVersion }
       : {}),
@@ -205,7 +216,7 @@ function parseEnvelope(raw: string, now: number): Envelope {
   const pending = v.otp_request === null ? null : object(v.otp_request);
   if (
     pending &&
-    ((pending.channel !== undefined && !isChannel(pending.channel)) ||
+    ((pending.channel !== undefined && !isRequestChannel(pending.channel)) ||
       (pending.delivery_consent !== undefined &&
         (!pending.delivery_consent ||
           typeof pending.delivery_consent !== 'object' ||
@@ -252,6 +263,8 @@ export class CustomerSessionCore {
     enabled: false,
     channels: [],
     channelSelection: false,
+    automaticSelection: false,
+    whatsappFallbackEnabled: false,
     deliveryConsentRequired: false,
     consent_version: null,
     terms_url: null,
@@ -270,7 +283,12 @@ export class CustomerSessionCore {
     return Boolean(this.state?.verify_intent);
   }
   get pendingChannel(): CustomerChannel | null {
-    return this.state?.otp_request ? (this.state.otp_request.channel ?? 'sms') : null;
+    if (!this.state?.otp_request) return null;
+    const channel = this.state.otp_request.channel ?? 'sms';
+    return channel === 'auto' ? null : channel;
+  }
+  get pendingRequestChannel(): CustomerRequestChannel | null {
+    return this.state?.otp_request?.channel ?? (this.state?.otp_request ? 'sms' : null);
   }
   get pendingPhone(): string | null {
     return this.state?.otp_request?.phone ?? null;
@@ -343,6 +361,9 @@ export class CustomerSessionCore {
     if (
       (v.delivery_consent_required !== undefined &&
         typeof v.delivery_consent_required !== 'boolean') ||
+      (v.channel_selection !== undefined && v.channel_selection !== 'automatic') ||
+      (v.whatsapp_fallback_enabled !== undefined &&
+        typeof v.whatsapp_fallback_enabled !== 'boolean') ||
       (v.channels !== undefined &&
         (!Array.isArray(v.channels) ||
           v.channels.some((c) => !isChannel(c)) ||
@@ -353,6 +374,8 @@ export class CustomerSessionCore {
     this.config = {
       channels: v.enabled ? ((v.channels as CustomerChannel[] | undefined) ?? ['sms']) : [],
       channelSelection: v.channels !== undefined,
+      automaticSelection: v.channel_selection === 'automatic',
+      whatsappFallbackEnabled: v.whatsapp_fallback_enabled === true,
       deliveryConsentRequired: v.delivery_consent_required === true,
       enabled: v.enabled,
       consent_version: v.consent_version as string | null,
@@ -362,7 +385,7 @@ export class CustomerSessionCore {
   }
   requestCode(
     input: string,
-    channel: CustomerChannel = 'sms',
+    requestedChannel?: CustomerRequestChannel,
     acceptedDeliveryVersion: string | null = null,
   ): Promise<void> {
     return this.serial(async () => {
@@ -371,7 +394,12 @@ export class CustomerSessionCore {
       const phone = normalizeDemoPhone(input);
       if (!phone) throw new CustomerSessionError('INVALID_PHONE');
       await this.loadConfig();
-      if (!isChannel(channel) || !this.config.channels.includes(channel))
+      const channel = requestedChannel ?? (this.config.automaticSelection ? 'auto' : 'sms');
+      if (
+        channel === 'auto'
+          ? !this.config.automaticSelection || !this.config.channels.includes('telegram')
+          : !isRequestChannel(channel) || !this.config.channels.includes(channel)
+      )
         throw new CustomerSessionError('SERVICE_UNAVAILABLE', 503);
       if (!this.config.enabled) throw new CustomerSessionError('SERVICE_UNAVAILABLE', 503);
       if (
@@ -399,7 +427,7 @@ export class CustomerSessionCore {
           otp_request: {
             request_id: this.io.randomId(),
             phone,
-            ...(this.config.channelSelection ? { channel } : {}),
+            ...(this.config.channelSelection || channel === 'auto' ? { channel } : {}),
             ...(this.config.deliveryConsentRequired
               ? {
                   delivery_consent: {

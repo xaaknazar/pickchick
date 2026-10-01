@@ -34,7 +34,8 @@ export function isValidCustomerBirthDate(value: string, now = Date.now()): boole
   }).format(now);
   return value <= today;
 }
-export const OtpChannelSchema = z.enum(['sms', 'telegram']);
+export const OtpChannelSchema = z.enum(['sms', 'telegram', 'whatsapp']);
+export const OtpRequestChannelSchema = z.enum(['sms', 'telegram', 'auto']);
 const Uuid = z.uuid();
 const Token = z.string().regex(/^[a-f0-9]{64}$/);
 export const OtpRequestSchema = z
@@ -42,7 +43,7 @@ export const OtpRequestSchema = z
     phone: z.string().max(32),
     device_id: Uuid,
     request_id: Uuid,
-    channel: OtpChannelSchema.optional(),
+    channel: OtpRequestChannelSchema.optional(),
     delivery_consent: z
       .object({ privacy_version: z.string().min(1).max(100), accepted: z.literal(true) })
       .strict(),

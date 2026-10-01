@@ -16,14 +16,15 @@ function record(value: unknown): value is Record<string, unknown> {
 function parseSubmission(value: unknown, recipient: string): PhoneCodeDeliveryResult {
   if (!record(value) || typeof value['ok'] !== 'boolean') return unknownResponse();
   if (!value['ok']) {
-    // Only definite documented-style refusals are terminal. Never expose provider text.
+    // A recipient-specific terminal refusal permits a second transport. This exact
+    // Gateway error needs confirmation on a live negative-path test before WA rollout.
+    if (value['error'] === 'PHONE_NUMBER_NOT_SUPPORTED')
+      return { kind: 'rejected', reason: 'recipient_unavailable' };
+    // Configuration/input failures are terminal for this attempt, never WA fallback.
     if (
-      [
-        'ACCESS_TOKEN_INVALID',
-        'BALANCE_TOO_LOW',
-        'PHONE_NUMBER_INVALID',
-        'PHONE_NUMBER_NOT_SUPPORTED',
-      ].includes(String(value['error']))
+      ['ACCESS_TOKEN_INVALID', 'BALANCE_TOO_LOW', 'PHONE_NUMBER_INVALID'].includes(
+        String(value['error']),
+      )
     )
       return { kind: 'rejected', reason: 'channel_unavailable' };
     return unknownResponse();

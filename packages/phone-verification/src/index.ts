@@ -1,7 +1,8 @@
 import { MobizonCodeDelivery } from './mobizon.js';
 import { TelegramCodeDelivery } from './telegram.js';
+import { WhatsAppCodeDelivery } from './whatsapp.js';
 export { TelegramCodeDelivery } from './telegram.js';
-export type PhoneDeliveryChannel = 'sms' | 'telegram';
+export type PhoneDeliveryChannel = 'sms' | 'telegram' | 'whatsapp';
 export { WhatsAppCodeDelivery } from './whatsapp.js';
 export type { WhatsAppCodeDeliveryConfiguration } from './whatsapp.js';
 
@@ -27,6 +28,7 @@ export type PhoneCodeDeliveryResult =
     }
   | { kind: 'submitted'; provider: 'telegram_gateway'; submission: 'accepted'; messageId: string }
   | { kind: 'rejected'; reason: 'channel_unavailable' }
+  | { kind: 'rejected'; reason: 'recipient_unavailable' }
   | { kind: 'rejected'; reason: 'invalid_input' }
   | { kind: 'rejected'; reason: 'provider_rejected'; providerCode: number }
   | { kind: 'unknown'; reason: 'network' | 'timeout' | 'response' };
@@ -66,21 +68,52 @@ export function createPhoneCodeDelivery(
     const fallback = env['PHONE_SMS_FALLBACK_ENABLED'] ?? 'false';
     if (!['true', 'false'].includes(fallback))
       throw new Error('PHONE_DELIVERY_CONFIGURATION_INVALID');
-    if (fallback === 'false') return telegram;
-    const sms = new MobizonCodeDelivery(
-      {
-        apiKey: env['MOBIZON_API_KEY'] ?? '',
-        approvedSender: env['MOBIZON_APPROVED_SENDER'] ?? '',
-      },
-      dependencies.fetch,
-    );
+    const waNames = [
+      'WHATSAPP_CLOUD_ACCESS_TOKEN',
+      'WHATSAPP_CLOUD_PHONE_NUMBER_ID',
+      'WHATSAPP_CLOUD_API_VERSION',
+      'WHATSAPP_CLOUD_APPROVED_AUTH_TEMPLATE',
+      'WHATSAPP_CLOUD_TEMPLATE_LANGUAGE',
+    ] as const;
+    const configured = waNames.filter((name) => env[name] !== undefined);
+    if (configured.length !== 0 && configured.length !== waNames.length)
+      throw new Error('PHONE_DELIVERY_CONFIGURATION_INVALID');
+    const whatsapp =
+      configured.length === waNames.length
+        ? new WhatsAppCodeDelivery(
+            {
+              accessToken: env[waNames[0]] ?? '',
+              phoneNumberId: env[waNames[1]] ?? '',
+              apiVersion: env[waNames[2]] ?? '',
+              approvedTemplate: env[waNames[3]] ?? '',
+              language: env[waNames[4]] ?? '',
+            },
+            dependencies.fetch,
+          )
+        : undefined;
+    if (fallback === 'false' && !whatsapp) return telegram;
+    const sms =
+      fallback === 'true'
+        ? new MobizonCodeDelivery(
+            {
+              apiKey: env['MOBIZON_API_KEY'] ?? '',
+              approvedSender: env['MOBIZON_APPROVED_SENDER'] ?? '',
+            },
+            dependencies.fetch,
+          )
+        : undefined;
     return {
       provider: 'channels',
-      channels: Object.freeze(['telegram', 'sms'] as const),
-      // User-selected fallback only: timeouts must never dispatch another paid message.
+      channels: Object.freeze([
+        'telegram' as const,
+        ...(sms ? ['sms' as const] : []),
+        ...(whatsapp ? ['whatsapp' as const] : []),
+      ]),
+      // Identity owns automatic fallback; transports only send on an explicit call.
       sendCode(input, channel = 'sms') {
         if (channel === 'telegram') return telegram.sendCode(input);
-        if (channel === 'sms') return sms.sendCode(input);
+        if (channel === 'sms' && sms) return sms.sendCode(input);
+        if (channel === 'whatsapp' && whatsapp) return whatsapp.sendCode(input);
         return Promise.resolve({ kind: 'rejected', reason: 'channel_unavailable' });
       },
     };

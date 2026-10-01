@@ -69,10 +69,12 @@ export function Phone(props: ScreenProps) {
       live.current = false;
     };
   }, []);
-  // Server publishes availability/order. No speculative fallback or SMS choice.
+  // The server owns the delivery sequence. A pending request keeps its original intent.
   const channel = account.pendingOtp
-    ? account.activeChannel
-    : account.channels.find((c) => c === 'telegram');
+    ? account.pendingRequestChannel
+    : account.automaticSelection
+      ? 'auto'
+      : account.channels.find((c) => c === 'telegram');
   const available = account.mode === 'demo' || !!channel;
   const canonical = normalizeDemoPhone(phone);
   const valid = !!canonical;
@@ -108,7 +110,9 @@ export function Phone(props: ScreenProps) {
               условия и политику
             </Text>
             {account.mode === 'server'
-              ? ' и даю согласие на обработку данных и передачу номера и кода Telegram для входа.'
+              ? account.automaticSelection && account.whatsappFallbackEnabled
+                ? ' и даю согласие на обработку данных и передачу номера и кода в Telegram или WhatsApp для входа.'
+                : ' и даю согласие на обработку данных и передачу номера и кода Telegram для входа.'
               : '.'}
           </Text>
           <AuthButton
@@ -161,9 +165,11 @@ export function Phone(props: ScreenProps) {
         <Text style={s.hint}>
           {account.mode === 'demo'
             ? 'Предпросмотр входа'
-            : channel === 'telegram'
-              ? 'Пришлём код в Telegram'
-              : 'Подтверждение номера пока недоступно'}
+            : channel === 'auto'
+              ? 'Отправим код в доступный мессенджер'
+              : channel === 'telegram'
+                ? 'Пришлём код в Telegram'
+                : 'Подтверждение номера пока недоступно'}
         </Text>
       </View>
       {phone.length === 10 && !valid ? (
@@ -281,7 +287,9 @@ export function Otp(props: ScreenProps) {
     if (
       await account.requestCode(
         challenge.phone,
-        account.activeChannel ?? undefined,
+        account.automaticSelection || account.activeChannel === 'whatsapp'
+          ? 'auto'
+          : (account.activeChannel ?? undefined),
         account.deliveryConsentVersion,
       )
     ) {
@@ -298,15 +306,27 @@ export function Otp(props: ScreenProps) {
       subtitle={
         <View style={s.channelLine}>
           <View style={s.channelChip}>
-            <Icon name="paper-plane" color="#7FCFF5" size={15} />
+            <Icon
+              name={
+                account.deliveryUnknown
+                  ? 'time-outline'
+                  : account.activeChannel === 'whatsapp'
+                    ? 'logo-whatsapp'
+                    : 'paper-plane'
+              }
+              color="#7FCFF5"
+              size={15}
+            />
             <Text style={s.channelText}>
               {account.mode === 'demo'
                 ? 'Локальный просмотр'
                 : account.deliveryUnknown
                   ? 'Проверяем отправку'
                   : account.activeChannel === 'telegram'
-                    ? 'Отправили в Telegram'
-                    : 'Код отправлен'}
+                    ? 'Код в Telegram'
+                    : account.activeChannel === 'whatsapp'
+                      ? 'Код в WhatsApp'
+                      : 'Код запрошен'}
             </Text>
           </View>
           <Text style={s.hint}>

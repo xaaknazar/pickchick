@@ -1159,6 +1159,311 @@ test('channel is durable and immutable for replay; fallback shares budget/cooldo
       '2',
     );
   }));
+test('automatic OTP accepts Telegram once, preserves actual channel and four-digit code on replay', async () =>
+  fixture(async (ctx) => {
+    const calls = [];
+    const delivery = {
+      provider: 'channels',
+      channels: ['telegram', 'whatsapp'],
+      async sendCode(input, channel) {
+        calls.push({ ...input, channel });
+        return {
+          kind: 'submitted',
+          provider: 'telegram_gateway',
+          submission: 'accepted',
+          messageId: 'tg-fixture',
+        };
+      },
+    };
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    assert.deepEqual(identity.config().channels, ['telegram']);
+    assert.equal(identity.config().channel_selection, 'automatic');
+    assert.equal(identity.config().whatsapp_fallback_enabled, true);
+    const body = {
+      phone,
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+      channel: 'auto',
+      delivery_consent: { privacy_version: version, accepted: true },
+    };
+    const first = OtpResponseSchema.parse(await identity.requestOtp(body, ip));
+    assert.equal(first.channel, 'telegram');
+    assert.equal(first.code_length, 4);
+    assert.match(calls[0].code, /^[0-9]{4}$/);
+    assert.deepEqual(
+      await new CustomerIdentity(ctx.pool, ctx.settings, delivery).requestOtp(
+        { ...body, channel: 'auto' },
+        ip,
+      ),
+      first,
+    );
+    assert.equal(calls.length, 1);
+    await assert.rejects(
+      identity.requestOtp({ ...body, channel: 'telegram' }, ip),
+      error('CONFLICT'),
+    );
+    const row = (
+      await ctx.pool.query(
+        'SELECT requested_channel,delivery_channel,delivery_provider FROM identity_otp_challenges WHERE id=$1',
+        [first.challenge_id],
+      )
+    ).rows[0];
+    assert.deepEqual(row, {
+      requested_channel: 'auto',
+      delivery_channel: 'telegram',
+      delivery_provider: 'telegram_gateway',
+    });
+  }));
+test('definite Telegram recipient refusal reserves WhatsApp before one send and replays actual channel', async () =>
+  fixture(async (ctx) => {
+    const calls = [];
+    let code;
+    const delivery = {
+      provider: 'channels',
+      channels: ['telegram', 'whatsapp'],
+      async sendCode(input, channel) {
+        calls.push(channel);
+        if (channel === 'telegram') {
+          code = input.code;
+          return { kind: 'rejected', reason: 'recipient_unavailable' };
+        }
+        assert.equal(input.code, code);
+        const row = (
+          await ctx.pool.query(
+            'SELECT requested_channel,delivery_channel,state FROM identity_otp_challenges WHERE request_id=$1',
+            [body.request_id],
+          )
+        ).rows[0];
+        assert.deepEqual(row, {
+          requested_channel: 'auto',
+          delivery_channel: 'whatsapp',
+          state: 'reserved',
+        });
+        const inFlight = await new CustomerIdentity(ctx.pool, ctx.settings, delivery).requestOtp(
+          body,
+          ip,
+        );
+        assert.equal(inFlight.channel, 'whatsapp');
+        assert.equal(inFlight.delivery_status, 'unknown');
+        assert.deepEqual(calls, ['telegram', 'whatsapp']);
+        return {
+          kind: 'submitted',
+          provider: 'whatsapp_cloud',
+          submission: 'accepted',
+          messageId: 'wamid.fixture',
+        };
+      },
+    };
+    const body = {
+      phone,
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+      channel: 'auto',
+      delivery_consent: { privacy_version: version, accepted: true },
+    };
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    const first = OtpResponseSchema.parse(await identity.requestOtp(body, ip));
+    assert.deepEqual(calls, ['telegram', 'whatsapp']);
+    assert.equal(first.channel, 'whatsapp');
+    assert.equal(first.delivery_status, 'submitted');
+    assert.equal(first.code_length, 4);
+    assert.deepEqual(
+      await new CustomerIdentity(ctx.pool, ctx.settings, delivery).requestOtp(body, ip),
+      first,
+    );
+    assert.deepEqual(calls, ['telegram', 'whatsapp']);
+    const row = (
+      await ctx.pool.query(
+        'SELECT requested_channel,delivery_channel,delivery_provider,delivery_reference FROM identity_otp_challenges WHERE id=$1',
+        [first.challenge_id],
+      )
+    ).rows[0];
+    assert.deepEqual(row, {
+      requested_channel: 'auto',
+      delivery_channel: 'whatsapp',
+      delivery_provider: 'whatsapp_cloud',
+      delivery_reference: 'wamid.fixture',
+    });
+    assert.equal(
+      (await ctx.pool.query('SELECT reservations FROM identity_sms_daily_budget')).rows[0]
+        .reservations,
+      1,
+    );
+    const session = await identity.verifyOtp({
+      challenge_id: first.challenge_id,
+      device_id: body.device_id,
+      request_id: randomUUID(),
+      code,
+      consents: consent,
+    });
+    assert.equal(session.customer.phone, phone);
+  }));
+test('automatic OTP does not fallback on unknown Telegram outcome, and survives missing WhatsApp config', async () =>
+  fixture(async (ctx) => {
+    for (const channels of [['telegram', 'whatsapp'], ['telegram']]) {
+      const calls = [];
+      const delivery = {
+        provider: channels.length === 1 ? 'telegram_gateway' : 'channels',
+        channels,
+        async sendCode(_input, channel) {
+          calls.push(channel);
+          return { kind: 'unknown', reason: 'timeout' };
+        },
+      };
+      const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+      const body = {
+        phone,
+        device_id: randomUUID(),
+        request_id: randomUUID(),
+        channel: 'auto',
+        delivery_consent: { privacy_version: version, accepted: true },
+      };
+      const first = await identity.requestOtp(body, ip);
+      assert.equal(first.channel, 'telegram');
+      assert.equal(first.delivery_status, 'unknown');
+      assert.deepEqual(
+        await new CustomerIdentity(ctx.pool, ctx.settings, delivery).requestOtp(body, ip),
+        first,
+      );
+      assert.deepEqual(calls, ['telegram']);
+      if (channels.length === 1)
+        assert.equal(identity.config().whatsapp_fallback_enabled, undefined);
+      await ctx.ageRequests();
+    }
+  }));
+test('WhatsApp failure and process loss after reservation never dispatch another code', async () =>
+  fixture(async (ctx) => {
+    for (const failure of ['rejected', 'throw']) {
+      const calls = [];
+      const delivery = {
+        provider: 'channels',
+        channels: ['telegram', 'whatsapp'],
+        async sendCode(_input, channel) {
+          calls.push(channel);
+          if (channel === 'telegram') return { kind: 'rejected', reason: 'recipient_unavailable' };
+          const inFlight = await new CustomerIdentity(ctx.pool, ctx.settings, delivery).requestOtp(
+            body,
+            ip,
+          );
+          assert.equal(inFlight.channel, 'whatsapp');
+          assert.equal(inFlight.delivery_status, 'unknown');
+          assert.deepEqual(calls, ['telegram', 'whatsapp']);
+          if (failure === 'throw') throw new Error('simulated process loss');
+          return { kind: 'rejected', reason: 'channel_unavailable' };
+        },
+      };
+      const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+      const body = {
+        phone,
+        device_id: randomUUID(),
+        request_id: randomUUID(),
+        channel: 'auto',
+        delivery_consent: { privacy_version: version, accepted: true },
+      };
+      if (failure === 'rejected') {
+        await assert.rejects(identity.requestOtp(body, ip), error('SERVICE_UNAVAILABLE'));
+        await assert.rejects(identity.requestOtp(body, ip), error('SERVICE_UNAVAILABLE'));
+      } else {
+        const first = await identity.requestOtp(body, ip);
+        assert.equal(first.channel, 'whatsapp');
+        assert.equal(first.delivery_status, 'unknown');
+        assert.deepEqual(
+          await new CustomerIdentity(ctx.pool, ctx.settings, delivery).requestOtp(body, ip),
+          first,
+        );
+      }
+      assert.deepEqual(calls, ['telegram', 'whatsapp']);
+      await ctx.ageRequests();
+    }
+  }));
+test('supersession during WhatsApp send cannot report a submitted stale challenge', async () =>
+  fixture(async (ctx) => {
+    const calls = [];
+    let waEntered = false;
+    const delivery = {
+      provider: 'channels',
+      channels: ['telegram', 'whatsapp'],
+      async sendCode(_input, channel) {
+        calls.push(channel);
+        if (channel === 'telegram')
+          return waEntered
+            ? {
+                kind: 'submitted',
+                provider: 'telegram_gateway',
+                submission: 'accepted',
+                messageId: 'newer',
+              }
+            : { kind: 'rejected', reason: 'recipient_unavailable' };
+        waEntered = true;
+        await ctx.ageRequests();
+        await identity.requestOtp({ ...body, request_id: randomUUID() }, ip);
+        return {
+          kind: 'submitted',
+          provider: 'whatsapp_cloud',
+          submission: 'accepted',
+          messageId: 'wamid.stale',
+        };
+      },
+    };
+    const body = {
+      phone,
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+      channel: 'auto',
+      delivery_consent: { privacy_version: version, accepted: true },
+    };
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    await assert.rejects(identity.requestOtp(body, ip), error('SERVICE_UNAVAILABLE'));
+    assert.deepEqual(calls, ['telegram', 'whatsapp', 'telegram']);
+    const old = (
+      await ctx.pool.query(
+        'SELECT state,delivery_channel FROM identity_otp_challenges WHERE request_id=$1',
+        [body.request_id],
+      )
+    ).rows[0];
+    assert.deepEqual(old, { state: 'superseded', delivery_channel: 'whatsapp' });
+  }));
+test('automatic fallback skips WhatsApp when a newer challenge superseded the Telegram attempt', async () =>
+  fixture(async (ctx) => {
+    let first = true;
+    const calls = [];
+    const delivery = {
+      provider: 'channels',
+      channels: ['telegram', 'whatsapp'],
+      async sendCode(_input, channel) {
+        calls.push(channel);
+        if (first) {
+          first = false;
+          await ctx.ageRequests();
+          await identity.requestOtp({ ...body, request_id: randomUUID() }, ip);
+          return { kind: 'rejected', reason: 'recipient_unavailable' };
+        }
+        return {
+          kind: 'submitted',
+          provider: 'telegram_gateway',
+          submission: 'accepted',
+          messageId: 'newer',
+        };
+      },
+    };
+    const body = {
+      phone,
+      device_id: randomUUID(),
+      request_id: randomUUID(),
+      channel: 'auto',
+      delivery_consent: { privacy_version: version, accepted: true },
+    };
+    const identity = new CustomerIdentity(ctx.pool, ctx.settings, delivery);
+    await assert.rejects(identity.requestOtp(body, ip), error('SERVICE_UNAVAILABLE'));
+    assert.deepEqual(calls, ['telegram', 'telegram']);
+    const old = (
+      await ctx.pool.query(
+        'SELECT state,delivery_channel FROM identity_otp_challenges WHERE request_id=$1',
+        [body.request_id],
+      )
+    ).rows[0];
+    assert.deepEqual(old, { state: 'superseded', delivery_channel: 'telegram' });
+  }));
 test('Telegram-only configuration refuses legacy SMS requests before reservation or network', async () =>
   fixture(async (ctx) => {
     const delivery = {
