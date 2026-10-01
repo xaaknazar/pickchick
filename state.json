@@ -1440,11 +1440,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps",
-        "@windows/cashier"
+        "@windows/cashier",
+        "infra/windows"
       ],
       "status": "active",
       "head": "aa54f6e4958c8d928667bf6a8d0a50845f4c3d34",
-      "updatedAt": "2026-10-01T07:09:44.093Z"
+      "updatedAt": "2026-10-01T07:25:36.402Z"
     }
   ]
 }
