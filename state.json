@@ -1399,6 +1399,25 @@
       "updatedAt": "2026-10-01T05:36:18.641Z",
       "summary": "API32b28db installed, CI36818319892 6/6, both old commands recover same order, ledger unchanged, roadmap feb550c published",
       "nextAction": "Confirm checkout on phone; normal next order verifies Kaspi item names; monoblock required for kitchen"
+    },
+    {
+      "id": "kaspi-invoice-expiry",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-invoice-expiry",
+      "scopes": [
+        "packages/commerce-core",
+        "apps/mobile",
+        "tests",
+        "infra/staging",
+        "docs/operations",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "feb550cea8848454572065981231b59ca11a47fd",
+      "updatedAt": "2026-10-01T05:48:52.293Z"
     }
   ]
 }
