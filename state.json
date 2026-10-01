@@ -1372,9 +1372,11 @@
         "docs/collaboration/handoff.md",
         "@vps"
       ],
-      "status": "active",
-      "head": "85084d423525932f2f0fbff4aa674d0fddce19ad",
-      "updatedAt": "2026-09-30T19:00:54.164Z"
+      "status": "done",
+      "head": "7fbf75969173dd9d9c9ec80bdf3579448802e92c",
+      "updatedAt": "2026-10-01T04:43:01.839Z",
+      "summary": "Worker e560e0f installed after full green CI36763255144; Kaspi seller messages include immutable order item names and quantities, preserve recovery marker and legacy invoices. 38 unit/payment,53 PGcommerce,pnpm check passed. Live probe passed; ledger/credentials/neighbors unchanged; no invoice or OTP sent. PR155 and shared checkpoint7fbf759 published; online roadmap updated.",
+      "nextAction": "Confirm customer-side Kaspi rendering with next normal order; monoblock must be on for kitchen admission. API remains8ecdc13; Webkassa deferred."
     }
   ]
 }
