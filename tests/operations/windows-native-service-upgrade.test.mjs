@@ -21,7 +21,7 @@ test('009 to 014 verifies every recoverable migration checkpoint and rejects dat
   try {
     const migrations = [];
     for (const name of (await readdir(directory))
-      .filter((n) => /^\d{3}_[a-z_]+\.sql$/.test(n))
+      .filter((n) => /^\d{3}_[a-z_]+\.sql$/.test(n) && n < '015')
       .sort()) {
       migrations.push({
         name,

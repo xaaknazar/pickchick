@@ -38,7 +38,13 @@ class FakeBridge {
   }
   issue(amount, comment) {
     const id = String(this.nextId++);
-    this.invoices.set(id, { QrOperationId: Number(id), Amount: amount, Comment: comment });
+    this.invoices.set(id, {
+      QrOperationId: Number(id),
+      Amount: amount,
+      Comment: comment,
+      OrderRegDate: new Date().toISOString(),
+      ClientMobile: '87011234567',
+    });
     this.status.set(id, 'RemotePaymentCreated');
     return { kind: 'ok', data: { QrOperationId: Number(id), Status: 'RemotePaymentCreated' } };
   }
@@ -119,6 +125,11 @@ async function fixture(run, deferred = false) {
         ? { organizationId: org, branchId: branch, approvalReference: 'Synthetic approved pilot' }
         : undefined,
     );
+    await pool.query(
+      'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+      [branch, org, device, randomUUID()],
+    );
+    let number = 0;
     const phones = new Map();
     let clock = Date.now();
     const bridge = new FakeBridge();
@@ -171,12 +182,27 @@ async function fixture(run, deferred = false) {
             quoteId: quote.quoteId,
             fiscalAccountId: fiscal,
           });
+      const reservationId = randomUUID();
       await repo.confirmAdmission(edge, {
         eventId: randomUUID(),
         orderId: created.orderId,
-        reservationId: randomUUID(),
+        reservationId,
         quoteDigest: quote.digest,
       });
+      await pool.query(
+        `INSERT INTO cloud_fulfillment_projection(order_id,branch_id,organization_id,device_id,reservation_id,quote_id,quote_hash,owner_hash,version,state,display_number,routing_version,payload)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,'held',$8,1,'{}')`,
+        [
+          created.orderId,
+          branch,
+          org,
+          device,
+          reservationId,
+          quote.quoteId,
+          quote.digest,
+          String(++number),
+        ],
+      );
       const attempt = await repo.startPaymentAttempt(scope, randomUUID(), {
         orderId: created.orderId,
         providerAccountId: payment,
@@ -196,12 +222,17 @@ async function fixture(run, deferred = false) {
       pool.query(
         "UPDATE commerce_kaspi_invoices SET next_check_at=clock_timestamp()-interval '1 second'",
       );
-    const age = (seconds) =>
-      pool.query(
+    const age = (seconds) => {
+      for (const invoice of bridge.invoices.values())
+        invoice.OrderRegDate = new Date(
+          Date.parse(invoice.OrderRegDate) - seconds * 1000,
+        ).toISOString();
+      return pool.query(
         `UPDATE commerce_kaspi_invoices SET issue_started_at=issue_started_at-$1*interval '1 second',
          next_check_at=clock_timestamp()-interval '1 second'`,
         [seconds],
       );
+    };
     await run({
       schema,
       url,
@@ -235,7 +266,7 @@ test('invoice to the customer phone, Processed status records exactly one captur
     const first = await worker.tick();
     assert.equal(first.submitted, 1);
     assert.deepEqual(f.bridge.calls[0], ['create', '77011234567', 1000, f.bridge.calls[0][3]]);
-    assert.match(f.bridge.calls[0][3], /^PickChick [A-Z0-9]{10}: Synthetic burger ×2$/);
+    assert.equal(f.bridge.calls[0][3], 'Заказ №1: Synthetic burger - 2 шт.');
     const issued = await f.invoice(attempt.attemptId);
     assert.equal(issued.state, 'issued');
     assert.equal(issued.operation_id, '700000');
@@ -370,19 +401,18 @@ test('uncertain create becomes unknown, then the invoice is adopted from history
     assert.equal(f.bridge.count('create'), 1);
   }));
 
-test('legacy marker-only invoices remain recoverable after the item-message upgrade', () =>
+test('legacy marker-only invoices remain recoverable after the readable-message upgrade', () =>
   fixture(async (f) => {
-    const { attempt } = await f.order();
-    f.bridge.create = (phone, amount, comment) => {
-      f.bridge.issue(amount, comment.split(': ')[0]);
-      return { kind: 'uncertain' };
-    };
-    const worker = f.processor();
-    await worker.tick();
-    await f.due();
-    await worker.tick();
+    const { attempt, orderId } = await f.order();
+    await f.pool.query(
+      `INSERT INTO commerce_kaspi_invoices(attempt_id,order_id,account_id,amount_minor,state,reference)
+      VALUES($1,$2,$3,100000,'unknown','ABCDEFGH23')`,
+      [attempt.attemptId, orderId, f.payment],
+    );
+    f.bridge.issue(1000, 'PickChick ABCDEFGH23');
+    await f.processor().tick();
     assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
-    assert.equal(f.bridge.count('create'), 1);
+    assert.equal(f.bridge.count('create'), 0);
   }));
 
 test('a worker crash after the request left is recovered without a second invoice', () =>
@@ -875,4 +905,79 @@ test('three-minute expiry cancels at the deadline, hides only confirmed unpaid o
     const visible = (await checkout.list(f.scope.principalId)).orders;
     assert.equal(visible.length, 1);
     assert.equal(visible[0].phase, 'attention');
+  }));
+
+test('readable recovery rejects wrong phone, time, ambiguous message and preserves one invoice', () =>
+  fixture(async (f) => {
+    const { attempt, orderId } = await f.order();
+    f.bridge.create = (_phone, amount, comment) => {
+      f.bridge.issue(amount, comment);
+      return { kind: 'uncertain' };
+    };
+    await f.processor().tick();
+    const bank = f.bridge.invoices.get('700000');
+    const createdAt = bank.OrderRegDate;
+    for (const patch of [
+      { ClientMobile: '87019999999' },
+      { ClientMobile: '8701***4567' },
+      { OrderRegDate: '2000-01-01T00:00:00Z' },
+      { OrderRegDate: '2026-10-01 12:00:00' },
+      { Comment: bank.Comment + ' extra' },
+    ]) {
+      const original = { ...bank };
+      Object.assign(bank, patch);
+      await f.due();
+      await f.processor().tick();
+      assert.equal((await f.invoice(attempt.attemptId)).state, 'unknown');
+      Object.assign(bank, original);
+    }
+    assert.equal((await f.view(orderId)).captures.length, 0);
+    assert.equal(f.bridge.count('create'), 1);
+    bank.OrderRegDate = createdAt;
+    await assert.rejects(
+      f.pool.query('UPDATE commerce_kaspi_invoices SET invoice_comment=$1', ['changed']),
+    );
+    await f.due();
+    await f.processor().tick();
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
+    assert.equal(f.bridge.count('create'), 1);
+  }));
+
+test('legacy reference invoices still recover and are never reissued', () =>
+  fixture(async (f) => {
+    const { attempt, orderId } = await f.order();
+    await f.pool.query(
+      `INSERT INTO commerce_kaspi_invoices(attempt_id,order_id,account_id,amount_minor,state,reference)
+      VALUES($1,$2,$3,100000,'unknown','ABCDEFGH23')`,
+      [attempt.attemptId, orderId, f.payment],
+    );
+    f.bridge.issue(1000, 'PickChick ABCDEFGH23: Synthetic burger ×2');
+    await f.processor().tick();
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
+    assert.equal(f.bridge.count('create'), 0);
+  }));
+
+test('identical saved messages block automatic history adoption instead of guessing', () =>
+  fixture(async (f) => {
+    const first = await f.order(),
+      second = await f.order();
+    const comment = 'Заказ №1: Synthetic burger - 2 шт.';
+    for (const [index, item] of [first, second].entries())
+      await f.pool.query(
+        `INSERT INTO commerce_kaspi_invoices(attempt_id,order_id,account_id,amount_minor,state,reference,invoice_comment)
+       VALUES($1,$2,$3,100000,'unknown',$4,$5)`,
+        [
+          item.attempt.attemptId,
+          item.orderId,
+          f.payment,
+          index ? 'ABCDEFGH24' : 'ABCDEFGH23',
+          comment,
+        ],
+      );
+    f.bridge.issue(1000, comment);
+    await f.processor().tick();
+    assert.equal((await f.invoice(first.attempt.attemptId)).state, 'unknown');
+    assert.equal((await f.invoice(second.attempt.attemptId)).state, 'unknown');
+    assert.equal(f.bridge.count('create'), 0);
+    assert.equal((await f.view(first.orderId)).captures.length, 0);
   }));

@@ -342,8 +342,7 @@ export const ReleaseResultSchema = z
   })
   .superRefine((r, ctx) => {
     if (
-      (r.outcome === 'applied' &&
-        (r.state !== 'released' || r.rejectionCode !== null || r.displayNumber !== null)) ||
+      (r.outcome === 'applied' && (r.state !== 'released' || r.rejectionCode !== null)) ||
       (r.outcome === 'rejected' && r.rejectionCode === null)
     )
       ctx.addIssue({ code: 'custom', message: 'Invalid release result' });

@@ -21,7 +21,18 @@ test('durable admission deduplicates concurrent deliveries; hash/quote/owner cha
     assert.equal(await f.count('fulfillment_outbox'), 1);
     assert.equal(await f.count('fulfillment_tasks'), 0);
     assert.equal(results[0].state, 'held');
-    assert.equal(results[0].displayNumber, null);
+    await assert.rejects(
+      f.pool.query(
+        'UPDATE fulfillment_reservations SET display_number=display_number+1,version=version+1',
+      ),
+    );
+    assert.equal(
+      (await f.pool.query('SELECT authorized_event_id FROM fulfillment_reservations')).rows[0]
+        .authorized_event_id,
+      null,
+    );
+    assert.match(results[0].displayNumber, /^[1-9][0-9]*$/);
+    assert.equal(new Set(results.map((r) => r.displayNumber)).size, 1);
     await assert.rejects(
       f.repo.acceptCloud(f.scope, { ...c, payload: { ...c.payload, quoteId: randomUUID() } }),
       errorCode('CONFLICT'),
@@ -78,6 +89,7 @@ test('routing is mandatory and pinned before payment; later routing does not cha
     await provisionFulfillment(f.pool, next);
     const o = await f.repo.acceptCloud(f.scope, f.authorize(c, r));
     assert.equal(o.routingVersion, 1);
+    assert.equal(o.displayNumber, r.displayNumber);
     const view = await f.read(o.orderId);
     assert.equal(view.tasks.length, 3);
     assert.equal(view.tasks.find((t) => t.details.productId === 'burger').station_id, f.prep);

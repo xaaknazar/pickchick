@@ -7,6 +7,7 @@ import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto
 import {
   KaspiBridgeClient,
   findByReference,
+  findByInvoiceComment,
   kaspiInvoiceOutcome,
   kaspiInvoiceComment,
   kaspiMinor,
@@ -130,43 +131,70 @@ test('history search needs the reference in a text field and an operation id', (
   assert.deepEqual(findByReference([], 'ABCDEFGH23'), []);
 });
 
-test('invoice message uses names and quantities without customer data and preserves recovery', () => {
-  const comment = kaspiInvoiceComment('ABCDEFGH23', {
+test('invoice message contains only the reserved number, items and selected modifiers', () => {
+  const comment = kaspiInvoiceComment('12', {
     customerId: 'private-customer',
     customerComment: 'private note',
     lines: [
-      { title: 'Burger Combo', quantity: 2 },
-      { title: 'Coca-Cola 0,5 л', quantity: 1 },
+      {
+        title: 'Pick Combo',
+        quantity: 1,
+        selectedDetails: {
+          modifiers: [
+            { label: { ru: 'Coca-Cola 0,5 л' }, quantity: 1 },
+            { label: { ru: 'Сырный соус' }, quantity: 2 },
+          ],
+        },
+      },
+      { title: 'Бургер', quantity: 2 },
     ],
   });
-  assert.equal(comment, 'PickChick ABCDEFGH23: Burger Combo ×2; Coca-Cola 0,5 л ×1');
-  assert.equal(findByReference([{ Id: 14, Comment: comment }], 'ABCDEFGH23').length, 1);
-  for (const text of [
-    'PickChick ABCDEFGH234: Burger',
-    'prefix ' + comment,
-    'PickChick ABCDEFGH23XYZ',
-  ])
-    assert.deepEqual(findByReference([{ Id: 14, Comment: text }], 'ABCDEFGH23'), []);
-  assert.equal(kaspiInvoiceComment('ABCDEFGH23', { lines: [] }), 'PickChick ABCDEFGH23');
-  assert.equal(kaspiInvoiceComment('ABCDEFGH23', null), 'PickChick ABCDEFGH23');
   assert.equal(
-    kaspiInvoiceComment('ABCDEFGH23', { lines: [{ title: '  Чай\n  манго\u200b ', quantity: 1 }] }),
-    'PickChick ABCDEFGH23: Чай манго ×1',
+    comment,
+    'Заказ №12: Pick Combo - 1 шт. (Coca-Cola 0,5 л, Сырный соус - 2 шт.); Бургер - 2 шт.',
+  );
+  assert.equal(findByInvoiceComment([{ Id: 14, Comment: comment }], comment).length, 1);
+  assert.equal(
+    findByInvoiceComment(
+      [
+        { Id: 14, Comment: comment, Amount: '1' },
+        { Id: 14, Comment: comment, Amount: '2' },
+      ],
+      comment,
+    ).length,
+    2,
+  );
+  for (const text of [comment + ' extra', 'prefix ' + comment, comment.replace('№12', '№13')])
+    assert.deepEqual(findByInvoiceComment([{ Id: 14, Comment: text }], comment), []);
+  assert.deepEqual(findByInvoiceComment([{ Id: 14, Other: comment }], comment), []);
+  assert.equal(
+    kaspiInvoiceComment(null, { lines: [{ title: 'Чай', quantity: 1 }] }),
+    'Чай - 1 шт.',
+  );
+  assert.throws(() => kaspiInvoiceComment('12', { lines: [] }));
+  assert.throws(() => kaspiInvoiceComment('garbage', { lines: [{ title: 'Чай', quantity: 1 }] }));
+  assert.equal(
+    kaspiInvoiceComment('1', { lines: [{ title: '  Чай\n манго\u200b ', quantity: 1 }] }),
+    'Заказ №1: Чай манго - 1 шт.',
   );
 });
 
-test('long invoice messages keep whole items where possible and never split Unicode pairs', () => {
-  for (const count of [1, 2, 10, 100]) {
+test('long invoice messages keep quantities, stay bounded and never split Unicode pairs', () => {
+  for (const count of [1, 2, 10, 100])
     for (const title of ['Куриный бургер', '🍔'.repeat(300)]) {
-      const comment = kaspiInvoiceComment('ABCDEFGH23', {
-        lines: Array.from({ length: count }, () => ({ title, quantity: 2 })),
+      const comment = kaspiInvoiceComment('12', {
+        lines: Array.from({ length: count }, () => ({
+          title,
+          quantity: 2,
+          selectedDetails: { modifiers: [{ label: { ru: 'Напиток '.repeat(100) }, quantity: 1 }] },
+        })),
       });
       assert.ok(comment.length <= 255);
       assert.ok(comment.isWellFormed());
-      assert.equal(findByReference([{ Id: 14, Comment: comment }], 'ABCDEFGH23').length, 1);
-      if (count > 1 && title.length > 255) assert.ok(comment.endsWith(`ещё ${count - 1} поз.`));
+      assert.ok(comment.startsWith('Заказ №12: '));
+      assert.ok(comment.includes('2 шт.'));
+      assert.equal(findByInvoiceComment([{ Id: 14, Comment: comment }], comment).length, 1);
     }
-  }
 });
 
 test('bridge client separates unsent, uncertain, session, rejected and success answers', async () => {

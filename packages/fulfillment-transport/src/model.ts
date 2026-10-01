@@ -138,8 +138,6 @@ export const EdgeEventSchema = z
       [p.taskId, p.taskVersion, p.taskState, p.stationId].some((v) => v !== undefined)
     )
       ctx.addIssue({ code: 'custom', message: 'Unexpected task snapshot' });
-    if ((p.state === 'held' || p.state === 'released') && p.displayNumber !== null)
-      ctx.addIssue({ code: 'custom', message: 'Held reservation has no display number' });
     if (
       ['accepted', 'in_production', 'ready', 'handed_over', 'cancel_requested'].includes(p.state) &&
       p.displayNumber === null

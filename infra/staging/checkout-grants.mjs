@@ -36,7 +36,7 @@ export function kaspiWorkerGrants(role, enabled) {
     commerce_provider_accounts,commerce_payment_intents,commerce_payment_attempts,
     commerce_captures,commerce_refunds,commerce_refund_effects,commerce_fiscal_documents,
     commerce_fiscal_effects,commerce_provider_inbox,commerce_reconciliation_issues,
-    commerce_outbox,commerce_cancellation_intents,commerce_kaspi_invoices`;
+    commerce_outbox,commerce_cancellation_intents,commerce_kaspi_invoices,cloud_fulfillment_projection`;
   return (
     `REVOKE ALL ON ${tables} FROM ${role};
     REVOKE SELECT(id,phone_cipher,deleted_at) ON identity_customers FROM ${role};

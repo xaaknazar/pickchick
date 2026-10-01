@@ -161,7 +161,7 @@ export class EdgeFulfillment {
             fail('CONFLICT');
           row = (
             await client.query<Reservation>(
-              `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,owner_hash,commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,assembly_station_id,state) VALUES($1,$2,$3,$4,$5,$6,'cloud','edge',$7,$8,$9,$10,$11,'held') RETURNING *`,
+              `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,owner_hash,commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,assembly_station_id,state,display_number,business_day) VALUES($1,$2,$3,$4,$5,$6,'cloud','edge',$7,$8,$9,$10,$11,'held',nextval('fulfillment_display_sequence'),(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date) RETURNING *`,
               [
                 p.orderId,
                 scope.branchId,
@@ -201,7 +201,7 @@ export class EdgeFulfillment {
           } else {
             row = (
               await client.query<Reservation>(
-                `UPDATE fulfillment_reservations SET state='accepted',version=version+1,display_number=nextval('fulfillment_display_sequence'),business_day=(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date,authorized_event_id=$2,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
+                `UPDATE fulfillment_reservations SET state='accepted',version=version+1,display_number=COALESCE(display_number,nextval('fulfillment_display_sequence')),business_day=COALESCE(business_day,(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date),authorized_event_id=$2,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
                 [row.order_id, command.eventId],
               )
             ).rows[0]!;

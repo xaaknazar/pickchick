@@ -258,46 +258,88 @@ function operationIdOf(data: Record<string, unknown>): string | null {
   return null;
 }
 
-// Application-side message budget. The bridge does not declare a bank limit.
-// Keep the recovery marker first and intact even when product names are shortened.
+// Application-side budget, not a documented bank limit. Never include customer data.
 const INVOICE_COMMENT_MAX_LENGTH = 255;
 const InvoiceItemsSchema = z.object({
-  lines: z.array(z.object({ title: z.string(), quantity: z.number().int().positive() })),
+  lines: z.array(
+    z.object({
+      title: z.string(),
+      quantity: z.number().int().positive(),
+      selectedDetails: z
+        .object({
+          modifiers: z.array(
+            z.object({
+              label: z.object({ ru: z.string() }),
+              quantity: z.number().int().positive(),
+            }),
+          ),
+        })
+        .optional(),
+    }),
+  ),
 });
-
-export function kaspiInvoiceComment(reference: string, snapshot: unknown): string {
-  const marker = `PickChick ${reference}`;
+const cleanName = (value: string) =>
+  value
+    .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+function fitMessage(value: string, limit: number): string {
+  if (value.length <= limit) return value;
+  let result = '';
+  for (const character of value) {
+    if (result.length + character.length > limit - 1) break;
+    result += character;
+  }
+  return result.trimEnd() + '…';
+}
+export function kaspiInvoiceComment(displayNumber: string | null, snapshot: unknown): string {
   const parsed = InvoiceItemsSchema.safeParse(snapshot);
-  if (!parsed.success || !parsed.data.lines.length) return marker;
-  const items = parsed.data.lines.map(({ title, quantity }) => {
-    const name = title
-      .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
-      .replace(/\s+/gu, ' ')
-      .trim();
-    return { name: name || 'Позиция', quantity };
-  });
-  const prefix = `${marker}: `;
+  if (!parsed.success || !parsed.data.lines.length) throw new KaspiRemoteError('INVALID');
+  if (displayNumber !== null && !/^[1-9][0-9]{0,18}$/.test(displayNumber))
+    throw new KaspiRemoteError('INVALID');
+  // Older edge nodes may not reserve a number until preparation is authorized.
+  const prefix = displayNumber === null ? '' : `Заказ №${displayNumber}: `;
   const parts: string[] = [];
-  for (const [index, entry] of items.entries()) {
-    const quantity = ` ×${entry.quantity}`;
-    const item = entry.name + quantity;
-    const remaining = items.length - index - 1;
+  for (const [index, line] of parsed.data.lines.entries()) {
+    const name = fitMessage(cleanName(line.title) || 'Позиция', 100);
+    const modifiers =
+      line.selectedDetails?.modifiers
+        .map((m) => `${cleanName(m.label.ru)}${m.quantity > 1 ? ` - ${m.quantity} шт.` : ''}`)
+        .filter(Boolean) ?? [];
+    const item = `${name} - ${line.quantity} шт.${modifiers.length ? ` (${modifiers.join(', ')})` : ''}`;
+    const remaining = parsed.data.lines.length - index - 1;
     const suffix = remaining ? `; ещё ${remaining} поз.` : '';
-    const separator = parts.length ? '; ' : '';
-    const used = prefix.length + parts.join('; ').length + separator.length;
+    const used = prefix.length + parts.join('; ').length + (parts.length ? 2 : 0);
     if (used + item.length + suffix.length > INVOICE_COMMENT_MAX_LENGTH) {
-      if (parts.length) return `${prefix}${parts.join('; ')}; ещё ${items.length - index} поз.`;
-      const budget = INVOICE_COMMENT_MAX_LENGTH - used - suffix.length - quantity.length - 1;
-      let shortened = '';
-      for (const character of entry.name) {
-        if (shortened.length + character.length > budget) break;
-        shortened += character;
-      }
-      return `${prefix}${shortened.trimEnd()}…${quantity}${suffix}`;
+      if (parts.length) return `${prefix}${parts.join('; ')}; ещё ${remaining + 1} поз.`;
+      return (
+        prefix +
+        fitMessage(item, INVOICE_COMMENT_MAX_LENGTH - prefix.length - suffix.length) +
+        suffix
+      );
     }
     parts.push(item);
   }
   return prefix + parts.join('; ');
+}
+
+/** Exact persisted message only; order number alone is never sufficient. */
+export function findByInvoiceComment(data: unknown, comment: string): Record<string, unknown>[] {
+  const found: Record<string, unknown>[] = [];
+  const walk = (node: unknown, depth: number) => {
+    if (depth > 6 || node === null || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const item of node.slice(0, 500)) walk(item, depth + 1);
+      return;
+    }
+    const record = node as Record<string, unknown>,
+      id = operationIdOf(record);
+    // Duplicate records can disagree about amount/time. Keep them ambiguous.
+    if (id && record.Comment === comment) found.push(record);
+    else for (const value of Object.values(record)) walk(value, depth + 1);
+  };
+  walk(data, 0);
+  return found;
 }
 
 /** Invoices in a history answer whose text fields mention the reference. */
@@ -347,6 +389,8 @@ interface InvoiceRow {
   state: 'issuing' | 'issued' | 'paid' | 'failed' | 'unknown';
   state_changed_at: Date;
   reference: string;
+  invoice_comment: string | null;
+  customer_id: string | null;
   operation_id: string | null;
   paid_minor: string | null;
   delivered_at: Date | null;
@@ -373,8 +417,9 @@ const reference = () =>
     '',
   );
 const SELECT_ROW = `SELECT k.*,k.amount_minor::text amount_minor,k.paid_minor::text paid_minor,
-  p.organization_id,p.branch_id FROM commerce_kaspi_invoices k
-  JOIN commerce_provider_accounts p ON p.id=k.account_id`;
+  p.organization_id,p.branch_id,o.customer_id FROM commerce_kaspi_invoices k
+  JOIN commerce_provider_accounts p ON p.id=k.account_id
+  JOIN commerce_orders o ON o.id=k.order_id`;
 
 export class KaspiRemoteProcessor {
   private readonly repo: CommerceRepository;
@@ -475,21 +520,30 @@ export class KaspiRemoteProcessor {
   }
 
   private async submit(event: { id: string; attempt_id: string; token: string }) {
-    // Durable marker first: if the process dies after the request left, the
-    // invoice is found again through its reference instead of being re-issued.
+    const source = (
+      await this.pool.query<{ snapshot: unknown; display_number: string | null }>(
+        `SELECT o.snapshot,p.display_number::text FROM commerce_payment_attempts a
+       JOIN commerce_orders o ON o.id=a.order_id
+       LEFT JOIN cloud_fulfillment_projection p ON p.order_id=o.id
+       WHERE a.id=$1 AND a.account_id=$2`,
+        [event.attempt_id, this.config.accountId],
+      )
+    ).rows[0];
+    if (!source) throw new KaspiRemoteError('INVALID');
+    const comment = kaspiInvoiceComment(source.display_number, source.snapshot);
+    // Persist the exact message before sending. Recovery verifies bank metadata
+    // against this attempt rather than issuing another invoice.
     const { rows } = await this.pool.query<{
       attempt_id: string;
       customer_id: string | null;
-      snapshot: unknown;
     }>(
-      `INSERT INTO commerce_kaspi_invoices(attempt_id,order_id,account_id,amount_minor,state,reference)
-       SELECT a.id,a.order_id,a.account_id,a.intended_minor,'issuing',$3
+      `INSERT INTO commerce_kaspi_invoices(attempt_id,order_id,account_id,amount_minor,state,reference,invoice_comment)
+       SELECT a.id,a.order_id,a.account_id,a.intended_minor,'issuing',$3,$4
        FROM commerce_payment_attempts a
        WHERE a.id=$1 AND a.account_id=$2 AND a.state='pending' AND a.intended_minor%100=0
        ON CONFLICT(attempt_id) DO NOTHING
-       RETURNING attempt_id,(SELECT customer_id FROM commerce_orders WHERE id=order_id) customer_id,
-         (SELECT snapshot FROM commerce_orders WHERE id=order_id) snapshot`,
-      [event.attempt_id, this.config.accountId, reference()],
+       RETURNING attempt_id,(SELECT customer_id FROM commerce_orders WHERE id=order_id) customer_id`,
+      [event.attempt_id, this.config.accountId, reference(), comment],
     );
     const created = rows[0];
     if (!created) {
@@ -511,11 +565,7 @@ export class KaspiRemoteProcessor {
       return 'done';
     }
     const amount = Number(BigInt(row.amount_minor) / 100n);
-    const answer = await this.client.createInvoice(
-      formatted,
-      amount,
-      kaspiInvoiceComment(row.reference, created.snapshot),
-    );
+    const answer = await this.client.createInvoice(formatted, amount, row.invoice_comment!);
     let status: 'done' | 'session' = 'done';
     if (answer.kind === 'ok' && operationIdOf(answer.data)) {
       await this.transition(row, 'issued', {
@@ -595,10 +645,57 @@ export class KaspiRemoteProcessor {
       const history = await this.client.history(200);
       if (history.kind === 'session') return this.later(row, 60, 'session');
       if (history.kind === 'ok') {
-        const matches = findByReference(history.data, row.reference);
+        // A repeated human-readable message is ambiguous across attempts/shifts.
+        // Never guess, reissue, or credit another invoice in that case.
+        const uniqueComment =
+          row.invoice_comment === null ||
+          (
+            await this.pool.query(
+              'SELECT 1 FROM commerce_kaspi_invoices WHERE account_id=$1 AND invoice_comment=$2 AND attempt_id<>$3 LIMIT 1',
+              [row.account_id, row.invoice_comment, row.attempt_id],
+            )
+          ).rowCount === 0;
+        const matches = !uniqueComment
+          ? []
+          : row.invoice_comment === null
+            ? findByReference(history.data, row.reference)
+            : findByInvoiceComment(history.data, row.invoice_comment);
         const match = matches.length === 1 ? matches[0]! : null;
         const amount = match ? kaspiMinor(match.Amount) : null;
-        if (match && amount === row.amount_minor) {
+        let identityMatches = row.invoice_comment === null;
+        if (match && row.invoice_comment !== null) {
+          const rawDate = match.OrderRegDate;
+          const at =
+            typeof rawDate === 'string' &&
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(rawDate)
+              ? Date.parse(rawDate)
+              : NaN;
+          const start = row.issue_started_at.getTime();
+          if (
+            Number.isFinite(at) &&
+            at >= start - 5000 &&
+            at <= start + this.config.requestTimeoutMs + 5000 &&
+            row.customer_id
+          ) {
+            const phone = await this.phone(row.customer_id).catch(() => null);
+            const details = await this.client.details(operationIdOf(match)!);
+            if (details.kind === 'session') return this.later(row, 60, 'session');
+            const bankMobile =
+              details.kind === 'ok' && typeof details.data.ClientMobile === 'string'
+                ? details.data.ClientMobile.replace(/[ ()+-]/g, '')
+                : '';
+            const normalized = /^8\d{10}$/.test(bankMobile)
+              ? '7' + bankMobile.slice(1)
+              : bankMobile;
+            identityMatches =
+              !!phone &&
+              normalized === kaspiPhone(phone) &&
+              details.kind === 'ok' &&
+              operationIdOf(details.data) === operationIdOf(match) &&
+              kaspiMinor(details.data.Amount) === row.amount_minor;
+          }
+        }
+        if (match && amount === row.amount_minor && identityMatches) {
           await this.transition(row, 'issued', {
             operationId: operationIdOf(match)!,
             remoteStatus: match.Status,
