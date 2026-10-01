@@ -1,5 +1,19 @@
 # PickChick — состояние проекта
 
+## 1 октября: исправлена ошибка оформления после открытия Kaspi всем клиентам
+
+API `32b28db` установлен после полной [CI36818319892](https://github.com/xaaknazar/pickchick/actions/runs/36818319892),6/6.
+Причина ложного сообщения об изменении цены - новый approvalReference в digest
+повторного create запроса. Теперь сохранённый заказ восстанавливается со своим
+исходным разрешением, новые заказы используют текущую политику.
+На VPS оба старых запроса перешли из CONFLICT в успешное восстановление того же
+orderId. Ledger сохранился:2 заказа/2 попытки/2 счёта/1 capture; новых счетов нет.
+Backup + isolated restore, schema028, данные/ACL и сессии сохранены.
+Kaspi worker e560e0f и банковский мост не перезапускались. Локально pnpm check,
+38 unit/payment,54 PostgreSQL и68 release tests прошли.
+Нужно подтвердить открытие оформления на телефоне; корзину и вход очищать не нужно.
+[Протокол](operations/checkout-recovery.md), [PR156](https://github.com/xaaknazar/pickchick/pull/156).
+
 ## 1 октября: названия позиций в сообщении счёта Kaspi
 
 На VPS установлен worker `e560e0f` после полной [CI36763255144](https://github.com/xaaknazar/pickchick/actions/runs/36763255144),6/6.
