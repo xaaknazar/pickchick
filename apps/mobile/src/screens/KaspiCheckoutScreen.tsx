@@ -164,9 +164,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
       if (!active) return;
       pending.current = draft;
       if (draft) {
-        const existing = await recover(draft);
-        if (active) await acceptRef.current(existing);
-        return;
+        const existing = CustomerCommerceOrderSchema.parse(await recover(draft));
+        if (!active) return;
+        await acceptRef.current(existing);
+        if (props.screenId !== 'M19' || existing.phase !== 'failed') return;
+        orderRef.current = null;
+        setOrder(null);
       }
       const result = await request('/orders');
       const orders = (result as { orders: unknown[] }).orders.map((v) =>
@@ -238,6 +241,43 @@ function KaspiCheckoutSession(props: ScreenProps) {
     });
     return () => controller.abort();
   }, [request, order?.orderId, order?.revision, order?.phase, foreground, watchCycle]);
+  useEffect(() => {
+    if (props.screenId !== 'M19' || order || !foreground) return;
+    const controller = new AbortController();
+    for (const item of history.filter(
+      (entry) => !paymentReceived(entry.phase) && !['failed', 'attention'].includes(entry.phase),
+    )) {
+      let revision = item.revision;
+      void watchCommerceOrder({
+        signal: controller.signal,
+        read: (signal) =>
+          request(`/orders/${item.orderId}/watch?after=${revision}`, 'GET', undefined, signal),
+        accept: async (value) => {
+          const next = CustomerCommerceOrderSchema.parse(value);
+          revision = next.revision;
+          if (next.phase === 'failed') {
+            if (pending.current?.orderId === next.orderId) {
+              await AsyncStorage.removeItem(key);
+              pending.current = null;
+            }
+            setHistory((items) => items.filter((entry) => entry.orderId !== next.orderId));
+          } else
+            setHistory((items) =>
+              items.map((entry) => (entry.orderId === next.orderId ? next : entry)),
+            );
+        },
+        onError: (_cause, reconnecting) =>
+          setWatchError(
+            reconnecting
+              ? 'Обновляем статусы заказов после восстановления связи.'
+              : 'Не удалось обновить статусы заказов.',
+          ),
+        onRecovered: () => setWatchError(''),
+      });
+    }
+    return () => controller.abort();
+  }, [props.screenId, order, foreground, history, request, key]);
+
   useEffect(() => {
     if (!paidMoment || !foreground) return;
     const timer = setTimeout(() => setPaidMoment(false), 2000);
@@ -442,6 +482,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       ) : null}
       {props.screenId === 'M19' ? (
         <>
+          {watchError ? <Caption accessibilityLiveRegion="polite">{watchError}</Caption> : null}
           {!history.length && loaded && !error ? (
             <Empty
               title="Заказов пока нет"

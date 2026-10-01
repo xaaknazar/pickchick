@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   paymentReceived,
+  invoiceSecondsRemaining,
   paymentCopy,
   checkoutError,
   commerceStatus,
@@ -127,4 +128,15 @@ test('checkout availability is not presented as a broken connection or an invali
     assert.match(checkoutError(new Error(code)), /Корзина сохранена/);
     assert.doesNotMatch(checkoutError(new Error(code)), /Связь прервалась|этого заказа/);
   }
+});
+
+test('invoice countdown uses the server deadline and never manufactures a payment outcome', () => {
+  const deadline = '2026-10-01T00:03:00.000Z';
+  assert.equal(invoiceSecondsRemaining(deadline, Date.parse('2026-10-01T00:00:00Z')), 180);
+  assert.equal(invoiceSecondsRemaining(deadline, Date.parse(deadline) - 1), 1);
+  assert.equal(invoiceSecondsRemaining(deadline, Date.parse(deadline)), 0);
+  assert.equal(invoiceSecondsRemaining(deadline, Date.parse(deadline) + 60000), 0);
+  assert.equal(invoiceSecondsRemaining(null, Date.now()), null);
+  assert.equal(invoiceSecondsRemaining('invalid', Date.now()), null);
+  assert.equal(paymentReceived('awaiting_payment'), false);
 });

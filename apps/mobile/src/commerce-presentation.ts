@@ -111,3 +111,10 @@ export function commerceStatus(order: CustomerCommerceOrder): OrderStatusData {
     },
   };
 }
+
+/** The clock only changes presentation; the bank remains the payment authority. */
+export function invoiceSecondsRemaining(expiresAt: string | null, now: number): number | null {
+  if (!expiresAt) return null;
+  const deadline = Date.parse(expiresAt);
+  return Number.isFinite(deadline) ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
+}

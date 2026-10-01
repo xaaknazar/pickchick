@@ -1,0 +1,63 @@
+from pathlib import Path
+import argparse, subprocess, shlex, json, runpy, uuid, os
+os.umask(0o077)
+parser=argparse.ArgumentParser(description="Install the CI-verified three-minute Kaspi worker after its API release")
+parser.add_argument("--sha", required=True)
+parser.add_argument("--ci-proof", type=Path, required=True)
+parser.add_argument("--prepared", type=Path, required=True)
+parser.add_argument("--ssh-key", type=Path, required=True)
+args=parser.parse_args()
+root=Path(__file__).resolve().parents[2]; sha=args.sha
+assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()==sha
+assert not subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],text=True).strip()
+proof=json.loads(args.ci_proof.read_text())
+m=runpy.run_path(str(root/'infra/staging/release-market.py'))
+m['verify_ci'](proof,sha,required_jobs=m['CI_JOBS'] | {'Cloud-edge fulfillment transport and recovery','Local kitchen UI and recovery'},exact_jobs=True)
+prepared=json.loads(args.prepared.read_text());assert prepared['sha']==sha
+compose=subprocess.check_output(['git','show',sha+':infra/payments/kaspi-bridge/worker.compose.yaml'],text=True)
+payload={'sha':sha,'image':prepared['image_id'],'lock':str(uuid.uuid4()),'compose':compose,'ci':proof['run']['html_url']}
+code=r'''import pathlib,json,subprocess,sys,os,time,hashlib
+p=json.load(sys.stdin);r=pathlib.Path('/opt/pickchick-staging')
+old='e560e0ff52171279f64c166b9fb6bfda8b784087';api=p['sha'];public=p['sha'];lock=r/'.market-release.lock'
+def call(args):return subprocess.check_output(args,text=True).strip()
+def inspect(name):return json.loads(call(['docker','inspect',name]))[0]
+def private(path,data):
+ with path.open('x') as f:os.fchmod(f.fileno(),0o600);f.write(data)
+def compose(directory):return ['docker','compose','--env-file',str(directory/'release.env'),'-f',str(directory/'compose.yaml')]
+def pointers():
+ assert (r/'current').resolve()==r/'releases'/api
+ assert (r/'public-https/current').resolve()==r/'public-https/releases'/public
+pointers()
+previous=inspect('pickchick-kaspi-worker');assert previous['Config']['Image']=='pickchick-api:'+old and previous['State']['Running']
+image=inspect('pickchick-api:'+p['sha']);assert image['Id']==p['image'] and image['Config']['Labels']['org.opencontainers.image.revision']==p['sha']
+js=r"""import{createPool}from'/app/packages/database/dist/index.js';const p=createPool(process.env.CLOUD_DATABASE_URL,1);try{const r=await p.query(`SELECT (SELECT count(*) FROM commerce_payment_attempts)::int attempts,(SELECT count(*) FROM commerce_kaspi_invoices)::int invoices,(SELECT count(*) FROM commerce_captures)::int captures,(SELECT sum(amount_minor)::text FROM commerce_captures) amount,(SELECT count(*) FROM commerce_kaspi_invoices WHERE state IN ('issuing','issued','unknown'))::int unsettled,(SELECT count(*) FROM commerce_outbox e JOIN commerce_payment_attempts a ON a.id=(e.payload->>'attemptId')::uuid WHERE e.event_type='payment.submit_requested' AND e.acknowledged_at IS NULL AND a.state='pending')::int pending`);console.log(JSON.stringify(r.rows[0]));}finally{await p.end()}"""
+def worker_node(code):return call(['docker','exec','pickchick-kaspi-worker','node','--env-file=/run/pickchick/worker.env','--env-file=/run/pickchick/session.env','--input-type=module','-e',code])
+def ledger():return json.loads(worker_node(js))
+def secret_hashes():return call(['docker','exec','pickchick-kaspi-worker','sha256sum','/run/pickchick/worker.env','/run/pickchick/session.env'])
+# No schema/data or credential mutation: only the consumer image changes.
+before=ledger();assert before['unsettled']==0 and before['pending']==0
+secrets=secret_hashes();others={x:inspect(x)['Id'] for x in ['pickchick-staging-api-1','pickchick-kaspi-bridge','pickchick-staging-cloud-db-1','pickchick-staging-redis-cache-1','pickchick-kitchen-portal','pickchick-public-gateway']}
+new=r/'kaspi-companion'/p['sha'];assert not new.exists()
+lock.mkdir(mode=0o700);private(lock/'owner.json',json.dumps({'id':p['lock'],'operation':'kaspi-invoice-expiry','sha':p['sha']}))
+try:
+ pointers();assert inspect('pickchick-kaspi-worker')['Id']==previous['Id'];assert ledger()==before
+ new.mkdir(mode=0o700);private(new/'compose.yaml',p['compose']);private(new/'release.env','API_RELEASE_SHA='+p['sha']+'\nKASPI_SECRETS_DIR='+str(r/'secrets/kaspi-bridge')+'\n')
+ subprocess.run(compose(new)+['up','-d','--no-deps','worker'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+ time.sleep(4)
+ actual=inspect('pickchick-kaspi-worker');assert actual['Image']==p['image'] and actual['State']['Running'] and actual['RestartCount']==0
+ assert actual['HostConfig']['ReadonlyRootfs'] and actual['Config']['User']=='1000:1000'
+ assert actual['Mounts']==previous['Mounts'];assert secret_hashes()==secrets
+ probe=r"""import{kaspiRemoteConfig}from'/app/packages/commerce-core/dist/index.js';const c=kaspiRemoteConfig(process.env);if(c?.invoiceTtlSeconds!==180)throw Error('TTL not installed');console.log(JSON.stringify({invoiceTtlSeconds:c.invoiceTtlSeconds,newInvoiceCreated:false}));"""
+ result=json.loads(worker_node(probe));assert ledger()==before
+ assert all(inspect(x)['Id']==v for x,v in others.items());pointers()
+ proof={'sourceSha':p['sha'],'image':p['image'],'ci':p['ci'],'probe':result,'ledgerUnchanged':True,'credentialsUnchanged':True,'neighborContainersUnchanged':True,'apiSha':api,'previousWorkerSha':old,'newInvoiceCreated':False}
+ private(new/'completed.json',json.dumps(proof));assert json.loads((lock/'owner.json').read_text())['id']==p['lock'];(lock/'owner.json').unlink();lock.rmdir();print(json.dumps(proof))
+except BaseException:
+ subprocess.run(compose(r/'kaspi-companion'/old)+['up','-d','--no-deps','worker'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+ raise
+'''
+ssh=['ssh','-i',str(args.ssh_key),'-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','BatchMode=yes','pickchick-ops@185.129.51.103']
+r=subprocess.run(ssh+['python3 -c '+shlex.quote(code)],input=json.dumps(payload),capture_output=True,text=True,timeout=180)
+f=root/'.local/kaspi-expiry-worker-apply.log';f.write_text(r.stdout+'\n'+r.stderr);f.chmod(0o600)
+if r.returncode:raise SystemExit('Worker update stopped; private diagnostics and owned lock retained.')
+print(r.stdout)

@@ -16,6 +16,8 @@ services:
     cpus: 0.5
     pids_limit: 64
     restart: unless-stopped
+    environment:
+      KASPI_INVOICE_TTL_SECONDS: '180'
     command:
       - node
       - --env-file=/run/pickchick/worker.env
