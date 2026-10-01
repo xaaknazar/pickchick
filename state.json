@@ -1471,11 +1471,15 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps",
-        "@windows/cashier"
+        "@windows/cashier",
+        "packages/menu-sync",
+        "packages/catalog-pricing",
+        "db",
+        "scripts"
       ],
       "status": "active",
       "head": "0c8f5f189bef8da5eb50c751d71a8ede12e0de82",
-      "updatedAt": "2026-10-01T08:34:25.678Z"
+      "updatedAt": "2026-10-01T08:37:46.995Z"
     }
   ]
 }
