@@ -52,6 +52,7 @@ export const FoundationPricedQuoteSchema = z.strictObject({
   customerId: uuid.nullable().default(null),
   channel: z.literal('mobile'),
   serviceMode: z.enum(['takeaway', 'dine_in']),
+  kitchenComment: z.string().trim().min(1).max(60).optional(),
   currency: z.literal('KZT'),
   ttlSeconds: z.number().int().min(1).max(900),
   lines: z.array(LineSchema).min(1).max(200),
@@ -63,6 +64,7 @@ export const TaxBindingSchema = z.strictObject({
 });
 export const PublishedCatalogQuoteSchema = PricedCatalogQuoteSchema.extend({
   channel: z.literal('mobile'),
+  kitchenComment: z.string().trim().min(1).max(60).optional(),
   taxBinding: TaxBindingSchema,
   lines: z
     .array(PricedCatalogLineSchema.extend({ taxCode: z.string().trim().min(1).max(32) }))

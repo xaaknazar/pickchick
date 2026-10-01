@@ -23,6 +23,7 @@ import {
   CustomerCheckout,
   customerCheckoutOptions,
 } from '@pickchick/commerce-core';
+import { checkoutRepresentation } from './customer-checkout-response.js';
 import { RESOURCE, Resources } from '@pickchick/platform';
 
 @Controller('v1/customer-checkout')
@@ -84,41 +85,61 @@ export class CustomerCheckoutController {
     }
     return state;
   }
-  @Get('config') config(@Headers('authorization') auth?: string) {
-    return this.execute(auth, (id) => this.checkout.config(id));
+  @Get('config') config(
+    @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
+  ) {
+    return this.execute(auth, async (id) =>
+      checkoutRepresentation(await this.checkout.config(id), accept),
+    );
   }
   @Post('quotes') @HttpCode(200) quote(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, (id) => this.checkout.quote(id, body));
+    return this.execute(auth, async (id) =>
+      checkoutRepresentation(await this.checkout.quote(id, body), accept),
+    );
   }
   @Post('orders') @HttpCode(200) create(
     @Body() body: unknown,
     @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, (id) => this.checkout.create(id, body));
+    return this.execute(auth, async (id) =>
+      checkoutRepresentation(await this.checkout.create(id, body), accept),
+    );
   }
-  @Get('orders') list(@Headers('authorization') auth?: string) {
-    return this.execute(auth, (id) => this.checkout.list(id));
+  @Get('orders') list(@Headers('authorization') auth?: string, @Headers('accept') accept?: string) {
+    return this.execute(auth, async (id) =>
+      checkoutRepresentation(await this.checkout.list(id), accept),
+    );
   }
   @Post('orders/:orderId/payment') @HttpCode(200) pay(
     @Param('orderId') orderId: string,
     @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, (id) => this.checkout.pay(id, orderId));
+    return this.execute(auth, async (id) =>
+      checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
+    );
   }
   @Get('orders/:orderId') read(
     @Param('orderId') orderId: string,
     @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, (id) => this.checkout.read(id, orderId));
+    return this.execute(auth, async (id) =>
+      checkoutRepresentation(await this.checkout.read(id, orderId), accept),
+    );
   }
   @Get('orders/:orderId/watch') watch(
     @Param('orderId') orderId: string,
     @Query('after') after: string,
     @Res({ passthrough: true }) response: ServerResponse,
     @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
   ) {
     response.setHeader('Cache-Control', 'no-store');
     return this.execute(auth, async (id) => {
@@ -136,7 +157,7 @@ export class CustomerCheckoutController {
           await new Promise((resolve) => setTimeout(resolve, 500));
           order = await this.checkout.read(id, orderId);
         }
-        return order;
+        return checkoutRepresentation(order, accept);
       } finally {
         response.off('close', onClose);
       }

@@ -62,6 +62,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('kaspi');
   const [locale, setLocale] = useState<Locale>('ru');
   const [nickname, setNickname] = useState('');
+  const [orderComment, setOrderComment] = useState('');
   const [practiceScore, setPracticeScore] = useState<number | null>(null);
   const [previewPracticeScore, setPreviewPracticeScore] = useState<number | null>(null);
   const [requestedBranchId, setRequestedBranchId] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [previewDiningMode, setPreviewDiningMode] = useState<DiningMode>('takeaway');
   const [previewPaymentMethod, setPreviewPaymentMethod] = useState<PaymentMethod>('kaspi');
   const [previewNickname, setPreviewNickname] = useState('');
+  const [previewOrderComment, setPreviewOrderComment] = useState('');
   const [previewLocale, setPreviewLocale] = useState<Locale>('ru');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -103,6 +105,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           setPaymentMethod(saved.paymentMethod ?? 'kaspi');
           setLocale(saved.locale);
           setNickname(saved.nickname);
+          setOrderComment(saved.orderComment ?? '');
           setRequestedBranchId(saved.branchId);
           if (saved.catalogMode === 'design') {
             setCart(restoreCart(saved, designProducts, DESIGN_RELEASE));
@@ -230,6 +233,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       paymentMethod,
       locale,
       nickname,
+      orderComment,
       branchId: branch?.id ?? requestedBranchId,
       releaseId: pendingCart?.releaseId ?? releaseId,
       lines:
@@ -251,6 +255,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     paymentMethod,
     locale,
     nickname,
+    orderComment,
     branch?.id,
     requestedBranchId,
     releaseId,
@@ -261,6 +266,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     restoration.current = null;
     setCart([]);
     setNickname('');
+    setOrderComment('');
     setLocale('ru');
     setDiningMode('takeaway');
     setPaymentMethod('kaspi');
@@ -297,10 +303,12 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     connection,
     selectedProduct: products.find((product) => product.id === selectedId) ?? products[0] ?? null,
     nickname,
+    orderComment,
     testFlow,
     practiceScore,
     setPracticeScore,
     setNickname: (value) => setNickname(value.slice(0, 32)),
+    setOrderComment: (value) => setOrderComment(value.slice(0, 60)),
     setLocale,
     setDiningMode,
     setPaymentMethod,
@@ -309,6 +317,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       if (branch?.id === id) return;
       restoration.current = null;
       setCart([]);
+      setOrderComment('');
       setMenu(null);
       setConnectedCatalog(null);
       setRequestedBranchId(id);
@@ -317,6 +326,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       if (mode === catalogMode) return;
       restoration.current = null;
       setCart([]);
+      setOrderComment('');
       setSelectedId(null);
       setMode(mode);
     },
@@ -397,7 +407,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setPaymentMethod: setPreviewPaymentMethod,
     setDiningMode: setPreviewDiningMode,
     nickname: previewNickname,
+    orderComment: previewOrderComment,
     setNickname: (value) => setPreviewNickname(value.slice(0, 32)),
+    setOrderComment: (value) => setPreviewOrderComment(value.slice(0, 60)),
     practiceScore: previewPracticeScore,
     setPracticeScore: setPreviewPracticeScore,
     locale: previewLocale,

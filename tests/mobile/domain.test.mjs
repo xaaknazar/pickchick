@@ -78,6 +78,14 @@ test('untrusted local preferences reject corrupt, oversized, duplicate and inval
     );
   }
   assert.deepEqual(parsePreferences(JSON.stringify(preferences)), preferences);
+  assert.deepEqual(
+    parsePreferences(JSON.stringify({ ...preferences, orderComment: 'Соус отдельно' })),
+    { ...preferences, orderComment: 'Соус отдельно' },
+  );
+  assert.equal(
+    parsePreferences(JSON.stringify({ ...preferences, orderComment: 'а'.repeat(61) })),
+    null,
+  );
 });
 
 test('restoration resolves server-owned product data and discards obsolete releases', () => {

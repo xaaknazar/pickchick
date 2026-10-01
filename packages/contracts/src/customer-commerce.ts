@@ -2,6 +2,7 @@ import { z } from 'zod';
 const amount = z.string().regex(/^(0|[1-9][0-9]{0,15})$/);
 export const CustomerCheckoutConfigSchema = z.strictObject({
   enabled: z.boolean(),
+  orderCommentEnabled: z.boolean().optional().default(false),
   branchId: z.uuid(),
   restaurant: z.string(),
   fiscalPolicy: z.literal('deferred_pilot'),
@@ -11,6 +12,7 @@ export const CustomerQuoteSchema = z.strictObject({
   totalMinor: amount,
   expiresAt: z.iso.datetime(),
   serviceMode: z.enum(['takeaway', 'dine_in']),
+  kitchenComment: z.string().max(60).nullable().optional(),
 });
 export const CustomerCommerceOrderSchema = z.strictObject({
   orderId: z.uuid(),
@@ -23,6 +25,7 @@ export const CustomerCommerceOrderSchema = z.strictObject({
   displayNumber: z.string().nullable(),
   totalMinor: amount,
   serviceMode: z.enum(['takeaway', 'dine_in']),
+  kitchenComment: z.string().max(60).nullable().optional(),
   phase: z.enum([
     'awaiting_restaurant',
     'ready_to_pay',

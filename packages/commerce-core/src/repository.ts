@@ -460,8 +460,9 @@ export class CommerceRepository {
             return line;
           }),
         };
-        const { taxBinding, ...withoutTax } = comparable;
+        const { taxBinding, kitchenComment, ...withoutTax } = comparable;
         void taxBinding;
+        void kitchenComment;
         if (digest(withoutTax) !== digest(repriced)) throw new CommerceError('INVALID');
       } else {
         const release = await client.query(

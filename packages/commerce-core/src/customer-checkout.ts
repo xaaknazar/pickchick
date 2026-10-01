@@ -43,6 +43,12 @@ const QuoteInput = z.strictObject({
   key: z.uuid(),
   branchId: z.uuid(),
   serviceMode: z.enum(['takeaway', 'dine_in']),
+  kitchenComment: z
+    .string()
+    .trim()
+    .max(60)
+    .transform((value) => value || undefined)
+    .optional(),
   items: z
     .array(
       z.strictObject({
@@ -156,6 +162,7 @@ export class CustomerCheckout {
     if (!row) throw new CommerceError('NOT_READY');
     return {
       enabled: row.ready,
+      orderCommentEnabled: true,
       branchId: scope.branchId,
       restaurant: row.name,
       fiscalPolicy: 'deferred_pilot' as const,
@@ -204,6 +211,7 @@ export class CustomerCheckout {
         throw new CommerceError('NOT_READY');
       const quote = await this.repository.issueQuote(scope, request.key, {
         ...priced,
+        ...(request.kitchenComment ? { kitchenComment: request.kitchenComment } : {}),
         taxBinding: {
           legalEntityId: head.legal_entity_id,
           approvalReference: this.options!.approvalReference,
@@ -217,6 +225,7 @@ export class CustomerCheckout {
         totalMinor: quote.snapshot.totalMinor,
         expiresAt: quote.expiresAt,
         serviceMode: request.serviceMode,
+        kitchenComment: quote.snapshot.kitchenComment ?? null,
       };
     } catch (error) {
       if (error instanceof CatalogPricingError) throw new CommerceError('CONFLICT');
@@ -349,6 +358,8 @@ export class CustomerCheckout {
       displayNumber: kitchen?.display_number ?? null,
       totalMinor: order.totalMinor,
       serviceMode: order.snapshot.serviceMode as 'takeaway' | 'dine_in',
+      kitchenComment:
+        typeof order.snapshot.kitchenComment === 'string' ? order.snapshot.kitchenComment : null,
       phase,
       expiresAt: bank?.expires_at?.toISOString() ?? null,
       receipt: sale ? 'issued' : order.fiscalPolicy === 'deferred_pilot' ? 'deferred' : 'pending',

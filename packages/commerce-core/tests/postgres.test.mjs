@@ -1141,10 +1141,11 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
         approvalReference: 'Synthetic approved pilot',
       });
       assert.equal((await service.config(customer)).enabled, true);
-      const quote = await service.quote(customer, {
+      const commentQuoteRequest = {
         key: randomUUID(),
         branchId: f.scope.branchId,
         serviceMode: 'dine_in',
+        kitchenComment: '  Без лука; подписать пакет  ',
         items: [
           {
             productId: 'burger',
@@ -1152,8 +1153,21 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
             selections: [{ group_id: 'extra', option_id: 'sauce', quantity: 1 }],
           },
         ],
-      });
+      };
+      const quote = await service.quote(customer, commentQuoteRequest);
       assert.equal(quote.totalMinor, '11000');
+      assert.equal((await service.quote(customer, commentQuoteRequest)).quoteId, quote.quoteId);
+      await assert.rejects(
+        service.quote(customer, { ...commentQuoteRequest, kitchenComment: 'Другой текст' }),
+        /CONFLICT/,
+      );
+      const savedQuote = (
+        await f.pool.query('SELECT snapshot,digest FROM commerce_quotes WHERE id=$1', [
+          quote.quoteId,
+        ])
+      ).rows[0];
+      assert.equal(savedQuote.snapshot.kitchenComment, 'Без лука; подписать пакет');
+      assert.equal(savedQuote.digest, digest(savedQuote.snapshot));
       const capped = new CustomerCheckout(f.pool, {
         ...f.scope,
         paymentAccountId: f.payment,
@@ -1177,6 +1191,15 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
         service.create(customer, request),
       ]);
       assert.equal(a.orderId, b.orderId);
+      assert.equal(a.kitchenComment, 'Без лука; подписать пакет');
+      assert.equal(b.kitchenComment, a.kitchenComment);
+      assert.equal((await service.read(customer, a.orderId)).kitchenComment, a.kitchenComment);
+      assert.equal((await service.list(customer)).orders[0].kitchenComment, a.kitchenComment);
+      assert.equal(
+        (await f.pool.query('SELECT snapshot FROM commerce_orders WHERE id=$1', [a.orderId]))
+          .rows[0].snapshot.kitchenComment,
+        a.kitchenComment,
+      );
       assert.equal(a.phase, 'awaiting_restaurant');
       assert.equal(a.receipt, 'deferred');
       assert.equal(a.branchId, f.scope.branchId);
@@ -1217,6 +1240,7 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
       assert.notEqual(second.orderId, a.orderId);
       assert.equal(second.orderId, replay.orderId);
       assert.equal(second.totalMinor, '10000');
+      assert.equal(second.kitchenComment, null);
       assert.equal((await repeat.list(customer)).orders.length, 2);
       assert.equal(await f.count('commerce_payment_attempts'), 0);
       await assert.rejects(repeat.config(otherCustomer), /FORBIDDEN/);
@@ -1237,6 +1261,25 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
         service.quote(customer, { ...forged, totalMinor: undefined }),
         /INVALID/,
       );
+      await assert.rejects(
+        service.quote(customer, {
+          ...commentQuoteRequest,
+          key: randomUUID(),
+          kitchenComment: 'x'.repeat(61),
+        }),
+        /INVALID/,
+      );
+      const blankQuote = await service.quote(customer, {
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'takeaway',
+        kitchenComment: '  ',
+        items: [{ productId: 'burger', quantity: 1, selections: [] }],
+      });
+      const blankSnapshot = (
+        await f.pool.query('SELECT snapshot FROM commerce_quotes WHERE id=$1', [blankQuote.quoteId])
+      ).rows[0].snapshot;
+      assert.equal(Object.hasOwn(blankSnapshot, 'kitchenComment'), false);
       const disabled = new CustomerCheckout(f.pool, null);
       await assert.rejects(disabled.config(customer), /FORBIDDEN/);
     },

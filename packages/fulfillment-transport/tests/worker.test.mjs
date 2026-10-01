@@ -450,6 +450,42 @@ test('disabled API cannot claim even with valid active device identity', () =>
     { enabled: false },
   ));
 
+test('comment in immutable commercial snapshot survives cloud/edge replay and appears in kitchen read and queue', () =>
+  fixture(
+    async (f) => {
+      const comment = 'Без лука; подписать пакет';
+      const commercial = await f.commerce.readOrder(f.commercialScope, f.order.orderId);
+      assert.equal(commercial.snapshot.kitchenComment, comment);
+      assert.equal(f.quote.digest, digest(f.quote.snapshot));
+      assert.equal((await f.tick()).state, 'applied');
+      assert.equal((await f.tick()).state, 'acknowledged');
+      const saved = (
+        await f.pool.query('SELECT snapshot FROM fulfillment_reservations WHERE order_id=$1', [
+          f.order.orderId,
+        ])
+      ).rows[0].snapshot;
+      assert.equal(saved.kitchenComment, comment);
+      await f.cloud.query(
+        "UPDATE commerce_outbox SET acknowledged_at=NULL,lease_until=NULL WHERE order_id=$1 AND event_type='edge.admission_requested'",
+        [f.order.orderId],
+      );
+      assert.equal((await f.tick()).state, 'applied');
+      assert.equal((await f.tick()).state, 'idle');
+      assert.equal(await f.counts(f.pool, 'fulfillment_reservations'), '1');
+      const { sale } = await f.pay();
+      await f.fiscalize(sale);
+      assert.equal((await f.tick()).state, 'applied');
+      assert.equal((await f.tick()).state, 'acknowledged');
+      const read = await f.lan('/orders/' + f.order.orderId + '?stationId=' + f.assembly);
+      assert.equal(read.status, 200);
+      assert.equal((await read.json()).kitchenComment, comment);
+      const queue = await f.lan('/kitchen?stationId=' + f.assembly);
+      assert.equal(queue.status, 200);
+      assert.equal((await queue.json()).items[0].kitchenComment, comment);
+    },
+    { kitchenComment: 'Без лука; подписать пакет' },
+  ));
+
 test('unverified proxy409 after local commit retains exact pending delivery and safely retries', () =>
   fixture(async (f) => {
     const result = await f.tick({

@@ -289,7 +289,10 @@ export function Profile(props: ScreenProps) {
             onPress={() => {
               if (!props.preview)
                 void account.signOut().then((success) => {
-                  if (success) props.model.setNickname('');
+                  if (success) {
+                    props.model.setNickname('');
+                    props.model.setOrderComment('');
+                  }
                 });
             }}
           />

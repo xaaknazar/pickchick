@@ -182,6 +182,7 @@ export interface SavedPreferences {
   diningMode: 'takeaway' | 'dine_in';
   locale: 'ru' | 'kk';
   nickname: string;
+  orderComment?: string;
   paymentMethod?: PaymentMethod;
   branchId: string | null;
   releaseId: string | null;
@@ -202,6 +203,8 @@ export function parsePreferences(raw: string | null): SavedPreferences | null {
       (p.paymentMethod !== undefined && !['kaspi', 'card'].includes(String(p.paymentMethod))) ||
       typeof p.nickname !== 'string' ||
       p.nickname.length > 32 ||
+      (p.orderComment !== undefined &&
+        (typeof p.orderComment !== 'string' || p.orderComment.length > 60)) ||
       !(p.branchId === null || typeof p.branchId === 'string') ||
       !(p.releaseId === null || typeof p.releaseId === 'string') ||
       !Array.isArray(p.lines) ||

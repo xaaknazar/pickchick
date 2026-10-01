@@ -1,6 +1,6 @@
 import { CheckoutSheetHeader, checkoutStyle } from '../components/CheckoutPresentation';
-import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { StyleSheet, TextInput, View } from 'react-native';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
 import { cartTotal, money } from '../domain';
@@ -21,6 +21,8 @@ export function CheckoutDetails({
   restaurantName,
   details,
   paymentContent,
+  commentEnabled,
+  commentEditable = true,
 }: {
   props: ScreenProps;
   lockedMode?: 'takeaway' | 'dine_in';
@@ -28,8 +30,11 @@ export function CheckoutDetails({
   address?: string;
   details?: ReactNode;
   paymentContent?: ReactNode;
+  commentEnabled?: boolean;
+  commentEditable?: boolean;
 }) {
   const { model } = props;
+  const [commentFocused, setCommentFocused] = useState(false);
   const location = restaurantLocation(model.branch?.id);
   return (
     <View style={s.layout}>
@@ -79,18 +84,38 @@ export function CheckoutDetails({
             <Caption style={s.modeHint}>Выдача по номеру заказа</Caption>
           </View>
         </Row>
-        <View
-          style={s.commentRow}
-          accessible
-          accessibilityLabel="Комментарий к заказу, скоро"
-          accessibilityState={{ disabled: true }}
-        >
-          <Icon name="chatbubble-outline" size={20} color="#A3B4D6" />
-          <View style={s.place}>
-            <Body style={s.commentLabel}>Комментарий к заказу</Body>
-            <Caption style={s.modeHint}>Передача на кухню подключается</Caption>
+        {commentEnabled ? (
+          <View style={s.commentRow}>
+            <View style={s.commentHeading}>
+              <Icon name="chatbubble-outline" size={20} color="#A3B4D6" />
+              <Body style={s.commentLabel}>Комментарий к заказу</Body>
+            </View>
+            <TextInput
+              testID="checkout-comment-input"
+              accessibilityLabel="Комментарий к заказу"
+              accessibilityHint="Необязательно, до 60 символов"
+              value={model.orderComment}
+              onChangeText={model.setOrderComment}
+              editable={commentEditable}
+              onFocus={() => setCommentFocused(true)}
+              onBlur={() => setCommentFocused(false)}
+              maxLength={60}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              placeholder="Например, соус отдельно"
+              placeholderTextColor="#A3B4D6"
+              style={[
+                s.commentInput,
+                commentFocused && { borderColor: colors.accent },
+                !commentEditable && { opacity: 0.6 },
+              ]}
+            />
+            <Caption testID="checkout-comment-count" style={s.commentCount}>
+              {model.orderComment.length}/60
+            </Caption>
           </View>
-        </View>
+        ) : null}
       </View>
       <Caption style={[s.sectionLabel, { marginTop: 10 }]}>ОПЛАТА</Caption>
       {paymentContent ?? <CheckoutPayments />}
@@ -183,13 +208,25 @@ const s = StyleSheet.create({
   place: { flex: 1, minWidth: 0, gap: 2 },
   placeName: { fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
   commentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 54,
+    gap: 8,
     padding: 14,
     borderTopWidth: 1,
     borderTopColor: '#FFFFFF0A',
   },
-  commentLabel: { fontSize: 15, lineHeight: 21, color: '#A3B4D6' },
+  commentHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  commentLabel: { fontSize: 15, lineHeight: 21, color: '#FFFFFF' },
+  commentInput: {
+    minHeight: 82,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFFFFF33',
+    backgroundColor: '#04143A',
+    color: '#FFFFFF',
+    fontFamily: font.body,
+    fontSize: 16,
+    lineHeight: 23,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  commentCount: { textAlign: 'right', fontSize: 12, lineHeight: 18, color: '#A3B4D6' },
 });

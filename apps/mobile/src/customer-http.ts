@@ -5,7 +5,13 @@ import { ErrorSchema } from '@pickchick/contracts';
 export function createCustomerRequest(
   baseUrl: string,
   fetcher: typeof fetch = fetch,
-  boundary?: { allowed: RegExp; timeoutMs: number; maxBytes: number; signal?: AbortSignal },
+  boundary?: {
+    allowed: RegExp;
+    timeoutMs: number;
+    maxBytes: number;
+    signal?: AbortSignal;
+    accept?: string;
+  },
 ): CustomerRequest {
   const url = new URL(baseUrl);
   if (
@@ -31,7 +37,7 @@ export function createCustomerRequest(
       const response = await fetcher(`${url.origin}${path}`, {
         method,
         headers: {
-          Accept: 'application/json',
+          Accept: boundary?.accept ?? 'application/json',
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },

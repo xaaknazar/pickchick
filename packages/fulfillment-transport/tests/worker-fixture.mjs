@@ -10,7 +10,7 @@ import { provisionFulfillmentTransport, syncFulfillmentOnce } from '../dist/inde
 import { createApi } from '../../../services/api/dist/index.js';
 import { createEdge } from '../../../services/edge/dist/index.js';
 
-export async function fixture(run, { enabled = true } = {}) {
+export async function fixture(run, { enabled = true, kitchenComment } = {}) {
   return edgeFixture(async (f) => {
     const cloudUrl =
       process.env.CLOUD_DATABASE_URL ??
@@ -91,6 +91,7 @@ export async function fixture(run, { enabled = true } = {}) {
         releaseId: release,
         channel: 'mobile',
         serviceMode: 'dine_in',
+        ...(kitchenComment ? { kitchenComment } : {}),
         currency: 'KZT',
         ttlSeconds: 300,
         lines: [

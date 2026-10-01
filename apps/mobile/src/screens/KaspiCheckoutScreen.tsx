@@ -22,6 +22,7 @@ import {
   CustomerQuoteSchema,
   checkoutItems,
   cartSignature,
+  normalizedOrderComment,
   maskedPhone,
 } from '../commerce-checkout';
 import { OrderStatusView } from './OrderStatusScreen';
@@ -71,6 +72,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const paidSeen = useRef(new Set<string>());
   const [watchCycle, setWatchCycle] = useState(0);
   const [watchError, setWatchError] = useState('');
+  const [priceNotice, setPriceNotice] = useState('');
   const orderRef = useRef<CustomerCommerceOrder | null>(null);
   const [refresh, setRefresh] = useState(0),
     [foreground, setForeground] = useState(AppState.currentState !== 'background');
@@ -78,7 +80,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
     lock = useRef(false);
   const cart = useRef(props.model.cart);
   cart.current = props.model.cart;
-  const signature = cartSignature(props.model.cart, props.model.diningMode);
+  const cartOnlySignature = cartSignature(props.model.cart, props.model.diningMode);
+  const comment = normalizedOrderComment(props.model.orderComment);
+  const signature = cartSignature(props.model.cart, props.model.diningMode, comment);
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
   const key = `pickchick.commerce.pending.v1:${customerId}`;
@@ -108,10 +112,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
       orderRef.current = current;
       if (pending.current && (paymentReceived(current.phase) || current.phase === 'failed')) {
         // A newer cart or changed modifiers are never cleared by an older payment.
-        if (paymentReceived(current.phase) && pending.current.signature === signatureRef.current)
+        if (paymentReceived(current.phase) && pending.current.signature === signatureRef.current) {
           props.model.clearCart(
             cart.current.map((line) => ({ id: cartLineKey(line), quantity: line.quantity })),
           );
+          props.model.setOrderComment('');
+        }
         await AsyncStorage.removeItem(key);
         pending.current = null;
       }
@@ -189,16 +195,21 @@ function KaspiCheckoutSession(props: ScreenProps) {
       setConfig(setup);
       if (!setup.enabled) throw new Error('NOT_READY');
       if (!cart.current.length) return;
-      const currentSignature = signatureRef.current;
+      const currentCartSignature = cartSignature(cart.current, props.model.diningMode);
+      const requestedComment = setup.orderCommentEnabled
+        ? normalizedOrderComment(props.model.orderComment)
+        : '';
       const priced = CustomerQuoteSchema.parse(
         await request('/quotes', 'POST', {
           key: randomUUID(),
           branchId: setup.branchId,
           serviceMode: props.model.diningMode,
           items: checkoutItems(cart.current),
+          ...(requestedComment ? { kitchenComment: requestedComment } : {}),
         }),
       );
-      if (active && currentSignature === signatureRef.current) setQuote(priced);
+      if (active && currentCartSignature === cartSignature(cart.current, props.model.diningMode))
+        setQuote(priced);
     };
     void run()
       .catch((e) => {
@@ -217,7 +228,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     refresh,
     props.screenId,
     props.model.branch?.id,
-    signature,
+    cartOnlySignature,
     props.model.diningMode,
   ]);
 
@@ -297,10 +308,32 @@ function KaspiCheckoutSession(props: ScreenProps) {
     lock.current = true;
     setBusy(true);
     setError('');
+    setPriceNotice('');
     try {
+      if (!config?.orderCommentEnabled && normalizedOrderComment(props.model.orderComment)) {
+        return;
+      }
+      let currentQuote = quote;
+      if (comment !== (quote.kitchenComment ?? '')) {
+        currentQuote = CustomerQuoteSchema.parse(
+          await request('/quotes', 'POST', {
+            key: randomUUID(),
+            branchId: config?.branchId,
+            serviceMode: props.model.diningMode,
+            items: checkoutItems(cart.current),
+            ...(comment ? { kitchenComment: comment } : {}),
+          }),
+        );
+        if (signature !== signatureRef.current) return;
+        setQuote(currentQuote);
+        if (currentQuote.totalMinor !== quote.totalMinor) {
+          setPriceNotice('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.');
+          return;
+        }
+      }
       const draft: Pending = {
         key: randomUUID(),
-        quoteId: quote.quoteId,
+        quoteId: currentQuote.quoteId,
         signature,
         sendInvoice: true,
       };
@@ -350,6 +383,11 @@ function KaspiCheckoutSession(props: ScreenProps) {
       ? 'Проверяем наличие в ресторане. Оплата станет доступна после подключения.'
       : '';
   const statusError = error || watchError;
+  const unsupportedComment =
+    loaded &&
+    !!config &&
+    config.orderCommentEnabled !== true &&
+    !!normalizedOrderComment(props.model.orderComment);
   const footer =
     props.screenId !== 'M19' && props.model.cart.length ? (
       <>
@@ -357,6 +395,17 @@ function KaspiCheckoutSession(props: ScreenProps) {
           {availabilityError ? (
             <Caption accessibilityRole="alert">{availabilityError}</Caption>
           ) : null}
+          {unsupportedComment ? (
+            <View style={s.commentUnavailable}>
+              <Caption>Комментарий временно недоступен. Удалите его, чтобы оформить заказ.</Caption>
+              <Button
+                secondary
+                title="Удалить комментарий"
+                onPress={() => props.model.setOrderComment('')}
+              />
+            </View>
+          ) : null}
+          {priceNotice ? <Caption accessibilityRole="alert">{priceNotice}</Caption> : null}
         </>
         <Row style={s.total}>
           <Body style={s.totalLabel}>
@@ -378,6 +427,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
             !loaded ||
             !quote ||
             quote.serviceMode !== props.model.diningMode ||
+            !config ||
+            unsupportedComment ||
             busy ||
             !!error
           }
@@ -424,6 +475,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
       <OrderStatusView
         props={statusProps}
         order={commerceStatus(order)}
+        afterItems={
+          order.kitchenComment ? (
+            <View testID="order-kitchen-comment" style={s.savedComment}>
+              <Caption>Комментарий к заказу</Caption>
+              <Body>{order.kitchenComment}</Body>
+            </View>
+          ) : undefined
+        }
         notice={
           statusError ? (
             <View style={s.warning}>
@@ -529,6 +588,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
       ) : props.model.cart.length ? (
         <CheckoutDetails
           props={props}
+          commentEnabled={config?.orderCommentEnabled === true}
+          commentEditable={!busy}
           restaurantName={config?.restaurant}
           details={
             quote && quote.totalMinor !== cartTotal(props.model.cart) ? (
@@ -568,6 +629,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
 }
 
 const s = StyleSheet.create({
+  commentUnavailable: { gap: 8, paddingVertical: 4 },
+  savedComment: { gap: 4, padding: 14, borderRadius: 16, backgroundColor: colors.surface },
   total: { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
   totalLabel: { fontFamily: font.heading, fontSize: 20, lineHeight: 28 },
   totalAmount: { fontFamily: font.heading, fontSize: 24, lineHeight: 34 },

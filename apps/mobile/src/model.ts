@@ -71,6 +71,7 @@ export interface MobileModel {
   cart: CartLine[];
   catalogMode: CatalogMode;
   diningMode: DiningMode;
+  orderComment: string;
   paymentMethod: PaymentMethod;
   upsellProductIds: string[];
   locale: Locale;
@@ -85,6 +86,7 @@ export interface MobileModel {
   setNickname(value: string): void;
   setLocale(value: Locale): void;
   setDiningMode(value: DiningMode): void;
+  setOrderComment(value: string): void;
   setBranch(id: string): void;
   setCatalogMode(mode: CatalogMode): void;
   selectProduct(id: string): void;

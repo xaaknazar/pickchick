@@ -21,6 +21,7 @@ export const commerceRequest = (
       /^\/v1\/customer-checkout\/(config|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
     timeoutMs: 28000,
     maxBytes: 128000,
+    accept: 'application/json; profile="pickchick.checkout-comments-v1"',
     signal,
   })(path, method, body, token);
 
@@ -31,8 +32,15 @@ export const checkoutItems = (cart: CartLine[]) =>
     quantity: line.quantity,
     selections: line.selections ?? [],
   }));
-export const cartSignature = (cart: CartLine[], serviceMode: string) =>
-  JSON.stringify({ items: checkoutItems(cart), serviceMode });
+export const normalizedOrderComment = (value: string) => value.trim();
+export const cartSignature = (cart: CartLine[], serviceMode: string, orderComment = '') =>
+  JSON.stringify({
+    items: checkoutItems(cart),
+    serviceMode,
+    ...(normalizedOrderComment(orderComment)
+      ? { kitchenComment: normalizedOrderComment(orderComment) }
+      : {}),
+  });
 export function maskedPhone(phone?: string) {
   const digits = phone?.replace(/\D/g, '') ?? '';
   return digits.length === 11
