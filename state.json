@@ -1578,6 +1578,23 @@
       "updatedAt": "2026-10-01T14:44:43.235Z",
       "summary": "PickChick 0.2.0 (6) delivered to existing Internal group. Clean source 0025457 and full CI36868949571 6/6; native Release smoke passed. Delivery evidence 1d03665 published/shared; its CI36875788140 still running. Screenshot from owner shows profile in TestFlight. Roadmap online update carried into next avatar task.",
       "nextAction": "Implement requested Alex avatar; publish updated roadmap after green CI. Confirm restaurant fresh menu and physical paid order separately."
+    },
+    {
+      "id": "profile-alex-avatar",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/profile-alex-avatar",
+      "scopes": [
+        "apps/mobile/src/screens/ProfileScreen.tsx",
+        "apps/mobile/assets/profile",
+        "docs/operations/profile-alex-avatar.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "1d03665db809aa79b9fbe3d74e59335f5c48e392",
+      "updatedAt": "2026-10-01T14:44:59.252Z"
     }
   ]
 }
