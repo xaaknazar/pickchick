@@ -1477,9 +1477,11 @@
         "db",
         "scripts"
       ],
-      "status": "active",
-      "head": "0c8f5f189bef8da5eb50c751d71a8ede12e0de82",
-      "updatedAt": "2026-10-01T08:37:46.995Z"
+      "status": "done",
+      "head": "bc41c0280c1b860b1354b43cfd9eda05216544d9",
+      "updatedAt": "2026-10-01T11:08:54.342Z",
+      "summary": "Установлена синхронизация стоп-листа: API/Windows e47702a, CI 6/6; свежий Pick Combo stop, server ITEM_STOPPED, mobile 320/390 px подтверждены. Документы/shared и онлайн-пульт bc41c02 опубликованы, PR159.",
+      "nextAction": "Проверить на физическом iPhone после обновления Dev; резервирование последней порции по нормам остаётся отдельным этапом."
     }
   ]
 }
