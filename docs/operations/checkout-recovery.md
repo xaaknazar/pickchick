@@ -24,5 +24,18 @@ CustomerCheckout ищет заказ только по quote текущего к
 Профиль release-checkout-recovery.py фиксирует API8ecdc13/public7fbf759/schema028,
 требует полную CI точного commit, backup/restore, сохранение данных/ACL и точного
 действующего all-customer environment. Банковский worker e560e0f не меняется.
-Установка пока не выполнена. Контроль после установки: повтор двух имеющихся
-create commands, тот же orderId, неизменные количества order/attempt/invoice/capture.
+Установлен API32b28db2aafd0f04a5c134787ded251aff6ca55e после полной
+[CI36818319892](https://github.com/xaaknazar/pickchick/actions/runs/36818319892),6/6.
+Локально прошли pnpm check,38 unit/payment,54 PostgreSQL и68 release tests.
+
+Оба существующих create commands, включая истёкшие quotes, теперь возвращают
+исходные orderId. До установки оба возвращали CONFLICT. Ledger до/после:
+2 order,2 attempt,2 invoice,1 capture; новых финансовых эффектов нет.
+Backup и изолированное восстановление прошли; данные/ACL и schema028 сохранены.
+Container ID банковского worker e560e0f и моста совпали с исходными, оба работают.
+Приватное доказательство выпуска: `.local/checkout-recovery-release/32b28db2aafd0f04a5c134787ded251aff6ca55e/result.json`.
+
+На телефоне нужно закрыть и снова открыть оформление. Старое неоплаченное
+оформление может сначала показать штатный экран завершённой попытки с повтором.
+Очистка корзины/сессии и переустановка приложения не требуются.
+Приёмка на телефоне ещё ожидается; работа физической кухни этим тестом не проверялась.
