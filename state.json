@@ -1573,9 +1573,11 @@
         "@release/ios",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "00254575098e242423ed301ff8d7c405d23ce79c",
-      "updatedAt": "2026-10-01T14:12:38.427Z"
+      "status": "done",
+      "head": "1d03665db809aa79b9fbe3d74e59335f5c48e392",
+      "updatedAt": "2026-10-01T14:44:43.235Z",
+      "summary": "PickChick 0.2.0 (6) delivered to existing Internal group. Clean source 0025457 and full CI36868949571 6/6; native Release smoke passed. Delivery evidence 1d03665 published/shared; its CI36875788140 still running. Screenshot from owner shows profile in TestFlight. Roadmap online update carried into next avatar task.",
+      "nextAction": "Implement requested Alex avatar; publish updated roadmap after green CI. Confirm restaurant fresh menu and physical paid order separately."
     }
   ]
 }
