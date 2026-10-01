@@ -1,6 +1,7 @@
 import { MotionPressable as Pressable } from '../components/Motion';
 import type { ReactNode } from 'react';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { ComboRewardCard } from '../components/ComboRewardCard';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -108,11 +109,13 @@ export function Profile(props: ScreenProps) {
             <>
               <View style={[s.identityRow, fontScale > 1.4 && { flexWrap: 'wrap' }]}>
                 <View style={s.avatar}>
-                  {account.account ? (
-                    <Text style={s.initial}>{Array.from(name)[0]?.toUpperCase()}</Text>
-                  ) : (
-                    <Icon name="person-outline" size={28} color={colors.orangeInk} />
-                  )}
+                  <Image
+                    testID="profile-alex-avatar"
+                    source={require('../../assets/profile/alex-avatar.png')}
+                    style={s.avatarImage}
+                    contentFit="cover"
+                    accessible={false}
+                  />
                 </View>
                 <View style={s.flex}>
                   <Text style={s.name}>{account.account ? name : 'Добро пожаловать'}</Text>
@@ -336,10 +339,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: brandColors.brandOrange,
-    borderWidth: 1,
-    borderColor: brandColors.brandOrange,
+    overflow: 'hidden',
   },
-  initial: { fontFamily: font.display, fontSize: 30, lineHeight: 38, color: colors.orangeInk },
+  avatarImage: { width: '100%', height: '100%' },
   name: { fontFamily: font.heading, fontSize: 22, lineHeight: 30, color: colors.white },
   subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 14, lineHeight: 20, color: '#B6C4DD' },
   demoLabel: {
