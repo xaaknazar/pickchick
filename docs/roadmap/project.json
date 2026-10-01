@@ -1214,8 +1214,8 @@
       "id": "catalog-availability",
       "workstream": "catalog",
       "title": "Стоп-листы и последняя порция",
-      "summary": "Подготовлена передача эффективных POS-стопов в мобильное меню и серверная блокировка quote/pay/admission. Локальные проверки пройдены; установка ожидает CI. Полный расчёт последней порции по нормам ещё не реализован.",
-      "status": "planned",
+      "summary": "Стоп-лист кассы установлен в мобильном меню и серверных quote/pay/admission: API и edge e47702a, CI 6/6, свежий реальный стоп Pick Combo и UI 320/390 px проверены. Полный расчёт последней порции по нормам ещё не реализован.",
+      "status": "active",
       "owner": "development",
       "phase": "integration",
       "dependsOn": ["catalog-unified", "inventory-norms"],
@@ -1238,11 +1238,11 @@
         }
       ],
       "acceptance": ["AC-03: последняя порция достаётся одному заказу до открытия оплаты."],
-      "nextAction": "Связать нормы, локальные ограничения и подтверждённый admission.",
+      "nextAction": "Подтвердить стоп-лист на физическом iPhone; отдельно связать нормы и резервирование последней порции (AC-03).",
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
