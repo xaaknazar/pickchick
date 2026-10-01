@@ -14,6 +14,7 @@ param(
   [Parameter(Mandatory=$true)][guid]$BranchId,
   [Parameter(Mandatory=$true)][string]$DatabaseHelper,
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$DatabaseHelperSha256,
+  [Parameter(Mandatory=$true)][guid]$DeviceId,
   [switch]$Apply
 )
 Set-StrictMode -Version Latest
@@ -66,6 +67,19 @@ $stream=Open-VerifiedFile $dump $backup.sha256;$stream.Dispose()
 $xml=[IO.File]::ReadAllText($xmlPath)
 $document=Read-UpdateXml $xml $node $envFile $oldApp $logs
 $newXml=New-UpdateServiceXml $document $envFile $newApp
+$workerXmlPath=Join-Path $program 'FulfillmentWorker\PickChickFulfillmentWorker.xml'
+$workerEnv=Join-Path $data 'FulfillmentWorker\worker.env'
+$workerIdentity=Join-Path $data 'FulfillmentWorker\device-identity.json'
+foreach($path in @($workerXmlPath,$workerEnv,$workerIdentity)) {Assert-UpdateAcl $path 'ReadAndExecute'}
+$workerXml=[IO.File]::ReadAllText($workerXmlPath);[xml]$workerDocument=$workerXml
+$expectedArguments='--env-file="'+$workerEnv+'" "'+$oldApp+'\infra\windows\native-fulfillment-worker.mjs" "'+$workerIdentity+'" '+$BranchId.ToString()+' '+$DeviceId.ToString()
+if($workerDocument.service.executable -cne $node -or $workerDocument.service.workingdirectory -cne $oldApp -or $workerDocument.service.arguments -cne $expectedArguments) {throw 'Unexpected transport worker binding.'}
+$workerService=Get-CimInstance Win32_Service -Filter "Name='PickChickFulfillmentWorker'"
+if($workerService.State -ne 'Running' -or $workerService.StartName -ne 'NT AUTHORITY\LocalService' -or $workerService.PathName -cne ('"'+$program+'\FulfillmentWorker\PickChickFulfillmentWorker.exe"')) {throw 'Unexpected transport service.'}
+$workerDocument.service.workingdirectory=$newApp
+$workerDocument.service.arguments=$expectedArguments.Replace($oldApp,$newApp)
+$newWorkerXml=$workerDocument.OuterXml
+$workerEnvHash=(Get-FileHash $workerEnv).Hash;$identityHash=(Get-FileHash $workerIdentity).Hash
 $envHash=(Get-FileHash $envFile).Hash
 $otherServices=@{}
 foreach($name in @('PickChickPostgres','PickChickKitchenLink','PickChickFulfillmentTunnel')) {
@@ -101,6 +115,8 @@ try {
   New-ProtectedDirectory $stateRoot
   Write-UpdateText (Join-Path $stateRoot 'original-edge.xml') $xml
   Write-UpdateText (Join-Path $stateRoot 'candidate-edge.xml') $newXml
+  Write-UpdateText (Join-Path $stateRoot 'original-worker.xml') $workerXml
+  Write-UpdateText (Join-Path $stateRoot 'candidate-worker.xml') $newWorkerXml
   Write-UpdateText (Join-Path $stateRoot 'inputs.json') (@{sourceCommit=$SourceCommit;archiveSha256=$RuntimeSha256;backupSha256=$backup.sha256;ciRun=$proof.run.id;environmentHash=$envHash} | ConvertTo-Json)
   New-ProtectedDirectory $newRoot 'ReadAndExecute';New-ProtectedDirectory $newApp 'ReadAndExecute'
   foreach($item in $plan) {
@@ -113,6 +129,8 @@ try {
   if([IO.File]::ReadAllText($xmlPath) -cne $xml -or (Get-FileHash $envFile).Hash -cne $envHash) {throw 'Concurrent configuration change.'}
   $deps=@((Get-Service PickChickEdge).DependentServices | ForEach-Object {$_.Name})
   if($deps.Count -ne 1 -or $deps[0] -ne 'PickChickKitchenLink') {throw 'Unreviewed service dependency.'}
+  if([IO.File]::ReadAllText($workerXmlPath) -cne $workerXml -or (Get-FileHash $workerEnv).Hash -cne $workerEnvHash -or (Get-FileHash $workerIdentity).Hash -cne $identityHash) {throw 'Transport configuration changed.'}
+  Stop-Service PickChickFulfillmentWorker;(Get-Service PickChickFulfillmentWorker).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(35))
   Stop-Service PickChickKitchenLink;(Get-Service PickChickKitchenLink).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(35))
   Stop-Service PickChickEdge;(Get-Service PickChickEdge).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(35))
   try {
@@ -132,6 +150,9 @@ try {
     $temp=$xmlPath+'.app-update.tmp';Write-UpdateText $temp $newXml
     [IO.File]::Replace($temp,$xmlPath,[Management.Automation.Language.NullString]::Value)
     Assert-UpdateAcl $xmlPath 'ReadAndExecute'
+    $workerTemp=$workerXmlPath+'.number-update.tmp';Write-UpdateText $workerTemp $newWorkerXml
+    [IO.File]::Replace($workerTemp,$workerXmlPath,[Management.Automation.Language.NullString]::Value)
+    Assert-UpdateAcl $workerXmlPath 'ReadAndExecute'
     Start-Service PickChickEdge
     $deadline=[DateTime]::UtcNow.AddSeconds(30);$healthy=$false
     do {try {$r=Read-UpdateHttp '/health/ready';$healthy=$r.service -eq 'edge' -and $r.ready -eq $true} catch {$healthy=$false};if(-not $healthy) {Start-Sleep -Milliseconds 500}} while(-not $healthy -and [DateTime]::UtcNow -lt $deadline)
@@ -141,17 +162,20 @@ try {
     if($listener.Count -ne 1 -or $listener[0].LocalAddress -ne '127.0.0.1' -or -not $child.CommandLine.Contains($newApp+'\dist\main.js')) {throw 'Unexpected runtime process.'}
     if((Get-FileHash $envFile).Hash -cne $envHash) {throw 'Environment changed.'}
     Start-Service PickChickKitchenLink;(Get-Service PickChickKitchenLink).WaitForStatus('Running',[TimeSpan]::FromSeconds(30))
+    if((Get-FileHash $workerEnv).Hash -cne $workerEnvHash -or (Get-FileHash $workerIdentity).Hash -cne $identityHash) {throw 'Transport credentials changed.'}
+    Start-Service PickChickFulfillmentWorker;(Get-Service PickChickFulfillmentWorker).WaitForStatus('Running',[TimeSpan]::FromSeconds(30))
     foreach($name in $otherServices.Keys | Where-Object {$_ -ne 'PickChickKitchenLink'}) {if((Get-CimInstance Win32_Service -Filter "Name='$name'").ProcessId -ne $otherServices[$name]) {throw 'Other service restarted.'}}
-    Write-UpdateText (Join-Path $stateRoot 'completed.json') (@{sourceCommit=$SourceCommit;completedAt=[DateTime]::UtcNow.ToString('o');schema=15;dataPreserved=$true;environmentChanged=$false;dependentKitchenLinkRestarted=$true} | ConvertTo-Json)
+    Write-UpdateText (Join-Path $stateRoot 'completed.json') (@{sourceCommit=$SourceCommit;completedAt=[DateTime]::UtcNow.ToString('o');schema=15;dataPreserved=$true;environmentChanged=$false;dependentKitchenLinkRestarted=$true;transportWorkerUpdated=$true} | ConvertTo-Json)
     Write-Output 'READY: schema015 and application updated; rows, sequences, credentials, Postgres and tunnel preserved.'
   } catch {
     if($script:migrationAttempted) {
+      if((Get-Service PickChickFulfillmentWorker).Status -ne 'Stopped') {Stop-Service PickChickFulfillmentWorker}
       if((Get-Service PickChickKitchenLink).Status -ne 'Stopped') {Stop-Service PickChickKitchenLink}
       if((Get-Service PickChickEdge).Status -ne 'Stopped') {Stop-Service PickChickEdge}
       Write-UpdateText (Join-Path $stateRoot 'forward-recovery-required.txt') 'Inspect schema and candidate runtime; do not restart the schema014 binary.'
     } else {
       if([IO.File]::ReadAllText($xmlPath) -cne $xml) {throw 'Unexpected configuration; preserve for inspection.'}
-      Start-Service PickChickEdge;Start-Service PickChickKitchenLink
+      Start-Service PickChickEdge;Start-Service PickChickKitchenLink;Start-Service PickChickFulfillmentWorker
     }
     throw
   }
