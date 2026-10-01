@@ -1,4 +1,5 @@
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+import { z } from 'zod';
 import { transaction } from '@pickchick/database';
 import type { DatabasePool } from '@pickchick/database';
 import { CommerceRepository } from './repository.js';
@@ -257,6 +258,48 @@ function operationIdOf(data: Record<string, unknown>): string | null {
   return null;
 }
 
+// Application-side message budget. The bridge does not declare a bank limit.
+// Keep the recovery marker first and intact even when product names are shortened.
+const INVOICE_COMMENT_MAX_LENGTH = 255;
+const InvoiceItemsSchema = z.object({
+  lines: z.array(z.object({ title: z.string(), quantity: z.number().int().positive() })),
+});
+
+export function kaspiInvoiceComment(reference: string, snapshot: unknown): string {
+  const marker = `PickChick ${reference}`;
+  const parsed = InvoiceItemsSchema.safeParse(snapshot);
+  if (!parsed.success || !parsed.data.lines.length) return marker;
+  const items = parsed.data.lines.map(({ title, quantity }) => {
+    const name = title
+      .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+      .replace(/\s+/gu, ' ')
+      .trim();
+    return { name: name || 'Позиция', quantity };
+  });
+  const prefix = `${marker}: `;
+  const parts: string[] = [];
+  for (const [index, entry] of items.entries()) {
+    const quantity = ` ×${entry.quantity}`;
+    const item = entry.name + quantity;
+    const remaining = items.length - index - 1;
+    const suffix = remaining ? `; ещё ${remaining} поз.` : '';
+    const separator = parts.length ? '; ' : '';
+    const used = prefix.length + parts.join('; ').length + separator.length;
+    if (used + item.length + suffix.length > INVOICE_COMMENT_MAX_LENGTH) {
+      if (parts.length) return `${prefix}${parts.join('; ')}; ещё ${items.length - index} поз.`;
+      const budget = INVOICE_COMMENT_MAX_LENGTH - used - suffix.length - quantity.length - 1;
+      let shortened = '';
+      for (const character of entry.name) {
+        if (shortened.length + character.length > budget) break;
+        shortened += character;
+      }
+      return `${prefix}${shortened.trimEnd()}…${quantity}${suffix}`;
+    }
+    parts.push(item);
+  }
+  return prefix + parts.join('; ');
+}
+
 /** Invoices in a history answer whose text fields mention the reference. */
 export function findByReference(data: unknown, reference: string): Record<string, unknown>[] {
   const found: Record<string, unknown>[] = [];
@@ -268,7 +311,9 @@ export function findByReference(data: unknown, reference: string): Record<string
     }
     const record = node as Record<string, unknown>;
     const mentions = Object.values(record).some(
-      (v) => typeof v === 'string' && v.trim() === `PickChick ${reference}`,
+      (v) =>
+        typeof v === 'string' &&
+        (v.trim() === `PickChick ${reference}` || v.trim().startsWith(`PickChick ${reference}: `)),
     );
     if (mentions && operationIdOf(record)) found.push(record);
     else for (const v of Object.values(record)) walk(v, depth + 1);
@@ -432,13 +477,18 @@ export class KaspiRemoteProcessor {
   private async submit(event: { id: string; attempt_id: string; token: string }) {
     // Durable marker first: if the process dies after the request left, the
     // invoice is found again through its reference instead of being re-issued.
-    const { rows } = await this.pool.query<{ attempt_id: string; customer_id: string | null }>(
+    const { rows } = await this.pool.query<{
+      attempt_id: string;
+      customer_id: string | null;
+      snapshot: unknown;
+    }>(
       `INSERT INTO commerce_kaspi_invoices(attempt_id,order_id,account_id,amount_minor,state,reference)
        SELECT a.id,a.order_id,a.account_id,a.intended_minor,'issuing',$3
        FROM commerce_payment_attempts a
        WHERE a.id=$1 AND a.account_id=$2 AND a.state='pending' AND a.intended_minor%100=0
        ON CONFLICT(attempt_id) DO NOTHING
-       RETURNING attempt_id,(SELECT customer_id FROM commerce_orders WHERE id=order_id) customer_id`,
+       RETURNING attempt_id,(SELECT customer_id FROM commerce_orders WHERE id=order_id) customer_id,
+         (SELECT snapshot FROM commerce_orders WHERE id=order_id) snapshot`,
       [event.attempt_id, this.config.accountId, reference()],
     );
     const created = rows[0];
@@ -461,7 +511,11 @@ export class KaspiRemoteProcessor {
       return 'done';
     }
     const amount = Number(BigInt(row.amount_minor) / 100n);
-    const answer = await this.client.createInvoice(formatted, amount, `PickChick ${row.reference}`);
+    const answer = await this.client.createInvoice(
+      formatted,
+      amount,
+      kaspiInvoiceComment(row.reference, created.snapshot),
+    );
     let status: 'done' | 'session' = 'done';
     if (answer.kind === 'ok' && operationIdOf(answer.data)) {
       await this.transition(row, 'issued', {
