@@ -1552,9 +1552,11 @@
         "infra/staging",
         "docs/operations/automatic-auth-channels.md"
       ],
-      "status": "active",
-      "head": "f0ce904ea1d14438b7574c9f69fdf7647d108afa",
-      "updatedAt": "2026-10-01T12:42:20.356Z"
+      "status": "done",
+      "head": "c48368033dc903d88e478165818fe327fcb93322",
+      "updatedAt": "2026-10-01T12:49:43.201Z",
+      "summary": "Editable 60-character checkout comment, immutable quote/order and kitchen delivery. Full CI36859967722 6/6; API f0ce904/schema031 deployed with backup/restore and preserved data/ACL, live config enabled. Docs/shared/roadmap c483680 published. PR162. No real invoices or OTP.",
+      "nextAction": "Accept iPhone keyboard and comment on operating kitchen during next ordinary order. WhatsApp credentials/template/consent and Webkassa remain separate dependencies."
     }
   ]
 }
