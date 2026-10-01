@@ -673,3 +673,37 @@ test('deferred fiscal pilot still needs authenticated edge admission and actual 
     },
     { deferred: true },
   ));
+
+test('edge stop projection is device-bound, monotonic and never renews stale replays', () =>
+  fixture(async (f) => {
+    const stopped = randomUUID();
+    const send = (revision, ids, auth = f.auth) =>
+      pullFulfillment(f.pool, auth, {
+        workerId: randomUUID(),
+        leaseSeconds: 30,
+        availabilityOnly: true,
+        availability: { revision, stoppedIds: ids },
+      });
+    assert.equal((await send('2', [stopped])).event, null);
+    await f.pool.query(
+      "UPDATE cloud_branch_availability SET observed_at=now()-interval '1 minute'",
+    );
+    await send('1', []);
+    await send('2', []);
+    const before = (
+      await f.pool.query(
+        "SELECT stopped_ids,observed_at<now()-interval '30 seconds' stale FROM cloud_branch_availability",
+      )
+    ).rows[0];
+    assert.deepEqual(before.stopped_ids, [stopped]);
+    assert.equal(before.stale, true);
+    await assert.rejects(send('3', [], { ...f.auth, deviceId: randomUUID() }));
+    await send('3', []);
+    const after = (
+      await f.pool.query(
+        "SELECT stopped_ids,observed_at>now()-interval '5 seconds' fresh FROM cloud_branch_availability",
+      )
+    ).rows[0];
+    assert.deepEqual(after.stopped_ids, []);
+    assert.equal(after.fresh, true);
+  }));

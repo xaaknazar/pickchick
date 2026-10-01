@@ -13,6 +13,8 @@ export function fulfillmentWorkerGrants(role, schema = 'public') {
       'SELECT',
       'schema_migrations,branch_config,fulfillment_config,fulfillment_routing,fulfillment_reservations,fulfillment_tasks,fulfillment_inbox,fulfillment_outbox,fulfillment_release_results,fulfillment_transport_state,fulfillment_transport_failures,fulfillment_transport_reverse_failures',
     ),
+    grant('SELECT(branch_id,variant_id,stopped,expires_at,expires_shift_id)', 'local_stops'),
+    grant('SELECT(id,state)', 'local_cash_shifts'),
     // FOR SHARE needs an UPDATE privilege, but not permission to alter binding or opening state.
     grant('UPDATE(singleton)', 'branch_config'),
     grant('UPDATE(lock_anchor)', 'fulfillment_config'),

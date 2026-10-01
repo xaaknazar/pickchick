@@ -1,3 +1,9 @@
+import {
+  branchAvailability,
+  assertBranchItemsAvailable,
+  snapshotAvailabilityItems,
+} from './availability.js';
+import { localSelectionIds } from '@pickchick/menu-sync';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { DatabasePool } from '@pickchick/database';
@@ -89,6 +95,46 @@ export class CustomerCheckout {
       role: 'sales' as const,
     };
   }
+  async availability() {
+    if (!this.options) return { enabled: false, fresh: false, signature: 'disabled', products: [] };
+    const branchId = this.options.branchId;
+    const state = await branchAvailability(this.pool, branchId);
+    const stopped = new Set(state.stoppedIds);
+    const row = (
+      await this.pool.query<{
+        payload: {
+          products: {
+            id: string;
+            available: boolean;
+            modifier_groups: { id: string; options: { id: string; available: boolean }[] }[];
+          }[];
+        };
+      }>(
+        `SELECT p.payload FROM catalog_branch_heads h JOIN catalog_publications p ON p.branch_id=h.branch_id AND p.organization_id=h.organization_id AND p.version=h.published_version WHERE h.branch_id=$1`,
+        [branchId],
+      )
+    ).rows[0];
+    const products = (row?.payload.products ?? []).map((p) => ({
+      id: p.id,
+      available:
+        p.available &&
+        !localSelectionIds(branchId, p.id, []).some((id) => stopped.has(id)) &&
+        !stopped.has(p.id),
+      stoppedOptions: p.modifier_groups.flatMap((g) =>
+        g.options
+          .filter(
+            (o) =>
+              !o.available ||
+              localSelectionIds(branchId, p.id, [{ group_id: g.id, option_id: o.id }])
+                .slice(1)
+                .some((id) => stopped.has(id)),
+          )
+          .map((o) => ({ groupId: g.id, optionId: o.id })),
+      ),
+    }));
+    const value = { enabled: true, branchId, fresh: state.fresh, products };
+    return { ...value, signature: digest(value) };
+  }
   async config(customerId: string) {
     const scope = await this.scope(customerId);
     const row = (
@@ -119,6 +165,7 @@ export class CustomerCheckout {
     const scope = await this.scope(customerId),
       request = parse(QuoteInput, input);
     if (request.branchId !== scope.branchId) throw new CommerceError('FORBIDDEN');
+    await assertBranchItemsAvailable(this.pool, scope.branchId, request.items);
     if (!(await this.config(customerId)).enabled) throw new CommerceError('NOT_READY');
     const head = (
       await this.pool.query<{
@@ -214,6 +261,11 @@ export class CustomerCheckout {
     const current = await this.repository.readOrder(scope, orderId);
     if (current.attempts.length || BigInt(current.money.captured) > 0n)
       return this.read(customerId, orderId);
+    await assertBranchItemsAvailable(
+      this.pool,
+      scope.branchId,
+      snapshotAvailabilityItems(current.snapshot),
+    );
     // A single stable command per order. Unknown responses never create a fresh attempt.
     await this.repository.startPaymentAttempt(scope, keyFor(orderId), {
       orderId,

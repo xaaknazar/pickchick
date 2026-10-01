@@ -61,6 +61,10 @@ async function fixture(run, options = {}) {
       "INSERT INTO devices(id,branch_id,organization_id,kind,name,status) VALUES($1,$2,$3,'edge','Synthetic','active')",
       [device, branch, org],
     );
+    await pool.query(
+      "INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids) VALUES($1,$2,1,'{}')",
+      [branch, device],
+    );
     const menu = { ...fixtureMenu, branch_id: branch, release_id: release };
     await pool.query(
       'INSERT INTO menu_releases(id,branch_id,version,schema_version,payload,checksum,published_at) VALUES($1,$2,$3,1,$4,$5,clock_timestamp())',
@@ -1493,6 +1497,97 @@ test('all-customer checkout admits active verified identities but isolates each 
         await assert.rejects(service.quote(second, { ...request(), ...extra }), /INVALID/);
       assert.equal(await f.count('commerce_payment_attempts'), 0);
       assert.equal(await f.count('commerce_captures'), 0);
+    },
+    { paymentProvider: 'kaspi-remote' },
+  ));
+
+test('cashier stop rejects base and modifier; stale or inactive device fails closed', () =>
+  fixture(async (f) => {
+    const { assertBranchItemsAvailable, AvailabilityError } = await import('../dist/index.js');
+    const { localSelectionIds } = await import('@pickchick/menu-sync');
+    await publishCatalog(f);
+    await f.pool.query(
+      'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+      [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+    );
+    const item = {
+      productId: 'pick-combo',
+      selections: [{ group_id: 'drink', option_id: 'cola', quantity: 1 }],
+    };
+    const ids = localSelectionIds(f.scope.branchId, item.productId, item.selections);
+    for (const id of ids) {
+      await f.pool.query(
+        'UPDATE cloud_branch_availability SET stopped_ids=$1::uuid[],observed_at=now()',
+        [[id]],
+      );
+      await assert.rejects(
+        assertBranchItemsAvailable(f.pool, f.scope.branchId, [item]),
+        (e) => e instanceof AvailabilityError && e.code === 'ITEM_STOPPED',
+      );
+    }
+    await f.pool.query(
+      "UPDATE cloud_branch_availability SET stopped_ids='{}',observed_at=now()-interval '1 minute'",
+    );
+    await assert.rejects(
+      assertBranchItemsAvailable(f.pool, f.scope.branchId, [item]),
+      (e) => e.code === 'AVAILABILITY_STALE',
+    );
+    await f.pool.query('UPDATE cloud_branch_availability SET observed_at=now()');
+    await assertBranchItemsAvailable(f.pool, f.scope.branchId, [item]);
+    await f.pool.query('UPDATE fulfillment_transport_bindings SET active=false');
+    await assert.rejects(
+      assertBranchItemsAvailable(f.pool, f.scope.branchId, [item]),
+      (e) => e.code === 'AVAILABILITY_STALE',
+    );
+  }));
+
+test('mobile quote and new payment reject a stopped product using product id rather than SKU', () =>
+  fixture(
+    async (f) => {
+      const { localSelectionIds } = await import('@pickchick/menu-sync');
+      await publishCatalog(f);
+      await f.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+      );
+      const service = new CustomerCheckout(f.pool, {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [f.scope.principalId],
+        maxOrderMinor: '1000000',
+        approvalReference: 'Synthetic stop verification',
+        repeatOrdersEnabled: true,
+      });
+      const item = { productId: 'burger', quantity: 1, selections: [] };
+      const req = () => ({
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'takeaway',
+        items: [item],
+      });
+      const quote = await service.quote(f.scope.principalId, req());
+      const order = await service.create(f.scope.principalId, {
+        key: randomUUID(),
+        quoteId: quote.quoteId,
+      });
+      const ids = localSelectionIds(f.scope.branchId, item.productId, []);
+      await f.pool.query(
+        'UPDATE cloud_branch_availability SET stopped_ids=$1::uuid[],observed_at=now()',
+        [ids],
+      );
+      await assert.rejects(
+        service.quote(f.scope.principalId, req()),
+        (e) => e.code === 'ITEM_STOPPED',
+      );
+      await assert.rejects(
+        service.pay(f.scope.principalId, order.orderId),
+        (e) => e.code === 'ITEM_STOPPED',
+      );
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      const availability = await service.availability();
+      assert.equal(availability.products.find((p) => p.id === 'burger').available, false);
+      await f.pool.query("UPDATE cloud_branch_availability SET stopped_ids='{}',observed_at=now()");
+      assert.equal((await service.quote(f.scope.principalId, req())).totalMinor, quote.totalMinor);
     },
     { paymentProvider: 'kaspi-remote' },
   ));

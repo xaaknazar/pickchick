@@ -1,3 +1,4 @@
+import { unavailableCartLine } from '../availability';
 import {
   CheckoutSheetHeader,
   CheckoutAction,
@@ -199,7 +200,9 @@ const ProductMenuCard = memo(function ProductMenuCard({
     <Pressable
       testID={`product-${product.id}`}
       accessibilityRole="button"
-      accessibilityLabel={`${product.name}, ${MinorMoney(product.priceMinor)}, выбрать`}
+      accessibilityLabel={`${product.name}, ${product.available === false ? 'Нет в наличии' : MinorMoney(product.priceMinor) + ', выбрать'}`}
+      accessibilityState={{ disabled: product.available === false }}
+      disabled={product.available === false}
       onPress={() => openProduct(product)}
       style={({ pressed }) => [
         s.product,
@@ -233,8 +236,18 @@ const ProductMenuCard = memo(function ProductMenuCard({
           <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
             {MinorMoney(product.priceMinor)}
           </Body>
-          <View style={compact ? s.productPlus : s.productChoose}>
-            {compact ? (
+          <View
+            style={
+              product.available === false
+                ? { flexShrink: 1, maxWidth: 120 }
+                : compact
+                  ? s.productPlus
+                  : s.productChoose
+            }
+          >
+            {product.available === false ? (
+              <Caption style={{ color: colors.text }}>Нет в наличии</Caption>
+            ) : compact ? (
               <Icon name="add" color={colors.orangeInk} size={20} />
             ) : (
               <Body style={s.productChooseText}>Выбрать</Body>
@@ -648,6 +661,10 @@ export function Cart(props: ScreenProps) {
           <>
             <CheckoutAction
               title="Оформить заказ"
+              disabled={
+                props.model.cart.some((line) => !!unavailableCartLine(line)) ||
+                props.model.availabilityFresh === false
+              }
               amount={MinorMoney(total)}
               onPress={() => props.navigate('M12')}
               testID="cart-checkout"
@@ -753,6 +770,11 @@ export function Cart(props: ScreenProps) {
           {props.model.catalogMode === 'design' ? (
             <Notice warning>Это корзина из образцов дизайна. Заказ и оплата недоступны.</Notice>
           ) : null}
+          {props.model.availabilityFresh === false ? (
+            <Notice warning>
+              Не удалось проверить доступность блюд. Дождитесь связи с рестораном.
+            </Notice>
+          ) : null}
           {props.model.cart.map((line) => (
             <View key={cartLineKey(line)} style={s.cartLine}>
               <Pressable
@@ -777,6 +799,9 @@ export function Cart(props: ScreenProps) {
                   <Heading small style={s.cartName}>
                     {line.product.name}
                   </Heading>
+                  {unavailableCartLine(line) ? (
+                    <Caption style={{ color: colors.warning }}>{unavailableCartLine(line)}</Caption>
+                  ) : null}
                   {selectionDescription(line) ? (
                     <Caption numberOfLines={2} style={s.cartDescription}>
                       {selectionDescription(line)}

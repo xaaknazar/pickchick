@@ -1,3 +1,4 @@
+import { effectiveLocalStops } from '@pickchick/menu-sync';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { DeviceIdentitySchema } from '@pickchick/contracts';
@@ -91,7 +92,7 @@ export async function syncFulfillmentOnce(
     );
     return (
       await client.query(
-        `UPDATE fulfillment_transport_state SET worker_id=$2,lease_token=$3,lease_until=clock_timestamp()+interval '60 seconds',attempts=attempts+1,updated_at=clock_timestamp() WHERE branch_id=$1 AND (lease_until IS NULL OR lease_until<clock_timestamp()) RETURNING pending_cloud`,
+        `UPDATE fulfillment_transport_state SET worker_id=$2,lease_token=$3,lease_until=clock_timestamp()+interval '60 seconds',attempts=attempts+1,updated_at=clock_timestamp() WHERE branch_id=$1 AND (lease_until IS NULL OR lease_until<clock_timestamp()) RETURNING pending_cloud,attempts::text AS revision`,
         [branchId, workerId, leaseToken],
       )
     ).rows[0];
@@ -156,6 +157,29 @@ export async function syncFulfillmentOnce(
     });
   const repo = new EdgeFulfillment(pool);
   try {
+    // A blocked admission must not block its own stop-list recovery.
+    if (acquired.pending_cloud !== null) {
+      const pulse = PullResponseSchema.parse(
+        await transportRequest(
+          origin,
+          'pull',
+          identity,
+          {
+            workerId,
+            leaseSeconds: 30,
+            protocolVersion: 2,
+            availabilityOnly: true,
+            availability: {
+              revision: acquired.revision,
+              stoppedIds: await effectiveLocalStops(pool, branchId),
+            },
+          },
+          io,
+        ),
+      );
+      if (JSON.stringify(pulse.scope) !== JSON.stringify(scope) || pulse.event !== null)
+        throw new TransportHttpError('INVALID_RESPONSE');
+    }
     // Directions progress independently. A rejected historical reverse event must
     // not prevent reserving an unrelated new cloud order.
     const reverse = await transaction(pool, async (client) => {
@@ -217,7 +241,15 @@ export async function syncFulfillmentOnce(
           origin,
           'pull',
           identity,
-          { workerId, leaseSeconds: 30, protocolVersion: 2 },
+          {
+            workerId,
+            leaseSeconds: 30,
+            protocolVersion: 2,
+            availability: {
+              revision: acquired.revision,
+              stoppedIds: await effectiveLocalStops(pool, branchId),
+            },
+          },
           io,
         ),
       );

@@ -35,6 +35,10 @@ export const PullRequestSchema = z.strictObject({
   workerId: uuid,
   leaseSeconds: z.int().min(15).max(120),
   protocolVersion: z.literal(2).optional(),
+  availabilityOnly: z.literal(true).optional(),
+  availability: z
+    .strictObject({ revision: sequence, stoppedIds: z.array(uuid).max(5000) })
+    .optional(),
 });
 export const TransportCommandSchema = z.discriminatedUnion('type', [
   CloudCommandSchema.options[0],

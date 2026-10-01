@@ -12,7 +12,7 @@ export function customerCheckoutGrants(role, enabled) {
     REVOKE UPDATE(lock_anchor) ON catalog_branch_heads FROM ${role};` +
     (enabled
       ? `
-    GRANT SELECT ON branches,devices,catalog_publications,catalog_branch_heads,
+    GRANT SELECT ON cloud_branch_availability,branches,devices,catalog_publications,catalog_branch_heads,
       commerce_quotes,commerce_orders,commerce_commands,commerce_provider_accounts,
       commerce_payment_intents,commerce_payment_attempts,commerce_captures,commerce_refunds,
       commerce_refund_effects,commerce_fiscal_documents,commerce_fiscal_effects,

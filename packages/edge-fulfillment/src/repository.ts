@@ -1,3 +1,4 @@
+import { effectiveLocalStops, localSelectionIds } from '@pickchick/local-orders';
 import { ReleaseCommandSchema, ReleaseResultSchema } from './model.js';
 import type { ReleaseResult } from './model.js';
 import { randomUUID } from 'node:crypto';
@@ -139,6 +140,18 @@ export class EdgeFulfillment {
             ])
           ).rows[0];
           if (!branch?.ordering_enabled) fail('NOT_READY');
+          const stopped = new Set(await effectiveLocalStops(client, scope.branchId));
+          for (const line of p.snapshot.lines) {
+            const ids = localSelectionIds(
+              scope.branchId,
+              line.productId,
+              (line.selectedDetails?.modifiers ?? []).map((m) => ({
+                group_id: m.groupId,
+                option_id: m.optionId,
+              })),
+            );
+            if (ids.some((id) => stopped.has(id)) || stopped.has(line.productId)) fail('NOT_READY');
+          }
           const stored = (
             await client.query(
               'SELECT payload FROM fulfillment_routing WHERE branch_id=$1 AND version=$2',

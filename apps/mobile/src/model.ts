@@ -28,6 +28,7 @@ export interface ModifierGroup {
 }
 export type PaymentMethod = 'kaspi' | 'card';
 export interface Product {
+  available?: boolean;
   id: string;
   name: string;
   description: string;
@@ -65,6 +66,7 @@ export interface Connection {
   message: string | null;
 }
 export interface MobileModel {
+  availabilityFresh?: boolean;
   products: Product[];
   cart: CartLine[];
   catalogMode: CatalogMode;

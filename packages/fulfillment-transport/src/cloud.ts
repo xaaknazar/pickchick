@@ -87,6 +87,19 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
   return transaction(pool, async (client) => {
     const b = await binding(client, identity),
       token = randomUUID();
+    if (request.availability) {
+      const ids = [...new Set(request.availability.stoppedIds)].sort();
+      await client.query(
+        `INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids) VALUES($1,$2,$3,$4::uuid[])
+        ON CONFLICT(branch_id) DO UPDATE SET revision=EXCLUDED.revision,stopped_ids=EXCLUDED.stopped_ids,observed_at=clock_timestamp()
+        WHERE cloud_branch_availability.device_id=EXCLUDED.device_id AND cloud_branch_availability.revision<EXCLUDED.revision`,
+        [b.branch_id, b.device_id, request.availability.revision, ids],
+      );
+    }
+    if (request.availabilityOnly) {
+      if (!request.availability) fail('INVALID_REQUEST');
+      return parse(PullResponseSchema, { scope: scopeOf(b), event: null });
+    }
     const result = await client.query<{ id: string; event_type: string; payload: unknown }>(
       `WITH selected AS (
        SELECT e.id FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id

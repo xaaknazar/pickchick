@@ -1,3 +1,5 @@
+import { withAvailability } from './availability';
+import { useAvailability } from './useAvailability';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mergeCartLines } from './cart-actions';
 import { AppState } from 'react-native';
@@ -186,7 +188,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrated, requestedBranchId, refreshIndex]);
 
-  const products = useMemo(
+  const availability = useAvailability(hydrated && catalogMode === 'server');
+  const baseProducts = useMemo(
     () =>
       catalogMode === 'design'
         ? designProducts
@@ -194,6 +197,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           ? connectedProducts(connectedCatalog)
           : serverProducts(menu, locale),
     [catalogMode, menu, locale, connectedCatalog],
+  );
+  const products = useMemo(
+    () => withAvailability(baseProducts, availability),
+    [baseProducts, availability],
   );
   const branch =
     branches.find((candidate) => candidate.id === requestedBranchId) ?? branches[0] ?? null;
@@ -276,7 +283,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       connectedCatalog && 'upsell_product_ids' in connectedCatalog
         ? connectedCatalog.upsell_product_ids
         : ['toast', 'sauce', 'cola'],
-    cart,
+    cart: cart.map((line) => ({
+      ...line,
+      product: products.find((p) => p.id === line.product.id) ?? line.product,
+    })),
+    availabilityFresh: availability?.enabled ? availability.fresh : undefined,
     catalogMode,
     diningMode,
     paymentMethod,
@@ -322,7 +333,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
     addToCart: (id, selections, quantity = 1) => {
       const product = products.find((candidate) => candidate.id === id);
-      if (!product) return;
+      if (!product || product.available === false) return;
       const chosen = selections ?? defaultSelections(product);
       const key = cartLineKey({ product, selections: chosen });
       restoration.current = null;
@@ -355,6 +366,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   };
   const previewModel: MobileModel = {
     ...model,
+    availabilityFresh: undefined,
     testFlow: {
       ...testFlow,
       available: false,

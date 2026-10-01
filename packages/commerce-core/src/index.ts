@@ -4,3 +4,4 @@ export * from './tiptoppay.js';
 export * from './kaspi-remote.js';
 
 export * from './customer-checkout.js';
+export * from './availability.js';

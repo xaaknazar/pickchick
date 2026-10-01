@@ -1,3 +1,4 @@
+import { unavailableCartLine } from '../availability';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
   CheckoutSheetHeader,
@@ -343,10 +344,20 @@ function KaspiCheckoutSession(props: ScreenProps) {
     else setRefresh((c) => c + 1);
   };
   const total = quote ? quote.totalMinor : cartTotal(props.model.cart);
+  const availabilityError = props.model.cart.some((line) => !!unavailableCartLine(line))
+    ? 'Некоторые позиции закончились. Вернитесь в корзину, чтобы заменить их.'
+    : props.model.availabilityFresh === false
+      ? 'Проверяем наличие в ресторане. Оплата станет доступна после подключения.'
+      : '';
   const statusError = error || watchError;
   const footer =
     props.screenId !== 'M19' && props.model.cart.length ? (
       <>
+        <>
+          {availabilityError ? (
+            <Caption accessibilityRole="alert">{availabilityError}</Caption>
+          ) : null}
+        </>
         <Row style={s.total}>
           <Body style={s.totalLabel}>
             Итого{' '}
@@ -362,7 +373,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
           kaspi={!busy}
           onPress={() => void submit()}
           disabled={
-            !loaded || !quote || quote.serviceMode !== props.model.diningMode || busy || !!error
+            props.model.cart.some((line) => !!unavailableCartLine(line)) ||
+            props.model.availabilityFresh === false ||
+            !loaded ||
+            !quote ||
+            quote.serviceMode !== props.model.diningMode ||
+            busy ||
+            !!error
           }
         />
       </>

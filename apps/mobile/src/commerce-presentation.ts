@@ -65,6 +65,10 @@ export const paymentReceived = (phase: CustomerCommerceOrder['phase']) =>
   ['paid', 'preparing', 'ready', 'handed_over'].includes(phase);
 export function checkoutError(error: unknown) {
   const code = error instanceof Error ? error.message : '';
+  if (code === 'ITEM_STOPPED')
+    return 'Блюдо или выбранный вариант закончились. Вернитесь в корзину и измените заказ.';
+  if (code === 'AVAILABILITY_STALE')
+    return 'Нет свежих данных от ресторана. Счёт не выставлен. Попробуйте чуть позже.';
   if (code === 'CHECKOUT_STORAGE')
     return 'Не удалось сохранить оформление на устройстве. Счёт не отправлен. Освободите место и попробуйте снова.';
   if (['CONFLICT', 'QUOTE_EXPIRED'].includes(code))

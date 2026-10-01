@@ -71,13 +71,23 @@ export function verifyServiceSnapshot(branches, ledger, branchId, expectedLedger
     branches[0].pos_service_mode !== 'unpaid_service'
   )
     throw new Error('Unexpected active service branch');
-  if (ledger.length !== 14 || JSON.stringify(ledger) !== JSON.stringify(expectedLedger))
+  if (
+    ![14, 15].includes(ledger.length) ||
+    JSON.stringify(ledger) !== JSON.stringify(expectedLedger)
+  )
     throw new Error('Service migration ledger differs');
 }
 
 async function main() {
-  const [toolsRoot, pgBin, runRoot, branchId, ...extra] = process.argv.slice(2);
-  if (extra.length || !toolsRoot || !pgBin || !runRoot || !branchId)
+  const [toolsRoot, pgBin, runRoot, branchId, ledgerMode, ...extra] = process.argv.slice(2);
+  if (
+    (ledgerMode !== undefined && ledgerMode !== 'schema015') ||
+    extra.length ||
+    !toolsRoot ||
+    !pgBin ||
+    !runRoot ||
+    !branchId
+  )
     throw new Error('Invalid backup invocation');
   const state = await readJson(join(toolsRoot, 'private', 'foundation-state.json'));
   const credentials = validateCredentials(
@@ -95,7 +105,15 @@ async function main() {
   const { Client } = createRequire(join(resolve(toolsRoot), 'package.json'))('pg');
   const pgData = resolve(toolsRoot, '..', '..', 'Postgres', '18', 'data');
   const expectedLedger = JSON.parse(
-    await readFile(new URL('./native-service-backup-ledger.json', import.meta.url), 'utf8'),
+    await readFile(
+      new URL(
+        ledgerMode === 'schema015'
+          ? './native-stop-backup-ledger.json'
+          : './native-service-backup-ledger.json',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
   );
   const runId = randomUUID();
   const database = rehearsalName(runId);

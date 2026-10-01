@@ -17,7 +17,12 @@ import {
   CustomerIdentityError,
   CUSTOMER_IDENTITY,
 } from '@pickchick/customer-identity';
-import { CommerceError, CustomerCheckout, customerCheckoutOptions } from '@pickchick/commerce-core';
+import {
+  AvailabilityError,
+  CommerceError,
+  CustomerCheckout,
+  customerCheckoutOptions,
+} from '@pickchick/commerce-core';
 import { RESOURCE, Resources } from '@pickchick/platform';
 
 @Controller('v1/customer-checkout')
@@ -41,6 +46,8 @@ export class CustomerCheckoutController {
     } catch (error) {
       if (error instanceof CustomerIdentityError)
         throw new HttpException({ code: error.code }, error.code === 'UNAUTHORIZED' ? 401 : 503);
+      if (error instanceof AvailabilityError)
+        throw new HttpException({ code: error.code }, error.code === 'ITEM_STOPPED' ? 409 : 503);
       if (error instanceof CommerceError) {
         const statuses = {
           INVALID: 400,
@@ -61,6 +68,21 @@ export class CustomerCheckoutController {
       }
       throw error;
     }
+  }
+  @Get('availability') async availability(
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Query('after') after?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    if (after !== undefined && !/^[a-f0-9]{64}$/.test(after))
+      throw new HttpException('INVALID_REQUEST', 400);
+    let state = await this.checkout.availability();
+    const deadline = Date.now() + 25000;
+    while (after && state.signature === after && Date.now() < deadline && !response.destroyed) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      state = await this.checkout.availability();
+    }
+    return state;
   }
   @Get('config') config(@Headers('authorization') auth?: string) {
     return this.execute(auth, (id) => this.checkout.config(id));

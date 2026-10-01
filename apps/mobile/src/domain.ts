@@ -60,6 +60,7 @@ export function cartLineKey(line: Pick<CartLine, 'product' | 'selections'>): str
   return testLineId(line.product.id, line.selections);
 }
 export function validSelections(product: Product, selections: Selection[]): boolean {
+  if (product.available === false) return false;
   if (
     !Array.isArray(selections) ||
     selections.length > 40 ||

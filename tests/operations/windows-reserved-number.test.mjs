@@ -46,3 +46,36 @@ test('numbering upgrade preserves schema014 data/ACL/sequences, checks branch an
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('stop-list runtime update only grants seven read columns and preserves every row and sequence', async () => {
+  const { grantStopAvailability } = await import('../../infra/windows/grant-stop-availability.mjs');
+  await withSyncDatabases(async (f) => {
+    const client = await f.edge.pool.connect();
+    const role = 'stops_' + f.branch.replaceAll('-', '');
+    try {
+      await client.query(`CREATE ROLE ${role}`);
+      const options = {
+        mode: 'inspect',
+        appRoot: fileURLToPath(new URL('../../', import.meta.url)),
+        branchId: f.branch,
+        schema: f.edge.schema,
+        role,
+      };
+      const before = await grantStopAvailability(client, options);
+      const after = await grantStopAvailability(client, { ...options, mode: 'apply' });
+      assert.equal(before.fingerprint, after.fingerprint);
+      assert.equal(after.migrations, 15);
+      const privileges = await client.query(
+        `SELECT has_column_privilege($1,'local_stops','variant_id','SELECT') readable, has_table_privilege($1,'local_stops','UPDATE') writable, has_table_privilege($1,'local_cash_shifts','SELECT') cash`,
+        [role],
+      );
+      assert.equal(privileges.rows[0].readable, true);
+      assert.equal(privileges.rows[0].writable, false);
+      assert.equal(privileges.rows[0].cash, false);
+    } finally {
+      await client.query(`DROP OWNED BY ${role}`);
+      await client.query(`DROP ROLE ${role}`);
+      client.release();
+    }
+  });
+});

@@ -1214,7 +1214,7 @@
       "id": "catalog-availability",
       "workstream": "catalog",
       "title": "Стоп-листы и последняя порция",
-      "summary": "Базовые стоп-лист и резервации есть. Требуется полный расчёт доступности с нормами, каналами и конкурентным mobile/POS checkout.",
+      "summary": "Подготовлена передача эффективных POS-стопов в мобильное меню и серверная блокировка quote/pay/admission. Локальные проверки пройдены; установка ожидает CI. Полный расчёт последней порции по нормам ещё не реализован.",
       "status": "planned",
       "owner": "development",
       "phase": "integration",
@@ -1231,6 +1231,10 @@
         {
           "label": "Возможности и пробелы бэк-офиса",
           "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Стоп-лист кассы в мобильном меню",
+          "path": "docs/operations/mobile-stop-list.md"
         }
       ],
       "acceptance": ["AC-03: последняя порция достаётся одному заказу до открытия оплаты."],

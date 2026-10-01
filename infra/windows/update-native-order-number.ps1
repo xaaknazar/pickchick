@@ -15,6 +15,7 @@ param(
   [Parameter(Mandatory=$true)][string]$DatabaseHelper,
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$DatabaseHelperSha256,
   [Parameter(Mandatory=$true)][guid]$DeviceId,
+  [switch]$StopListUpdate,
   [switch]$Apply
 )
 Set-StrictMode -Version Latest
@@ -45,7 +46,7 @@ $logs=Join-Path $data 'Edge\logs'
 $oldApp=Join-Path $program ('Edge\'+$PreviousRelease+'\app')
 $release='edge-'+$SourceCommit.Substring(0,7)
 $newRoot=Join-Path $program ('Edge\'+$release);$newApp=Join-Path $newRoot 'app'
-$stateRoot=Join-Path $data ('EdgeTools\number-update-'+$SourceCommit.Substring(0,7))
+$stateRoot=Join-Path $data ('EdgeTools\'+$(if($StopListUpdate){'stop-update-'}else{'number-update-'})+$SourceCommit.Substring(0,7))
 Assert-UpdateAcl $DatabaseHelper
 if((Get-FileHash $DatabaseHelper).Hash.ToLowerInvariant() -cne $DatabaseHelperSha256) {throw 'Database helper differs.'}
 $script:toolsRoot=Join-Path $data 'EdgeTools\edge-0186902'
@@ -61,7 +62,7 @@ if($proof.run.head_sha -cne $SourceCommit -or $proof.run.status -ne 'completed' 
 foreach($name in $required) { $job=@($proof.jobs.jobs | Where-Object {$_.name -ceq $name});if($job.Count -ne 1 -or $job[0].conclusion -ne 'success') {throw 'Required CI job did not pass.'} }
 $backup=Get-Content $BackupManifest -Raw | ConvertFrom-Json
 $foundationState=Get-Content (Join-Path $data 'EdgeTools\edge-0186902\private\foundation-state.json') -Raw | ConvertFrom-Json
-if($backup.format -ne 'pickchick-native-service-backup-v1' -or $backup.branchId -ne $BranchId.ToString() -or $backup.systemIdentifier -ne $foundationState.systemIdentifier -or -not $backup.backupVerified -or -not $backup.restoreVerified -or -not $backup.rehearsalDropped -or -not $backup.completed -or $backup.tableCounts.schema_migrations -ne '14') {throw 'Matching schema014 backup/restore proof required.'}
+if($backup.format -ne 'pickchick-native-service-backup-v1' -or $backup.branchId -ne $BranchId.ToString() -or $backup.systemIdentifier -ne $foundationState.systemIdentifier -or -not $backup.backupVerified -or -not $backup.restoreVerified -or -not $backup.rehearsalDropped -or -not $backup.completed -or $backup.tableCounts.schema_migrations -ne $(if($StopListUpdate){'15'}else{'14'})) {throw 'Matching schema014 backup/restore proof required.'}
 $dump=Join-Path (Split-Path $BackupManifest) 'pickchick_edge.dump'
 $stream=Open-VerifiedFile $dump $backup.sha256;$stream.Dispose()
 $xml=[IO.File]::ReadAllText($xmlPath)
@@ -108,7 +109,7 @@ try {
   # Only migration015 is new; every existing migration must match.
   $migrationNames=@($files.Keys | Where-Object {$_ -like 'db/edge/migrations/*.sql'})
   if($migrationNames.Count -ne 15 -or 'db/edge/migrations/015_edge_reserved_order_number.sql' -notin $migrationNames) {throw 'Expected schema015 runtime.'}
-  foreach($name in $migrationNames | Where-Object {$_ -ne 'db/edge/migrations/015_edge_reserved_order_number.sql'}) {
+  foreach($name in $migrationNames | Where-Object {$StopListUpdate -or $_ -ne 'db/edge/migrations/015_edge_reserved_order_number.sql'}) {
     if((Get-FileHash (Join-Path $oldApp $name)).Hash.ToLowerInvariant() -cne $files[$name].sha256) {throw 'App-only update cannot change migrations.'}
   }
   if(-not $Apply) {Write-Output 'VERIFIED: exact-source CI, backup, runtime, services and reviewed migration015; no changes made.';return}

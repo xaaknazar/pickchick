@@ -96,6 +96,7 @@ export function PhotoProduct(props: Props) {
     )
   ).toString();
   const reasonFor = (choices: Selection[]) =>
+    (product.available === false ? 'Сейчас нет в наличии' : null) ??
     photoCartLimit(
       props.model.cart,
       { product, selections: choices, quantity },

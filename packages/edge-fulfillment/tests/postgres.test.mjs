@@ -559,3 +559,19 @@ test('caller mutation during async admission cannot change the hashed snapshot',
     assert.equal(stored.extra.note, 'Synthetic immutable source');
     assert.equal(digest(stored), original.payload.quoteDigest);
   }));
+
+test('local stop refuses mobile admission; expired stop permits the same pending command', () =>
+  fixture(async (f) => {
+    const { localSelectionIds } = await import('@pickchick/local-orders');
+    const c = f.admission(true),
+      line = c.payload.snapshot.lines[0];
+    const id = localSelectionIds(f.scope.branchId, line.productId, [])[0];
+    await f.pool.query(
+      'INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason) VALUES($1,$2,true,1,$$Synthetic stop$$)',
+      [f.scope.branchId, id],
+    );
+    await assert.rejects(f.repo.acceptCloud(f.scope, c), errorCode('NOT_READY'));
+    assert.equal(await f.count('fulfillment_reservations'), 0);
+    await f.pool.query("UPDATE local_stops SET expires_at=now()-interval '1 second'");
+    assert.equal((await f.repo.acceptCloud(f.scope, c)).state, 'held');
+  }));
