@@ -1441,11 +1441,12 @@
         "docs/collaboration/handoff.md",
         "@vps",
         "@windows/cashier",
-        "infra/windows"
+        "infra/windows",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
       "head": "aa54f6e4958c8d928667bf6a8d0a50845f4c3d34",
-      "updatedAt": "2026-10-01T07:25:36.402Z"
+      "updatedAt": "2026-10-01T07:30:25.894Z"
     }
   ]
 }
