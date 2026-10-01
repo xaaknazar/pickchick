@@ -6,6 +6,7 @@ import { createPool, migrate } from '@pickchick/database';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import {
   CommerceRepository,
+  CustomerCheckout,
   KaspiRemoteProcessor,
   digest,
   hintKaspiInvoice,
@@ -125,7 +126,7 @@ async function fixture(run, deferred = false) {
       bridgeUrl: 'http://127.0.0.1:1',
       webhookSecret: 'x'.repeat(32),
       accountId: payment,
-      invoiceTtlSeconds: 600,
+      invoiceTtlSeconds: 180,
       requestTimeoutMs: 1000,
       session: null,
     };
@@ -218,6 +219,7 @@ async function fixture(run, deferred = false) {
       due,
       age,
       advance: (ms) => (clock += ms),
+      now: () => clock,
     });
   } finally {
     await pool.end();
@@ -313,7 +315,7 @@ test('unfamiliar statuses keep waiting; after the TTL the invoice is cancelled o
     await worker.tick();
     assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
     assert.equal((await f.view(orderId)).attempts[0].state, 'pending');
-    f.advance(601_000);
+    f.advance(181_000);
     await f.due();
     await worker.tick();
     await f.due();
@@ -333,7 +335,7 @@ test('a payment racing the cancellation is still captured', () =>
     const worker = f.processor();
     await worker.tick();
     const id = (await f.invoice(attempt.attemptId)).operation_id;
-    f.advance(601_000);
+    f.advance(181_000);
     await f.due();
     await worker.tick();
     assert.equal(f.bridge.count('cancel'), 1);
@@ -497,7 +499,7 @@ test('an uncertain cancel is sent once; later checks only read the status', () =
     await worker.tick();
     const id = (await f.invoice(attempt.attemptId)).operation_id;
     f.bridge.cancelAnswer = { kind: 'uncertain' };
-    f.advance(601_000);
+    f.advance(181_000);
     for (let i = 0; i < 4; i++) {
       await f.due();
       await worker.tick();
@@ -624,7 +626,7 @@ test('recovery requires an exact reference and bank amount, and preserves origin
     await f.processor().tick();
     const row = await f.invoice(attempt.attemptId);
     assert.equal(row.state, 'issued');
-    assert.equal(row.expires_at.getTime() - row.issue_started_at.getTime(), 600_000);
+    assert.equal(row.expires_at.getTime() - row.issue_started_at.getTime(), 180_000);
   }));
 
 test('a crash after cancellation does not cause another cancellation', () =>
@@ -636,7 +638,7 @@ test('a crash after cancellation does not cause another cancellation', () =>
       f.bridge.calls.push(['cancel', op]);
       throw new Error('process stopped after sending cancel');
     };
-    f.advance(601_000);
+    f.advance(181_000);
     await f.due();
     assert.equal((await f.processor().tick()).errors, 1);
     await f.pool.query('UPDATE commerce_kaspi_invoices SET lease_until=NULL');
@@ -816,3 +818,61 @@ test('restricted bank worker records one capture and cannot rewrite money or cus
       await f.admin.query(`DROP ROLE ${role}`);
     }
   }, true));
+
+test('three-minute expiry cancels at the deadline, hides only confirmed unpaid orders and keeps the ledger', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    const checkout = new CustomerCheckout(f.pool, {
+      ...f.scope,
+      paymentAccountId: f.payment,
+      customerIds: [f.scope.principalId],
+      maxOrderMinor: '1000000',
+      repeatOrdersEnabled: true,
+      approvalReference: 'Synthetic approval',
+    });
+    const worker = f.processor();
+    await worker.tick();
+    const invoice = await f.invoice(attempt.attemptId);
+    assert.equal(invoice.expires_at.getTime() - invoice.issue_started_at.getTime(), 180000);
+    f.advance(invoice.expires_at.getTime() - 1 - f.now());
+    await f.due();
+    await worker.tick();
+    assert.equal(f.bridge.count('cancel'), 0);
+    assert.equal((await checkout.list(f.scope.principalId)).orders.length, 1);
+    const scheduled = await f.invoice(attempt.attemptId);
+    assert.ok(scheduled.next_check_at.getTime() - Date.now() <= 1100);
+    f.advance(1);
+    await f.due();
+    await worker.tick();
+    assert.equal(f.bridge.count('cancel'), 1);
+    // A sent cancellation is not a bank confirmation, so the order is still visible.
+    assert.equal((await checkout.list(f.scope.principalId)).orders.length, 1);
+    await f.due();
+    await worker.tick();
+    assert.equal((await checkout.list(f.scope.principalId)).orders.length, 0);
+    assert.equal((await checkout.read(f.scope.principalId, orderId)).phase, 'failed');
+    assert.equal((await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n, 1);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_kaspi_invoices')).rows[0].n,
+      1,
+    );
+    assert.equal((await f.view(orderId)).money.captured, '0');
+    await f.due();
+    await worker.tick();
+    assert.equal(f.bridge.count('cancel'), 1);
+    // A later trusted money observation must restore visibility, even if partial.
+    await f.repo.observePayment(
+      { organizationId: f.scope.organizationId, branchId: f.scope.branchId, accountId: f.payment },
+      {
+        eventId: randomUUID(),
+        attemptId: attempt.attemptId,
+        outcome: 'captured',
+        operationId: 'synthetic-late',
+        amountMinor: '100',
+        occurredAt: new Date().toISOString(),
+      },
+    );
+    const visible = (await checkout.list(f.scope.principalId)).orders;
+    assert.equal(visible.length, 1);
+    assert.equal(visible[0].phase, 'attention');
+  }));

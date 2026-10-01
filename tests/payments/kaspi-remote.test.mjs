@@ -35,7 +35,7 @@ test('configuration is opt-in, loopback-only and validates every secret shape', 
   assert.throws(() => kaspiRemoteConfig({ KASPI_REMOTE_ENABLED: 'yes' }), { code: 'INVALID' });
   const ok = kaspiRemoteConfig({ ...base, ...session });
   assert.equal(ok.bridgeUrl, 'http://127.0.0.1:3931');
-  assert.equal(ok.invoiceTtlSeconds, 600);
+  assert.equal(ok.invoiceTtlSeconds, 180);
   assert.equal(ok.session.profileId, '12345');
   assert.equal(kaspiRemoteConfig(base).session, null);
   for (const bad of [

@@ -233,7 +233,11 @@ with sync_playwright() as pw:
         page.get_by_role('button',name='Дальше',exact=True).click()
         page.get_by_role('button',name='Дальше',exact=True).click()
         audit_touch_layout(page,output,'close-pin','.close-shift-modal')
-        pin(page,'2468')
+        # The PIN hint is also present during manager verification; wait for the durable close ACK.
+        with page.expect_response(lambda response: '/cash-shifts/' in response.url and response.url.endswith('/close') and response.request.method == 'POST') as closed:
+            pin(page,'2468')
+        assert closed.value.status == 200, 'Shift close must be confirmed before browser teardown'
+        expect(page.get_by_text('Тестовая смена закрыта. Фискальный Z-отчёт не формировался.',exact=True)).to_be_visible()
         expect(page.get_by_text('Личный PIN выдаёт управляющий. Проверка на локальном сервере.',exact=True)).to_be_visible()
         assert external==[],external
         assert errors==[],errors

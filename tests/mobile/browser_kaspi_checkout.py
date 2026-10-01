@@ -19,9 +19,9 @@ with sync_playwright() as p:
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
-  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False,'blocked':True}
+  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False,'blocked':True,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
-   return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','phase':state['phase'],'expiresAt':future if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
+   return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
    if state['teardown']:r.abort();return
    path=urlparse(r.request.url).path; method=r.request.method
@@ -42,7 +42,7 @@ with sync_playwright() as p:
    elif path=='/v1/customer-checkout/orders':
     if state['blocked']:
      r.fulfill(status=403,json={'code':'FORBIDDEN','message_key':'errors.forbidden','trace_id':'40000000-0000-4000-8000-000000000009','retryable':False},headers={'Access-Control-Allow-Origin':'*'});return
-    if method=='GET':data={'orders':[order()] if state['created'] else []}
+    if method=='GET':data={'orders':[order()] if state['created'] and state['phase']!='failed' else []}
     else:
      state['keys'].append(body['key']);state['created']=True
      if state['drop']:state['drop']=False;r.abort();return
@@ -95,6 +95,14 @@ with sync_playwright() as p:
   page.wait_for_timeout(1500)
   assert state['held'] is not previous_watch
   assert state['payments']==1
+  expect(page.get_by_test_id('kaspi-invoice-countdown')).to_be_visible()
+  state['expiry']='2000-01-01T00:00:00Z';state['revision']+=1
+  state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Проверяем отмену счёта')
+  expect(page.get_by_test_id('kaspi-open-app')).to_have_count(0)
+  expect(page.get_by_test_id('kaspi-retry-payment')).to_have_count(0)
+  page.screenshot(path=str(OUT/f'expiry-{width}.png'))
+  state['expiry']=(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')
   # An ambiguous bank response must never expose a second payment command.
   state['phase']='checking';state['revision']+=1
   page.wait_for_timeout(100);state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
@@ -140,6 +148,15 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'history-status-{width}.png'))
   close.click()
   expect(page.get_by_role('button',name='Открыть заказ 2',exact=True)).to_be_visible()
+  # A bank-confirmed unpaid cancellation disappears while the order list is open.
+  state['phase']='awaiting_payment';state['paid']=False;state['revision']+=1
+  page.goto(URL+'/orders')
+  expect(page.get_by_role('button',name='Открыть заказ',exact=True)).to_be_visible()
+  page.wait_for_timeout(150)
+  state['phase']='failed';state['revision']+=1
+  state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  expect(page.get_by_text('Заказов пока нет',exact=True)).to_be_visible()
+  assert state['payments']==2
   state['teardown']=True
   for held in state['held_routes']:
    try:held.abort()

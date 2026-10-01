@@ -224,7 +224,11 @@ export class CustomerCheckout {
   async list(customerId: string) {
     const scope = await this.scope(customerId);
     const rows = await this.pool.query<{ id: string }>(
-      'SELECT id FROM commerce_orders WHERE principal_id=$1 AND organization_id=$2 AND branch_id=$3 ORDER BY created_at DESC,id DESC LIMIT 30',
+      `SELECT o.id FROM commerce_orders o JOIN commerce_payment_intents p ON p.order_id=o.id
+       WHERE o.principal_id=$1 AND o.organization_id=$2 AND o.branch_id=$3
+       AND (p.state<>'failed' OR o.attention_required
+         OR EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id))
+       ORDER BY o.created_at DESC,o.id DESC LIMIT 30`,
       [customerId, scope.organizationId, scope.branchId],
     );
     return { orders: await Promise.all(rows.rows.map((row) => this.read(customerId, row.id))) };
@@ -257,6 +261,7 @@ export class CustomerCheckout {
     const paid = order.money.captured === order.totalMinor && order.money.refunded === '0';
     const phase =
       order.attentionRequired ||
+      (BigInt(order.money.captured) > 0n && !paid) ||
       BigInt(order.money.refunded) > 0n ||
       ['cancel_requested', 'cancelled', 'released'].includes(kitchen?.state ?? '')
         ? 'attention'

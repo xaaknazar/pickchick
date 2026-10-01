@@ -52,7 +52,7 @@ export function kaspiRemoteConfig(env: NodeJS.ProcessEnv): KaspiRemoteConfig | n
   }
   const secret = env.KASPI_BRIDGE_WEBHOOK_SECRET ?? '';
   const accountId = env.KASPI_REMOTE_ACCOUNT_ID ?? '';
-  const ttl = Number(env.KASPI_INVOICE_TTL_SECONDS ?? '600');
+  const ttl = Number(env.KASPI_INVOICE_TTL_SECONDS ?? '180');
   if (
     bridge.protocol !== 'http:' ||
     !LOOPBACK.has(bridge.hostname) ||
@@ -660,6 +660,12 @@ export class KaspiRemoteProcessor {
 
   private backoff(row: InvoiceRow): number {
     const age = (this.now().getTime() - row.issue_started_at.getTime()) / 1000;
+    // Wake at the persisted deadline, including recovered invoices. A deployment
+    // must not restart or silently extend a previously issued invoice's lifetime.
+    if (row.state === 'issued' && row.expires_at && !row.cancel_requested_at) {
+      const remaining = (row.expires_at.getTime() - this.now().getTime()) / 1000;
+      if (remaining > 0) return Math.max(1, Math.min(age < 120 ? 3 : 10, remaining));
+    }
     if (age < 120) return 3;
     if (age < this.config.invoiceTtlSeconds) return 10;
     if (age < 3600) return 30;
