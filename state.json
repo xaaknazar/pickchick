@@ -1502,11 +1502,12 @@
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
-        "@vps"
+        "@vps",
+        "packages/customer-identity"
       ],
       "status": "active",
       "head": "bc41c0280c1b860b1354b43cfd9eda05216544d9",
-      "updatedAt": "2026-10-01T11:11:07.162Z"
+      "updatedAt": "2026-10-01T11:11:46.308Z"
     }
   ]
 }
