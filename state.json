@@ -1549,11 +1549,12 @@
         "docs/collaboration/handoff.md",
         "docs/operations/checkout-order-comment.md",
         "@vps",
-        "infra/staging"
+        "infra/staging",
+        "docs/operations/automatic-auth-channels.md"
       ],
       "status": "active",
-      "head": "5733105b122808192be727b24617f22f558779b7",
-      "updatedAt": "2026-10-01T11:50:46.359Z"
+      "head": "f0ce904ea1d14438b7574c9f69fdf7647d108afa",
+      "updatedAt": "2026-10-01T12:42:20.356Z"
     }
   ]
 }
