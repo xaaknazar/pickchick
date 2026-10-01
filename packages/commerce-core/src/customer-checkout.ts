@@ -180,8 +180,12 @@ export class CustomerCheckout {
     const scope = await this.scope(customerId),
       request = parse(CreateInput, input);
     const quote = (
-      await this.pool.query<{ total_minor: string; order_id: string | null }>(
-        `SELECT q.total_minor,o.id AS order_id FROM commerce_quotes q
+      await this.pool.query<{
+        total_minor: string;
+        order_id: string | null;
+        fiscal_deferral_reference: string | null;
+      }>(
+        `SELECT q.total_minor,o.id AS order_id,o.fiscal_deferral_reference FROM commerce_quotes q
        LEFT JOIN commerce_orders o ON o.quote_id=q.id
        WHERE q.id=$1 AND q.organization_id=$2 AND q.branch_id=$3 AND q.principal_id=$4`,
         [request.quoteId, scope.organizationId, scope.branchId, customerId],
@@ -192,11 +196,17 @@ export class CustomerCheckout {
     if (!quote.order_id && BigInt(quote.total_minor) > BigInt(this.options!.maxOrderMinor))
       throw new CommerceError('NOT_READY');
     // A retry may recover an existing order even if the restaurant is now offline.
-    const created = await this.repository.createDeferredFiscalOrder(
-      scope,
-      request.key,
-      request.quoteId,
-    );
+    // A persisted order owns its original approval reference. Changing the server
+    // rollout policy must not change the idempotency digest of its create command.
+    // This quote lookup is already scoped to the authenticated customer's branch.
+    const repository =
+      quote.order_id && quote.fiscal_deferral_reference
+        ? new CommerceRepository(this.pool, {
+            ...this.options!,
+            approvalReference: quote.fiscal_deferral_reference,
+          })
+        : this.repository;
+    const created = await repository.createDeferredFiscalOrder(scope, request.key, request.quoteId);
     return this.read(customerId, created.orderId);
   }
   async pay(customerId: string, orderId: string) {

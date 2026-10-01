@@ -1239,6 +1239,85 @@ test('customer checkout uses published prices, enforces ownership, and recovers 
     { paymentProvider: 'kaspi-remote' },
   ));
 
+test('checkout recovers old create commands after rollout approval changes without new financial effects', () =>
+  fixture(
+    async (f) => {
+      await publishCatalog(f);
+      await f.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+      );
+      const customer = f.scope.principalId;
+      const other = randomUUID();
+      const options = {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [customer, other],
+        maxOrderMinor: '1000000',
+        repeatOrdersEnabled: true,
+        approvalReference: 'Synthetic owner approval',
+      };
+      const original = new CustomerCheckout(f.pool, options);
+      const input = {
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'takeaway',
+        items: [{ productId: 'burger', quantity: 1, selections: [] }],
+      };
+      const quote = await original.quote(customer, input);
+      const request = { key: randomUUID(), quoteId: quote.quoteId };
+      const created = await original.create(customer, request);
+      const before = (
+        await f.pool.query(
+          "SELECT request_digest,result FROM commerce_commands WHERE operation='order'",
+        )
+      ).rows;
+      const updated = new CustomerCheckout(f.pool, {
+        ...options,
+        approvalReference: 'Synthetic public approval',
+      });
+      const replies = await Promise.all([
+        updated.create(customer, request),
+        updated.create(customer, request),
+      ]);
+      assert.ok(replies.every((r) => r.orderId === created.orderId));
+      assert.deepEqual(
+        (
+          await f.pool.query(
+            "SELECT request_digest,result FROM commerce_commands WHERE operation='order'",
+          )
+        ).rows,
+        before,
+      );
+      assert.equal(await f.count('commerce_orders'), 1);
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      assert.equal(await f.count('commerce_kaspi_invoices'), 0);
+      assert.equal(await f.count('commerce_captures'), 0);
+      await assert.rejects(updated.create(other, request), /NOT_FOUND/);
+      const nextQuote = await updated.quote(customer, { ...input, key: randomUUID() });
+      await assert.rejects(
+        updated.create(customer, { ...request, quoteId: nextQuote.quoteId }),
+        /CONFLICT/,
+      );
+      const next = await updated.create(customer, {
+        key: randomUUID(),
+        quoteId: nextQuote.quoteId,
+      });
+      const policies = (
+        await f.pool.query('SELECT id,fiscal_deferral_reference FROM commerce_orders')
+      ).rows;
+      assert.equal(
+        policies.find((r) => r.id === created.orderId).fiscal_deferral_reference,
+        options.approvalReference,
+      );
+      assert.equal(
+        policies.find((r) => r.id === next.orderId).fiscal_deferral_reference,
+        'Synthetic public approval',
+      );
+    },
+    { paymentProvider: 'kaspi-remote' },
+  ));
+
 test('checkout runtime can quote/create/read but cannot forge payment or publish prices', () =>
   fixture(
     async (f) => {
@@ -1290,6 +1369,15 @@ test('checkout runtime can quote/create/read but cannot forge payment or publish
         const a = await service.create(customer, request);
         assert.equal(a.phase, 'awaiting_restaurant');
         assert.equal((await service.create(customer, request)).orderId, a.orderId);
+        const upgraded = new CustomerCheckout(runtime, {
+          ...f.scope,
+          paymentAccountId: f.payment,
+          customerIds: [randomUUID()],
+          allVerifiedCustomers: true,
+          maxOrderMinor: '10000',
+          approvalReference: 'Synthetic expanded approval',
+        });
+        assert.equal((await upgraded.create(customer, request)).orderId, a.orderId);
         assert.equal((await service.list(customer)).orders.length, 1);
         await assert.rejects(service.pay(customer, a.orderId), /NOT_READY/);
         // Trusted edge fixture; the customer role cannot assert admission.
