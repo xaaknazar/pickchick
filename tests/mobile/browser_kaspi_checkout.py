@@ -28,6 +28,7 @@ with sync_playwright() as p:
    body=r.request.post_data_json if r.request.post_data else None
    data=None
    if path=='/v1/customers/me':data={'customer':customer}
+   elif path=='/v1/customer-checkout/availability' and method=='GET':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':p['id'],'available':True,'stoppedOptions':[]} for p in CATALOG['products']]}
    elif path=='/v1/auth/config':data={'enabled':True,'delivery_consent_required':True,'consent_version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy'}
    elif path=='/v1/capabilities':data={'schema_version':1,'environment':'staging','data_mode':'pilot','ordering_enabled':False,'features':{'phone_auth':True,'test_order_flow':True,**{k:False for k in ['payments','fiscal','checkout','loyalty']}}}
    elif path=='/v1/branches':data={'branches':[{'id':BRANCH,'code':'TEST','name':'ТЦ Abay Plaza','timezone':'Asia/Almaty','ordering_enabled':False}]}

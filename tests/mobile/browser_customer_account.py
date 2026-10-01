@@ -40,6 +40,10 @@ with sync_playwright() as p:
         def intercept(route):
             request = route.request
             path = urlparse(request.url).path
+            if path == '/v1/customer-checkout/availability' and request.method == 'GET':
+                route.fulfill(json={'enabled': False, 'fresh': False, 'signature': 'disabled', 'products': []},
+                              headers={'Access-Control-Allow-Origin': '*'})
+                return
             if path.startswith('/v1/test/') or path in ['/v1/capabilities', '/v1/branches']:
                 route.abort('failed')
                 return
