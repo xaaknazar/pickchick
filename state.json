@@ -1505,9 +1505,11 @@
         "@vps",
         "packages/customer-identity"
       ],
-      "status": "active",
-      "head": "bc41c0280c1b860b1354b43cfd9eda05216544d9",
-      "updatedAt": "2026-10-01T11:11:46.308Z"
+      "status": "done",
+      "head": "cfe02398a073d6abd168a02289f8bfb019b9a142",
+      "updatedAt": "2026-10-01T11:35:53.295Z",
+      "summary": "cfe0239: automatic Telegram-first OTP, optional WhatsApp; local checks and review passed; PR160, shared SHA verified; CI pending; WhatsApp not deployed",
+      "nextAction": "Connect Meta account/template, update consent, verify real rejection and delivery, then guarded API rollout after CI"
     }
   ]
 }
