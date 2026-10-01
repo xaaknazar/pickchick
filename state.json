@@ -1526,9 +1526,11 @@
         "docs/operations/cart-extra-drinks.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "cfe02398a073d6abd168a02289f8bfb019b9a142",
-      "updatedAt": "2026-10-01T11:37:16.089Z"
+      "status": "done",
+      "head": "5733105b122808192be727b24617f22f558779b7",
+      "updatedAt": "2026-10-01T11:43:58.150Z",
+      "summary": "5733105 / PR161: all available catalog drinks in cart extras; 11 tests, typecheck/lint/export, browser320/393/768/852 passed; shared SHA and roadmap published; CI pending",
+      "nextAction": "Accept swipe and extra drink on physical PickChick Dev; no API or payment changes"
     }
   ]
 }
