@@ -52,7 +52,7 @@ try:
  time.sleep(4)
  actual=inspect('pickchick-kaspi-worker');assert actual['Image']==p['image'] and actual['State']['Running'] and actual['RestartCount']==0
  assert actual['HostConfig']['ReadonlyRootfs'] and actual['Config']['User']=='1000:1000'
- assert actual['Mounts']==previous['Mounts'];assert secret_hashes()==secrets
+ assert sorted(actual['Mounts'],key=lambda x:x['Destination'])==sorted(previous['Mounts'],key=lambda x:x['Destination']);assert secret_hashes()==secrets
  probe=r"""import{kaspiRemoteConfig,kaspiInvoiceComment}from'/app/packages/commerce-core/dist/index.js';const c=kaspiRemoteConfig(process.env);if(c?.invoiceTtlSeconds!==180)throw Error('TTL not installed');const message=kaspiInvoiceComment('12',{lines:[{title:'Pick Combo',quantity:1,selectedDetails:{modifiers:[{label:{ru:'Cola'},quantity:1}]}}]});if(message!=='Заказ №12: Pick Combo - 1 шт. (Cola)')throw Error('Wrong message');console.log(JSON.stringify({invoiceTtlSeconds:c.invoiceTtlSeconds,readableMessage:true,newInvoiceCreated:false}));"""
  result=json.loads(worker_node(probe));assert ledger()==before
  assert all(inspect(x)['Id']==v for x,v in others.items());pointers()

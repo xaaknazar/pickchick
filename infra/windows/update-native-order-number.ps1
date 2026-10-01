@@ -76,8 +76,8 @@ $expectedArguments='--env-file="'+$workerEnv+'" "'+$oldApp+'\infra\windows\nativ
 if($workerDocument.service.executable -cne $node -or $workerDocument.service.workingdirectory -cne $oldApp -or $workerDocument.service.arguments -cne $expectedArguments) {throw 'Unexpected transport worker binding.'}
 $workerService=Get-CimInstance Win32_Service -Filter "Name='PickChickFulfillmentWorker'"
 if($workerService.State -ne 'Running' -or $workerService.StartName -ne 'NT AUTHORITY\LocalService' -or $workerService.PathName -cne ('"'+$program+'\FulfillmentWorker\PickChickFulfillmentWorker.exe"')) {throw 'Unexpected transport service.'}
-$workerDocument.service.workingdirectory=$newApp
-$workerDocument.service.arguments=$expectedArguments.Replace($oldApp,$newApp)
+$workerDocument.SelectSingleNode('/service/workingdirectory').InnerText=[string]$newApp
+$workerDocument.SelectSingleNode('/service/arguments').InnerText=$expectedArguments.Replace($oldApp,$newApp)
 $newWorkerXml=$workerDocument.OuterXml
 $workerEnvHash=(Get-FileHash $workerEnv).Hash;$identityHash=(Get-FileHash $workerIdentity).Hash
 $envHash=(Get-FileHash $envFile).Hash
