@@ -1416,9 +1416,11 @@
         "@vps",
         "infra/payments"
       ],
-      "status": "active",
-      "head": "feb550cea8848454572065981231b59ca11a47fd",
-      "updatedAt": "2026-10-01T05:49:55.275Z"
+      "status": "done",
+      "head": "aa54f6e4958c8d928667bf6a8d0a50845f4c3d34",
+      "updatedAt": "2026-10-01T06:54:33.283Z",
+      "summary": "API and worker e393c3c deployed; CI 36824295019 all 6 green; backup/restore and live TTL180/audit verified. Shared and online roadmap aa54f6e. PR157.",
+      "nextAction": "Confirm cancellation display in Kaspi on next normal unpaid invoice; no real test invoice created."
     }
   ]
 }
