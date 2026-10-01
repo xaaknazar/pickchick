@@ -1592,9 +1592,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "1d03665db809aa79b9fbe3d74e59335f5c48e392",
-      "updatedAt": "2026-10-01T14:44:59.252Z"
+      "status": "available",
+      "head": "432b49375da636a965a967b1dde8703a63605e8b",
+      "updatedAt": "2026-10-01T14:51:01.488Z",
+      "summary": "Alex profile portrait implemented and published in PR164; TypeScript/ESLint/diff and local browser320/393 passed. Included in shared development. Existing TestFlight0.2.0(6) unchanged; roadmap source updated but online publication awaits full CI. User screenshot confirms prior TestFlight installation.",
+      "nextAction": "After green CI publish roadmap from this source; include avatar in next signed iOS release and verify natively. TestFlight-current evidence1d03665 is included; its online roadmap delivery was carried here."
     }
   ]
 }
