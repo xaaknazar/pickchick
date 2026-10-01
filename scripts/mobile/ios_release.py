@@ -23,6 +23,12 @@ APP_DIRECTORY = "mobile"
 APP_TARGET = "PickChick"
 INTERNAL_ONLY = False
 DEFAULT_ARTIFACTS_ROOT = Path.home() / "Library/Caches/PickChick/releases"
+CUSTOMER_PILOT_FLAGS = {
+    "EXPO_PUBLIC_CUSTOMER_AUTH": "server",
+    "EXPO_PUBLIC_KASPI_CHECKOUT": "1",
+    "EXPO_PUBLIC_ORDER_SIMULATOR": "0",
+    "EXPO_PUBLIC_UNPAID_TEST_ORDERS": "0",
+}
 
 
 def select_app(name):
@@ -358,11 +364,34 @@ def write_private_json(path, data):
         handle.write("\n")
 
 
-def run_xcode(command, log):
+def archive_environment(feature_profile, source=None):
+    """Pin the JS bundle switches independently of the invoking shell and dotenv."""
+    if feature_profile != "customer-pilot":
+        return None
+    source = os.environ if source is None else source
+    if "EXPO_NO_CLIENT_ENV_VARS" in source:
+        fail("EXPO_NO_CLIENT_ENV_VARS prevents the customer-pilot flags from reaching the JS bundle.")
+    env = dict(source)
+    env.update(CUSTOMER_PILOT_FLAGS)
+    env["PICKCHICK_APP_VARIANT"] = "release"
+    env["EXPO_NO_DOTENV"] = "1"
+    return env
+
+
+def verify_feature_profile(metadata, requested):
+    archived = metadata.get("featureProfile", "legacy")
+    if archived != requested:
+        fail("The requested feature profile differs from the archived release.")
+    if archived == "customer-pilot" and metadata.get("embeddedPublicEnv") != CUSTOMER_PILOT_FLAGS:
+        fail("The archived customer-pilot feature flags are missing or do not match.")
+
+
+def run_xcode(command, log, env=None):
     event("Xcode phase started", log=str(log))
     with log.open("w", encoding="utf-8") as handle:
         os.chmod(log, 0o600)
-        result = subprocess.run(command, cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT)
+        result = subprocess.run(command, cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT,
+                                env=env)
     if result.returncode:
         fail(f"Xcode exited with {result.returncode}. Review the private local log: {log}")
 
@@ -412,6 +441,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["doctor", "archive", "export", "upload"])
     parser.add_argument("--app", choices=["mobile", "kiosk"], default="mobile")
+    parser.add_argument("--feature-profile", choices=["legacy", "customer-pilot"],
+                        default="legacy", help="Explicit JS feature set for a mobile TestFlight archive")
     parser.add_argument("--workspace")
     parser.add_argument("--scheme")
     parser.add_argument("--release", default="first-testflight")
@@ -424,6 +455,8 @@ def main():
     parser.add_argument("--keychain-password-file", help="Optional private hex password file to unlock only the dedicated keychain")
     args = parser.parse_args()
     select_app(args.app)
+    if args.feature_profile == "customer-pilot" and args.app != "mobile":
+        fail("The customer-pilot feature profile is available only for the mobile app.")
     args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
     args.scheme = args.scheme or APP_TARGET
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.release):
@@ -458,6 +491,7 @@ def perform_phase(args, signing, artifacts):
     metadata_path = output / "release.json"
 
     if args.phase == "archive":
+        bundle_env = archive_environment(args.feature_profile)
         config = json.loads((ROOT / f"apps/{APP_DIRECTORY}/app.json").read_text())["expo"]
         if (config.get("ios", {}).get("bundleIdentifier") != BUNDLE
                 or config.get("ios", {}).get("appleTeamId") != TEAM):
@@ -485,11 +519,14 @@ def perform_phase(args, signing, artifacts):
                         "team": TEAM, "bundleIdentifier": BUNDLE, "apiUrl": api_url,
                         "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY,
                         "version": version, "build": build,
+                        "featureProfile": args.feature_profile,
+                        "embeddedPublicEnv": (CUSTOMER_PILOT_FLAGS if bundle_env else {}),
                         "gitSha": local_command(["git", "rev-parse", "HEAD"]).strip(),
                         "dirty": bool(local_command(["git", "status", "--porcelain"]).strip()),
                         "archiveStatus": "started", "signing": public_signing(signing)}
             write_private_json(metadata_path, metadata)
-            run_xcode(archive_command(args, signing, archive, output / "DerivedData"), output / "archive.log")
+            run_xcode(archive_command(args, signing, archive, output / "DerivedData"),
+                      output / "archive.log", env=bundle_env)
             app, app_info = archive_app(archive)
             verify_archived_profile(app, signing)
         metadata.update(archiveStatus="complete", version=app_info.get("CFBundleShortVersionString"),
@@ -508,6 +545,7 @@ def perform_phase(args, signing, artifacts):
     if (metadata.get("archiveStatus") != "complete" or metadata.get("team") != TEAM
             or metadata.get("bundleIdentifier") != BUNDLE):
         fail("Release metadata does not match a completed PickChick archive.")
+    verify_feature_profile(metadata, args.feature_profile)
     if metadata.get("signing", {"style": "automatic"}) != public_signing(signing):
         fail("Use the same immutable signing profile and certificate that created this release.")
     verify_archived_profile(app, signing)

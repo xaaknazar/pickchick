@@ -25,6 +25,42 @@ spec.loader.exec_module(release)
 
 
 class ReleasePreflightTests(unittest.TestCase):
+    def test_customer_pilot_archive_environment_overrides_local_demo_flags(self):
+        local = {"EXPO_PUBLIC_CUSTOMER_AUTH": "demo", "EXPO_PUBLIC_KASPI_CHECKOUT": "0",
+                 "EXPO_PUBLIC_ORDER_SIMULATOR": "1", "EXPO_PUBLIC_UNPAID_TEST_ORDERS": "1",
+                 "PICKCHICK_APP_VARIANT": "development", "EXPO_NO_DOTENV": "0",
+                 "UNRELATED": "kept"}
+        env = release.archive_environment("customer-pilot", local)
+        self.assertEqual({key: env[key] for key in release.CUSTOMER_PILOT_FLAGS},
+                         release.CUSTOMER_PILOT_FLAGS)
+        self.assertEqual(env["PICKCHICK_APP_VARIANT"], "release")
+        self.assertEqual(env["EXPO_NO_DOTENV"], "1")
+        self.assertEqual(env["UNRELATED"], "kept")
+        self.assertEqual(local["EXPO_PUBLIC_ORDER_SIMULATOR"], "1")
+        self.assertIsNone(release.archive_environment("legacy", local))
+
+    def test_customer_pilot_rejects_disabled_client_env_inlining(self):
+        with self.assertRaisesRegex(RuntimeError, "EXPO_NO_CLIENT_ENV_VARS"):
+            release.archive_environment("customer-pilot", {"EXPO_NO_CLIENT_ENV_VARS": "1"})
+
+    def test_feature_profile_must_match_archive_and_record_exact_flags(self):
+        metadata = {"featureProfile": "customer-pilot",
+                    "embeddedPublicEnv": dict(release.CUSTOMER_PILOT_FLAGS)}
+        release.verify_feature_profile(metadata, "customer-pilot")
+        with self.assertRaisesRegex(RuntimeError, "differs"):
+            release.verify_feature_profile(metadata, "legacy")
+        metadata["embeddedPublicEnv"]["EXPO_PUBLIC_ORDER_SIMULATOR"] = "1"
+        with self.assertRaisesRegex(RuntimeError, "do not match"):
+            release.verify_feature_profile(metadata, "customer-pilot")
+        release.verify_feature_profile({}, "legacy")  # Existing archives remain exportable.
+
+    def test_archive_passes_pinned_environment_to_xcode(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(release.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            env = release.archive_environment("customer-pilot", {})
+            release.run_xcode(["xcodebuild", "archive"], Path(directory) / "archive.log", env)
+            self.assertEqual(run.call_args.kwargs["env"], env)
+
     def test_public_staging_url_without_embedded_credentials(self):
         self.assertEqual(
             release.checked_api_url("https://pickchick.185.129.51.103.nip.io/"),

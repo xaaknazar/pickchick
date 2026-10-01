@@ -2,7 +2,7 @@
   "expo": {
     "name": "PickChick",
     "slug": "pickchick",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "icon": "../../design/prototype/assets/mockup/logo.png",
     "orientation": "portrait",
     "scheme": "pickchick",
@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "kz.pickchick.app",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "kz.pickchick.app",
-      "versionCode": 5
+      "versionCode": 6
     },
     "web": {
       "bundler": "metro",
