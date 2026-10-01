@@ -1531,6 +1531,28 @@
       "updatedAt": "2026-10-01T11:43:58.150Z",
       "summary": "5733105 / PR161: all available catalog drinks in cart extras; 11 tests, typecheck/lint/export, browser320/393/768/852 passed; shared SHA and roadmap published; CI pending",
       "nextAction": "Accept swipe and extra drink on physical PickChick Dev; no API or payment changes"
+    },
+    {
+      "id": "checkout-order-comment",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-order-comment",
+      "scopes": [
+        "apps/mobile",
+        "packages/commerce-core",
+        "packages/contracts",
+        "packages/edge-fulfillment",
+        "packages/fulfillment-transport",
+        "services/api",
+        "tests",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "docs/operations/checkout-order-comment.md",
+        "@vps"
+      ],
+      "status": "active",
+      "head": "5733105b122808192be727b24617f22f558779b7",
+      "updatedAt": "2026-10-01T11:48:06.689Z"
     }
   ]
 }
