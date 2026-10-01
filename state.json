@@ -1548,11 +1548,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "docs/operations/checkout-order-comment.md",
-        "@vps"
+        "@vps",
+        "infra/staging"
       ],
       "status": "active",
       "head": "5733105b122808192be727b24617f22f558779b7",
-      "updatedAt": "2026-10-01T11:48:06.689Z"
+      "updatedAt": "2026-10-01T11:50:46.359Z"
     }
   ]
 }
