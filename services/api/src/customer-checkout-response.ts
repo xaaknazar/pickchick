@@ -1,4 +1,4 @@
-const COMMENTS_PROFILE = 'application/json; profile="pickchick.checkout-comments-v1"';
+const COMMENTS_PROFILE = 'application/json; profile=pickchick.checkout-comments-v1';
 
 /** Older installed clients use strict schemas. Extra fields are explicitly opted in. */
 export function checkoutRepresentation<T>(value: T, accept?: string): T {

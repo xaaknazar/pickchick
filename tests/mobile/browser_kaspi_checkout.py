@@ -27,7 +27,7 @@ with sync_playwright() as p:
    path=urlparse(r.request.url).path; method=r.request.method
    body=r.request.post_data_json if r.request.post_data else None
    if path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
-    assert r.request.headers.get('accept')=='application/json; profile="pickchick.checkout-comments-v1"'
+    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1'
    data=None
    if path=='/v1/customers/me':data={'customer':customer}
    elif path=='/v1/customer-checkout/availability' and method=='GET':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':p['id'],'available':True,'stoppedOptions':[]} for p in CATALOG['products']]}

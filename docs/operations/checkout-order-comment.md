@@ -21,7 +21,7 @@ PostgreSQL вместе со снимком заказа и передаётся
 ## Совместимость
 
 Старые установленные клиенты используют строгие схемы ответов. Новые поля
-возвращаются только при `Accept: application/json; profile="pickchick.checkout-comments-v1"`;
+возвращаются только при `Accept: application/json; profile=pickchick.checkout-comments-v1`;
 остальные клиенты получают прежний формат config/order/list/watch. Ревизия
 заказа остаётся согласованной с long poll.
 

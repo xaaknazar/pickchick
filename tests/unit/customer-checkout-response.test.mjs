@@ -17,7 +17,7 @@ test('checkout keeps old strict response shapes and immutable revision without m
 test('new checkout profile receives comment and capability; unrelated Accept values do not opt in', () => {
   const value = { orderId: 'fixture', kitchenComment: 'Соус отдельно' };
   assert.equal(
-    checkoutRepresentation(value, 'application/json; profile="pickchick.checkout-comments-v1"'),
+    checkoutRepresentation(value, 'application/json; profile=pickchick.checkout-comments-v1'),
     value,
   );
   assert.deepEqual(checkoutRepresentation(value, 'application/json'), { orderId: 'fixture' });
