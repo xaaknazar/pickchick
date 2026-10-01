@@ -1570,11 +1570,12 @@
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
-        "@release/ios"
+        "@release/ios",
+        "@vps/roadmap"
       ],
       "status": "active",
-      "head": "c48368033dc903d88e478165818fe327fcb93322",
-      "updatedAt": "2026-10-01T13:13:50.557Z"
+      "head": "00254575098e242423ed301ff8d7c405d23ce79c",
+      "updatedAt": "2026-10-01T14:12:38.427Z"
     }
   ]
 }
