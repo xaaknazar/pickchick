@@ -106,7 +106,7 @@ test('undo restores exact selection; stale prices, missing items and mixed sourc
   for (const quantity of [0, -1, 21, 1.5])
     assert.equal(mergeCartLines([], [{ ...duo, quantity }], products), null);
 });
-test('recommendations match main food, exclude already chosen extras and included drinks', () => {
+test('recommendations match main food, exclude already chosen extras and retain extra drinks', () => {
   assert.equal(cartRecommendations([makeLine('burger-combo')], products)[0].product.id, 'fingers');
   assert.equal(cartRecommendations([makeLine('finger-duo')], products)[0].product.id, 'burger');
   const withExtra = {
@@ -119,7 +119,29 @@ test('recommendations match main food, exclude already chosen extras and include
   const ids = cartRecommendations([withExtra, makeLine('toast')], products).map(
     (l) => l.product.id,
   );
-  for (const id of ['fingers', 'toast', 'burger', 'cola', 'sauce']) assert.ok(!ids.includes(id));
+  for (const id of ['fingers', 'toast', 'burger', 'sauce']) assert.ok(!ids.includes(id));
+});
+test('combo recommendations include every published drink beyond the first six cards', () => {
+  const cart = [makeLine('pick-combo')];
+  const recommendations = cartRecommendations(cart, products);
+  const drinks = products.filter((p) => p.category === 'Напитки').map((p) => p.id);
+  assert.ok(recommendations.length > 6);
+  assert.deepEqual(
+    recommendations.filter((l) => l.product.category === 'Напитки').map((l) => l.product.id),
+    drinks,
+  );
+  const added = mergeCartLines(cart, [recommendations[0]], products);
+  assert.ok(added);
+  const remaining = cartRecommendations(added, products);
+  assert.ok(remaining.length > 3);
+  assert.ok(drinks.every((id) => remaining.some((l) => l.product.id === id)));
+  const withCola = cartRecommendations([...cart, makeLine('cola')], products);
+  assert.ok(!withCola.some((l) => l.product.id === 'cola'));
+  assert.ok(withCola.some((l) => l.product.id === 'piko'));
+});
+test('stopped drinks and unavailable drink defaults are not suggested', () => {
+  const catalog = products.map((p) => (p.category === 'Напитки' ? { ...p, available: false } : p));
+  assert.ok(cartRecommendations([duo], catalog).every((l) => l.product.category !== 'Напитки'));
 });
 test('recommendations use published availability and never offer an invalid default', () => {
   assert.deepEqual(cartRecommendations([duo], []), []);

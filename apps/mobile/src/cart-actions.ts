@@ -80,13 +80,12 @@ export function cartRecommendations(cart: CartLine[], products: Product[]): Cart
   );
   if (burger) present.add('burger');
   if (fingers) present.add('fingers');
-  const drinkIncluded = cart.some((l) => l.selections?.some((s) => s.group_id === 'drink'));
   const ids = [
     ...(burger && !fingers ? ['fingers'] : fingers && !burger ? ['burger'] : []),
     'wedges',
     'coleslaw',
     'toast',
-    ...(!drinkIncluded ? ['cola', 'lemonade', 'water'] : []),
+    ...products.filter((product) => product.category === 'Напитки').map((product) => product.id),
   ];
   return [...new Set(ids)]
     .filter((id) => !present.has(id))
@@ -98,6 +97,5 @@ export function cartRecommendations(cart: CartLine[], products: Product[]): Cart
       return validSelections(product, selections) && mergeCartLines(cart, [line], products)
         ? [line]
         : [];
-    })
-    .slice(0, 6);
+    });
 }
