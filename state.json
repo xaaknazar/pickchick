@@ -1557,6 +1557,24 @@
       "updatedAt": "2026-10-01T12:49:43.201Z",
       "summary": "Editable 60-character checkout comment, immutable quote/order and kitchen delivery. Full CI36859967722 6/6; API f0ce904/schema031 deployed with backup/restore and preserved data/ACL, live config enabled. Docs/shared/roadmap c483680 published. PR162. No real invoices or OTP.",
       "nextAction": "Accept iPhone keyboard and comment on operating kitchen during next ordinary order. WhatsApp credentials/template/consent and Webkassa remain separate dependencies."
+    },
+    {
+      "id": "testflight-current",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/testflight-current",
+      "scopes": [
+        "apps/mobile",
+        "scripts/mobile",
+        "tests/mobile",
+        "docs/operations/mobile-testflight.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@release/ios"
+      ],
+      "status": "active",
+      "head": "c48368033dc903d88e478165818fe327fcb93322",
+      "updatedAt": "2026-10-01T13:13:50.557Z"
     }
   ]
 }
