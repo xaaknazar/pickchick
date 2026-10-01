@@ -1510,6 +1510,25 @@
       "updatedAt": "2026-10-01T11:35:53.295Z",
       "summary": "cfe0239: automatic Telegram-first OTP, optional WhatsApp; local checks and review passed; PR160, shared SHA verified; CI pending; WhatsApp not deployed",
       "nextAction": "Connect Meta account/template, update consent, verify real rejection and delivery, then guarded API rollout after CI"
+    },
+    {
+      "id": "cart-extra-drinks",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cart-extra-drinks",
+      "scopes": [
+        "apps/mobile/src/cart-actions.ts",
+        "apps/mobile/src/components/CartExtras.tsx",
+        "tests/mobile/cart-actions.test.mjs",
+        "tests/mobile/browser_cart_sheet.py",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/cart-extra-drinks.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "cfe02398a073d6abd168a02289f8bfb019b9a142",
+      "updatedAt": "2026-10-01T11:37:16.089Z"
     }
   ]
 }
