@@ -1444,9 +1444,11 @@
         "infra/windows",
         ".github/workflows/ci.yml"
       ],
-      "status": "active",
-      "head": "aa54f6e4958c8d928667bf6a8d0a50845f4c3d34",
-      "updatedAt": "2026-10-01T07:30:25.894Z"
+      "status": "done",
+      "head": "0c8f5f189bef8da5eb50c751d71a8ede12e0de82",
+      "updatedAt": "2026-10-01T08:33:08.676Z",
+      "summary": "Runtime289da31 установлен VPS API/Kaspi worker/cloud029 и Windows Edge/FulfillmentWorker/edge015 после полной CI36831517001 6/6. Backup/restore и данные сохранены, 5 служб работают, обмен без ошибок. Общий checkpoint0c8f5f1 и онлайн-roadmap опубликованы, PR158. CI финального операторского/docs checkpoint ещё выполняется; новых счетов не создавали.",
+      "nextAction": "Проверить сообщение и одинаковый номер в Kaspi/приложении/кухне на следующем обычном заказе; проверить итог CI0c8f5f1. Текущая касса192.168.3.9. Перед следующей миграцией обновить backup baseline до schema015."
     }
   ]
 }
