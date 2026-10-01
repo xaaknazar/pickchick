@@ -45,6 +45,7 @@ META = {'synthetic': True, 'namespace': 'pickchick-test'}
 SESSION = {**META, 'session_id': '30000000-0000-4000-8000-000000000001',
            'token': 'a' * 64, 'channel': 'mobile', 'expires_at': '2099-01-01T00:00:00.000Z'}
 READS = {
+    '/v1/customer-checkout/availability': {'enabled': False, 'fresh': False, 'signature': 'disabled', 'products': []},
     '/v1/capabilities': {'schema_version': 1, 'environment': 'staging', 'data_mode': 'synthetic',
                          'ordering_enabled': False, 'features': {'test_order_flow': True, 'unpaid_test_orders': True,
                          **{key: False for key in ['phone_auth', 'payments', 'fiscal', 'checkout', 'loyalty']}}},

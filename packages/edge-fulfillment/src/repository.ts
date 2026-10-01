@@ -150,7 +150,8 @@ export class EdgeFulfillment {
                 option_id: m.optionId,
               })),
             );
-            if (ids.some((id) => stopped.has(id)) || stopped.has(line.productId)) fail('NOT_READY');
+            if (ids.some((id) => stopped.has(id)) || stopped.has(line.productId))
+              throw new FulfillmentError('NOT_READY', 'ITEM_STOPPED');
           }
           const stored = (
             await client.query(

@@ -13,6 +13,7 @@ OUT=ROOT/'.local/checkout';OUT.mkdir(exist_ok=True,parents=True)
 CATALOG=json.loads(subprocess.run(['node','--input-type=module','-e',"import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js'; console.log(JSON.stringify(testCompleteCatalog))"],cwd=ROOT,capture_output=True,text=True,check=True).stdout)
 BRANCH=CATALOG['branch_id']
 READS={
+    '/v1/customer-checkout/availability': {'enabled': False, 'fresh': False, 'signature': 'disabled', 'products': []},
  '/v1/capabilities':{'schema_version':1,'environment':'staging','data_mode':'synthetic','ordering_enabled':False,'features':{'test_order_flow':True,**{k:False for k in ['phone_auth','payments','fiscal','checkout','loyalty']}}},
  '/v1/branches':{'branches':[{'id':BRANCH,'code':'TEST','name':'ТЦ Abay Plaza','timezone':'Asia/Almaty','ordering_enabled':False}]},
  '/v1/branches/'+BRANCH+'/menu':{'schema_version':1,'branch_id':BRANCH,'release_id':'10000000-0000-4000-8000-000000000008','version':1,'published_at':'2026-09-07T00:00:00Z','items':[]},

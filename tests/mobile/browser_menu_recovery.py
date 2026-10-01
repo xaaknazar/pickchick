@@ -37,6 +37,7 @@ CAPABILITIES = {
                  **{key: False for key in ['phone_auth', 'payments', 'fiscal', 'checkout', 'loyalty']}},
 }
 READS = {
+    '/v1/customer-checkout/availability': {'enabled': False, 'fresh': False, 'signature': 'disabled', 'products': []},
     '/v1/capabilities': CAPABILITIES,
     '/v1/branches': {'branches': [{'id': BRANCH, 'code': 'TEST', 'name': 'Проверка восстановления',
                                   'timezone': 'Asia/Almaty', 'ordering_enabled': False}]},
@@ -59,9 +60,9 @@ class Fixture:
         return sum(request[1] == path for request in self.requests)
 
     def catalog_reads(self):
-        # Public promotions have their own refresh lifecycle; they are not part
+        # Promotions and availability have independent refresh lifecycles; they are not part
         # of the four-read catalog recovery transaction tested here.
-        return sum(request[1] != CONTENT_PATH for request in self.requests)
+        return sum(request[1] not in (CONTENT_PATH, '/v1/customer-checkout/availability') for request in self.requests)
 
     def route(self, route):
         request = route.request

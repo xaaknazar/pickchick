@@ -636,3 +636,34 @@ test('competing worker cannot clear pending with an unknown in-flight ACK', () =
     assert.deepEqual((await pending(f)).pending_cloud, exact);
     assert.equal(await f.counts(f.pool, 'fulfillment_transport_failures'), '0');
   }));
+
+test('a stopped order does not block another customer; the original command remains durable', () =>
+  fixture(async (f) => {
+    const { localSelectionIds } = await import('@pickchick/menu-sync');
+    const id = localSelectionIds(f.scope.branchId, 'burger', [])[0];
+    await f.pool.query(
+      'INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason) VALUES($1,$2,true,1,$$Synthetic stop$$)',
+      [f.scope.branchId, id],
+    );
+    const other = await f.createAdditional('fries');
+    assert.equal((await f.tick()).error, 'LOCAL_NOT_READY');
+    assert.equal((await pending(f)).pending_cloud, null);
+    await expireCloud(f);
+    assert.equal((await f.tick()).state, 'applied');
+    assert.equal(
+      (await f.pool.query('SELECT order_id FROM fulfillment_reservations')).rows[0].order_id,
+      other.orderId,
+    );
+    assert.equal(
+      (
+        await f.cloud.query('SELECT acknowledged_at FROM commerce_outbox WHERE order_id=$1', [
+          f.order.orderId,
+        ])
+      ).rows[0].acknowledged_at,
+      null,
+    );
+    await f.pool.query('UPDATE local_stops SET stopped=false');
+    await expireCloud(f);
+    assert.equal((await f.tick()).state, 'applied');
+    assert.equal(await f.counts(f.pool, 'fulfillment_reservations'), '2');
+  }));

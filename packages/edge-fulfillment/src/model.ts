@@ -5,6 +5,7 @@ export class FulfillmentError extends Error {
   constructor(
     readonly code:
       'INVALID' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'NOT_READY' | 'ROUTING_MISSING',
+    readonly reason?: 'ITEM_STOPPED',
   ) {
     super(code);
   }

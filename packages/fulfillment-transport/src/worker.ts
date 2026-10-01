@@ -292,6 +292,16 @@ export async function syncFulfillmentOnce(
         await repo.acceptRelease(scope, pending.delivery.command);
       else await repo.acceptCloud(scope, pending.delivery.command);
     } catch (error) {
+      if (error instanceof FulfillmentError && error.reason === 'ITEM_STOPPED') {
+        // No local effect committed. Leave the command unacknowledged in cloud,
+        // but free the local slot so another customer's available order can progress.
+        await update("pending_cloud=NULL,last_error='LOCAL_NOT_READY'");
+        return {
+          state: 'retry' as const,
+          error: 'LOCAL_NOT_READY' as const,
+          ...(await diagnostic()),
+        };
+      }
       if (error instanceof FulfillmentError && error.code === 'ROUTING_MISSING') {
         await park(pending);
         return {
