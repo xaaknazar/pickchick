@@ -72,6 +72,51 @@ final class SmokeTests: XCTestCase {
     }
 
     @MainActor
+    func testCustomerPilotGuestCheckoutStopsBeforeOtp() throws {
+        // Use the real Release menu and guest auth route. Never request a code,
+        // create an order or submit a Kaspi payment from this smoke test.
+        let app = launchApp()
+        attachScreenshot("Customer-pilot-menu", of: app)
+
+        let cards = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@ AND NOT identifier BEGINSWITH %@",
+                        "product-", "product-photo-")
+        )
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 30), "Expected the current catalog")
+        guard let product = cards.allElementsBoundByIndex.first(where: { $0.isEnabled }) else {
+            XCTFail("The current catalog has no available product")
+            return
+        }
+        reveal(product, in: app)
+        product.tap()
+        let add = element("product-add", in: app)
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        XCTAssertTrue(add.isEnabled, "The available product must be ready to add")
+        attachScreenshot("Customer-pilot-product", of: app)
+        add.tap()
+        assertScreen("M06", in: app)
+        tap("open-cart", in: app)
+        assertScreen("M09", in: app)
+        XCTAssertTrue(element("cart-checkout", in: app).waitForExistence(timeout: 10))
+        attachScreenshot("Customer-pilot-cart", of: app)
+
+        tap("cart-checkout", in: app)
+        XCTAssertTrue(element("auth-welcome", in: app).waitForExistence(timeout: 15),
+                      "Guest checkout must open the real account route")
+        attachScreenshot("Customer-pilot-login", of: app)
+        tap("account-required-login", in: app)
+        assertScreen("M02", in: app)
+        XCTAssertTrue(element("phone-input", in: app).exists)
+        let request = element("request-otp", in: app)
+        XCTAssertTrue(request.exists)
+        XCTAssertFalse(request.isEnabled, "Empty phone must not request an OTP")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@",
+            "Код для локального просмотра:")).firstMatch.exists,
+            "Release must use server authentication, not the local demo")
+        attachScreenshot("Customer-pilot-phone-empty", of: app)
+    }
+
+    @MainActor
     func testReleaseLaunchAndAvailableDesignScreens() throws {
         let app = launchApp()
         assertScreen("M06", in: app)
