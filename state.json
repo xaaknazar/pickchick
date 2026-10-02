@@ -1840,6 +1840,17 @@
       "updatedAt": "2026-10-02T08:40:48.220Z",
       "summary": "Published narrow backoffice error mapping; full pnpm build, targeted lint/format passed. Original41unit/63PG unchanged.",
       "nextAction": "Integrate correction and monitor replacement full CI."
+    },
+    {
+      "id": "shift-number-fixture",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/shift-number-fixture",
+      "scopes": [
+        "tests/integration/test-order-flow.test.mjs"
+      ],
+      "status": "active",
+      "head": "067c04c6c734e4bf1ebf1b6130f19c8fdeeb5d45",
+      "updatedAt": "2026-10-02T09:05:02.100Z"
     }
   ]
 }
