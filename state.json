@@ -1878,23 +1878,6 @@
       "nextAction": "Parent owns device/install/release acceptance."
     },
     {
-      "id": "ci-acceleration",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/ci-acceleration",
-      "scopes": [
-        ".github/workflows/ci.yml",
-        "tests/operations/test_ci_parallel.py",
-        "docs/operations/ci-parallel.md",
-        "scripts/development-checks.mjs",
-        "tests/unit/development-checks.test.mjs"
-      ],
-      "status": "available",
-      "head": "81c9617941b49d78bd6509e7a100facb699917b2",
-      "updatedAt": "2026-10-02T13:01:38.762Z",
-      "summary": "Published81c9617:5 parallel foundation suites plus fail-closed aggregate gate; all coverage retained. 4 Python +3 Node tests, ESLint/prettier, YAML parse passed. Remote SHA verified. Full CI pending parent GitHub access.",
-      "nextAction": "Integrate81c9617 into checkout branch/shared; await exact SHA all11 jobs green. Historical exact_jobs release profiles need separate reviewed updates before those deployment routes."
-    },
-    {
       "id": "kaspi-session-preflight",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kaspi-session-preflight",
@@ -1932,6 +1915,23 @@
       "status": "active",
       "head": "589b5252793d787bee2a7d8d69be7500bd44d7f0",
       "updatedAt": "2026-10-02T13:40:22.621Z"
+    },
+    {
+      "id": "ci-acceleration",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/ci-acceleration",
+      "scopes": [
+        ".github/workflows/ci.yml",
+        "tests/operations/test_ci_parallel.py",
+        "docs/operations/ci-parallel.md",
+        "scripts/development-checks.mjs",
+        "tests/unit/development-checks.test.mjs"
+      ],
+      "status": "active",
+      "head": "484b1aa966386071c17ac8f6636539a5890d6a63",
+      "updatedAt": "2026-10-02T13:44:29.119Z",
+      "summary": "Published81c9617:5 parallel foundation suites plus fail-closed aggregate gate; all coverage retained. 4 Python +3 Node tests, ESLint/prettier, YAML parse passed. Remote SHA verified. Full CI pending parent GitHub access.",
+      "nextAction": "Integrate81c9617 into checkout branch/shared; await exact SHA all11 jobs green. Historical exact_jobs release profiles need separate reviewed updates before those deployment routes."
     }
   ]
 }
