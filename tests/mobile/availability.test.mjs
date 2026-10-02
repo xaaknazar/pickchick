@@ -72,3 +72,26 @@ test('confirmed hours close ordering independently of cashier freshness, never i
   assert.throws(() => parseAvailability({ ...base, orderingOpen: 'false' }));
   assert.throws(() => parseAvailability({ ...base, hours: { ...hours, openingTime: '25:00' } }));
 });
+
+test('design samples ignore live availability while a cold server catalog stays blocked', async () => {
+  const { catalogAvailability } = await import('../../apps/mobile/src/availability.ts');
+  const cold = { data: null, status: 'checking' };
+  assert.equal(catalogAvailability(cold, true).availabilityFresh, false);
+  assert.equal(catalogAvailability({ ...cold, status: 'offline' }, true).availabilityFresh, false);
+  const closed = {
+    status: 'online',
+    data: {
+      ...base,
+      orderingOpen: false,
+      hours: { openingTime: '10:00', closingTime: '00:00', timeZone: 'Asia/Almaty' },
+    },
+  };
+  assert.equal(catalogAvailability(closed, true).availabilityStatus, 'closed');
+  for (const state of [cold, { ...cold, status: 'offline' }, closed]) {
+    assert.deepEqual(catalogAvailability(state, false), {
+      availabilityFresh: undefined,
+      availabilityStatus: undefined,
+      availabilityHours: undefined,
+    });
+  }
+});
