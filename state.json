@@ -1869,11 +1869,11 @@
         "tests/mobile/browser_account_required.py",
         "apps/mobile/src/KaspiCheckoutScreen.tsx"
       ],
-      "status": "active",
+      "status": "done",
       "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
-      "updatedAt": "2026-10-02T12:36:20.096Z",
-      "summary": "Published design catalog isolation correction plus explicit disabled-availability fixtures. Unit9/typecheck/lint/format passed; cart4viewports, account-required, catalog and menu recovery browser tests passed, zero realorders/APIwrites.",
-      "nextAction": "Parent integrates correction, runs exact-source CI and creates final archive/export/upload after green."
+      "updatedAt": "2026-10-02T12:36:25.965Z",
+      "summary": "Code included in shared f83794ce; exact Foundation CI37002738972 all6green. Code-only scope completed.",
+      "nextAction": "Parent owns device/install/release acceptance."
     }
   ]
 }
