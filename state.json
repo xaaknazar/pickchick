@@ -1708,11 +1708,11 @@
         "apps/mobile/src/order-feedback.ts",
         "infra/staging/checkout-grants.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "620a09ab07fa21fc346446edcf555214aaf9e13d",
-      "updatedAt": "2026-10-02T06:34:56.103Z",
-      "summary": "Реализованы PostgreSQL отзывы1-5/комментарий500 по завершённым оплаченным заказам, owner scope, retry/update, bulk feedback и mobile helper; коммит947195e. Build, mobile typecheck,62 PG integration,38 unit,lint/format/contracts/diff прошли. VPS не изменён; kitchen timing null поскольку cloud не хранит время действия.",
-      "nextAction": "Родитель интегрирует947195e вместе с UI и guarded schema032/gateway release; после включения в shared выполнить finish. TestFlight загрузка после CI и установки backend."
+      "updatedAt": "2026-10-02T06:35:02.041Z",
+      "summary": "947195e включён в620a09a;62PG integration,38unit,buildtypechecklintformatcontracts проверены.",
+      "nextAction": "Приёмка после guarded выпуска родителем."
     }
   ]
 }
