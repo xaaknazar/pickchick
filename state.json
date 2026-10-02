@@ -1643,19 +1643,6 @@
       "nextAction": "Родитель интегрирует947195e вместе с UI и guarded schema032/gateway release; после включения в shared выполнить finish. TestFlight загрузка после CI и установки backend."
     },
     {
-      "id": "commerce-feedback-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/orders-history-ui",
-      "scopes": [
-        "infra/staging/release-commerce-feedback.py",
-        "infra/staging/release-kaspi-checkout.py",
-        "tests/operations/test_commerce_feedback_release.py"
-      ],
-      "status": "active",
-      "head": "037f7ab91696663ddf3f63713a4be995013f3980",
-      "updatedAt": "2026-10-02T05:44:31.504Z"
-    },
-    {
       "id": "checkout-keyboard",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/checkout-keyboard",
@@ -1685,6 +1672,20 @@
       "status": "active",
       "head": "03b50f39f969a1b3f422ef4ed5ae4210f72fd8ec",
       "updatedAt": "2026-10-02T05:50:49.929Z"
+    },
+    {
+      "id": "commerce-feedback-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/orders-history-ui",
+      "scopes": [
+        "infra/staging/release-commerce-feedback.py",
+        "infra/staging/release-kaspi-checkout.py",
+        "tests/operations/test_commerce_feedback_release.py",
+        "tests/operations/test_server_pilot_release.py"
+      ],
+      "status": "active",
+      "head": "930a55a846f36185898d0cf3848fecdbf9cac15d",
+      "updatedAt": "2026-10-02T06:02:12.188Z"
     }
   ]
 }
