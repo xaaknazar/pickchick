@@ -1876,6 +1876,22 @@
       "updatedAt": "2026-10-02T12:36:25.965Z",
       "summary": "Code included in shared f83794ce; exact Foundation CI37002738972 all6green. Code-only scope completed.",
       "nextAction": "Parent owns device/install/release acceptance."
+    },
+    {
+      "id": "checkout-connection-flow",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-connection-flow",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "docs/operations/checkout-connection-flow.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "9e2e5dcd605bd5273e23e66380a0bf8b37b36736",
+      "updatedAt": "2026-10-02T12:55:43.060Z"
     }
   ]
 }
