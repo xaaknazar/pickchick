@@ -1733,27 +1733,6 @@
       "nextAction": "Текущий этап connection-recovery принимает дальнейший выпуск приложения и обновление пульта, сохраняя готовый IPA7 и pending Apple Accounts. Новая задача пользователя: автозапуск, соединение и часы приёма."
     },
     {
-      "id": "pin-connection-readiness",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/pin-connection-readiness",
-      "scopes": [
-        "infra/windows/verify-native-connection-recovery.ps1",
-        "tests/operations/windows-native-connection-recovery.test.ps1",
-        "apps/pos/src/v2/runtime.js",
-        "apps/pos/src/v2/app.js",
-        "apps/pos-desktop/protocol.mjs",
-        "tests/pos/pin-readiness.test.mjs",
-        "apps/pos/server.mjs",
-        "apps/pos/src/v2/pin-login.js",
-        "apps/pos-desktop/v2-assets.mjs"
-      ],
-      "status": "available",
-      "head": "6d0079f509b61219ede4c9aceb43280d6038f694",
-      "updatedAt": "2026-10-02T08:19:46.061Z",
-      "summary": "Опубликован 6d0079f: bounded local readiness перед single PIN POST, отдельные network/503/auth сообщения; read-only Windows SCM verifier. 18 Node tests, scoped ESLint, format/diffcheck и Impeccable detect [] прошли. PowerShell parser/mock test не запускался: pwsh не найден. Живые службы, VPS, платежи и reboot не изменялись.",
-      "nextAction": "Parent интегрирует и проверяет actual SCM после восстановления SSH/LAN; выполнить PowerShell test и read-only verifier. Recovery updater только после подтверждённого расхождения; physical reboot/WAN acceptance отдельно."
-    },
-    {
       "id": "connection-api-release",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/connection-api-release",
@@ -1873,6 +1852,27 @@
       "updatedAt": "2026-10-02T12:35:47.035Z",
       "summary": "Published narrow backoffice error mapping; full pnpm build, targeted lint/format passed. Original41unit/63PG unchanged.",
       "nextAction": "Integrate correction and monitor replacement full CI."
+    },
+    {
+      "id": "pin-connection-readiness",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pin-connection-readiness",
+      "scopes": [
+        "infra/windows/verify-native-connection-recovery.ps1",
+        "tests/operations/windows-native-connection-recovery.test.ps1",
+        "apps/pos/src/v2/runtime.js",
+        "apps/pos/src/v2/app.js",
+        "apps/pos-desktop/protocol.mjs",
+        "tests/pos/pin-readiness.test.mjs",
+        "apps/pos/server.mjs",
+        "apps/pos/src/v2/pin-login.js",
+        "apps/pos-desktop/v2-assets.mjs"
+      ],
+      "status": "active",
+      "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
+      "updatedAt": "2026-10-02T12:35:50.208Z",
+      "summary": "Опубликован 6d0079f: bounded local readiness перед single PIN POST, отдельные network/503/auth сообщения; read-only Windows SCM verifier. 18 Node tests, scoped ESLint, format/diffcheck и Impeccable detect [] прошли. PowerShell parser/mock test не запускался: pwsh не найден. Живые службы, VPS, платежи и reboot не изменялись.",
+      "nextAction": "Parent интегрирует и проверяет actual SCM после восстановления SSH/LAN; выполнить PowerShell test и read-only verifier. Recovery updater только после подтверждённого расхождения; physical reboot/WAN acceptance отдельно."
     }
   ]
 }
