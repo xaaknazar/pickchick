@@ -1752,6 +1752,33 @@
       "status": "active",
       "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
       "updatedAt": "2026-10-02T08:12:20.839Z"
+    },
+    {
+      "id": "mobile-connection-recovery",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-connection-recovery",
+      "scopes": [
+        "apps/mobile/src/catalog-recovery.ts",
+        "apps/mobile/src/availability-recovery.ts",
+        "apps/mobile/src/useAvailability.ts",
+        "apps/mobile/src/availability.ts",
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/commerce-read-recovery.ts",
+        "tests/mobile/catalog-auto-recovery.test.mjs",
+        "tests/mobile/availability.test.mjs",
+        "tests/mobile/availability-auto-recovery.test.mjs",
+        "tests/mobile/commerce-read-recovery.test.mjs",
+        "tests/mobile/browser_catalog_recovery.py",
+        "tests/mobile/browser_menu_recovery.py",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "tests/mobile/browser_customer_account.py"
+      ],
+      "status": "active",
+      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
+      "updatedAt": "2026-10-02T08:14:28.802Z"
     }
   ]
 }
