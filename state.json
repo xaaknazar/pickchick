@@ -1818,9 +1818,11 @@
         "packages/commerce-core/tests/postgres.test.mjs",
         "packages/commerce-core/package.json"
       ],
-      "status": "active",
-      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:25:06.951Z"
+      "status": "available",
+      "head": "0f0185fc29396ab5179b659196446de8182d4008",
+      "updatedAt": "2026-10-02T08:31:01.241Z",
+      "summary": "Configured hours, RESTAURANT_CLOSED409 and financial recovery guards; unit41 PG63 API build lint format passed. customer-checkout.ts overlap explicitly approved by parent connection-recovery.",
+      "nextAction": "Integrate commit and run combined CI; enable env only after green. Parent owns docs and VPS."
     },
     {
       "id": "connection-api-release",
