@@ -63,7 +63,7 @@ with sync_playwright() as pw:
         page.set_viewport_size({'width':1920, 'height':1080})
         page.evaluate("window.pinNodes = [document.querySelector('[data-screen-label=\"A Блокировка\"]'), document.querySelector('.pin-logo img'), document.querySelector('.pin-key')]")
         pin(page, '9999')
-        expect(page.get_by_text('Неверный PIN или рабочее место недоступно', exact=True).first).to_be_visible()
+        expect(page.get_by_text('Неверный PIN или нет доступа к рабочему месту', exact=True).first).to_be_visible()
         assert page.evaluate('window.pinNodes.every(node => node.isConnected)'), 'PIN changes recreated the screen or keypad'
         next_clock = page.evaluate("""() => {
           window.realDateNow = Date.now;

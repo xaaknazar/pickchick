@@ -122,7 +122,10 @@ test(
         // closing the first create response after edge has returned committed 201.
         proxy = createServer(async (req, res) => {
           const path = req.url ?? '';
-          if (!path.startsWith('/edge/v1/')) {
+          if (
+            !path.startsWith('/edge/v1/') &&
+            !(req.method === 'GET' && path === '/health/ready')
+          ) {
             res.writeHead(404).end();
             return;
           }
@@ -205,7 +208,7 @@ test(
           let page = await launch();
           await pinLogin(page, '9999');
           await page
-            .getByText('Неверный PIN или рабочее место недоступно', { exact: true })
+            .getByText('Неверный PIN или нет доступа к рабочему месту', { exact: true })
             .first()
             .waitFor();
           stage = 'secure renderer and single instance';
@@ -547,7 +550,12 @@ test(
             creates.map((c) => c.status),
             [201, 201],
           );
-          assert.ok(requests.every(({ path }) => path.startsWith('/edge/v1/')));
+          assert.ok(
+            requests.every(
+              ({ method, path }) =>
+                path.startsWith('/edge/v1/') || (method === 'GET' && path === '/health/ready'),
+            ),
+          );
           assert.ok(!requests.some(({ path }) => /payment|fiscal/.test(path)));
         } catch {
           // Playwright call logs can include file-input data. Report only the
