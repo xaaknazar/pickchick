@@ -14,6 +14,7 @@ OUTPUT = Path('.local/account-required')
 OUTPUT.mkdir(parents=True, exist_ok=True)
 fixture = Fixture()
 reads = {
+    '/v1/customer-checkout/availability': {'enabled': False, 'fresh': False, 'signature': 'disabled', 'products': []},
     '/v1/capabilities': {'schema_version': 1, 'environment': 'staging', 'data_mode': 'synthetic',
         'ordering_enabled': False, 'features': {'test_order_flow': True, **{key: False for key in ['phone_auth', 'payments', 'fiscal', 'checkout', 'loyalty']}}},
     '/v1/branches': {'branches': [{'id': BRANCH, 'code': 'TEST', 'name': 'UI fixture',

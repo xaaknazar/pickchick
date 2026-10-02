@@ -97,6 +97,16 @@ export function availabilityStatus(state: AvailabilityReadState): AvailabilitySt
   if (state.data.orderingOpen === false) return 'closed';
   return state.data.fresh ? 'current' : 'stale';
 }
+/** Design samples never consume a live restaurant's availability or retained hours. */
+export function catalogAvailability(state: AvailabilityReadState, serverCatalog: boolean) {
+  const status = serverCatalog ? availabilityStatus(state) : undefined;
+  return {
+    availabilityFresh:
+      status === undefined || status === 'disabled' ? undefined : status === 'current',
+    availabilityStatus: status,
+    availabilityHours: serverCatalog ? state.data?.hours : undefined,
+  };
+}
 export function availabilityMessage(
   status?: AvailabilityStatus,
   hours?: Availability['hours'],

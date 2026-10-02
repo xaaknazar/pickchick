@@ -1,4 +1,4 @@
-import { withAvailability, availabilityStatus } from './availability';
+import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mergeCartLines } from './cart-actions';
@@ -202,8 +202,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     [catalogMode, menu, locale, connectedCatalog],
   );
   const products = useMemo(
-    () => withAvailability(baseProducts, availability.data),
-    [baseProducts, availability],
+    () => withAvailability(baseProducts, catalogMode === 'server' ? availability.data : null),
+    [baseProducts, availability, catalogMode],
   );
   const branch =
     branches.find((candidate) => candidate.id === requestedBranchId) ?? branches[0] ?? null;
@@ -293,12 +293,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       ...line,
       product: products.find((p) => p.id === line.product.id) ?? line.product,
     })),
-    availabilityFresh:
-      availabilityStatus(availability) === 'disabled'
-        ? undefined
-        : availabilityStatus(availability) === 'current',
-    availabilityStatus: availabilityStatus(availability),
-    availabilityHours: availability.data?.hours,
+    ...catalogAvailability(availability, catalogMode === 'server'),
     catalogMode,
     diningMode,
     paymentMethod,
