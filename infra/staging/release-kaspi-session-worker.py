@@ -3,6 +3,7 @@ import argparse, subprocess, shlex, json, runpy, uuid, os, re
 os.umask(0o077)
 parser=argparse.ArgumentParser(description="Install the CI-verified Kaspi connectivity worker without changing the API/public releases")
 parser.add_argument("--sha", required=True)
+parser.add_argument("--prepare-only", action="store_true")
 parser.add_argument("--ci-proof", type=Path, required=True)
 parser.add_argument("--prepared", type=Path, required=True)
 parser.add_argument("--ssh-key", type=Path, required=True)
@@ -11,12 +12,51 @@ parser.add_argument('--expected-public-sha', default='9e2e5dcd605bd5273e23e66380
 args=parser.parse_args()
 assert re.fullmatch('[a-f0-9]{40}',args.expected_api_sha) and re.fullmatch('[a-f0-9]{40}',args.expected_public_sha)
 root=Path(__file__).resolve().parents[2]; sha=args.sha
+assert re.fullmatch('[a-f0-9]{40}',sha)
 assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()==sha
 assert not subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],text=True).strip()
 proof=json.loads(args.ci_proof.read_text())
 m=runpy.run_path(str(root/'infra/staging/release-market.py'))
-m['verify_ci'](proof,sha,required_jobs=m['CI_JOBS'] | {'Cloud-edge fulfillment transport and recovery','Local kitchen UI and recovery'},exact_jobs=True)
+required_jobs=m['CI_JOBS'] | {
+ 'Cloud-edge fulfillment transport and recovery','Local kitchen UI and recovery',
+ 'Foundation static checks and transaction invariants',
+ 'Foundation POS and backoffice integration',
+ 'Foundation mobile bundles and checkout recovery',
+ 'Foundation simulator browser regressions',
+ 'Foundation server account and Kaspi fixtures',
+}
+m['verify_ci'](proof,sha,required_jobs=required_jobs,exact_jobs=True)
+ci_hash=m['digest']({'run':proof['run'],'jobs':proof['jobs']})
+ssh=['ssh','-i',str(args.ssh_key),'-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes','-o','BatchMode=yes','pickchick-ops@185.129.51.103']
+if args.prepare_only:
+ assert not args.prepared.exists()
+ archive=subprocess.check_output(['git','archive','--format=tar',sha,*m['ARCHIVE_PATHS']],cwd=root)
+ build_path='/opt/pickchick-staging/kaspi-builds/'+sha
+ command=(
+  'test "$(readlink /opt/pickchick-staging/current)" = '+shlex.quote('/opt/pickchick-staging/releases/'+args.expected_api_sha)+' && '
+  'test "$(readlink /opt/pickchick-staging/public-https/current)" = '+shlex.quote('/opt/pickchick-staging/public-https/releases/'+args.expected_public_sha)+' && '
+  'test ! -e '+shlex.quote(build_path)+' && '
+  '! docker image inspect pickchick-api:'+sha+' >/dev/null 2>&1 && '
+  'mkdir -p '+shlex.quote(build_path)+' && tar -xf - -C '+shlex.quote(build_path)+' && '
+  'cd '+shlex.quote(build_path)+' && docker build -q -f infra/staging/Dockerfile '
+  '--build-arg RELEASE_SHA='+sha+' -t pickchick-api:'+sha+' .'
+ )
+ result=subprocess.run(ssh+[command],input=archive,capture_output=True,timeout=1200)
+ log=root/'.local/kaspi-session-worker-prepare.log';log.parent.mkdir(parents=True,exist_ok=True)
+ log.write_bytes(result.stdout+b'\n'+result.stderr);log.chmod(0o600)
+ assert result.returncode==0, 'Worker image preparation failed; inspect private log'
+ image_id=result.stdout.decode().strip()
+ assert re.fullmatch('sha256:[a-f0-9]{64}',image_id)
+ image=json.loads(subprocess.check_output(ssh+['docker image inspect pickchick-api:'+sha],text=True))[0]
+ assert image['Id']==image_id and image['Config']['Labels']['org.opencontainers.image.revision']==sha
+ args.prepared.parent.mkdir(parents=True,exist_ok=True)
+ with args.prepared.open('x') as f:
+  os.fchmod(f.fileno(),0o600)
+  json.dump({'sha':sha,'image_id':image_id,'ci_proof_sha256':ci_hash,'archive_sha256':m['digest'](archive),'workerOnly':True},f)
+ print(json.dumps({'sha':sha,'image_id':image_id,'workerOnly':True,'installed':False}))
+ raise SystemExit(0)
 prepared=json.loads(args.prepared.read_text());assert prepared['sha']==sha
+assert prepared['workerOnly'] is True and prepared['ci_proof_sha256']==ci_hash
 compose=subprocess.check_output(['git','show',sha+':infra/payments/kaspi-bridge/worker.compose.yaml'],text=True)
 payload={'sha':sha,'image':prepared['image_id'],'lock':str(uuid.uuid4()),'compose':compose,'ci':proof['run']['html_url'],'api':args.expected_api_sha,'public':args.expected_public_sha}
 code=r'''import pathlib,json,subprocess,sys,os,time,hashlib
