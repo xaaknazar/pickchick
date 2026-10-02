@@ -1897,28 +1897,6 @@
       "nextAction": "Parent owns mobile release acceptance and remaining status."
     },
     {
-      "id": "checkout-connection-flow",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/checkout-connection-flow",
-      "scopes": [
-        "apps/mobile",
-        "tests/mobile",
-        "docs/operations/checkout-connection-flow.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "@vps/roadmap",
-        "@vps/kaspi-worker",
-        "@release/ios",
-        "docs/operations/mobile-testflight.md"
-      ],
-      "status": "available",
-      "head": "484b1aa966386071c17ac8f6636539a5890d6a63",
-      "updatedAt": "2026-10-02T13:45:17.456Z",
-      "summary": "Shared484b1aa, PR167 merged. Release sourceb18: Foundation37012247704 11/11 in17:29; browser/native smoke passed. Kaspi worker installed, ledger/credentials/neighbors unchanged. Apple upload0.2.0(8) succeeded, browser session expired. Roadmap484b1aa published and deployproof passed. No real invoices/OTP.",
-      "nextAction": "After owner logs into App Store Connect, enable uploaded0.2.0(8) for existing PickChick Internal2 testers and save WhatToTest; verify visible availability, update release docs/roadmap, finish claim. Physical iPhone acceptance remains separate."
-    },
-    {
       "id": "ci-acceleration",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/ci-acceleration",
@@ -1934,6 +1912,28 @@
       "updatedAt": "2026-10-02T13:44:34.829Z",
       "summary": "Implemented5 parallel foundation suites with isolated runners, preserved full coverage and fail-closed original-name gate; read-only targeted development selector. Original81c9617 included by normalmerge589b525; shared484b1aa and ci branch remoteSHA verified. Previously passed4Python+3Node tests, lint/format/YAML. Frozenb18 Foundation CI37012247704 all11successful in17:29 (https://github.com/xaaknazar/pickchick/actions/runs/37012247704). No checks repeated.",
       "nextAction": "Scope completed and released. Parent owns release acceptance: workerb18 installed, TestFlightbuild8 upload accepted; Apple browser login needs owner before confirming distribution/install. Future release retains full11-job CI; targeted selector is advisory."
+    },
+    {
+      "id": "checkout-connection-flow",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-connection-flow",
+      "scopes": [
+        "apps/mobile",
+        "tests/mobile",
+        "docs/operations/checkout-connection-flow.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap",
+        "@vps/kaspi-worker",
+        "@release/ios",
+        "docs/operations/mobile-testflight.md"
+      ],
+      "status": "active",
+      "head": "484b1aa966386071c17ac8f6636539a5890d6a63",
+      "updatedAt": "2026-10-02T15:15:05.918Z",
+      "summary": "Shared484b1aa, PR167 merged. Release sourceb18: Foundation37012247704 11/11 in17:29; browser/native smoke passed. Kaspi worker installed, ledger/credentials/neighbors unchanged. Apple upload0.2.0(8) succeeded, browser session expired. Roadmap484b1aa published and deployproof passed. No real invoices/OTP.",
+      "nextAction": "After owner logs into App Store Connect, enable uploaded0.2.0(8) for existing PickChick Internal2 testers and save WhatToTest; verify visible availability, update release docs/roadmap, finish claim. Physical iPhone acceptance remains separate."
     }
   ]
 }
