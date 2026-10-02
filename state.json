@@ -1754,37 +1754,6 @@
       "nextAction": "Parent интегрирует и проверяет actual SCM после восстановления SSH/LAN; выполнить PowerShell test и read-only verifier. Recovery updater только после подтверждённого расхождения; physical reboot/WAN acceptance отдельно."
     },
     {
-      "id": "mobile-connection-recovery",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/mobile-connection-recovery",
-      "scopes": [
-        "apps/mobile/src/catalog-recovery.ts",
-        "apps/mobile/src/availability-recovery.ts",
-        "apps/mobile/src/useAvailability.ts",
-        "apps/mobile/src/availability.ts",
-        "apps/mobile/src/store.tsx",
-        "apps/mobile/src/model.ts",
-        "apps/mobile/src/screens/CatalogScreens.tsx",
-        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
-        "apps/mobile/src/commerce-read-recovery.ts",
-        "tests/mobile/catalog-auto-recovery.test.mjs",
-        "tests/mobile/availability.test.mjs",
-        "tests/mobile/availability-auto-recovery.test.mjs",
-        "tests/mobile/commerce-read-recovery.test.mjs",
-        "tests/mobile/browser_catalog_recovery.py",
-        "tests/mobile/browser_menu_recovery.py",
-        "tests/mobile/browser_kaspi_checkout.py",
-        "tests/mobile/browser_customer_account.py",
-        "apps/mobile/src/commerce-presentation.ts",
-        "tests/mobile/commerce-presentation.test.mjs"
-      ],
-      "status": "available",
-      "head": "68733f83734a8a5f04239022478b8a102bc20862",
-      "updatedAt": "2026-10-02T08:38:41.634Z",
-      "summary": "Published 68733f8: safe read recovery, availability states and confirmed hours, foreground/manual refresh, paid history watch; 26 unit tests, mobile typecheck/lint and three browser fixture suites passed; no real orders or payment commands created.",
-      "nextAction": "Parent integrates published branch, runs shared CI and release verification; final cart Notice native wrapper fix has typecheck/lint validation."
-    },
-    {
       "id": "connection-recovery",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/connection-recovery",
@@ -1853,6 +1822,39 @@
       "updatedAt": "2026-10-02T09:36:32.022Z",
       "summary": "Production command acquires test_flow_lock before FK/trigger locks; fixture matches explicit reserved-client transaction. Six concurrent inserts and allnumber rollback retention replay assertions retained. targeted test and fullfile25/25 passed; lintformatpassed.",
       "nextAction": "Integrate and run final exact-source CI; no migration/runtimechange."
+    },
+    {
+      "id": "mobile-connection-recovery",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-connection-recovery",
+      "scopes": [
+        "apps/mobile/src/catalog-recovery.ts",
+        "apps/mobile/src/availability-recovery.ts",
+        "apps/mobile/src/useAvailability.ts",
+        "apps/mobile/src/availability.ts",
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/commerce-read-recovery.ts",
+        "tests/mobile/catalog-auto-recovery.test.mjs",
+        "tests/mobile/availability.test.mjs",
+        "tests/mobile/availability-auto-recovery.test.mjs",
+        "tests/mobile/commerce-read-recovery.test.mjs",
+        "tests/mobile/browser_catalog_recovery.py",
+        "tests/mobile/browser_menu_recovery.py",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "tests/mobile/browser_customer_account.py",
+        "apps/mobile/src/commerce-presentation.ts",
+        "tests/mobile/commerce-presentation.test.mjs",
+        "tests/mobile/browser_cart_sheet.py",
+        "tests/mobile/browser_account_required.py"
+      ],
+      "status": "active",
+      "head": "68733f83734a8a5f04239022478b8a102bc20862",
+      "updatedAt": "2026-10-02T11:06:56.609Z",
+      "summary": "Published 68733f8: safe read recovery, availability states and confirmed hours, foreground/manual refresh, paid history watch; 26 unit tests, mobile typecheck/lint and three browser fixture suites passed; no real orders or payment commands created.",
+      "nextAction": "Parent integrates published branch, runs shared CI and release verification; final cart Notice native wrapper fix has typecheck/lint validation."
     }
   ]
 }
