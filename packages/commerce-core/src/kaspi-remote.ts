@@ -4,6 +4,11 @@ import { transaction } from '@pickchick/database';
 import type { DatabasePool } from '@pickchick/database';
 import { CommerceRepository } from './repository.js';
 import { UUIDSchema } from './model.js';
+import {
+  assertBranchItemsAvailable,
+  snapshotAvailabilityItems,
+  AvailabilityError,
+} from './availability.js';
 
 /**
  * Kaspi remote invoice (счёт на номер телефона) through a private local bridge
@@ -552,28 +557,56 @@ export class KaspiRemoteProcessor {
     );
   }
 
+  private async deferSubmission(event: { id: string; token: string }) {
+    this.readinessRetryAt = Date.now() + 5000;
+    await this.pool.query(
+      `UPDATE commerce_outbox SET lease_until=clock_timestamp()+interval '5 seconds'
+       WHERE id=$1 AND lease_worker=$2 AND lease_token=$3`,
+      [event.id, this.workerId, event.token],
+    );
+    return 'deferred' as const;
+  }
+
   private async submit(event: { id: string; attempt_id: string; token: string }) {
-    // Existing invoices must continue reconciliation even when the bank probe fails.
-    // A negative read-only probe leaves the same durable submission pending.
-    if (!(await this.row(event.attempt_id)) && !(await this.client.checkSession())) {
-      this.readinessRetryAt = Date.now() + 5000;
-      await this.pool.query(
-        `UPDATE commerce_outbox SET lease_until=clock_timestamp()+interval '5 seconds'
-         WHERE id=$1 AND lease_worker=$2 AND lease_token=$3`,
-        [event.id, this.workerId, event.token],
-      );
-      return 'deferred';
-    }
+    const existing = await this.row(event.attempt_id);
+    if (!existing && !(await this.client.checkSession())) return this.deferSubmission(event);
     const source = (
-      await this.pool.query<{ snapshot: unknown; display_number: string | null }>(
-        `SELECT o.snapshot,p.display_number::text FROM commerce_payment_attempts a
+      await this.pool.query<{
+        snapshot: unknown;
+        display_number: string | null;
+        branch_id: string;
+        ready: boolean;
+      }>(
+        `SELECT o.snapshot,o.branch_id,p.display_number::text,
+         (b.ordering_enabled AND NOT o.attention_required AND t.active AND d.status='active'
+          AND p.state='held' AND p.device_id=o.admission_device_id
+          AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id
+          AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents c WHERE c.order_id=o.id)) ready
+       FROM commerce_payment_attempts a
        JOIN commerce_orders o ON o.id=a.order_id
+       JOIN branches b ON b.id=o.branch_id
+       LEFT JOIN fulfillment_transport_bindings t ON t.branch_id=o.branch_id
+       LEFT JOIN devices d ON d.id=t.device_id
        LEFT JOIN cloud_fulfillment_projection p ON p.order_id=o.id
        WHERE a.id=$1 AND a.account_id=$2`,
         [event.attempt_id, this.config.accountId],
       )
     ).rows[0];
     if (!source) throw new KaspiRemoteError('INVALID');
+    if (!existing) {
+      if (!source.ready) return this.deferSubmission(event);
+      try {
+        // Run after the bank probe: freshness can expire while checking Kaspi.
+        await assertBranchItemsAvailable(
+          this.pool,
+          source.branch_id,
+          snapshotAvailabilityItems(source.snapshot),
+        );
+      } catch (error) {
+        if (error instanceof AvailabilityError) return this.deferSubmission(event);
+        throw error;
+      }
+    }
     const comment = kaspiInvoiceComment(source.display_number, source.snapshot);
     // Persist the exact message before sending. Recovery verifies bank metadata
     // against this attempt rather than issuing another invoice.

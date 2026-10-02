@@ -34,6 +34,7 @@ class FakeBridge {
   }
   async checkSession() {
     this.sessionChecks++;
+    if (this.beforeSessionReply) await this.beforeSessionReply();
     return this.sessionReady !== false;
   }
   async createInvoice(phone, amount, comment) {
@@ -97,7 +98,7 @@ async function fixture(run, deferred = false) {
       [legal, org],
     );
     await pool.query(
-      "INSERT INTO branches(id,organization_id,legal_entity_id,code,name) VALUES($1,$2,$3,'KASPI','Synthetic')",
+      "INSERT INTO branches(id,organization_id,legal_entity_id,code,name,ordering_enabled) VALUES($1,$2,$3,'KASPI','Synthetic',true)",
       [branch, org, legal],
     );
     await pool.query(
@@ -134,6 +135,10 @@ async function fixture(run, deferred = false) {
       'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
       [branch, org, device, randomUUID()],
     );
+    await pool.query(
+      "INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids) VALUES($1,$2,1,'{}')",
+      [branch, device],
+    );
     let number = 0;
     const phones = new Map();
     let clock = Date.now();
@@ -159,6 +164,10 @@ async function fixture(run, deferred = false) {
         () => new Date(clock),
       );
     async function order({ unitPriceMinor = '50000', phone = '+77011234567' } = {}) {
+      await pool.query(
+        'UPDATE cloud_branch_availability SET observed_at=clock_timestamp() WHERE branch_id=$1',
+        [branch],
+      );
       const customerId = randomUUID();
       if (phone) phones.set(customerId, phone);
       if (phone === 'throw') phones.set(customerId, new Error('PII key unavailable'));
@@ -293,6 +302,35 @@ test('unavailable bank defers the same durable submission and keeps existing inv
     await f.processor().tick();
     assert.equal(f.bridge.count('create'), 2);
     assert.equal((await f.invoice(secondOrder.attempt.attemptId)).state, 'issued');
+  }));
+
+test('restaurant freshness is checked after the bank probe and the same attempt waits for recovery', () =>
+  fixture(async (f) => {
+    const { attempt } = await f.order();
+    f.bridge.beforeSessionReply = () =>
+      f.pool.query(
+        "UPDATE cloud_branch_availability SET observed_at=clock_timestamp()-interval '31 seconds'",
+      );
+    assert.equal((await f.processor().tick()).submitted, 0);
+    assert.equal(f.bridge.count('create'), 0);
+    assert.equal(await f.invoice(attempt.attemptId), undefined);
+    f.bridge.beforeSessionReply = null;
+    await f.pool.query('UPDATE cloud_branch_availability SET observed_at=clock_timestamp()');
+    await f.pool.query(
+      "UPDATE commerce_outbox SET lease_until=clock_timestamp()-interval '1 second' WHERE acknowledged_at IS NULL",
+    );
+    await f.processor().tick();
+    assert.equal(f.bridge.count('create'), 1);
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
+  }));
+
+test('restaurant admission released after payment request prevents a new invoice', () =>
+  fixture(async (f) => {
+    const { attempt } = await f.order();
+    await f.pool.query("UPDATE cloud_fulfillment_projection SET state='released'");
+    assert.equal((await f.processor().tick()).submitted, 0);
+    assert.equal(f.bridge.count('create'), 0);
+    assert.equal(await f.invoice(attempt.attemptId), undefined);
   }));
 
 test('invoice to the customer phone, Processed status records exactly one capture', () =>
@@ -1042,11 +1080,19 @@ test('commercial review persists only for the authenticated owner of a paid hand
       [orderId],
     );
     assert.equal((await checkout.feedback(f.scope.principalId, orderId)).enabled, false);
+    // New invoices require a current held admission; complete only after bank submission.
+    await f.pool.query("UPDATE cloud_fulfillment_projection SET state='held' WHERE order_id=$1", [
+      orderId,
+    ]);
     const worker = f.processor();
     await worker.tick();
     f.bridge.status.set((await f.invoice(attempt.attemptId)).operation_id, 'Processed');
     await f.due();
     await worker.tick();
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET state='handed_over' WHERE order_id=$1",
+      [orderId],
+    );
     await assert.rejects(checkout.feedback(other, orderId), /NOT_FOUND/);
     await assert.rejects(checkout.submitFeedback(other, orderId, { rating: 1 }), /NOT_FOUND/);
     assert.deepEqual((await checkout.listFeedback(other)).feedback, []);
