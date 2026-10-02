@@ -24,7 +24,30 @@ redirect запрещён; ответ банка и секреты не логи
 - Targeted commerce dependency build, ESLint и Prettier.
 - 23 Kaspi adapter unit-теста: положительный ответ, inactive, неверный тип,
   HTTP 401/503, отсутствие credentials и transport failure.
-- 34 PostgreSQL integration-теста прошли на отдельном локальном экземпляре, scripted bridge;
+- 36 PostgreSQL integration-теста прошли на отдельном локальном экземпляре, scripted bridge;
   новая проверка покрывает отложенную команду, отсутствие нового счёта,
   восстановление той же попытки и сверку существующего оплаченного счёта.
 - Запросы к реальному Kaspi и deployment не выполнялись.
+
+## Ресторан и установка worker
+
+После read-only ответа Kaspi worker повторно проверяет freshness ресторана
+(30 секунд), активную привязку и устройство, текущую held admission, отсутствие
+отмены и остановленных позиций. Потеря readiness откладывает ту же команду;
+сверка уже отправленных счетов продолжается. Worker получает только SELECT
+на cloud_branch_availability, fulfillment_transport_bindings и devices.
+
+Профиль `infra/staging/release-kaspi-session-worker.py` обновляет только worker.
+Read-only проверка VPS 2 октября подтвердила исходный worker
+`289da31b47915b2d5cc3bb1813a4df613eb265b2`, API `f83794ce68c10906d2924a3a04351f7550d62b40`,
+public `9e2e5dcd605bd5273e23e66380a0bf8b37b36736`. Перед применением передать
+точные ожидаемые API/public SHA, если другая согласованная установка изменила
+указатели. Нужны полная зелёная Foundation CI точного source SHA, prepared.json
+с SHA/image_id подготовленного образа и claim @vps.
+
+Профиль проверяет отсутствие pending submissions и unsettled invoices,
+сохраняет ledger/секреты/mounts/соседние контейнеры, применяет только недостающие
+read-only grants, держит штатную release lock и восстанавливает старый worker
+и только добавленные права при ошибке. Проверка установленного адаптера
+использует fake fetch, без банковского запроса или нового счёта.
+Профиль подготовлен и проверен локально; установка пока не выполнялась.
