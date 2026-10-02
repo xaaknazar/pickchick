@@ -1,3 +1,16 @@
+## 0.2.0 (8): загружена в Apple, 2 октября 2026
+
+Исходник `b18beb08b86341e13ab2b919edd01f523cea0c23`, полная
+[CI 37012247704](https://github.com/xaaknazar/pickchick/actions/runs/37012247704), 11/11.
+Label `customer-pilot-20261002-8-checkout-final`; customer-pilot flags и прежняя
+подпись сохранены. Версия8 проверена в архиве и native Release simulator.
+Гостевой XCUITest прошёл без OTP/заказа/платежа; три browser-suite подтвердили
+восстановление оформления. [Изменения](checkout-connection-flow.md).
+Upload завершился `EXPORT SUCCEEDED`. Предупреждения dSYM сторонних framework
+сохраняются. Сессия браузера App Store Connect истекла; включение сборки в
+существующую PickChick Internal пока ожидает повторного входа владельца.
+Физическая приёмка отдельно. Webkassa этой правкой не подключается.
+
 ## 0.2.0 (7): доступна в PickChick Internal, 2 октября 2026
 
 Сборка из чистого `f83794ce68c10906d2924a3a04351f7550d62b40`, после полной
