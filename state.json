@@ -1668,6 +1668,19 @@
       "status": "active",
       "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
       "updatedAt": "2026-10-02T05:40:03.942Z"
+    },
+    {
+      "id": "commerce-feedback-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/orders-history-ui",
+      "scopes": [
+        "infra/staging/release-commerce-feedback.py",
+        "infra/staging/release-kaspi-checkout.py",
+        "tests/operations/test_commerce_feedback_release.py"
+      ],
+      "status": "active",
+      "head": "037f7ab91696663ddf3f63713a4be995013f3980",
+      "updatedAt": "2026-10-02T05:44:31.504Z"
     }
   ]
 }
