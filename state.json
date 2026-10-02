@@ -1614,11 +1614,13 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
         "@release/ios",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "apps/mobile/app.json",
+        "docs/operations/mobile-testflight.md"
       ],
       "status": "active",
       "head": "432b49375da636a965a967b1dde8703a63605e8b",
-      "updatedAt": "2026-10-02T05:08:44.681Z"
+      "updatedAt": "2026-10-02T05:15:17.216Z"
     }
   ]
 }
