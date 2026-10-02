@@ -1747,19 +1747,6 @@
       "nextAction": "Parent интегрирует hours/mobile/worker и этот профиль, проходит полную CI, резервирует VPS mutation и выполняет guarded API-only release. Установленный Windows SCM/reboot/WAN остаются отдельной приёмкой."
     },
     {
-      "id": "shift-number-fixture",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/shift-number-fixture",
-      "scopes": [
-        "tests/integration/test-order-flow.test.mjs"
-      ],
-      "status": "available",
-      "head": "c49671ffeed4a3efc9c4601ee8f1461f2d34ca78",
-      "updatedAt": "2026-10-02T09:36:32.022Z",
-      "summary": "Production command acquires test_flow_lock before FK/trigger locks; fixture matches explicit reserved-client transaction. Six concurrent inserts and allnumber rollback retention replay assertions retained. targeted test and fullfile25/25 passed; lintformatpassed.",
-      "nextAction": "Integrate and run final exact-source CI; no migration/runtimechange."
-    },
-    {
       "id": "mobile-connection-recovery",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-connection-recovery",
@@ -1873,6 +1860,19 @@
       "updatedAt": "2026-10-02T12:35:55.589Z",
       "summary": "Code included in shared f83794ce; exact Foundation CI37002738972 all6green. Code-only scope completed.",
       "nextAction": "Parent owns device/install/release acceptance."
+    },
+    {
+      "id": "shift-number-fixture",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/shift-number-fixture",
+      "scopes": [
+        "tests/integration/test-order-flow.test.mjs"
+      ],
+      "status": "active",
+      "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
+      "updatedAt": "2026-10-02T12:35:59.041Z",
+      "summary": "Production command acquires test_flow_lock before FK/trigger locks; fixture matches explicit reserved-client transaction. Six concurrent inserts and allnumber rollback retention replay assertions retained. targeted test and fullfile25/25 passed; lintformatpassed.",
+      "nextAction": "Integrate and run final exact-source CI; no migration/runtimechange."
     }
   ]
 }
