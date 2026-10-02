@@ -1894,20 +1894,6 @@
       "updatedAt": "2026-10-02T12:55:43.060Z"
     },
     {
-      "id": "kaspi-session-preflight",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kaspi-session-preflight",
-      "scopes": [
-        "packages/commerce-core/src/kaspi-remote.ts",
-        "packages/commerce-core/tests/kaspi-remote.postgres.test.mjs",
-        "tests/payments/kaspi-remote.test.mjs",
-        "docs/operations/kaspi-session-preflight.md"
-      ],
-      "status": "active",
-      "head": "9e2e5dcd605bd5273e23e66380a0bf8b37b36736",
-      "updatedAt": "2026-10-02T12:59:09.832Z"
-    },
-    {
       "id": "ci-acceleration",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/ci-acceleration",
@@ -1923,6 +1909,23 @@
       "updatedAt": "2026-10-02T13:01:38.762Z",
       "summary": "Published81c9617:5 parallel foundation suites plus fail-closed aggregate gate; all coverage retained. 4 Python +3 Node tests, ESLint/prettier, YAML parse passed. Remote SHA verified. Full CI pending parent GitHub access.",
       "nextAction": "Integrate81c9617 into checkout branch/shared; await exact SHA all11 jobs green. Historical exact_jobs release profiles need separate reviewed updates before those deployment routes."
+    },
+    {
+      "id": "kaspi-session-preflight",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-session-preflight",
+      "scopes": [
+        "packages/commerce-core/src/kaspi-remote.ts",
+        "packages/commerce-core/tests/kaspi-remote.postgres.test.mjs",
+        "tests/payments/kaspi-remote.test.mjs",
+        "docs/operations/kaspi-session-preflight.md",
+        "infra/staging/checkout-grants.mjs",
+        "infra/staging/release-kaspi-session-worker.py",
+        "tests/operations/test_kaspi_session_worker_release.py"
+      ],
+      "status": "active",
+      "head": "bd3824a427996f6f4cec04cfea2ebdd56f98d0ba",
+      "updatedAt": "2026-10-02T13:10:13.075Z"
     }
   ]
 }
