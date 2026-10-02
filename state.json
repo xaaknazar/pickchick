@@ -1661,28 +1661,6 @@
       "nextAction": "Parent проходитполнуюCI и выпускает release-commerce-feedback.py по runbook с резервированиемVPS; подтвердить API/schema032 отдельно от TestFlight."
     },
     {
-      "id": "dependency-forge-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/orders-review-backend",
-      "scopes": [
-        "pnpm-workspace.yaml",
-        "package.json",
-        "pnpm-lock.yaml",
-        "patches",
-        "scripts/node-forge-security.mjs",
-        "scripts/dependency-audit.mjs",
-        "tests/unit/node-forge-patch.test.mjs",
-        ".github/workflows/ci.yml",
-        "docs/operations/node-forge-security-patch.md",
-        "infra/staging/release-market.py"
-      ],
-      "status": "available",
-      "head": "21f9d381d08744b97f855d022a4bd65da7caee76",
-      "updatedAt": "2026-10-02T06:28:32.352Z",
-      "summary": "21f9d38: применён реальный RSA patch node-forge1.4.0; nested DigestAlgorithm и NULL content проверяются. Frozen install,4security regression,audit highcritical guard,10marketreleaseunit,ExpoCLI mobilekiosk,lintformatdiff прошли. Уровни4moderate остаются. patches включён в API archive; VPS/signingnative не менялись.",
-      "nextAction": "Родитель интегрирует21f9d38, создаёт свежий generated node_modules и frozen install, затем audit:release и source CI; finish после включения в shared. Удалить patch+exception вместе после проверенного upstream release."
-    },
-    {
       "id": "orders-completed-ui",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/completed-order-ui",
@@ -1713,6 +1691,28 @@
       "updatedAt": "2026-10-02T06:35:02.041Z",
       "summary": "947195e включён в620a09a;62PG integration,38unit,buildtypechecklintformatcontracts проверены.",
       "nextAction": "Приёмка после guarded выпуска родителем."
+    },
+    {
+      "id": "dependency-forge-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/orders-review-backend",
+      "scopes": [
+        "pnpm-workspace.yaml",
+        "package.json",
+        "pnpm-lock.yaml",
+        "patches",
+        "scripts/node-forge-security.mjs",
+        "scripts/dependency-audit.mjs",
+        "tests/unit/node-forge-patch.test.mjs",
+        ".github/workflows/ci.yml",
+        "docs/operations/node-forge-security-patch.md",
+        "infra/staging/release-market.py"
+      ],
+      "status": "active",
+      "head": "620a09ab07fa21fc346446edcf555214aaf9e13d",
+      "updatedAt": "2026-10-02T06:35:07.866Z",
+      "summary": "21f9d38: применён реальный RSA patch node-forge1.4.0; nested DigestAlgorithm и NULL content проверяются. Frozen install,4security regression,audit highcritical guard,10marketreleaseunit,ExpoCLI mobilekiosk,lintformatdiff прошли. Уровни4moderate остаются. patches включён в API archive; VPS/signingnative не менялись.",
+      "nextAction": "Родитель интегрирует21f9d38, создаёт свежий generated node_modules и frozen install, затем audit:release и source CI; finish после включения в shared. Удалить patch+exception вместе после проверенного upstream release."
     }
   ]
 }
