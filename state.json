@@ -1648,6 +1648,18 @@
       "status": "active",
       "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
       "updatedAt": "2026-10-02T05:35:50.582Z"
+    },
+    {
+      "id": "orders-history-ui",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/orders-history-ui",
+      "scopes": [
+        "apps/mobile/src/components/OrderHistoryCard.tsx",
+        "apps/mobile/src/screens/OrderStatusScreen.tsx"
+      ],
+      "status": "active",
+      "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
+      "updatedAt": "2026-10-02T05:36:16.648Z"
     }
   ]
 }
