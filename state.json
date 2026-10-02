@@ -1597,6 +1597,28 @@
       "updatedAt": "2026-10-02T05:08:38.929Z",
       "summary": "Avatar implementation and checks complete in shared432b493, PR164. Delivery pending next native build; online roadmap publication carried into checkout keyboard release.",
       "nextAction": "Include avatar with keyboard fix in next mobile build; publish roadmap after green CI."
+    },
+    {
+      "id": "checkout-keyboard",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-keyboard",
+      "scopes": [
+        "apps/mobile/src/components/UI.tsx",
+        "apps/mobile/src/components/CheckoutKeyboard.tsx",
+        "apps/mobile/src/components/OrderSheet.tsx",
+        "apps/mobile/src/screens/CheckoutScreen.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "tests/mobile/ios/SmokeTests.swift",
+        "docs/operations/checkout-keyboard.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@release/ios",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "432b49375da636a965a967b1dde8703a63605e8b",
+      "updatedAt": "2026-10-02T05:08:44.681Z"
     }
   ]
 }
