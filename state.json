@@ -1795,9 +1795,11 @@
         "apps/pos/src/v2/pin-login.js",
         "apps/pos-desktop/v2-assets.mjs"
       ],
-      "status": "active",
-      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:14:54.627Z"
+      "status": "available",
+      "head": "6d0079f509b61219ede4c9aceb43280d6038f694",
+      "updatedAt": "2026-10-02T08:19:46.061Z",
+      "summary": "Опубликован 6d0079f: bounded local readiness перед single PIN POST, отдельные network/503/auth сообщения; read-only Windows SCM verifier. 18 Node tests, scoped ESLint, format/diffcheck и Impeccable detect [] прошли. PowerShell parser/mock test не запускался: pwsh не найден. Живые службы, VPS, платежи и reboot не изменялись.",
+      "nextAction": "Parent интегрирует и проверяет actual SCM после восстановления SSH/LAN; выполнить PowerShell test и read-only verifier. Recovery updater только после подтверждённого расхождения; physical reboot/WAN acceptance отдельно."
     }
   ]
 }
