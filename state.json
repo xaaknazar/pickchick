@@ -1850,11 +1850,11 @@
         "tests/mobile/browser_cart_sheet.py",
         "tests/mobile/browser_account_required.py"
       ],
-      "status": "active",
-      "head": "68733f83734a8a5f04239022478b8a102bc20862",
-      "updatedAt": "2026-10-02T11:06:56.609Z",
-      "summary": "Published 68733f8: safe read recovery, availability states and confirmed hours, foreground/manual refresh, paid history watch; 26 unit tests, mobile typecheck/lint and three browser fixture suites passed; no real orders or payment commands created.",
-      "nextAction": "Parent integrates published branch, runs shared CI and release verification; final cart Notice native wrapper fix has typecheck/lint validation."
+      "status": "available",
+      "head": "370b5dc8666625eeb7f62010c1f70f690b0f1955",
+      "updatedAt": "2026-10-02T11:09:56.741Z",
+      "summary": "Published design catalog isolation correction plus explicit disabled-availability fixtures. Unit9/typecheck/lint/format passed; cart4viewports, account-required, catalog and menu recovery browser tests passed, zero realorders/APIwrites.",
+      "nextAction": "Parent integrates correction, runs exact-source CI and creates final archive/export/upload after green."
     }
   ]
 }
