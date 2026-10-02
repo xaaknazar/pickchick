@@ -55,3 +55,38 @@ export const CustomerCommerceOrderSchema = z.strictObject({
     .max(200),
 });
 export type CustomerCommerceOrder = z.infer<typeof CustomerCommerceOrderSchema>;
+
+export const CustomerOrderFeedbackInputSchema = z.strictObject({
+  rating: z.int().min(1).max(5),
+  comment: z.string().trim().max(500).optional(),
+});
+export const CustomerOrderFeedbackResponseSchema = z.strictObject({
+  orderId: z.uuid(),
+  enabled: z.boolean(),
+  feedback: z
+    .strictObject({
+      rating: z.int().min(1).max(5),
+      comment: z.string().max(500).nullable(),
+      createdAt: z.iso.datetime(),
+      updatedAt: z.iso.datetime(),
+    })
+    .nullable(),
+  preparationStartedAt: z.iso.datetime().nullable(),
+  readyAt: z.iso.datetime().nullable(),
+});
+export type CustomerOrderFeedbackResponse = z.infer<typeof CustomerOrderFeedbackResponseSchema>;
+
+export const CustomerOrderFeedbackListSchema = z.strictObject({
+  feedback: z
+    .array(
+      z.strictObject({
+        orderId: z.uuid(),
+        rating: z.int().min(1).max(5),
+        comment: z.string().max(500).nullable(),
+        createdAt: z.iso.datetime(),
+        updatedAt: z.iso.datetime(),
+      }),
+    )
+    .max(30),
+});
+export type CustomerOrderFeedbackList = z.infer<typeof CustomerOrderFeedbackListSchema>;

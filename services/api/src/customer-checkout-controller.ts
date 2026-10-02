@@ -125,6 +125,28 @@ export class CustomerCheckoutController {
       checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
     );
   }
+  @Get('feedback') listFeedback(
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Headers('authorization') auth?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (id) => this.checkout.listFeedback(id));
+  }
+  @Get('orders/:orderId/feedback') feedback(
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Param('orderId') orderId: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (id) => this.checkout.feedback(id, orderId));
+  }
+  @Post('orders/:orderId/feedback') @HttpCode(200) submitFeedback(
+    @Param('orderId') orderId: string,
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(auth, (id) => this.checkout.submitFeedback(id, orderId, body));
+  }
   @Get('orders/:orderId') read(
     @Param('orderId') orderId: string,
     @Headers('authorization') auth?: string,
