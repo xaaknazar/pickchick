@@ -30,7 +30,7 @@ export function KaspiPaymentState({
   notice,
   extraAction,
 }: {
-  order: CustomerCommerceOrder;
+  order?: CustomerCommerceOrder;
   paid?: boolean;
   onContinue(): void;
   onRetry(): void;
@@ -44,17 +44,18 @@ export function KaspiPaymentState({
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
   const [openError, setOpenError] = useState(false);
   const pulse = useRef(new Animated.Value(0)).current;
-  const failed = order.phase === 'failed';
-  const waiting = order.phase === 'awaiting_payment';
+  const phase = order?.phase ?? 'awaiting_restaurant';
+  const failed = phase === 'failed';
+  const waiting = phase === 'awaiting_payment';
   const [now, setNow] = useState(Date.now);
-  const remaining = invoiceSecondsRemaining(order.expiresAt, now);
-  const deadlineReached = (waiting || order.phase === 'checking') && remaining === 0;
+  const remaining = invoiceSecondsRemaining(order?.expiresAt ?? null, now);
+  const deadlineReached = (waiting || phase === 'checking') && remaining === 0;
   useEffect(() => {
-    if ((!waiting && order.phase !== 'checking') || !foreground || !order.expiresAt) return;
+    if ((!waiting && phase !== 'checking') || !foreground || !order?.expiresAt) return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [waiting, foreground, order.expiresAt, order.phase]);
+  }, [waiting, foreground, order?.expiresAt, phase]);
   useEffect(() => {
     const listener = AppState.addEventListener('change', (state) =>
       setForeground(state === 'active'),
@@ -91,7 +92,18 @@ export function KaspiPaymentState({
     };
   }, [reduced, foreground, paid, failed, pulse]);
   return (
-    <View style={s.root} testID={paid ? 'kaspi-paid' : failed ? 'kaspi-failed' : 'kaspi-waiting'}>
+    <View
+      style={s.root}
+      testID={
+        !order
+          ? 'kaspi-connecting'
+          : paid
+            ? 'kaspi-paid'
+            : failed
+              ? 'kaspi-failed'
+              : 'kaspi-waiting'
+      }
+    >
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {notice}
         {!paid && !failed ? (
@@ -100,7 +112,7 @@ export function KaspiPaymentState({
               ? 'Проверяем отмену счёта'
               : waiting
                 ? 'Отличный выбор!\nЖдём оплату в Kaspi'
-                : paymentCopy[order.phase].title}
+                : paymentCopy[phase].title}
           </Heading>
         ) : null}
         {height >= 500 ? (
@@ -176,17 +188,17 @@ export function KaspiPaymentState({
         {paid || failed ? (
           <Heading style={s.title}>{paid ? 'Оплачено' : 'Счёт не оплачен'}</Heading>
         ) : null}
-        {!paid && !failed && order.phase !== 'attention' ? (
+        {!paid && !failed && phase !== 'attention' ? (
           <ActivityIndicator color={colors.accent} style={{ marginBottom: 14 }} />
         ) : null}
         <Caption style={s.detail} accessibilityLiveRegion="polite">
           {paid
-            ? `${money(order.totalMinor)} · Kaspi`
+            ? `${money(order?.totalMinor ?? '0')} · Kaspi`
             : deadlineReached
               ? 'Время оплаты истекло. Ждём подтверждение Kaspi. Если вы успели оплатить, заказ продолжится.'
               : waiting
-                ? `Подтвердите счёт на ${money(order.totalMinor)} в приложении Kaspi.kz. Обычно это быстро.`
-                : paymentCopy[order.phase].detail}
+                ? `Подтвердите счёт на ${money(order?.totalMinor ?? '0')} в приложении Kaspi.kz. Обычно это быстро.`
+                : paymentCopy[phase].detail}
         </Caption>
         {waiting && remaining !== null && remaining > 0 ? (
           <View
@@ -205,13 +217,13 @@ export function KaspiPaymentState({
             <View style={s.orderColumn}>
               <Caption style={s.small}>Номер заказа</Caption>
               <Body testID="kaspi-paid-number" style={s.number}>
-                {order.displayNumber ? `№ ${order.displayNumber}` : 'Присваивается'}
+                {order?.displayNumber ? `№ ${order?.displayNumber}` : 'Присваивается'}
               </Body>
             </View>
             <View style={s.divider} />
             <View style={s.orderColumn}>
               <Caption style={s.small}>Как заберёте</Caption>
-              <Body style={s.mode}>{order.serviceMode === 'dine_in' ? 'В зале' : 'С собой'}</Body>
+              <Body style={s.mode}>{order?.serviceMode === 'dine_in' ? 'В зале' : 'С собой'}</Body>
             </View>
           </View>
         ) : null}
@@ -226,7 +238,7 @@ export function KaspiPaymentState({
         {paid ? (
           <>
             <Caption style={s.detail}>
-              {order.phase === 'paid' ? 'Передаём заказ на кухню…' : 'Открываем статус заказа…'}
+              {phase === 'paid' ? 'Передаём заказ на кухню…' : 'Открываем статус заказа…'}
             </Caption>
             <Button
               title="Следить за заказом"
@@ -248,7 +260,10 @@ export function KaspiPaymentState({
         ) : (
           <>
             {extraAction}
-            {!deadlineReached && (waiting || order.phase === 'checking') ? (
+            {!order ? (
+              <Button title="Вернуться к оформлению" secondary onPress={onCart} style={s.button} />
+            ) : null}
+            {!deadlineReached && (waiting || phase === 'checking') ? (
               <Button
                 title="Открыть Kaspi.kz"
                 testID="kaspi-open-app"
@@ -260,7 +275,7 @@ export function KaspiPaymentState({
                 }}
               />
             ) : null}
-            <Caption style={s.small}>Статус обновится после ответа банка</Caption>
+            {order ? <Caption style={s.small}>Статус обновится после ответа банка</Caption> : null}
           </>
         )}
       </BottomActions>

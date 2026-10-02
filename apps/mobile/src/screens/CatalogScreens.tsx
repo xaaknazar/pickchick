@@ -1,4 +1,4 @@
-import { availabilityMessage, unavailableCartLine } from '../availability';
+import { unavailableCartLine } from '../availability';
 import {
   CheckoutSheetHeader,
   CheckoutAction,
@@ -661,10 +661,6 @@ export function Cart(props: ScreenProps) {
           <>
             <CheckoutAction
               title="Оформить заказ"
-              disabled={
-                props.model.cart.some((line) => !!unavailableCartLine(line)) ||
-                props.model.availabilityFresh === false
-              }
               amount={MinorMoney(total)}
               onPress={() => props.navigate('M12')}
               testID="cart-checkout"
@@ -769,22 +765,6 @@ export function Cart(props: ScreenProps) {
         <>
           {props.model.catalogMode === 'design' ? (
             <Notice warning>Это корзина из образцов дизайна. Заказ и оплата недоступны.</Notice>
-          ) : null}
-          {props.model.availabilityFresh === false ? (
-            <View style={{ gap: 10 }} accessibilityLiveRegion="polite">
-              <Notice warning>
-                {availabilityMessage(
-                  props.model.availabilityStatus,
-                  props.model.availabilityHours,
-                ) ?? 'Нет свежих данных от ресторана. Проверяем связь автоматически.'}
-              </Notice>
-              <Button
-                secondary
-                title="Проверить сейчас"
-                testID="cart-availability-refresh"
-                onPress={props.model.refresh}
-              />
-            </View>
           ) : null}
           {props.model.cart.map((line) => (
             <View key={cartLineKey(line)} style={s.cartLine}>

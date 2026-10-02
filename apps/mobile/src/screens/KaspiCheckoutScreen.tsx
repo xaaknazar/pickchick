@@ -3,7 +3,7 @@ import {
   historyOrderNeedsWatch,
   checkoutReadError,
 } from '../commerce-read-recovery';
-import { availabilityMessage, unavailableCartLine } from '../availability';
+import { prepareCheckout } from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
   CheckoutSheetHeader,
@@ -75,6 +75,11 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const [loaded, setLoaded] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const [connectionPaused, setConnectionPaused] = useState(false);
+  const [paymentPaused, setPaymentPaused] = useState(false);
+  const preparation = useRef<AbortController | null>(null);
+  const bootstrap = useRef<AbortController | null>(null);
+  useEffect(() => () => preparation.current?.abort(), []);
   const [paidMoment, setPaidMoment] = useState(false);
   const paidSeen = useRef(new Set<string>());
   const [watchCycle, setWatchCycle] = useState(0);
@@ -134,9 +139,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
     [key, props.model.clearCart],
   );
   const recover = useCallback(
-    async (draft: Pending) => {
+    async (draft: Pending, signal?: AbortSignal) => {
       try {
-        return await request('/orders', 'POST', { key: draft.key, quoteId: draft.quoteId });
+        return await request('/orders', 'POST', { key: draft.key, quoteId: draft.quoteId }, signal);
       } catch (e) {
         // Only a definitive server rejection allows discarding an unconsumed quote.
         if (e instanceof CustomerSessionError && e.authoritative && e.code === 'QUOTE_EXPIRED') {
@@ -159,6 +164,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     if (orderRef.current && props.screenId !== 'M19') return;
     let active = true;
     const controller = new AbortController();
+    bootstrap.current = controller;
     const read = (path: string) =>
       recoverCommerceRead({
         read: (signal) => request(path, 'GET', undefined, signal),
@@ -167,7 +173,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           ? {
               accept: (value: unknown) => CustomerCheckoutConfigSchema.parse(value).enabled,
               onPending: () => {
-                if (active) {
+                if (active && props.screenId === 'M19') {
                   setError(
                     'Ресторан пока не готов принимать заказы. Корзина сохранена - проверяем доступность автоматически.',
                   );
@@ -184,7 +190,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           return () => subscription.remove();
         },
         onFailure: (cause) => {
-          if (active) {
+          if (active && props.screenId === 'M19') {
             setError(checkoutReadError(cause, props.screenId === 'M19'));
             setLoaded(true);
           }
@@ -198,27 +204,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
     setQuote(null);
     setOrder(null);
     let recoveringCommand = false;
-    let quotingCommand = false;
     const draftCommandError = (cause: unknown) =>
-      cause instanceof Error && cause.message === 'RESTAURANT_CLOSED'
-        ? checkoutReadError(cause, false, false)
-        : recoveringCommand
-          ? checkoutError(cause)
-          : quotingCommand &&
-              cause instanceof Error &&
-              [
-                'ITEM_STOPPED',
-                'AVAILABILITY_STALE',
-                'QUOTE_EXPIRED',
-                'CONFLICT',
-                'FORBIDDEN',
-                'UNAUTHORIZED',
-                'NOT_READY',
-              ].includes(cause.message)
-            ? checkoutError(cause)
-            : quotingCommand
-              ? 'Не удалось проверить цену. Корзина сохранена - нажмите «Проверить соединение».'
-              : checkoutReadError(cause, props.screenId === 'M19');
+      recoveringCommand ? checkoutError(cause) : checkoutReadError(cause, props.screenId === 'M19');
     const run = async () => {
       const raw = await AsyncStorage.getItem(key);
       let draft: Pending | null = null;
@@ -232,17 +219,23 @@ function KaspiCheckoutSession(props: ScreenProps) {
           throw new Error('INVALID_PENDING');
         draft = parsed;
       }
-      if (!active) return;
+      if (!active || controller.signal.aborted || lock.current) return;
       pending.current = draft;
       if (draft) {
         recoveringCommand = true;
         const existing = CustomerCommerceOrderSchema.parse(await recover(draft));
         recoveringCommand = false;
-        if (!active) return;
+        if (!active || controller.signal.aborted || lock.current) return;
         await acceptRef.current(existing);
         if (props.screenId !== 'M19' || existing.phase !== 'failed') return;
         orderRef.current = null;
         setOrder(null);
+      }
+      if (props.screenId !== 'M19') {
+        // Passive configuration only; price/admission checks belong to the explicit pay action.
+        const setup = CustomerCheckoutConfigSchema.parse(await read('/config'));
+        if (active && !controller.signal.aborted && !lock.current) setConfig(setup);
+        return;
       }
       const result = await read('/orders');
       const orders = (result as { orders: unknown[] }).orders.map((v) =>
@@ -250,37 +243,11 @@ function KaspiCheckoutSession(props: ScreenProps) {
       );
       if (!active) return;
       setHistory(orders);
-      if (props.screenId === 'M19') return;
-      const unfinished = orders.find((o) => !paymentReceived(o.phase) && o.phase !== 'failed');
-      if (unfinished) {
-        setOrder(unfinished);
-        return;
-      }
-      const setup = CustomerCheckoutConfigSchema.parse(await read('/config'));
-      if (!active) return;
-      setConfig(setup);
-      if (!setup.enabled) throw new Error('NOT_READY');
-      if (!cart.current.length) return;
-      const currentCartSignature = cartSignature(cart.current, props.model.diningMode);
-      const requestedComment = setup.orderCommentEnabled
-        ? normalizedOrderComment(props.model.orderComment)
-        : '';
-      quotingCommand = true;
-      const priced = CustomerQuoteSchema.parse(
-        await request('/quotes', 'POST', {
-          key: randomUUID(),
-          branchId: setup.branchId,
-          serviceMode: props.model.diningMode,
-          items: checkoutItems(cart.current),
-          ...(requestedComment ? { kitchenComment: requestedComment } : {}),
-        }),
-      );
-      if (active && currentCartSignature === cartSignature(cart.current, props.model.diningMode))
-        setQuote(priced);
     };
     void run()
       .catch((e) => {
-        if (active) setError(draftCommandError(e));
+        if (active && !controller.signal.aborted && props.screenId === 'M19')
+          setError(draftCommandError(e));
       })
       .finally(() => {
         if (active) setLoaded(true);
@@ -311,12 +278,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       accept: async (next) => {
         await acceptRef.current(next);
       },
-      onError: (cause, reconnecting) =>
-        setWatchError(
-          reconnecting
-            ? 'Связь прервалась. Восстанавливаем статус заказа автоматически.'
-            : checkoutError(cause),
-        ),
+      onError: (cause, reconnecting) => setWatchError(reconnecting ? '' : checkoutError(cause)),
       onRecovered: () => setWatchError(''),
     });
     return () => controller.abort();
@@ -362,40 +324,76 @@ function KaspiCheckoutSession(props: ScreenProps) {
     return () => clearTimeout(timer);
   }, [paidMoment, foreground]);
   const submit = async () => {
-    if (
-      lock.current ||
-      !quote ||
-      quote.serviceMode !== props.model.diningMode ||
-      Date.parse(quote.expiresAt) <= Date.now()
-    ) {
-      if (quote) setError('Цена требует обновления. Нажмите «Проверить соединение».');
-      return;
-    }
+    if (lock.current || !cart.current.length) return;
     lock.current = true;
+    bootstrap.current?.abort();
+    const controller = new AbortController();
+    preparation.current = controller;
+    const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     setBusy(true);
+    setConnectionPaused(false);
     setError('');
     setPriceNotice('');
+    const prepared = <T,>(operation: () => Promise<T>) =>
+      prepareCheckout(operation, controller.signal);
     try {
-      if (!config?.orderCommentEnabled && normalizedOrderComment(props.model.orderComment)) {
+      // Restore the exact previous intent before any new quote/order is created.
+      const raw = await AsyncStorage.getItem(key);
+      if (raw) {
+        const draft = JSON.parse(raw) as Pending;
+        if (
+          !/^[a-f0-9-]{36}$/.test(draft.key) ||
+          !/^[a-f0-9-]{36}$/.test(draft.quoteId) ||
+          typeof draft.signature !== 'string'
+        )
+          throw new Error('INVALID_PENDING');
+        pending.current = draft;
+        await accept(await prepared(() => recover(draft, controller.signal)));
         return;
       }
-      let currentQuote = quote;
-      if (comment !== (quote.kitchenComment ?? '')) {
-        currentQuote = CustomerQuoteSchema.parse(
-          await request('/quotes', 'POST', {
-            key: randomUUID(),
-            branchId: config?.branchId,
-            serviceMode: props.model.diningMode,
-            items: checkoutItems(cart.current),
-            ...(comment ? { kitchenComment: comment } : {}),
-          }),
+      const result = await prepared(() => request('/orders', 'GET', undefined, controller.signal));
+      const existing = (result as { orders: unknown[] }).orders
+        .map((value) => CustomerCommerceOrderSchema.parse(value))
+        .find((value) => !paymentReceived(value.phase) && value.phase !== 'failed');
+      if (existing) {
+        await accept(existing);
+        return;
+      }
+      const setup = await prepared(async () => {
+        const value = CustomerCheckoutConfigSchema.parse(
+          await request('/config', 'GET', undefined, controller.signal),
         );
-        if (signature !== signatureRef.current) return;
-        setQuote(currentQuote);
-        if (currentQuote.totalMinor !== quote.totalMinor) {
-          setPriceNotice('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.');
-          return;
-        }
+        if (!value.enabled) throw new CustomerSessionError('NOT_READY', 503, true);
+        return value;
+      });
+      setConfig(setup);
+      if (!setup.orderCommentEnabled && comment) {
+        setError('Комментарий временно недоступен. Удалите его, чтобы оформить заказ.');
+        return;
+      }
+      const quoteKey = randomUUID();
+      const currentQuote = CustomerQuoteSchema.parse(
+        await prepared(() =>
+          request(
+            '/quotes',
+            'POST',
+            {
+              key: quoteKey,
+              branchId: setup.branchId,
+              serviceMode: props.model.diningMode,
+              items: checkoutItems(cart.current),
+              ...(comment ? { kitchenComment: comment } : {}),
+            },
+            controller.signal,
+          ),
+        ),
+      );
+      if (signature !== signatureRef.current) return;
+      const displayedTotal = quote?.totalMinor ?? cartTotal(cart.current);
+      setQuote(currentQuote);
+      if (String(currentQuote.totalMinor) !== String(displayedTotal)) {
+        setPriceNotice('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.');
+        return;
       }
       const draft: Pending = {
         key: randomUUID(),
@@ -403,29 +401,45 @@ function KaspiCheckoutSession(props: ScreenProps) {
         signature,
         sendInvoice: true,
       };
-      // If storage fails, no order and no payment is submitted.
       await AsyncStorage.setItem(key, JSON.stringify(draft)).catch(() => {
         throw new Error('CHECKOUT_STORAGE');
       });
       pending.current = draft;
-      await accept(await recover(draft));
+      await accept(await prepared(() => recover(draft, controller.signal)));
     } catch (e) {
-      setError(checkoutError(e));
+      // Transport failures stay on the connecting scene; only a final actionable outcome returns.
+      if (controller.signal.reason === 'timeout') setConnectionPaused(true);
+      else if (!controller.signal.aborted) setError(checkoutError(e));
     } finally {
+      clearTimeout(deadline);
+      if (preparation.current === controller) preparation.current = null;
       lock.current = false;
       setBusy(false);
+      setLoaded(true);
     }
   };
   const pay = useCallback(async () => {
     if (lock.current || !order) return;
     lock.current = true;
     setBusy(true);
+    setPaymentPaused(false);
     setError('');
+    const controller = new AbortController();
+    preparation.current = controller;
+    const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     try {
-      await accept(await request(`/orders/${order.orderId}/payment`, 'POST'));
+      await accept(
+        await prepareCheckout(
+          () => request(`/orders/${order.orderId}/payment`, 'POST', undefined, controller.signal),
+          controller.signal,
+        ),
+      );
     } catch (e) {
-      setError(checkoutError(e));
+      if (controller.signal.aborted) setPaymentPaused(true);
+      else setError(checkoutError(e));
     } finally {
+      clearTimeout(deadline);
+      if (preparation.current === controller) preparation.current = null;
       lock.current = false;
       setBusy(false);
     }
@@ -433,9 +447,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
   useEffect(() => {
     // Explicit consent is persisted before order creation. Admission can arrive later.
     // Existing pre-consent drafts retain the manual action; no charge on a passive history visit.
-    if (order?.phase === 'ready_to_pay' && pending.current?.sendInvoice && !busy && !error)
+    if (
+      order?.phase === 'ready_to_pay' &&
+      pending.current?.sendInvoice &&
+      !busy &&
+      !error &&
+      !paymentPaused
+    )
       void pay();
-  }, [order?.phase, busy, error, pay]);
+  }, [order?.phase, busy, error, paymentPaused, pay]);
   const retry = () => {
     setError('');
     setWatchError('');
@@ -443,12 +463,6 @@ function KaspiCheckoutSession(props: ScreenProps) {
     else setRefresh((c) => c + 1);
   };
   const total = quote ? quote.totalMinor : cartTotal(props.model.cart);
-  const availabilityError = props.model.cart.some((line) => !!unavailableCartLine(line))
-    ? 'Некоторые позиции закончились. Вернитесь в корзину, чтобы заменить их.'
-    : props.model.availabilityFresh === false
-      ? (availabilityMessage(props.model.availabilityStatus, props.model.availabilityHours) ??
-        'Нет свежих данных от ресторана. Проверяем связь автоматически.')
-      : '';
   const statusError = error || watchError;
   const unsupportedComment =
     loaded &&
@@ -459,9 +473,6 @@ function KaspiCheckoutSession(props: ScreenProps) {
     props.screenId !== 'M19' && props.model.cart.length ? (
       <>
         <>
-          {availabilityError ? (
-            <Caption accessibilityRole="alert">{availabilityError}</Caption>
-          ) : null}
           {unsupportedComment ? (
             <View style={s.commentUnavailable}>
               <Caption>Комментарий временно недоступен. Удалите его, чтобы оформить заказ.</Caption>
@@ -488,20 +499,24 @@ function KaspiCheckoutSession(props: ScreenProps) {
           title={busy ? 'Готовим счёт…' : 'Оплатить через'}
           kaspi={!busy}
           onPress={() => void submit()}
-          disabled={
-            props.model.cart.some((line) => !!unavailableCartLine(line)) ||
-            props.model.availabilityFresh === false ||
-            !loaded ||
-            !quote ||
-            quote.serviceMode !== props.model.diningMode ||
-            !config ||
-            unsupportedComment ||
-            busy ||
-            !!error
-          }
+          disabled={busy}
         />
       </>
     ) : undefined;
+  if ((busy || connectionPaused) && !order)
+    return (
+      <KaspiPaymentState
+        onContinue={() => {}}
+        onRetry={() => {}}
+        onCart={() => {
+          preparation.current?.abort('user');
+          setConnectionPaused(false);
+        }}
+        extraAction={
+          connectionPaused ? <Button title="Продолжить" onPress={() => void submit()} /> : undefined
+        }
+      />
+    );
   if (order && (!paymentReceived(order.phase) || paidMoment))
     return (
       <KaspiPaymentState
@@ -519,7 +534,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           setRefresh((c) => c + 1);
         }}
         extraAction={
-          order.phase === 'ready_to_pay' && !pending.current?.sendInvoice ? (
+          order.phase === 'ready_to_pay' && (!pending.current?.sendInvoice || paymentPaused) ? (
             <Button
               title={`Отправить счёт на ${money(order.totalMinor)}`}
               onPress={() => void pay()}
@@ -648,7 +663,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         )
       }
     >
-      {error ? (
+      {error && (props.screenId === 'M19' || !busy) ? (
         <View style={s.warning} accessibilityLiveRegion="polite">
           <Body>{error}</Body>
           <Button secondary title="Проверить соединение" onPress={retry} />
@@ -694,7 +709,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       ) : props.model.cart.length ? (
         <CheckoutDetails
           props={props}
-          commentEnabled={config?.orderCommentEnabled === true}
+          commentEnabled={config?.orderCommentEnabled !== false}
           commentEditable={!busy}
           restaurantName={config?.restaurant}
           details={
