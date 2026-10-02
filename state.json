@@ -1854,11 +1854,11 @@
       "scopes": [
         "tests/integration/test-order-flow.test.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
-      "updatedAt": "2026-10-02T12:35:59.041Z",
-      "summary": "Production command acquires test_flow_lock before FK/trigger locks; fixture matches explicit reserved-client transaction. Six concurrent inserts and allnumber rollback retention replay assertions retained. targeted test and fullfile25/25 passed; lintformatpassed.",
-      "nextAction": "Integrate and run final exact-source CI; no migration/runtimechange."
+      "updatedAt": "2026-10-02T12:36:07.113Z",
+      "summary": "Code included in shared f83794ce; exact Foundation CI37002738972 all6green. Code-only scope completed.",
+      "nextAction": "Parent owns device/install/release acceptance."
     },
     {
       "id": "connection-api-release",
