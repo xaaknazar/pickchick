@@ -1599,30 +1599,6 @@
       "nextAction": "Include avatar with keyboard fix in next mobile build; publish roadmap after green CI."
     },
     {
-      "id": "checkout-keyboard",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/checkout-keyboard",
-      "scopes": [
-        "apps/mobile/src/components/UI.tsx",
-        "apps/mobile/src/components/CheckoutKeyboard.tsx",
-        "apps/mobile/src/components/OrderSheet.tsx",
-        "apps/mobile/src/screens/CheckoutScreen.tsx",
-        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
-        "tests/mobile/ios/SmokeTests.swift",
-        "docs/operations/checkout-keyboard.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "@release/ios",
-        "@vps/roadmap",
-        "apps/mobile/app.json",
-        "docs/operations/mobile-testflight.md"
-      ],
-      "status": "active",
-      "head": "432b49375da636a965a967b1dde8703a63605e8b",
-      "updatedAt": "2026-10-02T05:15:17.216Z"
-    },
-    {
       "id": "orders-completed-ui",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/completed-order-ui",
@@ -1660,6 +1636,34 @@
       "status": "active",
       "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
       "updatedAt": "2026-10-02T05:36:16.648Z"
+    },
+    {
+      "id": "checkout-keyboard",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-keyboard",
+      "scopes": [
+        "apps/mobile/src/components/UI.tsx",
+        "apps/mobile/src/components/CheckoutKeyboard.tsx",
+        "apps/mobile/src/components/OrderSheet.tsx",
+        "apps/mobile/src/screens/CheckoutScreen.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "tests/mobile/ios/SmokeTests.swift",
+        "docs/operations/checkout-keyboard.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@release/ios",
+        "@vps/roadmap",
+        "apps/mobile/app.json",
+        "docs/operations/mobile-testflight.md",
+        "apps/mobile/src/useCommerceFeedback.ts",
+        "apps/mobile/src/screens/CompletedOrderPreview.tsx",
+        "apps/mobile/src/screens/OrderScreens.tsx",
+        "docs/operations/orders-history-review.md"
+      ],
+      "status": "active",
+      "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
+      "updatedAt": "2026-10-02T05:38:05.688Z"
     }
   ]
 }
