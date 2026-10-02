@@ -1778,9 +1778,11 @@
         "apps/mobile/src/commerce-presentation.ts",
         "tests/mobile/commerce-presentation.test.mjs"
       ],
-      "status": "active",
-      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:24:16.793Z"
+      "status": "available",
+      "head": "68733f83734a8a5f04239022478b8a102bc20862",
+      "updatedAt": "2026-10-02T08:38:41.634Z",
+      "summary": "Published 68733f8: safe read recovery, availability states and confirmed hours, foreground/manual refresh, paid history watch; 26 unit tests, mobile typecheck/lint and three browser fixture suites passed; no real orders or payment commands created.",
+      "nextAction": "Parent integrates published branch, runs shared CI and release verification; final cart Notice native wrapper fix has typecheck/lint validation."
     },
     {
       "id": "connection-recovery",
