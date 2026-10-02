@@ -1848,9 +1848,11 @@
       "scopes": [
         "tests/integration/test-order-flow.test.mjs"
       ],
-      "status": "active",
-      "head": "067c04c6c734e4bf1ebf1b6130f19c8fdeeb5d45",
-      "updatedAt": "2026-10-02T09:05:02.100Z"
+      "status": "available",
+      "head": "c49671ffeed4a3efc9c4601ee8f1461f2d34ca78",
+      "updatedAt": "2026-10-02T09:36:32.022Z",
+      "summary": "Production command acquires test_flow_lock before FK/trigger locks; fixture matches explicit reserved-client transaction. Six concurrent inserts and allnumber rollback retention replay assertions retained. targeted test and fullfile25/25 passed; lintformatpassed.",
+      "nextAction": "Integrate and run final exact-source CI; no migration/runtimechange."
     }
   ]
 }
