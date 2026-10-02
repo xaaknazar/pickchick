@@ -1,4 +1,10 @@
 import {
+  RestaurantHoursSchema,
+  restaurantHoursFromEnv,
+  restaurantOrderingOpen,
+  assertRestaurantOrderingOpen,
+} from './restaurant-hours.js';
+import {
   branchAvailability,
   assertBranchItemsAvailable,
   snapshotAvailabilityItems,
@@ -24,6 +30,7 @@ export const CheckoutOptionsSchema = z.strictObject({
     .regex(/^[1-9][0-9]{0,8}$/)
     .default('10000'),
   approvalReference: z.string().trim().min(3).max(250),
+  hours: RestaurantHoursSchema.optional(),
 });
 export type CheckoutOptions = z.infer<typeof CheckoutOptionsSchema>;
 export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions | null {
@@ -37,6 +44,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
     allVerifiedCustomers: env.CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS === 'true',
     maxOrderMinor: env.CUSTOMER_KASPI_PILOT_MAX_MINOR ?? '10000',
     approvalReference: env.CUSTOMER_KASPI_FISCAL_DEFERRAL_REFERENCE,
+    hours: restaurantHoursFromEnv(env),
   });
 }
 const QuoteInput = z.strictObject({
@@ -79,6 +87,7 @@ export class CustomerCheckout {
   constructor(
     private readonly pool: DatabasePool,
     private readonly options: CheckoutOptions | null,
+    private readonly now: () => Date = () => new Date(),
   ) {
     this.repository = new CommerceRepository(pool, options ?? undefined);
   }
@@ -138,7 +147,18 @@ export class CustomerCheckout {
           .map((o) => ({ groupId: g.id, optionId: o.id })),
       ),
     }));
-    const value = { enabled: true, branchId, fresh: state.fresh, products };
+    const value = {
+      enabled: true,
+      branchId,
+      fresh: state.fresh,
+      products,
+      ...(this.options.hours
+        ? {
+            orderingOpen: restaurantOrderingOpen(this.options.hours, this.now()),
+            hours: this.options.hours,
+          }
+        : {}),
+    };
     return { ...value, signature: digest(value) };
   }
   async config(customerId: string) {
@@ -172,6 +192,7 @@ export class CustomerCheckout {
     const scope = await this.scope(customerId),
       request = parse(QuoteInput, input);
     if (request.branchId !== scope.branchId) throw new CommerceError('FORBIDDEN');
+    assertRestaurantOrderingOpen(this.options!.hours, this.now());
     await assertBranchItemsAvailable(this.pool, scope.branchId, request.items);
     if (!(await this.config(customerId)).enabled) throw new CommerceError('NOT_READY');
     const head = (
@@ -248,6 +269,7 @@ export class CustomerCheckout {
       )
     ).rows[0];
     if (!quote) throw new CommerceError('NOT_FOUND');
+    if (!quote.order_id) assertRestaurantOrderingOpen(this.options!.hours, this.now());
     // A quote issued before a limit reduction must not authorize a larger new charge.
     if (!quote.order_id && BigInt(quote.total_minor) > BigInt(this.options!.maxOrderMinor))
       throw new CommerceError('NOT_READY');
@@ -270,6 +292,7 @@ export class CustomerCheckout {
     const current = await this.repository.readOrder(scope, orderId);
     if (current.attempts.length || BigInt(current.money.captured) > 0n)
       return this.read(customerId, orderId);
+    assertRestaurantOrderingOpen(this.options!.hours, this.now());
     await assertBranchItemsAvailable(
       this.pool,
       scope.branchId,
