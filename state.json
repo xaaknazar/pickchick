@@ -1726,11 +1726,11 @@
         "tests/operations/docker_context.py",
         "infra/staging/Dockerfile"
       ],
-      "status": "active",
+      "status": "done",
       "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:11:33.483Z",
-      "summary": "Новые заказы, серверные отзывы и клавиатура проверены native/browser; CI36978120348 6/6. API9f66969/schema032 установлен, данные/backup/restore сохранены. TestFlight7 подписан/export готов; upload заблокирован Xcode Accounts на locked Mac. Docs9d7bac5 опубликованы.",
-      "nextAction": "После разблокировки Mac проверить Xcode Accounts и повторить upload label customer-pilot-20261002-7-reviewed. Не собирать повторно. Затем подтвердить Apple/group, обновить delivery docs и guarded roadmap после зелёной CI. Онлайн-пульт пока прежний."
+      "updatedAt": "2026-10-02T08:11:39.140Z",
+      "summary": "Этап кода/проверок/backend завершён и в shared9d7bac5; API9f66969/schema032 установлен. UI и iOS7 подписаны, но Apple upload ещё заблокирован входом Xcode. Это не подтверждение доставки в TestFlight.",
+      "nextAction": "Текущий этап connection-recovery принимает дальнейший выпуск приложения и обновление пульта, сохраняя готовый IPA7 и pending Apple Accounts. Новая задача пользователя: автозапуск, соединение и часы приёма."
     }
   ]
 }
