@@ -6,6 +6,15 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
+export function fulfillmentRetryDelay(failures, random = Math.random) {
+  // The same loop publishes the stop-list heartbeat, which expires after 30s.
+  // A blocked order must not make a connected restaurant appear offline. Keep
+  // retry pacing below that window, with headroom for bounded HTTP requests.
+  return (
+    Math.min(15000, 1000 * 2 ** Math.min(6, Math.max(0, failures))) + Math.floor(random() * 250)
+  );
+}
+
 export function validateWorkerConfig(config, origin, branchId, deviceId) {
   const url = new URL(config.databaseUrl);
   if (
@@ -101,13 +110,9 @@ async function main() {
       }
       if (once || stop.signal.aborted) break;
       if (!delivered)
-        await delay(
-          Math.min(60000, 1000 * 2 ** failures) + Math.floor(Math.random() * 250),
-          undefined,
-          {
-            signal: stop.signal,
-          },
-        ).catch(() => undefined);
+        await delay(fulfillmentRetryDelay(failures), undefined, {
+          signal: stop.signal,
+        }).catch(() => undefined);
     } while (!stop.signal.aborted);
   } finally {
     await pool.end();
