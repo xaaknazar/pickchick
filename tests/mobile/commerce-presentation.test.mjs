@@ -140,3 +140,9 @@ test('invoice countdown uses the server deadline and never manufactures a paymen
   assert.equal(invoiceSecondsRemaining('invalid', Date.now()), null);
   assert.equal(paymentReceived('awaiting_payment'), false);
 });
+
+test('authoritative closure explains hours without claiming a saved or confirmed payment', () => {
+  const message = checkoutError(new Error('RESTAURANT_CLOSED'));
+  assert.match(message, /Ресторан сейчас закрыт/);
+  assert.doesNotMatch(message, /Связь прервалась|Заказ сохранён|оплачивать не нужно/);
+});

@@ -65,6 +65,8 @@ export const paymentReceived = (phase: CustomerCommerceOrder['phase']) =>
   ['paid', 'preparing', 'ready', 'handed_over'].includes(phase);
 export function checkoutError(error: unknown) {
   const code = error instanceof Error ? error.message : '';
+  if (code === 'RESTAURANT_CLOSED')
+    return 'Ресторан сейчас закрыт. Попробуйте оформить заказ в часы работы.';
   if (code === 'ITEM_STOPPED')
     return 'Блюдо или выбранный вариант закончились. Вернитесь в корзину и измените заказ.';
   if (code === 'AVAILABILITY_STALE')
