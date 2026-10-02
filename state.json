@@ -1710,11 +1710,12 @@
         "@vps/api",
         "@vps/public-gateway",
         ".dockerignore",
-        "tests/operations/docker_context.py"
+        "tests/operations/docker_context.py",
+        "infra/staging/Dockerfile"
       ],
       "status": "active",
-      "head": "620a09ab07fa21fc346446edcf555214aaf9e13d",
-      "updatedAt": "2026-10-02T06:36:14.958Z"
+      "head": "20e02124f85068b823f7d9008a5252b6f87760aa",
+      "updatedAt": "2026-10-02T06:41:25.019Z"
     }
   ]
 }
