@@ -1686,9 +1686,11 @@
         "tests/operations/test_server_pilot_release.py",
         "tests/operations/test_auth_four_digit_release.py"
       ],
-      "status": "active",
-      "head": "930a55a846f36185898d0cf3848fecdbf9cac15d",
-      "updatedAt": "2026-10-02T06:02:45.585Z"
+      "status": "done",
+      "head": "c2df2c34017cc9c4ad1473b6ceba3cd50f49014a",
+      "updatedAt": "2026-10-02T06:34:00.400Z",
+      "summary": "Guarded032release930a55a и корректировка futuremigrationtests c2df2c3 включены в shared620a09a;85operationsreleasetests прошли с032fixture, native/backendchecks parent подтверждены. Gatewayточечный, данные/ACL/банк защищены; VPS этим агентом не изменён. CI36973811244/API/TestFlight pending.",
+      "nextAction": "Parent проходитполнуюCI и выпускает release-commerce-feedback.py по runbook с резервированиемVPS; подтвердить API/schema032 отдельно от TestFlight."
     },
     {
       "id": "dependency-forge-release",
