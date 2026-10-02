@@ -1,4 +1,4 @@
-import { withAvailability } from './availability';
+import { withAvailability, availabilityStatus } from './availability';
 import { useAvailability } from './useAvailability';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mergeCartLines } from './cart-actions';
@@ -191,7 +191,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrated, requestedBranchId, refreshIndex]);
 
-  const availability = useAvailability(hydrated && catalogMode === 'server');
+  const availability = useAvailability(hydrated && catalogMode === 'server', refreshIndex);
   const baseProducts = useMemo(
     () =>
       catalogMode === 'design'
@@ -202,7 +202,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     [catalogMode, menu, locale, connectedCatalog],
   );
   const products = useMemo(
-    () => withAvailability(baseProducts, availability),
+    () => withAvailability(baseProducts, availability.data),
     [baseProducts, availability],
   );
   const branch =
@@ -293,7 +293,12 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       ...line,
       product: products.find((p) => p.id === line.product.id) ?? line.product,
     })),
-    availabilityFresh: availability?.enabled ? availability.fresh : undefined,
+    availabilityFresh:
+      availabilityStatus(availability) === 'disabled'
+        ? undefined
+        : availabilityStatus(availability) === 'current',
+    availabilityStatus: availabilityStatus(availability),
+    availabilityHours: availability.data?.hours,
     catalogMode,
     diningMode,
     paymentMethod,
@@ -377,6 +382,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const previewModel: MobileModel = {
     ...model,
     availabilityFresh: undefined,
+    availabilityStatus: undefined,
+    availabilityHours: undefined,
     testFlow: {
       ...testFlow,
       available: false,

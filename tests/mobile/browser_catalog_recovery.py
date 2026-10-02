@@ -47,7 +47,9 @@ with sync_playwright() as p:
             route.fulfill(status=404, json={'code':'NOT_FOUND'}, headers={'Access-Control-Allow-Origin':'*'})
             return
         assert request.method == 'GET', 'Reading order screens must not issue any mutation'
-        if path == '/v1/test/orders' and mode['orders'] == 'success':
+        if path == '/v1/customer-checkout/availability':
+            route.fulfill(json={'enabled':False,'fresh':False,'signature':'disabled','products':[]}, headers={'Access-Control-Allow-Origin':'*'})
+        elif path == '/v1/test/orders' and mode['orders'] == 'success':
             route.fulfill(json={**META, 'orders': [({**ORDER, 'version': 3, 'state': 'fulfilled', 'payment_state': 'simulated_approved'} if mode.get('terminal') else ORDER)]}, headers={'Access-Control-Allow-Origin': '*'})
         else:
             route.abort('failed')

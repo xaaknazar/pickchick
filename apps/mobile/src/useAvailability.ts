@@ -1,71 +1,58 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { API_URL } from './api';
-import { parseAvailability, type Availability } from './availability';
+import { parseAvailability, type AvailabilityReadState } from './availability';
+import { AvailabilityRequestError, createAvailabilityRecovery } from './availability-recovery';
 
-/** Long poll returns on a changed projection; never refreshes or clears the basket. */
-export function useAvailability(enabled: boolean) {
-  const [state, setState] = useState<Availability | null>(null);
+/** Long poll never mutates a basket, creates an order or sends a payment command. */
+export function useAvailability(enabled: boolean, refresh = 0) {
+  const [state, setState] = useState<AvailabilityReadState>({ data: null, status: 'checking' });
   useEffect(() => {
     if (!enabled) return;
-    let stopped = false,
-      active = AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
-      signature = '';
-    let request: AbortController | null = null,
-      timer: ReturnType<typeof setTimeout> | undefined;
-    const run = async () => {
-      if (stopped || !active || request) return;
-      const c = new AbortController();
-      request = c;
-      const timeout = setTimeout(() => c.abort(), 32000);
-      let delay = 100;
-      try {
-        const r = await fetch(
-          `${API_URL}/v1/customer-checkout/availability${signature ? `?after=${signature}` : ''}`,
-          {
-            signal: c.signal,
-            credentials: 'omit',
-            redirect: 'error',
-            headers: { Accept: 'application/json' },
-          },
-        );
-        if (!r.ok) throw Error('Availability unavailable');
-        const body = await r.text();
-        if (body.length > 1_000_000) throw Error('Invalid availability');
-        const next = parseAvailability(JSON.parse(body));
-        if (!stopped && active && !c.signal.aborted) {
-          setState((previous) =>
-            previous?.signature === next.signature && previous.fresh === next.fresh
-              ? previous
-              : next,
+    const recovery = createAvailabilityRecovery({
+      read: async (signal, signature) => {
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        signal.addEventListener('abort', abort, { once: true });
+        const timeout = setTimeout(abort, 32_000);
+        try {
+          if (signal.aborted) throw Error('Aborted');
+          const response = await fetch(
+            `${API_URL}/v1/customer-checkout/availability${signature ? `?after=${signature}` : ''}`,
+            {
+              signal: controller.signal,
+              credentials: 'omit',
+              redirect: 'error',
+              headers: { Accept: 'application/json' },
+            },
           );
-          signature = next.signature === 'disabled' ? '' : next.signature;
+          if (!response.ok) throw new AvailabilityRequestError(response.status);
+          const body = await response.text();
+          if (body.length > 1_000_000) throw Error('INVALID_AVAILABILITY');
+          return parseAvailability(JSON.parse(body));
+        } finally {
+          clearTimeout(timeout);
+          signal.removeEventListener('abort', abort);
         }
-        if (!next.enabled) delay = 15000;
-      } catch {
-        delay = 3000;
-        if (!stopped && active) setState((s) => (s ? { ...s, fresh: false } : s));
-        signature = '';
-      } finally {
-        clearTimeout(timeout);
-        request = null;
-        if (!stopped && active) timer = setTimeout(() => void run(), delay);
-      }
-    };
-    const sub = AppState.addEventListener('change', (value) => {
-      active = value === 'active';
-      clearTimeout(timer);
-      signature = '';
-      if (!active) request?.abort();
-      else void run();
+      },
+      onChecking: () =>
+        setState((previous) => (previous.data ? previous : { ...previous, status: 'checking' })),
+      onSuccess: (data) => setState({ data, status: 'online' }),
+      onFailure: (_error, retrying) =>
+        setState((previous) => ({ ...previous, status: retrying ? 'offline' : 'error' })),
     });
-    void run();
+    setState((previous) => ({ ...previous, status: 'checking' }));
+    const sub = AppState.addEventListener('change', (value) => {
+      if (value === 'active') setState((previous) => ({ ...previous, status: 'checking' }));
+      recovery.setActive(value === 'active');
+    });
+    recovery.setActive(
+      AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
+    );
     return () => {
-      stopped = true;
-      clearTimeout(timer);
-      request?.abort();
+      recovery.stop();
       sub.remove();
     };
-  }, [enabled]);
+  }, [enabled, refresh]);
   return state;
 }

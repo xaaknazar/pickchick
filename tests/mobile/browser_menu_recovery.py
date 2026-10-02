@@ -109,8 +109,8 @@ def offline(page, received=False):
     no_design_fallback(page)
 
 
-def online(page):
-    expect(page.locator('[data-testid^="product-photo-"]')).to_have_count(24, timeout=12000)
+def online(page, timeout=12000):
+    expect(page.locator('[data-testid^="product-photo-"]')).to_have_count(24, timeout=timeout)
     expect(page.get_by_test_id('product-pick-combo').get_by_text(SENTINEL, exact=True)).to_be_visible()
     expect(page.get_by_text('Нет свежего меню', exact=True)).not_to_be_visible()
     # Retained cards and a hidden error banner also occur during refresh. Wait
@@ -167,6 +167,36 @@ with sync_playwright() as playwright:
         context.close()
         contexts.remove(context)
 
+    original_availability = READS['/v1/customer-checkout/availability']
+    availability_path = '/v1/customer-checkout/availability'
+    available = {'enabled': True, 'fresh': False, 'signature': 'b'*64,
+                 'products': [{'id': product['id'], 'available': True, 'stoppedOptions': []} for product in CATALOG['products']]}
+    READS[availability_path] = available
+    availability_fixture = Fixture('transport', availability_path)
+    availability_page = open_menu(availability_fixture)
+    online(availability_page)
+    availability_page.get_by_test_id('product-pick-combo').click()
+    availability_page.get_by_test_id('product-add').click()
+    availability_page.get_by_test_id('open-cart').click()
+    expect(availability_page.get_by_text('Не удалось связаться с сервером. Проверьте интернет - связь проверяется автоматически.', exact=True)).to_be_visible()
+    expect(availability_page.get_by_test_id('cart-checkout')).to_be_disabled()
+    availability_fixture.mode = 'ok'
+    before = availability_fixture.count(availability_path)
+    availability_page.get_by_test_id('cart-availability-refresh').click()
+    expect(availability_page.get_by_text('Нет свежих данных от ресторана. Проверяем связь автоматически.', exact=True)).to_be_visible(timeout=5000)
+    assert availability_fixture.count(availability_path) > before
+    available.update(fresh=True, signature='a'*64)
+    expect(availability_page.get_by_test_id('cart-checkout')).to_be_enabled(timeout=5000)
+    available.update(orderingOpen=False, hours={'openingTime':'10:00','closingTime':'00:00','timeZone':'Asia/Almaty'}, signature='c'*64)
+    expect(availability_page.get_by_text('Ресторан сейчас закрыт. Принимаем заказы с 10:00 до 00:00.', exact=True)).to_be_visible(timeout=5000)
+    expect(availability_page.get_by_test_id('cart-checkout')).to_be_disabled()
+    available.update(orderingOpen=True, signature='d'*64)
+    expect(availability_page.get_by_test_id('cart-checkout')).to_be_enabled(timeout=5000)
+    expect(availability_page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    availability_page.context.close()
+    contexts.remove(availability_page.context)
+    READS[availability_path] = original_availability
+
     # Successful data remains visible when a foreground refresh fails; a later
     # real AppState foreground transition immediately restarts the public reads.
     retained = Fixture()
@@ -196,7 +226,7 @@ with sync_playwright() as playwright:
     page.wait_for_timeout(2300)
     assert retained.catalog_reads() == active_reads, ('Repeated active events must not multiply catalog reads', retained.requests)
 
-    # Observe the actual 2/5/15-second schedule. Permanent protocol failures run
+    # Observe increasing jittered 2/5/15-second caps. Permanent protocol failures run
     # alongside it, so one observation window covers all non-retryable cases.
     permanent = []
     for mode, path in [('403', '/v1/capabilities'), ('forbidden-feature', '/v1/capabilities'),
@@ -214,12 +244,12 @@ with sync_playwright() as playwright:
     assert exhausted.count() == 4, exhausted.requests
     offline(failed)
     attempt_times = [timestamp for _, path, timestamp in exhausted.requests if path == '/v1/capabilities']
-    for actual, minimum in zip([b - a for a, b in zip(attempt_times, attempt_times[1:])], [1.8, 4.8, 14.8]):
+    for actual, minimum in zip([b - a for a, b in zip(attempt_times, attempt_times[1:])], [1.4, 3.8, 11.8]):
         assert actual >= minimum, (attempt_times, minimum)
-    # More than the longest delay after the last retry detects an accidental
-    # fourth retry / endless polling while preserving the failed UI state.
-    failed.wait_for_timeout(16000)
-    assert exhausted.count() == 4, exhausted.requests
+    # Recovery continues after the original three-retry budget, without a click.
+    exhausted.mode = 'ok'
+    online(failed, timeout=35000)
+    assert exhausted.count() == 5, exhausted.requests
     for fixture, page in permanent:
         assert fixture.count() == 1, fixture.requests
         offline(page)
@@ -233,5 +263,5 @@ with sync_playwright() as playwright:
     print(json.dumps({'result': 'PASS', 'fixture_get_requests': count, 'real_orders_created': 0,
                       'checks': ['503 and transport auto recovery', '24 products retained after failure',
                                  'AppState background cancellation and foreground restart',
-                                 'bounded retries', 'schema, forbidden feature and 403 stay offline']},
+                                 'continuous retries with capped jitter', 'schema, forbidden feature and 403 stay offline']},
                      ensure_ascii=False))

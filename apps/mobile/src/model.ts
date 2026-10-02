@@ -67,6 +67,8 @@ export interface Connection {
 }
 export interface MobileModel {
   availabilityFresh?: boolean;
+  availabilityStatus?: import('./availability').AvailabilityStatus;
+  availabilityHours?: import('./availability').Availability['hours'];
   products: Product[];
   cart: CartLine[];
   catalogMode: CatalogMode;

@@ -1,4 +1,9 @@
-import { unavailableCartLine } from '../availability';
+import {
+  recoverCommerceRead,
+  historyOrderNeedsWatch,
+  checkoutReadError,
+} from '../commerce-read-recovery';
+import { availabilityMessage, unavailableCartLine } from '../availability';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
   CheckoutSheetHeader,
@@ -153,10 +158,67 @@ function KaspiCheckoutSession(props: ScreenProps) {
   useEffect(() => {
     if (orderRef.current && props.screenId !== 'M19') return;
     let active = true;
+    const controller = new AbortController();
+    const read = (path: string) =>
+      recoverCommerceRead({
+        read: (signal) => request(path, 'GET', undefined, signal),
+        signal: controller.signal,
+        ...(path === '/config'
+          ? {
+              accept: (value: unknown) => CustomerCheckoutConfigSchema.parse(value).enabled,
+              onPending: () => {
+                if (active) {
+                  setError(
+                    'Ресторан пока не готов принимать заказы. Корзина сохранена - проверяем доступность автоматически.',
+                  );
+                  setLoaded(true);
+                }
+              },
+            }
+          : {}),
+        active: AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
+        subscribe: (listener) => {
+          const subscription = AppState.addEventListener('change', (state) =>
+            listener(state === 'active'),
+          );
+          return () => subscription.remove();
+        },
+        onFailure: (cause) => {
+          if (active) {
+            setError(checkoutReadError(cause, props.screenId === 'M19'));
+            setLoaded(true);
+          }
+        },
+        onRecovered: () => {
+          if (active) setError('');
+        },
+      });
     setLoaded(false);
     setError('');
     setQuote(null);
     setOrder(null);
+    let recoveringCommand = false;
+    let quotingCommand = false;
+    const draftCommandError = (cause: unknown) =>
+      cause instanceof Error && cause.message === 'RESTAURANT_CLOSED'
+        ? checkoutReadError(cause, false, false)
+        : recoveringCommand
+          ? checkoutError(cause)
+          : quotingCommand &&
+              cause instanceof Error &&
+              [
+                'ITEM_STOPPED',
+                'AVAILABILITY_STALE',
+                'QUOTE_EXPIRED',
+                'CONFLICT',
+                'FORBIDDEN',
+                'UNAUTHORIZED',
+                'NOT_READY',
+              ].includes(cause.message)
+            ? checkoutError(cause)
+            : quotingCommand
+              ? 'Не удалось проверить цену. Корзина сохранена - нажмите «Проверить соединение».'
+              : checkoutReadError(cause, props.screenId === 'M19');
     const run = async () => {
       const raw = await AsyncStorage.getItem(key);
       let draft: Pending | null = null;
@@ -173,14 +235,16 @@ function KaspiCheckoutSession(props: ScreenProps) {
       if (!active) return;
       pending.current = draft;
       if (draft) {
+        recoveringCommand = true;
         const existing = CustomerCommerceOrderSchema.parse(await recover(draft));
+        recoveringCommand = false;
         if (!active) return;
         await acceptRef.current(existing);
         if (props.screenId !== 'M19' || existing.phase !== 'failed') return;
         orderRef.current = null;
         setOrder(null);
       }
-      const result = await request('/orders');
+      const result = await read('/orders');
       const orders = (result as { orders: unknown[] }).orders.map((v) =>
         CustomerCommerceOrderSchema.parse(v),
       );
@@ -192,7 +256,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         setOrder(unfinished);
         return;
       }
-      const setup = CustomerCheckoutConfigSchema.parse(await request('/config'));
+      const setup = CustomerCheckoutConfigSchema.parse(await read('/config'));
       if (!active) return;
       setConfig(setup);
       if (!setup.enabled) throw new Error('NOT_READY');
@@ -201,6 +265,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       const requestedComment = setup.orderCommentEnabled
         ? normalizedOrderComment(props.model.orderComment)
         : '';
+      quotingCommand = true;
       const priced = CustomerQuoteSchema.parse(
         await request('/quotes', 'POST', {
           key: randomUUID(),
@@ -215,13 +280,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
     };
     void run()
       .catch((e) => {
-        if (active) setError(checkoutError(e));
+        if (active) setError(draftCommandError(e));
       })
       .finally(() => {
         if (active) setLoaded(true);
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [
     request,
@@ -258,9 +324,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   useEffect(() => {
     if (props.screenId !== 'M19' || order || !foreground) return;
     const controller = new AbortController();
-    for (const item of history.filter(
-      (entry) => !paymentReceived(entry.phase) && !['failed', 'attention'].includes(entry.phase),
-    )) {
+    for (const item of history.filter((entry) => historyOrderNeedsWatch(entry.phase))) {
       let revision = item.revision;
       void watchCommerceOrder({
         signal: controller.signal,
@@ -382,7 +446,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const availabilityError = props.model.cart.some((line) => !!unavailableCartLine(line))
     ? 'Некоторые позиции закончились. Вернитесь в корзину, чтобы заменить их.'
     : props.model.availabilityFresh === false
-      ? 'Проверяем наличие в ресторане. Оплата станет доступна после подключения.'
+      ? (availabilityMessage(props.model.availabilityStatus, props.model.availabilityHours) ??
+        'Нет свежих данных от ресторана. Проверяем связь автоматически.')
       : '';
   const statusError = error || watchError;
   const unsupportedComment =

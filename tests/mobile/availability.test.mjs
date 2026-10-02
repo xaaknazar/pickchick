@@ -59,3 +59,16 @@ test('malformed or unbounded availability is rejected; unknown product is unavai
   assert.throws(() => parseAvailability({ ...base, signature: 'bad' }));
   assert.equal(withAvailability([product], { ...base, products: [] })[0].available, false);
 });
+
+test('confirmed hours close ordering independently of cashier freshness, never inferred from an outage', async () => {
+  const { availabilityStatus, availabilityMessage } =
+    await import('../../apps/mobile/src/availability.ts');
+  const hours = { openingTime: '10:00', closingTime: '00:00', timeZone: 'Asia/Almaty' };
+  const closed = parseAvailability({ ...base, orderingOpen: false, hours });
+  assert.equal(availabilityStatus({ data: closed, status: 'online' }), 'closed');
+  assert.match(availabilityMessage('closed', hours), /10:00 до 00:00/);
+  assert.equal(availabilityStatus({ data: closed, status: 'offline' }), 'offline');
+  assert.equal(availabilityStatus({ data: { ...base, fresh: false }, status: 'online' }), 'stale');
+  assert.throws(() => parseAvailability({ ...base, orderingOpen: 'false' }));
+  assert.throws(() => parseAvailability({ ...base, hours: { ...hours, openingTime: '25:00' } }));
+});

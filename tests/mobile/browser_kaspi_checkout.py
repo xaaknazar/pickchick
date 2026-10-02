@@ -19,7 +19,7 @@ with sync_playwright() as p:
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
-  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
+  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
    return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
@@ -52,7 +52,10 @@ with sync_playwright() as p:
      now=datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
      state['feedback']={'rating':body['rating'],'comment':body['comment'] or None,'createdAt':state['feedback']['createdAt'] if state['feedback'] else now,'updatedAt':now}
     data={'orderId':ORDER,'enabled':True,'feedback':state['feedback'],'preparationStartedAt':None,'readyAt':None}
-   elif path=='/v1/customer-checkout/config':data={'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot','orderCommentEnabled':True}
+   elif path=='/v1/customer-checkout/config':
+    state['config_reads']+=1
+    if state['config_offline']:r.abort();return
+    data={'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot','orderCommentEnabled':True}
    elif path=='/v1/customer-checkout/quotes':
     assert 'totalMinor' not in body
     assert body['branchId']=='7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
@@ -83,17 +86,23 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'cart-{width}.png'))
   page.get_by_test_id('cart-checkout').click()
   button=page.get_by_test_id('kaspi-checkout-submit')
-  expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта. Корзина сохранена - можно вернуться к ней позже.',exact=True)).to_be_visible()
+  expect(page.get_by_text('Оформление пока недоступно для вашего аккаунта. Корзина сохранена.',exact=True)).to_be_visible()
   expect(button).to_be_disabled()
   assert not state['keys'] and state['payments']==0
   total=page.get_by_test_id('kaspi-checkout-total')
   assert total.evaluate('(el) => parseFloat(getComputedStyle(el).lineHeight) >= parseFloat(getComputedStyle(el).fontSize) * 1.3')
   page.screenshot(path=str(OUT/f'blocked-{width}.png'))
   state['blocked']=False
+  state['config_offline']=True
   page.get_by_role('button',name='Проверить соединение').click()
+  expect(page.get_by_text('Не удалось загрузить оформление. Корзина сохранена. Проверяем связь автоматически.',exact=True)).to_be_visible()
+  config_reads=state['config_reads']
+  assert not state['keys'] and state['payments']==0
+  state['config_offline']=False
   try:expect(button).to_be_enabled(timeout=10000)
   except Exception:
    print(page.locator('body').inner_text());print(errors);page.screenshot(path=str(OUT/'failure.png'));raise
+  assert state['config_reads'] > config_reads and not state['keys'] and state['payments']==0
   with page.expect_response(lambda response: urlparse(response.url).path=='/v1/customer-checkout/quotes' and response.request.post_data_json['serviceMode']=='dine_in'):
    page.get_by_role('radio',name='В зале',exact=True).click()
   expect(button).to_be_enabled(timeout=10000)

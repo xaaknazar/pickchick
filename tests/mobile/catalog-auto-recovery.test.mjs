@@ -11,6 +11,7 @@ function harness(t, load) {
   let loading = 0;
   const recovery = createCatalogRecovery({
     load,
+    random: () => 1,
     isRetryable: (error) => error === transient,
     onLoading: () => loading++,
     onSuccess: (catalog) => successes.push(catalog),
@@ -43,28 +44,23 @@ test('cold-start transport failure recovers using only the eventual server respo
   assert.equal(calls, 2, 'success stops the retry loop');
 });
 
-test('outage gets only three automatic retries with increasing delays', async (t) => {
+test('long outages keep retrying at a capped delay and recover without a foreground event', async (t) => {
   let calls = 0;
+  let offline = true;
   const h = harness(t, async () => {
     calls++;
-    throw transient;
+    if (offline) throw transient;
+    return 'fresh';
   });
   h.recovery.setActive(true);
   await flush();
-  for (const [delay, expected] of [
-    [2000, 2],
-    [5000, 3],
-    [15000, 4],
-  ]) {
-    await h.advance(delay - 1);
-    assert.equal(calls, expected - 1);
-    await h.advance(1);
-    assert.equal(calls, expected);
-  }
-  await h.advance(3_600_000);
-  assert.equal(calls, 4);
-  assert.equal(h.failures.length, 4);
-  assert.deepEqual(h.successes, []);
+  for (const delay of [2000, 5000, 15000, 30000, 30000, 30000]) await h.advance(delay);
+  assert.equal(calls, 7);
+  offline = false;
+  await h.advance(30000);
+  assert.deepEqual(h.successes, ['fresh']);
+  await h.advance(30000);
+  assert.equal(calls, 8);
 });
 
 test('schema errors never retry automatically; foreground explicitly checks again', async (t) => {
