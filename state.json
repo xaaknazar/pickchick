@@ -1855,6 +1855,17 @@
       "updatedAt": "2026-10-02T11:09:56.741Z",
       "summary": "Published design catalog isolation correction plus explicit disabled-availability fixtures. Unit9/typecheck/lint/format passed; cart4viewports, account-required, catalog and menu recovery browser tests passed, zero realorders/APIwrites.",
       "nextAction": "Parent integrates correction, runs exact-source CI and creates final archive/export/upload after green."
+    },
+    {
+      "id": "pos-pin-fixture",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pos-pin-fixture",
+      "scopes": [
+        "tests/pos/browser_ui.py"
+      ],
+      "status": "active",
+      "head": "f9dcf4bf353d12522b56e910ebdda4042b47162e",
+      "updatedAt": "2026-10-02T11:40:21.860Z"
     }
   ]
 }
