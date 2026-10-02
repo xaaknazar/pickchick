@@ -1643,6 +1643,19 @@
       "nextAction": "Родитель интегрирует947195e вместе с UI и guarded schema032/gateway release; после включения в shared выполнить finish. TestFlight загрузка после CI и установки backend."
     },
     {
+      "id": "commerce-feedback-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/orders-history-ui",
+      "scopes": [
+        "infra/staging/release-commerce-feedback.py",
+        "infra/staging/release-kaspi-checkout.py",
+        "tests/operations/test_commerce_feedback_release.py"
+      ],
+      "status": "active",
+      "head": "037f7ab91696663ddf3f63713a4be995013f3980",
+      "updatedAt": "2026-10-02T05:44:31.504Z"
+    },
+    {
       "id": "checkout-keyboard",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/checkout-keyboard",
@@ -1665,24 +1678,13 @@
         "apps/mobile/src/screens/CompletedOrderPreview.tsx",
         "apps/mobile/src/screens/OrderScreens.tsx",
         "docs/operations/orders-history-review.md",
-        "apps/mobile/src/screens/MobileScreen.tsx"
+        "apps/mobile/src/screens/MobileScreen.tsx",
+        "@vps/api",
+        "@vps/public-gateway"
       ],
       "status": "active",
-      "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
-      "updatedAt": "2026-10-02T05:40:03.942Z"
-    },
-    {
-      "id": "commerce-feedback-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/orders-history-ui",
-      "scopes": [
-        "infra/staging/release-commerce-feedback.py",
-        "infra/staging/release-kaspi-checkout.py",
-        "tests/operations/test_commerce_feedback_release.py"
-      ],
-      "status": "active",
-      "head": "037f7ab91696663ddf3f63713a4be995013f3980",
-      "updatedAt": "2026-10-02T05:44:31.504Z"
+      "head": "03b50f39f969a1b3f422ef4ed5ae4210f72fd8ec",
+      "updatedAt": "2026-10-02T05:50:49.929Z"
     }
   ]
 }
