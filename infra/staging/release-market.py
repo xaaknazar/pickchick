@@ -32,7 +32,7 @@ API_CONTAINER = 'pickchick-staging-api-1'
 GATEWAY = 'pickchick-public-gateway'
 ROLE = 'pickchick_app'
 ARCHIVE_PATHS = ['.dockerignore', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
-                 'tsconfig.base.json', 'packages', 'services', 'db', 'scripts', 'infra/staging',
+                 'patches', 'tsconfig.base.json', 'packages', 'services', 'db', 'scripts', 'infra/staging',
                  'infra/windows/pos-sync-worker-grants.mjs']
 MIGRATIONS = ['007_cloud_customer_identity.sql', '008_cloud_commerce_core.sql',
               '009_cloud_catalog_admin.sql', '010_cloud_loyalty.sql',

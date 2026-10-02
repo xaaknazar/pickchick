@@ -1,0 +1,13 @@
+diff --git a/lib/rsa.js b/lib/rsa.js
+--- a/lib/rsa.js
++++ b/lib/rsa.js
+@@ -1171 +1171,2 @@
+-          // validate DigestInfo structure and element count
++          // Validate both DigestInfo and its nested DigestAlgorithm. Extra
++          // children ignored by asn1.validate permit CVE-2026-85393 forgery.
+@@ -1175 +1176,4 @@
+-            obj.value.length !== 2) {
++            obj.value.length !== 2 ||
++            obj.value[0].value.length !==
++              (('parameters' in capture) ? 2 : 1) ||
++            ('parameters' in capture && capture.parameters.length !== 0)) {
