@@ -14,12 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Build, contracts and PostgreSQL integration
+  foundation_core:
+    name: Foundation static checks and transaction invariants
     runs-on: ubuntu-24.04
-    # Run 36729039488 hit 30 minutes during account/checkout browser checks.
-    # Keep the entire suite and allow both exports and UI recovery checks to finish.
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -34,7 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Configure isolated local fixtures
         run: cp .env.example .env
-      - name: Start local databases and cache
+      - name: Start isolated local databases and cache
         run: pnpm infra:up
       - name: Build and static checks
         run: pnpm check
@@ -58,13 +56,43 @@ jobs:
         run: pnpm test:fulfillment
       - name: Mobile state, API and release invariants
         run: pnpm test:mobile
-      - name: Export native and web JavaScript bundles
-        run: pnpm --filter @pickchick/mobile export
-      - name: Browser recovery regressions (isolated HTTP fixtures)
+      - name: Check dependency advisories
+        run: pnpm audit:release
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  foundation_operations:
+    name: Foundation POS and backoffice integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.19.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Configure isolated local fixtures
+        run: cp .env.example .env
+      - name: Start isolated local databases and cache
+        run: pnpm infra:up
+      - name: Build workspace dependencies
+        run: pnpm build
+      - name: Install browser test tools
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
+      - name: Export native and web JavaScript bundles
+        run: pnpm --filter @pickchick/mobile export
+      - name: Browser recovery regressions (isolated HTTP fixtures)
+        run: |
           # Run every isolated regression and fail the step if any failed. This
           # reports all outdated scenarios in one run without hiding failures.
           failures=()
@@ -82,11 +110,121 @@ jobs:
             if curl --fail --silent http://127.0.0.1:4182/ > /dev/null; then break; fi
             sleep 1
           done
+          run_regression env MOBILE_RECOVERY_URL=http://127.0.0.1:4182 BACKOFFICE_TEST_PYTHON=.local/design-venv/bin/python node --env-file=.env tests/backoffice/content-browser.mjs
+          if ((${#failures[@]})); then
+            printf 'Failed regression: %s\n' "${failures[@]}"
+            exit 1
+          fi
+      - name: Verify POS against the local edge and PostgreSQL
+        env:
+          POS_TEST_PYTHON: .local/design-venv/bin/python
+        run: pnpm test:pos
+      - name: Verify backoffice operations and catalog against PostgreSQL
+        env:
+          BACKOFFICE_TEST_PYTHON: .local/design-venv/bin/python
+        run: pnpm --filter @pickchick/backoffice-core test && pnpm --filter @pickchick/backoffice-core test:integration && pnpm test:backoffice
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  foundation_mobile:
+    name: Foundation mobile bundles and checkout recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.19.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Configure isolated local fixtures
+        run: cp .env.example .env
+      - name: Start isolated local databases and cache
+        run: pnpm infra:up
+      - name: Build workspace dependencies
+        run: pnpm build
+      - name: Install browser test tools
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+      - name: Export native and web JavaScript bundles
+        run: pnpm --filter @pickchick/mobile export
+      - name: Browser recovery regressions (isolated HTTP fixtures)
+        run: |
+          # Run every isolated regression and fail the step if any failed. This
+          # reports all outdated scenarios in one run without hiding failures.
+          failures=()
+          run_regression() {
+            "$@" || failures+=("$*")
+          }
+          MOBILE_PREVIEW_PORT=4182 node scripts/mobile/preview-server.mjs > .local/mobile-recovery-server.log 2>&1 &
+          recovery_pid=$!
+          trap 'kill "$recovery_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4182/ > /dev/null; then break; fi
+            sleep 1
+          done
           run_regression .local/design-venv/bin/python tests/mobile/browser_checkout.py
           run_regression env MOBILE_RECOVERY_URL=http://127.0.0.1:4182 .local/design-venv/bin/python tests/mobile/browser_cart_sheet.py
-          run_regression env MOBILE_RECOVERY_URL=http://127.0.0.1:4182 BACKOFFICE_TEST_PYTHON=.local/design-venv/bin/python node --env-file=.env tests/backoffice/content-browser.mjs
-          # Simulator regressions use an explicit QA export; customer/native exports above stay disabled.
+          if ((${#failures[@]})); then
+            printf 'Failed regression: %s\n' "${failures[@]}"
+            exit 1
+          fi
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  foundation_simulator:
+    name: Foundation simulator browser regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.19.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Configure isolated local fixtures
+        run: cp .env.example .env
+      - name: Start isolated local databases and cache
+        run: pnpm infra:up
+      - name: Build workspace dependencies
+        run: pnpm build
+      - name: Install browser test tools
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+      - name: Browser recovery regressions (isolated HTTP fixtures)
+        run: |
+          # Run every isolated regression and fail the step if any failed. This
+          # reports all outdated scenarios in one run without hiding failures.
+          failures=()
+          run_regression() {
+            "$@" || failures+=("$*")
+          }
           EXPO_PUBLIC_ORDER_SIMULATOR=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear
+          MOBILE_PREVIEW_PORT=4182 node scripts/mobile/preview-server.mjs > .local/mobile-recovery-server.log 2>&1 &
+          recovery_pid=$!
+          trap 'kill "$recovery_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4182/ > /dev/null; then break; fi
+            sleep 1
+          done
+          # Simulator regressions use an explicit QA export; customer/native exports above stay disabled.
           run_regression .local/design-venv/bin/python tests/mobile/browser_catalog_recovery.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_menu_recovery.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_demo_account.py
@@ -104,14 +242,37 @@ jobs:
             printf 'Failed regression: %s\n' "${failures[@]}"
             exit 1
           fi
-      - name: Verify POS against the local edge and PostgreSQL
-        env:
-          POS_TEST_PYTHON: .local/design-venv/bin/python
-        run: pnpm test:pos
-      - name: Verify backoffice operations and catalog against PostgreSQL
-        env:
-          BACKOFFICE_TEST_PYTHON: .local/design-venv/bin/python
-        run: pnpm --filter @pickchick/backoffice-core test && pnpm --filter @pickchick/backoffice-core test:integration && pnpm test:backoffice
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  foundation_account:
+    name: Foundation server account and Kaspi fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.19.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Configure isolated local fixtures
+        run: cp .env.example .env
+      - name: Start isolated local databases and cache
+        run: pnpm infra:up
+      - name: Build workspace dependencies
+        run: pnpm build
+      - name: Install browser test tools
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
       - name: Verify opt-in server account screens and recovery
         run: |
           EXPO_PUBLIC_CUSTOMER_AUTH=server pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
@@ -126,11 +287,35 @@ jobs:
           # Isolated Kaspi checkout fixture: no bank, no real customer or VPS requests.
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
-      - name: Check dependency advisories
-        run: pnpm audit:release
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
+
+  verify:
+    # Preserve the required release check name. Any failed, skipped or cancelled
+    # foundation suite fails this gate; each suite has its own runner and DB.
+    name: Build, contracts and PostgreSQL integration
+    needs:
+      [
+        foundation_core,
+        foundation_operations,
+        foundation_mobile,
+        foundation_simulator,
+        foundation_account,
+      ]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every foundation suite
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert len(results) == 5 and all(result == 'success' for result in results), results
+          PYTHON
 
   kiosk:
     name: iPad kiosk state, bundles and browser recovery
