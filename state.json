@@ -1733,39 +1733,6 @@
       "nextAction": "Текущий этап connection-recovery принимает дальнейший выпуск приложения и обновление пульта, сохраняя готовый IPA7 и pending Apple Accounts. Новая задача пользователя: автозапуск, соединение и часы приёма."
     },
     {
-      "id": "mobile-connection-recovery",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/mobile-connection-recovery",
-      "scopes": [
-        "apps/mobile/src/catalog-recovery.ts",
-        "apps/mobile/src/availability-recovery.ts",
-        "apps/mobile/src/useAvailability.ts",
-        "apps/mobile/src/availability.ts",
-        "apps/mobile/src/store.tsx",
-        "apps/mobile/src/model.ts",
-        "apps/mobile/src/screens/CatalogScreens.tsx",
-        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
-        "apps/mobile/src/commerce-read-recovery.ts",
-        "tests/mobile/catalog-auto-recovery.test.mjs",
-        "tests/mobile/availability.test.mjs",
-        "tests/mobile/availability-auto-recovery.test.mjs",
-        "tests/mobile/commerce-read-recovery.test.mjs",
-        "tests/mobile/browser_catalog_recovery.py",
-        "tests/mobile/browser_menu_recovery.py",
-        "tests/mobile/browser_kaspi_checkout.py",
-        "tests/mobile/browser_customer_account.py",
-        "apps/mobile/src/commerce-presentation.ts",
-        "tests/mobile/commerce-presentation.test.mjs",
-        "tests/mobile/browser_cart_sheet.py",
-        "tests/mobile/browser_account_required.py"
-      ],
-      "status": "available",
-      "head": "370b5dc8666625eeb7f62010c1f70f690b0f1955",
-      "updatedAt": "2026-10-02T11:09:56.741Z",
-      "summary": "Published design catalog isolation correction plus explicit disabled-availability fixtures. Unit9/typecheck/lint/format passed; cart4viewports, account-required, catalog and menu recovery browser tests passed, zero realorders/APIwrites.",
-      "nextAction": "Parent integrates correction, runs exact-source CI and creates final archive/export/upload after green."
-    },
-    {
       "id": "connection-recovery",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/connection-recovery",
@@ -1873,6 +1840,40 @@
       "updatedAt": "2026-10-02T12:36:10.754Z",
       "summary": "Code included in shared f83794ce; exact Foundation CI37002738972 all6green. Code-only scope completed.",
       "nextAction": "Parent owns device/install/release acceptance."
+    },
+    {
+      "id": "mobile-connection-recovery",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-connection-recovery",
+      "scopes": [
+        "apps/mobile/src/catalog-recovery.ts",
+        "apps/mobile/src/availability-recovery.ts",
+        "apps/mobile/src/useAvailability.ts",
+        "apps/mobile/src/availability.ts",
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/commerce-read-recovery.ts",
+        "tests/mobile/catalog-auto-recovery.test.mjs",
+        "tests/mobile/availability.test.mjs",
+        "tests/mobile/availability-auto-recovery.test.mjs",
+        "tests/mobile/commerce-read-recovery.test.mjs",
+        "tests/mobile/browser_catalog_recovery.py",
+        "tests/mobile/browser_menu_recovery.py",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "tests/mobile/browser_customer_account.py",
+        "apps/mobile/src/commerce-presentation.ts",
+        "tests/mobile/commerce-presentation.test.mjs",
+        "tests/mobile/browser_cart_sheet.py",
+        "tests/mobile/browser_account_required.py",
+        "apps/mobile/src/KaspiCheckoutScreen.tsx"
+      ],
+      "status": "active",
+      "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
+      "updatedAt": "2026-10-02T12:36:20.096Z",
+      "summary": "Published design catalog isolation correction plus explicit disabled-availability fixtures. Unit9/typecheck/lint/format passed; cart4viewports, account-required, catalog and menu recovery browser tests passed, zero realorders/APIwrites.",
+      "nextAction": "Parent integrates correction, runs exact-source CI and creates final archive/export/upload after green."
     }
   ]
 }
