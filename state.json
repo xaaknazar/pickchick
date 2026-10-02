@@ -1832,9 +1832,11 @@
         "infra/staging/release-connection-recovery.py",
         "tests/operations/test_connection_recovery_release.py"
       ],
-      "status": "active",
-      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:26:31.748Z"
+      "status": "available",
+      "head": "33908de6a3e7d01e78895528cef8c41fbd6b775e",
+      "updatedAt": "2026-10-02T08:33:37.964Z",
+      "summary": "Опубликован 33908de6a3e7d01e78895528cef8c41fbd6b775e: API-only guarded hours/connection profile от9d7. Read-only SSH подтвердил API/public9f66969, mountedgatewaySHA11eefd7c872593ffc3d566e5e780c07b5907d29526faa42f1aabdad141bd1d7d и exactcomposeSHA80d850e2569719d9c9e5a0756e1e0f40489ccb2fa0a932faa738ad4f723d6bde. 8 profiletests и7 feedbackregressions прошли; no deploy/migrations/provision/datachanges. Полная sourceCI обязательна перед prepare/apply.",
+      "nextAction": "Parent интегрирует hours/mobile/worker и этот профиль, проходит полную CI, резервирует VPS mutation и выполняет guarded API-only release. Установленный Windows SCM/reboot/WAN остаются отдельной приёмкой."
     }
   ]
 }
