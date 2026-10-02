@@ -77,8 +77,8 @@ export function createPosServer({
       return;
     }
     const path = req.url ?? '';
-    if (path.startsWith('/edge/')) {
-      if (!allowed(req.method, path)) {
+    if (path.startsWith('/edge/') || path === '/health/ready') {
+      if (!(req.method === 'GET' && path === '/health/ready') && !allowed(req.method, path)) {
         send(404, { code: 'NOT_FOUND' });
         return;
       }

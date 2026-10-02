@@ -1,3 +1,4 @@
+import { requestPinCredential } from './pin-login.js';
 import { PosController } from '../model.js';
 import { transport } from '../api.js';
 const session = {
@@ -43,18 +44,6 @@ export const model = new PosController(
   lease,
 );
 export async function pinLogin(pin, terminalId) {
-  const response = await fetch('/edge/v1/staff/pin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin, terminal_id: terminalId }),
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!response.ok)
-    throw new Error(
-      response.status === 429
-        ? 'Подождите минуту перед следующим входом'
-        : 'Неверный PIN или рабочее место недоступно',
-    );
-  await model.login(JSON.stringify(await response.json()));
+  await model.login(JSON.stringify(await requestPinCredential(pin, terminalId)));
   if (!model.state.actor) throw new Error('Не удалось открыть сессию кассира');
 }

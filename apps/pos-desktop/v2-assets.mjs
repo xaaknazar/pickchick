@@ -24,6 +24,7 @@ export const V2_ASSETS = [
   ['v2/assets/menu-21.png', 'image/png'],
   ['v2/assets/menu-22.png', 'image/png'],
   ['v2/app.js', 'text/javascript'],
+  ['v2/pin-login.js', 'text/javascript'],
   ['v2/runtime.js', 'text/javascript'],
   ['v2/reference-view.js', 'text/javascript'],
   ['v2/template-engine.js', 'text/javascript'],
