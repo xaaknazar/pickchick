@@ -19,14 +19,17 @@ with sync_playwright() as p:
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
-  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
+  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
    return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
    if state['teardown']:r.abort();return
    path=urlparse(r.request.url).path; method=r.request.method
    body=r.request.post_data_json if r.request.post_data else None
-   if path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
+   if path.startswith('/v1/customer-checkout/') and path.endswith('/feedback'):
+    assert r.request.headers.get('accept')=='application/json'
+    assert r.request.headers.get('authorization')=='Bearer '+envelope['tokens']['access_token']
+   elif path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
     assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1'
    data=None
    if path=='/v1/customers/me':data={'customer':customer}
@@ -37,6 +40,18 @@ with sync_playwright() as p:
    elif path=='/v1/branches/'+BRANCH+'/menu':data={'schema_version':1,'branch_id':BRANCH,'release_id':'10000000-0000-4000-8000-000000000008','version':1,'published_at':'2026-09-07T00:00:00Z','items':[]}
    elif path=='/v1/test/catalog':data=CATALOG
    elif path=='/v1/content/branches/'+BRANCH:data={'schema_version':1,'branch_id':BRANCH,'promos':[],'games':[]}
+   elif path=='/v1/customer-checkout/feedback' and method=='GET':
+    data={'feedback':[{'orderId':ORDER,**state['feedback']}] if state['feedback'] else []}
+   elif path==f'/v1/customer-checkout/orders/{ORDER}/feedback' and method in ('GET','POST'):
+    assert state['created'] and state['paid'] and state['phase']=='handed_over',state
+    if method=='POST':
+     state['feedback_posts']+=1
+     assert set(body)=={'rating','comment'} and type(body['rating']) is int and 1<=body['rating']<=5
+     assert isinstance(body['comment'],str) and len(body['comment'])<=500 and body['comment']==body['comment'].strip()
+     if state['feedback_drop']:state['feedback_drop']=False;r.abort();return
+     now=datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
+     state['feedback']={'rating':body['rating'],'comment':body['comment'] or None,'createdAt':state['feedback']['createdAt'] if state['feedback'] else now,'updatedAt':now}
+    data={'orderId':ORDER,'enabled':True,'feedback':state['feedback'],'preparationStartedAt':None,'readyAt':None}
    elif path=='/v1/customer-checkout/config':data={'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot','orderCommentEnabled':True}
    elif path=='/v1/customer-checkout/quotes':
     assert 'totalMinor' not in body
@@ -150,29 +165,88 @@ with sync_playwright() as p:
   expect(page.get_by_text('Соус отдельно, пожалуйста',exact=True)).to_be_visible()
   page.screenshot(path=str(OUT/f'paid-{width}.png'))
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-  for phase,scene in [('preparing','assembly'),('ready','ready-takeaway'),('handed_over','ready-takeaway')]:
+  for phase,scene in [('preparing','assembly'),('ready','ready-takeaway')]:
    page.wait_for_timeout(150)
    state['phase']=phase;state['revision']+=1
    state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
    expect(page.get_by_test_id('order-chef-'+scene)).to_be_visible()
-  expect(page.get_by_text('Приятного аппетита!',exact=True)).to_be_visible()
-  page.get_by_test_id('order-status-close').click()
+  # Issued orders leave the tracker and load a separate server-backed review.
+  page.wait_for_timeout(150)
+  state['phase']='handed_over';state['revision']+=1
+  state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  completed=page.get_by_test_id('completed-order')
+  expect(completed).to_be_visible()
+  expect(page.get_by_test_id('completed-order-number')).to_contain_text('№ 2')
+  expect(page.get_by_test_id('completed-order-total')).to_contain_text('4 190')
+  expect(page.get_by_test_id('order-status-close')).to_have_count(0)
+  expect(page.get_by_test_id('order-chef-ready-takeaway')).to_have_count(0)
+  expect(page.get_by_test_id('order-play-blocks')).to_have_count(0)
+  expect(page.get_by_test_id('completed-item-0')).to_contain_text('Coca-Cola 0,5 л')
+  expect(page.get_by_test_id('completed-item-0')).to_contain_text('Фирменный соус')
+  expect(page.get_by_test_id('order-kitchen-comment')).to_contain_text('Соус отдельно, пожалуйста')
+  expect(page.get_by_test_id('completed-receipt-unavailable')).to_be_visible()
+  expect(page.get_by_test_id('completed-order-receipt')).to_have_count(0)
+  rating=page.get_by_test_id('completed-rating-4')
+  expect(rating).to_be_enabled(timeout=10000)
+  rating.click()
+  expect(rating).to_have_attribute('aria-checked','true')
+  review_comment=page.get_by_test_id('completed-review-comment')
+  review_comment.fill('Всё понравилось. Спасибо!')
+  save=page.get_by_test_id('completed-review-save')
+  save.click()
+  expect(page.get_by_test_id('completed-review-error')).to_be_visible()
+  assert state['feedback_posts']==1 and state['feedback'] is None
+  expect(page.get_by_test_id('completed-review-saved')).to_have_count(0)
+  expect(review_comment).to_have_value('Всё понравилось. Спасибо!')
+  expect(save).to_be_enabled()
+  save.click()
+  expect(page.get_by_test_id('completed-review-saved')).to_be_visible(timeout=10000)
+  assert state['feedback_posts']==2 and state['feedback']['rating']==4 and state['feedback']['comment']=='Всё понравилось. Спасибо!'
+  expect(save).to_be_disabled()
+  assert state['payments']==2
+  page.screenshot(path=str(OUT/f'completed-review-{width}.png'))
+  page.get_by_test_id('completed-order-close').click()
   expect(page.get_by_test_id('screen-M12')).not_to_be_visible()
   page.goto(URL+'/orders')
-  page.get_by_role('button',name='Открыть заказ 2',exact=True).click()
+  history=page.get_by_test_id('order-history-'+ORDER)
+  expect(history).to_be_visible()
+  expect(history).to_contain_text('Pick Combo ×1')
+  expect(history.get_by_text('Ваша оценка',exact=True)).to_be_visible()
+  # RN Web button selected state has no aria-selected; verify the exact visible star pattern.
+  stars=[page.get_by_test_id(f'order-history-rate-{ORDER}-{value}').inner_text() for value in range(1,6)]
+  assert stars[0] and len(set(stars[:4]))==1 and stars[4]!=stars[0],stars
+  # A new star selection from history overrides the previously saved rating.
+  page.get_by_test_id(f'order-history-rate-{ORDER}-5').click()
   sheet=page.get_by_test_id('order-sheet')
-  close=page.get_by_test_id('order-status-close')
+  close=page.get_by_test_id('completed-order-close')
   expect(close).to_be_visible()
+  expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
+  expect(review_comment).to_have_value('Всё понравилось. Спасибо!')
+  expect(save).to_be_enabled()
   page.wait_for_timeout(450)
   sb=sheet.bounding_box();cb=close.bounding_box()
   assert sb['y']>=20 and cb['y']>=sb['y']+20 and cb['height']>=44,(sb,cb)
-  page.screenshot(path=str(OUT/f'history-status-{width}.png'))
+  save.click()
+  expect(page.get_by_test_id('completed-review-saved')).to_be_visible()
+  assert state['feedback_posts']==3 and state['feedback']['rating']==5
+  page.screenshot(path=str(OUT/f'history-completed-{width}.png'))
   close.click()
-  expect(page.get_by_role('button',name='Открыть заказ 2',exact=True)).to_be_visible()
+  expect(page.get_by_test_id(f'order-history-open-{ORDER}')).to_be_visible()
+  # Reload the app to prove history/detail rehydrate from HTTP, not the hook cache.
+  page.reload()
+  expect(history.get_by_text('Ваша оценка',exact=True)).to_be_visible(timeout=10000)
+  for value in range(1,6):expect(page.get_by_test_id(f'order-history-rate-{ORDER}-{value}')).to_have_text(stars[0])
+  page.get_by_test_id(f'order-history-open-{ORDER}').click()
+  expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
+  expect(review_comment).to_have_value('Всё понравилось. Спасибо!')
+  expect(page.get_by_test_id('completed-review-saved')).to_be_visible()
+  expect(save).to_be_disabled()
+  assert state['feedback_posts']==3 and state['payments']==2
+  close.click()
   # A bank-confirmed unpaid cancellation disappears while the order list is open.
   state['phase']='awaiting_payment';state['paid']=False;state['revision']+=1
   page.goto(URL+'/orders')
-  expect(page.get_by_role('button',name='Открыть заказ',exact=True)).to_be_visible()
+  expect(page.get_by_test_id(f'order-history-open-{ORDER}')).to_be_visible()
   page.wait_for_timeout(150)
   state['phase']='failed';state['revision']+=1
   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
@@ -187,4 +261,4 @@ with sync_playwright() as p:
   context.close()
  browser.close()
 assert not errors,errors
-print('PASS: 4 sizes, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen stages, no overflow')
+print('PASS: 4 sizes, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen/completed stages, server-backed review save/retry/reload, no overflow')
