@@ -1708,11 +1708,11 @@
         "docs/operations/node-forge-security-patch.md",
         "infra/staging/release-market.py"
       ],
-      "status": "active",
+      "status": "done",
       "head": "620a09ab07fa21fc346446edcf555214aaf9e13d",
-      "updatedAt": "2026-10-02T06:35:07.866Z",
-      "summary": "21f9d38: применён реальный RSA patch node-forge1.4.0; nested DigestAlgorithm и NULL content проверяются. Frozen install,4security regression,audit highcritical guard,10marketreleaseunit,ExpoCLI mobilekiosk,lintformatdiff прошли. Уровни4moderate остаются. patches включён в API archive; VPS/signingnative не менялись.",
-      "nextAction": "Родитель интегрирует21f9d38, создаёт свежий generated node_modules и frozen install, затем audit:release и source CI; finish после включения в shared. Удалить patch+exception вместе после проверенного upstream release."
+      "updatedAt": "2026-10-02T06:35:13.476Z",
+      "summary": "21f9d38 включён в620a09a;4securitytests,auditgate,10release tests,ExpoCLI/lintformat и independent review прошли.",
+      "nextAction": "CI и выпуск продолжает родитель."
     }
   ]
 }
