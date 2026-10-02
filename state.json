@@ -1809,24 +1809,6 @@
       "updatedAt": "2026-10-02T08:25:01.789Z"
     },
     {
-      "id": "restaurant-hours",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/restaurant-hours",
-      "scopes": [
-        "packages/commerce-core/src/restaurant-hours.ts",
-        "packages/commerce-core/src/model.ts",
-        "services/api/src/customer-checkout-controller.ts",
-        "packages/commerce-core/tests/restaurant-hours.test.mjs",
-        "packages/commerce-core/tests/postgres.test.mjs",
-        "packages/commerce-core/package.json"
-      ],
-      "status": "available",
-      "head": "0f0185fc29396ab5179b659196446de8182d4008",
-      "updatedAt": "2026-10-02T08:31:01.241Z",
-      "summary": "Configured hours, RESTAURANT_CLOSED409 and financial recovery guards; unit41 PG63 API build lint format passed. customer-checkout.ts overlap explicitly approved by parent connection-recovery.",
-      "nextAction": "Integrate commit and run combined CI; enable env only after green. Parent owns docs and VPS."
-    },
-    {
       "id": "connection-api-release",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/connection-api-release",
@@ -1839,6 +1821,25 @@
       "updatedAt": "2026-10-02T08:33:37.964Z",
       "summary": "Опубликован 33908de6a3e7d01e78895528cef8c41fbd6b775e: API-only guarded hours/connection profile от9d7. Read-only SSH подтвердил API/public9f66969, mountedgatewaySHA11eefd7c872593ffc3d566e5e780c07b5907d29526faa42f1aabdad141bd1d7d и exactcomposeSHA80d850e2569719d9c9e5a0756e1e0f40489ccb2fa0a932faa738ad4f723d6bde. 8 profiletests и7 feedbackregressions прошли; no deploy/migrations/provision/datachanges. Полная sourceCI обязательна перед prepare/apply.",
       "nextAction": "Parent интегрирует hours/mobile/worker и этот профиль, проходит полную CI, резервирует VPS mutation и выполняет guarded API-only release. Установленный Windows SCM/reboot/WAN остаются отдельной приёмкой."
+    },
+    {
+      "id": "restaurant-hours",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/restaurant-hours",
+      "scopes": [
+        "packages/commerce-core/src/restaurant-hours.ts",
+        "packages/commerce-core/src/model.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "packages/commerce-core/tests/restaurant-hours.test.mjs",
+        "packages/commerce-core/tests/postgres.test.mjs",
+        "packages/commerce-core/package.json",
+        "packages/backoffice-core/src/index.ts"
+      ],
+      "status": "active",
+      "head": "0f0185fc29396ab5179b659196446de8182d4008",
+      "updatedAt": "2026-10-02T08:39:51.638Z",
+      "summary": "Configured hours, RESTAURANT_CLOSED409 and financial recovery guards; unit41 PG63 API build lint format passed. customer-checkout.ts overlap explicitly approved by parent connection-recovery.",
+      "nextAction": "Integrate commit and run combined CI; enable env only after green. Parent owns docs and VPS."
     }
   ]
 }
