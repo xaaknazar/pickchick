@@ -1835,11 +1835,11 @@
         "packages/commerce-core/package.json",
         "packages/backoffice-core/src/index.ts"
       ],
-      "status": "active",
-      "head": "0f0185fc29396ab5179b659196446de8182d4008",
-      "updatedAt": "2026-10-02T08:39:51.638Z",
-      "summary": "Configured hours, RESTAURANT_CLOSED409 and financial recovery guards; unit41 PG63 API build lint format passed. customer-checkout.ts overlap explicitly approved by parent connection-recovery.",
-      "nextAction": "Integrate commit and run combined CI; enable env only after green. Parent owns docs and VPS."
+      "status": "available",
+      "head": "98d716a4cb226cf96931fa403a7e21c932b78359",
+      "updatedAt": "2026-10-02T08:40:48.220Z",
+      "summary": "Published narrow backoffice error mapping; full pnpm build, targeted lint/format passed. Original41unit/63PG unchanged.",
+      "nextAction": "Integrate correction and monitor replacement full CI."
     }
   ]
 }
