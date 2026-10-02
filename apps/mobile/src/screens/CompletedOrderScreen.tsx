@@ -25,6 +25,7 @@ export type CompletedOrderScreenProps = {
   preparationStartedAt?: string | null;
   readyAt?: string | null;
   onOpenReceipt?: () => void;
+  receiptError?: string | null;
   onSupport?: () => void;
 };
 
@@ -43,6 +44,7 @@ export function CompletedOrderScreen({
   preparationStartedAt,
   readyAt,
   onOpenReceipt,
+  receiptError,
   onSupport,
 }: CompletedOrderScreenProps) {
   const [rating, setRating] = useState(initialRating ?? review?.rating ?? 0);
@@ -301,6 +303,16 @@ export function CompletedOrderScreen({
               </Caption>
             </View>
           )}
+          {receiptError ? (
+            <Caption
+              testID="completed-receipt-error"
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={s.error}
+            >
+              {receiptError}
+            </Caption>
+          ) : null}
           {onSupport ? (
             <Button
               testID="completed-order-support"
