@@ -1754,21 +1754,6 @@
       "nextAction": "Parent интегрирует и проверяет actual SCM после восстановления SSH/LAN; выполнить PowerShell test и read-only verifier. Recovery updater только после подтверждённого расхождения; physical reboot/WAN acceptance отдельно."
     },
     {
-      "id": "restaurant-hours",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/restaurant-hours",
-      "scopes": [
-        "packages/commerce-core/src/restaurant-hours.ts",
-        "packages/commerce-core/src/model.ts",
-        "services/api/src/customer-checkout-controller.ts",
-        "packages/commerce-core/tests/restaurant-hours.test.mjs",
-        "packages/commerce-core/tests/postgres.test.mjs"
-      ],
-      "status": "active",
-      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:22:31.777Z"
-    },
-    {
       "id": "mobile-connection-recovery",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-connection-recovery",
@@ -1820,6 +1805,22 @@
       "status": "active",
       "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
       "updatedAt": "2026-10-02T08:25:01.789Z"
+    },
+    {
+      "id": "restaurant-hours",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/restaurant-hours",
+      "scopes": [
+        "packages/commerce-core/src/restaurant-hours.ts",
+        "packages/commerce-core/src/model.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "packages/commerce-core/tests/restaurant-hours.test.mjs",
+        "packages/commerce-core/tests/postgres.test.mjs",
+        "packages/commerce-core/package.json"
+      ],
+      "status": "active",
+      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
+      "updatedAt": "2026-10-02T08:25:06.951Z"
     }
   ]
 }
