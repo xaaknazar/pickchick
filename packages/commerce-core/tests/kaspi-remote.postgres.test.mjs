@@ -981,3 +981,194 @@ test('identical saved messages block automatic history adoption instead of guess
     assert.equal(f.bridge.count('create'), 0);
     assert.equal((await f.view(first.orderId)).captures.length, 0);
   }));
+
+test('commercial review persists only for the authenticated owner of a paid handed-over order', () =>
+  fixture(async (f) => {
+    const other = randomUUID();
+    const options = {
+      ...f.scope,
+      paymentAccountId: f.payment,
+      customerIds: [f.scope.principalId, other],
+      maxOrderMinor: '1000000',
+      repeatOrdersEnabled: true,
+      approvalReference: 'Synthetic approval',
+    };
+    const checkout = new CustomerCheckout(f.pool, options);
+    const { orderId, attempt } = await f.order();
+    assert.equal((await checkout.feedback(f.scope.principalId, orderId)).enabled, false);
+    await assert.rejects(
+      checkout.submitFeedback(f.scope.principalId, orderId, { rating: 5 }),
+      /CONFLICT/,
+    );
+    // Completion alone cannot turn an unpaid order into an eligible review.
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET state='handed_over' WHERE order_id=$1",
+      [orderId],
+    );
+    assert.equal((await checkout.feedback(f.scope.principalId, orderId)).enabled, false);
+    const worker = f.processor();
+    await worker.tick();
+    f.bridge.status.set((await f.invoice(attempt.attemptId)).operation_id, 'Processed');
+    await f.due();
+    await worker.tick();
+    await assert.rejects(checkout.feedback(other, orderId), /NOT_FOUND/);
+    await assert.rejects(checkout.submitFeedback(other, orderId, { rating: 1 }), /NOT_FOUND/);
+    assert.deepEqual((await checkout.listFeedback(other)).feedback, []);
+    for (const input of [
+      { rating: 0 },
+      { rating: 6 },
+      { rating: 2.5 },
+      { rating: '5' },
+      { rating: 5, comment: 'x'.repeat(501) },
+      { rating: 5, orderId },
+    ])
+      await assert.rejects(checkout.submitFeedback(f.scope.principalId, orderId, input), /INVALID/);
+    await assert.rejects(checkout.feedback(f.scope.principalId, 'not-a-uuid'), /INVALID/);
+    await f.pool.query("UPDATE cloud_fulfillment_projection SET state='ready' WHERE order_id=$1", [
+      orderId,
+    ]);
+    await assert.rejects(
+      checkout.submitFeedback(f.scope.principalId, orderId, { rating: 5 }),
+      /CONFLICT/,
+    );
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET state='handed_over' WHERE order_id=$1",
+      [orderId],
+    );
+    const first = await checkout.submitFeedback(f.scope.principalId, orderId, {
+      rating: 5,
+      comment: '  Good food  ',
+    });
+    assert.equal(first.enabled, true);
+    assert.equal(first.feedback.comment, 'Good food');
+    assert.equal(first.preparationStartedAt, null);
+    assert.equal(first.readyAt, null);
+    const retries = await Promise.all(
+      Array.from({ length: 4 }, () =>
+        checkout.submitFeedback(f.scope.principalId, orderId, { rating: 5, comment: 'Good food' }),
+      ),
+    );
+    for (const value of retries) assert.deepEqual(value.feedback, first.feedback);
+    const recovered = await new CustomerCheckout(f.pool, options).feedback(
+      f.scope.principalId,
+      orderId,
+    );
+    assert.deepEqual(recovered.feedback, first.feedback);
+    assert.equal((await checkout.listFeedback(f.scope.principalId)).feedback[0].rating, 5);
+    const edited = await checkout.submitFeedback(f.scope.principalId, orderId, {
+      rating: 3,
+      comment: '  ',
+    });
+    assert.equal(edited.feedback.rating, 3);
+    assert.equal(edited.feedback.comment, null);
+    assert.equal(edited.feedback.createdAt, first.feedback.createdAt);
+    assert.ok(edited.feedback.updatedAt >= first.feedback.updatedAt);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_order_feedback')).rows[0].n,
+      1,
+    );
+    await f.pool.query('UPDATE commerce_orders SET attention_required=true WHERE id=$1', [orderId]);
+    assert.equal((await checkout.feedback(f.scope.principalId, orderId)).enabled, false);
+    await assert.rejects(
+      checkout.submitFeedback(f.scope.principalId, orderId, { rating: 1 }),
+      /CONFLICT/,
+    );
+    assert.equal((await f.view(orderId)).captures.length, 1);
+    // Review storage cannot fabricate or modify fiscal/payment effects.
+    assert.equal((await f.view(orderId)).fiscalDocuments.length, 0);
+    await f.pool.query('UPDATE commerce_orders SET attention_required=false WHERE id=$1', [
+      orderId,
+    ]);
+    const capture = (await f.view(orderId)).captures[0];
+    const refund = await f.repo.requestRefund({ ...f.scope, role: 'manager' }, randomUUID(), {
+      orderId,
+      captureId: capture.id,
+      amountMinor: '100',
+      reason: 'Synthetic review refund',
+      fulfillmentPolicy: 'manager_reviewed',
+    });
+    assert.equal((await checkout.feedback(f.scope.principalId, orderId)).enabled, false);
+    await assert.rejects(
+      checkout.submitFeedback(f.scope.principalId, orderId, { rating: 1 }),
+      /CONFLICT/,
+    );
+    await f.repo.observeRefund(
+      { organizationId: f.scope.organizationId, branchId: f.scope.branchId, accountId: f.payment },
+      {
+        eventId: randomUUID(),
+        refundId: refund.refundId,
+        outcome: 'succeeded',
+        operationId: 'synthetic-review-refund',
+        amountMinor: '100',
+        occurredAt: new Date().toISOString(),
+      },
+    );
+    assert.equal((await checkout.feedback(f.scope.principalId, orderId)).enabled, false);
+    assert.equal((await checkout.feedback(f.scope.principalId, orderId)).feedback.rating, 3);
+  }, true));
+
+test('restricted checkout role can persist reviews but cannot move their owner or timestamps', () =>
+  fixture(async (f) => {
+    const { customerCheckoutGrants } = await import('../../../infra/staging/checkout-grants.mjs');
+    const role = 'review_api_' + randomUUID().replaceAll('-', '');
+    await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      const { orderId, attempt } = await f.order();
+      const worker = f.processor();
+      await worker.tick();
+      f.bridge.status.set((await f.invoice(attempt.attemptId)).operation_id, 'Processed');
+      await f.due();
+      await worker.tick();
+      await f.pool.query(
+        "UPDATE cloud_fulfillment_projection SET state='handed_over' WHERE order_id=$1",
+        [orderId],
+      );
+      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      await f.pool.query(customerCheckoutGrants(role, true));
+      const url = new URL(f.url);
+      url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 2);
+      const checkout = new CustomerCheckout(runtime, {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [f.scope.principalId],
+        maxOrderMinor: '1000000',
+        approvalReference: 'Synthetic approval',
+      });
+      const saved = await checkout.submitFeedback(f.scope.principalId, orderId, { rating: 4 });
+      assert.equal(saved.feedback.rating, 4);
+      assert.equal((await checkout.listFeedback(f.scope.principalId)).feedback.length, 1);
+      assert.equal(
+        (
+          await checkout.submitFeedback(f.scope.principalId, orderId, {
+            rating: 2,
+            comment: 'Changed',
+          })
+        ).feedback.rating,
+        2,
+      );
+      for (const sql of [
+        'DELETE FROM commerce_order_feedback',
+        'UPDATE commerce_order_feedback SET order_id=gen_random_uuid()',
+        'UPDATE commerce_order_feedback SET created_at=clock_timestamp()',
+        'UPDATE commerce_orders SET total_minor=1',
+        'UPDATE commerce_captures SET amount_minor=1',
+      ])
+        await assert.rejects(runtime.query(sql), /permission denied/);
+      await assert.rejects(
+        runtime.query('UPDATE commerce_order_feedback SET rating=6'),
+        /check constraint/,
+      );
+      await assert.rejects(
+        runtime.query("UPDATE commerce_order_feedback SET comment=repeat('a',501)"),
+        /check constraint/,
+      );
+      await f.pool.query(customerCheckoutGrants(role, false));
+      await assert.rejects(checkout.feedback(f.scope.principalId, orderId), /permission denied/);
+    } finally {
+      await runtime?.end();
+      await f.pool.query(`DROP OWNED BY ${role}`);
+      await f.admin.query(`DROP ROLE ${role}`);
+    }
+  }, true));

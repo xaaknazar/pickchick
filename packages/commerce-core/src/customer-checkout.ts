@@ -6,7 +6,7 @@ import {
 import { localSelectionIds } from '@pickchick/menu-sync';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { DatabasePool } from '@pickchick/database';
+import { transaction, type DatabasePool } from '@pickchick/database';
 import { CatalogPricing, CatalogPricingError } from '@pickchick/catalog-pricing';
 import { CommerceRepository } from './repository.js';
 import { CommerceError, digest, parse, UUIDSchema } from './model.js';
@@ -281,6 +281,128 @@ export class CustomerCheckout {
       providerAccountId: this.options!.paymentAccountId,
     });
     return this.read(customerId, orderId);
+  }
+  async listFeedback(customerId: string) {
+    const scope = await this.scope(customerId);
+    const rows = await this.pool.query<{
+      order_id: string;
+      rating: number;
+      comment: string | null;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `SELECT f.* FROM commerce_order_feedback f JOIN commerce_orders o ON o.id=f.order_id
+       WHERE o.principal_id=$1 AND o.organization_id=$2 AND o.branch_id=$3
+       ORDER BY o.created_at DESC,o.id DESC LIMIT 30`,
+      [customerId, scope.organizationId, scope.branchId],
+    );
+    return {
+      feedback: rows.rows.map((f) => ({
+        orderId: f.order_id,
+        rating: f.rating,
+        comment: f.comment,
+        createdAt: f.created_at.toISOString(),
+        updatedAt: f.updated_at.toISOString(),
+      })),
+    };
+  }
+  async feedback(customerId: string, orderId: string) {
+    const scope = await this.scope(customerId);
+    const id = parse(UUIDSchema, orderId);
+    return transaction(this.pool, async (client) => {
+      const order = (
+        await client.query<{ total_minor: string; attention_required: boolean }>(
+          `SELECT total_minor::text,attention_required FROM commerce_orders
+         WHERE id=$1 AND principal_id=$2 AND organization_id=$3 AND branch_id=$4 FOR UPDATE`,
+          [id, customerId, scope.organizationId, scope.branchId],
+        )
+      ).rows[0];
+      if (!order) throw new CommerceError('NOT_FOUND');
+      return this.feedbackState(client, id, order);
+    });
+  }
+  async submitFeedback(customerId: string, orderId: string, input: unknown) {
+    const scope = await this.scope(customerId);
+    const id = parse(UUIDSchema, orderId);
+    const request = parse(
+      z.strictObject({
+        rating: z.int().min(1).max(5),
+        comment: z.string().trim().max(500).optional(),
+      }),
+      input,
+    );
+    return transaction(this.pool, async (client) => {
+      // The same aggregate lock serializes feedback with captures/refunds and other reviews.
+      const order = (
+        await client.query<{ total_minor: string; attention_required: boolean }>(
+          `SELECT total_minor::text,attention_required FROM commerce_orders
+         WHERE id=$1 AND principal_id=$2 AND organization_id=$3 AND branch_id=$4 FOR UPDATE`,
+          [id, customerId, scope.organizationId, scope.branchId],
+        )
+      ).rows[0];
+      if (!order) throw new CommerceError('NOT_FOUND');
+      if (!(await this.feedbackState(client, id, order)).enabled)
+        throw new CommerceError('CONFLICT');
+      await client.query(
+        `INSERT INTO commerce_order_feedback(order_id,rating,comment) VALUES($1,$2,$3)
+         ON CONFLICT(order_id) DO UPDATE SET rating=EXCLUDED.rating,comment=EXCLUDED.comment,updated_at=clock_timestamp()
+         WHERE (commerce_order_feedback.rating,commerce_order_feedback.comment)
+           IS DISTINCT FROM (EXCLUDED.rating,EXCLUDED.comment)`,
+        [id, request.rating, request.comment || null],
+      );
+      return this.feedbackState(client, id, order);
+    });
+  }
+  private async feedbackState(
+    client: import('@pickchick/database').DatabaseClient,
+    orderId: string,
+    order: { total_minor: string; attention_required: boolean },
+  ) {
+    const state = (
+      await client.query<{
+        state: string | null;
+        captured: string;
+        refunded: string;
+        pending_refund: boolean;
+      }>(
+        `SELECT (SELECT state FROM cloud_fulfillment_projection WHERE order_id=$1) state,
+       COALESCE((SELECT sum(amount_minor) FROM commerce_captures WHERE order_id=$1),0)::text captured,
+       COALESCE((SELECT sum(amount_minor) FROM commerce_refund_effects WHERE order_id=$1),0)::text refunded,
+       EXISTS(SELECT 1 FROM commerce_refunds WHERE order_id=$1 AND state IN ('pending','unknown')) pending_refund`,
+        [orderId],
+      )
+    ).rows[0]!;
+    const saved = (
+      await client.query<{
+        rating: number;
+        comment: string | null;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        'SELECT rating,comment,created_at,updated_at FROM commerce_order_feedback WHERE order_id=$1',
+        [orderId],
+      )
+    ).rows[0];
+    return {
+      orderId,
+      enabled:
+        !order.attention_required &&
+        state.state === 'handed_over' &&
+        state.captured === order.total_minor &&
+        state.refunded === '0' &&
+        !state.pending_refund,
+      feedback: saved
+        ? {
+            rating: saved.rating,
+            comment: saved.comment,
+            createdAt: saved.created_at.toISOString(),
+            updatedAt: saved.updated_at.toISOString(),
+          }
+        : null,
+      // Cloud has receipt times only. Never report those as actual kitchen action times.
+      preparationStartedAt: null,
+      readyAt: null,
+    };
   }
   async list(customerId: string) {
     const scope = await this.scope(customerId);

@@ -7,11 +7,13 @@ function check(role, enabled) {
 export function customerCheckoutGrants(role, enabled) {
   check(role, enabled);
   return (
-    `REVOKE ALL ON commerce_kaspi_invoices FROM ${role};
+    `REVOKE ALL ON commerce_kaspi_invoices,commerce_order_feedback FROM ${role};
     REVOKE INSERT ON commerce_quotes,commerce_orders,commerce_payment_intents,commerce_payment_attempts FROM ${role};
     REVOKE UPDATE(lock_anchor) ON catalog_branch_heads FROM ${role};` +
     (enabled
       ? `
+    GRANT SELECT,INSERT ON commerce_order_feedback TO ${role};
+    GRANT UPDATE(rating,comment,updated_at) ON commerce_order_feedback TO ${role};
     GRANT SELECT ON cloud_branch_availability,branches,devices,catalog_publications,catalog_branch_heads,
       commerce_quotes,commerce_orders,commerce_commands,commerce_provider_accounts,
       commerce_payment_intents,commerce_payment_attempts,commerce_captures,commerce_refunds,
