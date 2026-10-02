@@ -17,7 +17,10 @@ def main():
         with tempfile.TemporaryDirectory(prefix='pickchick-context-') as name:
             path=Path(name)
             (path/'.dockerignore').write_bytes((ROOT/'.dockerignore').read_bytes())
-            files={'infra/staging/provision.mjs':'included',
+            files={'patches/node-forge@1.4.0.patch':'included',
+                'patches/private.key':'excluded',
+                'patches/unrelated.txt':'excluded',
+                'infra/staging/provision.mjs':'included',
                 'infra/windows/pos-sync-worker-grants.mjs':'included',
                 'infra/windows/unrelated-operator.mjs':'excluded',
                 'infra/windows/operator.env':'excluded',
@@ -35,6 +38,6 @@ def main():
             if result.returncode: raise RuntimeError(result.stderr.decode())
     finally:
         if created: subprocess.run(['docker','image','rm',tag],check=True,capture_output=True)
-    print('Docker context includes only the required Windows grant helper; private/other paths excluded.')
+    print('Docker context includes dependency patches and required Windows grant helper; private/other paths excluded.')
 
 if __name__=='__main__':main()
