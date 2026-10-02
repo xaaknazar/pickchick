@@ -1894,19 +1894,6 @@
       "updatedAt": "2026-10-02T12:55:43.060Z"
     },
     {
-      "id": "ci-acceleration",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/ci-acceleration",
-      "scopes": [
-        ".github/workflows/ci.yml",
-        "tests/operations/test_ci_parallel.py",
-        "docs/operations/ci-parallel.md"
-      ],
-      "status": "active",
-      "head": "9e2e5dcd605bd5273e23e66380a0bf8b37b36736",
-      "updatedAt": "2026-10-02T12:56:41.376Z"
-    },
-    {
       "id": "kaspi-session-preflight",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kaspi-session-preflight",
@@ -1919,6 +1906,21 @@
       "status": "active",
       "head": "9e2e5dcd605bd5273e23e66380a0bf8b37b36736",
       "updatedAt": "2026-10-02T12:59:09.832Z"
+    },
+    {
+      "id": "ci-acceleration",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/ci-acceleration",
+      "scopes": [
+        ".github/workflows/ci.yml",
+        "tests/operations/test_ci_parallel.py",
+        "docs/operations/ci-parallel.md",
+        "scripts/development-checks.mjs",
+        "tests/unit/development-checks.test.mjs"
+      ],
+      "status": "active",
+      "head": "9e2e5dcd605bd5273e23e66380a0bf8b37b36736",
+      "updatedAt": "2026-10-02T12:59:51.682Z"
     }
   ]
 }
