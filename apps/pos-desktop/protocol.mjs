@@ -58,6 +58,7 @@ export function isAllowedRendererURL(value) {
     url &&
     (assets.has(url.pathname) ||
       url.pathname === '/config.json' ||
+      url.pathname === '/health/ready' ||
       readPath.test(url.pathname) ||
       writePath.test(url.pathname)),
   );
@@ -157,10 +158,10 @@ export function createProtocolHandler({
     const origin = request.headers.get('origin');
     if (!url || (origin && origin !== APP_ORIGIN)) return json(403, { code: 'FORBIDDEN' });
     const path = url.pathname;
-    if (path.startsWith('/edge/')) {
+    if (path.startsWith('/edge/') || path === '/health/ready') {
       if (
         (request.method !== 'GET' && url.search) ||
-        (!(request.method === 'GET' && readPath.test(path)) &&
+        (!(request.method === 'GET' && (readPath.test(path) || path === '/health/ready')) &&
           !(request.method === 'POST' && writePath.test(path)))
       )
         return json(404, { code: 'NOT_FOUND' });

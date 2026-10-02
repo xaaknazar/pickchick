@@ -1,3 +1,4 @@
+import { requestPinCredential } from './pin-login.js';
 import { photos } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { TemplateView } from './template-engine.js';
@@ -179,14 +180,7 @@ async function enterPin(pin, close = false) {
   try {
     if (close) {
       // Verify the manager in an isolated login request first; do not replace the cashier on failure.
-      const response = await fetch('/edge/v1/staff/pin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, terminal_id: config.terminalId }),
-        signal: AbortSignal.timeout(12000),
-      });
-      if (!response.ok) throw Error('Неверный PIN или слишком много попыток');
-      const credential = await response.json();
+      const credential = await requestPinCredential(pin, config.terminalId);
       if (credential.role !== 'shift_manager') {
         await transport('staff/logout', credential, { method: 'POST' });
         throw Error('Нужен PIN начальника смены');
