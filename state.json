@@ -1821,6 +1821,18 @@
       "status": "active",
       "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
       "updatedAt": "2026-10-02T08:25:06.951Z"
+    },
+    {
+      "id": "connection-api-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/connection-api-release",
+      "scopes": [
+        "infra/staging/release-connection-recovery.py",
+        "tests/operations/test_connection_recovery_release.py"
+      ],
+      "status": "active",
+      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
+      "updatedAt": "2026-10-02T08:26:31.748Z"
     }
   ]
 }
