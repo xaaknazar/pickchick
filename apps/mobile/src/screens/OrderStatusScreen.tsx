@@ -86,7 +86,6 @@ export function OrderStatusView({
   onSupport?: () => void;
 }) {
   const [more, setMore] = useState(false);
-  const [details, setDetails] = useState(false);
   const [now, setNow] = useState(Date.now());
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -98,7 +97,6 @@ export function OrderStatusView({
   const name = props.model.nickname.trim();
   const heroSize = Math.min(300, width - 72, Math.max(184, height * 0.29));
   useEffect(() => {
-    setDetails(false);
     setMore(false);
   }, [order.order_id]);
   useEffect(() => {
@@ -130,7 +128,7 @@ export function OrderStatusView({
               ? 'Оплата подтверждена. Ждём подтверждение кухни'
               : 'Жарим, собираем и следим за каждой деталью';
   const itemCount = order.snapshot.lines.reduce((sum, line) => sum + line.quantity, 0);
-  const cardWidth = Math.min(380, width - (order.snapshot.lines.length > 1 ? 60 : 40));
+  const cardWidth = Math.min(680, width - 40);
   const lineCards = order.snapshot.lines.map((line) => {
     const product = props.model.products.find((p) => p.id === line.id);
     const description = line.selections?.length
@@ -256,32 +254,15 @@ export function OrderStatusView({
               ))}
             </View>
           </View>
-          {active || order.state === 'paid' || details ? (
-            <View style={s.itemsSection}>
-              <Row style={s.itemsHeader}>
-                <Heading style={s.itemsTitle}>Ваш заказ</Heading>
-                <Caption style={s.itemsCount}>{itemCount} шт.</Caption>
-              </Row>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={s.foodList}
-                snapToInterval={cardWidth + 12}
-                decelerationRate="fast"
-                testID="order-status-items"
-              >
-                {lineCards}
-              </ScrollView>
+          <View style={s.itemsSection}>
+            <Row style={s.itemsHeader}>
+              <Heading style={s.itemsTitle}>Ваш заказ</Heading>
+              <Caption style={s.itemsCount}>{itemCount} шт.</Caption>
+            </Row>
+            <View style={s.foodList} testID="order-status-items">
+              {lineCards}
             </View>
-          ) : (
-            <View style={s.inset}>
-              <NavRow
-                title="Состав заказа"
-                subtitle={`${order.snapshot.lines.reduce((sum, l) => sum + l.quantity, 0)} шт. · ${money(order.snapshot.total_minor)}`}
-                onPress={() => setDetails(true)}
-              />
-            </View>
-          )}
+          </View>
           {afterItems ? <View style={s.inset}>{afterItems}</View> : null}
           {active || ready ? (
             <MotionPressable
@@ -425,7 +406,7 @@ const s = StyleSheet.create({
   itemsHeader: { paddingHorizontal: 20, justifyContent: 'space-between', gap: 12 },
   itemsTitle: { fontSize: 20, lineHeight: 26 },
   itemsCount: { fontSize: 13, color: colors.muted },
-  foodList: { paddingHorizontal: 20, gap: 12, alignItems: 'flex-start' },
+  foodList: { paddingHorizontal: 20, gap: 12, alignItems: 'center' },
   foodCard: {
     padding: 12,
     borderRadius: 20,
