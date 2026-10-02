@@ -1716,6 +1716,17 @@
       "status": "active",
       "head": "20e02124f85068b823f7d9008a5252b6f87760aa",
       "updatedAt": "2026-10-02T06:41:25.019Z"
+    },
+    {
+      "id": "checkout-browser-reviews",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-browser-reviews",
+      "scopes": [
+        "tests/mobile/browser_kaspi_checkout.py"
+      ],
+      "status": "active",
+      "head": "8d80182d3080e1d7ffcd1f0333c9c1fb657b8e84",
+      "updatedAt": "2026-10-02T07:15:38.208Z"
     }
   ]
 }
