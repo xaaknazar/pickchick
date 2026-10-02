@@ -1681,11 +1681,12 @@
         "infra/staging/release-commerce-feedback.py",
         "infra/staging/release-kaspi-checkout.py",
         "tests/operations/test_commerce_feedback_release.py",
-        "tests/operations/test_server_pilot_release.py"
+        "tests/operations/test_server_pilot_release.py",
+        "tests/operations/test_auth_four_digit_release.py"
       ],
       "status": "active",
       "head": "930a55a846f36185898d0cf3848fecdbf9cac15d",
-      "updatedAt": "2026-10-02T06:02:12.188Z"
+      "updatedAt": "2026-10-02T06:02:45.585Z"
     }
   ]
 }
