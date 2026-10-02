@@ -1929,11 +1929,11 @@
         "@release/ios",
         "docs/operations/mobile-testflight.md"
       ],
-      "status": "active",
-      "head": "484b1aa966386071c17ac8f6636539a5890d6a63",
-      "updatedAt": "2026-10-02T15:15:05.918Z",
-      "summary": "Shared484b1aa, PR167 merged. Release sourceb18: Foundation37012247704 11/11 in17:29; browser/native smoke passed. Kaspi worker installed, ledger/credentials/neighbors unchanged. Apple upload0.2.0(8) succeeded, browser session expired. Roadmap484b1aa published and deployproof passed. No real invoices/OTP.",
-      "nextAction": "After owner logs into App Store Connect, enable uploaded0.2.0(8) for existing PickChick Internal2 testers and save WhatToTest; verify visible availability, update release docs/roadmap, finish claim. Physical iPhone acceptance remains separate."
+      "status": "done",
+      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
+      "updatedAt": "2026-10-02T18:11:43.513Z",
+      "summary": "PR167 merged; release source b18 passed Foundation37012247704 11/11, browser and native smoke. Worker installed preserving ledger/neighbors. Apple0.2.0(8) enabled for existing PickChick Internal2 testers, notes saved. Final docs/shared/roadmap88aa799 published. No real invoices or OTP created.",
+      "nextAction": "Physical iPhone acceptance of TestFlight8 remains separate; no deployment steps outstanding."
     }
   ]
 }
