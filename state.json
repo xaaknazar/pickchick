@@ -1610,22 +1610,6 @@
       "updatedAt": "2026-10-02T05:35:48.314Z"
     },
     {
-      "id": "orders-review-backend",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/orders-review-backend",
-      "scopes": [
-        "services/api/src/customer-checkout-controller.ts",
-        "packages/commerce-core",
-        "packages/contracts",
-        "db/cloud/migrations/032_cloud_order_feedback.sql",
-        "tests/commerce",
-        "apps/mobile/src/order-feedback.ts"
-      ],
-      "status": "active",
-      "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
-      "updatedAt": "2026-10-02T05:35:50.582Z"
-    },
-    {
       "id": "orders-history-ui",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/orders-history-ui",
@@ -1664,6 +1648,23 @@
       "status": "active",
       "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
       "updatedAt": "2026-10-02T05:38:05.688Z"
+    },
+    {
+      "id": "orders-review-backend",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/orders-review-backend",
+      "scopes": [
+        "services/api/src/customer-checkout-controller.ts",
+        "packages/commerce-core",
+        "packages/contracts",
+        "db/cloud/migrations/032_cloud_order_feedback.sql",
+        "tests/commerce",
+        "apps/mobile/src/order-feedback.ts",
+        "infra/staging/checkout-grants.mjs"
+      ],
+      "status": "active",
+      "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
+      "updatedAt": "2026-10-02T05:38:49.580Z"
     }
   ]
 }
