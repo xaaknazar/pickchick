@@ -40,7 +40,7 @@ def extend_checkout(text):
 \t\trespond "" 204
 \t}
 \t@customer_checkout {
-\t\texpression `(method('GET') && path('/v1/customer-checkout/config', '/v1/customer-checkout/orders')) || (method('POST') && path('/v1/customer-checkout/quotes', '/v1/customer-checkout/orders')) || (method('GET') && path_regexp('^/v1/customer-checkout/orders/[a-f0-9-]{36}(/watch)?$')) || (method('POST') && path_regexp('^/v1/customer-checkout/orders/[a-f0-9-]{36}/payment$'))`
+\t\texpression `(method('GET') && path('/v1/customer-checkout/config', '/v1/customer-checkout/orders', '/v1/customer-checkout/feedback')) || (method('POST') && path('/v1/customer-checkout/quotes', '/v1/customer-checkout/orders')) || (method('GET') && path_regexp('^/v1/customer-checkout/orders/[a-f0-9-]{36}(/watch)?$')) || (method('POST') && path_regexp('^/v1/customer-checkout/orders/[a-f0-9-]{36}/payment$')) || ((method('GET') || method('POST')) && path_regexp('^/v1/customer-checkout/orders/[a-f0-9-]{36}/feedback$'))`
 \t}
 \thandle @customer_checkout {
 \t\theader X-PickChick-Data customer
