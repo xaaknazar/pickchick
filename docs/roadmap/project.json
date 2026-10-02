@@ -214,6 +214,38 @@
   ],
   "tasks": [
     {
+      "id": "checkout-connection-flow",
+      "workstream": "mobile",
+      "title": "Проверять связь на этапе отправки счёта",
+      "summary": "Кнопки не блокируются фоновым сетевым сбоем. Подготовка оплаты использует прежнюю анимацию и стабильные ключи повторов; сервер проверяет Kaspi. CI разделена на параллельные группы. Browser, полная CI и установка ожидаются.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Решение и проверки",
+          "path": "docs/operations/checkout-connection-flow.md"
+        },
+        {
+          "label": "Параллельные проверки",
+          "path": "docs/operations/ci-parallel.md"
+        }
+      ],
+      "acceptance": [
+        "Кратковременный сетевой сбой не блокирует переход к оформлению и подготовке счёта.",
+        "Счёт отправляется только после серверных проверок; повторы не создают дубликаты.",
+        "Проверки CI сохраняют прежнее покрытие."
+      ],
+      "nextAction": "Завершить browser и CI, установить проверенный worker и мобильную сборку.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
       "id": "connection-recovery",
       "workstream": "platform",
       "title": "Восстановление связи кассы и мобильного приложения",
