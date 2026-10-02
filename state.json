@@ -1613,37 +1613,6 @@
       "nextAction": "Parent завершает CI36973811244 и guardedAPIrelease/schema032, затем TestFlight и приёмку. Не считать API/TestFlight выпущенными до подтверждения."
     },
     {
-      "id": "checkout-keyboard",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/checkout-keyboard",
-      "scopes": [
-        "apps/mobile/src/components/UI.tsx",
-        "apps/mobile/src/components/CheckoutKeyboard.tsx",
-        "apps/mobile/src/components/OrderSheet.tsx",
-        "apps/mobile/src/screens/CheckoutScreen.tsx",
-        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
-        "tests/mobile/ios/SmokeTests.swift",
-        "docs/operations/checkout-keyboard.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "@release/ios",
-        "@vps/roadmap",
-        "apps/mobile/app.json",
-        "docs/operations/mobile-testflight.md",
-        "apps/mobile/src/useCommerceFeedback.ts",
-        "apps/mobile/src/screens/CompletedOrderPreview.tsx",
-        "apps/mobile/src/screens/OrderScreens.tsx",
-        "docs/operations/orders-history-review.md",
-        "apps/mobile/src/screens/MobileScreen.tsx",
-        "@vps/api",
-        "@vps/public-gateway"
-      ],
-      "status": "active",
-      "head": "03b50f39f969a1b3f422ef4ed5ae4210f72fd8ec",
-      "updatedAt": "2026-10-02T05:50:49.929Z"
-    },
-    {
       "id": "commerce-feedback-release",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/orders-history-ui",
@@ -1713,6 +1682,39 @@
       "updatedAt": "2026-10-02T06:35:13.476Z",
       "summary": "21f9d38 включён в620a09a;4securitytests,auditgate,10release tests,ExpoCLI/lintformat и independent review прошли.",
       "nextAction": "CI и выпуск продолжает родитель."
+    },
+    {
+      "id": "checkout-keyboard",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-keyboard",
+      "scopes": [
+        "apps/mobile/src/components/UI.tsx",
+        "apps/mobile/src/components/CheckoutKeyboard.tsx",
+        "apps/mobile/src/components/OrderSheet.tsx",
+        "apps/mobile/src/screens/CheckoutScreen.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "tests/mobile/ios/SmokeTests.swift",
+        "docs/operations/checkout-keyboard.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@release/ios",
+        "@vps/roadmap",
+        "apps/mobile/app.json",
+        "docs/operations/mobile-testflight.md",
+        "apps/mobile/src/useCommerceFeedback.ts",
+        "apps/mobile/src/screens/CompletedOrderPreview.tsx",
+        "apps/mobile/src/screens/OrderScreens.tsx",
+        "docs/operations/orders-history-review.md",
+        "apps/mobile/src/screens/MobileScreen.tsx",
+        "@vps/api",
+        "@vps/public-gateway",
+        ".dockerignore",
+        "tests/operations/docker_context.py"
+      ],
+      "status": "active",
+      "head": "620a09ab07fa21fc346446edcf555214aaf9e13d",
+      "updatedAt": "2026-10-02T06:36:14.958Z"
     }
   ]
 }
