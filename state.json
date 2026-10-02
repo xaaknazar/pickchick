@@ -1724,9 +1724,11 @@
       "scopes": [
         "tests/mobile/browser_kaspi_checkout.py"
       ],
-      "status": "active",
-      "head": "8d80182d3080e1d7ffcd1f0333c9c1fb657b8e84",
-      "updatedAt": "2026-10-02T07:15:38.208Z"
+      "status": "done",
+      "head": "9f6696924e90856f3fccde1d5185801100b62123",
+      "updatedAt": "2026-10-02T07:24:41.486Z",
+      "summary": "Коммит 9f6696924e90856f3fccde1d5185801100b62123 опубликован и включён в shared. Изменён только tests/mobile/browser_kaspi_checkout.py; runtime, UI и API не изменены. Browser fixture прошёл на 320x568, 393x852, 768x1024 и 852x393: completed-страница, ошибка сохранения без ложного успеха, retry, звёзды из истории и отзыв после reload. Проверки восстановления и счётчика оплаты сохранены. https://github.com/xaaknazar/pickchick/commit/9f6696924e90856f3fccde1d5185801100b62123",
+      "nextAction": "Parent завершает полную CI и guarded API/TestFlight release."
     }
   ]
 }
