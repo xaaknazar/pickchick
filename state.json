@@ -1907,9 +1907,11 @@
         "infra/staging/release-kaspi-session-worker.py",
         "tests/operations/test_kaspi_session_worker_release.py"
       ],
-      "status": "active",
-      "head": "bd3824a427996f6f4cec04cfea2ebdd56f98d0ba",
-      "updatedAt": "2026-10-02T13:10:13.075Z"
+      "status": "done",
+      "head": "484b1aa966386071c17ac8f6636539a5890d6a63",
+      "updatedAt": "2026-10-02T13:44:26.025Z",
+      "summary": "Runtime and guarded worker-only profile included in shared 484b1aa; CI37012247704 all 11 jobs passed. Parent installed worker b18 with ledger/credentials/neighbors unchanged and newInvoiceCreated false; deployment evidence and docs saved by parent.",
+      "nextAction": "Parent owns mobile release acceptance and remaining status."
     },
     {
       "id": "checkout-connection-flow",
