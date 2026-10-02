@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01",
+  "updatedAt": "2026-10-02",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -213,6 +213,35 @@
     }
   ],
   "tasks": [
+    {
+      "id": "connection-recovery",
+      "workstream": "platform",
+      "title": "Восстановление связи кассы и мобильного приложения",
+      "summary": "Автоматические безопасные повторы чтений, локальная готовность перед PIN и серверные часы 10:00-00:00 Asia/Almaty. Новые оплаты не повторяются из-за обрыва связи.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Реализация, проверки и ограничения установки",
+          "path": "docs/operations/connection-recovery.md"
+        }
+      ],
+      "acceptance": [
+        "После возврата сети меню и статусы восстанавливаются без вмешательства разработчика.",
+        "Локальная неготовность кассы не выдаётся за неверный PIN.",
+        "Новые заказы ограничены графиком, ранее начатые оплаты не теряются.",
+        "Холодный старт Windows и установка на iPhone подтверждены отдельно."
+      ],
+      "nextAction": "Завершить общую CI, установить API-only релиз; получить текущий IP кассы для проверки SCM и холодного старта, восстановить Xcode upload.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
     {
       "id": "project-scope",
       "workstream": "project",
