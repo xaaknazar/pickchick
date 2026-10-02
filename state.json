@@ -1912,9 +1912,11 @@
         "@release/ios",
         "docs/operations/mobile-testflight.md"
       ],
-      "status": "active",
-      "head": "589b5252793d787bee2a7d8d69be7500bd44d7f0",
-      "updatedAt": "2026-10-02T13:40:22.621Z"
+      "status": "available",
+      "head": "484b1aa966386071c17ac8f6636539a5890d6a63",
+      "updatedAt": "2026-10-02T13:45:17.456Z",
+      "summary": "Shared484b1aa, PR167 merged. Release sourceb18: Foundation37012247704 11/11 in17:29; browser/native smoke passed. Kaspi worker installed, ledger/credentials/neighbors unchanged. Apple upload0.2.0(8) succeeded, browser session expired. Roadmap484b1aa published and deployproof passed. No real invoices/OTP.",
+      "nextAction": "After owner logs into App Store Connect, enable uploaded0.2.0(8) for existing PickChick Internal2 testers and save WhatToTest; verify visible availability, update release docs/roadmap, finish claim. Physical iPhone acceptance remains separate."
     },
     {
       "id": "ci-acceleration",
