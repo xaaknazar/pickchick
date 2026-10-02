@@ -26,10 +26,15 @@ const migrationDir = fileURLToPath(new URL('../../../db/cloud/migrations/', impo
 class FakeBridge {
   constructor() {
     this.calls = [];
+    this.sessionChecks = 0;
     this.invoices = new Map();
     this.nextId = 700000;
     this.create = null; // optional override: (phone, amount, comment) => BridgeResult
     this.status = new Map();
+  }
+  async checkSession() {
+    this.sessionChecks++;
+    return this.sessionReady !== false;
   }
   async createInvoice(phone, amount, comment) {
     this.calls.push(['create', phone, amount, comment]);
@@ -258,6 +263,37 @@ async function fixture(run, deferred = false) {
     await admin.end();
   }
 }
+
+test('unavailable bank defers the same durable submission and keeps existing invoice reconciliation active', () =>
+  fixture(async (f) => {
+    const firstOrder = await f.order();
+    await f.processor().tick();
+    const secondOrder = await f.order();
+    f.bridge.sessionReady = false;
+    f.bridge.status.set('700000', 'Processed');
+    await f.due();
+    const blockedWorker = f.processor();
+    const blocked = await blockedWorker.tick();
+    assert.equal(blocked.submitted, 0);
+    assert.equal(f.bridge.count('create'), 1);
+    assert.equal((await f.invoice(firstOrder.attempt.attemptId)).state, 'paid');
+    const pending = await f.pool.query(
+      'SELECT state FROM commerce_kaspi_invoices WHERE attempt_id=$1',
+      [secondOrder.attempt.attemptId],
+    );
+    assert.equal(pending.rowCount, 0);
+    const checks = f.bridge.sessionChecks;
+    await blockedWorker.tick();
+    assert.equal(f.bridge.sessionChecks, checks);
+    assert.equal(f.bridge.count('create'), 1);
+    await f.pool.query(
+      "UPDATE commerce_outbox SET lease_until=clock_timestamp()-interval '1 second' WHERE acknowledged_at IS NULL",
+    );
+    f.bridge.sessionReady = true;
+    await f.processor().tick();
+    assert.equal(f.bridge.count('create'), 2);
+    assert.equal((await f.invoice(secondOrder.attempt.attemptId)).state, 'issued');
+  }));
 
 test('invoice to the customer phone, Processed status records exactly one capture', () =>
   fixture(async (f) => {

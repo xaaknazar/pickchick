@@ -657,3 +657,33 @@ test('session persistence preserves prior credentials until bank and cashier rol
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('read-only session readiness requires explicit active true and never issues invoices', async () => {
+  const config = kaspiRemoteConfig({ ...base, ...session });
+  for (const [status, payload, expected] of [
+    [200, { active: true }, true],
+    [200, { active: false }, false],
+    [200, { active: 'true' }, false],
+    [503, { active: true }, false],
+    [401, {}, false],
+    [200, null, false],
+  ]) {
+    const client = new KaspiBridgeClient(config, async (url, init) => {
+      assert.equal(url, 'http://127.0.0.1:3931/api/session/check');
+      assert.equal(init.method, 'GET');
+      assert.equal(init.body, undefined);
+      assert.equal(init.redirect, 'error');
+      assert.ok(init.signal);
+      return new Response(JSON.stringify(payload), { status });
+    });
+    assert.equal(await client.checkSession(), expected);
+  }
+  const unavailable = new KaspiBridgeClient(config, async () => {
+    throw Error('timeout');
+  });
+  assert.equal(await unavailable.checkSession(), false);
+  const missing = new KaspiBridgeClient({ ...config, session: null }, async () => {
+    assert.fail('missing credentials must never leave the host');
+  });
+  assert.equal(await missing.checkSession(), false);
+});

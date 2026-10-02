@@ -177,6 +177,32 @@ export class KaspiBridgeClient {
     private readonly fetcher: FetchLike = fetch,
   ) {}
 
+  /** Read-only cashier authentication probe; never creates an invoice. */
+  async checkSession(): Promise<boolean> {
+    const session = this.config.session;
+    if (!session) return false;
+    try {
+      const response = await this.fetcher(this.config.bridgeUrl + '/api/session/check', {
+        method: 'GET',
+        headers: {
+          'X-Token-SN': session.tokenSN,
+          'X-Vtoken-Secret': session.vtokenSecret,
+          'X-Profile-Id': session.profileId,
+          Accept: 'application/json',
+        },
+        redirect: 'error',
+        signal: AbortSignal.timeout(Math.min(this.config.requestTimeoutMs, 10000)),
+      });
+      if (!response.ok) return false;
+      const value: unknown = await response.json();
+      return (
+        typeof value === 'object' && value !== null && 'active' in value && value.active === true
+      );
+    } catch {
+      return false;
+    }
+  }
+
   createInvoice(phone: string, amountTenge: number, comment: string) {
     return this.call('POST', '/api/invoice/create', {
       phoneNumber: phone,
@@ -425,6 +451,7 @@ export class KaspiRemoteProcessor {
   private readonly repo: CommerceRepository;
   private readonly workerId = randomUUID();
   private submissionsPaused = false;
+  private readinessRetryAt = 0;
   constructor(
     private readonly pool: DatabasePool,
     private readonly config: KaspiRemoteConfig,
@@ -445,11 +472,17 @@ export class KaspiRemoteProcessor {
       unknownOverdue: 0,
     };
     // One broken item must not stall the rest; its lease expires and it is retried.
-    for (let i = 0; i < limit && !this.submissionsPaused; i++) {
+    for (
+      let i = 0;
+      i < limit && !this.submissionsPaused && Date.now() >= this.readinessRetryAt;
+      i++
+    ) {
       const [event] = await this.claimSubmissions(1);
       if (!event) break;
       try {
-        if ((await this.submit(event)) === 'session') {
+        const submission = await this.submit(event);
+        if (submission === 'deferred') break;
+        if (submission === 'session') {
           this.submissionsPaused = true;
           result.sessionProblem = true;
         }
@@ -520,6 +553,17 @@ export class KaspiRemoteProcessor {
   }
 
   private async submit(event: { id: string; attempt_id: string; token: string }) {
+    // Existing invoices must continue reconciliation even when the bank probe fails.
+    // A negative read-only probe leaves the same durable submission pending.
+    if (!(await this.row(event.attempt_id)) && !(await this.client.checkSession())) {
+      this.readinessRetryAt = Date.now() + 5000;
+      await this.pool.query(
+        `UPDATE commerce_outbox SET lease_until=clock_timestamp()+interval '5 seconds'
+         WHERE id=$1 AND lease_worker=$2 AND lease_token=$3`,
+        [event.id, this.workerId, event.token],
+      );
+      return 'deferred';
+    }
     const source = (
       await this.pool.query<{ snapshot: unknown; display_number: string | null }>(
         `SELECT o.snapshot,p.display_number::text FROM commerce_payment_attempts a
