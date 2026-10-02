@@ -1689,11 +1689,11 @@
       "scopes": [
         "apps/mobile/src/screens/CompletedOrderScreen.tsx"
       ],
-      "status": "active",
+      "status": "done",
       "head": "620a09ab07fa21fc346446edcf555214aaf9e13d",
-      "updatedAt": "2026-10-02T06:34:54.072Z",
-      "summary": "Добавлен CompletedOrderScreen: реальные позиции и модификаторы, белые фото меню, итог, комментарий кухне, оценка1-5/отзыв500, загрузка/ошибки/сохранение, честный чек. Typecheck, ESLint, Prettier, diff и Impeccable detector прошли. Ветка codex/completed-order-ui опубликована; интеграция и визуальная приёмка у основного агента.",
-      "nextAction": "Основному агенту cherry-pick коммита, подключить handed_over и feedback API, проверить браузер/нативный ввод и обновить docs/roadmap."
+      "updatedAt": "2026-10-02T06:34:59.639Z",
+      "summary": "CompletedOrderScreen включён в shared-development620a09a через merge исходной ветки2157f9e; собственная ветка fast-forward к проверенному shared по согласованию. Реальные данные заказа, позиции/модификаторы, фото, итог/комментарий кухне, отзывы1-5/500 с устойчивым черновиком и повтором, честный чек/ошибки. Typecheck/ESLint/Prettier/diff/Impeccable detector прошли; основной агент подтвердил нативный сценарий и визуальную проверку320.",
+      "nextAction": "Основной агент завершает release CI36973811244 и TestFlight7; установка и приёмка ещё не подтверждены. Область компонента освобождена."
     },
     {
       "id": "orders-review-backend",
