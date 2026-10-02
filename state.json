@@ -1684,6 +1684,19 @@
       "nextAction": "CI и выпуск продолжает родитель."
     },
     {
+      "id": "checkout-browser-reviews",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/checkout-browser-reviews",
+      "scopes": [
+        "tests/mobile/browser_kaspi_checkout.py"
+      ],
+      "status": "done",
+      "head": "9f6696924e90856f3fccde1d5185801100b62123",
+      "updatedAt": "2026-10-02T07:24:41.486Z",
+      "summary": "Коммит 9f6696924e90856f3fccde1d5185801100b62123 опубликован и включён в shared. Изменён только tests/mobile/browser_kaspi_checkout.py; runtime, UI и API не изменены. Browser fixture прошёл на 320x568, 393x852, 768x1024 и 852x393: completed-страница, ошибка сохранения без ложного успеха, retry, звёзды из истории и отзыв после reload. Проверки восстановления и счётчика оплаты сохранены. https://github.com/xaaknazar/pickchick/commit/9f6696924e90856f3fccde1d5185801100b62123",
+      "nextAction": "Parent завершает полную CI и guarded API/TestFlight release."
+    },
+    {
       "id": "checkout-keyboard",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/checkout-keyboard",
@@ -1713,24 +1726,11 @@
         "tests/operations/docker_context.py",
         "infra/staging/Dockerfile"
       ],
-      "status": "available",
+      "status": "active",
       "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:05:58.281Z",
+      "updatedAt": "2026-10-02T08:11:33.483Z",
       "summary": "Новые заказы, серверные отзывы и клавиатура проверены native/browser; CI36978120348 6/6. API9f66969/schema032 установлен, данные/backup/restore сохранены. TestFlight7 подписан/export готов; upload заблокирован Xcode Accounts на locked Mac. Docs9d7bac5 опубликованы.",
       "nextAction": "После разблокировки Mac проверить Xcode Accounts и повторить upload label customer-pilot-20261002-7-reviewed. Не собирать повторно. Затем подтвердить Apple/group, обновить delivery docs и guarded roadmap после зелёной CI. Онлайн-пульт пока прежний."
-    },
-    {
-      "id": "checkout-browser-reviews",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/checkout-browser-reviews",
-      "scopes": [
-        "tests/mobile/browser_kaspi_checkout.py"
-      ],
-      "status": "done",
-      "head": "9f6696924e90856f3fccde1d5185801100b62123",
-      "updatedAt": "2026-10-02T07:24:41.486Z",
-      "summary": "Коммит 9f6696924e90856f3fccde1d5185801100b62123 опубликован и включён в shared. Изменён только tests/mobile/browser_kaspi_checkout.py; runtime, UI и API не изменены. Browser fixture прошёл на 320x568, 393x852, 768x1024 и 852x393: completed-страница, ошибка сохранения без ложного успеха, retry, звёзды из истории и отзыв после reload. Проверки восстановления и счётчика оплаты сохранены. https://github.com/xaaknazar/pickchick/commit/9f6696924e90856f3fccde1d5185801100b62123",
-      "nextAction": "Parent завершает полную CI и guarded API/TestFlight release."
     }
   ]
 }
