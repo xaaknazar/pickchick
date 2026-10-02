@@ -1754,29 +1754,6 @@
       "nextAction": "Parent интегрирует и проверяет actual SCM после восстановления SSH/LAN; выполнить PowerShell test и read-only verifier. Recovery updater только после подтверждённого расхождения; physical reboot/WAN acceptance отдельно."
     },
     {
-      "id": "connection-recovery",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/connection-recovery",
-      "scopes": [
-        "packages/commerce-core/src/customer-checkout.ts",
-        "packages/commerce-core/src/availability.ts",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "docs/operations/connection-recovery.md",
-        "@vps/api",
-        "@vps/public-gateway",
-        "@vps/roadmap",
-        "@windows/cashier",
-        "@release/ios",
-        "infra/windows/native-fulfillment-worker.mjs",
-        "tests/unit/native-fulfillment-worker.test.mjs"
-      ],
-      "status": "active",
-      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
-      "updatedAt": "2026-10-02T08:21:43.848Z"
-    },
-    {
       "id": "restaurant-hours",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/restaurant-hours",
@@ -1819,6 +1796,30 @@
       "status": "active",
       "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
       "updatedAt": "2026-10-02T08:24:16.793Z"
+    },
+    {
+      "id": "connection-recovery",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/connection-recovery",
+      "scopes": [
+        "packages/commerce-core/src/customer-checkout.ts",
+        "packages/commerce-core/src/availability.ts",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/connection-recovery.md",
+        "@vps/api",
+        "@vps/public-gateway",
+        "@vps/roadmap",
+        "@windows/cashier",
+        "@release/ios",
+        "infra/windows/native-fulfillment-worker.mjs",
+        "tests/unit/native-fulfillment-worker.test.mjs",
+        "docs/06-mockup-review-and-decisions.md"
+      ],
+      "status": "active",
+      "head": "9d7bac5b16cc3411f50dcf4cccaa0eb2706f560f",
+      "updatedAt": "2026-10-02T08:25:01.789Z"
     }
   ]
 }
