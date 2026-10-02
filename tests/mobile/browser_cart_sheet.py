@@ -42,6 +42,7 @@ with sync_playwright() as p:
   cart=page.get_by_test_id('screen-M09');expect(cart).to_be_visible()
   sheet=page.get_by_test_id('order-sheet').last
   box=sheet.bounding_box(); assert box['y'] > 10 and box['y'] + box['height'] <= height+1, box
+  expect(page.get_by_test_id('cart-checkout')).to_be_enabled()
   expect(page.get_by_test_id('cart-checkout')).to_contain_text('4 190')
   page.get_by_test_id('cart-plus-pick-combo').click();expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('2')
   page.get_by_test_id('cart-minus-pick-combo').click();expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
@@ -73,6 +74,7 @@ with sync_playwright() as p:
   page.get_by_test_id('cart-minus-burger').click()
   page.get_by_test_id('cart-promo-open').click();page.get_by_test_id('cart-promo-input').fill('HELLO')
   page.get_by_test_id('cart-promo-check').click();expect(page.get_by_test_id('cart-promo-result')).to_contain_text('не изменилась')
+  expect(page.get_by_test_id('cart-checkout')).to_be_enabled()
   expect(page.get_by_test_id('cart-checkout')).to_contain_text('4 190')
   page.get_by_test_id('cart-checkout').click()
   checkout=page.get_by_test_id('screen-M12');expect(checkout).to_be_visible()

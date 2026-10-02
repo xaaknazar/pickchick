@@ -19,7 +19,7 @@ with sync_playwright() as p:
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
-  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
+  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
    return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
@@ -57,11 +57,14 @@ with sync_playwright() as p:
     if state['config_offline']:r.abort();return
     data={'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot','orderCommentEnabled':True}
    elif path=='/v1/customer-checkout/quotes':
+    assert page.get_by_test_id('kaspi-connecting').count()==1, 'Quotes must start inside the connecting scene'
+    state['quotes']+=1;state['quote_keys'].append(body['key'])
     assert 'totalMinor' not in body
     assert body['branchId']=='7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
     state['quote_comment']=body.get('kitchenComment','')
     assert len(state['quote_comment'])<=60
-    data={'quoteId':'40000000-0000-4000-8000-000000000005','totalMinor':'419000','expiresAt':future,'serviceMode':body['serviceMode'],'kitchenComment':state['quote_comment'] or None}
+    if state['quote_drop']:state['quote_drop']=False;r.abort();return
+    data={'quoteId':'40000000-0000-4000-8000-000000000005','totalMinor':state['quote_total'],'expiresAt':future,'serviceMode':body['serviceMode'],'kitchenComment':state['quote_comment'] or None}
    elif path=='/v1/customer-checkout/orders':
     if state['blocked']:
      r.fulfill(status=403,json={'code':'FORBIDDEN','message_key':'errors.forbidden','trace_id':'40000000-0000-4000-8000-000000000009','retryable':False},headers={'Access-Control-Allow-Origin':'*'});return
@@ -71,6 +74,7 @@ with sync_playwright() as p:
      if state['drop']:state['drop']=False;r.abort();return
      data=order()
    elif path==f'/v1/customer-checkout/orders/{ORDER}/payment':
+    assert not state['config_offline'] and state['quotes']>=2 and state['created'], 'No invoice before completed checks and accepted order'
     state['payments']+=1;state['phase']='awaiting_payment';state['revision']+=1;data=order()
    elif path==f'/v1/customer-checkout/orders/{ORDER}/watch':
     # Hold until the test advances the trusted projection; no quick-loop fixtures.
@@ -86,27 +90,30 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'cart-{width}.png'))
   page.get_by_test_id('cart-checkout').click()
   button=page.get_by_test_id('kaspi-checkout-submit')
-  expect(page.get_by_text('Оформление пока недоступно для вашего аккаунта. Корзина сохранена.',exact=True)).to_be_visible()
-  expect(button).to_be_disabled()
-  assert not state['keys'] and state['payments']==0
+  expect(button).to_be_enabled()
+  assert not state['keys'] and state['payments']==0 and state['quotes']==0
+  # A definitive account rejection is only checked after explicit payment.
+  button.click()
+  expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта. Корзина сохранена - можно вернуться к ней позже.',exact=True)).to_be_visible()
+  expect(button).to_be_enabled()
+  assert not state['keys'] and state['payments']==0 and state['quotes']==0
   total=page.get_by_test_id('kaspi-checkout-total')
   assert total.evaluate('(el) => parseFloat(getComputedStyle(el).lineHeight) >= parseFloat(getComputedStyle(el).fontSize) * 1.3')
   page.screenshot(path=str(OUT/f'blocked-{width}.png'))
   state['blocked']=False
+  # Lost configuration connection cannot disable payment. Cancelling preparation
+  # stops retries without creating a quote, order or invoice.
   state['config_offline']=True
-  page.get_by_role('button',name='Проверить соединение').click()
-  expect(page.get_by_text('Не удалось загрузить оформление. Корзина сохранена. Проверяем связь автоматически.',exact=True)).to_be_visible()
+  button.click()
+  expect(page.get_by_test_id('kaspi-connecting')).to_be_visible()
+  page.get_by_role('button',name='Вернуться к оформлению',exact=True).click()
+  expect(button).to_be_enabled()
   config_reads=state['config_reads']
-  assert not state['keys'] and state['payments']==0
-  state['config_offline']=False
-  try:expect(button).to_be_enabled(timeout=10000)
-  except Exception:
-   print(page.locator('body').inner_text());print(errors);page.screenshot(path=str(OUT/'failure.png'));raise
-  assert state['config_reads'] > config_reads and not state['keys'] and state['payments']==0
-  with page.expect_response(lambda response: urlparse(response.url).path=='/v1/customer-checkout/quotes' and response.request.post_data_json['serviceMode']=='dine_in'):
-   page.get_by_role('radio',name='В зале',exact=True).click()
-  expect(button).to_be_enabled(timeout=10000)
+  page.wait_for_timeout(2600)
+  assert state['config_reads']==config_reads and state['quotes']==0 and not state['keys'] and state['payments']==0
+  page.get_by_role('radio',name='В зале',exact=True).click()
   expect(page.get_by_role('radio',name='В зале',exact=True)).to_have_attribute('aria-checked','true')
+  assert state['quotes']==0, 'Changing details cannot create a quote before pay'
   # Customer instructions survive closing the sheet and bind to the submitted quote.
   comment=page.get_by_test_id('checkout-comment-input')
   expect(comment).to_be_editable()
@@ -124,18 +131,29 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'checkout-{width}.png'))
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
   box=button.bounding_box();assert box['height']>=48 and box['y']+box['height']<=height+1,box
-  button.click();expect(page.get_by_role('button',name='Проверить соединение')).to_be_visible()
-  page.get_by_role('button',name='Проверить соединение').click()
+  # Rapid duplicate UI taps share one preparation, then transport recovers
+  # automatically. Neither the button screen nor animation displays an error.
+  button.evaluate('(el) => { el.click(); el.click(); }')
+  expect(page.get_by_test_id('kaspi-connecting')).to_be_visible()
+  assert state['quotes']==0 and not state['keys'] and state['payments']==0
+  expect(page.get_by_text('Не удалось загрузить оформление. Корзина сохранена. Проверяем связь автоматически.',exact=True)).to_have_count(0)
+  state['config_offline']=False
+  if width==393:
+   expect(page.get_by_text('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.',exact=True)).to_be_visible(timeout=10000)
+   assert not state['keys'] and state['payments']==0
+   expect(button).to_be_enabled()
+   button.click()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
   assert len(state['keys'])==2 and state['keys'][0]==state['keys'][1], state
-  assert state['payments']==1
+  assert state['payments']==1 and state['quotes']==(3 if width==393 else 2)
+  assert state['quote_keys'][0]==state['quote_keys'][1], 'Lost quote response must reuse its key'
   assert state['comment']=='Соус отдельно, пожалуйста',state
   # Lost status connection recovers without a tap or another bank payment command.
   page.wait_for_timeout(150)
   previous_watch=state['held']
   previous_watch.abort()
-  expect(page.get_by_text('Связь прервалась. Восстанавливаем статус заказа автоматически.',exact=True)).to_be_visible()
+  expect(page.get_by_text('Связь прервалась. Восстанавливаем статус заказа автоматически.',exact=True)).to_have_count(0)
   page.wait_for_timeout(1500)
   assert state['held'] is not previous_watch
   assert state['payments']==1
@@ -158,8 +176,12 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'failed-{width}.png'))
   page.get_by_test_id('kaspi-retry-payment').click()
   expect(button).to_be_enabled(timeout=10000)
-  state['phase']='awaiting_restaurant';state['revision']+=1
+  state['phase']='awaiting_restaurant';state['created']=False;state['revision']+=1
   button.click()
+  if width==393:
+   expect(page.get_by_text('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.',exact=True)).to_be_visible(timeout=10000)
+   assert state['payments']==1
+   button.click()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
   assert len(state['keys'])==3 and state['keys'][2]!=state['keys'][0] and state['payments']==2,state
   state['phase']='paid';state['paid']=True;state['revision']+=1
@@ -270,4 +292,4 @@ with sync_playwright() as p:
   context.close()
  browser.close()
 assert not errors,errors
-print('PASS: 4 sizes, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen/completed stages, server-backed review save/retry/reload, no overflow')
+print('PASS: 4 sizes, no pre-pay quote, actionable offline checkout, cancellation, duplicate taps, same-key quote/order recovery, price confirmation, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen/completed stages, server-backed review save/retry/reload, no overflow')
