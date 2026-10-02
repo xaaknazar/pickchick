@@ -1833,20 +1833,6 @@
       "nextAction": "Parent integrates correction, runs exact-source CI and creates final archive/export/upload after green."
     },
     {
-      "id": "pos-pin-fixture",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/pos-pin-fixture",
-      "scopes": [
-        "tests/pos/browser_ui.py",
-        "tests/pos-desktop/browser.test.mjs"
-      ],
-      "status": "available",
-      "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
-      "updatedAt": "2026-10-02T11:44:41.027Z",
-      "summary": "Both isolated POSbrowser and actual Electron44.2.0 desktop acceptancepassed. Fixture authtext updated, exactGEThealth readiness passthrough/assertion; no runtimechanges.",
-      "nextAction": "Integrate and run exact-sourcefinalCI."
-    },
-    {
       "id": "connection-recovery",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/connection-recovery",
@@ -1873,6 +1859,20 @@
       "status": "active",
       "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
       "updatedAt": "2026-10-02T11:52:30.210Z"
+    },
+    {
+      "id": "pos-pin-fixture",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pos-pin-fixture",
+      "scopes": [
+        "tests/pos/browser_ui.py",
+        "tests/pos-desktop/browser.test.mjs"
+      ],
+      "status": "active",
+      "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
+      "updatedAt": "2026-10-02T12:20:01.774Z",
+      "summary": "Both isolated POSbrowser and actual Electron44.2.0 desktop acceptancepassed. Fixture authtext updated, exactGEThealth readiness passthrough/assertion; no runtimechanges.",
+      "nextAction": "Integrate and run exact-sourcefinalCI."
     }
   ]
 }
