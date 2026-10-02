@@ -1634,3 +1634,118 @@ test('mobile quote and new payment reject a stopped product using product id rat
     },
     { paymentProvider: 'kaspi-remote' },
   ));
+
+test('restaurant hours reject new business operations while closed and preserve existing financial recovery', () =>
+  fixture(
+    async (f) => {
+      await publishCatalog(f);
+      await f.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+      );
+      const options = {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [f.scope.principalId],
+        maxOrderMinor: '1000000',
+        repeatOrdersEnabled: true,
+        approvalReference: 'Synthetic hours approval',
+        hours: { openingTime: '10:00', closingTime: '00:00', timeZone: 'Asia/Almaty' },
+      };
+      let clock = new Date('2026-10-02T04:59:59.999Z');
+      const service = new CustomerCheckout(f.pool, options, () => clock);
+      const request = () => ({
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'takeaway',
+        items: [{ productId: 'burger', quantity: 1, selections: [] }],
+      });
+      const before = await service.availability();
+      assert.equal(before.fresh, true);
+      assert.equal(before.orderingOpen, false);
+      assert.deepEqual(before.hours, options.hours);
+      await assert.rejects(
+        service.quote(f.scope.principalId, request()),
+        (e) => e.code === 'RESTAURANT_CLOSED',
+      );
+      assert.equal(await f.count('commerce_quotes'), 0);
+      clock = new Date('2026-10-02T05:00:00Z');
+      const opened = await service.availability();
+      assert.equal(opened.orderingOpen, true);
+      assert.equal(opened.fresh, true);
+      assert.notEqual(opened.signature, before.signature);
+      const quote = await service.quote(f.scope.principalId, request());
+      const uncreated = await service.quote(f.scope.principalId, request());
+      const createRequest = { key: randomUUID(), quoteId: quote.quoteId };
+      const order = await service.create(f.scope.principalId, createRequest);
+      const stored = await f.repo.readOrder(f.scope, order.orderId);
+      await f.repo.confirmAdmission(f.edge, {
+        eventId: randomUUID(),
+        orderId: order.orderId,
+        reservationId: randomUUID(),
+        quoteDigest: digest(stored.snapshot),
+      });
+      const admission = await f.repo.readOrder(f.scope, order.orderId);
+      const reservation = (
+        await f.pool.query('SELECT admission_reservation_id FROM commerce_orders WHERE id=$1', [
+          order.orderId,
+        ])
+      ).rows[0].admission_reservation_id;
+      await f.pool.query(
+        `INSERT INTO cloud_fulfillment_projection(order_id,branch_id,organization_id,device_id,reservation_id,quote_id,quote_hash,owner_hash,version,state,routing_version,payload)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,'held',1,'{}')`,
+        [
+          order.orderId,
+          f.scope.branchId,
+          f.scope.organizationId,
+          f.edge.deviceId,
+          reservation,
+          quote.quoteId,
+          digest(admission.snapshot),
+        ],
+      );
+      clock = new Date('2026-10-02T19:00:00Z');
+      assert.equal((await service.availability()).fresh, true);
+      assert.equal((await service.availability()).orderingOpen, false);
+      await assert.rejects(
+        service.create(f.scope.principalId, { key: randomUUID(), quoteId: uncreated.quoteId }),
+        (e) => e.code === 'RESTAURANT_CLOSED',
+      );
+      assert.equal(
+        (await service.create(f.scope.principalId, createRequest)).orderId,
+        order.orderId,
+      );
+      await assert.rejects(
+        service.pay(f.scope.principalId, order.orderId),
+        (e) => e.code === 'RESTAURANT_CLOSED',
+      );
+      assert.equal(await f.count('commerce_orders'), 1);
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      assert.equal((await service.list(f.scope.principalId)).orders.length, 1);
+      clock = new Date('2026-10-03T05:00:00Z');
+      const pending = await service.pay(f.scope.principalId, order.orderId);
+      assert.equal(pending.phase, 'sending');
+      const attempt = (await f.repo.readOrder(f.scope, order.orderId)).attempts[0];
+      clock = new Date('2026-10-03T19:00:00Z');
+      assert.equal((await service.pay(f.scope.principalId, order.orderId)).phase, 'sending');
+      assert.equal(await f.count('commerce_payment_attempts'), 1);
+      // Trusted bank settlement may complete an invoice issued before closing.
+      await f.repo.observePayment(f.provider, {
+        eventId: randomUUID(),
+        attemptId: attempt.id,
+        outcome: 'captured',
+        operationId: randomUUID(),
+        amountMinor: stored.totalMinor,
+        occurredAt: new Date().toISOString(),
+      });
+      assert.equal((await service.read(f.scope.principalId, order.orderId)).phase, 'paid');
+      assert.equal((await service.pay(f.scope.principalId, order.orderId)).phase, 'paid');
+      assert.equal(await f.count('commerce_captures'), 1);
+      assert.equal(await f.count('commerce_payment_attempts'), 1);
+      const legacy = new CustomerCheckout(f.pool, { ...options, hours: undefined });
+      const availability = await legacy.availability();
+      assert.equal(Object.hasOwn(availability, 'orderingOpen'), false);
+      assert.equal(Object.hasOwn(availability, 'hours'), false);
+    },
+    { paymentProvider: 'kaspi-remote' },
+  ));

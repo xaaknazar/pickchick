@@ -58,6 +58,7 @@ export class CustomerCheckoutController {
           EXPIRED: 409,
           NOT_READY: 503,
           REFUND_LIMIT: 409,
+          RESTAURANT_CLOSED: 409,
         };
         const code =
           error.code === 'EXPIRED'

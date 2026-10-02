@@ -8,7 +8,14 @@ import {
 export class CommerceError extends Error {
   constructor(
     public readonly code:
-      'INVALID' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'EXPIRED' | 'NOT_READY' | 'REFUND_LIMIT',
+      | 'INVALID'
+      | 'FORBIDDEN'
+      | 'NOT_FOUND'
+      | 'CONFLICT'
+      | 'EXPIRED'
+      | 'NOT_READY'
+      | 'REFUND_LIMIT'
+      | 'RESTAURANT_CLOSED',
   ) {
     super(code);
   }
