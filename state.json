@@ -1924,11 +1924,12 @@
         "docs/roadmap/project.json",
         "@vps/roadmap",
         "@vps/kaspi-worker",
-        "@release/ios"
+        "@release/ios",
+        "docs/operations/mobile-testflight.md"
       ],
       "status": "active",
-      "head": "0ffc7449e0f6c40e9ad4b2f8713a8d0f731780a0",
-      "updatedAt": "2026-10-02T13:17:17.058Z"
+      "head": "589b5252793d787bee2a7d8d69be7500bd44d7f0",
+      "updatedAt": "2026-10-02T13:40:22.621Z"
     }
   ]
 }
