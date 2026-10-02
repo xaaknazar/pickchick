@@ -1269,23 +1269,35 @@ test('only explicit shift reopening resets numbers; retries, authorization and o
 
 test('shift numbers ignore midnight, concurrency, rollback, retention and legacy response replay', async () => {
   await withDesk(async (ctx) => {
-    const insertAt = async (when, client = ctx.cloud.pool) => {
+    const insertAt = async (when, transactionClient) => {
       const quote = await ctx.flow.quote(ctx.customer.token, randomUUID(), cart);
       const id = randomUUID();
-      await client.query(
-        `INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor,created_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7)`,
-        [
-          id,
-          ctx.customer.session_id,
-          TEST_BRANCH_ID,
-          quote.quote_id,
-          quote,
-          quote.total_minor,
-          when,
-        ],
-      );
-      return id;
+      const client = transactionClient ?? (await ctx.cloud.pool.connect());
+      try {
+        if (!transactionClient) await client.query('BEGIN');
+        // Match TestOrderFlow.command: take the common write lock before INSERT/FK locks.
+        await client.query('SELECT id FROM test_flow_lock WHERE id=true FOR UPDATE');
+        await client.query(
+          `INSERT INTO test_orders(id,actor_id,branch_id,quote_id,snapshot,total_minor,created_at)
+          VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            id,
+            ctx.customer.session_id,
+            TEST_BRANCH_ID,
+            quote.quote_id,
+            quote,
+            quote.total_minor,
+            when,
+          ],
+        );
+        if (!transactionClient) await client.query('COMMIT');
+        return id;
+      } catch (error) {
+        if (!transactionClient) await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        if (!transactionClient) client.release();
+      }
     };
     const before = await insertAt('2026-09-24T18:59:59.999Z');
     const after = await insertAt('2026-09-24T19:00:00.000Z');
