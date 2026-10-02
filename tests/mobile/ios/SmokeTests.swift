@@ -128,6 +128,56 @@ final class SmokeTests: XCTestCase {
     }
 
     @MainActor
+    func testCheckoutCommentKeyboardKeepsEditingAndPaymentSeparate() throws {
+        // Preview uses the same sheet, Page and comment input as Kaspi checkout,
+        // but cannot create a bank invoice or send an authentication message.
+        let app = launchApp()
+        openDesignScreen("M06", in: app)
+        tap("product-pick-combo", in: app)
+        XCTAssertTrue(element("photo-product-pick-combo", in: app).waitForExistence(timeout: 30))
+        tap("product-add", in: app)
+        assertScreen("M06", in: app)
+        tap("open-cart", in: app)
+        assertScreen("M09", in: app)
+        tap("cart-checkout", in: app)
+        assertScreen("M12", in: app)
+        let payment = element("checkout-pay-disabled", in: app)
+        XCTAssertTrue(payment.waitForExistence(timeout: 10))
+        let originalPaymentY = payment.frame.minY
+        let input = element("checkout-comment-input", in: app)
+        reveal(input, in: app)
+        input.tap()
+        input.typeText("Соус отдельно")
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        let done = element("checkout-comment-done", in: app)
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(done.isHittable)
+        XCTAssertLessThanOrEqual(done.frame.maxY, keyboard.frame.minY + 1)
+        XCTAssertLessThanOrEqual(input.frame.maxY, done.frame.minY + 1)
+        XCTAssertFalse(payment.exists, "Payment must not compete with comment editing")
+        attachScreenshot("Checkout-comment-keyboard", of: app)
+        done.tap()
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: keyboard)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+        XCTAssertTrue(payment.waitForExistence(timeout: 5))
+        XCTAssertTrue(payment.isHittable)
+        XCTAssertEqual(payment.frame.minY, originalPaymentY, accuracy: 2)
+        XCTAssertEqual(input.value as? String, "Соус отдельно")
+        XCTAssertFalse(payment.isEnabled)
+        attachScreenshot("Checkout-comment-payment-restored", of: app)
+        // Reopening and the system Done key must preserve the draft too.
+        reveal(input, in: app)
+        input.tap()
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        input.typeText("\n")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: keyboard)], timeout: 5), .completed)
+        XCTAssertTrue(payment.isHittable)
+        XCTAssertEqual(input.value as? String, "Соус отдельно")
+    }
+
+    @MainActor
     func testReleaseLaunchAndAvailableDesignScreens() throws {
         let app = launchApp()
         assertScreen("M06", in: app)

@@ -1,14 +1,16 @@
 import { MotionPressable as Pressable } from './Motion';
-import type { ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type StyleProp,
   type TextStyle,
@@ -20,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
+import { SheetKeyboardOffsetContext } from './OrderSheet';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 export function Icon({
@@ -288,6 +291,7 @@ export function Page({
   header,
   contentStyle,
   footerStyle,
+  keyboardFooter,
 }: {
   props: ScreenProps;
   title: string;
@@ -297,12 +301,56 @@ export function Page({
   header?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
   footerStyle?: StyleProp<ViewStyle>;
+  keyboardFooter?: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardOffset = useContext(SheetKeyboardOffsetContext);
+  const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
+  const hasKeyboardFooter = keyboardFooter != null;
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollY = useRef(0);
+  const revealFocusedInput = useCallback(() => {
+    const input = TextInput.State.currentlyFocusedInput();
+    const scroll = scrollRef.current;
+    if (!input || !scroll || !Keyboard.isVisible()) return;
+    // Measure both in window coordinates after the sheet/keyboard layout.
+    // The visible scroll area already excludes the Done footer.
+    scroll.getNativeScrollRef()?.measureInWindow((_x, top, _width, height) => {
+      input.measureInWindow((_inputX, inputTop, _inputWidth, inputHeight) => {
+        if (
+          scrollRef.current !== scroll ||
+          TextInput.State.currentlyFocusedInput() !== input ||
+          !Keyboard.isVisible()
+        )
+          return;
+        const overflow = inputTop + inputHeight - (top + height - 12);
+        if (overflow > 0) scroll.scrollTo({ y: scrollY.current + overflow, animated: true });
+      });
+    });
+  }, []);
+  useEffect(() => {
+    if (!hasKeyboardFooter) return;
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false),
+    );
+    const shown = Keyboard.addListener('keyboardDidShow', revealFocusedInput);
+    return () => {
+      show.remove();
+      hide.remove();
+      shown.remove();
+    };
+  }, [hasKeyboardFooter, revealFocusedInput]);
+  const editing = hasKeyboardFooter && keyboardVisible;
   return (
     <KeyboardAvoidingView
       testID={`screen-${props.screenId}`}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={keyboardOffset}
       style={[styles.page, { paddingTop: props.inSheet ? 0 : insets.top }]}
     >
       {header ?? (
@@ -315,7 +363,13 @@ export function Page({
         </Row>
       )}
       <ScrollView
+        ref={scrollRef}
         testID={`scroll-${props.screenId}`}
+        onScroll={(event) => {
+          scrollY.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+        onLayout={editing ? revealFocusedInput : undefined}
         style={styles.scroll}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
@@ -334,8 +388,11 @@ export function Page({
         {children}
       </ScrollView>
       {footer ? (
-        <BottomActions safeArea={!props.inTabLayout} style={footerStyle}>
-          {footer}
+        <BottomActions
+          safeArea={!props.inTabLayout && !editing}
+          style={[footerStyle, editing && { paddingTop: 8, paddingBottom: 8 }]}
+        >
+          {editing ? keyboardFooter : footer}
         </BottomActions>
       ) : null}
     </KeyboardAvoidingView>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import {
   BackHandler,
   Platform,
@@ -19,6 +19,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { motion, useReducedMotion } from './Motion';
 import { colors } from '../theme';
+
+// Keyboard events use window coordinates; children are laid out inside this sheet.
+export const SheetKeyboardOffsetContext = createContext(0);
 
 /** One bounded surface; only the handle drags so scrolling a long cart never dismisses it. */
 export function OrderSheet({
@@ -173,7 +176,9 @@ export function OrderSheet({
             </View>
           </GestureDetector>
         ) : null}
-        {children(close)}
+        <SheetKeyboardOffsetContext.Provider value={top}>
+          {children(close)}
+        </SheetKeyboardOffsetContext.Provider>
       </Animated.View>
     </GestureHandlerRootView>
   );

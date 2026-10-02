@@ -1,6 +1,7 @@
 import { CheckoutSheetHeader, checkoutStyle } from '../components/CheckoutPresentation';
 import { useState, type ReactNode } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
 import { cartTotal, money } from '../domain';
@@ -101,6 +102,9 @@ export function CheckoutDetails({
               onBlur={() => setCommentFocused(false)}
               maxLength={60}
               multiline
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={Keyboard.dismiss}
               numberOfLines={3}
               textAlignVertical="top"
               placeholder="Например, соус отдельно"
@@ -132,6 +136,7 @@ export function Checkout(props: ScreenProps) {
       title="Оформление"
       contentStyle={checkoutStyle.content}
       footerStyle={checkoutStyle.footer}
+      keyboardFooter={<CheckoutKeyboardDone />}
       header={<CheckoutHeader props={props} />}
       footer={
         props.model.cart.length ? (
@@ -155,7 +160,7 @@ export function Checkout(props: ScreenProps) {
           action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
         />
       ) : (
-        <CheckoutDetails props={props} />
+        <CheckoutDetails props={props} commentEnabled={props.preview} />
       )}
     </Page>
   );

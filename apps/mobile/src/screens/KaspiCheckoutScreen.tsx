@@ -33,6 +33,7 @@ import {
   commerceStatus,
 } from '../commerce-presentation';
 import { CheckoutDetails } from './CheckoutScreen';
+import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { OrderHeader } from '../components/OrderPresentation';
 import { OrderSheet } from '../components/OrderSheet';
 import { PaymentMark } from '../components/PaymentChoice';
@@ -526,6 +527,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       contentStyle={checkoutStyle.content}
       footerStyle={checkoutStyle.footer}
       footer={footer}
+      keyboardFooter={props.screenId === 'M12' ? <CheckoutKeyboardDone /> : undefined}
       header={
         props.screenId === 'M19' ? (
           <OrderHeader title="Заказы" onClose={props.goBack} testID="kaspi-order-close" />
