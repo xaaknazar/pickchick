@@ -7,7 +7,7 @@ import {
   checkoutStyle,
 } from '../components/CheckoutPresentation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Modal, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
@@ -26,19 +26,16 @@ import {
   maskedPhone,
 } from '../commerce-checkout';
 import { OrderStatusView } from './OrderStatusScreen';
-import {
-  checkoutError,
-  paymentCopy,
-  paymentReceived,
-  commerceStatus,
-} from '../commerce-presentation';
+import { CompletedOrderScreen } from './CompletedOrderScreen';
+import { OrderHistoryCard } from '../components/OrderHistoryCard';
+import { useCommerceFeedback } from '../useCommerceFeedback';
+import { checkoutError, paymentReceived, commerceStatus } from '../commerce-presentation';
 import { CheckoutDetails } from './CheckoutScreen';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { OrderHeader } from '../components/OrderPresentation';
 import { OrderSheet } from '../components/OrderSheet';
 import { PaymentMark } from '../components/PaymentChoice';
-import { Body, Button, Caption, Empty, Heading, Icon, Page, Row } from '../components/UI';
-import { MotionPressable } from '../components/Motion';
+import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
 import { colors, font } from '../theme';
 
@@ -66,6 +63,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [order, setOrder] = useState<CustomerCommerceOrder | null>(null);
   const [history, setHistory] = useState<CustomerCommerceOrder[]>([]);
+  const [initialRating, setInitialRating] = useState<number | undefined>();
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  useEffect(() => setReceiptError(null), [order?.orderId]);
+  const reviews = useCommerceFeedback(order, props.screenId === 'M19');
   const [loaded, setLoaded] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -472,49 +473,85 @@ function KaspiCheckoutSession(props: ScreenProps) {
       />
     );
   if (order && paymentReceived(order.phase)) {
-    const status = (statusProps: ScreenProps) => (
-      <OrderStatusView
-        props={statusProps}
-        order={commerceStatus(order)}
-        afterItems={
-          order.kitchenComment ? (
-            <View testID="order-kitchen-comment" style={s.savedComment}>
-              <Caption>Комментарий к заказу</Caption>
-              <Body>{order.kitchenComment}</Body>
+    const status = (statusProps: ScreenProps) =>
+      order.phase === 'handed_over' ? (
+        <CompletedOrderScreen
+          key={order.orderId}
+          props={statusProps}
+          order={order}
+          initialRating={initialRating}
+          review={reviews.detail?.feedback ?? reviews.ratings[order.orderId]}
+          reviewLoading={reviews.loading || (!reviews.detail && !reviews.error)}
+          reviewSaving={reviews.saving}
+          reviewError={reviews.error}
+          reviewUnavailable={
+            reviews.detail && !reviews.detail.enabled
+              ? 'Оценка этого заказа пока недоступна.'
+              : undefined
+          }
+          onSaveReview={reviews.detail?.enabled ? reviews.save : undefined}
+          onRetryReview={reviews.retry}
+          receiptError={receiptError}
+          preparationStartedAt={reviews.detail?.preparationStartedAt}
+          readyAt={reviews.detail?.readyAt}
+          onOpenReceipt={
+            order.receiptUrl?.startsWith('https://')
+              ? () => {
+                  void Linking.openURL(order.receiptUrl!).catch(() =>
+                    setReceiptError('Не удалось открыть чек. Попробуйте ещё раз.'),
+                  );
+                }
+              : undefined
+          }
+        />
+      ) : (
+        <OrderStatusView
+          props={statusProps}
+          order={commerceStatus(order)}
+          afterItems={
+            order.kitchenComment ? (
+              <View testID="order-kitchen-comment" style={s.savedComment}>
+                <Caption>Комментарий к заказу</Caption>
+                <Body>{order.kitchenComment}</Body>
+              </View>
+            ) : undefined
+          }
+          notice={
+            statusError ? (
+              <View style={s.warning}>
+                <Body>{statusError}</Body>
+                <Button secondary title="Проверить соединение" onPress={retry} />
+              </View>
+            ) : undefined
+          }
+          receipt={
+            <View style={s.note}>
+              <Icon name="receipt-outline" color={colors.muted} />
+              <Caption style={s.flex}>
+                {order.receipt === 'deferred'
+                  ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
+                  : order.receipt === 'issued'
+                    ? 'Чек выпущен. Ссылка на него уточняется.'
+                    : 'Ожидаем фискальный чек'}
+              </Caption>
             </View>
-          ) : undefined
-        }
-        notice={
-          statusError ? (
-            <View style={s.warning}>
-              <Body>{statusError}</Body>
-              <Button secondary title="Проверить соединение" onPress={retry} />
-            </View>
-          ) : undefined
-        }
-        receipt={
-          <View style={s.note}>
-            <Icon name="receipt-outline" color={colors.muted} />
-            <Caption style={s.flex}>
-              {order.receipt === 'deferred'
-                ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
-                : order.receipt === 'issued'
-                  ? 'Чек выпущен. Ссылка на него уточняется.'
-                  : 'Ожидаем фискальный чек'}
-            </Caption>
-          </View>
-        }
-      />
-    );
+          }
+        />
+      );
     if (props.inSheet) return status(props);
     const close = () => {
       orderRef.current = null;
       setOrder(null);
+      setInitialRating(undefined);
       setRefresh((value) => value + 1);
     };
     return (
       <Modal transparent animationType="none" visible onRequestClose={close}>
-        <OrderSheet raised name="Статус заказа" onClose={close}>
+        <OrderSheet
+          raised
+          name={order.phase === 'handed_over' ? 'Завершённый заказ' : 'Статус заказа'}
+          onClose={close}
+        >
           {(dismiss) => status({ ...props, inSheet: true, goBack: dismiss })}
         </OrderSheet>
       </Modal>
@@ -569,22 +606,24 @@ function KaspiCheckoutSession(props: ScreenProps) {
             />
           ) : null}
           {history.map((item) => (
-            <MotionPressable
+            <OrderHistoryCard
               key={item.orderId}
-              accessibilityRole="button"
-              accessibilityLabel={`Открыть заказ ${item.displayNumber ?? ''}`}
-              style={s.card}
-              onPress={() => setOrder(item)}
-            >
-              <Row>
-                <Heading small>
-                  {item.displayNumber ? `№ ${item.displayNumber}` : 'Заказ PickChick'}
-                </Heading>
-                <Body>{money(item.totalMinor)}</Body>
-              </Row>
-              <Body>{paymentCopy[item.phase].title}</Body>
-              <Caption>{item.items.map((p) => p.title).join(', ')}</Caption>
-            </MotionPressable>
+              order={item}
+              products={props.model.products}
+              savedRating={reviews.ratings[item.orderId]?.rating}
+              onOpen={() => {
+                setInitialRating(undefined);
+                setOrder(item);
+              }}
+              onRate={
+                item.phase === 'handed_over'
+                  ? (stars) => {
+                      setInitialRating(stars);
+                      setOrder(item);
+                    }
+                  : undefined
+              }
+            />
           ))}
         </>
       ) : props.model.cart.length ? (

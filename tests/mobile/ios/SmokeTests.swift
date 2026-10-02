@@ -178,6 +178,42 @@ final class SmokeTests: XCTestCase {
     }
 
     @MainActor
+    func testCompletedOrderReviewAndKeyboard() throws {
+        let app = launchApp()
+        openDesignScreen("M19", in: app)
+        let id = "00000000-0000-4000-8000-000000000001"
+        tap("order-history-rate-\(id)-4", in: app)
+        XCTAssertTrue(element("completed-order", in: app).waitForExistence(timeout: 10))
+        XCTAssertFalse(element("order-play-blocks", in: app).exists)
+        XCTAssertFalse(element("order-chef-ready", in: app).exists)
+        attachScreenshot("Completed-order-summary", of: app)
+        let input = element("completed-review-comment", in: app)
+        reveal(input, in: app)
+        input.tap()
+        input.typeText("Все понравилось")
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        let done = element("checkout-comment-done", in: app)
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(done.isHittable)
+        XCTAssertLessThanOrEqual(done.frame.maxY, keyboard.frame.minY + 1)
+        XCTAssertLessThanOrEqual(input.frame.maxY, done.frame.minY + 1)
+        attachScreenshot("Completed-order-review-keyboard", of: app)
+        done.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: keyboard)], timeout: 5), .completed)
+        tap("completed-review-save", in: app)
+        XCTAssertTrue(element("completed-review-saved", in: app).waitForExistence(timeout: 5))
+        attachScreenshot("Completed-order-review-saved", of: app)
+        tap("completed-order-close", in: app)
+        assertScreen("M19", in: app)
+        let savedStar = element("order-history-rate-\(id)-4", in: app)
+        reveal(savedStar, in: app)
+        XCTAssertTrue(savedStar.isSelected)
+        attachScreenshot("Orders-history-saved-rating", of: app)
+    }
+
+    @MainActor
     func testReleaseLaunchAndAvailableDesignScreens() throws {
         let app = launchApp()
         assertScreen("M06", in: app)

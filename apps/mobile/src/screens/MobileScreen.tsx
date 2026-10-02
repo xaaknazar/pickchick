@@ -1,6 +1,7 @@
 import { kaspiCheckoutEnabled } from '../commerce-checkout';
 import { KaspiCheckoutScreen } from './KaspiCheckoutScreen';
 import { OrderStatusPreview } from './OrderStatusPreview';
+import { CompletedOrderPreview } from './CompletedOrderPreview';
 import { ConnectedFeedback } from './ConnectedFeedback';
 import { connectedTestOrdersEnabled } from '../order-simulator';
 import type { ScreenProps } from '../model';
@@ -56,7 +57,8 @@ export function MobileScreen(props: ScreenProps) {
 }
 
 function ScreenContent(props: ScreenProps) {
-  if (props.preview && ['M17', 'M18', 'M20'].includes(props.screenId))
+  if (props.preview && props.screenId === 'M20') return <CompletedOrderPreview {...props} />;
+  if (props.preview && ['M17', 'M18'].includes(props.screenId))
     return <OrderStatusPreview {...props} />;
   if (
     !props.preview &&

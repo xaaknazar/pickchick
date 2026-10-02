@@ -387,7 +387,7 @@ export function Page({
         {props.preview ? <ReviewBadge /> : null}
         {children}
       </ScrollView>
-      {footer ? (
+      {footer || editing ? (
         <BottomActions
           safeArea={!props.inTabLayout && !editing}
           style={[footerStyle, editing && { paddingTop: 8, paddingBottom: 8 }]}
