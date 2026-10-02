@@ -1605,9 +1605,11 @@
       "scopes": [
         "apps/mobile/src/screens/CompletedOrderScreen.tsx"
       ],
-      "status": "active",
-      "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
-      "updatedAt": "2026-10-02T05:35:48.314Z"
+      "status": "available",
+      "head": "fea383de57a6fea206053bc108fce2ba0abae528",
+      "updatedAt": "2026-10-02T05:39:49.032Z",
+      "summary": "Добавлен CompletedOrderScreen: реальные позиции и модификаторы, белые фото меню, итог, комментарий кухне, оценка1-5/отзыв500, загрузка/ошибки/сохранение, честный чек. Typecheck, ESLint, Prettier, diff и Impeccable detector прошли. Ветка codex/completed-order-ui опубликована; интеграция и визуальная приёмка у основного агента.",
+      "nextAction": "Основному агенту cherry-pick коммита, подключить handed_over и feedback API, проверить браузер/нативный ввод и обновить docs/roadmap."
     },
     {
       "id": "orders-history-ui",
