@@ -100,18 +100,15 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(element("cart-checkout", in: app).waitForExistence(timeout: 10))
         attachScreenshot("Customer-pilot-cart", of: app)
 
-        if element("cart-checkout", in: app).isEnabled {
-            tap("cart-checkout", in: app)
-        } else {
-            // Live restaurant availability is external to this release. The
-            // app must explain its safe block; continue auth through Profile.
-            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@",
-                "Дождитесь связи с рестораном")).firstMatch.exists,
-                "A disabled checkout must explain the unavailable restaurant")
-            attachScreenshot("Customer-pilot-restaurant-unavailable", of: app)
-            tap("cart-close", in: app)
-            tap("tab-profile", in: app)
+        XCTAssertTrue(element("cart-checkout", in: app).isEnabled,
+                      "Checkout stays available while restaurant connectivity is checked later")
+        XCTAssertFalse(element("cart-availability-refresh", in: app).exists,
+                       "The cart must not expose transient connection recovery controls")
+        for message in ["Не удалось связаться с сервером", "Нет свежих данных от ресторана"] {
+            XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@",
+                message)).firstMatch.exists, "Transient connectivity messages must stay hidden")
         }
+        tap("cart-checkout", in: app)
         XCTAssertTrue(element("auth-welcome", in: app).waitForExistence(timeout: 15),
                       "Guest actions must open the real account route")
         attachScreenshot("Customer-pilot-login", of: app)
