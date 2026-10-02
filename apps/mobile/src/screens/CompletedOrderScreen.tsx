@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import { Image } from 'expo-image';
 import { ActivityIndicator, Keyboard, StyleSheet, TextInput, View } from 'react-native';
@@ -21,6 +21,7 @@ export type CompletedOrderScreenProps = {
   reviewUnavailable?: string | null;
   initialRating?: number;
   onSaveReview?: (rating: number, comment: string) => void;
+  onRetryReview?: () => void;
   preparationStartedAt?: string | null;
   readyAt?: string | null;
   onOpenReceipt?: () => void;
@@ -38,18 +39,23 @@ export function CompletedOrderScreen({
   reviewUnavailable,
   initialRating,
   onSaveReview,
+  onRetryReview,
   preparationStartedAt,
   readyAt,
   onOpenReceipt,
   onSupport,
 }: CompletedOrderScreenProps) {
-  const [rating, setRating] = useState(review?.rating ?? initialRating ?? 0);
+  const [rating, setRating] = useState(initialRating ?? review?.rating ?? 0);
   const [comment, setComment] = useState(review?.comment ?? '');
   const [focused, setFocused] = useState(false);
+  const ratingEdited = useRef(false);
+  const commentEdited = useRef(false);
+  // The order-keyed parent remounts this form when a different order opens.
+  // Late fetches must not replace a list selection or a draft already being edited.
   useEffect(() => {
-    setRating(review?.rating ?? initialRating ?? 0);
-    setComment(review?.comment ?? '');
-  }, [order.orderId, review?.rating, review?.comment, initialRating]);
+    if (initialRating === undefined && !ratingEdited.current) setRating(review?.rating ?? 0);
+    if (!commentEdited.current) setComment(review?.comment ?? '');
+  }, [review?.rating, review?.comment, initialRating]);
   const locked = reviewLoading || reviewSaving || !!reviewUnavailable || !onSaveReview;
   const changed = rating !== (review?.rating ?? 0) || comment.trim() !== (review?.comment ?? '');
   const created = new Date(order.createdAt);
@@ -187,7 +193,10 @@ export function CompletedOrderScreen({
                 accessibilityState={{ checked: rating === value, disabled: locked }}
                 aria-checked={rating === value}
                 disabled={locked}
-                onPress={() => setRating(value)}
+                onPress={() => {
+                  ratingEdited.current = true;
+                  setRating(value);
+                }}
                 style={[s.star, locked && s.locked]}
               >
                 <Icon
@@ -207,13 +216,16 @@ export function CompletedOrderScreen({
               testID="completed-review-comment"
               accessibilityLabel="Отзыв о заказе, необязательно"
               value={comment}
-              onChangeText={setComment}
+              onChangeText={(value) => {
+                commentEdited.current = true;
+                setComment(value);
+              }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               editable={!locked}
               maxLength={500}
               multiline
-              scrollEnabled={false}
+              scrollEnabled
               textAlignVertical="top"
               returnKeyType="done"
               submitBehavior="blurAndSubmit"
@@ -234,6 +246,15 @@ export function CompletedOrderScreen({
             >
               {reviewError}
             </Caption>
+          ) : null}
+          {reviewError && onRetryReview ? (
+            <Button
+              secondary
+              testID="completed-review-retry"
+              title="Повторить загрузку"
+              disabled={reviewLoading || reviewSaving}
+              onPress={onRetryReview}
+            />
           ) : null}
           {review && !changed && !reviewError ? (
             <Caption
@@ -258,7 +279,7 @@ export function CompletedOrderScreen({
 
         <View style={s.section}>
           <Heading small style={s.sectionTitle}>
-            Чек и помощь
+            {onSupport ? 'Чек и помощь' : 'Фискальный чек'}
           </Heading>
           {receiptAvailable ? (
             <Button
@@ -343,7 +364,8 @@ const s = StyleSheet.create({
   commentGroup: { gap: 8 },
   fieldLabel: { fontSize: 15, fontFamily: font.medium },
   input: {
-    minHeight: 108,
+    minHeight: 116,
+    maxHeight: 156,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
