@@ -1599,19 +1599,6 @@
       "nextAction": "Include avatar with keyboard fix in next mobile build; publish roadmap after green CI."
     },
     {
-      "id": "orders-completed-ui",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/completed-order-ui",
-      "scopes": [
-        "apps/mobile/src/screens/CompletedOrderScreen.tsx"
-      ],
-      "status": "available",
-      "head": "fea383de57a6fea206053bc108fce2ba0abae528",
-      "updatedAt": "2026-10-02T05:39:49.032Z",
-      "summary": "Добавлен CompletedOrderScreen: реальные позиции и модификаторы, белые фото меню, итог, комментарий кухне, оценка1-5/отзыв500, загрузка/ошибки/сохранение, честный чек. Typecheck, ESLint, Prettier, diff и Impeccable detector прошли. Ветка codex/completed-order-ui опубликована; интеграция и визуальная приёмка у основного агента.",
-      "nextAction": "Основному агенту cherry-pick коммита, подключить handed_over и feedback API, проверить браузер/нативный ввод и обновить docs/roadmap."
-    },
-    {
       "id": "orders-history-ui",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/orders-history-ui",
@@ -1713,6 +1700,19 @@
       "updatedAt": "2026-10-02T06:28:32.352Z",
       "summary": "21f9d38: применён реальный RSA patch node-forge1.4.0; nested DigestAlgorithm и NULL content проверяются. Frozen install,4security regression,audit highcritical guard,10marketreleaseunit,ExpoCLI mobilekiosk,lintformatdiff прошли. Уровни4moderate остаются. patches включён в API archive; VPS/signingnative не менялись.",
       "nextAction": "Родитель интегрирует21f9d38, создаёт свежий generated node_modules и frozen install, затем audit:release и source CI; finish после включения в shared. Удалить patch+exception вместе после проверенного upstream release."
+    },
+    {
+      "id": "orders-completed-ui",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/completed-order-ui",
+      "scopes": [
+        "apps/mobile/src/screens/CompletedOrderScreen.tsx"
+      ],
+      "status": "active",
+      "head": "620a09ab07fa21fc346446edcf555214aaf9e13d",
+      "updatedAt": "2026-10-02T06:34:54.072Z",
+      "summary": "Добавлен CompletedOrderScreen: реальные позиции и модификаторы, белые фото меню, итог, комментарий кухне, оценка1-5/отзыв500, загрузка/ошибки/сохранение, честный чек. Typecheck, ESLint, Prettier, diff и Impeccable detector прошли. Ветка codex/completed-order-ui опубликована; интеграция и визуальная приёмка у основного агента.",
+      "nextAction": "Основному агенту cherry-pick коммита, подключить handed_over и feedback API, проверить браузер/нативный ввод и обновить docs/roadmap."
     }
   ]
 }
