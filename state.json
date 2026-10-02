@@ -1636,9 +1636,11 @@
         "apps/mobile/src/order-feedback.ts",
         "infra/staging/checkout-grants.mjs"
       ],
-      "status": "active",
-      "head": "b9f8f5c4ea9e2cbccb16e9ff698e1ba1b1779d77",
-      "updatedAt": "2026-10-02T05:38:49.580Z"
+      "status": "available",
+      "head": "947195e1acd8ce0a17477421eb7b085f9986aadd",
+      "updatedAt": "2026-10-02T05:46:42.760Z",
+      "summary": "Реализованы PostgreSQL отзывы1-5/комментарий500 по завершённым оплаченным заказам, owner scope, retry/update, bulk feedback и mobile helper; коммит947195e. Build, mobile typecheck,62 PG integration,38 unit,lint/format/contracts/diff прошли. VPS не изменён; kitchen timing null поскольку cloud не хранит время действия.",
+      "nextAction": "Родитель интегрирует947195e вместе с UI и guarded schema032/gateway release; после включения в shared выполнить finish. TestFlight загрузка после CI и установки backend."
     },
     {
       "id": "checkout-keyboard",
