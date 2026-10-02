@@ -1756,9 +1756,11 @@
         "docs/operations/checkout-keyboard.md",
         "docs/operations/profile-alex-avatar.md"
       ],
-      "status": "active",
-      "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
-      "updatedAt": "2026-10-02T11:52:30.210Z"
+      "status": "done",
+      "head": "9e2e5dcd605bd5273e23e66380a0bf8b37b36736",
+      "updatedAt": "2026-10-02T12:42:20.700Z",
+      "summary": "API и Windows POS/worker f83794c установлены после Foundation37002738972 6/6 и Windows37002835488; TestFlight0.2.0(7) обработана, PickChick Internal2. Данные/ACL/config/journal сохранены, 5служб Running, localReady/fresh подтверждены. Docscheckpoint9e2e5dc опубликован и roadmap установлен; PR166 merged.",
+      "nextAction": "Физическая приёмка на iPhone, холодный старт Windows и WAN-off отдельно. Для будущего API snapshot приостановить fulfillment worker по runbook, не ослаблять guards. Webkassa и реальные timestamp приготовления остаются отдельными зависимостями."
     },
     {
       "id": "pos-pin-fixture",
