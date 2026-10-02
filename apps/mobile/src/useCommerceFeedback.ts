@@ -46,10 +46,15 @@ export function useCommerceFeedback(order: CustomerCommerceOrder | null, history
     void withOrderAccess(customerId, (token) => listOrderFeedback(token, controller.signal))
       .then((result) => {
         if (controller.signal.aborted) return;
-        setRatings((previous) => ({
-          ...Object.fromEntries(result.feedback.map((item) => [item.orderId, item])),
-          ...previous,
-        }));
+        setRatings((previous) => {
+          const next = { ...previous };
+          for (const item of result.feedback) {
+            const cached = next[item.orderId];
+            // Refresh edits from another device without overwriting a newer local save.
+            if (!cached || item.updatedAt >= cached.updatedAt) next[item.orderId] = item;
+          }
+          return next;
+        });
       })
       .catch(() => {
         /* Detail retry remains available; history itself still works. */
