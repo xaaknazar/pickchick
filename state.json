@@ -1868,11 +1868,11 @@
         "infra/staging/release-connection-recovery.py",
         "tests/operations/test_connection_recovery_release.py"
       ],
-      "status": "active",
+      "status": "done",
       "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
-      "updatedAt": "2026-10-02T12:36:03.120Z",
-      "summary": "Опубликован 33908de6a3e7d01e78895528cef8c41fbd6b775e: API-only guarded hours/connection profile от9d7. Read-only SSH подтвердил API/public9f66969, mountedgatewaySHA11eefd7c872593ffc3d566e5e780c07b5907d29526faa42f1aabdad141bd1d7d и exactcomposeSHA80d850e2569719d9c9e5a0756e1e0f40489ccb2fa0a932faa738ad4f723d6bde. 8 profiletests и7 feedbackregressions прошли; no deploy/migrations/provision/datachanges. Полная sourceCI обязательна перед prepare/apply.",
-      "nextAction": "Parent интегрирует hours/mobile/worker и этот профиль, проходит полную CI, резервирует VPS mutation и выполняет guarded API-only release. Установленный Windows SCM/reboot/WAN остаются отдельной приёмкой."
+      "updatedAt": "2026-10-02T12:36:10.754Z",
+      "summary": "Code included in shared f83794ce; exact Foundation CI37002738972 all6green. Code-only scope completed.",
+      "nextAction": "Parent owns device/install/release acceptance."
     }
   ]
 }
