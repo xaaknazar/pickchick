@@ -127,7 +127,7 @@ jobs:
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
       - name: Check dependency advisories
-        run: pnpm audit --audit-level=high
+        run: pnpm audit:release
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down

@@ -8,6 +8,9 @@ overrides:
   multer@2.2.0: 2.3.0
   brace-expansion@5.0.9: 5.0.11
 
+patchedDependencies:
+  node-forge@1.4.0: f62abad2a9dd9648c682496678d3fb749967ab24293a6a469660ad0f20d92521
+
 importers:
 
   .:
@@ -5029,7 +5032,7 @@ snapshots:
       glob: 13.0.6
       lan-network: 0.2.1
       multitars: 1.0.2
-      node-forge: 1.4.0
+      node-forge: 1.4.0(patch_hash=f62abad2a9dd9648c682496678d3fb749967ab24293a6a469660ad0f20d92521)
       npm-package-arg: 11.0.3
       ora: 3.4.0
       picomatch: 4.0.7
@@ -5066,7 +5069,7 @@ snapshots:
 
   '@expo/code-signing-certificates@0.0.6':
     dependencies:
-      node-forge: 1.4.0
+      node-forge: 1.4.0(patch_hash=f62abad2a9dd9648c682496678d3fb749967ab24293a6a469660ad0f20d92521)
 
   '@expo/config-plugins@57.0.9(supports-color@8.1.1)(typescript@6.0.3)':
     dependencies:
@@ -7730,7 +7733,7 @@ snapshots:
     dependencies:
       whatwg-url: 5.0.0
 
-  node-forge@1.4.0: {}
+  node-forge@1.4.0(patch_hash=f62abad2a9dd9648c682496678d3fb749967ab24293a6a469660ad0f20d92521): {}
 
   node-int64@0.4.0: {}
 

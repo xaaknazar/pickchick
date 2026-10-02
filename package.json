@@ -51,7 +51,8 @@
     "pos:sync:setup": "node --env-file=.env scripts/pos-order-sync-setup.mjs",
     "project:check": "node scripts/project-sync.mjs check",
     "project:sync": "node scripts/project-sync.mjs sync",
-    "project:tasks": "node scripts/project-sync.mjs status"
+    "project:tasks": "node scripts/project-sync.mjs status",
+    "audit:release": "node scripts/dependency-audit.mjs"
   },
   "dependencies": {
     "@pickchick/catalog-admin": "workspace:*",
