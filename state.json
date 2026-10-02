@@ -1768,25 +1768,6 @@
       "nextAction": "Parent интегрирует hours/mobile/worker и этот профиль, проходит полную CI, резервирует VPS mutation и выполняет guarded API-only release. Установленный Windows SCM/reboot/WAN остаются отдельной приёмкой."
     },
     {
-      "id": "restaurant-hours",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/restaurant-hours",
-      "scopes": [
-        "packages/commerce-core/src/restaurant-hours.ts",
-        "packages/commerce-core/src/model.ts",
-        "services/api/src/customer-checkout-controller.ts",
-        "packages/commerce-core/tests/restaurant-hours.test.mjs",
-        "packages/commerce-core/tests/postgres.test.mjs",
-        "packages/commerce-core/package.json",
-        "packages/backoffice-core/src/index.ts"
-      ],
-      "status": "available",
-      "head": "98d716a4cb226cf96931fa403a7e21c932b78359",
-      "updatedAt": "2026-10-02T08:40:48.220Z",
-      "summary": "Published narrow backoffice error mapping; full pnpm build, targeted lint/format passed. Original41unit/63PG unchanged.",
-      "nextAction": "Integrate correction and monitor replacement full CI."
-    },
-    {
       "id": "shift-number-fixture",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/shift-number-fixture",
@@ -1873,6 +1854,25 @@
       "updatedAt": "2026-10-02T12:20:07.632Z",
       "summary": "Code included in shared f83794ce; Foundation CI37002738972 all6green. Code-only scope completed.",
       "nextAction": "Parent owns pending device/install/release acceptance; no new tests needed."
+    },
+    {
+      "id": "restaurant-hours",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/restaurant-hours",
+      "scopes": [
+        "packages/commerce-core/src/restaurant-hours.ts",
+        "packages/commerce-core/src/model.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "packages/commerce-core/tests/restaurant-hours.test.mjs",
+        "packages/commerce-core/tests/postgres.test.mjs",
+        "packages/commerce-core/package.json",
+        "packages/backoffice-core/src/index.ts"
+      ],
+      "status": "active",
+      "head": "f83794ce68c10906d2924a3a04351f7550d62b40",
+      "updatedAt": "2026-10-02T12:35:47.035Z",
+      "summary": "Published narrow backoffice error mapping; full pnpm build, targeted lint/format passed. Original41unit/63PG unchanged.",
+      "nextAction": "Integrate correction and monitor replacement full CI."
     }
   ]
 }
