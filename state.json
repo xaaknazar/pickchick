@@ -2114,9 +2114,11 @@
         "infra/windows/cashier-reports-upgrade.md",
         "tests/operations/windows-cashier-reports-upgrade.test.mjs"
       ],
-      "status": "active",
-      "head": "0343e48e4fa0f4029a09d6bafdbe4eb9571d597a",
-      "updatedAt": "2026-10-03T09:45:52.273Z"
+      "status": "available",
+      "head": "576c21bb74c62ec47871935057773287040376c4",
+      "updatedAt": "2026-10-03T09:51:02.609Z",
+      "summary": "576c21b опубликован: guarded016 DB helper, отдельныйworker operator профиль, populated PG resume/grants тест; lint/format прошли. Windows read-only недоступен: mDNSнеразрешается, pinnedIP timeout. Установка не выполнялась.",
+      "nextAction": "Интегрировать576c21b; актуализировать CI/backup gates, проверить фактический separateworker XML и прогнать Windows rehearsal перед разрешенным деплоем. PG55542 оставлен для root."
     },
     {
       "id": "director-catalog-live",
