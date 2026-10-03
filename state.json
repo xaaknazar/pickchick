@@ -1996,9 +1996,11 @@
         "packages/catalog-admin/src/index.ts",
         "apps/backoffice/src/model.ts"
       ],
-      "status": "active",
-      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
-      "updatedAt": "2026-10-03T08:35:11.788Z"
+      "status": "available",
+      "head": "4de7c7d4588d4ffcb7207ad64c2b296cd8ef971a",
+      "updatedAt": "2026-10-03T08:36:51.408Z",
+      "summary": "Опубликован 4de7c7d4588d4ffcb7207ad64c2b296cd8ef971a: черновики отдельных цен каналов, серверная и клиентская блокировка публикации до согласованного меню; 19 unit тестов, admin/pricing/backoffice build, targeted ESLint/Prettier и OpenAPI generation passed.",
+      "nextAction": "Интегрировать в codex/director-console; проверить реальную БД save/rejected publish и browser editor; связать storefront и edge menu release с каталогом перед разрешением публикации отдельных цен."
     },
     {
       "id": "director-shell-tests",
