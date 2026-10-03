@@ -2157,11 +2157,12 @@
         "infra/staging/release-director-console.py",
         "tests/operations/test_director_release.py",
         "tests/operations/test_auth_four_digit_release.py",
-        "tests/operations/test_server_pilot_release.py"
+        "tests/operations/test_server_pilot_release.py",
+        "tests/unit/catalog-images.test.mjs"
       ],
       "status": "active",
       "head": "934bb93c6820aeb0f51d8b182364336441e75149",
-      "updatedAt": "2026-10-03T09:58:44.932Z",
+      "updatedAt": "2026-10-03T10:01:36.501Z",
       "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
       "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
     }
