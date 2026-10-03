@@ -88,7 +88,32 @@ class Release(base.Release):
         require(not re.search(r'\b(?:ALTER|UPDATE|INSERT|DELETE|TRUNCATE)\b|CREATE\s+SEQUENCE|\b(?:BIG)?SERIAL\b',re.sub(r'--[^\n]*','',text),re.I),'033 must be additive empty tables only')
 
     def web_manifest_source(self): return '9f6696924e90856f3fccde1d5185801100b62123'
-    def gateway_candidate(self, text): return text
+    def gateway_candidate(self, text):
+        require(digest(text.encode()) == GATEWAY_BASELINE, 'Director gateway baseline differs')
+        require('@backoffice_get' not in text and '@backoffice_post' not in text,
+                'Director gateway routes already present')
+        anchor = '\t@catalog_admin_get {'
+        require(text.count(anchor) == 1, 'Director gateway insertion boundary differs')
+        headers = re.findall(r'(\t@synthetic_surfaces \{\n\t\tnot path )([^\n]+)(\n\t\})', text)
+        require(len(headers) == 1 and '/v1/admin/backoffice/*' not in headers[0][1].split(),
+                'Director data header baseline differs')
+        canonical = (market.REPO/'infra/public-staging/gateway.Caddyfile').read_text()
+        start, end = '\t@backoffice_get {', '\t@published_content {'
+        require(canonical.count(start) == 1 and canonical.count(end) == 1,
+                'Canonical director route boundaries differ')
+        block = canonical[canonical.index(start):canonical.index(end)]
+        require(block.count('\thandle @backoffice_get {') == 1 and
+                block.count('\t@backoffice_post {') == 1 and
+                block.count('\thandle @backoffice_post {') == 1 and
+                block.count('\treverse_proxy pickchick-staging-api-1:3100 {') == 2,
+                'Canonical director route blocks differ')
+        prefix, paths, suffix = headers[0]
+        old_header = prefix + paths + suffix
+        new_header = prefix + '/v1/admin/backoffice/* ' + paths + suffix
+        candidate = text.replace(old_header, new_header, 1).replace(anchor, block + anchor, 1)
+        require(candidate.replace(block, '', 1).replace(new_header, old_header, 1) == text,
+                'Existing gateway routes changed')
+        return candidate
     def prepare_public(self, target, manifest): return manifest
     def prepare_api(self, target):
         old = REMOTE+'/releases/'+BASELINE
