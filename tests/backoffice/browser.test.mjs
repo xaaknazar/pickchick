@@ -27,12 +27,44 @@ test('browser editor uses real HTTP manager/revision backend: 24 SKU, forms, imm
           const child = spawn(
             process.env.BACKOFFICE_TEST_PYTHON ?? 'python3',
             [fileURLToPath(new URL('browser_ui.py', import.meta.url)), file],
-            { stdio: ['ignore', 'pipe', 'pipe'] },
+            { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' },
           );
           child.stdout.on('data', (data) => process.stdout.write(data));
           child.stderr.on('data', (data) => process.stderr.write(data));
-          child.on('error', reject);
-          child.on('exit', resolve);
+          console.log('[backoffice browser] Python child started');
+          child.once('exit', (code, signal) => {
+            console.log('[backoffice browser] Python exited', { code, signal });
+            // Only this detached child's group: drain pipes held by orphan driver/browser descendants.
+            if (process.platform !== 'win32') {
+              try {
+                process.kill(-child.pid, 'SIGKILL');
+              } catch {
+                /* group already closed */
+              }
+            }
+          });
+          let timedOut = false;
+          const timer = setTimeout(() => {
+            timedOut = true;
+            console.error('[backoffice browser] hard timeout after 120s');
+            if (process.platform !== 'win32') {
+              try {
+                process.kill(-child.pid, 'SIGKILL');
+              } catch {
+                child.kill('SIGKILL');
+              }
+            } else child.kill('SIGKILL');
+          }, 120000);
+          child.once('error', (error) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+          child.once('close', (code, signal) => {
+            clearTimeout(timer);
+            if (timedOut) reject(new Error('Backoffice Python browser exceeded 120s hard timeout'));
+            else if (signal) reject(new Error(`Backoffice Python browser terminated by ${signal}`));
+            else resolve(code);
+          });
         });
         assert.equal(exit, 0, 'Browser catalog flow must pass');
         assert.equal(
