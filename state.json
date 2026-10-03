@@ -2063,11 +2063,11 @@
         "packages/backoffice-core/tests/commerce.test.mjs",
         "packages/fulfillment-transport/package.json"
       ],
-      "status": "available",
+      "status": "done",
       "head": "0343e48e4fa0f4029a09d6bafdbe4eb9571d597a",
-      "updatedAt": "2026-10-03T09:40:50.754Z",
-      "summary": "Published 0343e48e4fa0f4029a09d6bafdbe4eb9571d597a source cashier reports. 66 PostgreSQL regressions and 14 unit passed; final bounded queue fix passed 4 dedicated PostgreSQL+HTTP tests. Builds/lint/format pass. No installation or live financial mutations.",
-      "nextAction": "Parent integrates UI/migrations/grants and owns full CI/release/acceptance. Cloud033 plus edge016/new worker/grants required for live data. Quarantined malformed/oversized source remains unacknowledged; coverage explicitly partial. PG55542 retained for shared integration tests."
+      "updatedAt": "2026-10-03T10:34:24.114Z",
+      "summary": "Published 0343e48e4fa0f4029a09d6bafdbe4eb9571d597a source cashier reports. 66 PostgreSQL regressions and 14 unit passed; final bounded queue fix passed 4 dedicated PostgreSQL+HTTP tests. Builds/lint/format pass. No installation or live financial mutations. Implementation merged unchanged by ancestry into shared 723f688f78e69fcd501a12f7b7b24cb94e4e36cb. Original source SHA 0343e48e4fa0f4029a09d6bafdbe4eb9571d597a. Windows installation NOT performed; current cashier IP is still awaited.",
+      "nextAction": "Root owns exact-source CI 37116304222, deployment gates and later Windows installation after current IP is supplied. This closes implementation ownership only; no installation, CI or release acceptance claimed."
     },
     {
       "id": "director-cashier-upgrade",
@@ -2078,11 +2078,11 @@
         "infra/windows/cashier-reports-upgrade.md",
         "tests/operations/windows-cashier-reports-upgrade.test.mjs"
       ],
-      "status": "available",
+      "status": "done",
       "head": "576c21bb74c62ec47871935057773287040376c4",
-      "updatedAt": "2026-10-03T09:51:02.609Z",
-      "summary": "576c21b опубликован: guarded016 DB helper, отдельныйworker operator профиль, populated PG resume/grants тест; lint/format прошли. Windows read-only недоступен: mDNSнеразрешается, pinnedIP timeout. Установка не выполнялась.",
-      "nextAction": "Интегрировать576c21b; актуализировать CI/backup gates, проверить фактический separateworker XML и прогнать Windows rehearsal перед разрешенным деплоем. PG55542 оставлен для root."
+      "updatedAt": "2026-10-03T10:34:24.121Z",
+      "summary": "576c21b опубликован: guarded016 DB helper, отдельныйworker operator профиль, populated PG resume/grants тест; lint/format прошли. Windows read-only недоступен: mDNSнеразрешается, pinnedIP timeout. Установка не выполнялась. Implementation merged unchanged by ancestry into shared 723f688f78e69fcd501a12f7b7b24cb94e4e36cb. Original source SHA 576c21bb74c62ec47871935057773287040376c4. Windows installation NOT performed; current cashier IP is still awaited.",
+      "nextAction": "Root owns exact-source CI 37116304222, deployment gates and later Windows installation after current IP is supplied. This closes implementation ownership only; no installation, CI or release acceptance claimed."
     },
     {
       "id": "director-live-data",
