@@ -3,6 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { forgeAdvisory, verifyNodeForgePatch } from './node-forge-security.mjs';
 
+import { bracesAdvisory, verifyBracesPatch } from './braces-security.mjs';
+
 /** Exception applies only after all installed Expo consumers pass executable validation. */
 export function blockingAdvisories(report) {
   assert.ok(
@@ -25,11 +27,19 @@ export function blockingAdvisories(report) {
       item.findings.every((finding) => finding.version === '1.4.0')
     )
       return false;
+    if (
+      item.github_advisory_id === bracesAdvisory &&
+      item.module_name === 'braces' &&
+      item.findings?.length &&
+      item.findings.every((finding) => finding.version === '3.0.3')
+    )
+      return false;
     return ['high', 'critical'].includes(item.severity);
   });
 }
 export function auditedRelease() {
   verifyNodeForgePatch();
+  verifyBracesPatch();
   const result = spawnSync('pnpm', ['audit', '--json'], {
     encoding: 'utf8',
     maxBuffer: 8 * 1024 * 1024,
@@ -43,7 +53,7 @@ export function auditedRelease() {
       `Dependency audit blocked: ${blocked.map((item) => `${item.module_name} ${item.github_advisory_id}`).join(', ')}`,
     );
   console.log(
-    `Dependency audit passed high/critical gate; ${forgeAdvisory} validated by installed patch and RSA regressions. Lower findings: ${report.metadata.vulnerabilities.moderate} moderate.`,
+    `Dependency audit passed high/critical gate; ${forgeAdvisory} and ${bracesAdvisory} validated by installed patches and executable regressions. Lower findings: ${report.metadata.vulnerabilities.moderate} moderate.`,
   );
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) auditedRelease();

@@ -9,6 +9,7 @@ overrides:
   brace-expansion@5.0.9: 5.0.11
 
 patchedDependencies:
+  braces@3.0.3: f07ff9d4f414f3098095620789bde1052e6a9939666d05e2ab70c34ed0c76012
   node-forge@1.4.0: f62abad2a9dd9648c682496678d3fb749967ab24293a6a469660ad0f20d92521
 
 importers:
@@ -178,6 +179,9 @@ importers:
       '@expo/vector-icons':
         specifier: 15.1.1
         version: 15.1.1(expo-font@57.0.3)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.4)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../../packages/catalog-admin
       '@pickchick/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -6264,7 +6268,7 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
-  braces@3.0.3:
+  braces@3.0.3(patch_hash=f07ff9d4f414f3098095620789bde1052e6a9939666d05e2ab70c34ed0c76012):
     dependencies:
       fill-range: 7.1.1
 
@@ -7677,7 +7681,7 @@ snapshots:
 
   micromatch@4.0.8:
     dependencies:
-      braces: 3.0.3
+      braces: 3.0.3(patch_hash=f07ff9d4f414f3098095620789bde1052e6a9939666d05e2ab70c34ed0c76012)
       picomatch: 2.3.2
 
   mime-db@1.52.0: {}
