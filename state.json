@@ -2256,20 +2256,6 @@
       "updatedAt": "2026-10-03T19:48:13.020Z"
     },
     {
-      "id": "kiosk-guest-sessions",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-guest-sessions",
-      "scopes": [
-        "packages/commerce-core/src/kiosk-sessions.ts",
-        "packages/commerce-core/tests/kiosk-sessions.postgres.test.mjs",
-        "db/cloud/migrations/035_cloud_kiosk_sessions.sql",
-        "scripts/provision-kiosk.mjs"
-      ],
-      "status": "active",
-      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
-      "updatedAt": "2026-10-03T19:52:49.680Z"
-    },
-    {
       "id": "commercial-channels",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/commercial-channels",
@@ -2319,6 +2305,22 @@
       "status": "active",
       "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
       "updatedAt": "2026-10-03T19:56:21.996Z"
+    },
+    {
+      "id": "kiosk-guest-sessions",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-guest-sessions",
+      "scopes": [
+        "packages/commerce-core/src/kiosk-sessions.ts",
+        "packages/commerce-core/tests/kiosk-sessions.postgres.test.mjs",
+        "db/cloud/migrations/035_cloud_kiosk_sessions.sql",
+        "scripts/provision-kiosk.mjs",
+        "infra/staging/commercial-channel-grants.mjs",
+        "tests/unit/commercial-channel-grants.test.mjs"
+      ],
+      "status": "active",
+      "head": "efd6ca18ba6a763a17f6177a6945b698e1e72fd7",
+      "updatedAt": "2026-10-03T20:04:46.397Z"
     }
   ]
 }
