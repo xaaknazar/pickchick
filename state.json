@@ -2085,6 +2085,35 @@
       "status": "active",
       "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
       "updatedAt": "2026-10-03T09:14:02.676Z"
+    },
+    {
+      "id": "director-catalog-live",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-catalog-live",
+      "scopes": [
+        "packages/catalog-admin",
+        "packages/catalog-pricing",
+        "apps/backoffice/src/domain.ts",
+        "apps/backoffice/src/model.ts",
+        "apps/backoffice/src/editor.ts",
+        "services/api/src/catalog-admin-controller.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "services/api/src/index.ts",
+        "packages/commerce-core/src/customer-checkout.ts",
+        "apps/mobile/src/api.ts",
+        "apps/mobile/src/catalog.ts",
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/commerce-checkout.ts",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/package.json",
+        "tests/integration/catalog-mobile-live.test.mjs",
+        "tests/mobile/published-catalog.test.mjs",
+        "packages/contracts/openapi.json"
+      ],
+      "status": "active",
+      "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
+      "updatedAt": "2026-10-03T09:15:23.110Z"
     }
   ]
 }
