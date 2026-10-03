@@ -28,6 +28,7 @@ function syncOperations() {
     void operations.load(model.actor.id, branch);
 }
 
+let choosingCustom = false;
 let query = '',
   category = '',
   localError = '';
@@ -191,9 +192,12 @@ function render() {
         label!,
         () => {
           if (id === 'custom') {
-            operations.period = 'custom';
+            choosingCustom = true;
             render();
-          } else void operations.load(operations.actor, operations.branch, id, {});
+          } else {
+            choosingCustom = false;
+            void operations.load(operations.actor, operations.branch, id, {});
+          }
         },
         operations.period === id ? 'selected' : '',
         'period-' + id,
@@ -213,7 +217,7 @@ function render() {
       ),
     );
     header.append(tools);
-    if (operations.period === 'custom') {
+    if (choosingCustom || operations.period === 'custom') {
       const dates = el('form', 'date-range');
       const start = field('С даты', operations.filters.startDate ?? '', () => {}, {
         id: 'period-start',
