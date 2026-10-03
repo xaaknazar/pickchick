@@ -5,6 +5,7 @@ CREATE TABLE kiosk_devices (
  branch_id uuid NOT NULL REFERENCES branches(id),
  token_hash text NOT NULL CHECK (token_hash ~ '^[0-9a-f]{64}$'),
  active boolean NOT NULL DEFAULT true,
+ lock_anchor boolean NOT NULL DEFAULT false,
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  UNIQUE(id,organization_id,branch_id)
 );

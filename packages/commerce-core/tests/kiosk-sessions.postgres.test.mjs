@@ -1,3 +1,8 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
@@ -112,7 +117,19 @@ async function fixture(run) {
       );
       return { ...created, payment, scope };
     }
-    await run({ pool, sessions, org, branch, device, token, key, start, order });
+    await run({
+      pool,
+      sessions,
+      org,
+      branch,
+      device,
+      token,
+      key,
+      start,
+      order,
+      connection: url.toString(),
+      schema,
+    });
   } finally {
     await pool.end();
     await admin.query(`DROP SCHEMA ${schema} CASCADE`);
@@ -327,4 +344,78 @@ test('strict start input and bounded active sessions preserve idempotent replay'
     );
     await f.sessions.end(a.sessionId);
     await f.start();
+  }));
+
+test('provision CLI writes exclusive private credentials, emits no secrets, removes failed output', () =>
+  fixture(async (f) => {
+    const directory = await mkdtemp(join(tmpdir(), 'pickchick-kiosk-'));
+    try {
+      const output = join(directory, 'device.json'),
+        script = fileURLToPath(new URL('../../../scripts/provision-kiosk.mjs', import.meta.url));
+      const args = [script, '--organization', f.org, '--branch', f.branch, '--output', output];
+      const result = await promisify(execFile)(process.execPath, args, {
+        env: { ...process.env, CLOUD_DATABASE_URL: f.connection },
+      });
+      const credentials = JSON.parse(await readFile(output, 'utf8'));
+      assert.equal((await stat(output)).mode & 0o777, 0o600);
+      assert.equal(credentials.organizationId, f.org);
+      assert.equal(credentials.branchId, f.branch);
+      assert.match(credentials.deviceToken, /^[0-9a-f]{64}$/);
+      assert.ok(!result.stdout.includes(credentials.deviceToken));
+      assert.ok(!result.stderr.includes(credentials.deviceToken));
+      assert.equal(
+        (
+          await f.pool.query('SELECT token_hash FROM kiosk_devices WHERE id=$1', [
+            credentials.deviceId,
+          ])
+        ).rows[0].token_hash,
+        hash(credentials.deviceToken),
+      );
+      await assert.rejects(
+        promisify(execFile)(process.execPath, args, {
+          env: { ...process.env, CLOUD_DATABASE_URL: f.connection },
+        }),
+      );
+      assert.equal(JSON.parse(await readFile(output, 'utf8')).deviceToken, credentials.deviceToken);
+      const failed = join(directory, 'failed.json');
+      await assert.rejects(
+        promisify(execFile)(
+          process.execPath,
+          [script, '--organization', f.org, '--branch', randomUUID(), '--output', failed],
+          { env: { ...process.env, CLOUD_DATABASE_URL: f.connection } },
+        ),
+      );
+      await assert.rejects(stat(failed), (e) => e.code === 'ENOENT');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }));
+test('runtime starts and updates sessions with device lock-anchor column privilege only', () =>
+  fixture(async (f) => {
+    const role = 'kiosk_runtime_' + randomUUID().replaceAll('-', '');
+    await f.pool.query(`CREATE ROLE ${role}`);
+    let runtime;
+    try {
+      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      await f.pool.query(`GRANT SELECT,UPDATE(lock_anchor) ON kiosk_devices TO ${role}`);
+      await f.pool.query(
+        `GRANT SELECT,INSERT,UPDATE(ended_at,phone_ciphertext,phone_nonce,phone_tag,phone_expires_at) ON kiosk_sessions TO ${role}`,
+      );
+      const url = new URL(f.connection);
+      url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 1);
+      const sessions = new KioskSessions(runtime, { piiKey: f.key }),
+        input = { sessionId: randomUUID(), token: secret() };
+      await sessions.start(f.device, f.token, input);
+      await sessions.setPhone(input.sessionId, '+77000000000');
+      await sessions.end(input.sessionId);
+      await assert.rejects(
+        runtime.query('UPDATE kiosk_devices SET active=false WHERE id=$1', [f.device]),
+        (e) => e.code === '42501',
+      );
+    } finally {
+      if (runtime) await runtime.end();
+      await f.pool.query(`DROP OWNED BY ${role}`);
+      await f.pool.query(`DROP ROLE ${role}`);
+    }
   }));
