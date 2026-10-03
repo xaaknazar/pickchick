@@ -2028,27 +2028,6 @@
       "nextAction": "Parent director-console owns full CI, release and acceptance. Operational runtime shift replication remains a documented gap."
     },
     {
-      "id": "director-live-data",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-live-data",
-      "scopes": [
-        "docs/operations/director-console.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "docs/01-technical-spec.md",
-        "apps/backoffice/src/operations.ts",
-        "apps/backoffice/src/operations-model.ts",
-        "apps/backoffice/src/app.ts",
-        "tests/backoffice/browser_operations.py",
-        "tests/backoffice/operations-model.test.mjs",
-        "@vps/roadmap"
-      ],
-      "status": "active",
-      "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
-      "updatedAt": "2026-10-03T09:10:26.057Z"
-    },
-    {
       "id": "director-ci",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-ci",
@@ -2114,6 +2093,28 @@
       "status": "active",
       "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
       "updatedAt": "2026-10-03T09:15:23.110Z"
+    },
+    {
+      "id": "director-live-data",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-live-data",
+      "scopes": [
+        "docs/operations/director-console.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/01-technical-spec.md",
+        "apps/backoffice/src/operations.ts",
+        "apps/backoffice/src/operations-model.ts",
+        "apps/backoffice/src/app.ts",
+        "tests/backoffice/browser_operations.py",
+        "tests/backoffice/operations-model.test.mjs",
+        "@vps/roadmap",
+        "tests/backoffice/browser_operations.test.mjs"
+      ],
+      "status": "active",
+      "head": "0d4c06b59894857ad1709297d9e3e0543dfe45a5",
+      "updatedAt": "2026-10-03T09:22:01.604Z"
     }
   ]
 }
