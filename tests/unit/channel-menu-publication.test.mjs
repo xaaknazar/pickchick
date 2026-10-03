@@ -1,7 +1,11 @@
 /* global structuredClone */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { projectCatalogMenu, localSelectionIds } from '../../packages/menu-sync/dist/index.js';
+import {
+  projectCatalogMenu,
+  localSelectionIds,
+  localCatalogId,
+} from '../../packages/menu-sync/dist/index.js';
 import { mockupCatalogDraft } from '../../packages/catalog-admin/dist/seed.js';
 const branch = '10000000-0000-4000-8000-000000000003';
 const at = '2026-10-04T00:00:00.000Z';
@@ -46,4 +50,66 @@ test('unavailable products are excluded without changing stable identities', () 
     ),
     false,
   );
+});
+
+test('all reviewed default baskets have identical mobile, kiosk and installed POS totals', async () => {
+  const { priceCart } = await import('../../packages/local-orders/dist/pricing.js');
+  const { priceCatalogSnapshot, catalogPayloadHash } =
+    await import('../../packages/catalog-pricing/dist/index.js');
+  const payload = structuredClone(mockupCatalogDraft);
+  payload.content_reviewed = true;
+  const menu = projectCatalogMenu(payload, branch, 1, at);
+  const org = '10000000-0000-4000-8000-000000000001';
+  const publication = {
+    reference: {
+      organizationId: org,
+      branchId: branch,
+      version: 1,
+      payloadHash: catalogPayloadHash(payload),
+      publishedAt: at,
+    },
+    orderingEnabled: true,
+    payload,
+  };
+  for (const product of payload.products) {
+    const selections = product.modifier_groups.flatMap((g) =>
+      g.options
+        .filter((o) => o.default_quantity > 0)
+        .map((o) => ({ group_id: g.id, option_id: o.id, quantity: o.default_quantity })),
+    );
+    const cart = {
+      catalog_version: 1,
+      service_mode: 'takeaway',
+      items: [{ sku: product.sku, quantity: 2, selections }],
+    };
+    const mobile = priceCatalogSnapshot(
+      publication,
+      { organizationId: org, branchId: branch, customerId: null, channel: 'mobile' },
+      cart,
+    );
+    const kiosk = priceCatalogSnapshot(
+      publication,
+      { organizationId: org, branchId: branch, customerId: null, channel: 'kiosk' },
+      cart,
+    );
+    const item = menu.items.find(
+      (i) => i.variant_id === localSelectionIds(branch, product.id, [])[0],
+    );
+    const modifiers = selections.map((s) => ({
+      group_id: localCatalogId(branch, 'modifier-group', `${product.id}:${s.group_id}`),
+      option_id: localCatalogId(
+        branch,
+        'modifier-option',
+        `${product.id}:${s.group_id}:${s.option_id}`,
+      ),
+      quantity: s.quantity,
+    }));
+    const pos = priceCart(menu, {
+      release_id: menu.release_id,
+      service_mode: 'takeaway',
+      items: [{ variant_id: item.variant_id, quantity: 2, modifiers }],
+    });
+    assert.equal(mobile.totalMinor, kiosk.totalMinor, product.sku);
+    assert.equal(mobile.totalMinor, pos.total_minor, product.sku);
+  }
 });

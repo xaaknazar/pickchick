@@ -510,3 +510,12 @@ test('fresh multi-station login starts at preparation even when assembly is retu
   await model.importCredential(JSON.stringify(f.c));
   assert.equal(model.state.stationId, f.station);
 });
+
+test('kitchen accepts explicit kiosk source and rejects unrecognized channels', async () => {
+  const { order } = await import('../dist/types.js');
+  const f = fixture();
+  const original = f.o;
+  assert.ok(original);
+  assert.equal(order({ ...original, channel: 'kiosk' }, original.branchId).channel, 'kiosk');
+  assert.throws(() => order({ ...original, channel: 'other' }, original.branchId));
+});
