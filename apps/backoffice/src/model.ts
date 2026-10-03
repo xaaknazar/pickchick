@@ -1,6 +1,6 @@
-import { catalogHasChannelPrices } from '@pickchick/catalog-admin/contracts';
 import {
   copy,
+  catalogHasChannelPrices,
   parsePayload,
   parseState,
   payloadIssues,
