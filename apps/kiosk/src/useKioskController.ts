@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { KioskController } from './controller';
-import { createKioskIO } from './storage';
+import { CommercialKioskController } from './commercial-controller';
+import { commercialKioskEnabled } from './commercial-api';
+import { createCommercialKioskIO, createKioskIO } from './storage';
 import type { KioskModel } from './model';
 
 export default function useKioskController(): KioskModel {
-  const controller = useMemo(() => new KioskController(createKioskIO()), []);
+  const controller = useMemo(
+    () =>
+      commercialKioskEnabled
+        ? new CommercialKioskController(createCommercialKioskIO())
+        : new KioskController(createKioskIO()),
+    [],
+  );
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
@@ -70,6 +78,8 @@ export default function useKioskController(): KioskModel {
     openCart: controller.openCart,
     goLoyalty: controller.goLoyalty,
     setPaymentMethod: controller.setPaymentMethod,
+    setInvoicePhone:
+      controller instanceof CommercialKioskController ? controller.setInvoicePhone : undefined,
     addToCart: controller.addToCart,
     updateQuantity: controller.updateQuantity,
     beginPayment: controller.beginPayment,

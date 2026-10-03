@@ -282,7 +282,7 @@ export function ProductScreen({
             <Button
               testID="kiosk-product-add"
               label={price ? `${t.toCart} · ${price}` : t.required}
-              disabled={!valid}
+              disabled={!valid || product.available === false}
               busy={model.busy}
               onPress={() => void model.addToCart(product.id, selections, quantity)}
               style={{ flex: 1, minHeight: px(120) }}
