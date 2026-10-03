@@ -33,6 +33,11 @@ with sync_playwright() as pw:
  expect(at('period-year')).to_have_attribute('aria-pressed','true')
  start=(datetime.now()-timedelta(days=2)).strftime('%Y-%m-%d')
  end=datetime.now().strftime('%Y-%m-%d')
+ at('period-start').fill(start);at('period-end').fill(end)
+ with page.expect_response(snapshot_response) as pending:at('op-refresh').click()
+ assert parse_qs(urlparse(pending.value.url).query)['period']==['year']
+ expect(at('period-start')).to_have_value(start);expect(at('period-end')).to_have_value(end)
+ expect(at('period-year')).to_have_attribute('aria-pressed','true')
  at('period-start').fill(end);at('period-end').fill(start);at('period-apply').click()
  assert not at('period-end').evaluate('(e)=>e.validity.valid')
  at('period-start').fill(start);at('period-end').fill(end)

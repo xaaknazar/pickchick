@@ -29,6 +29,8 @@ function syncOperations() {
 }
 
 let choosingCustom = false;
+let customStart = '';
+let customEnd = '';
 let query = '',
   category = '',
   localError = '';
@@ -192,6 +194,10 @@ function render() {
         label!,
         () => {
           if (id === 'custom') {
+            if (!choosingCustom) {
+              customStart = operations.filters.startDate ?? '';
+              customEnd = operations.filters.endDate ?? '';
+            }
             choosingCustom = true;
             render();
           } else {
@@ -219,12 +225,28 @@ function render() {
     header.append(tools);
     if (choosingCustom || operations.period === 'custom') {
       const dates = el('form', 'date-range');
-      const start = field('С даты', operations.filters.startDate ?? '', () => {}, {
-        id: 'period-start',
-      });
-      const end = field('По дату', operations.filters.endDate ?? '', () => {}, {
-        id: 'period-end',
-      });
+      const start = field(
+        'С даты',
+        choosingCustom ? customStart : (operations.filters.startDate ?? ''),
+        (value) => {
+          customStart = value;
+          choosingCustom = true;
+        },
+        {
+          id: 'period-start',
+        },
+      );
+      const end = field(
+        'По дату',
+        choosingCustom ? customEnd : (operations.filters.endDate ?? ''),
+        (value) => {
+          customEnd = value;
+          choosingCustom = true;
+        },
+        {
+          id: 'period-end',
+        },
+      );
       const startInput = start.querySelector('input')!;
       const endInput = end.querySelector('input')!;
       startInput.type = endInput.type = 'date';
