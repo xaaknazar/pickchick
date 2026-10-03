@@ -2251,9 +2251,11 @@
         "apps/kiosk",
         "tests/kiosk"
       ],
-      "status": "active",
-      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
-      "updatedAt": "2026-10-03T19:48:13.020Z"
+      "status": "done",
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-03T20:33:01.707Z",
+      "summary": "Commercial kiosk client integrated in PR https://github.com/xaaknazar/pickchick/pull/171; source commits 897eb38 and 686528d preserved as parents of shared 3fabe7c. Own branch fast-forwarded and pushed; remote SHA verified. Client checks: 45 tests, typecheck/lint/format/diffcheck passed; Impeccable=[] and iOS export of initial client with commercial flag passed. Local six-line dependency lock patch preserved in .local and superseded by reviewed shared lockfile. No deploy or provider operations.",
+      "nextAction": "Native operator enrollment, physical iPad SecureStore/restore/privacy/keyboard acceptance and server-to-device commercial E2E remain pending; root coordinates CI, migrations, grants and later deployment."
     },
     {
       "id": "kiosk-guest-sessions",
