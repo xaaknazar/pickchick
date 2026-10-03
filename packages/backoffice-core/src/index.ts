@@ -11,7 +11,7 @@ import {
   Schemas,
   Recipe,
   type Kind,
-  periodStart,
+  periodWindow,
   stockEffect,
 } from './model.js';
 export * from './model.js';
@@ -124,7 +124,9 @@ export class Backoffice {
       await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
       const actor = await this.scope(db, token, branch);
       const now = new Date(),
-        start = periodStart(q.period, now);
+        { start, end } = periodWindow(q, now);
+      // Runtime cashier shifts are not replicated into the commerce projection.
+      if (q.shift_id) throw new ErrorCode('NOT_READY');
       const rows = async (sql: string, args: unknown[] = [branch]) =>
         (await db.query(sql, args)).rows;
       const records = await rows(
@@ -134,47 +136,65 @@ export class Backoffice {
         `SELECT r.id,r.payload,b.quantity::text,b.value_minor::text,b.revision FROM bo_records r LEFT JOIN bo_stock_balances b ON b.branch_id=r.branch_id AND b.ingredient_id=r.id WHERE r.branch_id=$1 AND r.kind='ingredient' ORDER BY r.payload->>'name',r.id`,
       );
       const orders = await rows(
-        `SELECT o.id,o.created_at,o.total_minor::text,o.version::text,o.state,o.snapshot->>'channel' channel,'cloud' owner,p.state payment_state,f.state kitchen_state,f.observed_at,
+        `SELECT o.id,o.created_at,o.total_minor::text,o.version::text,o.state,o.snapshot->>'channel' channel,'cloud' owner,p.state payment_state,f.state kitchen_state,f.observed_at,f.display_number::text,
     (SELECT coalesce(sum(c.amount_minor),0)::text FROM commerce_captures c WHERE c.order_id=o.id) captured_minor,
     (SELECT coalesce(sum(r.amount_minor),0)::text FROM commerce_refund_effects r WHERE r.order_id=o.id) refunded_minor
-    FROM commerce_orders o LEFT JOIN commerce_payment_intents p ON p.order_id=o.id LEFT JOIN cloud_fulfillment_projection f ON f.order_id=o.id WHERE o.branch_id=$1 AND o.created_at >= $2 ORDER BY o.created_at DESC,o.id LIMIT 200`,
-        [branch, start],
+    FROM commerce_orders o LEFT JOIN commerce_payment_intents p ON p.order_id=o.id LEFT JOIN cloud_fulfillment_projection f ON f.order_id=o.id WHERE o.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 ORDER BY o.created_at DESC,o.id LIMIT 201`,
+        [branch, start, end],
       );
       const pos = await rows(
-        `SELECT p.order_id id,p.first_observed_at created_at,p.total_minor::text,p.version::text,p.state,'pos' channel,p.commercial_owner owner,p.payment_state,coalesce(k.state,p.fulfillment_state) kitchen_state,coalesce(k.observed_at,p.updated_at) observed_at,p.execution_mode FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.branch_id=$1 AND p.first_observed_at >= $2 ORDER BY p.first_observed_at DESC,p.order_id LIMIT 200`,
-        [branch, start],
+        `SELECT p.order_id id,p.first_observed_at created_at,p.total_minor::text,p.version::text,p.state,'pos' channel,p.commercial_owner owner,p.payment_state,coalesce(k.state,p.fulfillment_state) kitchen_state,coalesce(k.observed_at,p.updated_at) observed_at,p.execution_mode FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.branch_id=$1 AND p.first_observed_at >= $2 AND p.first_observed_at < $3 ORDER BY p.first_observed_at DESC,p.order_id LIMIT 201`,
+        [branch, start, end],
       );
       const metrics = (
         await rows(
           `SELECT
-    (SELECT count(*)::int FROM commerce_orders WHERE branch_id=$1 AND created_at >= $2) orders,
-    (SELECT count(*)::int FROM cloud_fulfillment_projection f JOIN commerce_orders o ON o.id=f.order_id WHERE o.branch_id=$1 AND o.created_at >= $2 AND f.state='handed_over') handed_over,
-    (SELECT coalesce(sum(c.amount_minor),0)::text FROM commerce_captures c JOIN commerce_orders o ON o.id=c.order_id WHERE o.branch_id=$1 AND c.occurred_at >= $2) captured_minor,
-    (SELECT coalesce(sum(r.amount_minor),0)::text FROM commerce_refund_effects r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 AND r.occurred_at >= $2) refunded_minor,
-    (SELECT count(*)::int FROM commerce_payment_attempts p JOIN commerce_orders o ON o.id=p.order_id WHERE o.branch_id=$1 AND p.state='unknown') unknown_payments,
-    ((SELECT count(*)::int FROM cloud_fulfillment_projection WHERE branch_id=$1 AND state IN ('accepted','in_production')) + (SELECT count(*)::int FROM pos_kitchen_sync_projection WHERE branch_id=$1 AND state IN ('accepted','in_production'))) kitchen_active,
-    (SELECT count(*)::int FROM pos_order_sync_projection WHERE branch_id=$1 AND first_observed_at >= $2) pos_orders,
-    (SELECT coalesce(sum(o.total_minor),0)::text FROM commerce_orders o JOIN cloud_fulfillment_projection f ON f.order_id=o.id WHERE o.branch_id=$1 AND o.created_at >= $2 AND f.state='handed_over') completed_total_minor`,
-          [branch, start],
+    (SELECT count(*)::int FROM commerce_orders WHERE branch_id=$1 AND created_at >= $2 AND created_at < $3) orders,
+    (SELECT count(*)::int FROM cloud_fulfillment_projection f JOIN commerce_orders o ON o.id=f.order_id WHERE o.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 AND f.state='handed_over') handed_over,
+    (SELECT coalesce(sum(c.amount_minor),0)::text FROM commerce_captures c JOIN commerce_orders o ON o.id=c.order_id WHERE o.branch_id=$1 AND c.occurred_at >= $2 AND c.occurred_at < $3) captured_minor,
+    (SELECT coalesce(sum(r.amount_minor),0)::text FROM commerce_refund_effects r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 AND r.occurred_at >= $2 AND r.occurred_at < $3) refunded_minor,
+    (SELECT count(*)::int FROM commerce_payment_attempts p JOIN commerce_orders o ON o.id=p.order_id WHERE o.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 AND p.state='unknown') unknown_payments,
+    ((SELECT count(*)::int FROM cloud_fulfillment_projection f JOIN commerce_orders o ON o.id=f.order_id WHERE f.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 AND f.state IN ('accepted','in_production')) + (SELECT count(*)::int FROM pos_kitchen_sync_projection k JOIN pos_order_sync_projection p ON p.order_id=k.order_id AND p.branch_id=k.branch_id WHERE k.branch_id=$1 AND p.first_observed_at >= $2 AND p.first_observed_at < $3 AND k.state IN ('accepted','in_production'))) kitchen_active,
+    (SELECT count(*)::int FROM pos_order_sync_projection WHERE branch_id=$1 AND first_observed_at >= $2 AND first_observed_at < $3) pos_orders,
+    (SELECT coalesce(sum(o.total_minor),0)::text FROM commerce_orders o JOIN cloud_fulfillment_projection f ON f.order_id=o.id WHERE o.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 AND f.state='handed_over') completed_total_minor`,
+          [branch, start, end],
         )
       )[0];
       const chart = await rows(
-        `SELECT (c.occurred_at AT TIME ZONE 'Asia/Almaty')::date::text AS "day",sum(c.amount_minor)::text amount_minor FROM commerce_captures c JOIN commerce_orders o ON o.id=c.order_id WHERE o.branch_id=$1 AND c.occurred_at >= $2 GROUP BY 1 ORDER BY 1`,
-        [branch, start],
+        `SELECT (c.occurred_at AT TIME ZONE 'Asia/Almaty')::date::text AS "day",sum(c.amount_minor)::text amount_minor FROM commerce_captures c JOIN commerce_orders o ON o.id=c.order_id WHERE o.branch_id=$1 AND c.occurred_at >= $2 AND c.occurred_at < $3 GROUP BY 1 ORDER BY 1`,
+        [branch, start, end],
       );
       const finance = await rows(
-        `SELECT d.id,d.order_id,d.kind,d.amount_minor::text,d.state,d.created_at FROM commerce_fiscal_documents d JOIN commerce_orders o ON o.id=d.order_id WHERE o.branch_id=$1 ORDER BY d.created_at DESC,d.id LIMIT 200`,
+        `SELECT d.id,d.order_id,d.kind,d.amount_minor::text,d.state,d.created_at FROM commerce_fiscal_documents d JOIN commerce_orders o ON o.id=d.order_id WHERE o.branch_id=$1 AND d.created_at >= $2 AND d.created_at < $3 ORDER BY d.created_at DESC,d.id LIMIT 201`,
+        [branch, start, end],
       );
       const refunds = await rows(
-        `SELECT r.id,r.order_id,r.amount_minor::text,r.state,r.reason,r.created_at FROM commerce_refunds r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 ORDER BY r.created_at DESC,r.id LIMIT 200`,
+        `SELECT r.id,r.order_id,r.amount_minor::text,r.state,r.reason,r.created_at FROM commerce_refunds r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 AND r.created_at >= $2 AND r.created_at < $3 ORDER BY r.created_at DESC,r.id LIMIT 201`,
+        [branch, start, end],
       );
       const issues = await rows(
-        'SELECT r.id,r.order_id,r.code,r.created_at FROM commerce_reconciliation_issues r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 ORDER BY r.created_at DESC,r.id LIMIT 100',
+        'SELECT r.id,r.order_id,r.code,r.created_at FROM commerce_reconciliation_issues r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 AND r.created_at >= $2 AND r.created_at < $3 ORDER BY r.created_at DESC,r.id LIMIT 101',
+        [branch, start, end],
       );
       const devices = await rows(`SELECT d.id,d.name,d.kind,d.status,
     (SELECT max(received_at) FROM cloud_fulfillment_inbox i WHERE i.device_id=d.id) last_fulfillment_at,
     greatest((SELECT max(received_at) FROM pos_order_sync_inbox p WHERE p.device_id=d.id),(SELECT max(received_at) FROM pos_kitchen_sync_inbox p WHERE p.device_id=d.id)) last_pos_at
     FROM devices d WHERE d.branch_id=$1 ORDER BY d.name,d.id`);
+      const availability = (
+        await rows(`SELECT a.device_id,a.stopped_ids,a.revision::text,a.observed_at,
+        (a.observed_at > clock_timestamp()-interval '30 seconds') fresh
+        FROM cloud_branch_availability a
+        JOIN fulfillment_transport_bindings b ON b.branch_id=a.branch_id AND b.device_id=a.device_id AND b.active
+        JOIN devices d ON d.id=b.device_id AND d.status='active' WHERE a.branch_id=$1`)
+      )[0] ?? { device_id: null, stopped_ids: [], revision: null, observed_at: null, fresh: false };
+      const stoppedItems = await rows(
+        `SELECT p.id,p.name_ru name,'product' kind FROM products p
+        WHERE p.organization_id=$2 AND p.id=ANY($1::uuid[])
+        UNION ALL SELECT v.id,p.name_ru name,'variant' kind FROM product_variants v
+        JOIN products p ON p.id=v.product_id AND p.organization_id=v.organization_id
+        WHERE v.organization_id=$2 AND v.id=ANY($1::uuid[])`,
+        [availability.stopped_ids, actor.organization_id],
+      );
       const kitchen = await rows(
         `SELECT * FROM (SELECT f.order_id,f.state,f.version,f.display_number::text,f.routing_version,f.assembly_station_id,f.observed_at,'cloud' commercial_owner FROM cloud_fulfillment_projection f WHERE f.branch_id=$1 UNION ALL SELECT k.order_id,k.state,k.version,k.display_number::text,k.routing_version,k.assembly_station_id,k.observed_at,'edge_pos' commercial_owner FROM pos_kitchen_sync_projection k WHERE k.branch_id=$1) observations ORDER BY observed_at DESC,order_id LIMIT 200`,
       );
@@ -200,25 +220,42 @@ export class Backoffice {
         role: actor.role,
         as_of: now.toISOString(),
         period_start: start.toISOString(),
+        period_end: end.toISOString(),
+        timezone: 'Asia/Almaty',
+        operational_shift_filter: { available: false, reason: 'runtime_shift_not_replicated' },
         period: q.period,
         records,
         stock,
-        orders,
-        pos,
+        orders: orders.slice(0, 200),
+        pos: pos.slice(0, 200),
         metrics,
         chart,
-        finance,
-        refunds,
-        issues,
+        finance: finance.slice(0, 200),
+        refunds: refunds.slice(0, 200),
+        issues: issues.slice(0, 100),
         devices,
+        availability: {
+          ...availability,
+          stopped_items: stoppedItems,
+          source: 'edge_transport',
+          writable: false,
+        },
         kitchen,
         guests,
         audit,
         catalog_audit,
         documents,
         publications,
-        limits: { orders: 200, records: 2000 },
+        limits: { orders: 200, pos: 200, finance: 200, refunds: 200, issues: 100, records: 2000 },
+        truncated: {
+          orders: orders.length > 200,
+          pos: pos.length > 200,
+          finance: finance.length > 200,
+          refunds: refunds.length > 200,
+          issues: issues.length > 100,
+        },
         capabilities: {
+          operational_shift_filter: false,
           bank_settlement: false,
           push_delivery: false,
           external_reviews: false,

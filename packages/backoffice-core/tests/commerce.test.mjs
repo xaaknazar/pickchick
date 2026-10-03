@@ -215,3 +215,79 @@ test('consumption waits for actual kitchen facts and uses the recipe pinned when
     );
     await assert.rejects(f.pool.query('DELETE FROM bo_order_recipes'), /immutable/);
   }));
+
+test('director calendar bounds financial events, rejects unsupported shift and reports trusted stop freshness', () =>
+  boFixture(async (f) => {
+    const v = await f.reserve();
+    await f.confirm(v);
+    await f.capture(v);
+    const current = await f.bo.read(f.boManager.token, f.branch, { period: 'today' });
+    assert.equal(current.metrics.orders, 1);
+    assert.equal(current.orders.length, 1);
+    assert.equal(current.metrics.captured_minor, '300000');
+    assert.equal(current.timezone, 'Asia/Almaty');
+    assert.equal(current.availability.fresh, false);
+    const yesterday = await f.bo.read(f.boManager.token, f.branch, { period: 'yesterday' });
+    assert.equal(yesterday.metrics.orders, 0);
+    assert.equal(yesterday.metrics.captured_minor, '0');
+    assert.equal(yesterday.orders.length, 0);
+    assert.equal(yesterday.finance.length, 0);
+    const past = await f.bo.read(f.boManager.token, f.branch, {
+      period: 'custom',
+      start_date: '2024-02-29',
+      end_date: '2024-02-29',
+    });
+    assert.equal(past.orders.length, 0);
+    assert.equal(past.metrics.orders, 0);
+    assert.equal(past.metrics.captured_minor, '0');
+    assert.equal(past.finance.length, 0);
+    assert.equal(past.refunds.length, 0);
+    assert.equal(past.chart.length, 0);
+    assert.deepEqual(past.truncated, {
+      orders: false,
+      pos: false,
+      finance: false,
+      refunds: false,
+      issues: false,
+    });
+    await assert.rejects(
+      f.bo.read(f.boManager.token, f.branch, { shift_id: randomUUID() }),
+      /NOT_READY/,
+    );
+    await assert.rejects(
+      f.bo.read(f.boManager.token, randomUUID(), { shift_id: randomUUID() }),
+      /FORBIDDEN/,
+    );
+    const category = randomUUID(),
+      product = randomUUID(),
+      variant = randomUUID(),
+      unknown = randomUUID();
+    await f.pool.query(
+      "INSERT INTO categories(id,organization_id,name_ru,name_kk) VALUES($1,$2,'Synthetic','Synthetic')",
+      [category, f.scope.organizationId],
+    );
+    await f.pool.query(
+      "INSERT INTO products(id,organization_id,category_id,name_ru,name_kk) VALUES($1,$2,$3,'Synthetic item','Synthetic item')",
+      [product, f.scope.organizationId, category],
+    );
+    await f.pool.query(
+      "INSERT INTO product_variants(id,organization_id,product_id,sku) VALUES($1,$2,$3,'Synthetic sku')",
+      [variant, f.scope.organizationId, product],
+    );
+    await f.pool.query(
+      'INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids) VALUES($1,$2,1,$3::uuid[])',
+      [f.branch, f.auth.deviceId, [variant, unknown]],
+    );
+    const stops = (await f.bo.read(f.boManager.token, f.branch)).availability;
+    assert.deepEqual(stops.stopped_items, [
+      { id: variant, name: 'Synthetic item', kind: 'variant' },
+    ]);
+    assert.deepEqual(stops.stopped_ids, [variant, unknown]);
+    assert.equal((await f.bo.read(f.boManager.token, f.branch)).availability.fresh, true);
+    await f.pool.query(
+      "UPDATE cloud_branch_availability SET observed_at=clock_timestamp()-interval '31 seconds'",
+    );
+    assert.equal((await f.bo.read(f.boManager.token, f.branch)).availability.fresh, false);
+    await f.pool.query("UPDATE devices SET status='revoked' WHERE id=$1", [f.auth.deviceId]);
+    assert.equal((await f.bo.read(f.boManager.token, f.branch)).availability.observed_at, null);
+  }));

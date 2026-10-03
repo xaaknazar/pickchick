@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stockEffect, periodStart, parse, Request, Schemas } from '../dist/model.js';
+import {
+  stockEffect,
+  periodStart,
+  periodWindow,
+  Query,
+  parse,
+  Request,
+  Schemas,
+} from '../dist/model.js';
 test('warehouse valuation uses integer proportional cost and removes the final remainder', () => {
   assert.deepEqual(
     stockEffect(
@@ -91,4 +99,35 @@ test('command boundary forbids duplicated stock lines and unvalidated remote gam
       }),
     /INVALID_REQUEST/,
   );
+});
+
+test('calendar ranges include yesterday, current year and inclusive custom dates', () => {
+  const range = (query, at = '2026-01-01T19:00:00Z') => {
+    const w = periodWindow(parse(Query, query), new Date(at));
+    return [w.start.toISOString(), w.end.toISOString()];
+  };
+  assert.deepEqual(range({ period: 'yesterday' }), [
+    '2025-12-31T19:00:00.000Z',
+    '2026-01-01T19:00:00.000Z',
+  ]);
+  assert.deepEqual(range({ period: 'year' }), [
+    '2025-12-31T19:00:00.000Z',
+    '2026-12-31T19:00:00.000Z',
+  ]);
+  assert.deepEqual(range({ period: 'custom', start_date: '2024-02-29', end_date: '2024-03-01' }), [
+    '2024-02-28T18:00:00.000Z',
+    '2024-03-01T19:00:00.000Z',
+  ]);
+  assert.deepEqual(range({ period: 'week' }, '2026-10-04T19:00:00Z'), [
+    '2026-10-04T19:00:00.000Z',
+    '2026-10-11T19:00:00.000Z',
+  ]);
+  for (const input of [
+    { period: 'custom' },
+    { period: 'custom', start_date: '2026-02-30', end_date: '2026-03-01' },
+    { period: 'custom', start_date: '2026-03-02', end_date: '2026-03-01' },
+    { period: 'custom', start_date: '2024-01-01', end_date: '2026-01-01' },
+    { period: 'day', start_date: '2026-01-01' },
+  ])
+    assert.throws(() => parse(Query, input), /INVALID_REQUEST/);
 });
