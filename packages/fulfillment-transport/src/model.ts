@@ -1,3 +1,4 @@
+import { CashierReportsSchema, CashierReportReceiptSchema } from './cashier-reports.js';
 import { z } from 'zod';
 import {
   CloudCommandSchema,
@@ -6,24 +7,7 @@ import {
   ReleaseResultSchema,
 } from '@pickchick/edge-fulfillment';
 
-export class TransportError extends Error {
-  constructor(
-    readonly code:
-      | 'INVALID_REQUEST'
-      | 'UNAUTHORIZED'
-      | 'FORBIDDEN'
-      | 'NOT_FOUND'
-      | 'CONFLICT'
-      | 'SERVICE_UNAVAILABLE',
-  ) {
-    super(code);
-  }
-}
-export function parse<T>(schema: z.ZodType<T>, value: unknown): T {
-  const result = schema.safeParse(value);
-  if (!result.success) throw new TransportError('INVALID_REQUEST');
-  return result.data;
-}
+export { TransportError, parse } from './errors.js';
 const uuid = z.uuid();
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const sequence = z
@@ -34,8 +18,9 @@ export const TransportScopeSchema = CloudScopeSchema;
 export const PullRequestSchema = z.strictObject({
   workerId: uuid,
   leaseSeconds: z.int().min(15).max(120),
-  protocolVersion: z.literal(2).optional(),
+  protocolVersion: z.union([z.literal(2), z.literal(3)]).optional(),
   availabilityOnly: z.literal(true).optional(),
+  cashierReports: CashierReportsSchema.optional(),
   availability: z
     .strictObject({ revision: sequence, stoppedIds: z.array(uuid).max(5000) })
     .optional(),
@@ -49,6 +34,8 @@ export const DeliverySchema = z.strictObject({ command: TransportCommandSchema, 
 export const PullResponseSchema = z.strictObject({
   scope: TransportScopeSchema,
   event: DeliverySchema.nullable(),
+  cashierReportsSupported: z.literal(true).optional(),
+  cashierReportReceipt: CashierReportReceiptSchema.optional(),
 });
 export const TransportAckSchema = z.strictObject({
   eventId: uuid,

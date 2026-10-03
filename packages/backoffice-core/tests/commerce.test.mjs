@@ -216,7 +216,7 @@ test('consumption waits for actual kitchen facts and uses the recipe pinned when
     await assert.rejects(f.pool.query('DELETE FROM bo_order_recipes'), /immutable/);
   }));
 
-test('director calendar bounds financial events, rejects unsupported shift and reports trusted stop freshness', () =>
+test('director calendar bounds financial events, rejects unknown shift and reports trusted stop freshness', () =>
   boFixture(async (f) => {
     const v = await f.reserve();
     await f.confirm(v);
@@ -249,10 +249,12 @@ test('director calendar bounds financial events, rejects unsupported shift and r
       finance: false,
       refunds: false,
       issues: false,
+      cashier_orders: false,
+      cashier_shifts: false,
     });
     await assert.rejects(
       f.bo.read(f.boManager.token, f.branch, { shift_id: randomUUID() }),
-      /NOT_READY/,
+      /NOT_FOUND/,
     );
     await assert.rejects(
       f.bo.read(f.boManager.token, randomUUID(), { shift_id: randomUUID() }),

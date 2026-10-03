@@ -125,10 +125,80 @@ export class Backoffice {
       const actor = await this.scope(db, token, branch);
       const now = new Date(),
         { start, end } = periodWindow(q, now);
-      // Runtime cashier shifts are not replicated into the commerce projection.
-      if (q.shift_id) throw new ErrorCode('NOT_READY');
+
       const rows = async (sql: string, args: unknown[] = [branch]) =>
         (await db.query(sql, args)).rows;
+      const reportsInstalled =
+        (await rows("SELECT 1 WHERE to_regclass('cloud_cashier_orders') IS NOT NULL", [])).length >
+        0;
+      const shiftRows = reportsInstalled
+        ? await rows(
+            `SELECT * FROM cloud_cashier_shifts WHERE branch_id=$1
+        AND ((payload->>'opened_at')::timestamptz < $3 AND (payload->>'closed_at' IS NULL OR (payload->>'closed_at')::timestamptz >= $2) OR id=$4::uuid)
+        ORDER BY (payload->>'opened_at')::timestamptz DESC,id LIMIT 201`,
+            [branch, start, end, q.shift_id ?? null],
+          )
+        : [];
+      const flattenShift = (row: Record<string, unknown>) => ({
+        ...(row.payload as Record<string, unknown>),
+        id: row.id,
+        device_id: row.device_id,
+        observed_at: row.observed_at,
+      });
+      const selectedRow =
+        q.shift_id && reportsInstalled
+          ? (
+              await rows('SELECT * FROM cloud_cashier_shifts WHERE id=$2 AND branch_id=$1', [
+                branch,
+                q.shift_id,
+              ])
+            )[0]
+          : null;
+      if (q.shift_id && !selectedRow)
+        throw new ErrorCode(reportsInstalled ? 'NOT_FOUND' : 'NOT_READY');
+      const selectedShift = selectedRow ? flattenShift(selectedRow) : null;
+      const cashierRows = reportsInstalled
+        ? await rows(
+            `SELECT * FROM cloud_cashier_orders WHERE branch_id=$1
+        AND (($4::uuid IS NOT NULL AND cash_shift_id=$4) OR ($4::uuid IS NULL AND created_at >= $2 AND created_at < $3))
+        ORDER BY created_at DESC,id LIMIT 201`,
+            [branch, start, end, q.shift_id ?? null],
+          )
+        : [];
+      const cashierMetrics = reportsInstalled
+        ? (
+            await rows(
+              `SELECT count(*)::int orders,
+        count(*) FILTER(WHERE payload->>'state'='cancelled')::int cancelled_orders,
+        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'state'='awaiting_payment'),0)::text unpaid_total_minor,
+        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'kitchen_state'='handed_over'),0)::text completed_total_minor
+        FROM cloud_cashier_orders WHERE branch_id=$1 AND (($4::uuid IS NOT NULL AND cash_shift_id=$4) OR ($4::uuid IS NULL AND created_at >= $2 AND created_at < $3))`,
+              [branch, start, end, q.shift_id ?? null],
+            )
+          )[0]
+        : { orders: 0, cancelled_orders: 0, unpaid_total_minor: '0', completed_total_minor: '0' };
+      const cashierObserved = reportsInstalled
+        ? (
+            await rows(
+              `SELECT greatest((SELECT max(observed_at) FROM cloud_cashier_orders WHERE branch_id=$1),(SELECT max(observed_at) FROM cloud_cashier_shifts WHERE branch_id=$1)) observed_at`,
+            )
+          )[0].observed_at
+        : null;
+      const cashierAvailable = reportsInstalled && cashierObserved !== null;
+      const cashierShifts = shiftRows.slice(0, 200).map(flattenShift);
+      if (selectedShift && !cashierShifts.some((row) => row.id === selectedShift.id))
+        cashierShifts.unshift(selectedShift);
+      const cashierOrders = cashierRows.slice(0, 200).map((row) => ({
+        ...row.payload,
+        id: row.id,
+        created_at: row.created_at,
+        observed_at: row.observed_at,
+        owner: 'edge_pos',
+        channel: 'pos',
+        source: 'cashier_report',
+        payment_state: 'not_started',
+        fiscal_state: 'not_requested',
+      }));
       const records = await rows(
         'SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 ORDER BY kind,updated_at DESC,id LIMIT 2000',
       );
@@ -143,7 +213,7 @@ export class Backoffice {
         [branch, start, end],
       );
       const pos = await rows(
-        `SELECT p.order_id id,p.first_observed_at created_at,p.total_minor::text,p.version::text,p.state,'pos' channel,p.commercial_owner owner,p.payment_state,coalesce(k.state,p.fulfillment_state) kitchen_state,coalesce(k.observed_at,p.updated_at) observed_at,p.execution_mode FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.branch_id=$1 AND p.first_observed_at >= $2 AND p.first_observed_at < $3 ORDER BY p.first_observed_at DESC,p.order_id LIMIT 201`,
+        `SELECT p.order_id id,p.first_observed_at created_at,p.total_minor::text,p.version::text,p.state,'pos' channel,p.commercial_owner owner,p.payment_state,coalesce(k.state,p.fulfillment_state) kitchen_state,coalesce(k.observed_at,p.updated_at) observed_at,p.execution_mode FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.branch_id=$1 AND p.first_observed_at >= $2 AND p.first_observed_at < $3 ${reportsInstalled ? 'AND NOT EXISTS(SELECT 1 FROM cloud_cashier_orders c WHERE c.id=p.order_id AND c.branch_id=p.branch_id)' : ''} ORDER BY p.first_observed_at DESC,p.order_id LIMIT 201`,
         [branch, start, end],
       );
       const metrics = (
@@ -155,7 +225,7 @@ export class Backoffice {
     (SELECT coalesce(sum(r.amount_minor),0)::text FROM commerce_refund_effects r JOIN commerce_orders o ON o.id=r.order_id WHERE o.branch_id=$1 AND r.occurred_at >= $2 AND r.occurred_at < $3) refunded_minor,
     (SELECT count(*)::int FROM commerce_payment_attempts p JOIN commerce_orders o ON o.id=p.order_id WHERE o.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 AND p.state='unknown') unknown_payments,
     ((SELECT count(*)::int FROM cloud_fulfillment_projection f JOIN commerce_orders o ON o.id=f.order_id WHERE f.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 AND f.state IN ('accepted','in_production')) + (SELECT count(*)::int FROM pos_kitchen_sync_projection k JOIN pos_order_sync_projection p ON p.order_id=k.order_id AND p.branch_id=k.branch_id WHERE k.branch_id=$1 AND p.first_observed_at >= $2 AND p.first_observed_at < $3 AND k.state IN ('accepted','in_production'))) kitchen_active,
-    (SELECT count(*)::int FROM pos_order_sync_projection WHERE branch_id=$1 AND first_observed_at >= $2 AND first_observed_at < $3) pos_orders,
+    (SELECT count(*)::int FROM pos_order_sync_projection p WHERE branch_id=$1 AND first_observed_at >= $2 AND first_observed_at < $3 ${reportsInstalled ? 'AND NOT EXISTS(SELECT 1 FROM cloud_cashier_orders c WHERE c.id=p.order_id AND c.branch_id=p.branch_id)' : ''}) pos_orders,
     (SELECT coalesce(sum(o.total_minor),0)::text FROM commerce_orders o JOIN cloud_fulfillment_projection f ON f.order_id=o.id WHERE o.branch_id=$1 AND o.created_at >= $2 AND o.created_at < $3 AND f.state='handed_over') completed_total_minor`,
           [branch, start, end],
         )
@@ -222,17 +292,47 @@ export class Backoffice {
         period_start: start.toISOString(),
         period_end: end.toISOString(),
         timezone: 'Asia/Almaty',
-        operational_shift_filter: { available: false, reason: 'runtime_shift_not_replicated' },
+        operational_shift_filter: {
+          available: cashierAvailable,
+          selected_shift_id: q.shift_id ?? null,
+          mode: q.shift_id ? 'cashier_shift' : 'calendar',
+          financials_available: q.shift_id ? false : true,
+          reason: cashierAvailable ? null : 'runtime_shift_not_replicated',
+        },
+        cashier_shifts: cashierShifts,
+        cashier_orders: cashierOrders,
+        cashier_metrics: cashierMetrics,
+        selected_shift: selectedShift,
+        coverage: {
+          cashier_reports_available: cashierAvailable,
+          cashier_reports_complete: false,
+          cashier_financials: false,
+          observed_at: cashierObserved,
+        },
         period: q.period,
         records,
         stock,
-        orders: orders.slice(0, 200),
-        pos: pos.slice(0, 200),
-        metrics,
-        chart,
-        finance: finance.slice(0, 200),
-        refunds: refunds.slice(0, 200),
-        issues: issues.slice(0, 100),
+        orders: q.shift_id ? [] : orders.slice(0, 200),
+        pos: q.shift_id
+          ? []
+          : pos.slice(0, 200).filter((row) => !cashierOrders.some((c) => c.id === row.id)),
+        metrics: q.shift_id
+          ? {
+              ...metrics,
+              orders: 0,
+              pos_orders: 0,
+              handed_over: 0,
+              kitchen_active: 0,
+              unknown_payments: 0,
+              captured_minor: null,
+              refunded_minor: null,
+              completed_total_minor: null,
+            }
+          : metrics,
+        chart: q.shift_id ? [] : chart,
+        finance: q.shift_id ? [] : finance.slice(0, 200),
+        refunds: q.shift_id ? [] : refunds.slice(0, 200),
+        issues: q.shift_id ? [] : issues.slice(0, 100),
         devices,
         availability: {
           ...availability,
@@ -246,8 +346,19 @@ export class Backoffice {
         catalog_audit,
         documents,
         publications,
-        limits: { orders: 200, pos: 200, finance: 200, refunds: 200, issues: 100, records: 2000 },
+        limits: {
+          cashier_orders: 200,
+          cashier_shifts: 200,
+          orders: 200,
+          pos: 200,
+          finance: 200,
+          refunds: 200,
+          issues: 100,
+          records: 2000,
+        },
         truncated: {
+          cashier_orders: cashierRows.length > 200,
+          cashier_shifts: shiftRows.length > 200,
           orders: orders.length > 200,
           pos: pos.length > 200,
           finance: finance.length > 200,
@@ -255,7 +366,7 @@ export class Backoffice {
           issues: issues.length > 100,
         },
         capabilities: {
-          operational_shift_filter: false,
+          operational_shift_filter: cashierAvailable,
           bank_settlement: false,
           push_delivery: false,
           external_reviews: false,
@@ -276,6 +387,44 @@ export class Backoffice {
         )
       ).rows[0];
       if (!o) {
+        const reportsInstalled = (
+          await db.query("SELECT 1 WHERE to_regclass('cloud_cashier_orders') IS NOT NULL")
+        ).rowCount;
+        const report = reportsInstalled
+          ? (
+              await db.query('SELECT * FROM cloud_cashier_orders WHERE id=$1 AND branch_id=$2', [
+                id,
+                branch,
+              ])
+            ).rows[0]
+          : null;
+        if (report)
+          return {
+            order: {
+              ...report.payload,
+              id: report.id,
+              created_at: report.created_at,
+              observed_at: report.observed_at,
+              snapshot: {
+                lines: report.payload.lines.map((l: Record<string, unknown>) => ({
+                  ...l,
+                  name: l.name,
+                })),
+              },
+              source: 'cashier_report',
+              owner: 'edge_pos',
+              channel: 'pos',
+              payment_state: 'not_started',
+              fiscal_state: 'not_requested',
+            },
+            owner: 'edge_pos',
+            source: 'cashier_report',
+            captures: [],
+            refunds: [],
+            fiscal: [],
+            events: [],
+            capabilities: { can_cancel: false, can_refund: false },
+          };
         const pos = (
           await db.query(
             'SELECT p.order_id id,p.snapshot,p.state,p.version,p.total_minor::text,p.payment_state,p.fiscal_state,p.execution_mode,coalesce(k.state,p.fulfillment_state) kitchen_state,k.version kitchen_version,k.observed_at FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.order_id=$1 AND p.branch_id=$2',

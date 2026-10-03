@@ -11,10 +11,17 @@ export function fulfillmentWorkerGrants(role, schema = 'public') {
     `GRANT USAGE ON SCHEMA "${schema}" TO "${role}";`,
     grant(
       'SELECT',
-      'schema_migrations,branch_config,fulfillment_config,fulfillment_routing,fulfillment_reservations,fulfillment_tasks,fulfillment_inbox,fulfillment_outbox,fulfillment_release_results,fulfillment_transport_state,fulfillment_transport_failures,fulfillment_transport_reverse_failures',
+      'cashier_report_outbox,schema_migrations,branch_config,fulfillment_config,fulfillment_routing,fulfillment_reservations,fulfillment_tasks,fulfillment_inbox,fulfillment_outbox,fulfillment_release_results,fulfillment_transport_state,fulfillment_transport_failures,fulfillment_transport_reverse_failures',
     ),
     grant('SELECT(branch_id,variant_id,stopped,expires_at,expires_shift_id)', 'local_stops'),
     grant('SELECT(id,state)', 'local_cash_shifts'),
+    grant(
+      'SELECT(id,branch_id,quote_id,cash_shift_id,created_at,total_minor,state,version,execution_mode)',
+      'local_orders',
+    ),
+    grant('SELECT(id,branch_id,snapshot)', 'checkout_quotes'),
+    grant('INSERT', 'cashier_report_outbox'),
+    grant('UPDATE(acknowledged_at,attempts,last_error)', 'cashier_report_outbox'),
     // FOR SHARE needs an UPDATE privilege, but not permission to alter binding or opening state.
     grant('UPDATE(singleton)', 'branch_config'),
     grant('UPDATE(lock_anchor)', 'fulfillment_config'),
@@ -40,9 +47,9 @@ export function fulfillmentWorkerGrants(role, schema = 'public') {
       'UPDATE(attempts,last_error,retry_after,last_failed_at,resolved_at)',
       'fulfillment_transport_reverse_failures',
     ),
-    grant('USAGE', 'fulfillment_display_sequence,fulfillment_outbox_sequence_seq').replace(
-      ' ON ',
-      ' ON SEQUENCE ',
-    ),
+    grant(
+      'USAGE',
+      'cashier_report_outbox_sequence_seq,fulfillment_display_sequence,fulfillment_outbox_sequence_seq',
+    ).replace(' ON ', ' ON SEQUENCE '),
   ].join('\n');
 }
