@@ -2244,21 +2244,6 @@
       "nextAction": "Следующий этап: конфигурация физической точки и Webkassa/POS доступы, общий каталог; commercial POS/kiosk, LAN kitchen/edge016, реальные возвраты, независимые копии/мониторинг, hardware failure acceptance и7-10смен пилота. Окончательная приёмка и публичные магазины не выполнены."
     },
     {
-      "id": "channel-menu-publication",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/channel-menu-publication",
-      "scopes": [
-        "packages/catalog-admin",
-        "packages/catalog-pricing",
-        "packages/menu-sync",
-        "tests/integration/channel-menu-publication.test.mjs",
-        "tests/unit/channel-menu-publication.test.mjs"
-      ],
-      "status": "active",
-      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
-      "updatedAt": "2026-10-03T19:48:04.407Z"
-    },
-    {
       "id": "kiosk-commercial-client",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-commercial-client",
@@ -2269,6 +2254,22 @@
       "status": "active",
       "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
       "updatedAt": "2026-10-03T19:48:13.020Z"
+    },
+    {
+      "id": "channel-menu-publication",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/channel-menu-publication",
+      "scopes": [
+        "packages/catalog-admin",
+        "packages/catalog-pricing",
+        "packages/menu-sync",
+        "tests/integration/channel-menu-publication.test.mjs",
+        "tests/unit/channel-menu-publication.test.mjs",
+        "db/cloud/migrations/034_cloud_catalog_menu_delivery.sql"
+      ],
+      "status": "active",
+      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
+      "updatedAt": "2026-10-03T19:52:04.938Z"
     }
   ]
 }
