@@ -1988,11 +1988,12 @@
         "packages/catalog-pricing/tests",
         "apps/backoffice/src/editor.ts",
         "apps/backoffice/src/domain.ts",
-        "packages/contracts/openapi.json"
+        "packages/contracts/openapi.json",
+        "tests/unit/catalog-channel-pricing.test.mjs"
       ],
       "status": "active",
       "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
-      "updatedAt": "2026-10-03T08:30:51.945Z"
+      "updatedAt": "2026-10-03T08:31:29.724Z"
     }
   ]
 }
