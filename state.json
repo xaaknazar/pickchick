@@ -2092,6 +2092,33 @@
       "nextAction": "Parent integrates UI/migrations/grants and owns full CI/release/acceptance. Cloud033 plus edge016/new worker/grants required for live data. Quarantined malformed/oversized source remains unacknowledged; coverage explicitly partial. PG55542 retained for shared integration tests."
     },
     {
+      "id": "director-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-ci",
+      "scopes": [
+        "infra/staging/release-director-console.py",
+        "tests/operations/test_director_release.py"
+      ],
+      "status": "available",
+      "head": "8a0dae90c81d635de8c2ad67750308c4285effae",
+      "updatedAt": "2026-10-03T09:41:09.668Z",
+      "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
+      "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
+    },
+    {
+      "id": "director-cashier-upgrade",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-cashier-upgrade",
+      "scopes": [
+        "infra/windows/cashier-reports-upgrade-db.mjs",
+        "infra/windows/cashier-reports-upgrade.md",
+        "tests/operations/windows-cashier-reports-upgrade.test.mjs"
+      ],
+      "status": "active",
+      "head": "0343e48e4fa0f4029a09d6bafdbe4eb9571d597a",
+      "updatedAt": "2026-10-03T09:45:52.273Z"
+    },
+    {
       "id": "director-catalog-live",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-catalog-live",
@@ -2124,40 +2151,14 @@
         "packages/commerce-core/src/repository.ts",
         "apps/mobile/src/screens/CatalogScreens.tsx",
         "tests/integration/catalog-mobile-browser.test.mjs",
-        "tests/mobile/browser_published_catalog.py"
+        "tests/mobile/browser_published_catalog.py",
+        "apps/mobile/src/domain.ts"
       ],
       "status": "active",
       "head": "f02f5a096a703dd62d754ae09e0982bcddaf3532",
-      "updatedAt": "2026-10-03T09:37:11.627Z",
+      "updatedAt": "2026-10-03T09:46:27.782Z",
       "summary": "Опубликован f02f5a096a703dd62d754ae09e0982bcddaf3532: gated mobile storefront получает текущую catalog_publication того же checkout branch; отдельная mobile цена и описание доходят в расчёт. Версия branch/publication обязательна после rollout, старые/stale запросы блокируются, POS/kiosk overrides остаются запрещены. Targeted Postgres equality/rollback compatibility, unit, builds/typechecks/lint/format passed. Конфигурация и production цены не изменялись.",
       "nextAction": "Интегрировать зависимость importer из335797b, выполнить browser Expo live publication pass+CI. Для activation добавить gateway GET /v1/customer-checkout/catalog и согласованно включить server/client flags; rollback сначала prior base-only publication. Root обновляет общие docs."
-    },
-    {
-      "id": "director-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-ci",
-      "scopes": [
-        "infra/staging/release-director-console.py",
-        "tests/operations/test_director_release.py"
-      ],
-      "status": "available",
-      "head": "8a0dae90c81d635de8c2ad67750308c4285effae",
-      "updatedAt": "2026-10-03T09:41:09.668Z",
-      "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
-      "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
-    },
-    {
-      "id": "director-cashier-upgrade",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-cashier-upgrade",
-      "scopes": [
-        "infra/windows/cashier-reports-upgrade-db.mjs",
-        "infra/windows/cashier-reports-upgrade.md",
-        "tests/operations/windows-cashier-reports-upgrade.test.mjs"
-      ],
-      "status": "active",
-      "head": "0343e48e4fa0f4029a09d6bafdbe4eb9571d597a",
-      "updatedAt": "2026-10-03T09:45:52.273Z"
     }
   ]
 }
