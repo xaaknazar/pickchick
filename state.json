@@ -2217,11 +2217,12 @@
       "branch": "codex/director-manifest-writer",
       "scopes": [
         "infra/staging/release-director-console.py",
-        "tests/operations/test_director_release.py"
+        "tests/operations/test_director_release.py",
+        "tests/operations/fixtures/director-gateway-schema032.Caddyfile"
       ],
       "status": "active",
       "head": "e236824b80ee315eae48c371d722f4f6459aac8c",
-      "updatedAt": "2026-10-03T11:49:30.170Z"
+      "updatedAt": "2026-10-03T12:18:29.592Z"
     }
   ]
 }
