@@ -14,6 +14,7 @@ import {
   CatalogSeedSchema,
   CatalogStateSchema,
   parseCatalogInput,
+  assertCatalogPublishable,
 } from './contracts.js';
 import type { CatalogCredential, CatalogPayload, CatalogState } from './contracts.js';
 import { mockupCatalogDraft } from './seed.js';
@@ -292,6 +293,7 @@ export class CatalogAdmin {
         )
           throw failure('CONFLICT');
         payload = CatalogPayloadSchema.parse(before.payload);
+        assertCatalogPublishable(payload);
         publication = (head.published_version ?? 0) + 1;
         await db.query(
           'INSERT INTO catalog_publications(branch_id,organization_id,version,source_revision,payload,payload_hash,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
