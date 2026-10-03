@@ -7511,6 +7511,118 @@
         }
       }
     },
+    "/v1/customer-checkout/catalog": {
+      "get": {
+        "operationId": "readMobilePublishedCatalog",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "description": "Versioned neutral catalog; publication does not enable checkout or replace the old TEST catalog. Mutations require persisted request_id and exact expected revisions. Draft payload is at most 256 KiB; HTTP PUT is capped at 320 KiB. Every response is no-store.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogMobileStorefront"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/catalog/branches/{branchId}": {
       "get": {
         "operationId": "readPublishedCatalog",
@@ -9795,6 +9907,7 @@
           "code": {
             "type": "string",
             "enum": [
+              "CATALOG_UPGRADE_REQUIRED",
               "INVALID_REQUEST",
               "UNAUTHORIZED",
               "FORBIDDEN",
@@ -18560,6 +18673,28 @@
             ],
             "additionalProperties": false
           },
+          "publication_support": {
+            "type": "object",
+            "properties": {
+              "mobile": {
+                "type": "boolean"
+              },
+              "pos": {
+                "type": "boolean",
+                "const": false
+              },
+              "kiosk": {
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "mobile",
+              "pos",
+              "kiosk"
+            ],
+            "additionalProperties": false
+          },
           "draft": {
             "anyOf": [
               {
@@ -20218,6 +20353,565 @@
         },
         "required": [
           "branch_id",
+          "version",
+          "published_at",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogMobileStorefront": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string",
+                "const": "Asia/Almaty"
+              },
+              "ordering_enabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "name",
+              "timezone",
+              "ordering_enabled"
+            ],
+            "additionalProperties": false
+          },
+          "channel": {
+            "type": "string",
+            "const": "mobile"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "type": "number",
+                "const": 1
+              },
+              "currency": {
+                "type": "string",
+                "const": "KZT"
+              },
+              "content_source": {
+                "type": "string",
+                "enum": [
+                  "mockup",
+                  "operator"
+                ]
+              },
+              "content_reviewed": {
+                "type": "boolean"
+              },
+              "categories": {
+                "minItems": 1,
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "products": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "sku": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "category_id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                    },
+                    "price_minor": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]{0,15})$"
+                    },
+                    "channel_prices_minor": {
+                      "type": "object",
+                      "properties": {
+                        "mobile": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        },
+                        "pos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        },
+                        "kiosk": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "image_asset_key": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "prep_required": {
+                      "type": "boolean"
+                    },
+                    "prep_minutes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 120
+                    },
+                    "serving_label": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 150
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 150
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "weight_g": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "volume_ml": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ingredients": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "kk": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "allergens": {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "allergens_status": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "declared"
+                      ]
+                    },
+                    "nutrition": {
+                      "type": "object",
+                      "properties": {
+                        "basis": {
+                          "type": "string",
+                          "enum": [
+                            "per_serving",
+                            "per_100_g"
+                          ]
+                        },
+                        "energy_kcal": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100000
+                        },
+                        "protein_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "fat_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "carbs_g": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "basis",
+                        "energy_kcal",
+                        "protein_g",
+                        "fat_g",
+                        "carbs_g"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "nutrition_status": {
+                      "type": "string",
+                      "enum": [
+                        "unverified",
+                        "operator_entered"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "item",
+                        "combo",
+                        "set"
+                      ]
+                    },
+                    "combo_components": {
+                      "maxItems": 40,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "quantity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "modifier_groups": {
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                          },
+                          "title": {
+                            "type": "object",
+                            "properties": {
+                              "ru": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 150
+                              },
+                              "kk": {
+                                "type": "string",
+                                "maxLength": 150
+                              }
+                            },
+                            "required": [
+                              "ru",
+                              "kk"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "min": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "max": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          },
+                          "options": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                },
+                                "label": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 150
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "maxLength": 150
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "price_delta_minor": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                },
+                                "default_quantity": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 40
+                                },
+                                "max_quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 40
+                                },
+                                "available": {
+                                  "type": "boolean"
+                                },
+                                "nutrition_multiplier": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 100
+                                },
+                                "linked_product_id": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "label",
+                                "price_delta_minor",
+                                "default_quantity",
+                                "max_quantity",
+                                "available",
+                                "linked_product_id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "min",
+                          "max",
+                          "options"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sku",
+                    "name",
+                    "description",
+                    "category_id",
+                    "price_minor",
+                    "image_asset_key",
+                    "available",
+                    "prep_required",
+                    "prep_minutes",
+                    "serving_label",
+                    "weight_g",
+                    "volume_ml",
+                    "ingredients",
+                    "allergens",
+                    "allergens_status",
+                    "nutrition",
+                    "nutrition_status",
+                    "kind",
+                    "combo_components",
+                    "modifier_groups"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "estimated_minutes": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ],
+                "additionalProperties": false
+              },
+              "upsell_product_ids": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                }
+              }
+            },
+            "required": [
+              "schema_version",
+              "currency",
+              "content_source",
+              "content_reviewed",
+              "categories",
+              "products",
+              "estimated_minutes",
+              "upsell_product_ids"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "branch",
+          "channel",
           "version",
           "published_at",
           "payload"

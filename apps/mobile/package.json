@@ -19,6 +19,7 @@
     "@expo-google-fonts/jost": "0.4.2",
     "@expo-google-fonts/manrope": "0.4.2",
     "@expo/vector-icons": "15.1.1",
+    "@pickchick/catalog-admin": "workspace:*",
     "@pickchick/contracts": "workspace:*",
     "@pickchick/design-tokens": "workspace:*",
     "@pickchick/test-order-flow": "workspace:*",

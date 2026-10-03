@@ -1,3 +1,4 @@
+import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,7 +17,13 @@ import {
 import type { MenuSnapshot } from '@pickchick/contracts';
 import { isRetryableCatalogError, loadCatalog, loadTestCatalog } from './api';
 import { createCatalogRecovery } from './catalog-recovery';
-import { DESIGN_RELEASE, designProducts, serverProducts, connectedProducts } from './catalog';
+import {
+  DESIGN_RELEASE,
+  designProducts,
+  serverProducts,
+  connectedProducts,
+  publishedProducts,
+} from './catalog';
 import { unpaidTestOrdersEnabled } from './order-simulator';
 import { restaurantLocation } from './restaurant-location';
 import { useTestOrders } from './useTestOrders';
@@ -67,6 +74,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [previewPracticeScore, setPreviewPracticeScore] = useState<number | null>(null);
   const [requestedBranchId, setRequestedBranchId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [publication, setPublication] = useState<CatalogMobileStorefront | null>(null);
   const [menu, setMenu] = useState<MenuSnapshot | null>(null);
   const [unpaidAvailable, setUnpaidAvailable] = useState(false);
   const [connectedCatalog, setConnectedCatalog] = useState<TestCatalog | null>(null);
@@ -128,9 +136,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       load: async (signal) => {
         const result = await loadCatalog(requestedBranchId, signal);
         if (signal.aborted) throw new Error('Aborted');
-        const testCatalog = result.capabilities.features.test_order_flow
-          ? await loadTestCatalog(signal)
-          : null;
+        const testCatalog =
+          !result.publication && result.capabilities.features.test_order_flow
+            ? await loadTestCatalog(signal)
+            : null;
         if (testCatalog && testCatalog.branch_id !== result.branch.id)
           throw new Error('Test branch mismatch');
         return { result, testCatalog };
@@ -139,9 +148,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       onLoading: () =>
         setConnection((previous) => ({ ...previous, status: 'loading', message: null })),
       onSuccess: ({ result, testCatalog }) => {
-        const nextRelease = testCatalog
-          ? `test:${testCatalog.catalog_version}`
-          : result.menu.release_id;
+        const nextRelease = result.publication
+          ? `published:${result.branch.id}:${result.publication.version}`
+          : testCatalog
+            ? `test:${testCatalog.catalog_version}`
+            : result.menu!.release_id;
         const changed = serverRelease.current !== null && serverRelease.current !== nextRelease;
         serverRelease.current = nextRelease;
         // Friendly names are presentation only; IDs and availability remain server-owned.
@@ -152,13 +163,18 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           })),
         );
         setMenu(result.menu);
+        setPublication(result.publication);
         setConnectedCatalog(testCatalog);
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
           setCart(
             restoreCart(
               restoration.current,
-              testCatalog ? connectedProducts(testCatalog) : serverProducts(result.menu, 'ru'),
+              result.publication
+                ? publishedProducts(result.publication, 'ru')
+                : testCatalog
+                  ? connectedProducts(testCatalog)
+                  : serverProducts(result.menu, 'ru'),
               nextRelease,
             ),
           );
@@ -196,10 +212,12 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     () =>
       catalogMode === 'design'
         ? designProducts
-        : connectedCatalog
-          ? connectedProducts(connectedCatalog)
-          : serverProducts(menu, locale),
-    [catalogMode, menu, locale, connectedCatalog],
+        : publication
+          ? publishedProducts(publication, locale)
+          : connectedCatalog
+            ? connectedProducts(connectedCatalog)
+            : serverProducts(menu, locale),
+    [catalogMode, menu, locale, connectedCatalog, publication],
   );
   const products = useMemo(
     () => withAvailability(baseProducts, catalogMode === 'server' ? availability.data : null),
@@ -210,9 +228,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const releaseId =
     catalogMode === 'design'
       ? DESIGN_RELEASE
-      : connectedCatalog
-        ? `test:${connectedCatalog.catalog_version}`
-        : (menu?.release_id ?? null);
+      : publication
+        ? `published:${publication.branch.id}:${publication.version}`
+        : connectedCatalog
+          ? `test:${connectedCatalog.catalog_version}`
+          : (menu?.release_id ?? null);
   const testFlow = useTestOrders(
     connectedCatalog !== null &&
       catalogMode === 'server' &&
@@ -273,6 +293,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setMode('server');
     setRequestedBranchId(null);
     setMenu(null);
+    setPublication(null);
     setConnectedCatalog(null);
     setPracticeScore(null);
     setRefreshIndex((previous) => previous + 1);
@@ -286,9 +307,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const model: MobileModel = {
     products,
     upsellProductIds:
-      connectedCatalog && 'upsell_product_ids' in connectedCatalog
-        ? connectedCatalog.upsell_product_ids
-        : ['toast', 'sauce', 'cola'],
+      publication && catalogMode === 'server'
+        ? publication.payload.upsell_product_ids
+        : connectedCatalog && 'upsell_product_ids' in connectedCatalog
+          ? connectedCatalog.upsell_product_ids
+          : ['toast', 'sauce', 'cola'],
     cart: cart.map((line) => ({
       ...line,
       product: products.find((p) => p.id === line.product.id) ?? line.product,

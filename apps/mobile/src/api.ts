@@ -1,3 +1,7 @@
+import {
+  CatalogMobileStorefrontSchema,
+  type CatalogMobileStorefront,
+} from '@pickchick/catalog-admin/contracts';
 import { BranchSchema, MenuSnapshotSchema } from '@pickchick/contracts';
 import { TestCatalogSchema } from '@pickchick/test-order-flow/contracts';
 import type { Branch, MenuSnapshot } from '@pickchick/contracts';
@@ -112,8 +116,19 @@ export async function loadCatalog(
   capabilities: Capabilities;
   branches: Branch[];
   branch: Branch;
-  menu: MenuSnapshot;
+  menu: MenuSnapshot | null;
+  publication: CatalogMobileStorefront | null;
 }> {
+  if (process.env.EXPO_PUBLIC_PUBLISHED_CATALOG === '1') {
+    const [capabilities, publication] = await Promise.all([
+      readCatalogJson('/v1/capabilities', signal).then(parseCapabilities),
+      readCatalogJson('/v1/customer-checkout/catalog', signal).then((value) =>
+        CatalogMobileStorefrontSchema.parse(value),
+      ),
+    ]);
+    const branch = BranchSchema.parse(publication.branch);
+    return { capabilities, publication, branch, branches: [branch], menu: null };
+  }
   // Wait for both bounded reads to settle before permitting a retry. A quick
   // failure of one endpoint must not leave its sibling running in the next attempt.
   const [capabilitiesResult, branchesResult] = await Promise.allSettled([
@@ -144,5 +159,5 @@ export async function loadCatalog(
     await readCatalogJson(`/v1/branches/${branch.id}/menu`, signal),
   );
   if (menu.branch_id !== branch.id) throw new Error('Branch mismatch');
-  return { capabilities, branches, branch, menu };
+  return { capabilities, branches, branch, menu, publication: null };
 }

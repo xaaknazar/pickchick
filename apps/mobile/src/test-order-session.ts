@@ -109,14 +109,19 @@ function normalizeCart(input: unknown): Cart {
 export function cartMatchesOrder(
   order: TestOrder,
   lines: {
-    product: { id: string; catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3' };
+    product: { id: string; catalogVersion?: string };
     quantity: number;
     selections?: Selection[];
   }[],
   serviceMode: 'takeaway' | 'dine_in',
   paymentMethod?: PaymentMethod,
 ): boolean {
-  if (!lines.length || order.snapshot.service_mode !== serviceMode) return false;
+  if (
+    !lines.length ||
+    lines.some((line) => line.product.catalogVersion?.startsWith('published:')) ||
+    order.snapshot.service_mode !== serviceMode
+  )
+    return false;
   if (
     paymentMethod &&
     'payment_method' in order.snapshot &&
@@ -409,7 +414,7 @@ export class TestCustomerCore {
   }
   create(
     lines: {
-      product: { id: string; catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3' };
+      product: { id: string; catalogVersion?: string };
       quantity: number;
       selections?: Selection[];
     }[],
@@ -419,6 +424,8 @@ export class TestCustomerCore {
   ): Promise<TestOrder> {
     let payload: Cart;
     try {
+      if (lines.some((line) => line.product.catalogVersion?.startsWith('published:')))
+        throw new TestApiError(400, 'LIVE_CATALOG_NOT_SIMULATOR');
       const complete = lines.every((line) => line.product.catalogVersion === 'mockup-v0.3');
       payload = normalizeCart({
         catalog_version: complete ? 'mockup-v0.3' : 'mockup-v0.2',

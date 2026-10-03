@@ -63,6 +63,7 @@ import {
   CatalogStateSchema,
   CatalogBranchesSchema,
   CatalogPublicSchema,
+  CatalogMobileStorefrontSchema,
   CatalogSaveSchema,
   CatalogSeedSchema,
   CatalogPublishSchema,
@@ -757,6 +758,7 @@ for (const [name, schema] of Object.entries({
   CatalogStateSchema,
   CatalogBranchesSchema,
   CatalogPublicSchema,
+  CatalogMobileStorefrontSchema,
   CatalogSaveSchema,
   CatalogSeedSchema,
   CatalogPublishSchema,
@@ -824,6 +826,15 @@ Object.assign(openapi.paths, {
   },
   '/v1/admin/catalog/branches/{branchId}/publish': {
     post: catalogOperation('publishCatalogDraft', 'CatalogState', 'CatalogPublish'),
+  },
+  '/v1/customer-checkout/catalog': {
+    get: catalogOperation(
+      'readMobilePublishedCatalog',
+      'CatalogMobileStorefront',
+      undefined,
+      false,
+      true,
+    ),
   },
   '/v1/catalog/branches/{branchId}': {
     get: catalogOperation('readPublishedCatalog', 'CatalogPublic', undefined, true, true),

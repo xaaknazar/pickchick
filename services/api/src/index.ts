@@ -39,7 +39,7 @@ import {
   createCustomerIdentityOptions,
 } from '@pickchick/customer-identity';
 import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
-import { CATALOG_ADMIN, CatalogAdmin } from '@pickchick/catalog-admin';
+import { CATALOG_ADMIN, CatalogAdmin, catalogAdminOptions } from '@pickchick/catalog-admin';
 import { CatalogAdminController } from './catalog-admin-controller.js';
 import { BACKOFFICE, Backoffice } from '@pickchick/backoffice-core';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
@@ -182,7 +182,10 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: CATALOG_ADMIN,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new CatalogAdmin(resources.pool, { enabled: config.catalogAdminEnabled === true }),
+          new CatalogAdmin(resources.pool, {
+            ...catalogAdminOptions(process.env),
+            enabled: config.catalogAdminEnabled === true,
+          }),
       },
       {
         provide: CUSTOMER_IDENTITY,

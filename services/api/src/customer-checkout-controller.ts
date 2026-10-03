@@ -51,6 +51,7 @@ export class CustomerCheckoutController {
         throw new HttpException({ code: error.code }, error.code === 'ITEM_STOPPED' ? 409 : 503);
       if (error instanceof CommerceError) {
         const statuses = {
+          CATALOG_UPGRADE_REQUIRED: 409,
           INVALID: 400,
           FORBIDDEN: 403,
           NOT_FOUND: 404,
@@ -68,6 +69,16 @@ export class CustomerCheckoutController {
               : error.code;
         throw new HttpException({ code }, statuses[error.code]);
       }
+      throw error;
+    }
+  }
+  @Get('catalog') async catalog(@Res({ passthrough: true }) response: ServerResponse) {
+    response.setHeader('Cache-Control', 'no-store');
+    try {
+      return await this.checkout.catalog();
+    } catch (error) {
+      if (error instanceof CommerceError)
+        throw new HttpException({ code: error.code }, error.code === 'NOT_FOUND' ? 404 : 503);
       throw error;
     }
   }

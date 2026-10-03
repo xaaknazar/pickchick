@@ -23,13 +23,26 @@ export const CATALOG_ADMIN = Symbol('CATALOG_ADMIN');
 export const catalogHash = (value: string) => createHash('sha256').update(value).digest('hex');
 export interface CatalogAdminOptions {
   enabled: boolean;
+  mobileStorefrontBranchId?: string;
 }
 export function catalogAdminOptions(
   env: Readonly<Record<string, string | undefined>> = {},
 ): CatalogAdminOptions {
   const value = env['CATALOG_ADMIN_ENABLED'] ?? 'false';
   if (!['true', 'false'].includes(value)) throw new Error('CATALOG_ADMIN_CONFIGURATION_INVALID');
-  return { enabled: value === 'true' };
+  const mobile = env['CATALOG_MOBILE_STOREFRONT_ENABLED'] ?? 'false';
+  if (!['true', 'false'].includes(mobile))
+    throw new Error('CATALOG_MOBILE_STOREFRONT_CONFIGURATION_INVALID');
+  const branchId = env['CUSTOMER_KASPI_BRANCH_ID'];
+  if (
+    mobile === 'true' &&
+    (!z.uuid().safeParse(branchId).success || env['CUSTOMER_KASPI_PILOT_ENABLED'] !== 'true')
+  )
+    throw new Error('CATALOG_MOBILE_STOREFRONT_CONFIGURATION_INVALID');
+  return {
+    enabled: value === 'true',
+    ...(mobile === 'true' ? { mobileStorefrontBranchId: branchId! } : {}),
+  };
 }
 interface Actor {
   id: string;
@@ -168,6 +181,11 @@ export class CatalogAdmin {
         ).rows[0]
       : null;
     return CatalogStateSchema.parse({
+      publication_support: {
+        mobile: this.options.mobileStorefrontBranchId === branch.id,
+        pos: false,
+        kiosk: false,
+      },
       branch: { id: branch.id, code: branch.code, name: branch.name },
       draft: draft
         ? {
@@ -279,7 +297,8 @@ export class CatalogAdmin {
       let payload: CatalogPayload,
         publication: number | null = head.published_version;
       if (kind === 'seed') {
-        if (before || head.published_version) throw failure('CONFLICT');
+        if (before || head.published_version || this.options.mobileStorefrontBranchId === branch.id)
+          throw failure('CONFLICT');
         payload = CatalogPayloadSchema.parse(mockupCatalogDraft);
       } else if (kind === 'save') {
         if (!before || !('payload' in body)) throw failure('CONFLICT');
@@ -293,7 +312,7 @@ export class CatalogAdmin {
         )
           throw failure('CONFLICT');
         payload = CatalogPayloadSchema.parse(before.payload);
-        assertCatalogPublishable(payload);
+        assertCatalogPublishable(payload, this.options.mobileStorefrontBranchId === branch.id);
         publication = (head.published_version ?? 0) + 1;
         await db.query(
           'INSERT INTO catalog_publications(branch_id,organization_id,version,source_revision,payload,payload_hash,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7)',

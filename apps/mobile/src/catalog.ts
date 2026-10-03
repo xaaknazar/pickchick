@@ -1,3 +1,5 @@
+import { publishedProductData } from './published-catalog';
+import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import type { MenuSnapshot } from '@pickchick/contracts';
 import type { Product, Locale } from './model';
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
@@ -70,5 +72,16 @@ export function serverProducts(menu: MenuSnapshot | null, locale: Locale): Produ
     description: 'Позиция ресторана. Оформление пока недоступно.',
     image: require('../../../design/prototype/assets/mockup/logo.png'),
     source: 'server',
+  }));
+}
+
+export function publishedProducts(catalog: CatalogMobileStorefront, locale: Locale): Product[] {
+  return publishedProductData(catalog, locale).map((item, index) => ({
+    ...item,
+    image:
+      item.id === 'piko' && catalog.payload.products[index]!.image_asset_key === 'generic-drink'
+        ? require('../assets/catalog-options/piko.png')
+        : (images[catalog.payload.products[index]!.image_asset_key] ??
+          require('../../../design/prototype/assets/mockup/logo.png')),
   }));
 }

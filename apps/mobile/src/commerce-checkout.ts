@@ -47,3 +47,5 @@ export function maskedPhone(phone?: string) {
     ? `+${digits[0]} ${digits.slice(1, 4)} ••• •• ${digits.slice(-2)}`
     : 'На номер вашего аккаунта';
 }
+
+export { publishedCartVersion } from './published-catalog';
