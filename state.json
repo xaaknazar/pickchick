@@ -2134,11 +2134,11 @@
         "tests/mobile/browser_published_catalog.py",
         "apps/mobile/src/domain.ts"
       ],
-      "status": "active",
-      "head": "f02f5a096a703dd62d754ae09e0982bcddaf3532",
-      "updatedAt": "2026-10-03T09:46:27.782Z",
-      "summary": "Опубликован f02f5a096a703dd62d754ae09e0982bcddaf3532: gated mobile storefront получает текущую catalog_publication того же checkout branch; отдельная mobile цена и описание доходят в расчёт. Версия branch/publication обязательна после rollout, старые/stale запросы блокируются, POS/kiosk overrides остаются запрещены. Targeted Postgres equality/rollback compatibility, unit, builds/typechecks/lint/format passed. Конфигурация и production цены не изменялись.",
-      "nextAction": "Интегрировать зависимость importer из335797b, выполнить browser Expo live publication pass+CI. Для activation добавить gateway GET /v1/customer-checkout/catalog и согласованно включить server/client flags; rollback сначала prior base-only publication. Root обновляет общие docs."
+      "status": "available",
+      "head": "37311249a49472b1154155dd06aa885867608b89",
+      "updatedAt": "2026-10-03T09:54:17.145Z",
+      "summary": "37311249: published cart snapshots and explicit refresh; browser/PG/pure tests passed, mobile and commerce typecheck/lint passed; no live flags/payments",
+      "nextAction": "Integrate 37311249 into shared and run combined CI; root owns release/rollback and gateway docs"
     },
     {
       "id": "director-live-data",
