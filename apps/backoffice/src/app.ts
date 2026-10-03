@@ -220,15 +220,14 @@ function render() {
       periods.append(b);
     }
     const tools = el('div', 'header-tools');
-    tools.append(
-      periods,
-      button(
-        'Обновить',
-        () => void operations.load(operations.actor, operations.branch),
-        'button subtle',
-        'op-refresh',
-      ),
+    const refresh = button(
+      operations.busy ? 'Обновляем...' : 'Обновить',
+      () => void operations.load(operations.actor, operations.branch),
+      'button subtle',
+      'op-refresh',
     );
+    refresh.disabled = operations.busy || Boolean(operations.pending);
+    tools.append(periods, refresh);
     header.append(tools);
     if (['dash', 'orders', 'shifts', 'reports', 'finance'].includes(page)) {
       const shifts = operations.data?.cashier_shifts ?? [];
