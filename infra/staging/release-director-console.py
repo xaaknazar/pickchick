@@ -17,6 +17,7 @@ connection = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = connection
 spec.loader.exec_module(connection)
 base, market, transport = connection.base, connection.market, connection.transport
+relocate_public_mounts = base.base.pilot.daily.relocate_public_mounts
 require, quote, digest, REMOTE = market.require, market.quote, market.digest, market.REMOTE
 BASELINE = 'f83794ce68c10906d2924a3a04351f7550d62b40'
 PUBLIC_BASELINE = '88aa799eba6ebde226e9e25eaa595a2a2d41bfb1'
@@ -133,6 +134,12 @@ class Release(base.Release):
         key = lambda row: (row['name'],row['kind'],row['column'] or '',row['privilege'],row['grantable'])
         require(sorted(map(key,self.acl())) == sorted(map(key,wanted)), 'Runtime ACL differs from reviewed BO delta')
 
+    def quiescent(self):
+        super().quiescent()
+        # The independent worker stays running. With ingress closed, require no work
+        # it could settle or expire; exact snapshots still reject any concurrent drift.
+        require(self.psql(market.DB, "SELECT (SELECT count(*) FROM commerce_kaspi_invoices WHERE state IN ('issuing','issued','unknown')) + (SELECT count(*) FROM commerce_outbox e JOIN commerce_payment_attempts a ON a.id=(e.payload->>'attemptId')::uuid WHERE e.event_type='payment.submit_requested' AND e.acknowledged_at IS NULL AND a.state='pending')") == '0', 'Bank worker has unsettled or pending work; maintenance retained')
+
     def verify_capabilities(self, caps):
         proof=json.loads((self.private/'prepared.json').read_text())
         require(caps == proof['baseline_capabilities'], 'Existing commercial capabilities changed')
@@ -219,7 +226,7 @@ print(json.dumps(m))
         require(self.prepared_artifacts(proof['public_manifest'])==proof['artifacts'],'Prepared artifacts changed')
         require(self.rollback_artifacts()==proof['rollback_files'],'Rollback artifacts changed')
         key=self.args.backup_identity
-        require(key.is_file() and not key.is_symlink() and key.stat().st_mode&0o077==0,'Private backup identity required')
+        require(key and key.is_file() and not key.is_symlink() and key.stat().st_mode&0o077==0,'Private backup identity required')
         self.maintenance=f'{REMOTE}/maintenance/mobile-test-{self.lock_owner["id"]}'
         contents={'owner.json':json.dumps(self.lock_owner),'maintenance.json':json.dumps(transport.maintenance_config()),
                   'compose.json':json.dumps(transport.maintenance_overlay(self.maintenance))}
@@ -230,6 +237,7 @@ print(json.dumps(m))
         require(self.http('/v1/test/orders',method='POST')[0]==503,'Ingress did not close')
         self.remote(market.api_compose(self.profile.old_api)+' stop --timeout 30 api',timeout=60)
         require(self.psql(market.DB,"SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND (usename='pickchick_app' OR xact_start IS NOT NULL)")=='0','Competing database writer')
+        self.quiescent()
         before={'data':self.snapshot(),'ledger':self.ledger(),'acl':self.acl(),'neighbors':self.fingerprint()}
         expected=[{'version':n,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/n).read_bytes())} for n in self.baseline_migrations()]
         require(before['ledger']==expected,'Baseline migration ledger differs')
@@ -280,6 +288,7 @@ print(json.dumps(m))
         require(self.http('/v1/test/orders',method='POST')[0]==503,'Rollback requires retained maintenance')
         self.remote(market.api_compose(self.sha)+' stop --timeout 30 api',timeout=60)
         require(self.psql(market.DB,"SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND (usename='pickchick_app' OR xact_start IS NOT NULL)")=='0','Competing writer')
+        self.quiescent()
         market.compare_existing(before['data'],self.snapshot(),additions=True,new_tables=NEW_TABLES)
         self.psql(market.DB,market.acl_restore_sql(before['acl'],self.acl()))
         require(self.acl()==before['acl'],'Old ACL not restored exactly')
