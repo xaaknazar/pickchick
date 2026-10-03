@@ -2070,20 +2070,6 @@
       "nextAction": "Parent integrates UI/migrations/grants and owns full CI/release/acceptance. Cloud033 plus edge016/new worker/grants required for live data. Quarantined malformed/oversized source remains unacknowledged; coverage explicitly partial. PG55542 retained for shared integration tests."
     },
     {
-      "id": "director-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-ci",
-      "scopes": [
-        "infra/staging/release-director-console.py",
-        "tests/operations/test_director_release.py"
-      ],
-      "status": "available",
-      "head": "8a0dae90c81d635de8c2ad67750308c4285effae",
-      "updatedAt": "2026-10-03T09:41:09.668Z",
-      "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
-      "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
-    },
-    {
       "id": "director-cashier-upgrade",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-cashier-upgrade",
@@ -2162,6 +2148,22 @@
       "status": "active",
       "head": "ce4672cc62d7426ac3ca5b3f5b95716edb035ffb",
       "updatedAt": "2026-10-03T09:51:59.003Z"
+    },
+    {
+      "id": "director-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-ci",
+      "scopes": [
+        "infra/staging/release-director-console.py",
+        "tests/operations/test_director_release.py",
+        "tests/operations/test_auth_four_digit_release.py",
+        "tests/operations/test_server_pilot_release.py"
+      ],
+      "status": "active",
+      "head": "934bb93c6820aeb0f51d8b182364336441e75149",
+      "updatedAt": "2026-10-03T09:58:44.932Z",
+      "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
+      "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
     }
   ]
 }
