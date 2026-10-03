@@ -2256,22 +2256,6 @@
       "updatedAt": "2026-10-03T19:48:13.020Z"
     },
     {
-      "id": "channel-menu-publication",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/channel-menu-publication",
-      "scopes": [
-        "packages/catalog-admin",
-        "packages/catalog-pricing",
-        "packages/menu-sync",
-        "tests/integration/channel-menu-publication.test.mjs",
-        "tests/unit/channel-menu-publication.test.mjs",
-        "db/cloud/migrations/034_cloud_catalog_menu_delivery.sql"
-      ],
-      "status": "active",
-      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
-      "updatedAt": "2026-10-03T19:52:04.938Z"
-    },
-    {
       "id": "kiosk-guest-sessions",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-guest-sessions",
@@ -2310,6 +2294,28 @@
       "status": "active",
       "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
       "updatedAt": "2026-10-03T19:54:42.694Z"
+    },
+    {
+      "id": "channel-menu-publication",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/channel-menu-publication",
+      "scopes": [
+        "packages/catalog-admin",
+        "packages/catalog-pricing",
+        "packages/menu-sync",
+        "tests/integration/channel-menu-publication.test.mjs",
+        "tests/unit/channel-menu-publication.test.mjs",
+        "db/cloud/migrations/034_cloud_catalog_menu_delivery.sql",
+        "packages/edge-fulfillment/src/model.ts",
+        "packages/contracts/src/fulfillment.ts",
+        "packages/kitchen",
+        "db/edge/migrations/017_edge_kiosk_prepaid.sql",
+        "packages/edge-fulfillment/tests/commerce-port.test.mjs",
+        "tests/unit/kitchen-view.test.mjs"
+      ],
+      "status": "active",
+      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
+      "updatedAt": "2026-10-03T19:55:58.259Z"
     }
   ]
 }
