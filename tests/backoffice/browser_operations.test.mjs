@@ -8,6 +8,7 @@ import { withCatalog } from './helpers.mjs';
 test('full backoffice browser uses real PostgreSQL, scoped manager and durable commands', () =>
   withCatalog(
     async (c) => {
+      console.log('[backoffice operations] fixture setup');
       await c.service.seed(c.manager.token, c.branch, {
         request_id: randomUUID(),
         expected_revision: 0,
@@ -80,16 +81,49 @@ test('full backoffice browser uses real PostgreSQL, scoped manager and durable c
           }),
           { mode: 0o600 },
         );
+        console.log('[backoffice operations] fixture ready');
         const code = await new Promise((resolve, reject) => {
           const p = spawn(
             process.env.BACKOFFICE_TEST_PYTHON ?? 'python3',
             [fileURLToPath(new URL('browser_operations.py', import.meta.url)), file],
-            { stdio: ['ignore', 'pipe', 'pipe'] },
+            { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' },
           );
           p.stdout.on('data', (d) => process.stdout.write(d));
           p.stderr.on('data', (d) => process.stderr.write(d));
-          p.on('error', reject);
-          p.on('exit', resolve);
+          console.log('[backoffice browser] Python child started');
+          p.once('exit', (code, signal) => {
+            console.log('[backoffice browser] Python exited', { code, signal });
+            // Only this detached child's group: drain pipes held by orphan driver/browser descendants.
+            if (process.platform !== 'win32') {
+              try {
+                process.kill(-p.pid, 'SIGKILL');
+              } catch {
+                /* group already closed */
+              }
+            }
+          });
+          let timedOut = false;
+          const timer = setTimeout(() => {
+            timedOut = true;
+            console.error('[backoffice browser] hard timeout after 120s');
+            if (process.platform !== 'win32') {
+              try {
+                process.kill(-p.pid, 'SIGKILL');
+              } catch {
+                p.kill('SIGKILL');
+              }
+            } else p.kill('SIGKILL');
+          }, 120000);
+          p.once('error', (error) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+          p.once('close', (code, signal) => {
+            clearTimeout(timer);
+            if (timedOut) reject(new Error('Backoffice Python browser exceeded 120s hard timeout'));
+            else if (signal) reject(new Error(`Backoffice Python browser terminated by ${signal}`));
+            else resolve(code);
+          });
         });
         assert.equal(code, 0);
         const state = await c.backoffice.read(c.manager.token, c.branch);
