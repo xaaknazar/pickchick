@@ -56,6 +56,17 @@ export function openEditor(
   let dirty = false,
     tab = 'general';
   const prices = new Map<object, string>([[p, toMajor(p.price_minor)]]);
+  const channels = [
+    ['mobile', 'Приложение'],
+    ['pos', 'Касса'],
+    ['kiosk', 'Киоск'],
+  ] as const;
+  const channelInputs = new Map<string, string>(
+    channels.map(([key]) => [
+      key,
+      p.channel_prices_minor?.[key] === undefined ? '' : toMajor(p.channel_prices_minor[key]!),
+    ]),
+  );
   error.setAttribute('role', 'alert');
   error.dataset.testid = 'editor-error';
   dialog.dataset.testid = 'product-editor';
@@ -236,6 +247,49 @@ export function openEditor(
             },
             'edit-prep-required',
           ),
+        ),
+      );
+      const channelSection = section('Черновик цен по каналам');
+      channelSection.append(
+        el(
+          'p',
+          'muted',
+          'Пустое поле использует базовую цену. Доплаты модификаторов общие для всех каналов.',
+        ),
+        grid(
+          ...channels.map(([key, label]) =>
+            field(
+              `${label}, ₸`,
+              channelInputs.get(key)!,
+              (value) => {
+                channelInputs.set(key, value);
+                if (!value.trim()) {
+                  if (p.channel_prices_minor) {
+                    delete p.channel_prices_minor[key];
+                    if (!Object.keys(p.channel_prices_minor).length) delete p.channel_prices_minor;
+                  }
+                } else {
+                  try {
+                    const minor = toMinor(value);
+                    p.channel_prices_minor ??= {};
+                    p.channel_prices_minor[key] = minor;
+                  } catch {
+                    /* Keep invalid input for explicit validation. */
+                  }
+                }
+                changed();
+              },
+              {
+                id: `edit-price-${key}`,
+                hint: 'Необязательно. Тенге, до двух знаков после запятой.',
+              },
+            ),
+          ),
+        ),
+        el(
+          'p',
+          'muted',
+          'Цены каналов можно сохранить в серверном черновике. Публикация каталога с отдельными ценами пока заблокирована: витрины, киоск и касса должны получать согласованную версию меню. Чтобы опубликовать общую базовую цену сейчас, оставьте все поля каналов пустыми.',
         ),
       );
       const photo = section('Изображение из материалов бренда'),
@@ -631,6 +685,15 @@ export function openEditor(
           toMinor(value);
         } catch {
           issues.push(`${key === p ? 'Базовая цена' : 'Доплата'}: укажите корректную сумму.`);
+        }
+      }
+      for (const [key, label] of channels) {
+        const value = channelInputs.get(key)!;
+        if (!value.trim()) continue;
+        try {
+          toMinor(value);
+        } catch {
+          issues.push(`${label}: укажите корректную цену или оставьте поле пустым.`);
         }
       }
       if (isNew && payload.products.some((v) => v.id === p.id))

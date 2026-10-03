@@ -18704,6 +18704,24 @@
                               "type": "string",
                               "pattern": "^(0|[1-9][0-9]{0,15})$"
                             },
+                            "channel_prices_minor": {
+                              "type": "object",
+                              "properties": {
+                                "mobile": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                },
+                                "pos": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                },
+                                "kiosk": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
                             "image_asset_key": {
                               "type": "string"
                             },
@@ -19220,6 +19238,24 @@
                             "price_minor": {
                               "type": "string",
                               "pattern": "^(0|[1-9][0-9]{0,15})$"
+                            },
+                            "channel_prices_minor": {
+                              "type": "object",
+                              "properties": {
+                                "mobile": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                },
+                                "pos": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                },
+                                "kiosk": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                                }
+                              },
+                              "additionalProperties": false
                             },
                             "image_asset_key": {
                               "type": "string"
@@ -19798,6 +19834,24 @@
                       "type": "string",
                       "pattern": "^(0|[1-9][0-9]{0,15})$"
                     },
+                    "channel_prices_minor": {
+                      "type": "object",
+                      "properties": {
+                        "mobile": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        },
+                        "pos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        },
+                        "kiosk": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
                     "image_asset_key": {
                       "type": "string"
                     },
@@ -20302,6 +20356,24 @@
                     "price_minor": {
                       "type": "string",
                       "pattern": "^(0|[1-9][0-9]{0,15})$"
+                    },
+                    "channel_prices_minor": {
+                      "type": "object",
+                      "properties": {
+                        "mobile": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        },
+                        "pos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        },
+                        "kiosk": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,15})$"
+                        }
+                      },
+                      "additionalProperties": false
                     },
                     "image_asset_key": {
                       "type": "string"

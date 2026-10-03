@@ -64,6 +64,13 @@ export const CatalogProductSchema = z.strictObject({
   description: CatalogTextSchema,
   category_id: Id,
   price_minor: Minor,
+  channel_prices_minor: z
+    .strictObject({
+      mobile: Minor.optional(),
+      pos: Minor.optional(),
+      kiosk: Minor.optional(),
+    })
+    .optional(),
   image_asset_key: z.string().refine((v) => CATALOG_ASSET_KEYS.some((key) => key === v)),
   available: z.boolean(),
   prep_required: z.boolean(),
@@ -173,6 +180,15 @@ export const CatalogPayloadSchema = z
       issue('Cyclic product dependencies');
   });
 export type CatalogPayload = z.infer<typeof CatalogPayloadSchema>;
+// Overrides remain draft-only until every storefront and edge menu uses the same release.
+export function catalogHasChannelPrices(payload: CatalogPayload): boolean {
+  return payload.products.some(
+    (product) => Object.keys(product.channel_prices_minor ?? {}).length > 0,
+  );
+}
+export function assertCatalogPublishable(payload: CatalogPayload): void {
+  if (catalogHasChannelPrices(payload)) throw new CatalogAdminError('CONFLICT');
+}
 export type CatalogProduct = z.infer<typeof CatalogProductSchema>;
 export type CatalogModifier = z.infer<typeof CatalogModifierSchema>;
 const Branch = z.strictObject({ id: z.uuid(), code: z.string(), name: z.string() });

@@ -1,3 +1,4 @@
+import { catalogHasChannelPrices } from '@pickchick/catalog-admin/contracts';
 import {
   copy,
   parsePayload,
@@ -329,6 +330,10 @@ export class CatalogModel {
       if (this.dirty) throw new Error('DIRTY');
       if (!this.state?.draft || !this.payload?.content_reviewed)
         throw new Error('Перед публикацией подтвердите проверку содержимого и сохраните черновик.');
+      if (catalogHasChannelPrices(this.payload))
+        throw new Error(
+          'Цены каналов пока доступны только в черновике. Для публикации оставьте поля каналов пустыми: касса, киоск и витрины ещё не подключены к единой версии цен.',
+        );
       await this.command('publish', {
         expected_revision: this.state.draft.revision,
         expected_published_version: this.state.published?.version ?? 0,

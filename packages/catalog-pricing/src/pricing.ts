@@ -246,7 +246,9 @@ export function priceCatalogSnapshot(
       );
       if (seen.has(id)) return fail('INVALID_CART');
       seen.add(id);
-      const base = BigInt(product.price_minor);
+      const base = BigInt(
+        product.channel_prices_minor?.[scope.data.channel] ?? product.price_minor,
+      );
       const delta = modifiers.reduce((sum, v) => sum + BigInt(v.totalPriceDeltaMinor), 0n);
       const unit = base + delta;
       const gross = unit * BigInt(item.quantity);

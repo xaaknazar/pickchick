@@ -88,6 +88,22 @@ export function productIssues(p: Product, payload: CatalogPayload): string[] {
   } catch {
     errors.push('Цена: некорректная сумма.');
   }
+  if (p.channel_prices_minor !== undefined) {
+    const overrides = p.channel_prices_minor;
+    if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides))
+      errors.push('Цены каналов: некорректный формат.');
+    else
+      for (const [channel, value] of Object.entries(overrides)) {
+        if (!['mobile', 'pos', 'kiosk'].includes(channel))
+          errors.push('Цены каналов: неизвестный канал.');
+        try {
+          if (typeof value !== 'string') throw new Error();
+          toMajor(value);
+        } catch {
+          errors.push('Цены каналов: некорректная сумма.');
+        }
+      }
+  }
   integer(p.prep_minutes, 'Время приготовления', 1, 120);
   for (const key of ['weight_g', 'volume_ml'] as const)
     if (p[key] !== null) integer(p[key]!, key === 'weight_g' ? 'Вес' : 'Объём', 1, 100000);
