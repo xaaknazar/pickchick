@@ -1966,9 +1966,11 @@
         "tests/backoffice/operations-model.test.mjs",
         "tests/backoffice/director-ui.test.mjs"
       ],
-      "status": "active",
-      "head": "608d261b2ddd74f3a6ec4d75bc25d711660cfa68",
-      "updatedAt": "2026-10-03T08:32:24.555Z"
+      "status": "done",
+      "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
+      "updatedAt": "2026-10-03T08:57:56.277Z",
+      "summary": "Первый срез кабинета опубликован в shared 92e8a12, PR168. Локальные PostgreSQL/HTTP/browser проверки, 16 разделов и 1680/1024/393 прошли. Полная CI итогового SHA и VPS-выпуск пока не подтверждены; онлайн-пульт не обновлён.",
+      "nextAction": "Проверить CI итогового SHA, затем единое меню/цены и реальные кассовые смены. См. docs/operations/director-console.md; не считать черновики опубликованными ценами."
     },
     {
       "id": "director-shell-tests",
