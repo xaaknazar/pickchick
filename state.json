@@ -2237,9 +2237,11 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "d1bd631018ea169f42783655d6ead56cc052b451",
-      "updatedAt": "2026-10-03T19:35:25.614Z"
+      "status": "done",
+      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
+      "updatedAt": "2026-10-03T19:43:34.212Z",
+      "summary": "Read-only аудит полного запуска завершён: актуальный d1bd631, ТЗ/AC, код POS/kiosk/commerce и два независимых разбора; live API/DB/Redis healthy, kitchen edgeConnected и freshavailability, Telegramonly, dailybackup success. Конкретные blockers и последовательность сохранены в docs/operations/launch-readiness-2026-10-04.md, PR170, shared44ff3c6 remoteSHA проверен. Семь roadmap тестов, формат и diffchecks прошли. Онлайн-пульт44ff3c6 опубликован с сохранением APIe236824 и соседних сервисов; рабочие платежи/OTP/чеки/устройства не изменялись.",
+      "nextAction": "Следующий этап: конфигурация физической точки и Webkassa/POS доступы, общий каталог; commercial POS/kiosk, LAN kitchen/edge016, реальные возвраты, независимые копии/мониторинг, hardware failure acceptance и7-10смен пилота. Окончательная приёмка и публичные магазины не выполнены."
     }
   ]
 }
