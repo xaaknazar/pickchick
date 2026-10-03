@@ -57,7 +57,7 @@ export const FulfillmentTaskSchema = z.strictObject({
 });
 export const FulfillmentKitchenOrderSchema = FulfillmentSummarySchema.extend({
   assemblyStationId: uuid,
-  channel: z.enum(['mobile', 'pos']),
+  channel: z.enum(['mobile', 'kiosk', 'pos']),
   serviceMode: z.enum(['takeaway', 'dine_in']),
   kitchenComment: z.string().max(60).optional(),
   tasks: z.array(FulfillmentTaskSchema).max(2000),

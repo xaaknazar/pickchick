@@ -114,7 +114,7 @@ export const SnapshotSchema = z
   .object({
     organizationId: uuid,
     branchId: uuid,
-    channel: z.enum(['mobile', 'pos']),
+    channel: z.enum(['mobile', 'kiosk', 'pos']),
     serviceMode: z.enum(['takeaway', 'dine_in']),
     displayName: z.string().max(14).optional(),
     kitchenComment: z.string().max(60).optional(),
@@ -142,7 +142,7 @@ export const AdmissionPayloadSchema = z.strictObject({
   branchId: uuid,
   quoteId: uuid,
   quoteDigest: hash,
-  snapshot: SnapshotSchema.extend({ channel: z.literal('mobile') }),
+  snapshot: SnapshotSchema.extend({ channel: z.enum(['mobile', 'kiosk']) }),
   owner: z.literal('cloud'),
 });
 export const AuthorizePayloadSchema = z.strictObject({
@@ -151,7 +151,7 @@ export const AuthorizePayloadSchema = z.strictObject({
   reservationId: uuid,
   deviceId: uuid,
   quoteDigest: hash,
-  snapshot: SnapshotSchema.extend({ channel: z.literal('mobile') }),
+  snapshot: SnapshotSchema.extend({ channel: z.enum(['mobile', 'kiosk']) }),
   owner: z.literal('cloud'),
 });
 export const CloudCommandSchema = z.discriminatedUnion('type', [

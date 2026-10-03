@@ -189,3 +189,41 @@ test('actual commerce outbox drives local admission and gated execution; handoff
       }
     }
   }));
+
+test('kiosk cloud admission stays held until trusted authorization and cannot become unpaid POS', () =>
+  fixture(async (f) => {
+    const command = f.admission();
+    command.payload.snapshot.channel = 'kiosk';
+    command.payload.snapshot.customerId = null;
+    command.payload.quoteDigest = digest(command.payload.snapshot);
+    const held = await f.repo.acceptCloud(f.scope, command);
+    assert.equal(held.state, 'held');
+    assert.equal(await f.count('fulfillment_tasks'), 0);
+    const again = await f.repo.acceptCloud(f.scope, command);
+    assert.equal(again.reservationId, held.reservationId);
+    const unsupported = f.admission();
+    unsupported.payload.snapshot.channel = 'pos';
+    unsupported.payload.quoteDigest = digest(unsupported.payload.snapshot);
+    await assert.rejects(
+      f.repo.acceptCloud(f.scope, unsupported),
+      (e) => e.code === 'INVALID',
+    );
+    await assert.rejects(
+      f.pool.query(
+        "UPDATE fulfillment_reservations SET commercial_owner='edge_pos',admission_kind='unpaid_service' WHERE order_id=$1",
+        [held.orderId],
+      ),
+    );
+    const accepted = await f.repo.acceptCloud(f.scope, f.authorize(command, held));
+    assert.equal(accepted.state, 'accepted');
+    assert.ok((await f.count('fulfillment_tasks')) > 0);
+    const record = (
+      await f.pool.query(
+        'SELECT snapshot,commercial_owner,admission_kind FROM fulfillment_reservations WHERE order_id=$1',
+        [held.orderId],
+      )
+    ).rows[0];
+    assert.equal(record.snapshot.channel, 'kiosk');
+    assert.equal(record.commercial_owner, 'cloud');
+    assert.equal(record.admission_kind, 'cloud_authorized');
+  }));

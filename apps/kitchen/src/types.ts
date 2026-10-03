@@ -52,7 +52,7 @@ export type Task = {
 };
 export type Order = Summary & {
   assemblyStationId: string;
-  channel: 'mobile' | 'pos';
+  channel: 'mobile' | 'kiosk' | 'pos';
   serviceMode: 'takeaway' | 'dine_in';
   kitchenComment?: string;
   tasks: Task[];
@@ -202,7 +202,7 @@ export function order(v: unknown, branch: string): Order {
   return {
     ...summary(o, branch),
     assemblyStationId: uuid(o.assemblyStationId),
-    channel: choice(o.channel, ['mobile', 'pos']),
+    channel: choice(o.channel, ['mobile', 'kiosk', 'pos']),
     serviceMode: choice(o.serviceMode, ['takeaway', 'dine_in']),
     ...(o.kitchenComment === undefined ? {} : { kitchenComment: str(o.kitchenComment, 60) }),
     tasks,
