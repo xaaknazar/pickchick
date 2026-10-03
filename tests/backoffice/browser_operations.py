@@ -26,6 +26,7 @@ with sync_playwright() as pw:
  navigate('reports')
  stage('report periods')
  for period in ['yesterday','year']:
+  expect(at('op-refresh')).to_be_enabled()
   with page.expect_request_finished(lambda r:snapshot_request(r,period),timeout=15000) as pending:
    at('period-'+period).click()
   response=pending.value.response();assert response.status==200
@@ -39,6 +40,7 @@ with sync_playwright() as pw:
  start=(datetime.now()-timedelta(days=2)).strftime('%Y-%m-%d')
  end=datetime.now().strftime('%Y-%m-%d')
  at('period-start').fill(start);at('period-end').fill(end)
+ expect(at('op-refresh')).to_be_enabled()
  with page.expect_request_finished(lambda r:snapshot_request(r,'year'),timeout=15000) as pending:at('op-refresh').click()
  assert parse_qs(urlparse(pending.value.url).query)['period']==['year']
  expect(at('period-start')).to_have_value(start);expect(at('period-end')).to_have_value(end)
@@ -46,12 +48,23 @@ with sync_playwright() as pw:
  at('period-start').fill(end);at('period-end').fill(start);at('period-apply').click()
  assert not at('period-end').evaluate('(e)=>e.validity.valid')
  at('period-start').fill(start);at('period-end').fill(end)
+ # Delay delivery of an actual server response, preserving its status/body.
+ def delayed_custom(route):
+  response=route.fetch()
+  expect(at('op-refresh')).to_be_disabled()
+  expect(at('period-apply')).to_be_disabled()
+  page.wait_for_timeout(250)
+  route.fulfill(response=response)
+ page.route('**/v1/admin/backoffice/branches/*?period=custom*',delayed_custom)
+ expect(at('op-refresh')).to_be_enabled()
  with page.expect_request_finished(lambda r:snapshot_request(r,'custom'),timeout=15000) as pending:at('period-apply').click()
+ page.unroute('**/v1/admin/backoffice/branches/*?period=custom*',delayed_custom)
  response=pending.value.response();assert response.status==200
  query=parse_qs(urlparse(response.url).query)
  assert query['period']==['custom'] and query['start_date']==[start] and query['end_date']==[end]
  body=response.json();assert body['period']=='custom' and body['period_start']<body['period_end']
  expect(at('period-custom')).to_have_attribute('aria-pressed','true')
+ expect(at('op-refresh')).to_be_enabled()
  with page.expect_request_finished(lambda r:snapshot_request(r,'custom'),timeout=15000) as pending:at('op-refresh').click()
  assert parse_qs(urlparse(pending.value.url).query)==query
  stage('offline recovery')
@@ -60,6 +73,7 @@ with sync_playwright() as pw:
  expect(page.locator('.content')).to_contain_text('Данные недоступны')
  assert page.locator('.content .op-bars').count()==0
  page.context.set_offline(False)
+ expect(at('op-refresh')).to_be_enabled()
  with page.expect_request_finished(lambda r:snapshot_request(r,'day'),timeout=15000) as pending:at('op-refresh').click()
  assert pending.value.response().status==200
  stage('source cashier shift')
@@ -72,6 +86,7 @@ with sync_playwright() as pw:
  expect(page.locator('dialog')).to_contain_text('Synthetic shift combo')
  page.locator('dialog').get_by_role('button',name='Закрыть',exact=True).click()
  navigate('finance');expect(page.locator('.content')).to_contain_text('Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются')
+ expect(at('op-refresh')).to_be_enabled()
  with page.expect_request_finished(lambda r:snapshot_request(r,'day'),timeout=15000) as pending:at('period-day').click()
  assert pending.value.response().status==200;expect(at('cashier-shift-select')).to_have_value('')
  stage('stock durable forms')
