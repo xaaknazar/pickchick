@@ -887,21 +887,33 @@ test('published quote verifies PG reference and full price/selection snapshot, n
     assert.equal(await f.count('commerce_quotes'), 1);
   }));
 
-test('new publication rejects stale issuance but valid pinned quote and idempotent replay survive', () =>
+test('new publication rejects stale issuance and first consumption but committed order replay survives', () =>
   fixture(async (f) => {
     const pub = await publishCatalog(f),
       key = randomUUID();
     const quote = await f.repo.issueQuote(f.scope, key, pub.priced);
+    const unconsumed = await f.repo.issueQuote(f.scope, randomUUID(), pub.priced);
+    const orderKey = randomUUID();
+    const orderRequest = { quoteId: quote.quoteId, fiscalAccountId: f.fiscal };
+    const order = await f.repo.createOrder(f.scope, orderKey, orderRequest);
     const newer = await publishCatalog(f, { version: 2, price: '20000' });
     await assert.rejects(f.repo.issueQuote(f.scope, randomUUID(), pub.priced), {
       code: 'CONFLICT',
     });
     assert.deepEqual(await f.repo.issueQuote(f.scope, key, pub.priced), quote);
     await assert.rejects(f.repo.issueQuote(f.scope, key, newer.priced), { code: 'CONFLICT' });
-    const order = await f.repo.createOrder(f.scope, randomUUID(), {
-      quoteId: quote.quoteId,
-      fiscalAccountId: f.fiscal,
-    });
+    const commandsBefore = await f.count('commerce_commands');
+    await assert.rejects(
+      f.repo.createOrder(f.scope, randomUUID(), {
+        quoteId: unconsumed.quoteId,
+        fiscalAccountId: f.fiscal,
+      }),
+      { code: 'CONFLICT' },
+    );
+    assert.equal(await f.count('commerce_orders'), 1);
+    assert.equal(await f.count('commerce_commands'), commandsBefore);
+    assert.deepEqual(await f.repo.createOrder(f.scope, orderKey, orderRequest), order);
+    assert.deepEqual(await f.repo.createOrder(f.scope, randomUUID(), orderRequest), order);
     const view = await f.repo.readOrder(f.scope, order.orderId);
     assert.equal(view.snapshot.catalogReference.version, 1);
     assert.equal(view.snapshot.totalMinor, '32000');
