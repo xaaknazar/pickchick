@@ -11,6 +11,14 @@ with sync_playwright() as pw:
  browser=pw.chromium.launch();page=browser.new_page(viewport={'width':1680,'height':1040});errors=[]
  page.set_default_timeout(15000);page.set_default_navigation_timeout(15000)
  page.on('pageerror',lambda e:errors.append(str(e)))
+ def report_event(kind,request,status=None):
+  parsed=urlparse(request.url)
+  if '/v1/admin/backoffice/branches/' in parsed.path and '/orders/' not in parsed.path:
+   print('[backoffice report] '+json.dumps({'event':kind,'method':request.method,'query':parse_qs(parsed.query),'status':status,'failure':request.failure if kind=='failed' else None}),flush=True)
+ page.on('request',lambda request:report_event('request',request))
+ page.on('response',lambda response:report_event('response',response.request,response.status))
+ page.on('requestfinished',lambda request:report_event('finished',request))
+ page.on('requestfailed',lambda request:report_event('failed',request))
  page.goto(c['url']);at=page.get_by_test_id
  at('credential-file').set_input_files({'name':'synthetic-manager.json','mimeType':'application/json','buffer':json.dumps(c['manager']).encode()})
  expect(at('nav-dash')).to_be_visible();expect(at('op-refresh')).to_be_visible()
@@ -26,10 +34,13 @@ with sync_playwright() as pw:
  navigate('reports')
  stage('report periods')
  for period in ['yesterday','year']:
+  stage('preset '+period)
   expect(at('op-refresh')).to_be_enabled()
-  with page.expect_request_finished(lambda r:snapshot_request(r,period),timeout=15000) as pending:
+  with page.expect_response(lambda r:snapshot_request(r.request,period),timeout=15000) as pending:
    at('period-'+period).click()
-  response=pending.value.response();assert response.status==200
+  expect(at('op-refresh')).to_be_enabled()
+  stage('preset ready '+period)
+  response=pending.value;assert response.status==200
   body=response.json();assert body['period']==period
   assert body['period_start']<body['period_end']
   expect(at('period-'+period)).to_have_attribute('aria-pressed','true')
@@ -41,7 +52,8 @@ with sync_playwright() as pw:
  end=datetime.now().strftime('%Y-%m-%d')
  at('period-start').fill(start);at('period-end').fill(end)
  expect(at('op-refresh')).to_be_enabled()
- with page.expect_request_finished(lambda r:snapshot_request(r,'year'),timeout=15000) as pending:at('op-refresh').click()
+ with page.expect_response(lambda r:snapshot_request(r.request,'year'),timeout=15000) as pending:at('op-refresh').click()
+ expect(at('op-refresh')).to_be_enabled()
  assert parse_qs(urlparse(pending.value.url).query)['period']==['year']
  expect(at('period-start')).to_have_value(start);expect(at('period-end')).to_have_value(end)
  expect(at('period-year')).to_have_attribute('aria-pressed','true')
@@ -57,15 +69,17 @@ with sync_playwright() as pw:
   route.fulfill(response=response)
  page.route('**/v1/admin/backoffice/branches/*?period=custom*',delayed_custom)
  expect(at('op-refresh')).to_be_enabled()
- with page.expect_request_finished(lambda r:snapshot_request(r,'custom'),timeout=15000) as pending:at('period-apply').click()
+ with page.expect_response(lambda r:snapshot_request(r.request,'custom'),timeout=15000) as pending:at('period-apply').click()
+ expect(at('op-refresh')).to_be_enabled()
  page.unroute('**/v1/admin/backoffice/branches/*?period=custom*',delayed_custom)
- response=pending.value.response();assert response.status==200
+ response=pending.value;assert response.status==200
  query=parse_qs(urlparse(response.url).query)
  assert query['period']==['custom'] and query['start_date']==[start] and query['end_date']==[end]
  body=response.json();assert body['period']=='custom' and body['period_start']<body['period_end']
  expect(at('period-custom')).to_have_attribute('aria-pressed','true')
  expect(at('op-refresh')).to_be_enabled()
- with page.expect_request_finished(lambda r:snapshot_request(r,'custom'),timeout=15000) as pending:at('op-refresh').click()
+ with page.expect_response(lambda r:snapshot_request(r.request,'custom'),timeout=15000) as pending:at('op-refresh').click()
+ expect(at('op-refresh')).to_be_enabled()
  assert parse_qs(urlparse(pending.value.url).query)==query
  stage('offline recovery')
  # Fail a real request and verify the previous period's report is not shown as current.
@@ -74,8 +88,9 @@ with sync_playwright() as pw:
  assert page.locator('.content .op-bars').count()==0
  page.context.set_offline(False)
  expect(at('op-refresh')).to_be_enabled()
- with page.expect_request_finished(lambda r:snapshot_request(r,'day'),timeout=15000) as pending:at('op-refresh').click()
- assert pending.value.response().status==200
+ with page.expect_response(lambda r:snapshot_request(r.request,'day'),timeout=15000) as pending:at('op-refresh').click()
+ expect(at('op-refresh')).to_be_enabled()
+ assert pending.value.status==200
  stage('source cashier shift')
  # A real source shift includes its orders before today's boundary and exposes no invented money totals.
  navigate('shifts');at('cashier-shift-'+c['shiftId']).click()
@@ -87,8 +102,9 @@ with sync_playwright() as pw:
  page.locator('dialog').get_by_role('button',name='Закрыть',exact=True).click()
  navigate('finance');expect(page.locator('.content')).to_contain_text('Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются')
  expect(at('op-refresh')).to_be_enabled()
- with page.expect_request_finished(lambda r:snapshot_request(r,'day'),timeout=15000) as pending:at('period-day').click()
- assert pending.value.response().status==200;expect(at('cashier-shift-select')).to_have_value('')
+ with page.expect_response(lambda r:snapshot_request(r.request,'day'),timeout=15000) as pending:at('period-day').click()
+ expect(at('op-refresh')).to_be_enabled()
+ assert pending.value.status==200;expect(at('cashier-shift-select')).to_have_value('')
  stage('stock durable forms')
  navigate('stock');at('op-add-ingredient').click();at('op-name').fill('Synthetic chicken');at('op-minimum').fill('100');at('op-reason').fill('Create ingredient for acceptance');at('op-save').click();expect(at('op-editor')).to_have_count(0)
  def stock(button,quantity,cost=None):
