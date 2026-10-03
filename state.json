@@ -2068,18 +2068,6 @@
       "updatedAt": "2026-10-03T09:22:01.604Z"
     },
     {
-      "id": "director-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-ci",
-      "scopes": [
-        "infra/staging/release-director-console.py",
-        "tests/operations/test_director_release.py"
-      ],
-      "status": "active",
-      "head": "335797b32b0e1ceb39fb092db757a727afe849c0",
-      "updatedAt": "2026-10-03T09:27:30.157Z"
-    },
-    {
       "id": "director-shifts",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-shifts",
@@ -2141,6 +2129,18 @@
       "updatedAt": "2026-10-03T09:37:11.627Z",
       "summary": "Опубликован f02f5a096a703dd62d754ae09e0982bcddaf3532: gated mobile storefront получает текущую catalog_publication того же checkout branch; отдельная mobile цена и описание доходят в расчёт. Версия branch/publication обязательна после rollout, старые/stale запросы блокируются, POS/kiosk overrides остаются запрещены. Targeted Postgres equality/rollback compatibility, unit, builds/typechecks/lint/format passed. Конфигурация и production цены не изменялись.",
       "nextAction": "Интегрировать зависимость importer из335797b, выполнить browser Expo live publication pass+CI. Для activation добавить gateway GET /v1/customer-checkout/catalog и согласованно включить server/client flags; rollback сначала prior base-only publication. Root обновляет общие docs."
+    },
+    {
+      "id": "director-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-ci",
+      "scopes": [
+        "infra/staging/release-director-console.py",
+        "tests/operations/test_director_release.py"
+      ],
+      "status": "active",
+      "head": "c2e805ffe5705886e21799398eed660e95f21540",
+      "updatedAt": "2026-10-03T09:39:33.084Z"
     }
   ]
 }
