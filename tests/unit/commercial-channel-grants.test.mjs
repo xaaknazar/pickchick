@@ -90,3 +90,24 @@ test('disabled helpers revoke only dedicated new tables and their column privile
     assert.doesNotMatch(sql, /commerce_|menu_releases|menu_streams|outbox_events|branches/);
   }
 });
+
+test('both enabled channel helpers explicitly grant every delivery status join read', () => {
+  const required = [
+    'catalog_menu_deliveries',
+    'menu_releases',
+    'devices',
+    'fulfillment_transport_bindings',
+    'branch_menu_activations',
+    'outbox_events',
+    'inbox_messages',
+  ];
+  for (const helper of [catalogEdgePublicationGrants, kioskCheckoutGrants]) {
+    const grants = [
+      ...helper('runtime', true).matchAll(/GRANT SELECT(?:,INSERT)? ON ([^;]+?) TO runtime;/g),
+    ]
+      .map((match) => match[1].split(',').map((x) => x.trim()))
+      .flat();
+    for (const table of required)
+      assert.ok(grants.includes(table), `${helper.name} lacks SELECT ${table}`);
+  }
+});

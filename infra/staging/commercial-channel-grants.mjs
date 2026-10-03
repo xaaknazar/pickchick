@@ -16,7 +16,7 @@ export function catalogEdgePublicationGrants(role, enabled) {
     (enabled
       ? `
  GRANT SELECT,INSERT ON catalog_menu_deliveries,menu_releases,menu_streams,outbox_events TO ${role};
- GRANT SELECT ON branches,devices,branch_menu_activations TO ${role};
+ GRANT SELECT ON branches,devices,branch_menu_activations,inbox_messages,fulfillment_transport_bindings TO ${role};
  GRANT UPDATE(menu_publication_lock_anchor) ON branches TO ${role};
  GRANT UPDATE(last_sequence) ON menu_streams TO ${role};`
       : '')
@@ -34,7 +34,7 @@ export function kioskCheckoutGrants(role, enabled) {
       ? customerCheckoutGrants(role, true) +
         orderRecipeGrants(role) +
         `
- GRANT SELECT ON kiosk_devices,kiosk_sessions,catalog_menu_deliveries,menu_releases,branch_menu_activations TO ${role};
+ GRANT SELECT ON kiosk_devices,kiosk_sessions,catalog_menu_deliveries,menu_releases,branch_menu_activations,outbox_events,inbox_messages,fulfillment_transport_bindings,devices TO ${role};
  GRANT UPDATE(lock_anchor) ON kiosk_devices TO ${role};
  GRANT INSERT ON kiosk_sessions TO ${role};
  GRANT UPDATE(ended_at,phone_ciphertext,phone_nonce,phone_tag,phone_expires_at) ON kiosk_sessions TO ${role};`
