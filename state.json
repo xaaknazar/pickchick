@@ -1943,9 +1943,11 @@
         "apps/backoffice/src/app.ts",
         "apps/backoffice/src/styles.css"
       ],
-      "status": "active",
-      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
-      "updatedAt": "2026-10-03T08:28:25.806Z"
+      "status": "done",
+      "head": "5311b8cedccce22194a7f730b16bccdd7df6ae84",
+      "updatedAt": "2026-10-03T08:57:33.170Z",
+      "summary": "Shell included in shared 92e8a127; build/typecheck before filter contract, lint/format/diff and detector passed; integrated real browser 16 sections at 1680/1024/393 passed by parent. Full CI/deploy pending.",
+      "nextAction": "Parent owns full CI, deployment and acceptance."
     },
     {
       "id": "director-console",
