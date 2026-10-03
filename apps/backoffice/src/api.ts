@@ -8,15 +8,54 @@ export class ApiError extends Error {
 }
 export type Request = { method?: 'GET' | 'PUT' | 'POST'; body?: unknown };
 export type Transport = (path: string, token: string, options?: Request) => Promise<unknown>;
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+function reportQuery(search: string) {
+  if (search.length > 400) return false;
+  const query = new URLSearchParams(search);
+  const seen = new Set();
+  for (const [key] of query) {
+    if (!['period', 'start_date', 'end_date', 'shift_id'].includes(key) || seen.has(key))
+      return false;
+    seen.add(key);
+  }
+  const period = query.get('period') ?? 'day';
+  if (!['day', 'today', 'yesterday', 'week', 'month', 'quarter', 'year', 'custom'].includes(period))
+    return false;
+  const shift = query.get('shift_id');
+  if (shift !== null && !new RegExp(`^${UUID}$`, 'i').test(shift)) return false;
+  const start = query.get('start_date'),
+    end = query.get('end_date');
+  if (period !== 'custom') return start === null && end === null;
+  const validDate = (value: string | null): value is string => {
+    if (
+      value === null ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+      value < '2000-01-01' ||
+      value > '2099-12-31'
+    )
+      return false;
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  };
+  return (
+    validDate(start) &&
+    validDate(end) &&
+    start <= end &&
+    Date.parse(end) - Date.parse(start) <= 365 * 86400000
+  );
+}
+function allowedPath(path: string): boolean {
+  if (/^branches(?:\/[a-f0-9-]{36}(?:\/(?:draft|draft\/seed|publish))?)?$/.test(path)) return true;
+  const [pathname = '', search, extra] = path.split('?');
+  if (extra !== undefined || path.includes('#')) return false;
+  if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
+  return (
+    search === undefined &&
+    new RegExp(`^operations/branches/${UUID}/(?:commands|orders/${UUID})$`).test(pathname)
+  );
+}
 export const transport: Transport = async (path, token, options = {}) => {
-  if (
-    (!/^branches(?:\/[a-f0-9-]{36}(?:\/(?:draft|draft\/seed|publish))?)?$/.test(path) &&
-      !/^operations\/branches\/[a-f0-9-]{36}(?:\/commands|\/orders\/[a-f0-9-]{36}|\?period=(?:day|week|month|quarter))?$/.test(
-        path,
-      )) ||
-    !/^[a-f0-9]{64}$/.test(token)
-  )
-    throw new ApiError('INVALID_REQUEST');
+  if (!allowedPath(path) || !/^[a-f0-9]{64}$/.test(token)) throw new ApiError('INVALID_REQUEST');
   let response: Response;
   try {
     response = await fetch(
