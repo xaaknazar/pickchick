@@ -2267,9 +2267,11 @@
         "infra/staging/commercial-channel-grants.mjs",
         "tests/unit/commercial-channel-grants.test.mjs"
       ],
-      "status": "active",
-      "head": "efd6ca18ba6a763a17f6177a6945b698e1e72fd7",
-      "updatedAt": "2026-10-03T20:04:46.397Z"
+      "status": "done",
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-03T20:32:53.209Z",
+      "summary": "Integrated in shared 3fabe7cdb0ef1137287badcd5ae97d910007d827, PR https://github.com/xaaknazar/pickchick/pull/171. Original commits2066465/efd6ca1/07625a5/c86e6fe retained as merge parents. Agent checks:11 real disposable PostgreSQL kiosk session/provisioning/least-privilege tests,6 unit grant tests,actual seeded delivery query under catalog and kiosk roles,TypeScript/ESLint/diffcheck passed. Own branch fast-forwarded and published; remoteSHAverified3fabe7c. Local preintegration034 copy preserved outsideworktree in /tmp; trackedtreeclean. No live installation performed by agent.",
+      "nextAction": "Root owns PR171 CI/release gates and pending controlled live installation; stage is code-tested checkpoint, not restaurant or bank acceptance."
     },
     {
       "id": "channel-menu-publication",
