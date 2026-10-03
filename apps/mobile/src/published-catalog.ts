@@ -1,3 +1,4 @@
+import { validSelections } from './domain.ts';
 import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import type { Product, Locale, CartLine } from './model';
 const displayCopy = (text: string) => text.replace(/[\u2013\u2014]/g, '-');
@@ -51,4 +52,21 @@ export function publishedCartVersion(cart: CartLine[], branchId: string): number
   const version = Number(first.slice(prefix.length));
   if (!Number.isSafeInteger(version) || version < 1) throw new Error('CONFLICT');
   return version;
+}
+
+export function reconcilePublishedCart(cart: CartLine[], products: Product[]) {
+  const removed: string[] = [];
+  const next = cart.flatMap((line) => {
+    const product = products.find((p) => p.id === line.product.id);
+    if (
+      !product ||
+      product.available === false ||
+      !validSelections(product, line.selections ?? [])
+    ) {
+      removed.push(line.product.name);
+      return [];
+    }
+    return [{ ...line, product }];
+  });
+  return { cart: next, removed };
 }

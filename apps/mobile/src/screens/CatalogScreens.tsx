@@ -669,6 +669,22 @@ export function Cart(props: ScreenProps) {
         ) : null
       }
     >
+      {props.model.catalogUpdateNotice ? (
+        <View testID="catalog-update-notice" accessibilityLiveRegion="polite">
+          <Notice title="Меню обновилось" warning>
+            {props.model.catalogUpdateNotice}
+          </Notice>
+          <Button
+            title={props.model.catalogUpdatePending ? 'Обновить корзину' : 'Понятно'}
+            testID="catalog-update-apply"
+            onPress={
+              props.model.catalogUpdatePending
+                ? props.model.refreshPublishedCart
+                : props.model.dismissCatalogUpdate
+            }
+          />
+        </View>
+      ) : null}
       <MotionModal
         visible={editing !== null}
         animationType="slide"

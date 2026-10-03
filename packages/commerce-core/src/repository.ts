@@ -530,6 +530,7 @@ export class CommerceRepository {
           currency: string;
           digest: string;
           valid: boolean;
+          catalog_version: number | null;
         }>(
           'SELECT *,expires_at>clock_timestamp() valid FROM commerce_quotes WHERE id=$1 AND organization_id=$2 AND branch_id=$3 AND principal_id=$4',
           [request.quoteId, actor.organizationId, actor.branchId, actor.principalId],
@@ -542,6 +543,17 @@ export class CommerceRepository {
       if (old) {
         if (old.fiscal_account_id !== request.fiscalAccountId) throw new CommerceError('CONFLICT');
         return { orderId: old.id, quoteId: old.quote_id };
+      }
+      // Publish locks this same mutable head FOR UPDATE and never locks quotes.
+      // Existing-order replay above remains valid; first consumption must use the current release.
+      if (quote.catalog_version !== null && quote.catalog_version !== undefined) {
+        const head = (
+          await client.query<{ published_version: number | null }>(
+            'SELECT published_version FROM catalog_branch_heads WHERE branch_id=$1 AND organization_id=$2 FOR SHARE',
+            [actor.branchId, actor.organizationId],
+          )
+        ).rows[0];
+        if (head?.published_version !== quote.catalog_version) throw new CommerceError('CONFLICT');
       }
       if (!quote.valid) throw new CommerceError('EXPIRED');
       if (deferral && !this.fiscalPilot?.repeatOrdersEnabled) {
