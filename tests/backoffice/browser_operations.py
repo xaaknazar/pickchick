@@ -60,9 +60,11 @@ with sync_playwright() as pw:
  at('period-start').fill(end);at('period-end').fill(start);at('period-apply').click()
  assert not at('period-end').evaluate('(e)=>e.validity.valid')
  at('period-start').fill(start);at('period-end').fill(end)
- # Delay delivery of an actual server response, preserving its status/body.
+ # Capture the real upstream body before fulfillment; Chromium may discard its CDP resource.
+ captured_custom={}
  def delayed_custom(route):
   response=route.fetch()
+  captured_custom.update(status=response.status,body=response.json(),url=route.request.url)
   expect(at('op-refresh')).to_be_disabled()
   expect(at('period-apply')).to_be_disabled()
   page.wait_for_timeout(250)
@@ -72,11 +74,16 @@ with sync_playwright() as pw:
  with page.expect_response(lambda r:snapshot_request(r.request,'custom'),timeout=15000) as pending:at('period-apply').click()
  expect(at('op-refresh')).to_be_enabled()
  page.unroute('**/v1/admin/backoffice/branches/*?period=custom*',delayed_custom)
- response=pending.value;assert response.status==200
- query=parse_qs(urlparse(response.url).query)
+ assert pending.value.status==200 and captured_custom['status']==200
+ query=parse_qs(urlparse(captured_custom['url']).query)
  assert query['period']==['custom'] and query['start_date']==[start] and query['end_date']==[end]
- body=response.json();assert body['period']=='custom' and body['period_start']<body['period_end']
+ body=captured_custom['body'];assert body['period']=='custom' and body['period_start']<body['period_end']
  expect(at('period-custom')).to_have_attribute('aria-pressed','true')
+ expect(page.locator('.content')).not_to_contain_text('Данные недоступны')
+ expect(page.locator('.content .op-bars')).to_be_visible()
+ expect(page.locator('.content .op-bar')).to_have_count(len(body['chart']))
+ for day in body['chart']:expect(page.locator('.content progress[aria-label="'+day['day']+'"]')).to_be_visible()
+ expect(at('period-start')).to_have_value(start);expect(at('period-end')).to_have_value(end)
  expect(at('op-refresh')).to_be_enabled()
  with page.expect_response(lambda r:snapshot_request(r.request,'custom'),timeout=15000) as pending:at('op-refresh').click()
  expect(at('op-refresh')).to_be_enabled()
