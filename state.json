@@ -2145,6 +2145,19 @@
       "updatedAt": "2026-10-03T09:41:09.668Z",
       "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
       "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
+    },
+    {
+      "id": "director-cashier-upgrade",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-cashier-upgrade",
+      "scopes": [
+        "infra/windows/cashier-reports-upgrade-db.mjs",
+        "infra/windows/cashier-reports-upgrade.md",
+        "tests/operations/windows-cashier-reports-upgrade.test.mjs"
+      ],
+      "status": "active",
+      "head": "0343e48e4fa0f4029a09d6bafdbe4eb9571d597a",
+      "updatedAt": "2026-10-03T09:45:52.273Z"
     }
   ]
 }
