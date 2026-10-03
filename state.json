@@ -2015,11 +2015,11 @@
         "apps/backoffice/src/api.ts",
         "tests/backoffice/transport.test.mjs"
       ],
-      "status": "active",
-      "head": "c6830287e65af40affb6938c6f158911011effed",
-      "updatedAt": "2026-10-03T08:48:01.296Z",
-      "summary": "Published c72d7d890ef4eb2c4bd7e91b72a844afab3136ce calendar reports and trusted edge stop-list. 5 unit and 10 PostgreSQL18 tests plus tsc/lint/format pass; no deployment.",
-      "nextAction": "Parent director-console integrates commit, owns docs/UI/CI. Runtime shift relation missing: capability false and NOT_READY. Release scope after shared integration."
+      "status": "done",
+      "head": "766c45b2cf75c439afacb975c9dbe9e30671495e",
+      "updatedAt": "2026-10-03T08:57:29.352Z",
+      "summary": "Integrated original commits c72d7d8,c683028,766c45b in shared 92e8a1274e0578d1394347eabc8eadc4476d30a1. 5 unit+10 PostgreSQL backend tests, 3 transport/proxy tests and build/lint/format pass. Full CI and release pending.",
+      "nextAction": "Parent director-console owns full CI, release and acceptance. Operational runtime shift replication remains a documented gap."
     }
   ]
 }
