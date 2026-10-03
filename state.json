@@ -1948,21 +1948,6 @@
       "updatedAt": "2026-10-03T08:28:25.806Z"
     },
     {
-      "id": "director-periods",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-periods",
-      "scopes": [
-        "packages/backoffice-core/src",
-        "packages/backoffice-core/tests",
-        "infra/staging/backoffice-grants.mjs"
-      ],
-      "status": "available",
-      "head": "c72d7d890ef4eb2c4bd7e91b72a844afab3136ce",
-      "updatedAt": "2026-10-03T08:37:02.370Z",
-      "summary": "Published c72d7d890ef4eb2c4bd7e91b72a844afab3136ce calendar reports and trusted edge stop-list. 5 unit and 10 PostgreSQL18 tests plus tsc/lint/format pass; no deployment.",
-      "nextAction": "Parent director-console integrates commit, owns docs/UI/CI. Runtime shift relation missing: capability false and NOT_READY. Release scope after shared integration."
-    },
-    {
       "id": "director-console",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-console",
@@ -2015,6 +2000,23 @@
       "status": "active",
       "head": "6ecf4d9758b5c1d8221c5e630ffba5fa0d30bd6a",
       "updatedAt": "2026-10-03T08:36:07.777Z"
+    },
+    {
+      "id": "director-periods",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-periods",
+      "scopes": [
+        "packages/backoffice-core/src",
+        "packages/backoffice-core/tests",
+        "infra/staging/backoffice-grants.mjs",
+        "apps/backoffice/server.mjs",
+        "tests/backoffice/director-proxy.test.mjs"
+      ],
+      "status": "active",
+      "head": "c72d7d890ef4eb2c4bd7e91b72a844afab3136ce",
+      "updatedAt": "2026-10-03T08:43:45.116Z",
+      "summary": "Published c72d7d890ef4eb2c4bd7e91b72a844afab3136ce calendar reports and trusted edge stop-list. 5 unit and 10 PostgreSQL18 tests plus tsc/lint/format pass; no deployment.",
+      "nextAction": "Parent director-console integrates commit, owns docs/UI/CI. Runtime shift relation missing: capability false and NOT_READY. Release scope after shared integration."
     }
   ]
 }
