@@ -1,6 +1,7 @@
 ## 4 октября: общий каталог и гостевой коммерческий киоск
 
-Ветка `codex/commercial-channels` от shared44ff3c6. Реализованы публикация
+Ветка `codex/commercial-channels` от shared44ff3c6,
+[PR #171](https://github.com/xaaknazar/pickchick/pull/171), код включён в shared. Реализованы публикация
 каталога -> MenuSnapshot/outbox -> ACK текущего edge, изолированный guest checkout,
 серверный расчёт/стопы, Kaspi worker phone recovery и предоплаченный kiosk в кухне.
 Новые флаги выключены. VPS/касса/iPad и реальные банковские счета не менялись.

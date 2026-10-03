@@ -15,6 +15,9 @@ runtime-прав, маршрутов и физической настройки 
 ESLint, формат и generated contracts прошли; iOS export киоска собран.
 Банк в тестах подставной. Полная GitHub CI и нативная приёмка ещё не подтверждены.
 [Реализация, конфигурация и продолжение](operations/commercial-channels.md).
+Код сохранён в [PR #171](https://github.com/xaaknazar/pickchick/pull/171)
+и включён в shared-development. Чтение combined CI status отклонено GitHub
+с 403; это не подтверждение зелёной CI и не основание для рабочего выпуска.
 
 ## 4 октября: аудит полного запуска точки
 
