@@ -2190,6 +2190,20 @@
       "updatedAt": "2026-10-03T10:31:09.656Z",
       "summary": "Local 25083984130020b43816dd30f1fd488e7a169963 integrated equivalently as 9b80b8e0dd1243f792258531cb24517f64d753d4 into shared 723f688f78e69fcd501a12f7b7b24cb94e4e36cb; exact diff verified; 67 PostgreSQL tests, typecheck and lint passed. Coordination-only close authorized by root; source branch intentionally not pushed.",
       "nextAction": "Root handles final CI 37116304222 and release; no source or server changes."
+    },
+    {
+      "id": "director-grants-compat",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-grants-compat",
+      "scopes": [
+        "infra/windows/edge-runtime-grants.mjs",
+        "tests/operations/windows-native-service-upgrade.test.mjs",
+        "tests/operations/windows-reserved-number.test.mjs",
+        "tests/operations/windows-cashier-reports-upgrade.test.mjs"
+      ],
+      "status": "active",
+      "head": "723f688f78e69fcd501a12f7b7b24cb94e4e36cb",
+      "updatedAt": "2026-10-03T10:39:49.877Z"
     }
   ]
 }
