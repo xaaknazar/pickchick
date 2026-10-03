@@ -2225,6 +2225,21 @@
       "status": "active",
       "head": "e236824b80ee315eae48c371d722f4f6459aac8c",
       "updatedAt": "2026-10-03T12:18:29.592Z"
+    },
+    {
+      "id": "launch-readiness-oct04",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/launch-readiness-oct04",
+      "scopes": [
+        "docs/operations/launch-readiness-2026-10-04.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "d1bd631018ea169f42783655d6ead56cc052b451",
+      "updatedAt": "2026-10-03T19:35:25.614Z"
     }
   ]
 }
