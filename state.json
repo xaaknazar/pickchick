@@ -2171,11 +2171,11 @@
         "tests/mobile/browser_published_catalog.py",
         "apps/mobile/src/domain.ts"
       ],
-      "status": "active",
+      "status": "done",
       "head": "6ae773b348a4d03ed4749e4bceeae40b2d6fbfa2",
-      "updatedAt": "2026-10-03T10:21:43.893Z",
-      "summary": "37311249: published cart snapshots and explicit refresh; browser/PG/pure tests passed, mobile and commerce typecheck/lint passed; no live flags/payments",
-      "nextAction": "Integrate 37311249 into shared and run combined CI; root owns release/rollback and gateway docs"
+      "updatedAt": "2026-10-03T10:22:06.264Z",
+      "summary": "37311249 integrated shared6ae773b",
+      "nextAction": "Root handles CI"
     }
   ]
 }
