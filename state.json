@@ -2098,9 +2098,11 @@
         "apps/mobile/src/commerce-presentation.ts",
         "apps/mobile/src/test-order-session.ts"
       ],
-      "status": "active",
-      "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
-      "updatedAt": "2026-10-03T09:24:10.101Z"
+      "status": "available",
+      "head": "f02f5a096a703dd62d754ae09e0982bcddaf3532",
+      "updatedAt": "2026-10-03T09:29:19.010Z",
+      "summary": "Опубликован f02f5a096a703dd62d754ae09e0982bcddaf3532: gated mobile storefront получает текущую catalog_publication того же checkout branch; отдельная mobile цена и описание доходят в расчёт. Версия branch/publication обязательна после rollout, старые/stale запросы блокируются, POS/kiosk overrides остаются запрещены. Targeted Postgres equality/rollback compatibility, unit, builds/typechecks/lint/format passed. Конфигурация и production цены не изменялись.",
+      "nextAction": "Интегрировать зависимость importer из335797b, выполнить browser Expo live publication pass+CI. Для activation добавить gateway GET /v1/customer-checkout/catalog и согласованно включить server/client flags; rollback сначала prior base-only publication. Root обновляет общие docs."
     },
     {
       "id": "director-shifts",
