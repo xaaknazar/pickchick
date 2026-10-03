@@ -2324,11 +2324,12 @@
         "docs/collaboration/handoff.md",
         "packages/commerce-core/tests/kaspi-remote.postgres.test.mjs",
         "packages/contracts/openapi.json",
-        "packages/commerce-core/tests/unit.test.mjs"
+        "packages/commerce-core/tests/unit.test.mjs",
+        "@vps/roadmap"
       ],
       "status": "active",
-      "head": "21d85e86ccb6b4b781d8f6dd0a2720c5bca682df",
-      "updatedAt": "2026-10-03T20:24:36.624Z"
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-03T20:31:40.822Z"
     }
   ]
 }
