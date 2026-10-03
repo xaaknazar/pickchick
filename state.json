@@ -2047,6 +2047,24 @@
       "status": "active",
       "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
       "updatedAt": "2026-10-03T09:10:26.057Z"
+    },
+    {
+      "id": "director-ci",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-ci",
+      "scopes": [
+        "apps/mobile/src/useCommerceFeedback.ts",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "patches",
+        "scripts/braces-security.mjs",
+        "scripts/dependency-audit.mjs",
+        "tests/unit/braces-security.test.mjs"
+      ],
+      "status": "active",
+      "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
+      "updatedAt": "2026-10-03T09:13:38.373Z"
     }
   ]
 }
