@@ -1948,23 +1948,6 @@
       "updatedAt": "2026-10-03T08:28:25.806Z"
     },
     {
-      "id": "director-prices",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-prices",
-      "scopes": [
-        "packages/catalog-admin/src/contracts.ts",
-        "packages/catalog-pricing/src/pricing.ts",
-        "packages/catalog-pricing/tests",
-        "apps/backoffice/src/editor.ts",
-        "apps/backoffice/src/domain.ts",
-        "packages/contracts/openapi.json",
-        "tests/unit/catalog-channel-pricing.test.mjs"
-      ],
-      "status": "active",
-      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
-      "updatedAt": "2026-10-03T08:31:29.724Z"
-    },
-    {
       "id": "director-periods",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-periods",
@@ -1997,6 +1980,25 @@
       "status": "active",
       "head": "608d261b2ddd74f3a6ec4d75bc25d711660cfa68",
       "updatedAt": "2026-10-03T08:32:24.555Z"
+    },
+    {
+      "id": "director-prices",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-prices",
+      "scopes": [
+        "packages/catalog-admin/src/contracts.ts",
+        "packages/catalog-pricing/src/pricing.ts",
+        "packages/catalog-pricing/tests",
+        "apps/backoffice/src/editor.ts",
+        "apps/backoffice/src/domain.ts",
+        "packages/contracts/openapi.json",
+        "tests/unit/catalog-channel-pricing.test.mjs",
+        "packages/catalog-admin/src/index.ts",
+        "apps/backoffice/src/model.ts"
+      ],
+      "status": "active",
+      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
+      "updatedAt": "2026-10-03T08:35:11.788Z"
     }
   ]
 }
