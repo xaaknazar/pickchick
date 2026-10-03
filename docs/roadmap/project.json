@@ -60,7 +60,8 @@
     "docs/legal/customer-documents-draft.md",
     "docs/operations/server-pilot.md",
     "docs/operations/auth-four-digit.md",
-    "docs/operations/director-console.md"
+    "docs/operations/director-console.md",
+    "docs/operations/launch-readiness-2026-10-04.md"
   ],
   "workstreams": [
     {
@@ -534,6 +535,10 @@
         {
           "label": "03 offline and reliability",
           "path": "docs/03-offline-and-reliability.md"
+        },
+        {
+          "label": "Аудит полного запуска 4 октября",
+          "path": "docs/operations/launch-readiness-2026-10-04.md"
         }
       ],
       "acceptance": [
@@ -3083,6 +3088,10 @@
         {
           "label": "Порядок локального пилота",
           "path": "docs/operations/restaurant-pilot-2026-09-16.md"
+        },
+        {
+          "label": "Аудит полного запуска 4 октября",
+          "path": "docs/operations/launch-readiness-2026-10-04.md"
         }
       ],
       "acceptance": [
@@ -3123,6 +3132,10 @@
         {
           "label": "Roadmap и сценарии AC-01-41",
           "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Аудит полного запуска 4 октября",
+          "path": "docs/operations/launch-readiness-2026-10-04.md"
         }
       ],
       "acceptance": [
@@ -3199,6 +3212,10 @@
         {
           "label": "План обследования и перехода с iiko",
           "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Аудит полного запуска 4 октября",
+          "path": "docs/operations/launch-readiness-2026-10-04.md"
         }
       ],
       "acceptance": [
@@ -3230,6 +3247,10 @@
         {
           "label": "План обследования и перехода с iiko",
           "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Аудит полного запуска 4 октября",
+          "path": "docs/operations/launch-readiness-2026-10-04.md"
         }
       ],
       "acceptance": [
@@ -3248,7 +3269,7 @@
       "id": "launch-handover",
       "workstream": "launch",
       "title": "Передать систему и закрыть запуск",
-      "summary": "Итог - стабильная работа принятых функций без скрытой зависимости от iiko, переданные доступы/исходники и работающая поддержка.",
+      "summary": "Аудит 4 октября: mobile-пилот связан с edge/кухней, но полный запуск блокируют коммерческие POS/kiosk, Webkassa/возвраты, единое меню, аппаратная и аварийная приёмка. Полная передача эксплуатации не выполнена.",
       "status": "planned",
       "owner": "joint",
       "phase": "launch",
@@ -3261,13 +3282,17 @@
         {
           "label": "План обследования и перехода с iiko",
           "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "Аудит полного запуска 4 октября",
+          "path": "docs/operations/launch-readiness-2026-10-04.md"
         }
       ],
       "acceptance": [
         "Gate F: акт приёмки, инструкции, резервное восстановление и on-call приняты.",
         "Границы оставшегося архива iiko и дальнейшего развития описаны."
       ],
-      "nextAction": "Завершить повторную приёмку и передать эксплуатационный комплект.",
+      "nextAction": "Закрепить устройства и Webkassa/POS доступы; завершить коммерческие каналы и общий каталог, пройти аппаратную приёмку и пилот7-10 смен.",
       "checks": {
         "implemented": false,
         "verified": false,
