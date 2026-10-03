@@ -1,3 +1,5 @@
+import ast
+import subprocess
 import builtins
 import symtable
 import tempfile
@@ -29,6 +31,27 @@ class DirectorRelease(unittest.TestCase):
    candidate=r.compose_candidate(text)
   self.assertEqual(candidate.replace('      CATALOG_MOBILE_STOREFRONT_ENABLED: "false"\n',''),text)
   with self.assertRaises(r.market.GuardFailure):r.compose_candidate(text)
+ def test_gateway_inserts_only_canonical_bo_routes_and_header_exception(self):
+  old=(ROOT/'tests/operations/fixtures/director-gateway-schema032.Caddyfile').read_text()
+  self.assertEqual(r.digest(old.encode()),r.GATEWAY_BASELINE)
+  canonical=(ROOT/'infra/public-staging/gateway.Caddyfile').read_text()
+  block=canonical[canonical.index('\t@backoffice_get {'):canonical.index('\t@published_content {')]
+  obj=object.__new__(r.Release)
+  with patch.object(r,'GATEWAY_BASELINE',r.digest(old.encode())):
+   candidate=obj.gateway_candidate(old)
+   self.assertIn(block,candidate)
+   self.assertEqual(candidate.replace(block,'',1).replace('/v1/admin/backoffice/* ', '',1),old)
+   self.assertEqual(candidate.count('\t@backoffice_get {'),1)
+   self.assertEqual(candidate.count('\t@backoffice_post {'),1)
+   self.assertIn('\t\tmethod GET',block);self.assertIn('\t\tmethod POST',block)
+   self.assertEqual(block.count('header_up -Cookie'),2)
+   self.assertEqual(block.count('header_up -X-Device-Id'),2)
+   self.assertNotIn('header_up -Authorization',block)
+   with self.assertRaises(r.market.GuardFailure):obj.gateway_candidate(candidate)
+  with self.assertRaises(r.market.GuardFailure):obj.gateway_candidate(old+'\n')
+  for bad in [old.replace('\t@catalog_admin_get {','\t@unknown {'),old.replace('not path ','not path /v1/admin/backoffice/* '),old+'\t@backoffice_get {\n']:
+   with patch.object(r,'GATEWAY_BASELINE',r.digest(bad.encode())):
+    with self.assertRaises(r.market.GuardFailure):obj.gateway_candidate(bad)
  def test_public_manifest_preserves_non_bo(self):
   old={'files':{'operations/app.js':'x','legal/privacy.html':'y','backoffice/obsolete.js':'old'}}
   new={'source_sha':'a'*40,'component_sources':{'backoffice':'a'*40},'files':{'operations/app.js':'x','legal/privacy.html':'y','backoffice/app.js':'a','backoffice/operations.js':'b'}}
@@ -36,6 +59,29 @@ class DirectorRelease(unittest.TestCase):
   for name in ['operations/app.js','legal/privacy.html']:
    bad=copy.deepcopy(new);bad['files'][name]='changed'
    with self.assertRaises(r.market.GuardFailure):r.verify_manifest(old,bad,'a'*40)
+ def test_actual_embedded_manifest_writer_produces_valid_json_and_newline(self):
+  tree=ast.parse((ROOT/'infra/staging/release-director-console.py').read_text())
+  prepare=next(node for node in ast.walk(tree) if isinstance(node,ast.FunctionDef) and node.name=='prepare')
+  assignments=[node for node in ast.walk(prepare) if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='update' for target in node.targets)]
+  self.assertEqual(len(assignments),1)
+  script=ast.literal_eval(assignments[0].value)
+  with tempfile.TemporaryDirectory() as directory:
+   root=Path(directory);public=root/'public-web';bundle=public/'backoffice';bundle.mkdir(parents=True)
+   (bundle/'app.js').write_text('actual bundle')
+   (bundle/'operations.js').write_text('actual operations')
+   previous={'source_sha':r.PUBLIC_BASELINE,'component_sources':{'operations':'preserved','backoffice':'previous'},'files':{'operations/app.js':'preserved','backoffice/obsolete.js':'removed'}}
+   path=public/'.release.json';path.write_text(json.dumps(previous))
+   sha='a'*40
+   result=subprocess.run([sys.executable,'-c',script,str(root),sha],check=True,capture_output=True,text=True)
+   raw=path.read_bytes();self.assertTrue(raw.endswith(b'\n'));self.assertFalse(raw.endswith(b'\\n'))
+   manifest=json.loads(raw)
+   self.assertEqual(json.loads(result.stdout),manifest)
+   self.assertEqual(manifest['component_sources']['operations'],'preserved')
+   self.assertEqual(manifest['files']['backoffice/app.js'],r.digest(b'actual bundle'))
+   self.assertEqual(manifest['files']['backoffice/operations.js'],r.digest(b'actual operations'))
+   self.assertNotIn('backoffice/obsolete.js',manifest['files'])
+   self.assertEqual(path.stat().st_mode&0o777,0o644)
+   r.verify_manifest(previous,manifest,sha)
  def test_acl_interpreter_exact_columns_and_rejections(self):
   before=[{'name':'bo_records','kind':'r','column':None,'privilege':'SELECT','grantable':False}]
   rows=r.expected_acl(before,'REVOKE ALL ON bo_records FROM pickchick_app;GRANT SELECT,INSERT ON bo_records TO pickchick_app;GRANT UPDATE(status) ON devices TO pickchick_app;')
@@ -72,6 +118,7 @@ class DirectorRelease(unittest.TestCase):
     if "hashlib" in command:return json.dumps(manifest)
     return ''
    obj.remote=remote;obj.execute=lambda *a,**k:b'archive'
+   obj.gateway_candidate=lambda text:text
    for name in ['source_checks','ci','runtime_old']:setattr(obj,name,lambda:None)
    obj.rollback_artifacts=lambda:{'old':'hash'};obj.prepare_api=lambda target:None
    obj.prepared_artifacts=lambda m:{'candidate':'hash'};obj.http_json=lambda *a,**k:{'baseline':True}
