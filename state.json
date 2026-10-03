@@ -2122,6 +2122,18 @@
       "status": "active",
       "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
       "updatedAt": "2026-10-03T09:26:48.103Z"
+    },
+    {
+      "id": "director-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-ci",
+      "scopes": [
+        "infra/staging/release-director-console.py",
+        "tests/operations/test_director_release.py"
+      ],
+      "status": "active",
+      "head": "335797b32b0e1ceb39fb092db757a727afe849c0",
+      "updatedAt": "2026-10-03T09:27:30.157Z"
     }
   ]
 }
