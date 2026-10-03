@@ -174,23 +174,19 @@ test('mobile storefront and checkout share published products, channel prices an
       return result;
     };
     const beforeCreate = await counts();
-    await assert.rejects(checkout.create(customer, { key: randomUUID(), quoteId: quote.quoteId }), {
-      code: 'CONFLICT',
-    });
-    assert.deepEqual(await counts(), beforeCreate);
     assert.equal(beforeCreate.commerce_orders, 0);
     assert.equal(beforeCreate.commerce_outbox, 0);
-    const fresh = await checkout.quote(customer, {
-      ...request,
-      key: randomUUID(),
-      catalog_version: state.published.version,
-    });
+    // An issued, unexpired quote pins its publication despite subsequent releases.
     const createKey = randomUUID();
-    const created = await checkout.create(customer, { key: createKey, quoteId: fresh.quoteId });
+    const created = await checkout.create(customer, { key: createKey, quoteId: quote.quoteId });
+    assert.equal(created.totalMinor, quote.totalMinor);
+    await assert.rejects(checkout.quote(customer, { ...request, key: randomUUID() }), {
+      code: 'CONFLICT',
+    });
     state = await save(director, next);
     state = await publish(director);
     const beforeReplay = await counts();
-    const replay = await checkout.create(customer, { key: createKey, quoteId: fresh.quoteId });
+    const replay = await checkout.create(customer, { key: createKey, quoteId: quote.quoteId });
     assert.equal(replay.orderId, created.orderId);
     assert.deepEqual(await counts(), beforeReplay);
 
