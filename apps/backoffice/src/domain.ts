@@ -301,3 +301,9 @@ export function parseState(value: unknown): CatalogState {
     throw new Error('INVALID_RESPONSE');
   }
 }
+
+export function catalogHasChannelPrices(payload: CatalogPayload): boolean {
+  return payload.products.some(
+    (product) => Object.keys(product.channel_prices_minor ?? {}).length > 0,
+  );
+}
