@@ -101,6 +101,12 @@ importers:
       '@expo/vector-icons':
         specifier: 15.1.1
         version: 15.1.1(expo-font@57.0.3)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.4)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../../packages/catalog-admin
+      '@pickchick/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@pickchick/test-order-flow':
         specifier: workspace:*
         version: link:../../packages/test-order-flow
@@ -331,9 +337,15 @@ importers:
 
   packages/catalog-admin:
     dependencies:
+      '@pickchick/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@pickchick/database':
         specifier: workspace:*
         version: link:../database
+      '@pickchick/menu-sync':
+        specifier: workspace:*
+        version: link:../menu-sync
       '@pickchick/test-order-flow':
         specifier: workspace:*
         version: link:../test-order-flow

@@ -83,7 +83,8 @@ test('catalog quote requires explicit tax approval and every line code, mutually
   assert.throws(() => priceSnapshot(code), { code: 'INVALID' });
   assert.throws(() => priceSnapshot({ ...quote, releaseId: randomUUID() }), { code: 'INVALID' });
   assert.throws(() => priceSnapshot({ ...quote, ttlSeconds: 301 }), { code: 'INVALID' });
-  assert.throws(() => priceSnapshot({ ...quote, channel: 'kiosk' }), { code: 'INVALID' });
+  assert.equal(priceSnapshot({ ...quote, channel: 'kiosk' }).channel, 'kiosk');
+  assert.throws(() => priceSnapshot({ ...quote, channel: 'pos' }), { code: 'INVALID' });
 });
 test('published arithmetic validates input totals and copies selected details without aliasing', () => {
   const original = published(),

@@ -71,7 +71,7 @@ export const TaxBindingSchema = z.strictObject({
   version: z.number().int().positive().max(2147483647),
 });
 export const PublishedCatalogQuoteSchema = PricedCatalogQuoteSchema.extend({
-  channel: z.literal('mobile'),
+  channel: z.enum(['mobile', 'kiosk']),
   kitchenComment: z.string().trim().min(1).max(60).optional(),
   taxBinding: TaxBindingSchema,
   lines: z

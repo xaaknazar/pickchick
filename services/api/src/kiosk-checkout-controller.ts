@@ -1,0 +1,175 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpException,
+  Inject,
+  Param,
+  Post,
+  Res,
+} from '@nestjs/common';
+import type { ServerResponse } from 'node:http';
+import { RESOURCE, Resources } from '@pickchick/platform';
+import {
+  AvailabilityError,
+  CommerceError,
+  KioskCheckout,
+  KioskSessions,
+  kioskCheckoutOptions,
+  kioskPiiKey,
+} from '@pickchick/commerce-core';
+import type { KioskGuest } from '@pickchick/commerce-core';
+
+@Controller('v1/kiosk-checkout')
+export class KioskCheckoutController {
+  private readonly sessions: KioskSessions | null;
+  private readonly checkout: KioskCheckout | null;
+  constructor(@Inject(RESOURCE) resources: Resources) {
+    const options = kioskCheckoutOptions(process.env),
+      key = kioskPiiKey(process.env);
+    if (options && !key) throw new Error('KIOSK_CHECKOUT_PII_KEY required');
+    this.sessions = options && key ? new KioskSessions(resources.pool, { piiKey: key }) : null;
+    this.checkout = this.sessions
+      ? new KioskCheckout(resources.pool, options, this.sessions)
+      : null;
+  }
+  private async execute<T>(response: ServerResponse, run: () => Promise<T>) {
+    response.setHeader('Cache-Control', 'no-store');
+    if (!this.checkout || !this.sessions) throw new HttpException({ code: 'NOT_READY' }, 503);
+    try {
+      return await run();
+    } catch (error) {
+      if (error instanceof AvailabilityError)
+        throw new HttpException({ code: error.code }, error.code === 'ITEM_STOPPED' ? 409 : 503);
+      if (error instanceof CommerceError) {
+        const codes = {
+          INVALID: 400,
+          FORBIDDEN: 403,
+          NOT_FOUND: 404,
+          CONFLICT: 409,
+          EXPIRED: 409,
+          NOT_READY: 503,
+          REFUND_LIMIT: 409,
+          RESTAURANT_CLOSED: 409,
+          CATALOG_UPGRADE_REQUIRED: 409,
+        };
+        throw new HttpException({ code: error.code }, codes[error.code]);
+      }
+      throw error;
+    }
+  }
+  private async guest(device?: string, key?: string, authorization?: string): Promise<KioskGuest> {
+    return this.sessions!.authenticate(
+      device ?? '',
+      key ?? '',
+      authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
+    );
+  }
+  @Post('sessions') @HttpCode(200) start(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+  ) {
+    return this.execute(res, async () => {
+      const session = await this.sessions!.start(device ?? '', key ?? '', body);
+      // A device from a different branch never gains access to this checkout deployment.
+      await this.checkout!.config({ ...session, deviceId: device! });
+      return session;
+    });
+  }
+  @Post('sessions/end') @HttpCode(200) end(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () => {
+      const guest = await this.sessions!.authenticate(
+        device ?? '',
+        key ?? '',
+        auth?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
+        { allowEnded: true },
+      );
+      await this.sessions!.end(guest.sessionId);
+      return { ended: true };
+    });
+  }
+  @Get('catalog') catalog(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.catalog(await this.guest(device, key, auth)),
+    );
+  }
+  @Get('availability') availability(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.availability(await this.guest(device, key, auth)),
+    );
+  }
+  @Get('config') config(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.config(await this.guest(device, key, auth)),
+    );
+  }
+  @Post('quotes') @HttpCode(200) quote(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.quote(await this.guest(device, key, auth), body),
+    );
+  }
+  @Post('orders') @HttpCode(200) create(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.create(await this.guest(device, key, auth), body),
+    );
+  }
+  @Post('orders/:id/payment') @HttpCode(200) pay(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.pay(await this.guest(device, key, auth), id, body),
+    );
+  }
+  @Get('orders/:id') read(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.read(await this.guest(device, key, auth), id),
+    );
+  }
+}

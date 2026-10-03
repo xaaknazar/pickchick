@@ -1,3 +1,21 @@
+## 4 октября: общий каталог и гостевой коммерческий киоск
+
+Ветка `codex/commercial-channels` от shared44ff3c6. Реализованы публикация
+каталога -> MenuSnapshot/outbox -> ACK текущего edge, изолированный guest checkout,
+серверный расчёт/стопы, Kaspi worker phone recovery и предоплаченный kiosk в кухне.
+Новые флаги выключены. VPS/касса/iPad и реальные банковские счета не менялись.
+
+Проверки и конфигурация: [commercial-channels](../operations/commercial-channels.md).
+82 PostgreSQL commerce, 192 unit/kiosk, 4 menu delivery, 2 edge, 109 release-guard,
+7 roadmap; build/typecheck/lint/format/contracts, iOS export. Source review закрыл
+обе границы mobile/kiosk при коллизии principal. Банк подставной; native-приёмки нет.
+
+Следом: полный CI, согласованный release для cloud034-036 и edge017 с backup,
+дополнительными runtime-grants и gateway routes; native enrollment/lockdown iPad,
+утверждённый рабочий каталог/ACK и контрольный реальный заказ. Старые скрипты
+release с pinned миграциями не считать готовым выпуском этой версии. Webkassa
+и POS-терминал остаются отдельными интеграциями.
+
 ## 4 октября: аудит полного запуска точки
 
 Проверены общий код d1bd631, протоколы и живые read-only состояния VPS. API,

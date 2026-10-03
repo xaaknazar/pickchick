@@ -204,10 +204,7 @@ test('kiosk cloud admission stays held until trusted authorization and cannot be
     const unsupported = f.admission();
     unsupported.payload.snapshot.channel = 'pos';
     unsupported.payload.quoteDigest = digest(unsupported.payload.snapshot);
-    await assert.rejects(
-      f.repo.acceptCloud(f.scope, unsupported),
-      (e) => e.code === 'INVALID',
-    );
+    await assert.rejects(f.repo.acceptCloud(f.scope, unsupported), (e) => e.code === 'INVALID');
     await assert.rejects(
       f.pool.query(
         "UPDATE fulfillment_reservations SET commercial_owner='edge_pos',admission_kind='unpaid_service' WHERE order_id=$1",

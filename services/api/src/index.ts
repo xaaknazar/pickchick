@@ -1,3 +1,4 @@
+import { KioskCheckoutController } from './kiosk-checkout-controller.js';
 import { CustomerCheckoutController } from './customer-checkout-controller.js';
 import type { IncomingMessage } from 'node:http';
 import { TipTopPayController } from './tiptoppay-controller.js';
@@ -155,6 +156,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
     controllers: [
+      KioskCheckoutController,
       HealthController,
       TipTopPayController,
       KaspiRemoteController,

@@ -12,3 +12,5 @@ CREATE TABLE catalog_menu_deliveries (
 );
 CREATE TRIGGER catalog_menu_delivery_immutable BEFORE UPDATE OR DELETE ON catalog_menu_deliveries
  FOR EACH ROW EXECUTE FUNCTION catalog_reject_mutation();
+-- Inert update privilege permits FOR UPDATE without permission to change branch metadata.
+ALTER TABLE branches ADD COLUMN menu_publication_lock_anchor boolean NOT NULL DEFAULT false CHECK(NOT menu_publication_lock_anchor);

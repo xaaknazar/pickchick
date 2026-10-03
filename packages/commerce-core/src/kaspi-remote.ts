@@ -463,6 +463,7 @@ export class KaspiRemoteProcessor {
     private readonly client: KaspiBridgeClient,
     private readonly phone: PhoneResolver,
     private readonly now: () => Date = () => new Date(),
+    private readonly guestPhone?: (orderId: string) => Promise<string | null>,
   ) {
     this.repo = new CommerceRepository(pool);
   }
@@ -634,7 +635,7 @@ export class KaspiRemoteProcessor {
     // A lookup failure means nothing was sent to Kaspi: a definite, retryable failure.
     const phone = created.customer_id
       ? await this.phone(created.customer_id).catch(() => null)
-      : null;
+      : ((await this.guestPhone?.(row.order_id).catch(() => null)) ?? null);
     const formatted = phone ? kaspiPhone(phone) : null;
     if (!formatted) {
       await this.transition(row, 'failed', {});
@@ -751,10 +752,11 @@ export class KaspiRemoteProcessor {
           if (
             Number.isFinite(at) &&
             at >= start - 5000 &&
-            at <= start + this.config.requestTimeoutMs + 5000 &&
-            row.customer_id
+            at <= start + this.config.requestTimeoutMs + 5000
           ) {
-            const phone = await this.phone(row.customer_id).catch(() => null);
+            const phone = row.customer_id
+              ? await this.phone(row.customer_id).catch(() => null)
+              : ((await this.guestPhone?.(row.order_id).catch(() => null)) ?? null);
             const details = await this.client.details(operationIdOf(match)!);
             if (details.kind === 'session') return this.later(row, 60, 'session');
             const bankMobile =

@@ -5,6 +5,8 @@ import {
   KaspiBridgeClient,
   KaspiRemoteProcessor,
   kaspiRemoteConfig,
+  KioskSessions,
+  kioskPiiKey,
 } from '@pickchick/commerce-core';
 import {
   createCustomerIdentityOptions,
@@ -27,18 +29,27 @@ if (!kaspi) {
     stop = new AbortController(),
     once = process.argv.includes('--once');
   for (const signal of ['SIGTERM', 'SIGINT'] as const) process.once(signal, () => stop.abort());
+  const guestKey = kioskPiiKey(process.env);
+  const guests = guestKey ? new KioskSessions(pool, { piiKey: guestKey }) : null;
   const processor = new KaspiRemoteProcessor(
     pool,
     kaspi,
     new KaspiBridgeClient(kaspi),
     (customerId: string) => readCustomerPaymentPhone(pool, identity, customerId),
+    undefined,
+    guests ? (orderId: string) => guests.readOrderPhone(orderId) : undefined,
   );
   let lastSessionAlert = 0;
+  let lastGuestCleanup = 0;
   try {
     do {
       let busy = false;
       try {
         const result = await processor.tick();
+        if (guests && Date.now() - lastGuestCleanup > 60 * 60_000) {
+          await guests.purgeExpiredPhones();
+          lastGuestCleanup = Date.now();
+        }
         busy = result.submitted + result.checked > 0;
         if (
           (result.sessionProblem || result.unknownOverdue > 0 || result.errors > 0) &&

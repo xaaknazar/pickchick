@@ -163,12 +163,15 @@ async function fixture(run, deferred = false) {
         },
         () => new Date(clock),
       );
-    async function order({ unitPriceMinor = '50000', phone = '+77011234567' } = {}) {
+    async function order({
+      unitPriceMinor = '50000',
+      phone = '+77011234567',
+      customerId = randomUUID(),
+    } = {}) {
       await pool.query(
         'UPDATE cloud_branch_availability SET observed_at=clock_timestamp() WHERE branch_id=$1',
         [branch],
       );
-      const customerId = randomUUID();
       if (phone) phones.set(customerId, phone);
       if (phone === 'throw') phones.set(customerId, new Error('PII key unavailable'));
       const quote = await repo.issueQuote(scope, randomUUID(), {
@@ -925,7 +928,7 @@ test('restricted bank worker records one capture and cannot rewrite money or cus
 
 test('three-minute expiry cancels at the deadline, hides only confirmed unpaid orders and keeps the ledger', () =>
   fixture(async (f) => {
-    const { orderId, attempt } = await f.order();
+    const { orderId, attempt } = await f.order({ customerId: f.scope.principalId });
     const checkout = new CustomerCheckout(f.pool, {
       ...f.scope,
       paymentAccountId: f.payment,
@@ -1068,7 +1071,7 @@ test('commercial review persists only for the authenticated owner of a paid hand
       approvalReference: 'Synthetic approval',
     };
     const checkout = new CustomerCheckout(f.pool, options);
-    const { orderId, attempt } = await f.order();
+    const { orderId, attempt } = await f.order({ customerId: f.scope.principalId });
     assert.equal((await checkout.feedback(f.scope.principalId, orderId)).enabled, false);
     await assert.rejects(
       checkout.submitFeedback(f.scope.principalId, orderId, { rating: 5 }),
@@ -1196,7 +1199,7 @@ test('restricted checkout role can persist reviews but cannot move their owner o
     await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     let runtime;
     try {
-      const { orderId, attempt } = await f.order();
+      const { orderId, attempt } = await f.order({ customerId: f.scope.principalId });
       const worker = f.processor();
       await worker.tick();
       f.bridge.status.set((await f.invoice(attempt.attemptId)).operation_id, 'Processed');

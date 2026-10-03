@@ -443,7 +443,7 @@ export class CommerceRepository {
               organizationId: actor.organizationId,
               branchId: actor.branchId,
               customerId: quote.customerId,
-              channel: 'mobile',
+              channel: quote.channel,
             },
             cart,
           );

@@ -41,6 +41,6 @@ class FourDigitReleaseGuards(unittest.TestCase):
         release = object.__new__(r.Release)
         self.assertEqual(release.gateway_candidate('existing routes'), 'existing routes')
         self.assertEqual(release.additions, {'identity_otp_challenges':['code_length']})
-        self.assertEqual(sorted(p.name for p in (ROOT/'db/cloud/migrations').glob('*.sql'))[27:], [r.MIGRATION, '029_cloud_kaspi_invoice_comment.sql', '030_cloud_branch_availability.sql', '031_cloud_otp_auto_channel.sql', '032_cloud_order_feedback.sql', '033_cloud_cashier_reports.sql'])
+        self.assertEqual(sorted(p.name for p in (ROOT/'db/cloud/migrations').glob('*.sql'))[27:], [r.MIGRATION, '029_cloud_kaspi_invoice_comment.sql', '030_cloud_branch_availability.sql', '031_cloud_otp_auto_channel.sql', '032_cloud_order_feedback.sql', '033_cloud_cashier_reports.sql', '034_cloud_catalog_menu_delivery.sql', '035_cloud_kiosk_sessions.sql', '036_cloud_kiosk_commerce.sql'])
 
 if __name__ == '__main__': unittest.main()

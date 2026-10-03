@@ -27,6 +27,7 @@ const forbidden = (): never => {
 const pendingRecovery = `EXISTS(SELECT 1 FROM commerce_orders recovery_order
  WHERE recovery_order.principal_id=s.id AND recovery_order.organization_id=s.organization_id
   AND recovery_order.branch_id=s.branch_id AND recovery_order.customer_id IS NULL
+  AND recovery_order.snapshot->>'channel'='kiosk'
   AND (EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=recovery_order.id AND a.state IN ('pending','unknown'))
    OR EXISTS(SELECT 1 FROM commerce_kaspi_invoices k WHERE k.order_id=recovery_order.id AND k.state IN ('issuing','issued','unknown'))))`;
 type Session = {
@@ -182,7 +183,7 @@ export class KioskSessions {
       await this.pool.query<Session>(
         `SELECT s.* FROM commerce_orders o JOIN kiosk_sessions s
    ON s.id=o.principal_id AND s.organization_id=o.organization_id AND s.branch_id=o.branch_id
-   WHERE o.id=$1 AND o.customer_id IS NULL AND (s.phone_expires_at>clock_timestamp() OR ${pendingRecovery})
+   WHERE o.id=$1 AND o.customer_id IS NULL AND o.snapshot->>'channel'='kiosk' AND (s.phone_expires_at>clock_timestamp() OR ${pendingRecovery})
     AND s.phone_ciphertext IS NOT NULL`,
         [orderId],
       )

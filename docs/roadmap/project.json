@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-03",
+  "updatedAt": "2026-10-04",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -61,7 +61,8 @@
     "docs/operations/server-pilot.md",
     "docs/operations/auth-four-digit.md",
     "docs/operations/director-console.md",
-    "docs/operations/launch-readiness-2026-10-04.md"
+    "docs/operations/launch-readiness-2026-10-04.md",
+    "docs/operations/commercial-channels.md"
   ],
   "workstreams": [
     {
@@ -1246,7 +1247,7 @@
       "id": "catalog-unified",
       "workstream": "catalog",
       "title": "Подключить единый каталог ко всем каналам",
-      "summary": "Подготовлена мобильная витрина из текущей публикации, общая версия с серверной котировкой и отдельная mobile-цена. Флаги выключены; POS/kiosk ещё требуют единого меню и receipt версии.",
+      "summary": "Реализованы атомарная публикация общего каталога в edge MenuSnapshot/outbox и доказательство установки через ACK текущей привязки. Совпадение сумм 24 стандартных корзин mobile/kiosk/POS проверено. Новая публикация и коммерческий kiosk выключены; рабочая установка не выполнена.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
@@ -1279,13 +1280,17 @@
         {
           "label": "Мобильная публикация и границы выпуска",
           "path": "docs/operations/director-console.md"
+        },
+        {
+          "label": "Общий каталог и коммерческий гостевой киоск",
+          "path": "docs/operations/commercial-channels.md"
         }
       ],
       "acceptance": [
         "AC-02/32: каждый канал использует совместимую опубликованную версию.",
         "Offline/несовместимый клиент не ломает текущую смену."
       ],
-      "nextAction": "Проверить совместимую мобильную сборку, включить разрешённый GET-маршрут и согласованно активировать публикации. Затем подключить POS/kiosk.",
+      "nextAction": "Установить согласованный cloud034-036/edge017 после зелёной CI, опубликовать утверждённые цены Dev, проверить ACK и стопы на физической точке.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -1816,8 +1821,8 @@
       "id": "kiosk-privacy",
       "workstream": "kiosk",
       "title": "Гостевой checkout и безопасный idle reset",
-      "summary": "Нужен сквозной локальный заказ с реальным расчётом; после ухода гостя скрываются данные, но не теряется неопределённая оплата.",
-      "status": "planned",
+      "summary": "Реализован отдельный коммерческий гостевой checkout: device+session credentials, SecureStore, шифрование телефона, один заказ/платёж, восстановление неизвестного ответа и очистка гостя. Серверные и клиентские проверки пройдены; native iPad/enrollment и реальная оплата ещё не приняты.",
+      "status": "active",
       "owner": "development",
       "phase": "integration",
       "dependsOn": ["kiosk-terminal", "catalog-unified", "fiscal-adapter"],
@@ -1829,12 +1834,16 @@
         {
           "label": "ipad kiosk lockdown",
           "path": "docs/operations/ipad-kiosk-lockdown.md"
+        },
+        {
+          "label": "Общий каталог и коммерческий гостевой киоск",
+          "path": "docs/operations/commercial-channels.md"
         }
       ],
       "acceptance": ["AC-20/21: чужой телефон не раскрывает кошелёк, idle не теряет платёж."],
-      "nextAction": "Проверить гостевой цикл, claims и сброс на настоящем iPad.",
+      "nextAction": "Установить backend и доверенный native enrollment, проверить idle/restore/privacy на iPad и реальный контрольный заказ.",
       "checks": {
-        "implemented": false,
+        "implemented": true,
         "verified": false,
         "deployed": false,
         "accepted": false

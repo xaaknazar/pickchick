@@ -12,6 +12,8 @@ import { fixtureMenu } from '@pickchick/test-fixtures';
 import { KioskSessions } from '../dist/kiosk-sessions.js';
 import { CommerceRepository } from '../dist/repository.js';
 import { digest } from '../dist/model.js';
+import { publishCatalog } from './catalog-fixture.mjs';
+import { priceCatalogSnapshot } from '@pickchick/catalog-pricing';
 const connection =
   process.env.COMMERCE_TEST_DATABASE_URL ??
   'postgresql://pickchick_local:pickchick_local_only@127.0.0.1:55432/pickchick_cloud';
@@ -78,7 +80,7 @@ async function fixture(run) {
         );
       const repo = new CommerceRepository(pool),
         scope = { organizationId: org, branchId: branch, principalId: sessionId, role: 'sales' };
-      const quote = await repo.issueQuote(scope, randomUUID(), {
+      let priced = {
         releaseId: release,
         customerId,
         channel: 'mobile',
@@ -96,7 +98,28 @@ async function fixture(run) {
             taxCode: 'TEST',
           },
         ],
-      });
+      };
+      if (
+        customerId === null &&
+        (await pool.query('SELECT 1 FROM kiosk_sessions WHERE id=$1', [sessionId])).rowCount
+      ) {
+        const pub = await publishCatalog({ pool, scope });
+        const catalogQuote = priceCatalogSnapshot(
+          { reference: pub.reference, orderingEnabled: true, payload: pub.payload },
+          { organizationId: org, branchId: branch, customerId: null, channel: 'kiosk' },
+          {
+            catalog_version: 1,
+            service_mode: 'takeaway',
+            items: [{ sku: 'BURGER', quantity: 1, selections: [] }],
+          },
+        );
+        priced = {
+          ...catalogQuote,
+          taxBinding: { legalEntityId: legal, approvalReference: 'Synthetic test', version: 1 },
+          lines: catalogQuote.lines.map((line) => ({ ...line, taxCode: 'TEST' })),
+        };
+      }
+      const quote = await repo.issueQuote(scope, randomUUID(), priced);
       const created = await repo.createOrder(scope, randomUUID(), {
         quoteId: quote.quoteId,
         fiscalAccountId: fiscal,
