@@ -2046,28 +2046,6 @@
       "updatedAt": "2026-10-03T09:13:38.373Z"
     },
     {
-      "id": "director-live-data",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-live-data",
-      "scopes": [
-        "docs/operations/director-console.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "docs/01-technical-spec.md",
-        "apps/backoffice/src/operations.ts",
-        "apps/backoffice/src/operations-model.ts",
-        "apps/backoffice/src/app.ts",
-        "tests/backoffice/browser_operations.py",
-        "tests/backoffice/operations-model.test.mjs",
-        "@vps/roadmap",
-        "tests/backoffice/browser_operations.test.mjs"
-      ],
-      "status": "active",
-      "head": "0d4c06b59894857ad1709297d9e3e0543dfe45a5",
-      "updatedAt": "2026-10-03T09:22:01.604Z"
-    },
-    {
       "id": "director-shifts",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-shifts",
@@ -2161,6 +2139,29 @@
       "updatedAt": "2026-10-03T09:46:27.782Z",
       "summary": "Опубликован f02f5a096a703dd62d754ae09e0982bcddaf3532: gated mobile storefront получает текущую catalog_publication того же checkout branch; отдельная mobile цена и описание доходят в расчёт. Версия branch/publication обязательна после rollout, старые/stale запросы блокируются, POS/kiosk overrides остаются запрещены. Targeted Postgres equality/rollback compatibility, unit, builds/typechecks/lint/format passed. Конфигурация и production цены не изменялись.",
       "nextAction": "Интегрировать зависимость importer из335797b, выполнить browser Expo live publication pass+CI. Для activation добавить gateway GET /v1/customer-checkout/catalog и согласованно включить server/client flags; rollback сначала prior base-only publication. Root обновляет общие docs."
+    },
+    {
+      "id": "director-live-data",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-live-data",
+      "scopes": [
+        "docs/operations/director-console.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/01-technical-spec.md",
+        "apps/backoffice/src/operations.ts",
+        "apps/backoffice/src/operations-model.ts",
+        "apps/backoffice/src/app.ts",
+        "tests/backoffice/browser_operations.py",
+        "tests/backoffice/operations-model.test.mjs",
+        "@vps/roadmap",
+        "tests/backoffice/browser_operations.test.mjs",
+        "@vps/backoffice"
+      ],
+      "status": "active",
+      "head": "ce4672cc62d7426ac3ca5b3f5b95716edb035ffb",
+      "updatedAt": "2026-10-03T09:51:59.003Z"
     }
   ]
 }
