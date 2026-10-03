@@ -97,6 +97,10 @@ test('CMS publication atomically queues edge menu and reports applied only after
       name: 'Synthetic editor',
       branch_ids: [branch],
     });
+    await cloud.pool.query(
+      'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+      [branch, org, device, randomUUID()],
+    );
     const service = new CatalogAdmin(cloud.pool, {
       enabled: true,
       edgePublicationBranchId: branch,
@@ -132,6 +136,15 @@ test('CMS publication atomically queues edge menu and reports applied only after
     await acknowledgeMenu(cloud.pool, auth, await applyMenu(edge.pool, branch, event));
     assert.equal((await service.read(manager.token, branch)).edge_delivery.status, 'applied');
     assert.equal((await readCatalogMenuDelivery(cloud.pool, branch, 1)).status, 'applied');
+    await cloud.pool.query(
+      'UPDATE fulfillment_transport_bindings SET active=false WHERE branch_id=$1',
+      [branch],
+    );
+    assert.equal((await readCatalogMenuDelivery(cloud.pool, branch, 1)).status, 'unavailable');
+    await cloud.pool.query(
+      'UPDATE fulfillment_transport_bindings SET active=true WHERE branch_id=$1',
+      [branch],
+    );
     await revokeDevice(cloud.pool, device);
     assert.equal((await service.read(manager.token, branch)).edge_delivery.status, 'unavailable');
   });
