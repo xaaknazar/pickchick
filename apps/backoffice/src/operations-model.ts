@@ -19,6 +19,12 @@ export type Snapshot = {
   timezone?: string;
   availability?: Data;
   truncated?: Data;
+  cashier_shifts?: Data[];
+  cashier_orders?: Data[];
+  cashier_metrics?: Data;
+  selected_shift?: Data | null;
+  coverage?: Data;
+  operational_shift_filter?: Data;
   records: Entry[];
   stock: Data[];
   orders: Data[];
@@ -116,6 +122,10 @@ export class OperationsModel {
     filters: ReportFilters = this.filters,
   ) {
     const changedScope = actor !== this.actor || branch !== this.branch;
+    if (changedScope && filters.shiftId) {
+      filters = { ...filters };
+      delete filters.shiftId;
+    }
     if (this.pending && changedScope && actor === this.actor) throw new ApiError('PENDING');
     const changedWindow =
       period !== this.period || JSON.stringify(filters) !== JSON.stringify(this.filters);

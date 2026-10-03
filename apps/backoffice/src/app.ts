@@ -13,7 +13,14 @@ const operations = new OperationsModel(
   window.sessionStorage,
   render,
 );
-const operationView = new OperationsView(operations, () => model.payload);
+const operationView = new OperationsView(
+  operations,
+  () => model.payload,
+  (section) => {
+    page = section;
+    render();
+  },
+);
 function syncOperations() {
   if (!model.actor) {
     operations.clear();
@@ -223,6 +230,46 @@ function render() {
       ),
     );
     header.append(tools);
+    if (['dash', 'orders', 'shifts', 'reports', 'finance'].includes(page)) {
+      const shifts = operations.data?.cashier_shifts ?? [];
+      if (shifts.length) {
+        const chooser = select(
+          'Кассовая смена',
+          operations.filters.shiftId ?? '',
+          [
+            { value: '', label: 'Все смены - по календарю' },
+            ...shifts.map((shift) => ({
+              value: String(shift['id']),
+              label:
+                new Date(String(shift['opened_at'])).toLocaleString('ru-RU', {
+                  timeZone: 'Asia/Almaty',
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) +
+                (shift['state'] === 'open' ? ' - открыта' : ' - закрыта') +
+                ' · ' +
+                String(shift['id']).slice(0, 6),
+            })),
+          ],
+          (id) => {
+            const filters = { ...operations.filters };
+            if (id) filters.shiftId = id;
+            else delete filters.shiftId;
+            void operations.load(operations.actor, operations.branch, operations.period, filters);
+          },
+          'cashier-shift-select',
+        );
+        chooser.querySelector('select')!.disabled = operations.busy || Boolean(operations.pending);
+        tools.append(chooser);
+      }
+      if (operations.filters.shiftId)
+        tools.append(
+          el('small', 'muted', 'Выбрана вся смена, независимо от календарного периода.'),
+        );
+    }
     if (choosingCustom || operations.period === 'custom') {
       const dates = el('form', 'date-range');
       const start = field(
@@ -356,12 +403,26 @@ function render() {
   content.append(stats);
   content.append(
     notice(
-      'Публикация обновляет каталог нового API. Подключение мобильного приложения, киоска и кассы к нему проходит отдельным этапом; текущие TEST-заказы используют прежний каталог.',
+      model.state.publication_support?.mobile
+        ? 'Публикация обновляет меню подключённого мобильного приложения и серверный расчёт заказа. Касса и киоск подключаются отдельно; их отдельные цены пока нельзя публиковать.'
+        : 'Подключение публикаций к приложению, кассе и киоску ещё не включено. Сохранённый черновик сам по себе не меняет действующее меню.',
       'notice compact',
     ),
   );
   if (!model.payload) {
     const empty = el('section', 'panel empty');
+    if (model.state.publication_support?.mobile) {
+      empty.append(
+        el('h2', '', 'Действующий каталог недоступен'),
+        el(
+          'p',
+          'muted',
+          'Для этой точки нужен явный импорт действующего каталога. Обновите данные или обратитесь к администратору.',
+        ),
+      );
+      content.append(empty);
+      return;
+    }
     empty.append(
       el('h2', '', 'Черновик ещё не создан'),
       el(
@@ -414,7 +475,13 @@ function render() {
   const add = button(
     'Добавить позицию',
     () =>
-      openEditor(emptyProduct(model.payload!), model.payload!, (p) => model.updateProduct(p), true),
+      openEditor(
+        emptyProduct(model.payload!),
+        model.payload!,
+        (p) => model.updateProduct(p),
+        true,
+        model.state?.publication_support,
+      ),
     'button',
     'add-product',
   );
@@ -481,7 +548,14 @@ function render() {
       const controls = el('td'),
         edit = button(
           'Изменить',
-          () => openEditor(p, model.payload!, (v) => model.updateProduct(v)),
+          () =>
+            openEditor(
+              p,
+              model.payload!,
+              (v) => model.updateProduct(v),
+              false,
+              model.state?.publication_support,
+            ),
           'button small',
           `edit-${p.id}`,
         ),
@@ -607,7 +681,10 @@ function publishDialog() {
     el(
       'p',
       'muted',
-      `Будет создана версия v${(state.published?.version ?? 0) + 1}. До подключения клиентских приложений их TEST-меню останется прежним.`,
+      `Будет создана версия v${(state.published?.version ?? 0) + 1}. ` +
+        (state.publication_support?.mobile
+          ? 'Подключённое мобильное приложение получит новые цены и состав. Заказы по старой версии потребуют обновления корзины. Касса и киоск остаются на своих версиях.'
+          : 'Связь с действующими клиентскими приложениями ещё не включена.'),
     ),
   );
   if (!payload.content_reviewed)

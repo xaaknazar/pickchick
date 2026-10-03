@@ -179,10 +179,19 @@ test('calendar query preserves custom dates on refresh and clears stale data whe
   await m.load(actor, branch);
   assert.equal(calls[0], calls[1]);
   assert.equal(new URLSearchParams(calls[0].split('?')[1]).get('end_date'), '2026-09-30');
+  const shift = randomUUID();
+  await m.load(actor, branch, 'custom', { ...m.filters, shiftId: shift });
+  assert.equal(new URLSearchParams(calls.at(-1).split('?')[1]).get('shift_id'), shift);
+  await m.load(actor, randomUUID());
+  assert.equal(
+    new URLSearchParams(calls.at(-1).split('?')[1]).has('shift_id'),
+    false,
+    'another branch never inherits the selected cashier shift',
+  );
   fail = true;
   await m.load(actor, branch, 'year', {});
   assert.equal(m.data, null, 'old month totals must not appear under the new year filter');
-  assert.equal(new URLSearchParams(calls[2].split('?')[1]).has('start_date'), false);
+  assert.equal(new URLSearchParams(calls.at(-1).split('?')[1]).has('start_date'), false);
   m.clear();
   assert.deepEqual(m.filters, {});
   assert.equal(m.period, 'day');

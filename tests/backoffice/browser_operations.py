@@ -16,15 +16,15 @@ with sync_playwright() as pw:
   nav=at('nav-'+section)
   if not nav.is_visible():page.locator('.nav-secondary summary').click()
   nav.click()
- def snapshot_response(response):
-  return '/v1/admin/backoffice/branches/' in response.url and '/orders/' not in response.url and response.request.method=='GET'
+ def snapshot_response(response,period):
+  return '/v1/admin/backoffice/branches/' in response.url and '/orders/' not in response.url and response.request.method=='GET' and parse_qs(urlparse(response.url).query).get('period')==[period]
  for section in ['orders','items','stoplist','stock','reports','finance','promo','games','guests','tickets','reviews','stations','devices','shifts','audit','dash']:
   navigate(section);expect(page.locator('main h1')).to_be_visible();assert page.locator('.nav-item[aria-current=page]').count()==1
  navigate('reports')
  for period in ['yesterday','year']:
-  with page.expect_response(snapshot_response) as pending:
+  with page.expect_response(lambda r:snapshot_response(r,period)) as pending:
    at('period-'+period).click()
-  response=pending.value;assert response.status==200
+  response=pending.value;response.finished();assert response.status==200
   body=response.json();assert body['period']==period
   assert body['period_start']<body['period_end']
   expect(at('period-'+period)).to_have_attribute('aria-pressed','true')
@@ -34,28 +34,39 @@ with sync_playwright() as pw:
  start=(datetime.now()-timedelta(days=2)).strftime('%Y-%m-%d')
  end=datetime.now().strftime('%Y-%m-%d')
  at('period-start').fill(start);at('period-end').fill(end)
- with page.expect_response(snapshot_response) as pending:at('op-refresh').click()
+ with page.expect_response(lambda r:snapshot_response(r,'year')) as pending:at('op-refresh').click()
  assert parse_qs(urlparse(pending.value.url).query)['period']==['year']
  expect(at('period-start')).to_have_value(start);expect(at('period-end')).to_have_value(end)
  expect(at('period-year')).to_have_attribute('aria-pressed','true')
  at('period-start').fill(end);at('period-end').fill(start);at('period-apply').click()
  assert not at('period-end').evaluate('(e)=>e.validity.valid')
  at('period-start').fill(start);at('period-end').fill(end)
- with page.expect_response(snapshot_response) as pending:at('period-apply').click()
- response=pending.value;assert response.status==200
+ with page.expect_response(lambda r:snapshot_response(r,'custom')) as pending:at('period-apply').click()
+ response=pending.value;response.finished();assert response.status==200
  query=parse_qs(urlparse(response.url).query)
  assert query['period']==['custom'] and query['start_date']==[start] and query['end_date']==[end]
  body=response.json();assert body['period']=='custom' and body['period_start']<body['period_end']
  expect(at('period-custom')).to_have_attribute('aria-pressed','true')
- with page.expect_response(snapshot_response) as pending:at('op-refresh').click()
+ with page.expect_response(lambda r:snapshot_response(r,'custom')) as pending:at('op-refresh').click()
  assert parse_qs(urlparse(pending.value.url).query)==query
  # Fail a real request and verify the previous period's report is not shown as current.
  page.context.set_offline(True);at('period-day').click()
  expect(page.locator('.content')).to_contain_text('Данные недоступны')
  assert page.locator('.content .op-bars').count()==0
  page.context.set_offline(False)
- with page.expect_response(snapshot_response) as pending:at('op-refresh').click()
+ with page.expect_response(lambda r:snapshot_response(r,'day')) as pending:at('op-refresh').click()
  assert pending.value.status==200
+ # A real source shift includes its orders before today's boundary and exposes no invented money totals.
+ navigate('shifts');at('cashier-shift-'+c['shiftId']).click()
+ expect(at('cashier-shift-select')).to_have_value(c['shiftId'])
+ expect(at('cashier-shift-orders')).to_be_visible()
+ at('cashier-shift-orders').click();expect(page.locator('.content')).to_contain_text('№42')
+ page.locator('.content').get_by_role('button',name='Открыть',exact=True).click()
+ expect(page.locator('dialog')).to_contain_text('Synthetic shift combo')
+ page.locator('dialog').get_by_role('button',name='Закрыть',exact=True).click()
+ navigate('finance');expect(page.locator('.content')).to_contain_text('Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются')
+ with page.expect_response(lambda r:snapshot_response(r,'day')) as pending:at('period-day').click()
+ pending.value.finished();expect(at('cashier-shift-select')).to_have_value('')
  navigate('stock');at('op-add-ingredient').click();at('op-name').fill('Synthetic chicken');at('op-minimum').fill('100');at('op-reason').fill('Create ingredient for acceptance');at('op-save').click();expect(at('op-editor')).to_have_count(0)
  def stock(button,quantity,cost=None):
   at(button).click();at('op-reference').fill('SYN-'+quantity);at('op-stock-quantity-0').fill(quantity)
@@ -68,9 +79,14 @@ with sync_playwright() as pw:
  page.reload();expect(at('op-refresh')).to_be_visible();assert page.locator('img[src=x]').count()==0
  for width in [1680,1024,393]:
   page.set_viewport_size({'width':width,'height':1040 if width==1680 else 852 if width==393 else 768})
-  for section in ['dash','orders','stoplist','finance']:
+  for section in ['dash','orders','stoplist','finance','shifts']:
    navigate(section);page.evaluate("async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));}");page.screenshot(path=str(out/f'{section}-{width}.png'))
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),section
+ navigate('shifts');at('cashier-shift-'+c['shiftId']).click();expect(at('cashier-shift-orders')).to_be_visible()
+ for width in [1680,393]:
+  page.set_viewport_size({'width':width,'height':1040 if width==1680 else 852})
+  page.screenshot(path=str(out/f'shift-detail-{width}.png'),full_page=True)
+  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  assert errors==[],errors
  print(json.dumps({'result':'PASS','sections':16,'sizes':[1680,1024,393],'errors':errors}))
  browser.close()

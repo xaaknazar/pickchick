@@ -21,6 +21,7 @@ export const sections = [
   ['audit', 'Журнал аудита', 'Кто, когда и что изменил'],
 ] as const;
 const labels: Record<string, string> = {
+  open: 'Открыта',
   'order.created': 'Заказ создан',
   'order.cancelled': 'Заказ отменён',
   'edge.fulfillment_accepted': 'Принят кухней',
@@ -100,6 +101,7 @@ const date = (v: unknown) =>
         timeZone: 'Asia/Almaty',
         day: '2-digit',
         month: 'short',
+        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       })
@@ -306,6 +308,7 @@ export class OperationsView {
   constructor(
     readonly model: OperationsModel,
     private catalog: () => { products: { id: string; name: { ru: string } }[] } | null,
+    private navigate: (section: string) => void,
   ) {}
   private options(kind: string) {
     return this.model.entries(kind).map((r) => ({ value: r.id, label: val(r.payload['name']) }));
@@ -882,6 +885,52 @@ export class OperationsView {
       'Провести документ',
     );
   }
+  private cashierShift(shift: Data) {
+    const p = panel(
+      'Смена от ' + date(shift['opened_at']),
+      'Данные кассового узла. Это кассовая, а не фискальная смена.',
+      [
+        button(
+          'Заказы смены',
+          () => {
+            history.replaceState(null, '', '#orders');
+            this.navigate('orders');
+            void this.model.load(this.model.actor, this.model.branch, this.model.period, {
+              ...this.model.filters,
+              shiftId: String(shift['id']),
+            });
+          },
+          'button',
+          'cashier-shift-orders',
+        ),
+      ],
+    );
+    p.append(
+      table(
+        ['Показатель', 'Значение'],
+        [
+          ['Состояние', shift['state'] === 'open' ? 'Открыта' : 'Закрыта'],
+          ['Открыта', date(shift['opened_at'])],
+          ['Закрыта', date(shift['closed_at'])],
+          ['Кассир', val(shift['staff_id'])],
+          ['Наличные на открытии', amount(shift['opening_cash_minor'])],
+          ['Внесения', amount(shift['cash_in_minor'])],
+          ['Изъятия', amount(shift['cash_out_minor'])],
+          ['Ожидаемый остаток', amount(shift['expected_cash_minor'])],
+          [
+            'Пересчитано при закрытии',
+            shift['counted_cash_minor'] == null ? '-' : amount(shift['counted_cash_minor']),
+          ],
+          [
+            'Расхождение',
+            shift['discrepancy_minor'] == null ? '-' : amount(shift['discrepancy_minor']),
+          ],
+          ['Получено сервером', date(shift['observed_at'])],
+        ],
+      ),
+    );
+    return p;
+  }
   async order(id: string) {
     try {
       const data = await this.model.order(id),
@@ -911,7 +960,10 @@ export class OperationsView {
           lines.map((l) => [
             val(
               l['title'] ??
-                (l['name'] && typeof l['name'] === 'object' ? object(l['name'])['ru'] : l['name']),
+                (l['name'] && typeof l['name'] === 'object'
+                  ? object(l['name'])['ru']
+                  : l['name']) ??
+                l['variant_id'],
             ),
             val(l['quantity']),
             amount(l['unitPriceMinor'] ?? l['unit_price_minor']),
@@ -1029,7 +1081,30 @@ export class OperationsView {
     const metrics = d.metrics;
     const clipped = d.truncated;
     if (
-      (page === 'orders' && (clipped?.['orders'] || clipped?.['pos'])) ||
+      d.operational_shift_filter?.['mode'] === 'cashier_shift' &&
+      ['dash', 'reports', 'finance'].includes(page)
+    ) {
+      const summary = d.cashier_metrics ?? {};
+      content.append(
+        panel(
+          'Отчёт по кассовой смене',
+          'Полученные с кассы заказы за всю смену, включая переход через полночь.',
+        ),
+        stats([
+          ['Заказы кассы', val(summary['orders'])],
+          ['Отменены', val(summary['cancelled_orders'])],
+          ['Сумма неоплаченных заказов', amount(summary['unpaid_total_minor'])],
+        ]),
+        note(
+          'Это полученные операционные данные кассы; полнота истории ещё не подтверждена. Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются. Наличие заказа не означает оплату.',
+        ),
+      );
+      if (d.selected_shift) content.append(this.cashierShift(d.selected_shift));
+      return;
+    }
+    if (
+      (page === 'orders' &&
+        (clipped?.['orders'] || clipped?.['pos'] || clipped?.['cashier_orders'])) ||
       (page === 'finance' && (clipped?.['finance'] || clipped?.['refunds'] || clipped?.['issues']))
     )
       content.append(
@@ -1132,7 +1207,7 @@ export class OperationsView {
             ['Неизвестные платежи', val(metrics['unknown_payments'])],
             ['Заказы на кухне', val(metrics['kitchen_active'])],
             ['Сигналы сверки', String(d.issues.length) + (clipped?.['issues'] ? '+' : '')],
-            ['POS-заказы', val(metrics['pos_orders'])],
+            ['Заказы кассы', val(d.cashier_metrics?.['orders'] ?? metrics['pos_orders'])],
           ],
         ),
       );
@@ -1174,12 +1249,17 @@ export class OperationsView {
       return;
     }
     if (page === 'orders') {
-      const rows = [...d.orders, ...d.pos].sort((a, b) =>
-          String(b['created_at']).localeCompare(String(a['created_at'])),
-        ),
+      const rows = [
+          ...new Map(
+            [...d.orders, ...d.pos, ...(d.cashier_orders ?? [])].map((row) => [
+              String(row['id']),
+              row,
+            ]),
+          ).values(),
+        ].sort((a, b) => String(b['created_at']).localeCompare(String(a['created_at']))),
         p = panel(
           'Реестр заказов',
-          'Последние 200 записей каждого источника. Приложение и киоск - по дате заказа; касса - по первому получению сервером, пока исходные кассовые даты не синхронизируются.',
+          'Последние 200 записей каждого источника. Новые отчёты кассы используют исходную дату заказа; для старого обмена отдельно указано время получения сервером.',
           [
             button('Экспорт CSV', () =>
               exportCsv(
@@ -1213,7 +1293,9 @@ export class OperationsView {
                 o['display_number']
                   ? '№' + String(o['display_number'])
                   : String(o['id']).slice(0, 8),
-                (o['channel'] === 'pos' ? 'Получен ' : 'Создан ') + date(o['created_at']),
+                (o['channel'] === 'pos' && o['source'] !== 'cashier_report'
+                  ? 'Получен '
+                  : 'Создан ') + date(o['created_at']),
                 status(o['channel']),
                 amount(o['total_minor']),
                 badge(o['payment_state']),
@@ -1509,15 +1591,46 @@ export class OperationsView {
       );
       content.append(p);
     }
-    if (page === 'shifts')
-      content.append(
-        panel(
-          'Кассовые смены',
-          'Касса хранит реальные открытия и закрытия локально. Их передача в кабинет и связь с заказами ещё не подключены; журнал ниже используется для отдельного управленческого учёта.',
+    if (page === 'shifts') {
+      const shifts = d.cashier_shifts ?? [];
+      const p = panel(
+        'Кассовые смены',
+        shifts.length
+          ? 'Открытия и закрытия передаются с кассы. Выберите смену, чтобы увидеть полученные заказы. Полнота истории ещё не подтверждена.'
+          : 'Ожидаем первый подтверждённый отчёт кассы.',
+      );
+      p.append(
+        table(
+          ['Открыта', 'Закрыта', 'Состояние', 'Ожидаемый остаток', 'Расхождение', ''],
+          shifts.map((shift) => [
+            date(shift['opened_at']),
+            date(shift['closed_at']),
+            badge(shift['state']),
+            amount(shift['expected_cash_minor']),
+            shift['discrepancy_minor'] == null ? '-' : amount(shift['discrepancy_minor']),
+            button(
+              'Отчёт по смене',
+              () =>
+                void m.load(m.actor, m.branch, m.period, {
+                  ...m.filters,
+                  shiftId: String(shift['id']),
+                }),
+              'button subtle',
+              'cashier-shift-' + String(shift['id']),
+            ),
+          ]),
         ),
+      );
+      content.append(p);
+      if (clipped?.['cashier_shifts'])
+        content.append(
+          note('Показаны последние 200 смен периода. Для остальных смен сузьте период.'),
+        );
+      if (d.selected_shift) content.append(this.cashierShift(d.selected_shift));
+      content.append(
         this.records(
           'shift',
-          'Журнал смен',
+          'Управленческий журнал',
           [
             [
               'Ответственный',
@@ -1539,6 +1652,7 @@ export class OperationsView {
           'Карточки для учёта. Доступ к кассе и кухне выдаётся отдельно.',
         ),
       );
+    }
     if (page === 'audit') {
       const rows = [...d.audit, ...d.catalog_audit].sort((a, b) =>
           String(b['created_at']).localeCompare(String(a['created_at'])),

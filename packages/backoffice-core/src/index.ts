@@ -638,7 +638,9 @@ export class Backoffice {
         throw new ErrorCode(
           error.code === 'INVALID'
             ? 'INVALID_REQUEST'
-            : error.code === 'NOT_READY' || error.code === 'RESTAURANT_CLOSED'
+            : error.code === 'NOT_READY' ||
+                error.code === 'RESTAURANT_CLOSED' ||
+                error.code === 'CATALOG_UPGRADE_REQUIRED'
               ? 'NOT_READY'
               : error.code === 'REFUND_LIMIT'
                 ? 'CONFLICT'
