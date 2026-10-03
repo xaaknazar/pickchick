@@ -2321,11 +2321,13 @@
         "tests/operations/test_server_pilot_release.py",
         "packages/commerce-core/package.json",
         "contracts/openapi.json",
-        "docs/collaboration/handoff.md"
+        "docs/collaboration/handoff.md",
+        "packages/commerce-core/tests/kaspi-remote.postgres.test.mjs",
+        "packages/contracts/openapi.json"
       ],
       "status": "active",
-      "head": "490d460503de980c4b992354810f7f89c3300dc7",
-      "updatedAt": "2026-10-03T20:10:14.993Z"
+      "head": "21d85e86ccb6b4b781d8f6dd0a2720c5bca682df",
+      "updatedAt": "2026-10-03T20:20:05.156Z"
     }
   ]
 }
