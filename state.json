@@ -2296,9 +2296,11 @@
         "apps/kitchen/src/app.ts",
         "apps/kitchen/tests/model.test.mjs"
       ],
-      "status": "active",
-      "head": "1ff0c854a013f2b19781d33def22f33aaff008ed",
-      "updatedAt": "2026-10-03T20:09:09.061Z"
+      "status": "done",
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-03T20:33:05.001Z",
+      "summary": "Общее меню и kiosk downstream сохранены в https://github.com/xaaknazar/pickchick/pull/171 и shared3fabe7c; исходные коммиты2cd97d2,d9ce4d9,1ff0c85 включены. Локально подтверждены build, ESLint,4menuPG+4menuunit,29edgePG+4edgeunit,28kitchenmodel/API; guest/mobile границы проверены адресным read-only review. Своя ветка fast-forward опубликована, remoteSHA совпал3fabe7c.",
+      "nextAction": "Установка cloud034-036/edge017, выдача runtimegrants, подключение реального kiosk и hardware приёмка остаются; sourceflags выключены, рабочие продажи не изменены. Продолжать по docs/operations/commercial-channels.md после CI."
     },
     {
       "id": "commercial-channels",
