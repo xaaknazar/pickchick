@@ -252,6 +252,8 @@ with sync_playwright() as p:
   close=page.get_by_test_id('completed-order-close')
   expect(close).to_be_visible()
   expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
+  # Reopening loads authoritative feedback before the editor can save.
+  expect(page.get_by_test_id('completed-rating-5')).to_be_enabled(timeout=10000)
   expect(review_comment).to_have_value('Всё понравилось. Спасибо!')
   expect(save).to_be_enabled()
   page.wait_for_timeout(450)
@@ -269,6 +271,8 @@ with sync_playwright() as p:
   for value in range(1,6):expect(page.get_by_test_id(f'order-history-rate-{ORDER}-{value}')).to_have_text(stars[0])
   page.get_by_test_id(f'order-history-open-{ORDER}').click()
   expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
+  # Reopening loads authoritative feedback before the editor can save.
+  expect(page.get_by_test_id('completed-rating-5')).to_be_enabled(timeout=10000)
   expect(review_comment).to_have_value('Всё понравилось. Спасибо!')
   expect(page.get_by_test_id('completed-review-saved')).to_be_visible()
   expect(save).to_be_disabled()
