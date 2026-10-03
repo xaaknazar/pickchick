@@ -1956,9 +1956,11 @@
         "packages/backoffice-core/tests",
         "infra/staging/backoffice-grants.mjs"
       ],
-      "status": "active",
-      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
-      "updatedAt": "2026-10-03T08:31:53.714Z"
+      "status": "available",
+      "head": "c72d7d890ef4eb2c4bd7e91b72a844afab3136ce",
+      "updatedAt": "2026-10-03T08:37:02.370Z",
+      "summary": "Published c72d7d890ef4eb2c4bd7e91b72a844afab3136ce calendar reports and trusted edge stop-list. 5 unit and 10 PostgreSQL18 tests plus tsc/lint/format pass; no deployment.",
+      "nextAction": "Parent director-console integrates commit, owns docs/UI/CI. Runtime shift relation missing: capability false and NOT_READY. Release scope after shared integration."
     },
     {
       "id": "director-console",
