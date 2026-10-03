@@ -2256,32 +2256,6 @@
       "updatedAt": "2026-10-03T19:48:13.020Z"
     },
     {
-      "id": "commercial-channels",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/commercial-channels",
-      "scopes": [
-        "packages/commerce-core/src/kiosk-checkout.ts",
-        "packages/commerce-core/src/model.ts",
-        "packages/commerce-core/src/repository.ts",
-        "packages/commerce-core/src/kaspi-remote.ts",
-        "packages/commerce-core/src/index.ts",
-        "services/api/src/kiosk-checkout-controller.ts",
-        "services/api/src/kaspi-remote-worker.ts",
-        "services/api/src/index.ts",
-        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
-        "pnpm-lock.yaml",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "docs/operations/commercial-channels.md",
-        "packages/commerce-core/src/customer-checkout.ts",
-        "packages/commerce-core/src/order-view.ts",
-        "db/cloud/migrations/036_cloud_kiosk_commerce.sql"
-      ],
-      "status": "active",
-      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
-      "updatedAt": "2026-10-03T19:54:42.694Z"
-    },
-    {
       "id": "kiosk-guest-sessions",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-guest-sessions",
@@ -2321,6 +2295,37 @@
       "status": "active",
       "head": "1ff0c854a013f2b19781d33def22f33aaff008ed",
       "updatedAt": "2026-10-03T20:09:09.061Z"
+    },
+    {
+      "id": "commercial-channels",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/commercial-channels",
+      "scopes": [
+        "packages/commerce-core/src/kiosk-checkout.ts",
+        "packages/commerce-core/src/model.ts",
+        "packages/commerce-core/src/repository.ts",
+        "packages/commerce-core/src/kaspi-remote.ts",
+        "packages/commerce-core/src/index.ts",
+        "services/api/src/kiosk-checkout-controller.ts",
+        "services/api/src/kaspi-remote-worker.ts",
+        "services/api/src/index.ts",
+        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
+        "pnpm-lock.yaml",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/commercial-channels.md",
+        "packages/commerce-core/src/customer-checkout.ts",
+        "packages/commerce-core/src/order-view.ts",
+        "db/cloud/migrations/036_cloud_kiosk_commerce.sql",
+        "tests/operations/test_auth_four_digit_release.py",
+        "tests/operations/test_server_pilot_release.py",
+        "packages/commerce-core/package.json",
+        "contracts/openapi.json",
+        "docs/collaboration/handoff.md"
+      ],
+      "status": "active",
+      "head": "490d460503de980c4b992354810f7f89c3300dc7",
+      "updatedAt": "2026-10-03T20:10:14.993Z"
     }
   ]
 }
