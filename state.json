@@ -2257,6 +2257,18 @@
       "status": "active",
       "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
       "updatedAt": "2026-10-03T19:48:04.407Z"
+    },
+    {
+      "id": "kiosk-commercial-client",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-commercial-client",
+      "scopes": [
+        "apps/kiosk",
+        "tests/kiosk"
+      ],
+      "status": "active",
+      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
+      "updatedAt": "2026-10-03T19:48:13.020Z"
     }
   ]
 }
