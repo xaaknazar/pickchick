@@ -1936,25 +1936,6 @@
       "nextAction": "Physical iPhone acceptance of TestFlight8 remains separate; no deployment steps outstanding."
     },
     {
-      "id": "director-console",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-console",
-      "scopes": [
-        "apps/backoffice/src/operations.ts",
-        "apps/backoffice/src/operations-model.ts",
-        "docs/01-technical-spec.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "docs/operations/director-console.md",
-        "@vps/backoffice",
-        "@vps/roadmap"
-      ],
-      "status": "active",
-      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
-      "updatedAt": "2026-10-03T08:27:57.823Z"
-    },
-    {
       "id": "director-shell",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-shell",
@@ -1995,6 +1976,27 @@
       "status": "active",
       "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
       "updatedAt": "2026-10-03T08:31:53.714Z"
+    },
+    {
+      "id": "director-console",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-console",
+      "scopes": [
+        "apps/backoffice/src/operations.ts",
+        "apps/backoffice/src/operations-model.ts",
+        "docs/01-technical-spec.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/director-console.md",
+        "@vps/backoffice",
+        "@vps/roadmap",
+        "tests/backoffice/operations-model.test.mjs",
+        "tests/backoffice/director-ui.test.mjs"
+      ],
+      "status": "active",
+      "head": "608d261b2ddd74f3a6ec4d75bc25d711660cfa68",
+      "updatedAt": "2026-10-03T08:32:24.555Z"
     }
   ]
 }
