@@ -1953,6 +1953,18 @@
       "status": "active",
       "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
       "updatedAt": "2026-10-03T08:27:57.823Z"
+    },
+    {
+      "id": "director-periods",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-periods",
+      "scopes": [
+        "packages/backoffice-core/src",
+        "packages/backoffice-core/tests"
+      ],
+      "status": "active",
+      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
+      "updatedAt": "2026-10-03T08:28:11.144Z"
     }
   ]
 }
