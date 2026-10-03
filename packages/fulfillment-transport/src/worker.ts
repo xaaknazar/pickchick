@@ -1,3 +1,4 @@
+import { pendingCashierReports, acknowledgeCashierReports } from './cashier-reports.js';
 import { effectiveLocalStops } from '@pickchick/menu-sync';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -155,6 +156,44 @@ export async function syncFulfillmentOnce(
         [branchId],
       );
     });
+  const syncCashier = async () => {
+    const reports = await pendingCashierReports(pool, branchId);
+    if (!reports.length) return;
+    try {
+      const response = PullResponseSchema.parse(
+        await transportRequest(
+          origin,
+          'pull',
+          identity,
+          {
+            workerId,
+            leaseSeconds: 30,
+            protocolVersion: 3,
+            availabilityOnly: true,
+            availability: {
+              revision: acquired.revision,
+              stoppedIds: await effectiveLocalStops(pool, branchId),
+            },
+            cashierReports: reports,
+          },
+          io,
+        ),
+      );
+      if (
+        JSON.stringify(response.scope) !== JSON.stringify(scope) ||
+        response.event !== null ||
+        !response.cashierReportReceipt
+      )
+        throw new TransportHttpError('INVALID_RESPONSE');
+      await acknowledgeCashierReports(pool, branchId, reports, response.cashierReportReceipt);
+    } catch {
+      // Reporting cannot block a kitchen admission. Frozen events remain durable for retry.
+      await pool.query(
+        "UPDATE cashier_report_outbox SET attempts=attempts+1,last_error='REPORT_UNACKNOWLEDGED' WHERE branch_id=$1 AND event_id=ANY($2::uuid[]) AND acknowledged_at IS NULL",
+        [branchId, reports.map((r) => r.eventId)],
+      );
+    }
+  };
   const repo = new EdgeFulfillment(pool);
   try {
     // A blocked admission must not block its own stop-list recovery.
@@ -179,6 +218,7 @@ export async function syncFulfillmentOnce(
       );
       if (JSON.stringify(pulse.scope) !== JSON.stringify(scope) || pulse.event !== null)
         throw new TransportHttpError('INVALID_RESPONSE');
+      await syncCashier();
     }
     // Directions progress independently. A rejected historical reverse event must
     // not prevent reserving an unrelated new cloud order.
@@ -255,6 +295,7 @@ export async function syncFulfillmentOnce(
       );
       if (JSON.stringify(pulled.scope) !== JSON.stringify(scope))
         throw new TransportHttpError('INVALID_RESPONSE');
+      await syncCashier();
       if (!pulled.event) {
         await update('last_error=NULL,last_success_at=clock_timestamp()');
         return {

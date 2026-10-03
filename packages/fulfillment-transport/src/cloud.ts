@@ -1,3 +1,4 @@
+import { receiveCashierReports } from './cashier-reports.js';
 import { randomUUID } from 'node:crypto';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
@@ -87,6 +88,14 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
   return transaction(pool, async (client) => {
     const b = await binding(client, identity),
       token = randomUUID();
+    const cashierReportsSupported =
+      (await client.query("SELECT 1 WHERE to_regclass('cloud_cashier_orders') IS NOT NULL"))
+        .rowCount === 1;
+    if (request.cashierReports && request.protocolVersion !== 3) fail('INVALID_REQUEST');
+    if (request.cashierReports && !cashierReportsSupported) fail('SERVICE_UNAVAILABLE');
+    const cashierReportReceipt = request.cashierReports
+      ? await receiveCashierReports(client, b.branch_id, b.device_id, request.cashierReports)
+      : undefined;
     if (request.availability) {
       const ids = [...new Set(request.availability.stoppedIds)].sort();
       await client.query(
@@ -98,14 +107,21 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
     }
     if (request.availabilityOnly) {
       if (!request.availability) fail('INVALID_REQUEST');
-      return parse(PullResponseSchema, { scope: scopeOf(b), event: null });
+      return parse(PullResponseSchema, {
+        scope: scopeOf(b),
+        event: null,
+        ...(cashierReportsSupported && request.protocolVersion === 3
+          ? { cashierReportsSupported: true }
+          : {}),
+        ...(cashierReportReceipt ? { cashierReportReceipt } : {}),
+      });
     }
     const result = await client.query<{ id: string; event_type: string; payload: unknown }>(
       `WITH selected AS (
        SELECT e.id FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id
        WHERE o.organization_id=$1 AND o.branch_id=$2 AND e.acknowledged_at IS NULL
        AND (e.lease_until IS NULL OR e.lease_until<clock_timestamp())
-       AND (e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested') OR ($7=2 AND e.event_type='edge.admission_release_requested'))
+       AND (e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested') OR ($7>=2 AND e.event_type='edge.admission_release_requested'))
        AND (e.event_type='edge.admission_release_requested' OR (NOT o.attention_required
        AND NOT EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id AND p.state IN ('released','cancel_requested','cancelled'))))
        AND (o.admission_device_id IS NULL OR o.admission_device_id=$3)
@@ -139,6 +155,10 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
     const row = result.rows[0];
     return parse(PullResponseSchema, {
       scope: scopeOf(b),
+      ...(cashierReportsSupported && request.protocolVersion === 3
+        ? { cashierReportsSupported: true }
+        : {}),
+      ...(cashierReportReceipt ? { cashierReportReceipt } : {}),
       event: row
         ? {
             command: { eventId: row.id, type: row.event_type, payload: row.payload },

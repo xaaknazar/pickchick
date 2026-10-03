@@ -55,6 +55,8 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
     grant('UPDATE(window_started_at, attempts)', ['local_staff_login_limits']),
     grant('UPDATE(lock_anchor)', ['local_staff', 'local_terminals', 'staff_sessions']),
     grant('UPDATE(ordering_enabled, ordering_version)', ['branch_config']),
+    grant('INSERT', ['cashier_report_outbox']),
+    grant('USAGE', ['cashier_report_outbox_sequence_seq']).replace(' ON ', ' ON SEQUENCE '),
     grant('INSERT', [
       'checkout_quotes',
       'local_orders',
