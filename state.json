@@ -1965,6 +1965,18 @@
       "status": "active",
       "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
       "updatedAt": "2026-10-03T08:28:11.144Z"
+    },
+    {
+      "id": "director-shell",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-shell",
+      "scopes": [
+        "apps/backoffice/src/app.ts",
+        "apps/backoffice/src/styles.css"
+      ],
+      "status": "active",
+      "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
+      "updatedAt": "2026-10-03T08:28:25.806Z"
     }
   ]
 }
