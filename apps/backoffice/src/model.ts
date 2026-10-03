@@ -330,7 +330,7 @@ export class CatalogModel {
       if (this.dirty) throw new Error('DIRTY');
       if (!this.state?.draft || !this.payload?.content_reviewed)
         throw new Error('Перед публикацией подтвердите проверку содержимого и сохраните черновик.');
-      if (catalogHasChannelPrices(this.payload))
+      if (catalogHasChannelPrices(this.payload, this.state.publication_support?.mobile === true))
         throw new Error(
           'Цены каналов пока доступны только в черновике. Для публикации оставьте поля каналов пустыми: касса, киоск и витрины ещё не подключены к единой версии цен.',
         );

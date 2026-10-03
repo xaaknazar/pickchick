@@ -8,6 +8,7 @@ import {
 export class CommerceError extends Error {
   constructor(
     public readonly code:
+      | 'CATALOG_UPGRADE_REQUIRED'
       | 'INVALID'
       | 'FORBIDDEN'
       | 'NOT_FOUND'

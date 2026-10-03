@@ -13,7 +13,11 @@ import { localSelectionIds } from '@pickchick/menu-sync';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { transaction, type DatabasePool } from '@pickchick/database';
-import { CatalogPricing, CatalogPricingError } from '@pickchick/catalog-pricing';
+import {
+  CatalogPricing,
+  CatalogPricingError,
+  CatalogMobileStorefrontSchema,
+} from '@pickchick/catalog-pricing';
 import { CommerceRepository } from './repository.js';
 import { CommerceError, digest, parse, UUIDSchema } from './model.js';
 
@@ -23,6 +27,7 @@ export const CheckoutOptionsSchema = z.strictObject({
   branchId: z.uuid(),
   paymentAccountId: z.uuid(),
   customerIds: z.array(z.uuid()).min(1).max(10),
+  publishedCatalogEnabled: z.boolean().optional(),
   repeatOrdersEnabled: z.boolean().optional(),
   allVerifiedCustomers: z.boolean().optional(),
   maxOrderMinor: z
@@ -40,6 +45,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
     branchId: env.CUSTOMER_KASPI_BRANCH_ID,
     paymentAccountId: env.KASPI_REMOTE_ACCOUNT_ID,
     customerIds: env.CUSTOMER_KASPI_PILOT_CUSTOMER_IDS?.split(','),
+    publishedCatalogEnabled: env.CATALOG_MOBILE_STOREFRONT_ENABLED === 'true',
     repeatOrdersEnabled: env.CUSTOMER_KASPI_PILOT_REPEAT_ORDERS === 'true',
     allVerifiedCustomers: env.CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS === 'true',
     maxOrderMinor: env.CUSTOMER_KASPI_PILOT_MAX_MINOR ?? '10000',
@@ -50,6 +56,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
 const QuoteInput = z.strictObject({
   key: z.uuid(),
   branchId: z.uuid(),
+  catalog_version: z.int().positive().optional(),
   serviceMode: z.enum(['takeaway', 'dine_in']),
   kitchenComment: z
     .string()
@@ -109,6 +116,31 @@ export class CustomerCheckout {
       principalId: customerId,
       role: 'sales' as const,
     };
+  }
+  async catalog() {
+    if (!this.options?.publishedCatalogEnabled) throw new CommerceError('NOT_FOUND');
+    const row = (
+      await this.pool.query<{
+        branch: unknown;
+        version: number;
+        published_at: Date;
+        payload: unknown;
+      }>(
+        `SELECT jsonb_build_object('id',b.id,'code',b.code,'name',b.name,'timezone',b.timezone,'ordering_enabled',b.ordering_enabled) branch,p.version,p.published_at,p.payload
+       FROM branches b JOIN catalog_branch_heads h ON h.branch_id=b.id AND h.organization_id=b.organization_id
+       JOIN catalog_publications p ON p.branch_id=h.branch_id AND p.organization_id=h.organization_id AND p.version=h.published_version
+       WHERE b.id=$1 AND b.organization_id=$2`,
+        [this.options.branchId, this.options.organizationId],
+      )
+    ).rows[0];
+    if (!row) throw new CommerceError('NOT_READY');
+    return CatalogMobileStorefrontSchema.parse({
+      branch: row.branch,
+      channel: 'mobile',
+      version: row.version,
+      published_at: row.published_at.toISOString(),
+      payload: row.payload,
+    });
   }
   async availability() {
     if (!this.options) return { enabled: false, fresh: false, signature: 'disabled', products: [] };
@@ -192,13 +224,17 @@ export class CustomerCheckout {
     const scope = await this.scope(customerId),
       request = parse(QuoteInput, input);
     if (request.branchId !== scope.branchId) throw new CommerceError('FORBIDDEN');
+    if (this.options!.publishedCatalogEnabled && request.catalog_version === undefined)
+      throw new CommerceError('CATALOG_UPGRADE_REQUIRED');
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
     await assertBranchItemsAvailable(this.pool, scope.branchId, request.items);
     if (!(await this.config(customerId)).enabled) throw new CommerceError('NOT_READY');
     const head = (
       await this.pool.query<{
         version: number;
-        payload: { products: { id: string; sku: string }[] };
+        payload: {
+          products: { id: string; sku: string; channel_prices_minor?: { mobile?: string } }[];
+        };
         legal_entity_id: string;
       }>(
         `
@@ -210,6 +246,14 @@ export class CustomerCheckout {
       )
     ).rows[0];
     if (!head) throw new CommerceError('NOT_READY');
+    // Disabling the rollout cannot make an old client order an undisplayed override.
+    if (
+      request.catalog_version === undefined &&
+      head.payload.products.some((product) => product.channel_prices_minor?.mobile !== undefined)
+    )
+      throw new CommerceError('CATALOG_UPGRADE_REQUIRED');
+    if (request.catalog_version !== undefined && request.catalog_version !== head.version)
+      throw new CommerceError('CONFLICT');
     try {
       const priced = await new CatalogPricing(this.pool).price(
         {

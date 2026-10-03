@@ -65,6 +65,8 @@ export const paymentReceived = (phase: CustomerCommerceOrder['phase']) =>
   ['paid', 'preparing', 'ready', 'handed_over'].includes(phase);
 export function checkoutError(error: unknown) {
   const code = error instanceof Error ? error.message : '';
+  if (code === 'CATALOG_UPGRADE_REQUIRED')
+    return 'Обновите приложение, чтобы получить актуальное меню и цены ресторана.';
   if (code === 'RESTAURANT_CLOSED')
     return 'Ресторан сейчас закрыт. Попробуйте оформить заказ в часы работы.';
   if (code === 'ITEM_STOPPED')

@@ -26,6 +26,7 @@ import {
   CustomerCheckoutConfigSchema,
   CustomerQuoteSchema,
   checkoutItems,
+  publishedCartVersion,
   cartSignature,
   normalizedOrderComment,
   maskedPhone,
@@ -380,6 +381,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
             {
               key: quoteKey,
               branchId: setup.branchId,
+              ...(publishedCartVersion(cart.current, setup.branchId) === undefined
+                ? {}
+                : { catalog_version: publishedCartVersion(cart.current, setup.branchId) }),
               serviceMode: props.model.diningMode,
               items: checkoutItems(cart.current),
               ...(comment ? { kitchenComment: comment } : {}),

@@ -122,6 +122,7 @@ export const ReadinessSchema = z.strictObject({
 
 export const ErrorSchema = z.strictObject({
   code: z.enum([
+    'CATALOG_UPGRADE_REQUIRED',
     'INVALID_REQUEST',
     'UNAUTHORIZED',
     'FORBIDDEN',

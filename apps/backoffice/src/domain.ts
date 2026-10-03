@@ -6,6 +6,7 @@ export type Branch = { id: string; code: string; name: string };
 export type Actor = { id: string; name: string };
 export type CatalogState = {
   branch: Branch;
+  publication_support?: { mobile: boolean; pos: false; kiosk: false };
   draft: null | {
     revision: number;
     base_version: number;
@@ -302,8 +303,10 @@ export function parseState(value: unknown): CatalogState {
   }
 }
 
-export function catalogHasChannelPrices(payload: CatalogPayload): boolean {
-  return payload.products.some(
-    (product) => Object.keys(product.channel_prices_minor ?? {}).length > 0,
+export function catalogHasChannelPrices(payload: CatalogPayload, mobileEnabled = false): boolean {
+  return payload.products.some((product) =>
+    Object.keys(product.channel_prices_minor ?? {}).some(
+      (channel) => channel !== 'mobile' || !mobileEnabled,
+    ),
   );
 }

@@ -186,8 +186,15 @@ export function catalogHasChannelPrices(payload: CatalogPayload): boolean {
     (product) => Object.keys(product.channel_prices_minor ?? {}).length > 0,
   );
 }
-export function assertCatalogPublishable(payload: CatalogPayload): void {
-  if (catalogHasChannelPrices(payload)) throw new CatalogAdminError('CONFLICT');
+export function assertCatalogPublishable(payload: CatalogPayload, mobileEnabled = false): void {
+  if (
+    payload.products.some((p) =>
+      Object.keys(p.channel_prices_minor ?? {}).some(
+        (channel) => channel !== 'mobile' || !mobileEnabled,
+      ),
+    )
+  )
+    throw new CatalogAdminError('CONFLICT');
 }
 export type CatalogProduct = z.infer<typeof CatalogProductSchema>;
 export type CatalogModifier = z.infer<typeof CatalogModifierSchema>;
@@ -207,6 +214,9 @@ export const CatalogPublishedSchema = z.strictObject({
 });
 export const CatalogStateSchema = z.strictObject({
   branch: Branch,
+  publication_support: z
+    .strictObject({ mobile: z.boolean(), pos: z.literal(false), kiosk: z.literal(false) })
+    .optional(),
   draft: CatalogDraftSchema.nullable(),
   published: CatalogPublishedSchema.nullable(),
 });
@@ -267,3 +277,18 @@ export function parseCatalogInput<T>(schema: z.ZodType<T>, value: unknown): T {
   if (!result.success) throw new CatalogAdminError('INVALID_REQUEST');
   return result.data;
 }
+
+export const CatalogMobileStorefrontSchema = z.strictObject({
+  branch: z.strictObject({
+    id: z.uuid(),
+    code: z.string(),
+    name: z.string(),
+    timezone: z.literal('Asia/Almaty'),
+    ordering_enabled: z.boolean(),
+  }),
+  channel: z.literal('mobile'),
+  version: z.int().positive(),
+  published_at: z.iso.datetime(),
+  payload: CatalogPayloadSchema,
+});
+export type CatalogMobileStorefront = z.infer<typeof CatalogMobileStorefrontSchema>;

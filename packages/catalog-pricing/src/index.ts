@@ -48,3 +48,5 @@ export class CatalogPricing {
     );
   }
 }
+
+export { CatalogMobileStorefrontSchema } from '@pickchick/catalog-admin/contracts';

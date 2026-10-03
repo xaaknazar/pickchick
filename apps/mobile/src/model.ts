@@ -36,7 +36,7 @@ export interface Product {
   priceMinor: string;
   image: ImageSourcePropType;
   source: CatalogMode;
-  catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3';
+  catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3' | `published:${string}:${number}`;
   servingLabel?: string;
   nutrition?: {
     basis: 'per_100_g' | 'per_serving';
