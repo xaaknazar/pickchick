@@ -2165,6 +2165,17 @@
       "updatedAt": "2026-10-03T10:01:36.501Z",
       "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
       "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
+    },
+    {
+      "id": "director-ci-followup",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-ci-followup",
+      "scopes": [
+        "packages/commerce-core/tests/postgres.test.mjs"
+      ],
+      "status": "active",
+      "head": "6ae773b348a4d03ed4749e4bceeae40b2d6fbfa2",
+      "updatedAt": "2026-10-03T10:17:40.568Z"
     }
   ]
 }
