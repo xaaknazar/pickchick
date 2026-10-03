@@ -1,21 +1,63 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URLSearchParams } from 'node:url';
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
-const allowed = (method, path) =>
-  (method === 'GET' &&
-    new RegExp(
-      `^/v1/admin/backoffice/branches/${UUID}(?:/orders/${UUID}|\\?period=(?:day|week|month|quarter))?$`,
-      'i',
-    ).test(path)) ||
-  (method === 'POST' &&
-    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/commands$`, 'i').test(path)) ||
-  (method === 'GET'
-    ? new RegExp(`^/v1/admin/catalog/branches(?:/${UUID})?$`, 'i').test(path)
-    : method === 'PUT'
-      ? new RegExp(`^/v1/admin/catalog/branches/${UUID}/draft$`, 'i').test(path)
-      : method === 'POST' &&
-        new RegExp(`^/v1/admin/catalog/branches/${UUID}/(?:draft/seed|publish)$`, 'i').test(path));
+function reportQuery(search) {
+  if (search.length > 400) return false;
+  const query = new URLSearchParams(search);
+  const seen = new Set();
+  for (const [key] of query) {
+    if (!['period', 'start_date', 'end_date', 'shift_id'].includes(key) || seen.has(key))
+      return false;
+    seen.add(key);
+  }
+  const period = query.get('period') ?? 'day';
+  if (!['day', 'today', 'yesterday', 'week', 'month', 'quarter', 'year', 'custom'].includes(period))
+    return false;
+  const shift = query.get('shift_id');
+  if (shift !== null && !new RegExp(`^${UUID}$`, 'i').test(shift)) return false;
+  const start = query.get('start_date'),
+    end = query.get('end_date');
+  if (period !== 'custom') return start === null && end === null;
+  const validDate = (value) => {
+    if (
+      value === null ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+      value < '2000-01-01' ||
+      value > '2099-12-31'
+    )
+      return false;
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  };
+  return (
+    validDate(start) &&
+    validDate(end) &&
+    start <= end &&
+    Date.parse(end) - Date.parse(start) <= 365 * 86400000
+  );
+}
+const allowed = (method, path) => {
+  const [pathname, search, extra] = path.split('?');
+  if (extra !== undefined || path.includes('#')) return false;
+  if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
+    return reportQuery(search ?? '');
+  if (search !== undefined) return false;
+  return (
+    (method === 'GET' &&
+      new RegExp(`^/v1/admin/backoffice/branches/${UUID}/orders/${UUID}$`, 'i').test(pathname)) ||
+    (method === 'POST' &&
+      new RegExp(`^/v1/admin/backoffice/branches/${UUID}/commands$`, 'i').test(pathname)) ||
+    (method === 'GET'
+      ? new RegExp(`^/v1/admin/catalog/branches(?:/${UUID})?$`, 'i').test(pathname)
+      : method === 'PUT'
+        ? new RegExp(`^/v1/admin/catalog/branches/${UUID}/draft$`, 'i').test(pathname)
+        : method === 'POST' &&
+          new RegExp(`^/v1/admin/catalog/branches/${UUID}/(?:draft/seed|publish)$`, 'i').test(
+            pathname,
+          ))
+  );
+};
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ...['styles', 'fonts'].map((n) => [`/${n}.css`, [`${n}.css`, 'text/css; charset=utf-8']]),
