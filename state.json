@@ -2185,9 +2185,11 @@
         "packages/commerce-core/src/repository.ts",
         "tests/integration/catalog-mobile-live.test.mjs"
       ],
-      "status": "active",
-      "head": "6ae773b348a4d03ed4749e4bceeae40b2d6fbfa2",
-      "updatedAt": "2026-10-03T10:22:33.931Z"
+      "status": "done",
+      "head": "25083984130020b43816dd30f1fd488e7a169963",
+      "updatedAt": "2026-10-03T10:31:09.656Z",
+      "summary": "Local 25083984130020b43816dd30f1fd488e7a169963 integrated equivalently as 9b80b8e0dd1243f792258531cb24517f64d753d4 into shared 723f688f78e69fcd501a12f7b7b24cb94e4e36cb; exact diff verified; 67 PostgreSQL tests, typecheck and lint passed. Coordination-only close authorized by root; source branch intentionally not pushed.",
+      "nextAction": "Root handles final CI 37116304222 and release; no source or server changes."
     }
   ]
 }
