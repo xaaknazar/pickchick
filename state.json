@@ -1978,9 +1978,11 @@
         "tests/backoffice/browser_operations.py",
         "tests/backoffice/browser_ui.py"
       ],
-      "status": "active",
-      "head": "6ecf4d9758b5c1d8221c5e630ffba5fa0d30bd6a",
-      "updatedAt": "2026-10-03T08:36:07.777Z"
+      "status": "done",
+      "head": "5311b8cedccce22194a7f730b16bccdd7df6ae84",
+      "updatedAt": "2026-10-03T08:57:38.495Z",
+      "summary": "Browser regression included in shared 92e8a127; Python compile passed; parent verified real HTTP 16 sections, calendar periods and custom draft refresh at 1680/1024/393. Full CI/deploy pending.",
+      "nextAction": "Parent owns full CI, deployment and acceptance."
     },
     {
       "id": "director-prices",
