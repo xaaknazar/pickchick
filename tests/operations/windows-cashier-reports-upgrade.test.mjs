@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { withSyncDatabases } from '../helpers/sync.mjs';
+import {
+  applyEdgeRuntimeGrants,
+  edgeRuntimeGrantSql,
+} from '../../infra/windows/edge-runtime-grants.mjs';
 import { upgradeCashierReports } from '../../infra/windows/cashier-reports-upgrade-db.mjs';
 
 test('cashier schema upgrade preserves prior data, resumes without duplicate backfill and retains minimal roles', async () => {
@@ -50,11 +54,58 @@ test('cashier schema upgrade preserves prior data, resumes without duplicate bac
           const applied = await upgradeCashierReports(c, { ...o, mode: 'apply' });
           assert.equal(applied.migrations, 16);
           assert.equal(applied.fingerprint, before.fingerprint);
+          assert.ok(
+            !edgeRuntimeGrantSql(posRole, { schema: f.edge.schema }).includes('cashier_report'),
+          );
+          assert.ok(
+            edgeRuntimeGrantSql(posRole, { schema: f.edge.schema, cashierReports: true }).includes(
+              'cashier_report_outbox_sequence_seq',
+            ),
+          );
+          assert.throws(
+            () => edgeRuntimeGrantSql(posRole, { cashierReports: 'true' }),
+            /Invalid runtime grant flag/,
+          );
+          await applyEdgeRuntimeGrants(f.edge.pool, posRole, { schema: f.edge.schema });
+          const reportRights = (
+            await c.query(
+              `SELECT has_table_privilege($1,'cashier_report_outbox','INSERT') writer,has_table_privilege($1,'cashier_report_outbox','SELECT') reader,has_table_privilege($1,'cashier_report_outbox','UPDATE') updater,has_sequence_privilege($1,'cashier_report_outbox_sequence_seq','USAGE') sequence_user`,
+              [posRole],
+            )
+          ).rows[0];
+          assert.deepEqual(reportRights, {
+            writer: true,
+            reader: false,
+            updater: false,
+            sequence_user: true,
+          });
+          await assert.rejects(
+            applyEdgeRuntimeGrants(f.edge.pool, posRole, {
+              schema: f.edge.schema,
+              cashierReports: false,
+            }),
+            /flag differs/,
+          );
+          await c.query('BEGIN');
+          await c.query(`SET LOCAL ROLE ${posRole}`);
+          await c.query(
+            "UPDATE local_cash_shifts SET state='closed',version=2,closed_at=now(),closed_by_staff_id=$1,counted_cash_minor=1234,discrepancy_minor=0,closing_reason='Synthetic',closed_report='{}' WHERE id=$1",
+            [id],
+          );
+          await c.query('COMMIT');
+          await c.query('BEGIN');
+          await c.query(`SET LOCAL ROLE ${posRole}`);
+          await assert.rejects(
+            c.query('SELECT * FROM cashier_report_outbox'),
+            (error) => error.code === '42501',
+          );
+          await c.query('ROLLBACK');
           const count = (await c.query('SELECT count(*)::text n FROM cashier_report_outbox'))
             .rows[0].n;
+          const current = await upgradeCashierReports(c, o);
           const resumed = await upgradeCashierReports(c, { ...o, mode: 'apply' });
           assert.equal(resumed.resumed, true);
-          assert.equal(resumed.fingerprint, before.fingerprint);
+          assert.equal(resumed.fingerprint, current.fingerprint);
           assert.equal(
             (await c.query('SELECT count(*)::text n FROM cashier_report_outbox')).rows[0].n,
             count,
