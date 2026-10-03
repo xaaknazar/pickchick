@@ -1179,7 +1179,7 @@ export class OperationsView {
         ),
         p = panel(
           'Реестр заказов',
-          'Последние 200 записей каждого источника в выбранном периоде.',
+          'Последние 200 записей каждого источника. Приложение и киоск - по дате заказа; касса - по первому получению сервером, пока исходные кассовые даты не синхронизируются.',
           [
             button('Экспорт CSV', () =>
               exportCsv(
@@ -1201,7 +1201,7 @@ export class OperationsView {
       const draw = () => {
         list.replaceChildren(
           table(
-            ['Заказ', 'Создан', 'Канал', 'Сумма', 'Оплата', 'Кухня', ''],
+            ['Заказ', 'Дата', 'Канал', 'Сумма', 'Оплата', 'Кухня', ''],
             rows
               .filter(
                 (o) =>
@@ -1213,7 +1213,7 @@ export class OperationsView {
                 o['display_number']
                   ? '№' + String(o['display_number'])
                   : String(o['id']).slice(0, 8),
-                date(o['created_at']),
+                (o['channel'] === 'pos' ? 'Получен ' : 'Создан ') + date(o['created_at']),
                 status(o['channel']),
                 amount(o['total_minor']),
                 badge(o['payment_state']),
@@ -1332,8 +1332,8 @@ export class OperationsView {
     if (page === 'finance') {
       content.append(
         stats([
-          ['Оплаты', amount(metrics['captured_minor'])],
-          ['Возвраты', amount(metrics['refunded_minor'])],
+          ['Оплаты', amount(metrics['captured_minor']), 'Приложение и киоск'],
+          ['Возвраты', amount(metrics['refunded_minor']), 'Приложение и киоск'],
           ['Неизвестные платежи', val(metrics['unknown_payments'])],
           ['Проблемы сверки', String(d.issues.length) + (clipped?.['issues'] ? '+' : '')],
         ]),
