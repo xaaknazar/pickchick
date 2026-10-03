@@ -72,6 +72,15 @@ function fixture() {
       assert.equal(token, JSON.parse(h.rawSession).token);
       if (path === '/config') return { enabled: true, branchId, restaurant: 'PickChick' };
       if (path === '/catalog') return storefront;
+      if (path === '/availability')
+        return {
+          fresh: true,
+          products: storefront.payload.products.map((p) => ({
+            productId: p.id,
+            available: p.available,
+            stoppedOptions: [],
+          })),
+        };
       if (path === '/sessions/end') {
         if (h.endFail) throw new KioskError('NETWORK_UNCERTAIN');
         return { ended: true };
@@ -88,7 +97,7 @@ function fixture() {
         }
         return {
           quoteId: '11111111-1111-4111-8111-111111111111',
-          totalMinor: '239000',
+          totalMinor: '419000',
           expiresAt: '2026-10-04T00:02:00Z',
           serviceMode: 'takeaway',
         };
@@ -104,7 +113,7 @@ function fixture() {
           updatedAt: iso,
           kitchenStage: null,
           displayNumber: '12',
-          totalMinor: '239000',
+          totalMinor: '419000',
           serviceMode: 'takeaway',
           phase: 'ready_to_pay',
           expiresAt: null,
@@ -316,4 +325,115 @@ test('stopped published product stays removable and cannot be quoted', async () 
   } finally {
     storefront.payload.products.find((p) => p.id === id).available = true;
   }
+});
+test('fresh edge option stop invalidates existing selections without shrinking the cart', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  const original = h.io.request;
+  const chosen = c.getSnapshot().cart[0].selections[0];
+  h.io.request = async (path, ...args) =>
+    path === '/availability'
+      ? {
+          fresh: true,
+          products: storefront.payload.products.map((p) => ({
+            productId: p.id,
+            available: true,
+            stoppedOptions:
+              p.id === c.getSnapshot().cart[0]?.productId
+                ? [{ group_id: chosen.group_id, option_id: chosen.option_id }]
+                : [],
+          })),
+        }
+      : original(path, ...args);
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(c.getSnapshot().unavailableCartLines.length, 1);
+  assert.equal(
+    h.calls.some((r) => r.path === '/quotes'),
+    false,
+  );
+  assert.equal(JSON.parse(h.rawFlow).cart.length, 1);
+});
+test('price refresh before quote cannot silently increase the confirmed total', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  const original = h.io.request;
+  const first = storefront.payload.products[0],
+    old = first.price_minor;
+  h.before = async (path) => {
+    if (path === '/catalog') first.price_minor = '499000';
+  };
+  h.io.request = async (path, ...args) =>
+    path === '/quotes'
+      ? {
+          quoteId: randomUUID(),
+          totalMinor: '499000',
+          expiresAt: '2026-10-04T00:02:00Z',
+          serviceMode: 'takeaway',
+        }
+      : original(path, ...args);
+  try {
+    assert.equal(await c.beginPayment(), false);
+    assert.equal(c.getSnapshot().step, 'loyalty');
+    assert.equal(JSON.parse(h.rawFlow).intent, null);
+    assert.equal(
+      h.calls.some((r) => r.path === '/orders' || r.path.endsWith('/payment')),
+      false,
+    );
+    assert.match(c.getSnapshot().error, /Сумма изменилась/);
+  } finally {
+    first.price_minor = old;
+  }
+});
+for (const code of [
+  'INVALID',
+  'CONFLICT',
+  'NOT_READY',
+  'ITEM_STOPPED',
+  'AVAILABILITY_STALE',
+  'RESTAURANT_CLOSED',
+])
+  test(`definitive quote ${code} returns review, while order errors retain recovery`, async () => {
+    const h = fixture(),
+      c = await cart(h);
+    h.before = async (path) => {
+      if (path === '/quotes') throw new KioskError(code, 409);
+    };
+    assert.equal(await c.beginPayment(), false);
+    assert.equal(JSON.parse(h.rawFlow).intent, null);
+    assert.equal(c.getSnapshot().step, 'loyalty');
+    assert.equal(c.getSnapshot().recoveryRequired, false);
+    assert.equal(
+      h.calls.some((r) => r.path === '/orders'),
+      false,
+    );
+    h.before = async (path) => {
+      if (path === '/orders') throw new KioskError(code, 409);
+    };
+    c.setInvoicePhone('+77011234567');
+    assert.equal(await c.beginPayment(), false);
+    assert(JSON.parse(h.rawFlow).intent);
+    assert.equal(c.getSnapshot().recoveryRequired, true);
+  });
+test('stale availability closes local quote and retains shopping draft for retry', async () => {
+  const h = fixture(),
+    c = await cart(h),
+    original = h.io.request;
+  h.io.request = async (path, ...args) =>
+    path === '/availability'
+      ? {
+          fresh: false,
+          products: storefront.payload.products.map((p) => ({
+            productId: p.id,
+            available: true,
+            stoppedOptions: [],
+          })),
+        }
+      : original(path, ...args);
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(JSON.parse(h.rawFlow).cart.length, 1);
+  assert.equal(
+    h.calls.some((r) => r.path === '/quotes'),
+    false,
+  );
+  assert.equal(c.getSnapshot().recoveryRequired, false);
 });

@@ -11,7 +11,7 @@ export async function commercialKioskRequest(
   device?: { deviceId: string; key: string },
 ): Promise<unknown> {
   if (
-    !/^\/(?:config|catalog|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
+    !/^\/(?:config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
       path,
     )
   )
