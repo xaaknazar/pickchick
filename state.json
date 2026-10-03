@@ -2002,11 +2002,11 @@
         "apps/backoffice/src/model.ts",
         "tests/integration/catalog-channel-pricing.test.mjs"
       ],
-      "status": "active",
-      "head": "b9e45aff999dad973d03eda35a16248cb7b71946",
-      "updatedAt": "2026-10-03T08:46:54.194Z",
-      "summary": "Опубликован 4de7c7d4588d4ffcb7207ad64c2b296cd8ef971a: черновики отдельных цен каналов, серверная и клиентская блокировка публикации до согласованного меню; 19 unit тестов, admin/pricing/backoffice build, targeted ESLint/Prettier и OpenAPI generation passed.",
-      "nextAction": "Интегрировать в codex/director-console; проверить реальную БД save/rejected publish и browser editor; связать storefront и edge menu release с каталогом перед разрешением публикации отдельных цен."
+      "status": "done",
+      "head": "6b2656e9f8347543f2dd142514154e959a261f50",
+      "updatedAt": "2026-10-03T08:57:59.697Z",
+      "summary": "Этап включён в общий срез 92e8a1274e0578d1394347eabc8eadc4476d30a1. Черновики отдельных цен mobile/pos/kiosk, серверная и клиентская блокировка публикации; browser import исправлен. 19 unit тестов, targeted Postgres persistence/rejected-publish test, build/lint/format пройдены. Итоговая browser проверка интегрированного этапа подтверждена ведущим агентом. CI и deploy ожидаются.",
+      "nextAction": "Связать storefront и edge menu release с каталогом перед разрешением отдельных цен; дождаться CI/deploy общей ветки."
     },
     {
       "id": "director-periods",
