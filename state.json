@@ -2041,9 +2041,11 @@
         "scripts/dependency-audit.mjs",
         "tests/unit/braces-security.test.mjs"
       ],
-      "status": "active",
-      "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
-      "updatedAt": "2026-10-03T09:13:38.373Z"
+      "status": "done",
+      "head": "335797b32b0e1ceb39fb092db757a727afe849c0",
+      "updatedAt": "2026-10-03T11:44:21.601Z",
+      "summary": "Security and mobile CI corrections integrated:335797b32b0e1ceb39fb092db757a727afe849c0. Five braces security checks, bounded mobile readiness, audit/lint/format passed; root final exact-source CI pending. Accepted shared source e236824b80ee315eae48c371d722f4f6459aac8c. Coordination-only closure; unpublished local branches preserved, not rewritten or pushed.",
+      "nextAction": "Root director-live-data retains final CI, director release and @vps. No further scope ownership by this obsolete task; no Windows installation or deployment claimed."
     },
     {
       "id": "director-shifts",
@@ -2118,11 +2120,11 @@
         "tests/operations/test_server_pilot_release.py",
         "tests/unit/catalog-images.test.mjs"
       ],
-      "status": "active",
-      "head": "934bb93c6820aeb0f51d8b182364336441e75149",
-      "updatedAt": "2026-10-03T10:01:36.501Z",
-      "summary": "Published 8a0dae90c81d635de8c2ad67750308c4285effae: fixed checked public mount helper binding, added bank pending/unsettled quiescence and missing backup identity guard. 9 bounded profile tests, py_compile and diff check passed; full mocked prepare/apply and unresolved-global checks included. No server prepare/apply/deploy executed.",
-      "nextAction": "Root integrate commit with cloud033 helpers, require exact-source all11 green CI then independently verify live baseline and guarded prepare; deployment remains root-owned."
+      "status": "done",
+      "head": "8a0dae90c81d635de8c2ad67750308c4285effae",
+      "updatedAt": "2026-10-03T11:44:21.621Z",
+      "summary": "Guarded release profile and executable phase tests integrated:c2e805f+8a0dae9. Nine mocked prepare/apply and unresolved-global tests, py_compile passed. Fixture-compatible be50a6b accepted via f807610;129 Python guards+3 Node tests passed. No deployment by this agent. Accepted shared source e236824b80ee315eae48c371d722f4f6459aac8c. Coordination-only closure; unpublished local branches preserved, not rewritten or pushed.",
+      "nextAction": "Root director-live-data retains final CI, director release and @vps. No further scope ownership by this obsolete task; no Windows installation or deployment claimed."
     },
     {
       "id": "director-ci-followup",
@@ -2131,9 +2133,11 @@
       "scopes": [
         "packages/commerce-core/tests/postgres.test.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "6ae773b348a4d03ed4749e4bceeae40b2d6fbfa2",
-      "updatedAt": "2026-10-03T10:17:40.568Z"
+      "updatedAt": "2026-10-03T11:44:21.638Z",
+      "summary": "Investigation closed without accepting changed pinned-quote contract. Local a8a60c226764000fa14d2b8ab48f258b673a7812 intentionally excluded and retained only as checkpoint. Canonical pricing contract confirmed; root9b80b8e removed erroneous runtime gate and kept original regression. Accepted shared source e236824b80ee315eae48c371d722f4f6459aac8c. Coordination-only closure; unpublished local branches preserved, not rewritten or pushed.",
+      "nextAction": "Root director-live-data retains final CI, director release and @vps. No further scope ownership by this obsolete task; no Windows installation or deployment claimed."
     },
     {
       "id": "director-catalog-live",
