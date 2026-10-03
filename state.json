@@ -2105,9 +2105,11 @@
         "tests/backoffice/browser_operations.test.mjs",
         "@vps/backoffice"
       ],
-      "status": "active",
-      "head": "ce4672cc62d7426ac3ca5b3f5b95716edb035ffb",
-      "updatedAt": "2026-10-03T09:51:59.003Z"
+      "status": "done",
+      "head": "d1bd631018ea169f42783655d6ead56cc052b451",
+      "updatedAt": "2026-10-03T12:25:58.708Z",
+      "summary": "Первый кабинет директора установлен: API/backoffice e236824, cloud033, полный CI37120299792 11/11. Guard-остановки availability heartbeat и отсутствующих gateway routes разобраны; исходные evidence сохранены, бизнес-данные не восстанавливались. Точные BO GET/POST добавлены из зелёного source, mounted hash381b7a17 подтверждён, прежние маршруты/сервисы сохранены, locks освобождены. Доступ Abay Plaza выдан приватным файлом, HTTP401/403 и шесть периодов200, browser login/dashboard/order registry подтверждены. 11 release и7 roadmap тестов зелёные. Исправление профиля f732b85 и документы d1bd631 опубликованы/включены в shared, удалённыйSHA сверен. Онлайн-roadmap d1bd631 установлен, health подтверждён; API остаётся e236824, public pointer d1bd631 сохраняет bundle/manifest e236824.",
+      "nextAction": "Получить текущий IPv4 кассового моноблока, отдельным claim @windows/cashier установить edge016/worker и проверить реальную смену. Данные кассовых смен пока не полные. Приёмка владельцем не отмечена; mobile catalog flags false, разные цены POS/kiosk, push-доставка, бонусные корректировки и Webkassa остаются следующими этапами. Новая CI документации/releaseprofile не подменяет зелёную CI установленного e236824."
     },
     {
       "id": "director-release",
