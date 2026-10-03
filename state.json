@@ -1969,27 +1969,6 @@
       "updatedAt": "2026-10-03T08:32:24.555Z"
     },
     {
-      "id": "director-prices",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/director-prices",
-      "scopes": [
-        "packages/catalog-admin/src/contracts.ts",
-        "packages/catalog-pricing/src/pricing.ts",
-        "packages/catalog-pricing/tests",
-        "apps/backoffice/src/editor.ts",
-        "apps/backoffice/src/domain.ts",
-        "packages/contracts/openapi.json",
-        "tests/unit/catalog-channel-pricing.test.mjs",
-        "packages/catalog-admin/src/index.ts",
-        "apps/backoffice/src/model.ts"
-      ],
-      "status": "available",
-      "head": "4de7c7d4588d4ffcb7207ad64c2b296cd8ef971a",
-      "updatedAt": "2026-10-03T08:36:51.408Z",
-      "summary": "Опубликован 4de7c7d4588d4ffcb7207ad64c2b296cd8ef971a: черновики отдельных цен каналов, серверная и клиентская блокировка публикации до согласованного меню; 19 unit тестов, admin/pricing/backoffice build, targeted ESLint/Prettier и OpenAPI generation passed.",
-      "nextAction": "Интегрировать в codex/director-console; проверить реальную БД save/rejected publish и browser editor; связать storefront и edge menu release с каталогом перед разрешением публикации отдельных цен."
-    },
-    {
       "id": "director-shell-tests",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/director-shell",
@@ -2017,6 +1996,28 @@
       "updatedAt": "2026-10-03T08:43:45.116Z",
       "summary": "Published c72d7d890ef4eb2c4bd7e91b72a844afab3136ce calendar reports and trusted edge stop-list. 5 unit and 10 PostgreSQL18 tests plus tsc/lint/format pass; no deployment.",
       "nextAction": "Parent director-console integrates commit, owns docs/UI/CI. Runtime shift relation missing: capability false and NOT_READY. Release scope after shared integration."
+    },
+    {
+      "id": "director-prices",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-prices",
+      "scopes": [
+        "packages/catalog-admin/src/contracts.ts",
+        "packages/catalog-pricing/src/pricing.ts",
+        "packages/catalog-pricing/tests",
+        "apps/backoffice/src/editor.ts",
+        "apps/backoffice/src/domain.ts",
+        "packages/contracts/openapi.json",
+        "tests/unit/catalog-channel-pricing.test.mjs",
+        "packages/catalog-admin/src/index.ts",
+        "apps/backoffice/src/model.ts",
+        "tests/integration/catalog-channel-pricing.test.mjs"
+      ],
+      "status": "active",
+      "head": "b9e45aff999dad973d03eda35a16248cb7b71946",
+      "updatedAt": "2026-10-03T08:46:54.194Z",
+      "summary": "Опубликован 4de7c7d4588d4ffcb7207ad64c2b296cd8ef971a: черновики отдельных цен каналов, серверная и клиентская блокировка публикации до согласованного меню; 19 unit тестов, admin/pricing/backoffice build, targeted ESLint/Prettier и OpenAPI generation passed.",
+      "nextAction": "Интегрировать в codex/director-console; проверить реальную БД save/rejected publish и browser editor; связать storefront и edge menu release с каталогом перед разрешением публикации отдельных цен."
     }
   ]
 }
