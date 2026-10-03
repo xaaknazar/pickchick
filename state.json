@@ -1999,6 +1999,18 @@
       "status": "active",
       "head": "88aa799eba6ebde226e9e25eaa595a2a2d41bfb1",
       "updatedAt": "2026-10-03T08:35:11.788Z"
+    },
+    {
+      "id": "director-shell-tests",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-shell",
+      "scopes": [
+        "tests/backoffice/browser_operations.py",
+        "tests/backoffice/browser_ui.py"
+      ],
+      "status": "active",
+      "head": "6ecf4d9758b5c1d8221c5e630ffba5fa0d30bd6a",
+      "updatedAt": "2026-10-03T08:36:07.777Z"
     }
   ]
 }
