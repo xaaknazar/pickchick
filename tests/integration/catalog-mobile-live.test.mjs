@@ -158,6 +158,42 @@ test('mobile storefront and checkout share published products, channel prices an
       );
     }
     assert.equal((await checkout.catalog()).version, storefront.version);
+    const next = structuredClone(updated);
+    next.products[0].channel_prices_minor.mobile = '265001';
+    state = await save(director, next);
+    state = await publish(director);
+    const counts = async () => {
+      const result = {};
+      for (const table of [
+        'commerce_orders',
+        'commerce_outbox',
+        'commerce_payment_attempts',
+        'commerce_commands',
+      ])
+        result[table] = (await pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n;
+      return result;
+    };
+    const beforeCreate = await counts();
+    await assert.rejects(checkout.create(customer, { key: randomUUID(), quoteId: quote.quoteId }), {
+      code: 'CONFLICT',
+    });
+    assert.deepEqual(await counts(), beforeCreate);
+    assert.equal(beforeCreate.commerce_orders, 0);
+    assert.equal(beforeCreate.commerce_outbox, 0);
+    const fresh = await checkout.quote(customer, {
+      ...request,
+      key: randomUUID(),
+      catalog_version: state.published.version,
+    });
+    const createKey = randomUUID();
+    const created = await checkout.create(customer, { key: createKey, quoteId: fresh.quoteId });
+    state = await save(director, next);
+    state = await publish(director);
+    const beforeReplay = await counts();
+    const replay = await checkout.create(customer, { key: createKey, quoteId: fresh.quoteId });
+    assert.equal(replay.orderId, created.orderId);
+    assert.deepEqual(await counts(), beforeReplay);
+
     assert.equal(
       (
         await new CustomerCheckout(pool, {

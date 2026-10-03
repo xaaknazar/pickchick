@@ -1,3 +1,4 @@
+import { reconcilePublishedCart } from './published-catalog';
 import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
@@ -74,6 +75,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [previewPracticeScore, setPreviewPracticeScore] = useState<number | null>(null);
   const [requestedBranchId, setRequestedBranchId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [catalogUpdateNotice, setCatalogUpdateNotice] = useState<string | null>(null);
   const [publication, setPublication] = useState<CatalogMobileStorefront | null>(null);
   const [menu, setMenu] = useState<MenuSnapshot | null>(null);
   const [unpaidAvailable, setUnpaidAvailable] = useState(false);
@@ -99,6 +101,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const modeRef = useRef(catalogMode);
   modeRef.current = catalogMode;
   const serverRelease = useRef<string | null>(null);
+  const cartPublication = useRef<CatalogMobileStorefront | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -164,6 +167,12 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         );
         setMenu(result.menu);
         setPublication(result.publication);
+        if (!cartPublication.current) cartPublication.current = result.publication;
+        if (!restoration.current)
+          setCart((previous) => {
+            if (!previous.length) cartPublication.current = result.publication;
+            return previous;
+          });
         setConnectedCatalog(testCatalog);
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
@@ -171,16 +180,33 @@ export function MobileProvider({ children }: { children: ReactNode }) {
             restoreCart(
               restoration.current,
               result.publication
-                ? publishedProducts(result.publication, 'ru')
+                ? publishedProducts(restoration.current.publication ?? result.publication, 'ru')
                 : testCatalog
                   ? connectedProducts(testCatalog)
                   : serverProducts(result.menu, 'ru'),
-              nextRelease,
+              result.publication && restoration.current.publication
+                ? restoration.current.releaseId
+                : nextRelease,
             ),
           );
+          if (result.publication && restoration.current.publication) {
+            cartPublication.current = restoration.current.publication;
+            if (restoration.current.releaseId !== nextRelease && restoration.current.lines.length)
+              setCatalogUpdateNotice(
+                'Меню обновилось. Сохранённая корзина восстановлена со старой версией. Обновите её и проверьте состав и цены перед оформлением.',
+              );
+          }
           restoration.current = null;
         } else if (changed && modeRef.current === 'server') {
-          setCart([]);
+          if (result.publication) {
+            setCart((previous) => {
+              if (previous.length)
+                setCatalogUpdateNotice(
+                  'Меню обновилось. Корзина сохранена со старой версией. Обновите её и проверьте состав и цены перед оформлением.',
+                );
+              return previous;
+            });
+          } else setCart([]);
         }
         setConnection({
           status: 'online',
@@ -255,7 +281,16 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       nickname,
       orderComment,
       branchId: branch?.id ?? requestedBranchId,
-      releaseId: pendingCart?.releaseId ?? releaseId,
+      releaseId:
+        pendingCart?.releaseId ??
+        (cartPublication.current && cart.length
+          ? `published:${cartPublication.current.branch.id}:${cartPublication.current.version}`
+          : releaseId),
+      ...(pendingCart?.publication
+        ? { publication: pendingCart.publication }
+        : cartPublication.current && cart.length
+          ? { publication: cartPublication.current }
+          : {}),
       lines:
         pendingCart?.lines ??
         cart.map((line) => ({
@@ -294,6 +329,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setRequestedBranchId(null);
     setMenu(null);
     setPublication(null);
+    cartPublication.current = null;
+    setCatalogUpdateNotice(null);
     setConnectedCatalog(null);
     setPracticeScore(null);
     setRefreshIndex((previous) => previous + 1);
@@ -304,7 +341,30 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     void persistQueue.current.catch(() => {});
   };
 
+  const catalogUpdatePending = Boolean(
+    publication &&
+    cart.some(
+      (line) =>
+        line.product.catalogVersion !== `published:${publication.branch.id}:${publication.version}`,
+    ),
+  );
   const model: MobileModel = {
+    catalogUpdateNotice,
+    catalogUpdatePending,
+    refreshPublishedCart: () => {
+      if (!publication) return;
+      setCart((previous) => {
+        const result = reconcilePublishedCart(previous, products);
+        cartPublication.current = publication;
+        setCatalogUpdateNotice(
+          result.removed.length
+            ? `Корзина обновлена. Удалены недоступные блюда или варианты: ${result.removed.join(', ')}. Проверьте новые цены.`
+            : 'Корзина обновлена. Количество и выбранные варианты сохранены. Проверьте новые цены перед оформлением.',
+        );
+        return result.cart;
+      });
+    },
+    dismissCatalogUpdate: () => setCatalogUpdateNotice(null),
     products,
     upsellProductIds:
       publication && catalogMode === 'server'
@@ -314,7 +374,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           : ['toast', 'sauce', 'cola'],
     cart: cart.map((line) => ({
       ...line,
-      product: products.find((p) => p.id === line.product.id) ?? line.product,
+      product: publication
+        ? withAvailability([line.product], availability.data)[0]!
+        : (products.find((p) => p.id === line.product.id) ?? line.product),
     })),
     ...catalogAvailability(availability, catalogMode === 'server'),
     catalogMode,
@@ -366,7 +428,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
     addToCart: (id, selections, quantity = 1) => {
       const product = products.find((candidate) => candidate.id === id);
-      if (!product || product.available === false) return;
+      if (!product || product.available === false || catalogUpdatePending) return;
       const chosen = selections ?? defaultSelections(product);
       const key = cartLineKey({ product, selections: chosen });
       restoration.current = null;

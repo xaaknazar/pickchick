@@ -149,3 +149,39 @@ test('explicit live catalog loading uses the checkout branch and never falls bac
     else process.env.EXPO_PUBLIC_PUBLISHED_CATALOG = previousFlag;
   }
 });
+
+test('explicit cart refresh retains quantity and modifiers and names removed unavailable lines', async () => {
+  const { reconcilePublishedCart } = await import('../../apps/mobile/src/published-catalog.ts');
+  const f = pricingFixture([
+    product('burger', {
+      modifier_groups: [group([option('extra', { price_delta_minor: '100', max_quantity: 2 })])],
+    }),
+    product('side'),
+  ]);
+  const publication = {
+    branch: { id: f.scope.branchId },
+    version: 1,
+    payload: f.publication.payload,
+  };
+  const previous = publishedProductData(publication, 'ru').map((p) => ({ ...p, image: 1 }));
+  const cart = [
+    {
+      product: previous[0],
+      quantity: 3,
+      selections: [{ group_id: 'side', option_id: 'extra', quantity: 2 }],
+    },
+    { product: previous[1], quantity: 2, selections: [] },
+  ];
+  const current = previous.map((p) => ({
+    ...p,
+    priceMinor: '20000',
+    catalogVersion: `published:${f.scope.branchId}:2`,
+  }));
+  const refreshed = reconcilePublishedCart(cart, [current[0]]);
+  assert.equal(cart.length, 2);
+  assert.equal(cart[0].product.catalogVersion, `published:${f.scope.branchId}:1`);
+  assert.equal(refreshed.cart[0].quantity, 3);
+  assert.deepEqual(refreshed.cart[0].selections, cart[0].selections);
+  assert.equal(refreshed.cart[0].product.priceMinor, '20000');
+  assert.deepEqual(refreshed.removed, [previous[1].name]);
+});

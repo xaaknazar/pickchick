@@ -1,3 +1,7 @@
+import {
+  CatalogMobileStorefrontSchema,
+  type CatalogMobileStorefront,
+} from '@pickchick/catalog-admin/contracts';
 import { testLineId, TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
 import type { CartLine, CatalogMode, Product, Selection, PaymentMethod } from './model';
 
@@ -186,11 +190,12 @@ export interface SavedPreferences {
   paymentMethod?: PaymentMethod;
   branchId: string | null;
   releaseId: string | null;
+  publication?: CatalogMobileStorefront;
   lines: { id: string; quantity: number; selections?: Selection[] }[];
 }
 
 export function parsePreferences(raw: string | null): SavedPreferences | null {
-  if (!raw || raw.length > 20000) return null;
+  if (!raw || raw.length > 300000) return null;
   try {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== 'object') return null;
@@ -211,6 +216,14 @@ export function parsePreferences(raw: string | null): SavedPreferences | null {
       p.lines.length > 100
     )
       return null;
+    if (p.publication !== undefined) {
+      const parsed = CatalogMobileStorefrontSchema.safeParse(p.publication);
+      if (
+        !parsed.success ||
+        p.releaseId !== `published:${parsed.data.branch.id}:${parsed.data.version}`
+      )
+        return null;
+    }
     const ids = new Set<string>();
     for (const line of p.lines) {
       if (
