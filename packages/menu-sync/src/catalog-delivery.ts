@@ -16,14 +16,15 @@ export async function readCatalogMenuDelivery(
       acknowledged_at: Date | null;
     }>(
       `SELECT c.catalog_version,m.version menu_version,c.release_id,c.device_id,
-     CASE WHEN d.status<>'active' THEN 'unavailable'
+     CASE WHEN d.status<>'active' OR binding.device_id IS NULL THEN 'unavailable'
        WHEN a.release_id=c.release_id AND i.event_id IS NOT NULL THEN 'applied'
        WHEN a.release_id IS NOT NULL AND active.version>m.version THEN 'superseded'
        ELSE 'pending' END status,
-     CASE WHEN a.release_id=c.release_id AND i.event_id IS NOT NULL AND d.status='active'
+     CASE WHEN a.release_id=c.release_id AND i.event_id IS NOT NULL AND d.status='active' AND binding.device_id IS NOT NULL
        THEN a.acknowledged_at ELSE NULL END acknowledged_at
      FROM catalog_menu_deliveries c JOIN menu_releases m ON m.id=c.release_id AND m.branch_id=c.branch_id
      JOIN devices d ON d.id=c.device_id AND d.branch_id=c.branch_id AND d.kind='edge'
+     LEFT JOIN fulfillment_transport_bindings binding ON binding.branch_id=c.branch_id AND binding.device_id=c.device_id AND binding.active
      LEFT JOIN branch_menu_activations a ON a.branch_id=c.branch_id
      LEFT JOIN menu_releases active ON active.id=a.release_id
      LEFT JOIN outbox_events e ON e.aggregate_id=c.release_id AND e.event_type='menu.published'
