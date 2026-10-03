@@ -31,6 +31,7 @@ type Intent = {
   quoteId: string | null;
   orderId: string | null;
   phone: string;
+  expectedTotalMinor: string;
   payload: {
     items: { productId: string; quantity: number; selections: KioskSelection[] }[];
     serviceMode: KioskMode;
@@ -188,6 +189,7 @@ function flow(value: unknown): Flow {
         'quoteId',
         'orderId',
         'phone',
+        'expectedTotalMinor',
         'payload',
       ]) ||
       !id(p.guestId) ||
@@ -199,6 +201,8 @@ function flow(value: unknown): Flow {
       !(p.orderId === null || id(p.orderId)) ||
       typeof p.phone !== 'string' ||
       !invoicePhone(p.phone) ||
+      typeof p.expectedTotalMinor !== 'string' ||
+      !/^(0|[1-9][0-9]{0,15})$/.test(p.expectedTotalMinor) ||
       !isObject(p.payload) ||
       !exactKeys(p.payload, ['items', 'serviceMode', 'catalogVersion']) ||
       !Array.isArray(p.payload.items) ||
@@ -363,11 +367,24 @@ export class CommercialKioskController {
       return true;
     } catch (error) {
       this.error =
-        error instanceof KioskError && error.code === 'DEVICE_NOT_PROVISIONED'
-          ? 'Киоск не настроен. Пригласите сотрудника.'
-          : error instanceof KioskError && error.code === 'INVALID_PHONE'
-            ? 'Введите номер Казахстана для счёта Kaspi.'
-            : 'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.';
+        error instanceof KioskError && error.code === 'PRICE_CHANGED'
+          ? 'Сумма изменилась. Проверьте корзину и подтвердите оплату заново.'
+          : error instanceof KioskError &&
+              ['INVALID', 'CONFLICT', 'ITEM_STOPPED'].includes(error.code)
+            ? 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.'
+            : error instanceof KioskError &&
+                [
+                  'NOT_READY',
+                  'AVAILABILITY_STALE',
+                  'RESTAURANT_CLOSED',
+                  'CHECKOUT_DISABLED',
+                ].includes(error.code)
+              ? 'Ресторан пока не принимает заказы. Обновите меню или пригласите сотрудника.'
+              : error instanceof KioskError && error.code === 'DEVICE_NOT_PROVISIONED'
+                ? 'Киоск не настроен. Пригласите сотрудника.'
+                : error instanceof KioskError && error.code === 'INVALID_PHONE'
+                  ? 'Введите номер Казахстана для счёта Kaspi.'
+                  : 'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.';
       if (this.unsafe()) this.step = 'recovery';
       return false;
     } finally {
@@ -390,7 +407,49 @@ export class CommercialKioskController {
       (this.guest?.branchId && next.branch_id !== this.guest.branchId)
     )
       throw new KioskError('INVALID_RESPONSE');
+    const availability = await this.io.request('/availability', guest.token);
+    if (
+      !isObject(availability) ||
+      typeof availability.fresh !== 'boolean' ||
+      !Array.isArray(availability.products) ||
+      availability.products.length > 100
+    )
+      throw new KioskError('INVALID_RESPONSE');
+    const observed = new Set<string>();
+    for (const entry of availability.products) {
+      if (
+        !isObject(entry) ||
+        typeof entry.productId !== 'string' ||
+        typeof entry.available !== 'boolean' ||
+        !Array.isArray(entry.stoppedOptions) ||
+        entry.stoppedOptions.some(
+          (o) => !isObject(o) || typeof o.group_id !== 'string' || typeof o.option_id !== 'string',
+        ) ||
+        observed.has(entry.productId)
+      )
+        throw new KioskError('INVALID_RESPONSE');
+      const stoppedOptions = entry.stoppedOptions as { group_id: string; option_id: string }[];
+      const product = next.products.find((p) => p.id === entry.productId);
+      if (!product) throw new KioskError('INVALID_RESPONSE');
+      observed.add(entry.productId);
+      product.available = product.available !== false && entry.available && availability.fresh;
+      product.modifier_groups = product.modifier_groups.map((g) => ({
+        ...g,
+        options: g.options.map((o) => ({
+          ...o,
+          available:
+            o.available &&
+            !stoppedOptions.some(
+              (stop) =>
+                (stop as { group_id: string; option_id: string }).group_id === g.id &&
+                (stop as { group_id: string; option_id: string }).option_id === o.id,
+            ),
+        })),
+      }));
+    }
+    if (next.products.some((p) => !observed.has(p.id))) throw new KioskError('AVAILABILITY_STALE');
     this.menu = next;
+    if (!availability.fresh) throw new KioskError('AVAILABILITY_STALE');
   }
   private async authenticate() {
     if (this.guest) {
@@ -576,6 +635,7 @@ export class CommercialKioskController {
   beginPayment = () =>
     this.run(async () => {
       this.editable();
+      const displayedTotalMinor = this.snapshot().cartTotalMinor;
       const phone = invoicePhone(this.phone);
       if (!phone) throw new KioskError('INVALID_PHONE');
       await this.loadMenu();
@@ -591,6 +651,7 @@ export class CommercialKioskController {
         quoteId: null,
         orderId: null,
         phone,
+        expectedTotalMinor: displayedTotalMinor,
         payload: {
           items: this.current.cart.map((p) => ({
             quantity: p.quantity,
@@ -611,22 +672,50 @@ export class CommercialKioskController {
     if (!intent || !this.guest || intent.guestId !== this.guest.sessionId)
       throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
     if (!intent.quoteId) {
-      const quote = CustomerQuoteSchema.parse(
-        await this.io.request(
-          '/quotes',
-          this.guest.token,
-          {
-            key: intent.quoteKey,
-            branchId: this.guest.branchId,
-            catalog_version: intent.payload.catalogVersion,
-            serviceMode: intent.payload.serviceMode,
-            items: intent.payload.items,
-          },
-          intent.quoteKey,
-        ),
-      );
-      intent = { ...intent, quoteId: quote.quoteId };
-      await this.save({ ...this.current, intent });
+      try {
+        await this.loadMenu();
+        if (!this.snapshot().cartValid) throw new KioskError('ITEM_STOPPED');
+        const quote = CustomerQuoteSchema.parse(
+          await this.io.request(
+            '/quotes',
+            this.guest.token,
+            {
+              key: intent.quoteKey,
+              branchId: this.guest.branchId,
+              catalog_version: intent.payload.catalogVersion,
+              serviceMode: intent.payload.serviceMode,
+              items: intent.payload.items,
+            },
+            intent.quoteKey,
+          ),
+        );
+        if (
+          quote.totalMinor !== intent.expectedTotalMinor ||
+          quote.serviceMode !== intent.payload.serviceMode
+        )
+          throw new KioskError('PRICE_CHANGED');
+        intent = { ...intent, quoteId: quote.quoteId };
+        await this.save({ ...this.current, intent });
+      } catch (error) {
+        if (
+          error instanceof KioskError &&
+          [
+            'INVALID',
+            'CONFLICT',
+            'NOT_READY',
+            'ITEM_STOPPED',
+            'AVAILABILITY_STALE',
+            'RESTAURANT_CLOSED',
+            'CHECKOUT_DISABLED',
+            'PRICE_CHANGED',
+          ].includes(error.code)
+        ) {
+          await this.save({ ...this.current, intent: null });
+          this.phone = '';
+          this.step = 'loyalty';
+        }
+        throw error;
+      }
     }
     if (!intent.orderId) {
       const order = CustomerCommerceOrderSchema.parse(
