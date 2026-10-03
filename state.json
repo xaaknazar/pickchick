@@ -2311,11 +2311,14 @@
         "packages/kitchen",
         "db/edge/migrations/017_edge_kiosk_prepaid.sql",
         "packages/edge-fulfillment/tests/commerce-port.test.mjs",
-        "tests/unit/kitchen-view.test.mjs"
+        "tests/unit/kitchen-view.test.mjs",
+        "apps/kitchen/src/types.ts",
+        "apps/kitchen/src/app.ts",
+        "apps/kitchen/tests/model.test.mjs"
       ],
       "status": "active",
       "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
-      "updatedAt": "2026-10-03T19:55:58.259Z"
+      "updatedAt": "2026-10-03T19:56:21.996Z"
     }
   ]
 }
