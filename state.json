@@ -2065,6 +2065,26 @@
       "status": "active",
       "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
       "updatedAt": "2026-10-03T09:13:38.373Z"
+    },
+    {
+      "id": "director-shifts",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-shifts",
+      "scopes": [
+        "db/cloud/migrations/033_cloud_cashier_reports.sql",
+        "db/edge/migrations/016_edge_cashier_reports.sql",
+        "packages/fulfillment-transport/src",
+        "packages/fulfillment-transport/tests/cashier-reports.test.mjs",
+        "packages/backoffice-core/src/index.ts",
+        "packages/backoffice-core/tests/cashier-reports.test.mjs",
+        "infra/staging/backoffice-grants.mjs",
+        "infra/staging/fulfillment-transport-grants.mjs",
+        "infra/windows/fulfillment-worker-grants.mjs",
+        "infra/windows/edge-runtime-grants.mjs"
+      ],
+      "status": "active",
+      "head": "92e8a1274e0578d1394347eabc8eadc4476d30a1",
+      "updatedAt": "2026-10-03T09:14:02.676Z"
     }
   ]
 }
