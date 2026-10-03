@@ -212,11 +212,20 @@ export const CatalogPublishedSchema = z.strictObject({
   published_by: z.uuid(),
   payload: CatalogPayloadSchema,
 });
+export const CatalogMenuDeliverySchema = z.strictObject({
+  catalog_version: z.int().positive(),
+  menu_version: z.int().positive(),
+  release_id: z.uuid(),
+  device_id: z.uuid(),
+  status: z.enum(['pending', 'applied', 'unavailable', 'superseded']),
+  acknowledged_at: z.iso.datetime().nullable(),
+});
 export const CatalogStateSchema = z.strictObject({
   branch: Branch,
   publication_support: z
     .strictObject({ mobile: z.boolean(), pos: z.literal(false), kiosk: z.literal(false) })
     .optional(),
+  edge_delivery: CatalogMenuDeliverySchema.nullable().optional(),
   draft: CatalogDraftSchema.nullable(),
   published: CatalogPublishedSchema.nullable(),
 });
@@ -292,3 +301,8 @@ export const CatalogMobileStorefrontSchema = z.strictObject({
   payload: CatalogPayloadSchema,
 });
 export type CatalogMobileStorefront = z.infer<typeof CatalogMobileStorefrontSchema>;
+
+export const CatalogKioskStorefrontSchema = CatalogMobileStorefrontSchema.extend({
+  channel: z.literal('kiosk'),
+});
+export type CatalogKioskStorefront = z.infer<typeof CatalogKioskStorefrontSchema>;
