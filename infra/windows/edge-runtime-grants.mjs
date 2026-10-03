@@ -38,11 +38,15 @@ function identifier(value) {
   return '"' + value + '"';
 }
 
-/** Only the staff-facing POS and kitchen HTTP service, not setup/cloud transport workers. */
-export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = false } = {}) {
+/** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports. */
+export function edgeRuntimeGrantSql(
+  role,
+  { schema = 'public', fulfillment = false, cashierReports = false } = {},
+) {
   const target = identifier(role),
     namespace = identifier(schema);
-  if (typeof fulfillment !== 'boolean') throw new Error('Invalid fulfillment grant flag');
+  if (typeof fulfillment !== 'boolean' || typeof cashierReports !== 'boolean')
+    throw new Error('Invalid runtime grant flag');
   const tables = (names) => names.map((name) => `${namespace}.${identifier(name)}`).join(', ');
   const grant = (privilege, names) => `GRANT ${privilege} ON ${tables(names)} TO ${target};`;
   return [
@@ -55,8 +59,12 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
     grant('UPDATE(window_started_at, attempts)', ['local_staff_login_limits']),
     grant('UPDATE(lock_anchor)', ['local_staff', 'local_terminals', 'staff_sessions']),
     grant('UPDATE(ordering_enabled, ordering_version)', ['branch_config']),
-    grant('INSERT', ['cashier_report_outbox']),
-    grant('USAGE', ['cashier_report_outbox_sequence_seq']).replace(' ON ', ' ON SEQUENCE '),
+    ...(cashierReports
+      ? [
+          grant('INSERT', ['cashier_report_outbox']),
+          grant('USAGE', ['cashier_report_outbox_sequence_seq']).replace(' ON ', ' ON SEQUENCE '),
+        ]
+      : []),
     grant('INSERT', [
       'checkout_quotes',
       'local_orders',
@@ -105,7 +113,6 @@ export function edgeRuntimeGrantSql(role, { schema = 'public', fulfillment = fal
 
 /** Apply to a pre-created, dedicated, unprivileged runtime role in one transaction. */
 export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
-  const sql = edgeRuntimeGrantSql(role, options);
   const schema = options.schema ?? 'public';
   const target = identifier(role),
     namespace = identifier(schema);
@@ -133,6 +140,18 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
       `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope<>'edge' LIMIT 1`,
     );
     if (otherScope.rowCount) throw new Error('Edge-only schema required');
+    const reports = await client.query(
+      `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='016_edge_cashier_reports.sql') AS applied,
+       to_regclass($1) IS NOT NULL AS outbox, to_regclass($2) IS NOT NULL AS sequence`,
+      [`${namespace}.cashier_report_outbox`, `${namespace}.cashier_report_outbox_sequence_seq`],
+    );
+    const capability = reports.rows[0];
+    if (capability.applied !== capability.outbox || capability.applied !== capability.sequence)
+      throw new Error('Cashier report migration objects differ');
+    if (options.cashierReports !== undefined && options.cashierReports !== capability.applied)
+      throw new Error('Cashier report grant flag differs from applied schema');
+    const sql = edgeRuntimeGrantSql(role, { ...options, cashierReports: capability.applied });
+
     // PUBLIC grants cannot be removed from just this role and would defeat the
     // allowlist below. The installer must use a dedicated private database.
     const publicAccess = await client.query(
