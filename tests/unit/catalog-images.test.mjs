@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import ts from 'typescript';
+import { publishedProductData } from '../../apps/mobile/src/published-catalog.ts';
 import { testCompleteCatalog } from '../../packages/test-order-flow/dist/complete-catalog.js';
 import { TestCompleteCatalogSchema } from '../../packages/test-order-flow/dist/contracts.js';
 
@@ -24,6 +25,7 @@ function mobileCatalog() {
   runInNewContext(compiled, {
     exports,
     require(id) {
+      if (id === './published-catalog') return { publishedProductData };
       if (id === '@pickchick/test-order-flow/complete-catalog') return { testCompleteCatalog };
       assert.match(id, /\.(jpg|png)$/);
       const path = resolve(dirname(filename), id);
