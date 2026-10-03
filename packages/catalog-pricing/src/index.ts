@@ -50,3 +50,5 @@ export class CatalogPricing {
 }
 
 export { CatalogMobileStorefrontSchema } from '@pickchick/catalog-admin/contracts';
+export { readCatalogMenuDelivery } from '@pickchick/catalog-admin';
+export { CatalogKioskStorefrontSchema } from '@pickchick/catalog-admin/contracts';

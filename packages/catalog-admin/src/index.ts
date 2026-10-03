@@ -1,5 +1,10 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import {
+  projectCatalogMenu,
+  publishMenuInTransaction,
+  readCatalogMenuDelivery,
+} from '@pickchick/menu-sync';
 import { transaction } from '@pickchick/database';
 import type { DatabasePool, DatabaseClient } from '@pickchick/database';
 import {
@@ -19,11 +24,13 @@ import {
 import type { CatalogCredential, CatalogPayload, CatalogState } from './contracts.js';
 import { mockupCatalogDraft } from './seed.js';
 export * from './contracts.js';
+export { readCatalogMenuDelivery } from '@pickchick/menu-sync';
 export const CATALOG_ADMIN = Symbol('CATALOG_ADMIN');
 export const catalogHash = (value: string) => createHash('sha256').update(value).digest('hex');
 export interface CatalogAdminOptions {
   enabled: boolean;
   mobileStorefrontBranchId?: string;
+  edgePublicationBranchId?: string;
 }
 export function catalogAdminOptions(
   env: Readonly<Record<string, string | undefined>> = {},
@@ -39,8 +46,16 @@ export function catalogAdminOptions(
     (!z.uuid().safeParse(branchId).success || env['CUSTOMER_KASPI_PILOT_ENABLED'] !== 'true')
   )
     throw new Error('CATALOG_MOBILE_STOREFRONT_CONFIGURATION_INVALID');
+  const edge = env['CATALOG_EDGE_PUBLICATION_ENABLED'] ?? 'false';
+  const edgeBranch = env['CATALOG_EDGE_PUBLICATION_BRANCH_ID'];
+  if (
+    !['true', 'false'].includes(edge) ||
+    (edge === 'true' && !z.uuid().safeParse(edgeBranch).success)
+  )
+    throw new Error('CATALOG_EDGE_PUBLICATION_CONFIGURATION_INVALID');
   return {
     enabled: value === 'true',
+    ...(edge === 'true' ? { edgePublicationBranchId: edgeBranch! } : {}),
     ...(mobile === 'true' ? { mobileStorefrontBranchId: branchId! } : {}),
   };
 }
@@ -186,6 +201,13 @@ export class CatalogAdmin {
         pos: false,
         kiosk: false,
       },
+      ...(this.options.edgePublicationBranchId === branch.id
+        ? {
+            edge_delivery: published
+              ? await readCatalogMenuDelivery(db, branch.id, published.version)
+              : null,
+          }
+        : {}),
       branch: { id: branch.id, code: branch.code, name: branch.name },
       draft: draft
         ? {
@@ -275,6 +297,8 @@ export class CatalogAdmin {
         if (receipt.request_hash !== hash) throw failure('CONFLICT');
         return CatalogStateSchema.parse(receipt.response);
       }
+      if (this.options.edgePublicationBranchId === branch.id)
+        await db.query('SELECT id FROM branches WHERE id=$1 FOR UPDATE', [branch.id]);
       await db.query(
         'INSERT INTO catalog_branch_heads(branch_id,organization_id) VALUES($1,$2) ON CONFLICT(branch_id) DO NOTHING',
         [branch.id, branch.organization_id],
@@ -312,7 +336,11 @@ export class CatalogAdmin {
         )
           throw failure('CONFLICT');
         payload = CatalogPayloadSchema.parse(before.payload);
-        assertCatalogPublishable(payload, this.options.mobileStorefrontBranchId === branch.id);
+        const edgePublication = this.options.edgePublicationBranchId === branch.id;
+        assertCatalogPublishable(
+          payload,
+          !edgePublication && this.options.mobileStorefrontBranchId === branch.id,
+        );
         publication = (head.published_version ?? 0) + 1;
         await db.query(
           'INSERT INTO catalog_publications(branch_id,organization_id,version,source_revision,payload,payload_hash,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
@@ -326,6 +354,37 @@ export class CatalogAdmin {
             actor.id,
           ],
         );
+        if (edgePublication) {
+          const device = (
+            await db.query<{ id: string }>(
+              "SELECT id FROM devices WHERE branch_id=$1 AND kind='edge' AND status='active' FOR SHARE",
+              [branch.id],
+            )
+          ).rows[0];
+          if (!device) throw failure('CONFLICT');
+          const latest = (
+            await db.query<{ version: number }>(
+              'SELECT COALESCE(max(version),0)::int version FROM menu_releases WHERE branch_id=$1',
+              [branch.id],
+            )
+          ).rows[0]!;
+          let menu;
+          try {
+            menu = projectCatalogMenu(
+              payload,
+              branch.id,
+              latest.version + 1,
+              new Date().toISOString(),
+            );
+          } catch {
+            throw failure('CONFLICT');
+          }
+          await publishMenuInTransaction(db, menu);
+          await db.query(
+            'INSERT INTO catalog_menu_deliveries(branch_id,catalog_version,release_id,device_id) VALUES($1,$2,$3,$4)',
+            [branch.id, publication, menu.release_id, device.id],
+          );
+        }
       }
       const revision = (head.draft_revision ?? 0) + 1,
         payloadHash = catalogHash(JSON.stringify(payload));

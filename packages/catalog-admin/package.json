@@ -24,7 +24,9 @@
   "dependencies": {
     "@pickchick/database": "workspace:*",
     "@pickchick/test-order-flow": "workspace:*",
-    "zod": "4.5.4"
+    "zod": "4.5.4",
+    "@pickchick/menu-sync": "workspace:*",
+    "@pickchick/contracts": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",

@@ -35,84 +35,99 @@ export async function publishMenu(pool: DatabasePool, input: unknown): Promise<M
   ) {
     throw new SyncError('INVALID_REQUEST');
   }
-  return transaction(pool, async (client) => {
-    const branch = await client.query('SELECT id FROM branches WHERE id = $1 FOR UPDATE', [
-      menu.branch_id,
-    ]);
-    if (!branch.rowCount) throw new SyncError('NOT_FOUND');
-    const existing = await client.query('SELECT payload FROM menu_releases WHERE id = $1', [
-      menu.release_id,
-    ]);
-    if (existing.rowCount) {
-      if (hashJson(existing.rows[0].payload) !== hashJson(menu)) throw new SyncError('CONFLICT');
-      const event = await client.query(
-        "SELECT event_id FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'menu.published'",
-        [menu.release_id],
-      );
-      if (!event.rows[0]) throw new SyncError('CONFLICT'); // Legacy seed is not a publication command.
-      return readEvent(client, event.rows[0].event_id);
-    }
-    const latest = await client.query(
-      'SELECT coalesce(max(version), 0) AS version FROM menu_releases WHERE branch_id = $1',
-      [menu.branch_id],
+  return transaction(pool, (client) => publishMenuInTransaction(client, menu));
+}
+
+/** Caller must hold a transaction; publication and CMS source commit atomically. */
+export async function publishMenuInTransaction(
+  client: DatabaseClient,
+  input: unknown,
+): Promise<MenuPublished> {
+  const parsed = MenuSnapshotSchema.safeParse(input);
+  if (!parsed.success) throw new SyncError('INVALID_REQUEST');
+  const menu = parsed.data;
+  if (
+    Buffer.byteLength(canonicalJson(menu)) > 2_000_000 ||
+    new Set(menu.items.map((item) => item.variant_id)).size !== menu.items.length
+  )
+    throw new SyncError('INVALID_REQUEST');
+
+  const branch = await client.query('SELECT id FROM branches WHERE id = $1 FOR UPDATE', [
+    menu.branch_id,
+  ]);
+  if (!branch.rowCount) throw new SyncError('NOT_FOUND');
+  const existing = await client.query('SELECT payload FROM menu_releases WHERE id = $1', [
+    menu.release_id,
+  ]);
+  if (existing.rowCount) {
+    if (hashJson(existing.rows[0].payload) !== hashJson(menu)) throw new SyncError('CONFLICT');
+    const event = await client.query(
+      "SELECT event_id FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'menu.published'",
+      [menu.release_id],
     );
-    if (menu.version !== latest.rows[0].version + 1) throw new SyncError('CONFLICT');
-    const checksum = hashJson(menu);
-    await client.query(
-      `INSERT INTO menu_releases(id, branch_id, version, schema_version, payload, checksum, published_at)
+    if (!event.rows[0]) throw new SyncError('CONFLICT'); // Legacy seed is not a publication command.
+    return readEvent(client, event.rows[0].event_id);
+  }
+  const latest = await client.query(
+    'SELECT coalesce(max(version), 0) AS version FROM menu_releases WHERE branch_id = $1',
+    [menu.branch_id],
+  );
+  if (menu.version !== latest.rows[0].version + 1) throw new SyncError('CONFLICT');
+  const checksum = hashJson(menu);
+  await client.query(
+    `INSERT INTO menu_releases(id, branch_id, version, schema_version, payload, checksum, published_at)
       VALUES ($1, $2, $3, 1, $4, $5, $6)`,
-      [
-        menu.release_id,
-        menu.branch_id,
-        menu.version,
-        canonicalJson(menu),
-        checksum,
-        menu.published_at,
-      ],
-    );
-    await client.query(
-      'INSERT INTO menu_streams(branch_id, producer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [menu.branch_id, randomUUID()],
-    );
-    const stream = await client.query(
-      'UPDATE menu_streams SET last_sequence = last_sequence + 1 WHERE branch_id = $1 RETURNING producer_id, last_sequence',
-      [menu.branch_id],
-    );
-    const event = MenuPublishedSchema.parse({
-      event_id: randomUUID(),
-      producer_id: stream.rows[0].producer_id,
-      producer_sequence: stream.rows[0].last_sequence,
-      branch_id: menu.branch_id,
-      aggregate_type: 'menu_release',
-      aggregate_id: menu.release_id,
-      aggregate_version: menu.version,
-      schema_version: 1,
-      event_type: 'menu.published',
-      payload: { menu, checksum },
-      occurred_at: new Date().toISOString(),
-      correlation_id: randomUUID(),
-      causation_id: null,
-    });
-    await client.query(
-      `INSERT INTO outbox_events(${eventColumns}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-      [
-        event.event_id,
-        event.producer_id,
-        event.producer_sequence,
-        event.branch_id,
-        event.aggregate_type,
-        event.aggregate_id,
-        event.aggregate_version,
-        event.schema_version,
-        event.event_type,
-        event.payload,
-        event.occurred_at,
-        event.correlation_id,
-        event.causation_id,
-      ],
-    );
-    return event;
+    [
+      menu.release_id,
+      menu.branch_id,
+      menu.version,
+      canonicalJson(menu),
+      checksum,
+      menu.published_at,
+    ],
+  );
+  await client.query(
+    'INSERT INTO menu_streams(branch_id, producer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    [menu.branch_id, randomUUID()],
+  );
+  const stream = await client.query(
+    'UPDATE menu_streams SET last_sequence = last_sequence + 1 WHERE branch_id = $1 RETURNING producer_id, last_sequence',
+    [menu.branch_id],
+  );
+  const event = MenuPublishedSchema.parse({
+    event_id: randomUUID(),
+    producer_id: stream.rows[0].producer_id,
+    producer_sequence: stream.rows[0].last_sequence,
+    branch_id: menu.branch_id,
+    aggregate_type: 'menu_release',
+    aggregate_id: menu.release_id,
+    aggregate_version: menu.version,
+    schema_version: 1,
+    event_type: 'menu.published',
+    payload: { menu, checksum },
+    occurred_at: new Date().toISOString(),
+    correlation_id: randomUUID(),
+    causation_id: null,
   });
+  await client.query(
+    `INSERT INTO outbox_events(${eventColumns}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    [
+      event.event_id,
+      event.producer_id,
+      event.producer_sequence,
+      event.branch_id,
+      event.aggregate_type,
+      event.aggregate_id,
+      event.aggregate_version,
+      event.schema_version,
+      event.event_type,
+      event.payload,
+      event.occurred_at,
+      event.correlation_id,
+      event.causation_id,
+    ],
+  );
+  return event;
 }
 
 export async function pullMenu(pool: DatabasePool, auth: DeviceAuth) {
