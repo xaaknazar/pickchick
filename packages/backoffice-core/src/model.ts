@@ -214,9 +214,71 @@ export const Request = z.strictObject({
   reason: z.string().trim().min(3).max(500),
   command: Command,
 });
-export const Query = z.strictObject({
-  period: z.enum(['day', 'week', 'month', 'quarter']).default('day'),
+const calendarDate = z.iso.date().refine((value) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  return (
+    value >= '2000-01-01' &&
+    value <= '2099-12-31' &&
+    Number.isFinite(date.getTime()) &&
+    date.toISOString().slice(0, 10) === value
+  );
 });
+export const Query = z
+  .strictObject({
+    period: z
+      .enum(['day', 'today', 'yesterday', 'week', 'month', 'quarter', 'year', 'custom'])
+      .default('day'),
+    start_date: calendarDate.optional(),
+    end_date: calendarDate.optional(),
+    shift_id: id.optional(),
+  })
+  .refine((q) =>
+    q.period === 'custom'
+      ? q.start_date !== undefined &&
+        q.end_date !== undefined &&
+        q.start_date <= q.end_date &&
+        Date.parse(q.end_date) - Date.parse(q.start_date) <= 365 * 86400000
+      : q.start_date === undefined && q.end_date === undefined,
+  );
+// Use the IANA zone, including Kazakhstan's March 2024 offset transition.
+function calendarInstant(local: Date): Date {
+  const sample = new Date(local.getTime() + 12 * 3600000);
+  const offset = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Almaty',
+    timeZoneName: 'longOffset',
+  })
+    .formatToParts(sample)
+    .find((part) => part.type === 'timeZoneName')!.value;
+  const match = /^GMT([+-])(\d{2}):(\d{2})$/.exec(offset)!;
+  const minutes = (Number(match[2]) * 60 + Number(match[3])) * (match[1] === '+' ? 1 : -1);
+  return new Date(local.getTime() - minutes * 60000);
+}
+function localCalendar(now: Date): Date {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Almaty',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const part = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+  return new Date(Date.UTC(part('year'), part('month') - 1, part('day')));
+}
+export function periodWindow(query: z.infer<typeof Query>, now: Date) {
+  if (query.period === 'custom') {
+    return {
+      start: calendarInstant(new Date(`${query.start_date}T00:00:00Z`)),
+      end: calendarInstant(new Date(Date.parse(`${query.end_date}T00:00:00Z`) + 86400000)),
+    };
+  }
+  const start = periodStart(query.period, now);
+  const end = localCalendar(start);
+  if (query.period === 'week') end.setUTCDate(end.getUTCDate() + 7);
+  else if (query.period === 'month') end.setUTCMonth(end.getUTCMonth() + 1);
+  else if (query.period === 'quarter') end.setUTCMonth(end.getUTCMonth() + 3);
+  else if (query.period === 'year') end.setUTCFullYear(end.getUTCFullYear() + 1);
+  else end.setUTCDate(end.getUTCDate() + 1);
+  return { start, end: calendarInstant(end) };
+}
 export type RecordView = {
   id: string;
   kind: Kind;
@@ -225,15 +287,19 @@ export type RecordView = {
   updated_at: string;
 };
 export function periodStart(period: string, now: Date): Date {
-  const local = new Date(now.getTime() + 5 * 3600000);
+  const local = localCalendar(now);
   local.setUTCHours(0, 0, 0, 0);
+  if (period === 'yesterday') local.setUTCDate(local.getUTCDate() - 1);
+  if (period === 'year') {
+    local.setUTCMonth(0, 1);
+  }
   if (period === 'week') local.setUTCDate(local.getUTCDate() - ((local.getUTCDay() + 6) % 7));
   if (period === 'month') local.setUTCDate(1);
   if (period === 'quarter') {
     local.setUTCDate(1);
     local.setUTCMonth(Math.floor(local.getUTCMonth() / 3) * 3);
   }
-  return new Date(local.getTime() - 5 * 3600000);
+  return calendarInstant(local);
 }
 export function stockEffect(
   kind: 'receipt' | 'waste' | 'count',

@@ -75,6 +75,9 @@ test('restricted runtime reads scoped operations and requests refunds without ca
         'release_pending',
       );
       for (const table of [
+        'cloud_branch_availability',
+        'products',
+        'product_variants',
         'commerce_captures',
         'commerce_refund_effects',
         'bo_access_grants',
