@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { URLSearchParams } from 'node:url';
 import { OperationsModel } from '../../apps/backoffice/dist/operations-model.js';
 import { ApiError } from '../../apps/backoffice/dist/api.js';
 import { withCatalog, storage } from './helpers.mjs';
@@ -136,4 +137,53 @@ test('storage failure prevents sending a mutation', async () => {
   await assert.rejects(m.execute({ type: 'save' }, 'Synthetic'), /STORAGE/);
   assert.equal(writes, 0);
   assert.equal(m.pending, null);
+});
+
+test('calendar query preserves custom dates on refresh and clears stale data when period changes', async () => {
+  const branch = randomUUID(),
+    actor = randomUUID(),
+    calls = [];
+  let fail = false;
+  const m = new OperationsModel(
+    async (path) => {
+      calls.push(path);
+      if (fail) throw new ApiError('NETWORK');
+      return {
+        schema_version: 1,
+        branch_id: branch,
+        role: 'manager',
+        as_of: new Date().toISOString(),
+        records: [],
+        stock: [],
+        orders: [],
+        pos: [],
+        chart: [],
+        finance: [],
+        refunds: [],
+        issues: [],
+        devices: [],
+        kitchen: [],
+        guests: [],
+        audit: [],
+        catalog_audit: [],
+        documents: [],
+        publications: [],
+        metrics: {},
+        capabilities: {},
+      };
+    },
+    storage(),
+    () => {},
+  );
+  await m.load(actor, branch, 'custom', { startDate: '2026-09-01', endDate: '2026-09-30' });
+  await m.load(actor, branch);
+  assert.equal(calls[0], calls[1]);
+  assert.equal(new URLSearchParams(calls[0].split('?')[1]).get('end_date'), '2026-09-30');
+  fail = true;
+  await m.load(actor, branch, 'year', {});
+  assert.equal(m.data, null, 'old month totals must not appear under the new year filter');
+  assert.equal(new URLSearchParams(calls[2].split('?')[1]).has('start_date'), false);
+  m.clear();
+  assert.deepEqual(m.filters, {});
+  assert.equal(m.period, 'day');
 });

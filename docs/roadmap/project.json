@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02",
+  "updatedAt": "2026-10-03",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -59,7 +59,8 @@
     "docs/operations/telegram-login.md",
     "docs/legal/customer-documents-draft.md",
     "docs/operations/server-pilot.md",
-    "docs/operations/auth-four-digit.md"
+    "docs/operations/auth-four-digit.md",
+    "docs/operations/director-console.md"
   ],
   "workstreams": [
     {
@@ -2312,8 +2313,8 @@
     {
       "id": "backoffice-ui-core",
       "workstream": "backoffice",
-      "title": "15 разделов бэк-офиса по макету",
-      "summary": "UI и scoped PostgreSQL-операции реализованы: заказы, каталог, документы, контент, устройства и аудит. Последний BO-02 пока не развёрнут на VPS.",
+      "title": "Кабинет директора и операционные разделы",
+      "summary": "Первый срез директора: навигация, календарные периоды Алматы, чтение стоп-листа, черновики цен каналов. Реальные кассовые смены и единая публикация цен ещё требуют связи с edge. На VPS не установлен.",
       "status": "done",
       "owner": "development",
       "phase": "product",
@@ -2326,10 +2327,14 @@
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
+        },
+        {
+          "label": "Кабинет директора: решения и границы",
+          "path": "docs/operations/director-console.md"
         }
       ],
       "acceptance": ["Реальные browser/HTTP/DB проверки покрывают права, повторы и все разделы."],
-      "nextAction": "Развернуть принятый выпуск и закрыть оставшиеся функции §4.6.",
+      "nextAction": "Проверить интегрированный срез; затем связать единое меню и реальные кассовые смены.",
       "checks": {
         "implemented": true,
         "verified": true,

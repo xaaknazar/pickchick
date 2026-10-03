@@ -7,6 +7,7 @@ export type Entry = {
   payload: Data;
   updated_at: string;
 };
+export type ReportFilters = { startDate?: string; endDate?: string; shiftId?: string };
 export type Snapshot = {
   schema_version: 1;
   branch_id: string;
@@ -14,6 +15,10 @@ export type Snapshot = {
   as_of: string;
   period_start: string;
   period: string;
+  period_end?: string;
+  timezone?: string;
+  availability?: Data;
+  truncated?: Data;
   records: Entry[];
   stock: Data[];
   orders: Data[];
@@ -83,6 +88,7 @@ export class OperationsModel {
   actor = '';
   branch = '';
   period = 'day';
+  filters: ReportFilters = {};
   private generation = 0;
   constructor(
     private api: OperationalApi,
@@ -97,13 +103,23 @@ export class OperationsModel {
     this.data = null;
     this.actor = '';
     this.branch = '';
+    this.period = 'day';
+    this.filters = {};
     this.busy = false;
     this.pending = null;
     this.error = null;
   }
-  async load(actor: string, branch: string, period = this.period) {
+  async load(
+    actor: string,
+    branch: string,
+    period = this.period,
+    filters: ReportFilters = this.filters,
+  ) {
     const changedScope = actor !== this.actor || branch !== this.branch;
     if (this.pending && changedScope && actor === this.actor) throw new ApiError('PENDING');
+    const changedWindow =
+      period !== this.period || JSON.stringify(filters) !== JSON.stringify(this.filters);
+    if (changedWindow) this.data = null;
     if (changedScope) {
       this.data = null;
       this.pending = null;
@@ -111,6 +127,7 @@ export class OperationsModel {
     this.actor = actor;
     this.branch = branch;
     this.period = period;
+    this.filters = { ...filters };
     const generation = ++this.generation;
     this.busy = true;
     this.error = null;
@@ -130,7 +147,13 @@ export class OperationsModel {
         this.pending = p as Pending;
       }
       this.changed();
-      const value = await this.api(`branches/${branch}?period=${period}`);
+      const query = new URLSearchParams({ period });
+      if (period === 'custom') {
+        if (filters.startDate) query.set('start_date', filters.startDate);
+        if (filters.endDate) query.set('end_date', filters.endDate);
+      }
+      if (filters.shiftId) query.set('shift_id', filters.shiftId);
+      const value = await this.api(`branches/${branch}?${query.toString()}`);
       if (generation === this.generation) this.data = snapshot(value, branch);
     } catch (e) {
       if (generation === this.generation) {

@@ -3,9 +3,10 @@ import { message } from './api.js';
 import { OperationsModel, object, type Data, type Entry } from './operations-model.js';
 
 export const sections = [
-  ['dash', 'Дашборд', 'Продажи, заказы и состояние точки'],
+  ['dash', 'Главная', 'Продажи, заказы и состояние точки'],
   ['orders', 'Заказы', 'Все каналы, оплата, кухня и история'],
   ['items', 'Номенклатура', 'Блюда, цены, модификаторы и КБЖУ'],
+  ['stoplist', 'Стоп-лист', 'Доступность блюд по последним данным кассы'],
   ['stock', 'Остатки', 'Ингредиенты, техкарты и складские документы'],
   ['reports', 'Отчёты', 'Показатели за выбранный период'],
   ['finance', 'Касса и бухгалтерия', 'Оплаты, возвраты, чеки и сверка'],
@@ -16,7 +17,7 @@ export const sections = [
   ['reviews', 'Отзывы', 'Оценки и обратная связь по заказам'],
   ['stations', 'Станции и маршруты', 'Состав кухни и наблюдаемое состояние заказов'],
   ['devices', 'Устройства', 'Доступ и последний обмен с точкой'],
-  ['shifts', 'Смены и оценки', 'Сотрудники и управленческий журнал смен'],
+  ['shifts', 'Смены', 'Сотрудники и управленческий журнал смен'],
   ['audit', 'Журнал аудита', 'Кто, когда и что изменил'],
 ] as const;
 const labels: Record<string, string> = {
@@ -28,6 +29,10 @@ const labels: Record<string, string> = {
   'edge.fulfillment_handed_over': 'Выдан гостю',
   'edge.fulfillment_cancelled': 'Отменён на кухне',
   done: 'Готово',
+  stopped: 'На стопе',
+  product: 'Блюдо',
+  variant: 'Вариант',
+  position: 'Позиция',
   edge_pos: 'Касса',
   active: 'Активно',
   archived: 'В архиве',
@@ -1022,21 +1027,87 @@ export class OperationsView {
       return;
     }
     const metrics = d.metrics;
+    const clipped = d.truncated;
+    if (
+      (page === 'orders' && (clipped?.['orders'] || clipped?.['pos'])) ||
+      (page === 'finance' && (clipped?.['finance'] || clipped?.['refunds'] || clipped?.['issues']))
+    )
+      content.append(
+        note(
+          'Показаны последние записи периода. Выгрузка содержит только показанный список; для остальных записей сузьте период. Итоги рассчитаны по всему периоду.',
+        ),
+      );
+    if (page === 'stoplist') {
+      const availability = d.availability;
+      if (!availability || !availability['observed_at']) {
+        content.append(
+          panel(
+            'Ожидаем данные кассы',
+            'Стоп-лист появится после первого подтверждённого обмена с точкой. Отсутствие данных не означает, что все блюда доступны.',
+          ),
+        );
+        return;
+      }
+      const items = Array.isArray(availability['stopped_items'])
+        ? (availability['stopped_items'] as Data[])
+        : [];
+      const ids = Array.isArray(availability['stopped_ids'])
+        ? (availability['stopped_ids'] as string[])
+        : [];
+      const p = panel(
+        'Стоп-лист точки',
+        'Источник - касса. Изменения на кассе поступают в приложение через сервер.',
+      );
+      p.append(
+        stats([
+          ['На стопе', String(ids.length)],
+          ['Последний обмен', date(availability['observed_at'])],
+          ['Данные', availability['fresh'] === true ? 'Актуальны' : 'Ожидают обновления'],
+        ]),
+      );
+      if (availability['fresh'] !== true)
+        p.append(
+          note(
+            'Показан последний полученный стоп-лист. Текущую доступность подтвердит следующий обмен с кассой.',
+          ),
+        );
+      p.append(
+        table(
+          ['Позиция', 'Тип', 'Статус'],
+          ids.map((id) => {
+            const item = items.find((item) => item['id'] === id);
+            return [
+              String(item?.['name'] ?? id),
+              status(item?.['kind'] ?? 'position'),
+              badge('stopped'),
+            ];
+          }),
+          'В последнем полученном стоп-листе нет позиций.',
+        ),
+      );
+      p.append(
+        note(
+          'Управление стоп-листом сейчас выполняется на кассе. Удалённое изменение из кабинета будет доступно после подключения подтверждений кассового узла.',
+        ),
+      );
+      content.append(p);
+      return;
+    }
     if (page === 'dash' || page === 'reports') {
       content.append(
         stats([
           [
             'Подтверждённые оплаты',
             amount(metrics['captured_minor']),
-            'По времени банковской операции',
+            'Приложение и киоск, по времени оплаты',
           ],
-          ['Возвраты', amount(metrics['refunded_minor']), 'Подтверждённые операции'],
-          ['Заказы приложения', val(metrics['orders'])],
+          ['Возвраты', amount(metrics['refunded_minor']), 'Приложение и киоск'],
+          ['Заказы приложения и киоска', val(metrics['orders'])],
           ['Выдано', val(metrics['handed_over']), 'Из заказов выбранного периода'],
         ]),
       );
       const grid = el('div', 'op-grid'),
-        chart = panel('Оплаты по дням', 'Подтверждённые суммы, ₸'),
+        chart = panel('Оплаты по дням', 'Приложение и киоск, подтверждённые суммы, ₸'),
         bars = el('div', 'op-bars');
       const max = d.chart.reduce(
         (a, r) => (BigInt(String(r['amount_minor'])) > a ? BigInt(String(r['amount_minor'])) : a),
@@ -1060,7 +1131,7 @@ export class OperationsView {
           [
             ['Неизвестные платежи', val(metrics['unknown_payments'])],
             ['Заказы на кухне', val(metrics['kitchen_active'])],
-            ['Сигналы сверки', String(d.issues.length)],
+            ['Сигналы сверки', String(d.issues.length) + (clipped?.['issues'] ? '+' : '')],
             ['POS-заказы', val(metrics['pos_orders'])],
           ],
         ),
@@ -1096,7 +1167,7 @@ export class OperationsView {
         content.append(
           p,
           note(
-            'Поступления на банковский счёт, комиссии и чистая прибыль не рассчитываются без банковского реестра и полной базы расходов.',
+            'Суммы относятся к приложению и киоску. Финансовые итоги кассы будут доступны после синхронизации кассовых операций. Поступления на банковский счёт, комиссии и чистая прибыль требуют банковского реестра и полной базы расходов.',
           ),
         );
       }
@@ -1130,18 +1201,23 @@ export class OperationsView {
       const draw = () => {
         list.replaceChildren(
           table(
-            ['Заказ', 'Канал', 'Сумма', 'Оплата', 'Кухня', 'Получено', ''],
+            ['Заказ', 'Создан', 'Канал', 'Сумма', 'Оплата', 'Кухня', ''],
             rows
               .filter(
-                (o) => (!channel || o['channel'] === channel) && String(o['id']).includes(query),
+                (o) =>
+                  (!channel || o['channel'] === channel) &&
+                  (String(o['id']).includes(query.trim()) ||
+                    String(o['display_number'] ?? '').includes(query.trim().replace(/^№\s*/, ''))),
               )
               .map((o) => [
-                String(o['id']).slice(0, 8),
+                o['display_number']
+                  ? '№' + String(o['display_number'])
+                  : String(o['id']).slice(0, 8),
+                date(o['created_at']),
                 status(o['channel']),
                 amount(o['total_minor']),
                 badge(o['payment_state']),
                 badge(o['kitchen_state'] ?? o['state']),
-                date(o['observed_at']),
                 button('Открыть', () => void this.order(String(o['id'])), 'button subtle'),
               ]),
           ),
@@ -1158,10 +1234,15 @@ export class OperationsView {
           },
           { id: 'op-order-search' },
         ),
-        select('Канал', channel, [{ value: '', label: 'Все' }, ...opts(['mobile', 'pos'])], (v) => {
-          channel = v;
-          draw();
-        }),
+        select(
+          'Канал',
+          channel,
+          [{ value: '', label: 'Все' }, ...opts(['mobile', 'pos', 'kiosk'])],
+          (v) => {
+            channel = v;
+            draw();
+          },
+        ),
       );
       p.append(toolbar, list);
       draw();
@@ -1254,7 +1335,7 @@ export class OperationsView {
           ['Оплаты', amount(metrics['captured_minor'])],
           ['Возвраты', amount(metrics['refunded_minor'])],
           ['Неизвестные платежи', val(metrics['unknown_payments'])],
-          ['Проблемы сверки', String(d.issues.length)],
+          ['Проблемы сверки', String(d.issues.length) + (clipped?.['issues'] ? '+' : '')],
         ]),
       );
       const p = panel('Фискальные документы', 'Статус приходит от фискального адаптера.');
@@ -1430,6 +1511,10 @@ export class OperationsView {
     }
     if (page === 'shifts')
       content.append(
+        panel(
+          'Кассовые смены',
+          'Касса хранит реальные открытия и закрытия локально. Их передача в кабинет и связь с заказами ещё не подключены; журнал ниже используется для отдельного управленческого учёта.',
+        ),
         this.records(
           'shift',
           'Журнал смен',
