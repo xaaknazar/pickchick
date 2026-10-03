@@ -1,10 +1,10 @@
-import type {
-  TestCompleteCatalog,
-  TestOrder,
-  TestSelection,
-} from '@pickchick/test-order-flow/contracts';
+import type { TestCompleteCatalog, TestSelection } from '@pickchick/test-order-flow/contracts';
 
-export type KioskProduct = TestCompleteCatalog['products'][number];
+export type KioskProduct = Omit<TestCompleteCatalog['products'][number], 'nutrition_provenance'> & {
+  sku?: string;
+  available?: boolean;
+  nutrition_provenance: string;
+};
 export type KioskSelection = TestSelection;
 export type KioskModifierGroup = KioskProduct['modifier_groups'][number];
 export type KioskMode = 'takeaway' | 'dine_in';
@@ -29,11 +29,27 @@ export interface KioskCartLine {
   unitPriceMinor: string;
   lineTotalMinor: string;
 }
+export interface KioskOrderView {
+  order_id: string;
+  number: string;
+  state: string;
+  payment_state: string;
+  snapshot: { total_minor: string };
+}
+export type KioskCatalog = Omit<
+  TestCompleteCatalog,
+  'catalog_version' | 'branch_id' | 'synthetic' | 'namespace' | 'products'
+> & { catalog_version: string; branch_id: string; products: KioskProduct[] };
 export interface KioskState {
+  commercial?: boolean;
+  invoicePhone?: string;
+  phoneValid?: boolean;
+  paymentPhase?: string;
+  receiptState?: string;
   ready: boolean;
   busy: boolean;
   error: string | null;
-  catalog: TestCompleteCatalog | null;
+  catalog: KioskCatalog | null;
   step: KioskStep;
   mode: KioskMode | null;
   cart: KioskCartLine[];
@@ -42,7 +58,7 @@ export interface KioskState {
   cartTotalMinor: string;
   selectedProduct: KioskProduct | null;
   paymentMethod: KioskPaymentMethod;
-  order: TestOrder | null;
+  order: KioskOrderView | null;
   recoveryRequired: boolean;
   idleWarningSeconds: number | null;
 }
@@ -55,6 +71,7 @@ export interface KioskModel extends KioskState {
   openUpsell(): void;
   openCart(): void;
   goLoyalty(): void;
+  setInvoicePhone?(value: string): void;
   setPaymentMethod(method: KioskPaymentMethod): void;
   addToCart(productId: string, selections: KioskSelection[], quantity?: number): Promise<boolean>;
   updateQuantity(lineId: string, quantity: number): Promise<boolean>;

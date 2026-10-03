@@ -1,4 +1,4 @@
-import { FlatList, Pressable, ScrollView, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, TextInput, View } from 'react-native';
 import type { KioskCartLine, KioskModel } from '../model';
 import { defaultSelections, money, validSelections } from '../cart';
 import { ProductArtwork } from '../components/ProductArtwork';
@@ -38,8 +38,9 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
   const safe = useSafeAreaInsets();
   const t = copy(context.locale);
   const products =
-    model.catalog?.products.filter((product) =>
-      model.catalog?.upsell_product_ids.includes(product.id),
+    model.catalog?.products.filter(
+      (product) =>
+        model.catalog?.upsell_product_ids.includes(product.id) && product.available !== false,
     ) ?? [];
   return (
     <View testID="kiosk-screen-upsell" style={layout.screen}>
@@ -300,7 +301,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
             />
           </View>
         ))}
-        {model.cart.length ? (
+        {model.cart.length && !model.commercial ? (
           <View
             style={{
               borderRadius: px(24),
@@ -487,86 +488,135 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           >
             {t.payChoose}
           </Body>
-          {(['kaspi', 'card'] as const).map((method) => (
-            <Pressable
-              key={method}
-              testID={`kiosk-payment-method-${method}`}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: model.paymentMethod === method, disabled: model.busy }}
-              aria-checked={model.paymentMethod === method}
-              disabled={model.busy}
-              onPress={() => model.setPaymentMethod(method)}
-              style={{
-                backgroundColor: model.paymentMethod === method ? '#F0F5FF' : colors.white,
-                borderWidth: 2.5,
-                borderColor: model.paymentMethod === method ? colors.blue : colors.border,
-                borderRadius: px(24),
-                paddingVertical: px(22),
-                paddingHorizontal: px(26),
-                minHeight: px(120),
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: px(22),
-              }}
-            >
-              <View
-                style={{
-                  backgroundColor: method === 'kaspi' ? '#E52A2E' : colors.blue,
-                  width: px(84),
-                  height: px(84),
-                  borderRadius: px(22),
-                  flexShrink: 0,
-                  alignItems: 'center',
-                  justifyContent: 'center',
+          {(model.commercial ? (['kaspi'] as const) : (['kaspi', 'card'] as const)).map(
+            (method) => (
+              <Pressable
+                key={method}
+                testID={`kiosk-payment-method-${method}`}
+                accessibilityRole="radio"
+                accessibilityState={{
+                  checked: model.paymentMethod === method,
+                  disabled: model.busy,
                 }}
-              >
-                <Icon
-                  name={method === 'kaspi' ? 'qr-code-outline' : 'card-outline'}
-                  color={colors.white}
-                  size={px(34)}
-                />
-              </View>
-              <View style={{ flex: 1, minWidth: 0, gap: px(5) }}>
-                <Heading size={30} style={{ fontFamily: fonts.heading }}>
-                  {method === 'kaspi' ? 'Kaspi' : t.card}
-                </Heading>
-                <Body style={{ fontSize: Math.max(16, px(19)), color: colors.muted }}>
-                  {context.locale === 'ru'
-                    ? method === 'kaspi'
-                      ? 'Тестовый сценарий Kaspi - без QR и списания денег.'
-                      : 'Тестовый сценарий карты - без терминала и списания денег.'
-                    : method === 'kaspi'
-                      ? 'Kaspi сынағы - QR-кодсыз, ақша алынбайды.'
-                      : 'Карта сынағы - терминалсыз, ақша алынбайды.'}
-                </Body>
-              </View>
-              <View
+                aria-checked={model.paymentMethod === method}
+                disabled={model.busy}
+                onPress={() => model.setPaymentMethod(method)}
                 style={{
-                  width: px(44),
-                  height: px(44),
-                  borderRadius: px(22),
+                  backgroundColor: model.paymentMethod === method ? '#F0F5FF' : colors.white,
                   borderWidth: 2.5,
-                  flexShrink: 0,
                   borderColor: model.paymentMethod === method ? colors.blue : colors.border,
+                  borderRadius: px(24),
+                  paddingVertical: px(22),
+                  paddingHorizontal: px(26),
+                  minHeight: px(120),
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  gap: px(22),
                 }}
               >
-                {model.paymentMethod === method ? (
-                  <View
-                    style={{
-                      width: px(18),
-                      height: px(18),
-                      borderRadius: 12,
-                      backgroundColor: colors.blue,
-                    }}
+                <View
+                  style={{
+                    backgroundColor: method === 'kaspi' ? '#E52A2E' : colors.blue,
+                    width: px(84),
+                    height: px(84),
+                    borderRadius: px(22),
+                    flexShrink: 0,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon
+                    name={method === 'kaspi' ? 'qr-code-outline' : 'card-outline'}
+                    color={colors.white}
+                    size={px(34)}
                   />
-                ) : null}
-              </View>
-            </Pressable>
-          ))}
+                </View>
+                <View style={{ flex: 1, minWidth: 0, gap: px(5) }}>
+                  <Heading size={30} style={{ fontFamily: fonts.heading }}>
+                    {method === 'kaspi' ? 'Kaspi' : t.card}
+                  </Heading>
+                  <Body style={{ fontSize: Math.max(16, px(19)), color: colors.muted }}>
+                    {model.commercial
+                      ? context.locale === 'ru'
+                        ? 'Счёт в приложении Kaspi.kz'
+                        : 'Kaspi.kz қолданбасындағы шот'
+                      : context.locale === 'ru'
+                        ? method === 'kaspi'
+                          ? 'Тестовый сценарий Kaspi - без QR и списания денег.'
+                          : 'Тестовый сценарий карты - без терминала и списания денег.'
+                        : method === 'kaspi'
+                          ? 'Kaspi сынағы - QR-кодсыз, ақша алынбайды.'
+                          : 'Карта сынағы - терминалсыз, ақша алынбайды.'}
+                  </Body>
+                </View>
+                <View
+                  style={{
+                    width: px(44),
+                    height: px(44),
+                    borderRadius: px(22),
+                    borderWidth: 2.5,
+                    flexShrink: 0,
+                    borderColor: model.paymentMethod === method ? colors.blue : colors.border,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {model.paymentMethod === method ? (
+                    <View
+                      style={{
+                        width: px(18),
+                        height: px(18),
+                        borderRadius: 12,
+                        backgroundColor: colors.blue,
+                      }}
+                    />
+                  ) : null}
+                </View>
+              </Pressable>
+            ),
+          )}
         </View>
-        <Body style={{ color: colors.muted }}>{t.testPayment}</Body>
+        {model.commercial ? (
+          <View style={{ gap: px(12) }}>
+            <Body>
+              {context.locale === 'ru'
+                ? 'Телефон для счёта Kaspi'
+                : 'Kaspi шотына арналған телефон'}
+            </Body>
+            <TextInput
+              testID="kiosk-invoice-phone"
+              accessibilityLabel={
+                context.locale === 'ru'
+                  ? 'Телефон для счёта Kaspi'
+                  : 'Kaspi шотына арналған телефон'
+              }
+              value={model.invoicePhone ?? ''}
+              onChangeText={model.setInvoicePhone}
+              keyboardType="phone-pad"
+              autoComplete="off"
+              textContentType="none"
+              maxLength={20}
+              editable={!model.busy}
+              style={{
+                color: colors.ink,
+                backgroundColor: colors.white,
+                borderColor: colors.border,
+                borderWidth: 2,
+                borderRadius: px(16),
+                padding: px(22),
+                fontSize: Math.max(20, px(28)),
+                minHeight: 56,
+              }}
+            />
+            <Body style={{ color: colors.muted }}>
+              {context.locale === 'ru'
+                ? 'Номер используется только для счёта. Аккаунт и бонусы не создаются.'
+                : 'Нөмір тек шот үшін қолданылады. Аккаунт пен бонустар жасалмайды.'}
+            </Body>
+          </View>
+        ) : (
+          <Body style={{ color: colors.muted }}>{t.testPayment}</Body>
+        )}
       </ScrollView>
       <Footer>
         <View style={layout.spread}>
@@ -579,7 +629,9 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           label={t.createPayment}
           icon="arrow-forward"
           testID="kiosk-review-create"
-          disabled={!model.cartValid || !model.cart.length}
+          disabled={
+            !model.cartValid || !model.cart.length || (model.commercial && !model.phoneValid)
+          }
           busy={model.busy}
           onPress={() => void model.beginPayment(model.paymentMethod)}
           style={{ minHeight: px(126) }}

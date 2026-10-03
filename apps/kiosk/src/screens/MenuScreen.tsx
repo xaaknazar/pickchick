@@ -101,7 +101,7 @@ export function ProductCard({
           testID={`${prefix}-plus-${product.id}`}
           size={80}
           orange
-          disabled={busy}
+          disabled={busy || product.available === false}
         />
       </View>
     </View>
@@ -290,7 +290,11 @@ export function MenuScreen({
                 <Heading size={42} color={colors.orange}>
                   {money(promo.price_minor)}
                 </Heading>
-                <Button compact label={t.pick} onPress={() => model.openProduct(promo.id)} />
+                <Button
+                  compact
+                  label={promo.available === false ? t.soldOut : t.pick}
+                  onPress={() => model.openProduct(promo.id)}
+                />
               </View>
             </View>
           ) : null

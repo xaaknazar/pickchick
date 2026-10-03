@@ -22,7 +22,10 @@ import {
 export function PaymentScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const { px } = useMetrics();
   const t = copy(context.locale);
-  const unknown = model.order?.payment_state === 'simulated_unknown' || model.recoveryRequired;
+  const unknown =
+    model.order?.payment_state === 'simulated_unknown' ||
+    model.order?.payment_state === 'unknown' ||
+    model.recoveryRequired;
   const declined = model.order?.payment_state === 'simulated_declined';
   const total = model.order?.snapshot.total_minor ?? model.cartTotalMinor;
   return (
@@ -55,7 +58,15 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             />
           </View>
           <Heading size={48} style={{ textAlign: 'center' }}>
-            {unknown ? t.unknownTitle : declined ? t.declined : t.waiting}
+            {unknown
+              ? t.unknownTitle
+              : declined
+                ? t.declined
+                : model.commercial
+                  ? context.locale === 'ru'
+                    ? 'Ожидаем оплату Kaspi'
+                    : 'Kaspi төлемін күтеміз'
+                  : t.waiting}
           </Heading>
           <Heading size={62} color={colors.blue}>
             {money(total)}
@@ -64,10 +75,16 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             {model.paymentMethod === 'kaspi' ? 'Kaspi' : t.card} · {model.order?.number}
           </Body>
           <Body style={{ textAlign: 'center', color: colors.muted, maxWidth: 700 }}>
-            {unknown ? t.unknownBody : t.testPayment}
+            {unknown
+              ? t.unknownBody
+              : model.commercial
+                ? context.locale === 'ru'
+                  ? 'Оплатите счёт в Kaspi.kz. Результат проверяется автоматически. Не оплачивайте повторно.'
+                  : 'Kaspi.kz шотын төлеңіз. Нәтиже автоматты түрде тексеріледі. Қайта төлемеңіз.'
+                : t.testPayment}
           </Body>
         </View>
-        {!unknown ? (
+        {!unknown && !model.commercial ? (
           <View style={{ gap: px(16), marginTop: px(24) }}>
             <Button
               label={t.decline}
@@ -93,15 +110,17 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
       <Footer>
         <Button
           testID={
-            unknown
+            model.commercial || unknown
               ? 'kiosk-payment-retry'
               : declined
                 ? 'kiosk-payment-retry'
                 : 'kiosk-payment-approve'
           }
-          label={unknown ? t.refresh : declined ? t.retry : t.approve}
+          label={model.commercial || unknown ? t.refresh : declined ? t.retry : t.approve}
           busy={model.busy}
-          onPress={() => (unknown ? void model.recover() : void model.pay('approved'))}
+          onPress={() =>
+            model.commercial || unknown ? void model.recover() : void model.pay('approved')
+          }
           style={{ minHeight: px(126) }}
         />
       </Footer>
@@ -114,7 +133,9 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
   const t = copy(context.locale);
   const order = model.order;
   const canReset =
-    !!order && order.payment_state === 'simulated_approved' && !model.recoveryRequired;
+    !!order &&
+    ['simulated_approved', 'paid'].includes(order.payment_state) &&
+    !model.recoveryRequired;
   const [seconds, setSeconds] = useState(15);
   const modelRef = useRef(model);
   modelRef.current = model;
@@ -128,7 +149,8 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
       if (remaining <= 0) {
         const current = modelRef.current;
         if (
-          current.order?.payment_state === 'simulated_approved' &&
+          !!current.order &&
+          ['simulated_approved', 'paid'].includes(current.order.payment_state) &&
           !current.recoveryRequired &&
           !current.busy
         ) {
@@ -144,11 +166,17 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
       ? t.ready
       : order?.state === 'fulfilled'
         ? t.fulfilled
-        : order?.state === 'cancelled'
-          ? t.cancelled
-          : order?.state === 'preparing'
-            ? t.preparing
-            : t.waiting;
+        : order?.state === 'failed'
+          ? t.declined
+          : order?.state === 'cancelled'
+            ? t.cancelled
+            : order?.state === 'preparing'
+              ? t.preparing
+              : model.commercial
+                ? context.locale === 'ru'
+                  ? 'Оплата подтверждена. Ожидаем ресторан.'
+                  : 'Төлем расталды. Мейрамхананы күтеміз.'
+                : t.waiting;
   const number = order?.number ?? '-';
   const numberSize = Math.min(
     px(340),
@@ -205,13 +233,23 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
             {t.board}
           </Body>
         ) : null}
-        <Body style={{ color: 'rgba(255,255,255,.7)', textAlign: 'center' }}>{t.testPayment}</Body>
+        <Body style={{ color: 'rgba(255,255,255,.7)', textAlign: 'center' }}>
+          {model.commercial
+            ? model.receiptState === 'issued'
+              ? context.locale === 'ru'
+                ? 'Чек сформирован'
+                : 'Чек дайын'
+              : context.locale === 'ru'
+                ? 'Фискальный чек пока не сформирован. Обратитесь к сотруднику.'
+                : 'Фискалдық чек әлі жасалмады. Қызметкерге хабарласыңыз.'
+            : t.testPayment}
+        </Body>
       </ScrollView>
       <Footer blue>
         <Button
           label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
           testID="kiosk-next-guest"
-          disabled={!canReset && order?.state !== 'cancelled'}
+          disabled={!canReset && order?.state !== 'cancelled' && order?.state !== 'failed'}
           busy={model.busy}
           onPress={() => void model.newGuest()}
         />

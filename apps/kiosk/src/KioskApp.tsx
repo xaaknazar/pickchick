@@ -49,7 +49,10 @@ export function KioskApp() {
   };
   const closeCancel = () => setCancel(false);
   const confirmCancel = async () => {
-    if (model.recoveryRequired || model.order?.payment_state === 'simulated_unknown') {
+    if (
+      model.recoveryRequired ||
+      ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '')
+    ) {
       setCancel(false);
       setHelp(true);
       return;
@@ -143,22 +146,32 @@ export function KioskApp() {
       ) : null}
       <Dialog visible={help} onClose={() => setHelp(false)} testID="kiosk-help">
         <Heading size={44}>{t.helpTitle}</Heading>
-        <Body>{t.helpBody}</Body>
+        <Body>
+          {model.commercial
+            ? locale === 'ru'
+              ? 'Пригласите сотрудника ресторана. Если результат оплаты неизвестен, не оплачивайте повторно.'
+              : 'Мейрамхана қызметкерін шақырыңыз. Төлем нәтижесі белгісіз болса, қайта төлемеңіз.'
+            : t.helpBody}
+        </Body>
         <Button label={t.close} onPress={() => setHelp(false)} />
       </Dialog>
       <Dialog visible={cancel} onClose={closeCancel} testID="kiosk-cancel-dialog">
         <Heading size={44}>{t.cancelQuestion}</Heading>
         <Body>
-          {model.recoveryRequired || model.order?.payment_state === 'simulated_unknown'
+          {model.recoveryRequired ||
+          ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '')
             ? t.unknownBody
             : model.order
-              ? t.testPayment
+              ? model.commercial
+                ? t.unknownBody
+                : t.testPayment
               : t.cancelBody}
         </Body>
         <Button label={t.keep} testID="kiosk-cancel-dismiss" onPress={closeCancel} />
         <Button
           label={
-            model.recoveryRequired || model.order?.payment_state === 'simulated_unknown'
+            model.recoveryRequired ||
+            ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '')
               ? t.help
               : t.yesCancel
           }
