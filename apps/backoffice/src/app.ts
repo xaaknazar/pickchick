@@ -50,8 +50,7 @@ function login() {
     card = el('section', 'login-card');
   card.append(
     image('logo.png', 'PickChick'),
-    el('p', 'eyebrow', 'PICKCHICK · БЭК-ОФИС'),
-    el('h1', '', 'Управление рестораном'),
+    el('h1', '', 'Кабинет директора'),
     el(
       'p',
       'muted',
@@ -99,26 +98,57 @@ function render() {
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
-  brand.append(image('logo.png', ''), el('div', '', 'PickChick'), el('small', '', 'Бэк-офис'));
+  brand.append(
+    image('logo.png', ''),
+    el('div', '', 'PickChick'),
+    el('small', '', 'Кабинет директора'),
+  );
   sidebar.append(brand);
-  for (const [id, label] of sections) {
-    const nav = button(
-      label,
-      () => {
-        page = id;
-        history.replaceState(null, '', '#' + id);
-        render();
-      },
-      `nav-item ${page === id ? 'active' : ''}`,
-      'nav-' + id,
-    );
-    if (page === id) nav.setAttribute('aria-current', 'page');
-    sidebar.append(nav);
-  }
+  const primary = ['dash', 'orders', 'items', 'stoplist', 'shifts', 'reports', 'finance'];
+  const navigation = el('nav', 'navigation');
+  navigation.setAttribute('aria-label', 'Разделы кабинета');
+  const appendLinks = (container: HTMLElement, list: (typeof sections)[number][]) => {
+    for (const [id, label] of list) {
+      const nav = button(
+        id === 'items'
+          ? 'Меню и цены'
+          : id === 'shifts'
+            ? 'Смены'
+            : id === 'finance'
+              ? 'Финансы'
+              : label,
+        () => {
+          page = id;
+          history.replaceState(null, '', '#' + id);
+          render();
+        },
+        `nav-item ${page === id ? 'active' : ''}`,
+        'nav-' + id,
+      );
+      if (page === id) nav.setAttribute('aria-current', 'page');
+      container.append(nav);
+    }
+  };
+  const daily = el('div', 'nav-primary');
+  appendLinks(
+    daily,
+    [...sections]
+      .filter((section) => primary.includes(section[0]))
+      .sort((a, b) => primary.indexOf(a[0]) - primary.indexOf(b[0])),
+  );
+  const secondary = el('details', 'nav-secondary');
+  secondary.open = !primary.includes(page);
+  secondary.append(el('summary', '', 'Другие разделы'));
+  appendLinks(
+    secondary,
+    [...sections].filter((section) => !primary.includes(section[0])),
+  );
+  navigation.append(daily, secondary);
+  sidebar.append(navigation);
   const user = el('div', 'user');
   user.append(
     el('strong', '', model.actor.name),
-    el('span', 'muted', 'Управляющий'),
+    el('span', 'muted', 'Управление рестораном'),
     button('Выйти', () => model.logout(), 'button subtle', 'logout'),
   );
   sidebar.append(user);
@@ -149,21 +179,31 @@ function render() {
   if (page !== 'items') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
-      ['day', 'День'],
+      ['day', 'Сегодня'],
+      ['yesterday', 'Вчера'],
       ['week', 'Неделя'],
       ['month', 'Месяц'],
       ['quarter', 'Квартал'],
+      ['year', 'Год'],
+      ['custom', 'Период'],
     ]) {
       const b = button(
         label!,
-        () => void operations.load(operations.actor, operations.branch, id),
+        () => {
+          if (id === 'custom') {
+            operations.period = 'custom';
+            render();
+          } else void operations.load(operations.actor, operations.branch, id, {});
+        },
         operations.period === id ? 'selected' : '',
         'period-' + id,
       );
+      b.setAttribute('aria-pressed', String(operations.period === id));
       b.disabled = operations.busy || Boolean(operations.pending);
       periods.append(b);
     }
-    header.append(
+    const tools = el('div', 'header-tools');
+    tools.append(
       periods,
       button(
         'Обновить',
@@ -172,6 +212,43 @@ function render() {
         'op-refresh',
       ),
     );
+    header.append(tools);
+    if (operations.period === 'custom') {
+      const dates = el('form', 'date-range');
+      const start = field('С даты', operations.filters.startDate ?? '', () => {}, {
+        id: 'period-start',
+      });
+      const end = field('По дату', operations.filters.endDate ?? '', () => {}, {
+        id: 'period-end',
+      });
+      const startInput = start.querySelector('input')!;
+      const endInput = end.querySelector('input')!;
+      startInput.type = endInput.type = 'date';
+      startInput.required = endInput.required = true;
+      const apply = button(
+        'Показать',
+        () => {
+          endInput.min = startInput.value;
+          if (dates.reportValidity())
+            void operations.load(operations.actor, operations.branch, 'custom', {
+              startDate: startInput.value,
+              endDate: endInput.value,
+            });
+        },
+        'button primary',
+        'period-apply',
+      );
+      startInput.disabled =
+        endInput.disabled =
+        apply.disabled =
+          operations.busy || Boolean(operations.pending);
+      dates.addEventListener('submit', (event) => {
+        event.preventDefault();
+        apply.click();
+      });
+      dates.append(start, end, apply);
+      tools.append(dates);
+    }
     if (operations.data)
       titles.append(
         el(
@@ -186,6 +263,7 @@ function render() {
         ),
       );
   }
+  main.id = 'workspace';
   main.append(header);
   const content = el('div', 'content');
   main.append(content);
