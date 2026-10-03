@@ -2210,6 +2210,18 @@
       "updatedAt": "2026-10-03T10:53:26.341Z",
       "summary": "Runtime grants historical compatibility implemented in local 63972a81765c0c439b3fef84ffbf24f978f9cae5, integrated patch-equivalent aa426b9337689effe0573590adcc46c73498058b into shared 7c315650c1ab00acf591828094befcb758f81506; stable patch-id 9c53a408f42c680298aa85ec06e39b9647432828 verified. Nine targeted PostgreSQL/unit tests, lint/format passed. Historical exact014/015 guards retained;016 restricted POS trigger permissions verified. Local source was not pushed per instruction.",
       "nextAction": "Root owns final CI37117808540 (started, result pending) and deployment gates. Windows installation NOT performed; current cashier IP awaited. No code, CI or server changes in this coordination closure."
+    },
+    {
+      "id": "director-manifest-writer",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/director-manifest-writer",
+      "scopes": [
+        "infra/staging/release-director-console.py",
+        "tests/operations/test_director_release.py"
+      ],
+      "status": "active",
+      "head": "e236824b80ee315eae48c371d722f4f6459aac8c",
+      "updatedAt": "2026-10-03T11:49:30.170Z"
     }
   ]
 }
