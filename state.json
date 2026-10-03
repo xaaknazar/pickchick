@@ -2270,6 +2270,29 @@
       "status": "active",
       "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
       "updatedAt": "2026-10-03T19:52:04.938Z"
+    },
+    {
+      "id": "commercial-channels",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/commercial-channels",
+      "scopes": [
+        "packages/commerce-core/src/kiosk-checkout.ts",
+        "packages/commerce-core/src/model.ts",
+        "packages/commerce-core/src/repository.ts",
+        "packages/commerce-core/src/kaspi-remote.ts",
+        "packages/commerce-core/src/index.ts",
+        "services/api/src/kiosk-checkout-controller.ts",
+        "services/api/src/kaspi-remote-worker.ts",
+        "services/api/src/index.ts",
+        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
+        "pnpm-lock.yaml",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/commercial-channels.md"
+      ],
+      "status": "active",
+      "head": "44ff3c6cd56749d47ae0246a19ba6cd55bc2005e",
+      "updatedAt": "2026-10-03T19:52:31.303Z"
     }
   ]
 }
