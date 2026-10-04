@@ -29,6 +29,7 @@ export function AccountGate({
   if (accountCanAct(account)) return children;
   const game =
     destination === 'pick-man' ||
+    destination === 'pick-farm' ||
     destination === 'pick-blocks' ||
     destination === 'M27' ||
     destination === 'M28';

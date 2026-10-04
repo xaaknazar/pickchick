@@ -62,7 +62,8 @@
     "docs/operations/auth-four-digit.md",
     "docs/operations/director-console.md",
     "docs/operations/launch-readiness-2026-10-04.md",
-    "docs/operations/commercial-channels.md"
+    "docs/operations/commercial-channels.md",
+    "docs/operations/pick-farm.md"
   ],
   "workstreams": [
     {
@@ -4025,6 +4026,34 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "pick-farm-prototype",
+      "workstream": "games",
+      "title": "PICK FARM - горизонтальная ферма",
+      "summary": "Первый серверный игровой срез: шесть культур, склад, заказы, расширение, игровые монеты и оригинальные ассеты. Наград ресторана нет. По умолчанию выключен до pilot.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["games-local"],
+      "evidence": [
+        {
+          "label": "Реализация, проверки и включение",
+          "path": "docs/operations/pick-farm.md"
+        }
+      ],
+      "acceptance": [
+        "Рост по времени сервера; повтор команды не списывает монеты дважды.",
+        "Физический телефон: горизонтальный экран, удобные жесты, восстановление после перезапуска.",
+        "Владелец принимает визуал и баланс перед включением."
+      ],
+      "nextAction": "Нативная приёмка и отдельный pilot API/TestFlight после CI.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
         "accepted": false
       }
     }

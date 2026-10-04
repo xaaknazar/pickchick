@@ -25,3 +25,24 @@ https://game-icons.net/1x1/lorc/flowers.html
 SVGs downloaded from the site's transparent color export, unchanged.
 The flower icon is a botanical symbol, not an exact tulip illustration.
 Attribution is also available within the farm help panel.
+
+## Original generated artwork - 2026-10-04
+
+Built-in image_gen was used (not CLI/API fallback). Files are copied unchanged,
+including crop atlas alpha, into this project:
+
+- `cover-generated.png`: original farm cover with cottage, six crops and meadow.
+- `crops-generated.png`: six plant sprites, rendered with clipped native views;
+  the generated PNG itself is not cropped or recolored.
+
+Prompt, cover: polished original hand-painted 3D isometric miniature farm,
+terracotta cottage, carrot/tomato/strawberry/sunflower/tulip beds, small apple tree,
+wooden fence, harvest crate; natural greens, warm orange and blue door, spring light,
+quiet meadow at the bottom for UI; no people, animals, logo, text or watermark.
+
+Prompt, plants: transparent production atlas with 3 columns and 2 rows, carrot
+cluster, ripe tomato bush, strawberry plant, sunflower, pink tulips, compact apple
+tree; consistent 3/4 view, warm upper-left light, detailed rounded hand-painted 3D
+casual game style, individual isolated sprites, no soil/pots/text/grid/watermark.
+Result is 1254x1254 RGBA. Runtime regions follow the actual illustration bounds.
+The previous botanical SVG references remain licensed but are no longer rendered.

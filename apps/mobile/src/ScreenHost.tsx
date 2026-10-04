@@ -70,6 +70,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       // only M04 leaves the OTP screen underneath checkout's transparent sheet.
       if (returnTo === 'pick-man') router.dismissTo('/games/pick-man');
       else if (returnTo === 'pick-blocks') router.dismissTo('/games/pick-blocks');
+      else if (returnTo === 'pick-farm') router.dismissTo('/games/pick-farm');
       else if (returnTo === 'M12') router.dismissTo('/checkout');
       else if (['M17', 'M18', 'M20'].includes(returnTo))
         router.dismissTo({ pathname: '/order-status', params: { id: returnTo } });

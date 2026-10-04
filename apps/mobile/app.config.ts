@@ -12,6 +12,8 @@ export default function mobileConfig({ config }: ConfigContext): ExpoConfig {
 
   return {
     ...config,
+    // Native binary supports landscape; stack routes keep the rest of the app portrait.
+    orientation: 'default',
     name: development ? 'PickChick Dev' : config.name,
     slug: development ? 'pickchick-dev' : config.slug,
     scheme: development ? 'pickchick-dev' : config.scheme,

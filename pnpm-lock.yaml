@@ -37,6 +37,12 @@ importers:
       '@pickchick/edge':
         specifier: workspace:*
         version: link:services/edge
+      '@pickchick/farm-game':
+        specifier: workspace:*
+        version: link:packages/farm-game
+      '@pickchick/farm-persistence':
+        specifier: workspace:*
+        version: link:packages/farm-persistence
       '@pickchick/fulfillment-transport':
         specifier: workspace:*
         version: link:packages/fulfillment-transport
@@ -194,6 +200,9 @@ importers:
       '@pickchick/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@pickchick/farm-game':
+        specifier: workspace:*
+        version: link:../../packages/farm-game
       '@pickchick/test-order-flow':
         specifier: workspace:*
         version: link:../../packages/test-order-flow
@@ -485,6 +494,44 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/farm-game:
+    dependencies:
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/farm-persistence:
+    dependencies:
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/farm-game':
+        specifier: workspace:*
+        version: link:../farm-game
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@nestjs/common':
+        specifier: 12.0.1
+        version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      '@pickchick/customer-identity':
+        specifier: workspace:*
+        version: link:../customer-identity
+      '@pickchick/platform':
+        specifier: workspace:*
+        version: link:../platform
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/fulfillment-transport:
     dependencies:
       '@pickchick/commerce-core':
@@ -684,6 +731,9 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@pickchick/farm-persistence':
+        specifier: workspace:*
+        version: link:../../packages/farm-persistence
       '@pickchick/fulfillment-transport':
         specifier: workspace:*
         version: link:../../packages/fulfillment-transport

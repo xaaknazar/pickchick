@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, Text } from 'react-native';
+import { Image as NativeImage, Pressable, Text } from 'react-native';
 import { Icon } from '../../components/UI';
 import { font } from '../../theme';
 import { useGameCardHeight } from '../ArcadeCard';
@@ -61,21 +61,15 @@ export const Sprite = memo(function Sprite({
     />
   );
 });
-const crops = {
-  carrot: require('../../../assets/games/pick-farm/carrot.svg'),
-  tomato: require('../../../assets/games/pick-farm/tomato.svg'),
-  strawberry: require('../../../assets/games/pick-farm/strawberry.svg'),
-  sunflower: require('../../../assets/games/pick-farm/sunflower.svg'),
-  tulip: require('../../../assets/games/pick-farm/tulip.svg'),
-  apple: require('../../../assets/games/pick-farm/apple.svg'),
-};
-export const cropColors: Record<CropId, string> = {
-  carrot: '#E56B21',
-  tomato: '#D84932',
-  strawberry: '#C63863',
-  sunflower: '#9C6B0A',
-  tulip: '#A7479E',
-  apple: '#317247',
+// Original generated atlas stays intact; each native view clips one sprite region.
+const cropAtlas = require('../../../assets/games/pick-farm/crops-generated.png');
+const cropBounds: Record<CropId, readonly [number, number, number, number]> = {
+  carrot: [0, 65, 432, 578],
+  tomato: [432, 65, 828, 580],
+  strawberry: [829, 197, 1254, 579],
+  sunflower: [0, 600, 434, 1160],
+  tulip: [432, 628, 815, 1160],
+  apple: [816, 618, 1254, 1165],
 };
 export const CropArt = memo(function CropArt({
   cropId,
@@ -84,15 +78,35 @@ export const CropArt = memo(function CropArt({
   cropId: CropId;
   size?: number;
 }) {
+  const [left, top, right, bottom] = cropBounds[cropId];
+  const scale = size / Math.max(right - left, bottom - top);
   return (
-    <Image
-      source={crops[cropId]}
-      tintColor={cropColors[cropId]}
-      contentFit="contain"
+    <View
       pointerEvents="none"
       accessible={false}
-      style={{ width: size, height: size }}
-    />
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <View
+        style={{
+          width: (right - left) * scale,
+          height: (bottom - top) * scale,
+          overflow: 'hidden',
+        }}
+      >
+        <NativeImage
+          source={cropAtlas}
+          resizeMode="stretch"
+          accessible={false}
+          style={{
+            position: 'absolute',
+            width: 1254 * scale,
+            height: 1254 * scale,
+            left: -left * scale,
+            top: -top * scale,
+          }}
+        />
+      </View>
+    </View>
   );
 });
 export function isoPoint(col: number, row: number) {
@@ -155,38 +169,13 @@ export function PickFarmCard() {
         opacity: pressed ? 0.88 : 1,
       })}
     >
-      <View
+      <Image
+        source={require('../../../assets/games/pick-farm/cover-generated.png')}
+        contentFit="cover"
+        accessible={false}
         pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 900,
-          height: 600,
-          left: -275,
-          top: -200,
-          transform: [{ scale: 0.62 }],
-        }}
-      >
-        <Landscape />
-        {[0, 1, 2, 3, 4, 5].map((id) => {
-          const pt = isoPoint(2 + (id % 3), 3 + Math.floor(id / 3));
-          const cropIds: CropId[] = [
-            'carrot',
-            'tomato',
-            'strawberry',
-            'sunflower',
-            'tulip',
-            'apple',
-          ];
-          return (
-            <View key={id} style={{ position: 'absolute', left: pt.x, top: pt.y }}>
-              <Sprite kind="soil" x={0} y={10} width={86} />
-              <View style={{ position: 'absolute', left: -23, top: -45 }}>
-                <CropArt cropId={cropIds[id]!} size={46} />
-              </View>
-            </View>
-          );
-        })}
-      </View>
+        style={{ position: 'absolute', width: '100%', height: '100%' }}
+      />
       <View
         pointerEvents="none"
         style={{

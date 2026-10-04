@@ -13,7 +13,7 @@ const orderScreens: readonly string[] = [
   'M21',
   'M22',
 ];
-export type AccountDestination = ScreenId | 'pick-blocks' | 'pick-man';
+export type AccountDestination = ScreenId | 'pick-blocks' | 'pick-man' | 'pick-farm';
 
 export function requiresAccount(id: ScreenId, preview: boolean): boolean {
   return (
@@ -29,6 +29,7 @@ export function accountDestination(value: unknown): AccountDestination | null {
     (value === 'M30' ||
       value === 'M26' ||
       value === 'pick-man' ||
+      value === 'pick-farm' ||
       value === 'pick-blocks' ||
       value === 'M27' ||
       value === 'M28' ||

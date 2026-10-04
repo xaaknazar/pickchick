@@ -57,6 +57,7 @@ function AppLayout() {
               <Stack
                 screenOptions={{
                   headerShown: false,
+                  orientation: 'portrait',
                   animation: reduced ? 'none' : 'default',
                   contentStyle: { backgroundColor: '#04143A' },
                 }}

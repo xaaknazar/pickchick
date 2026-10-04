@@ -1,3 +1,5 @@
+import { FarmStateSchema, FarmCommandSchema } from '@pickchick/farm-game';
+import { FarmRequestSchema } from '@pickchick/farm-persistence';
 import { readFile, writeFile } from 'node:fs/promises';
 import {
   Request as BackofficeRequest,
@@ -175,6 +177,35 @@ const openapi = {
       'Local menu sync and unpaid POS orders, a gated synthetic TEST journey through two kitchen stations, and separate opt-in customer identity. Real identity requires approved policy URLs/version, protected keys, SMS budget and enabled Mobizon delivery. It never authenticates a local demo profile or adopts anonymous TEST history. Real checkout, payments and fiscal provider delivery remain disabled.',
   },
   paths: {
+    '/v1/customer-farm': {
+      get: {
+        operationId: 'getCustomerFarm',
+        security: [{ customerBearer: [] }],
+        responses: {
+          200: response('FarmSnapshot'),
+          401: response('FarmError'),
+          503: response('FarmError'),
+        },
+      },
+    },
+    '/v1/customer-farm/commands': {
+      post: {
+        operationId: 'commandCustomerFarm',
+        security: [{ customerBearer: [] }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/FarmRequest' } } },
+        },
+        responses: {
+          200: response('FarmSnapshot'),
+          400: response('FarmError'),
+          401: response('FarmError'),
+          409: response('FarmError'),
+          429: response('FarmError'),
+          503: response('FarmError'),
+        },
+      },
+    },
     '/health/live': get('liveness', 'Health'),
     '/health/ready': get('readiness', 'Readiness', {
       503: response('Readiness', 'Required dependency unavailable'),
@@ -379,6 +410,25 @@ const openapi = {
       staffSession: { type: 'apiKey', in: 'header', name: 'X-Staff-Session-Id' },
     },
     schemas: {
+      FarmState: jsonSchema(FarmStateSchema),
+      FarmCommand: jsonSchema(FarmCommandSchema),
+      FarmRequest: jsonSchema(FarmRequestSchema),
+      FarmSnapshot: {
+        type: 'object',
+        required: ['state', 'serverNow'],
+        additionalProperties: false,
+        properties: {
+          state: { $ref: '#/components/schemas/FarmState' },
+          serverNow: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+        },
+      },
+      FarmError: {
+        type: 'object',
+        required: ['code'],
+        additionalProperties: false,
+        properties: { code: { type: 'string' }, state: { $ref: '#/components/schemas/FarmState' } },
+      },
+
       Branch: jsonSchema(BranchSchema),
       Capabilities: jsonSchema(CapabilitiesSchema),
       BranchList: {

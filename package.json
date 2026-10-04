@@ -69,7 +69,9 @@
     "@pickchick/customer-identity": "workspace:*",
     "@pickchick/fulfillment-transport": "workspace:*",
     "@pickchick/pos-order-sync": "workspace:*",
-    "@pickchick/backoffice-core": "workspace:*"
+    "@pickchick/backoffice-core": "workspace:*",
+    "@pickchick/farm-game": "workspace:*",
+    "@pickchick/farm-persistence": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

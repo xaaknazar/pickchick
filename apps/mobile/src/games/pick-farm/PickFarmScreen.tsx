@@ -98,20 +98,23 @@ export function PickFarmScreen() {
   const movedAt = useRef(0);
   const pan = useRef(new Animated.ValueXY()).current;
   const zoom = useRef(new Animated.Value(1)).current;
-  const fit = Math.min(1.45, Math.max(0.48, Math.min((width - 100) / 660, (height - 110) / 340)));
+  const fit = Math.min(1.45, Math.max(0.48, Math.min((width - 100) / 660, (height - 140) / 340)));
   const updateCamera = useCallback(
     (x: number, y: number, scale: number) => {
       const next = {
         x: clamp(x, -340, 340),
         y: clamp(y, -230, 230),
-        zoom: clamp(scale, 0.65, 2.4),
+        zoom: clamp(scale, Math.max(1, 48 / (64 * fit)), 2.4),
       };
       camera.current = next;
       pan.setValue({ x: next.x, y: next.y });
       zoom.setValue(next.zoom);
     },
-    [pan, zoom],
+    [pan, zoom, fit],
   );
+  useEffect(() => {
+    updateCamera(0, 0, camera.current.zoom);
+  }, [updateCamera]);
   const distance = (e: GestureResponderEvent) => {
     const [a, b] = e.nativeEvent.touches;
     return a && b ? Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY) : 0;
@@ -247,7 +250,7 @@ export function PickFarmScreen() {
             width: 900,
             height: 600,
             left: (width - 900) / 2,
-            top: (height - 600) / 2 + 26,
+            top: (height - 600) / 2 + 54,
             transform: [
               { translateX: pan.x },
               { translateY: pan.y },

@@ -13,7 +13,7 @@ class ServerPilotGuards(unittest.TestCase):
   names=[p.name for p in sorted((ROOT/'db/cloud/migrations').glob('*.sql'))]
   # The 020->025 pilot applies exactly 021-025; later migrations need their own release profile.
   self.assertEqual(names[20:20+len(r.MIGRATIONS)],list(r.MIGRATIONS))
-  self.assertEqual(names[20+len(r.MIGRATIONS):],['026_cloud_kaspi_remote.sql', '027_cloud_deferred_fiscal_pilot.sql', '028_cloud_otp_code_length.sql', '029_cloud_kaspi_invoice_comment.sql', '030_cloud_branch_availability.sql', '031_cloud_otp_auto_channel.sql', '032_cloud_order_feedback.sql', '033_cloud_cashier_reports.sql', '034_cloud_catalog_menu_delivery.sql', '035_cloud_kiosk_sessions.sql', '036_cloud_kiosk_commerce.sql'])
+  self.assertEqual(names[20+len(r.MIGRATIONS):],['026_cloud_kaspi_remote.sql', '027_cloud_deferred_fiscal_pilot.sql', '028_cloud_otp_code_length.sql', '029_cloud_kaspi_invoice_comment.sql', '030_cloud_branch_availability.sql', '031_cloud_otp_auto_channel.sql', '032_cloud_order_feedback.sql', '033_cloud_cashier_reports.sql', '034_cloud_catalog_menu_delivery.sql', '035_cloud_kiosk_sessions.sql', '036_cloud_kiosk_commerce.sql', '037_cloud_farm.sql'])
   self.assertEqual(set(r.ADDITIONS),{'test_order_numbers','identity_otp_challenges'})
  def test_gateway_preserves_every_existing_handler(self):
   old=(ROOT/'infra/public-staging/gateway.Caddyfile').read_text()

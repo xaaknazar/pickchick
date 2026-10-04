@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+const { structuredClone } = globalThis;
 import {
   createFarm,
   applyFarmCommand as run,
