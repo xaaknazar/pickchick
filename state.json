@@ -2447,9 +2447,11 @@
         "apps/mobile/src/games/pick-farm/visuals.tsx",
         "apps/mobile/src/games/pick-farm/motion.tsx"
       ],
-      "status": "active",
-      "head": "927eb55e951d5976f24366e4b59617e1e277695a",
-      "updatedAt": "2026-10-04T12:21:38.630Z"
+      "status": "available",
+      "head": "dbde0c5ad078c3e46fd6864f102d41e77e30ce3c",
+      "updatedAt": "2026-10-04T12:26:13.062Z",
+      "summary": "UI dbde0c5 published: open field placement, targeted eslint/prettier/diff passed; integrated typecheck/browser pending parent",
+      "nextAction": "Integrate with field-engine and withered art, verify native gestures and browser"
     },
     {
       "id": "farm-open-field",
