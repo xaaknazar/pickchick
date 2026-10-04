@@ -2425,6 +2425,17 @@
       "updatedAt": "2026-10-04T10:38:00.338Z",
       "summary": "PICK FARM implemented: native landscape UI, six crops, original generated assets, motion, PostgreSQL persistence; targeted tests and browser fixtures passed; PR172/shared927eb55",
       "nextAction": "Native device orientation/gesture acceptance and separately gated API037/runtime/grants/TestFlight rollout after CI; production flags remain off"
+    },
+    {
+      "id": "field-engine",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-field-engine",
+      "scopes": [
+        "packages/farm-game"
+      ],
+      "status": "active",
+      "head": "927eb55e951d5976f24366e4b59617e1e277695a",
+      "updatedAt": "2026-10-04T12:21:03.944Z"
     }
   ]
 }
