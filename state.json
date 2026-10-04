@@ -2565,11 +2565,12 @@
         "tests/operations/gateway_catalog.py",
         "tests/backoffice/browser_operations.py",
         "tests/mobile/app-config.test.mjs",
-        "tests/mobile/browser_demo_account.py"
+        "tests/mobile/browser_demo_account.py",
+        "@vps/roadmap"
       ],
       "status": "active",
-      "head": "465a7d56b4d7f168e8762dd247b8f653c9553371",
-      "updatedAt": "2026-10-04T15:21:31.042Z"
+      "head": "2a6d5cb4fe9af1ae108f257d7833edcae8f22d1d",
+      "updatedAt": "2026-10-04T17:52:39.965Z"
     }
   ]
 }
