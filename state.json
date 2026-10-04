@@ -2364,9 +2364,11 @@
         "services/api/package.json",
         "infra/staging/farm-grants.mjs"
       ],
-      "status": "active",
-      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
-      "updatedAt": "2026-10-04T10:09:44.123Z"
+      "status": "done",
+      "head": "39d1367a86aff1dfc9956ea64d6164f130971f79",
+      "updatedAt": "2026-10-04T10:37:56.674Z",
+      "summary": "Серверная ферма39d1367 включена в общий срез927eb55 через PR172. PostgreSQL/HTTP проверки, build, typecheck, lint и format прошли. FARM_ENABLED по умолчанию выключен. Ветка опубликована; удаленный SHA проверен.",
+      "nextAction": "Подтвердить CI, затем отдельно согласовать миграцию037 и runtime grants перед deployment; live deploy не выполнен."
     },
     {
       "id": "pick-farm-ui",
