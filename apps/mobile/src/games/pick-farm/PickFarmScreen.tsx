@@ -25,6 +25,7 @@ import { Icon, type IconName } from '../../components/UI';
 import { useFarm } from './useFarm';
 import { CropArt, Landscape, Sprite, isoPoint } from './visuals';
 import { farmPalette as p, farmStyles as s } from './styles';
+import { CropMotion, HarvestFeedback, useFarmMotion, type FarmFeedback } from './motion';
 
 type Panel = 'plot' | 'shop' | 'storage' | 'orders' | 'expand' | 'help' | null;
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
@@ -88,6 +89,10 @@ export function PickFarmScreen() {
   const { state, serverNow, loading, busy, error, retry, send } = useFarm();
   const [panel, setPanel] = useState<Panel>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const motion = useFarmMotion();
+  const [feedback, setFeedback] = useState<FarmFeedback | null>(null);
+  const feedbackId = useRef(0);
+  const clearFeedback = useCallback(() => setFeedback(null), []);
   const camera = useRef({ x: 0, y: 0, zoom: 1 });
   const gestureStart = useRef({ x: 0, y: 0, zoom: 1, distance: 0 });
   const movedAt = useRef(0);
@@ -153,7 +158,21 @@ export function PickFarmScreen() {
     return () => back.remove();
   }, [panel]);
   const act = (command: FarmCommand) => {
-    void send(command).catch(() => undefined);
+    const harvested =
+      command.type === 'harvest'
+        ? state?.plots.find((plot) => plot.id === command.plotId)?.cropId
+        : null;
+    void send(command)
+      .then((saved) => {
+        if (saved === true && harvested) {
+          feedbackId.current += 1;
+          setFeedback({
+            id: feedbackId.current,
+            text: `+${cropFor(harvested).harvestYield} урожая`,
+          });
+        }
+      })
+      .catch(() => undefined);
   };
   const top = Math.max(10, inset.top);
   const bottom = Math.max(10, inset.bottom);
@@ -207,6 +226,20 @@ export function PickFarmScreen() {
         }[panel || 'help'];
   return (
     <View style={s.screen} testID="pick-farm-screen">
+      {feedback && (
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', zIndex: 20, left: (width - 200) / 2, top: top + 60 }}
+        >
+          <HarvestFeedback
+            key={feedback.id}
+            feedback={feedback}
+            reduced={motion.reduced}
+            active={motion.active}
+            onDone={clearFeedback}
+          />
+        </View>
+      )}
       <View style={{ flex: 1 }} {...responder.panHandlers} testID="pick-farm-world">
         <Animated.View
           style={{
@@ -247,13 +280,15 @@ export function PickFarmScreen() {
                   {selected === plot.id && (
                     <View pointerEvents="none" style={[s.selection, { top: 24 }]} />
                   )}
-                  {planted ? (
-                    <View style={{ opacity: wait ? 0.65 : 1, marginBottom: 9 }}>
-                      <CropArt cropId={planted.id} size={planted.id === 'apple' ? 55 : 44} />
-                    </View>
-                  ) : (
-                    <Text style={s.emptyPlot}>+</Text>
-                  )}
+                  <CropMotion cropId={plot.cropId} ready={Boolean(planted && !wait)} {...motion}>
+                    {planted ? (
+                      <View style={{ opacity: wait ? 0.65 : 1, marginBottom: 9 }}>
+                        <CropArt cropId={planted.id} size={planted.id === 'apple' ? 55 : 44} />
+                      </View>
+                    ) : (
+                      <Text style={s.emptyPlot}>+</Text>
+                    )}
+                  </CropMotion>
                   {planted && !wait && (
                     <View style={s.ready}>
                       <Icon name="checkmark" color="#FFFFFF" size={17} />
