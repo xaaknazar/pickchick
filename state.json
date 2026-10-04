@@ -2573,6 +2573,33 @@
       "updatedAt": "2026-10-04T19:30:26.674Z",
       "summary": "Apple upload build9 succeeded, source bfc4c40 published/shared PR176. Server enabled, roadmap81d11b1 online.",
       "nextAction": "Remaining Apple processing/group verification needs browser login; physical acceptance pending. No repeat upload."
+    },
+    {
+      "id": "magic-sort",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/magic-sort",
+      "scopes": [
+        "apps/mobile/src/games/magic-sort",
+        "apps/mobile/assets/games/magic-sort",
+        "apps/mobile/src/app/games/magic-sort.tsx",
+        "apps/mobile/src/screens/GameScreens.tsx",
+        "apps/mobile/src/account-access.ts",
+        "apps/mobile/src/components/AuthWelcome.tsx",
+        "apps/mobile/src/app/auth.tsx",
+        "apps/mobile/PRODUCT.md",
+        "docs/01-technical-spec.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/design/magic-sort.md",
+        "tests/mobile/magic-sort.test.mjs",
+        "tests/mobile/browser_magic_sort.py",
+        "package.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "bfc4c40a6c65e9e57dbb7147e56a9bdbe47a5f58",
+      "updatedAt": "2026-10-04T19:30:32.132Z"
     }
   ]
 }
