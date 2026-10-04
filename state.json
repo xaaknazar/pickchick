@@ -2389,6 +2389,21 @@
       "status": "active",
       "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
       "updatedAt": "2026-10-04T10:05:13.505Z"
+    },
+    {
+      "id": "pick-farm-ui",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pick-farm-ui",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
+        "apps/mobile/src/games/pick-farm/visuals.tsx",
+        "apps/mobile/src/games/pick-farm/styles.ts",
+        "apps/mobile/assets/games/pick-farm",
+        "tests/mobile/pick-farm-ui"
+      ],
+      "status": "active",
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-04T10:05:46.782Z"
     }
   ]
 }
