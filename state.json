@@ -2506,9 +2506,11 @@
         "apps/mobile/src/games/pick-farm/DESIGN.md",
         "apps/mobile/src/games/pick-farm/.impeccable"
       ],
-      "status": "active",
-      "head": "9400b535ce963f001677ada666e5b8a8c19ee045",
-      "updatedAt": "2026-10-04T13:05:47.030Z"
+      "status": "done",
+      "head": "aa7e015cbc50604f27739be4c400ecff4953c0b6",
+      "updatedAt": "2026-10-04T13:21:18.497Z",
+      "summary": "PR174/shared aa7e015: generated painted farm, 18 plant phases, explicit tools/shop/removal/recovery; 11engine,6client,2PGHTTP,7roadmap, scopedbuild/type/lint/contracts and browser3sizes passed; independent visual findings resolved. Roadmap deployed aa7e015 and health verified; businessAPI unchanged. CI still running.",
+      "nextAction": "Physical native orientation/gesture/FPS/rendering acceptance and economy review, then separately gated API037-038 and TestFlight pilot after full green CI. Farm flags remain off."
     }
   ]
 }
