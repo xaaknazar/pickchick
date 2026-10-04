@@ -44,6 +44,29 @@ def assert_no_horizontal_overflow(page, width):
 
 
 def footer_geometry(page, width, height, previous=None):
+    if previous is None:
+        # The preview's bottom caption wraps differently in fallback and Manrope
+        # at 320px. Establish the baseline after fonts and layout settle, rather
+        # than comparing a pre-font footer with the post-picker final layout.
+        expect(visible_element(page, 'nickname-save')).to_be_visible()
+        page.evaluate('async () => { await document.fonts.ready; }')
+        page.wait_for_function("""() => {
+            const geometry = () => Array.from(document.querySelectorAll(
+                '[data-testid="nickname-save"], [data-testid="profile-fill-later"]'
+            )).filter(el => el.getClientRects().length).map(el => {
+                const rect = el.getBoundingClientRect();
+                return [rect.x, rect.y, rect.width, rect.height];
+            });
+            return new Promise(resolve => {
+                const first = JSON.stringify(geometry());
+                requestAnimationFrame(() => {
+                    const second = JSON.stringify(geometry());
+                    requestAnimationFrame(() => resolve(
+                        first !== '[]' && first === second && second === JSON.stringify(geometry())
+                    ));
+                });
+            });
+        }""")
     result = {}
     for identifier in ['nickname-save', 'profile-fill-later']:
         control = visible_element(page, identifier)

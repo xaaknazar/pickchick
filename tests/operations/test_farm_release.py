@@ -31,6 +31,71 @@ class FarmRelease(unittest.TestCase):
             bad = copy.copy(args); setattr(bad,field,'0'*len(getattr(args,field)))
             with self.assertRaises(r.market.GuardFailure): r.Release(bad)
 
+    def test_schema38_baseline_has_no_pending_migrations(self):
+        args = SimpleNamespace(expected_api_sha=r.BASELINE,expected_public_sha=r.PUBLIC_BASELINE,expected_gateway_sha256=r.GATEWAY_BASELINE,baseline_schema=38)
+        with patch.object(r.market.Release,'__init__') as init: r.Release(args)
+        self.assertEqual(init.call_args.args[2].baseline_count,38)
+        self.assertEqual(init.call_args.args[2].migrations,())
+
+    def test_availability_only_accepts_paired_monotonic_heartbeat(self):
+        old = [{'branch_id':'branch','device_id':'device','revision':10,'stopped_ids':['stop'],'observed_at':'2026-10-04T15:00:00+00:00'}]
+        r.verify_availability(old,copy.deepcopy(old))
+        good = copy.deepcopy(old); good[0].update(revision=11,observed_at='2026-10-04T15:00:01+00:00')
+        r.verify_availability(old,good)
+        cases = [[],good+[{**good[0],'branch_id':'other'}]]
+        for field,value in [('device_id','foreign'),('stopped_ids',[]),('revision',9),('observed_at','2026-10-04T14:59:59+00:00'),('extra','mutation')]:
+            bad = copy.deepcopy(good); bad[0][field] = value; cases.append(bad)
+        unpaired = copy.deepcopy(old); unpaired[0]['revision']=11; cases.append(unpaired)
+        for bad in cases:
+            with self.assertRaises(r.market.GuardFailure): r.verify_availability(old,bad)
+
+    def test_runtime_snapshot_preserves_backup_hash_and_other_mutation_guards(self):
+        obj = object.__new__(r.Release)
+        seen = []
+        obj.snapshot = lambda *args: seen.append(copy.deepcopy(obj.additions)) or {'tables':{},'sequences':[]}
+        obj.runtime_snapshot(); obj.snapshot()
+        self.assertEqual(seen[0]['cloud_branch_availability'],['revision','observed_at'])
+        self.assertNotIn('cloud_branch_availability',seen[1])
+        obj.availability_rows = lambda:[]
+        obj.runtime_snapshot = lambda:{'tables':{'orders':{'rows':1,'sha256':'changed'}},'sequences':[]}
+        before = {'availability':[],'runtime_data':{'tables':{'orders':{'rows':1,'sha256':'old'}},'sequences':[]}}
+        with self.assertRaises(r.market.GuardFailure):obj.compare_runtime(before)
+
+    def test_schema38_runtime_existing_empty_tables_are_not_new_again(self):
+        obj = object.__new__(r.Release)
+        snapshot = {'tables':{name:{'rows':0,'sha256':'empty'} for name in r.NEW_TABLES},'sequences':[]}
+        obj.runtime_snapshot=lambda:copy.deepcopy(snapshot)
+        obj.availability_rows=lambda:[]
+        obj.compare_runtime({'availability':[],'runtime_data':snapshot})
+
+    def test_schema38_runs_parent_source_guards_against_only_original033(self):
+        obj = object.__new__(r.Release); obj.sha='a'*40; obj.baseline_schema=38
+        obj.args=SimpleNamespace(branch='codex/farm-testflight')
+        obj.profile=r.market.ReleaseProfile('farm',r.BASELINE,r.PUBLIC_BASELINE,38,(),r.CI_JOBS,frozenset(),'farm-pilot-release',(),exact_ci_jobs=True)
+        original_profile=obj.profile
+        files=sorted(path.name for path in (ROOT/'db/cloud/migrations').glob('*.sql'))
+        original=[name for name in files if int(name[:3])<=33]
+        shows=[]
+        def git(*args):
+            if args[0]=='rev-parse':return obj.sha
+            if args[0]=='status':return ''
+            if args[0]=='ls-remote':return obj.sha+' refs/heads/codex/farm-testflight'
+            if args[0]=='ls-tree':return '\n'.join('db/cloud/migrations/'+name for name in original)
+            raise AssertionError(args)
+        def execute(args):
+            if args[0]=='node':return r.FARM_GRANTS.encode()
+            self.assertEqual(args[:2],['git','show'])
+            name=args[2].split('/')[-1]
+            self.assertIn(name,original,'Migration missing in old API tree')
+            shows.append(name)
+            return (ROOT/'db/cloud/migrations'/name).read_bytes()
+        obj.git=git; obj.execute=execute
+        obj.source_checks()
+        self.assertEqual(shows,original)
+        self.assertIs(obj.profile,original_profile)
+        self.assertEqual(obj.baseline_schema,38)
+        self.assertEqual(obj.baseline_migrations(),files)
+
     def test_compose_changes_only_api_farm_flag_and_preserves_owner_service(self):
         text = 'name: staging\nservices:\n  api:\n    env_file: [/protected/auth, /protected/checkout]\n    environment:\n      CUSTOMER_AUTH_ENABLED: "true"\n      APP_ENV: staging\n      BACKOFFICE_ENABLED: "true"\n  provision:\n    environment:\n      APP_ENV: staging\n'
         with patch.object(r,'COMPOSE_BASELINE',r.digest(text.encode())):
@@ -180,7 +245,7 @@ class FarmRelease(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             obj = object.__new__(r.Release); obj.private = Path(directory); obj.sha = 'a'*40
             key = obj.private/'key'; key.write_text('synthetic'); key.chmod(0o600)
-            obj.args = SimpleNamespace(backup_identity=key); obj.lock_owner = {'id':'owner'}
+            obj.baseline_schema=33; obj.args = SimpleNamespace(backup_identity=key); obj.lock_owner = {'id':'owner'}
             proof = {'sha':obj.sha,'old_api':r.BASELINE,'old_web':r.PUBLIC_BASELINE,'public_manifest':{'files':{}},'artifacts':{},'rollback_files':{},'baseline_environment':{},'image_id':'image','gateway_sha256':'gateway'}
             (obj.private/'prepared.json').write_text(json.dumps(proof))
             calls = []; checks = []; saved = {}
@@ -196,6 +261,7 @@ class FarmRelease(unittest.TestCase):
             for name in ['source_checks','ci','runtime_old','quiescent']: setattr(obj,name,lambda:None)
             obj.prepared_artifacts = lambda m:{}; obj.rollback_artifacts = lambda:{}; obj.runtime_environment = lambda:{}
             obj.verify_environment = lambda before:checks.append('environment'); obj.verify_capabilities = lambda caps:None
+            obj.runtime_snapshot=lambda:{}; obj.availability_rows=lambda:[]
             obj.cleanup = lambda action:checks.append('cleanup:'+action); obj.snapshot = lambda:{}; obj.ledger = lambda:[]; obj.acl = lambda:[]
             obj.worker_acl = lambda:[]; obj.fingerprint = lambda:{'worker':'unchanged'}; obj.baseline_migrations = lambda:[]
             obj.backup_restore = lambda before:checks.append('backup') or {'restore':'passed'}

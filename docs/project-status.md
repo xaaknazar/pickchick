@@ -1,10 +1,21 @@
-## 4 октября: подготовка PICK FARM в TestFlight
+## 4 октября: PICK FARM - сборка 9 и восстановленный сервер
 
-Владелец поручил выпустить первую версию и проверить на телефоне. Подготовлены
-0.2.0 (9), отдельный farm-pilot профиль и внешний read-only native smoke.
-25 release-helper тестов и Expo config прошли; подпись и native workspace
-проверены. Archive и export из593ce95 прошли. Подготовлен guarded API033-038
-с14 проверками; upload, серверное включение и физическая приёмка ещё не подтверждены. [Доставка и продолжение](operations/mobile-testflight.md).
+Archive/export 0.2.0 (9) из 465a7d5 готовы, farm-pilot сохраняет реальные вход/Kaspi.
+Полная CI 37210373987 прошла 11/11 после одного повтора webfont-race теста.
+Native Release guest-gate: 1 pass, 0 fail, 0 skip; физическая ферма пока не принята.
+Apple upload остановлен: Xcode не нашёл аккаунт с доступом к команде PickChick;
+владельцу отправлен запрос входа в Xcode. Сборка в TestFlight ещё не загружена.
+
+Первая установка API остановилась после миграций 034-038 на проверке неизменности
+cloud_branch_availability: при репетиции прежнего API касса по внутреннему туннелю
+обновила только revision/observed_at. Backup и изолированное восстановление прошли.
+Сверка backup/current подтвердила прежние branch/device/stop IDs; все остальные
+таблицы и последовательности сохранены. Выполнен явный rollback владельца:
+API e236824, public 9bb92b9, прежние ACL восстановлены, schema 038 и актуальный стоп-лист
+оставлены, maintenance/deployment locks сняты. Auth HTTP200, readiness true.
+Ферма пока выключена. Готовится исправленный выпуск с учётом retained schema 038
+и отдельно проверяемого heartbeat; новый релиз требует своей зелёной CI.
+[Доставка и продолжение](operations/mobile-testflight.md).
 
 ## 4 октября: PICK FARM - экономика и автоматическая продажа
 

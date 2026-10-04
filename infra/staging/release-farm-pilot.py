@@ -6,6 +6,8 @@ No automatic rollback, destructive migration reversal or live-dump restore. Any
 failure retains owned maintenance and locks for inspection and explicit rollback.
 """
 import argparse
+from datetime import datetime
+from dataclasses import replace
 import importlib.util
 import json
 from pathlib import Path
@@ -100,6 +102,23 @@ def verify_farm_acl(before, after):
     require(sorted(map(key,after)) == sorted(map(key,wanted)), 'Runtime ACL differs from exact farm-only delta')
 
 
+def verify_availability(before, after):
+    def keyed(rows):
+        require(all(set(row) == {'branch_id','device_id','revision','stopped_ids','observed_at'} for row in rows), 'Availability columns changed')
+        result = {row['branch_id']:row for row in rows}
+        require(len(result) == len(rows), 'Duplicate availability branch')
+        return result
+    old, new = keyed(before), keyed(after)
+    require(old.keys() == new.keys(), 'Availability rows changed')
+    for branch, row in old.items():
+        current = new[branch]
+        require(all(current[key] == row[key] for key in ['branch_id','device_id','stopped_ids']), 'Availability binding or stops changed')
+        revision, prior = int(current['revision']), int(row['revision'])
+        stamp, earlier = datetime.fromisoformat(current['observed_at']), datetime.fromisoformat(row['observed_at'])
+        require(revision >= prior and stamp >= earlier, 'Availability heartbeat regressed')
+        require((revision == prior and stamp == earlier) or (revision > prior and stamp > earlier), 'Availability heartbeat pair inconsistent')
+
+
 def release_env_program():
     # The inherited historical generator used literal backslash-n delimiters.
     return r'''from pathlib import Path
@@ -136,12 +155,45 @@ class Release(director.Release):
     def __init__(self, args):
         require((args.expected_api_sha,args.expected_public_sha,args.expected_gateway_sha256) ==
                 (BASELINE,PUBLIC_BASELINE,GATEWAY_BASELINE), 'Unreviewed farm pilot baseline')
-        profile = market.ReleaseProfile('farm-pilot-schema033-038', BASELINE, PUBLIC_BASELINE, 33,
-            tuple(MIGRATION_HASHES), CI_JOBS, frozenset(), 'farm-pilot-release', (), exact_ci_jobs=True)
+        self.baseline_schema = getattr(args,'baseline_schema',33)
+        require(self.baseline_schema in [33,38], 'Unreviewed baseline schema')
+        profile = market.ReleaseProfile('farm-pilot-schema033-038', BASELINE, PUBLIC_BASELINE, self.baseline_schema,
+            tuple(MIGRATION_HASHES) if self.baseline_schema == 33 else (), CI_JOBS, frozenset(), 'farm-pilot-release', (), exact_ci_jobs=True)
         market.Release.__init__(self,args,profile)
 
+    def baseline_migrations(self):
+        paths = self.git('ls-tree','-r','--name-only',BASELINE,'--','db/cloud/migrations/').splitlines()
+        names = sorted(Path(path).name for path in paths if path.endswith('.sql'))
+        require(len(names) == 33 and all(name.startswith(f'{index:03d}_') for index,name in enumerate(names,1)), 'Unexpected API baseline migrations')
+        return names + (list(MIGRATION_HASHES) if self.baseline_schema == 38 else [])
+
+    def availability_rows(self):
+        return json.loads(self.psql(market.DB,"SELECT coalesce(json_agg(to_jsonb(t) ORDER BY branch_id),'[]') FROM cloud_branch_availability t"))
+
+    def runtime_snapshot(self):
+        # Backup/restore always uses the unmodified full snapshot method.
+        original = self.additions
+        self.additions = {**original,'cloud_branch_availability':['revision','observed_at']}
+        try: return self.snapshot()
+        finally: self.additions = original
+
+    def compare_runtime(self, before):
+        if 'runtime_data' not in before:
+            # Legacy retained evidence never gets a silent relaxed comparison.
+            market.compare_existing(before['data'],self.snapshot(),additions=True,new_tables=NEW_TABLES)
+            return
+        verify_availability(before['availability'],self.availability_rows())
+        market.compare_existing(before['runtime_data'],self.runtime_snapshot(),additions=True,
+            new_tables=NEW_TABLES-set(before['runtime_data']['tables']))
+
     def source_checks(self):
-        market.Release.source_checks(self)
+        # Parent source guards compare migrations against the old API tree,
+        # which contains only033 even when the retained runtime ledger is038.
+        original_profile, original_schema = self.profile, self.baseline_schema
+        self.profile = replace(original_profile,baseline_count=33,migrations=tuple(MIGRATION_HASHES))
+        self.baseline_schema = 33
+        try: market.Release.source_checks(self)
+        finally: self.profile, self.baseline_schema = original_profile, original_schema
         require(all(digest((market.REPO/'db/cloud/migrations'/name).read_bytes()) == checksum
                     for name,checksum in MIGRATION_HASHES.items()), 'Unreviewed prerequisite or farm migration')
         program = "import {farmGrants} from './infra/staging/farm-grants.mjs';process.stdout.write(farmGrants('pickchick_app',true))"
@@ -156,7 +208,15 @@ class Release(director.Release):
         require(self.remote('docker exec '+market.GATEWAY+' sha256sum /etc/caddy/Caddyfile').split()[0] == GATEWAY_BASELINE,
                 'Mounted gateway baseline changed')
         require(list(self.file_hashes([REMOTE+'/releases/'+BASELINE+'/infra/staging/compose.yaml']).values()) == [COMPOSE_BASELINE], 'Installed API compose changed')
-        require([row['version'] for row in self.ledger()] == self.baseline_migrations(), 'Schema033 baseline differs')
+        expected = [{'version':name,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/name).read_bytes())} for name in self.baseline_migrations()]
+        require(self.ledger() == expected, 'Reviewed baseline ledger differs')
+        if self.baseline_schema == 38:
+            require(all(self.psql(market.DB,'SELECT count(*) FROM '+name) == '0' for name in sorted(NEW_TABLES)), 'Retained prerequisite tables are not empty')
+            evidence = getattr(self.args,'retained_baseline_evidence',None)
+            require(evidence and evidence.is_file() and not evidence.is_symlink() and evidence.stat().st_mode & 0o077 == 0, 'Protected original schema033 evidence required')
+            original = json.loads(evidence.read_text())
+            require(original['ledger'] == expected[:-len(MIGRATION_HASHES)], 'Retained baseline evidence ledger differs')
+            require(self.acl() == original['acl'] and self.worker_acl() == original['worker_acl'], 'Retained baseline ACL was not restored exactly')
         self.kitchen_before = self.http_json('/kitchen-live/health')
 
     def runtime_environment(self):
@@ -184,9 +244,9 @@ print(json.dumps(result,sort_keys=True))'''
         return artifacts
 
     def verify_data(self, before):
-        expected = before['ledger'] + [{'version':name,'scope':'cloud','checksum':checksum} for name,checksum in MIGRATION_HASHES.items()]
+        expected = before['ledger'] + [{'version':name,'scope':'cloud','checksum':checksum} for name,checksum in MIGRATION_HASHES.items() if name not in {row['version'] for row in before['ledger']}]
         require(self.ledger() == expected, 'Unexpected migration delta')
-        market.compare_existing(before['data'],self.snapshot(),additions=True,new_tables=NEW_TABLES)
+        self.compare_runtime(before)
         require(self.psql(market.DB,'SELECT count(*) FROM branches WHERE menu_publication_lock_anchor IS DISTINCT FROM false') == '0', 'New branch anchor mutated existing data')
         verify_farm_acl(before['acl'],self.acl())
         require(self.worker_acl() == before['worker_acl'], 'Bank worker permissions changed')
@@ -242,6 +302,7 @@ print(json.dumps(result,sort_keys=True))'''
         prepared = {'sha':self.sha,'old_web':PUBLIC_BASELINE,'old_api':BASELINE,'image_id':image,'public_manifest':manifest,
             'gateway_sha256':digest(gateway.encode()),'rollback_files':rollback,
             'baseline_capabilities':self.http_json('/v1/capabilities',public=False),'baseline_auth':self.http_json('/v1/auth/config'),
+            'baseline_schema':self.baseline_schema,
             'baseline_hours':self.http_json('/v1/customer-checkout/availability').get('hours'), 'baseline_environment':self.runtime_environment()}
         prepared['artifacts'] = self.prepared_artifacts(manifest)
         require(prepared['artifacts']['image_id'] == image and self.rollback_artifacts() == rollback, 'Preparation drift')
@@ -252,6 +313,7 @@ print(json.dumps(result,sort_keys=True))'''
         self.source_checks(); self.ci(); self.runtime_old()
         proof = json.loads((self.private/'prepared.json').read_text())
         require((proof['sha'],proof['old_api'],proof['old_web']) == (self.sha,BASELINE,PUBLIC_BASELINE), 'Wrong preparation')
+        require(proof.get('baseline_schema',33) == self.baseline_schema, 'Prepared baseline schema differs')
         require(self.prepared_artifacts(proof['public_manifest']) == proof['artifacts'] and
                 self.rollback_artifacts() == proof['rollback_files'], 'Prepared or rollback artifacts changed')
         key = self.args.backup_identity
@@ -267,7 +329,7 @@ print(json.dumps(result,sort_keys=True))'''
         self.remote(market.api_compose(BASELINE)+' stop --timeout 30 api',timeout=60)
         require(self.psql(market.DB,"SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND (usename='pickchick_app' OR xact_start IS NOT NULL)") == '0', 'Competing database writer')
         self.quiescent()
-        before = {'data':self.snapshot(),'ledger':self.ledger(),'acl':self.acl(),'worker_acl':self.worker_acl(),'neighbors':self.fingerprint()}
+        before = {'data':self.snapshot(),'runtime_data':self.runtime_snapshot(),'availability':self.availability_rows(),'ledger':self.ledger(),'acl':self.acl(),'worker_acl':self.worker_acl(),'neighbors':self.fingerprint()}
         expected = [{'version':name,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/name).read_bytes())} for name in self.baseline_migrations()]
         require(before['ledger'] == expected, 'Baseline migration ledger differs')
         self.save('before.json',before)
@@ -370,7 +432,7 @@ os.unlink(path+'/owner.json');os.rmdir(path)
         require(self.http('/v1/test/orders',method='POST')[0] == 503, 'Rollback requires retained maintenance')
         self.remote(market.api_compose(self.sha)+' stop --timeout 30 api',timeout=60)
         self.quiescent()
-        market.compare_existing(before['data'],self.snapshot(),additions=True,new_tables=NEW_TABLES)
+        self.compare_runtime(before)
         require(self.worker_acl() == before['worker_acl'] and self.fingerprint() == before['neighbors'], 'Worker or neighbor changed')
         self.psql(market.DB,market.acl_restore_sql(before['acl'],self.acl()))
         require(self.acl() == before['acl'], 'Old ACL not restored exactly')
@@ -401,6 +463,8 @@ def main():
     parser.add_argument('--backup-identity',type=Path)
     parser.add_argument('--ci-proof',type=Path)
     parser.add_argument('--ci-run')
+    parser.add_argument('--retained-baseline-evidence',type=Path,help='Protected original schema033 before.json; required for schema38 baseline')
+    parser.add_argument('--baseline-schema',type=int,choices=[33,38],default=33)
     parser.add_argument('--owner-id',help='Original retained apply owner UUID; rollback only')
     args = parser.parse_args(); release = Release(args)
     try:

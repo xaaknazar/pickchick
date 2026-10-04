@@ -154,9 +154,9 @@ HTTP в браузере подставной, реальные API отдель
 подготовлен infra/staging/release-farm-pilot.py: prepare, apply и явный rollback.
 Он требует точной зелёной CI, закреплённых baseline API/public/gateway, резервной
 копии с проверкой восстановления и владельца deployment/maintenance lock.
-Миграции034-038 применяются последовательно; runtime получает только farm grants.
+Миграции 034-038 применяются последовательно; runtime получает только farm grants.
 Публичные файлы, банковский worker, Telegram/Kaspi и остальные feature flags
-сохраняются. Старый API проверяется на сохранённой schema038 до открытия входа.
+сохраняются. Старый API проверяется на сохранённой schema 038 до открытия входа.
 
 При ошибке не запускать повторный apply и не удалять locks. Сначала прочитать
 приватные phase.json/failure-context.json и record-error: неизвестный исход SSH
@@ -171,3 +171,20 @@ preflight matcher. Pinned Caddy runtime/HTTP ограничения и все145
 тестов прошли. Повторявшаяся ошибка CDP Response.json в backoffice test устранена
 чтением реального upstream до передачи браузеру; assertions тела и UI сохранены.
 Изолированная PostgreSQL/browser проверка:16 разделов,3 размера, errors[].
+
+### Результат первой установки 4 октября
+
+Сборка 465a7d5 прошла CI 37210373987:11/11. Archive/export 0.2.0 (9) готовы;
+Apple upload не прошёл: Failed to Use Accounts для команды DAJTP6MC3Q.
+Нужен вход владельца в Xcode; это не ошибка подписи или архива.
+
+Миграции 034-038 применены после encrypted backup и успешной restore rehearsal.
+При old-image rehearsal внутренний edge tunnel обходит публичный maintenance
+и штатно обновляет cloud_branch_availability. Строгий общий snapshot остановил
+apply; кандидат API и новые farm-маршруты не были открыты пользователям.
+Сверка единственной строки из резервной копии подтвердила неизменность ключей,
+device и stopped_ids, увеличение только revision/observed_at. Остальные таблицы
+и sequences совпали. Явный rollback с этой проверенной узкой поправкой восстановил
+прежний API/public/ACL, сохранил схему 038 и актуальную доступность, снял свои блокировки.
+Публичный auth HTTP 200 и private readiness true подтверждены. Live dump не восстанавливался.
+Следующая попытка требует baseline 038 и отдельной проверки heartbeat, полной CI.

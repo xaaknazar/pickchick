@@ -1,15 +1,25 @@
-## 4 октября: PICK FARM TestFlight - подготовка
+## 4 октября: PICK FARM TestFlight - сборка готова, выпуск не завершён
 
-Ветка codex/farm-testflight от shared9bb92b9. Владелец разрешил первый pilot.
-Build9 и farm-pilot включают ферму поверх прежних customer-pilot флагов.
-Подготовлен отдельный read-only native XCTest. 25 release-helper тестов и
-resolved config прошли. Archive/export593ce95 прошли; native Release guest XCTest
-1passed/0failed/0skipped. Поле под аккаунтом и физическая приёмка не проверены.
-Guarded API helper14 тестов; первыйCI остановлен legacy gatewayfixture и
-flaky Playwright responsebody в backoffice. Финальная CI/загрузка ожидаются.
-Mac был заблокирован, оба iPhone unavailable, ASC сессия истекла: вопросы
-владельцу отправлены. Сервер требует guarded033->038, FARM_ENABLED и farm routes;
-действующие политики Kaspi/Telegram и коммерческие feature flags сохраняются.
+[PR 176](https://github.com/xaaknazar/pickchick/pull/176), ветка `codex/farm-testflight`.
+IPA 0.2.0 (9) из `465a7d5`; [CI 37210373987](https://github.com/xaaknazar/pickchick/actions/runs/37210373987)
+прошла 11/11. Нативная проверка гостевого входа прошла; игровой цикл на телефоне
+ещё не принят. Apple upload остановлен с `Failed to Use Accounts`: нужен доступ
+к App Store Connect в Xcode. Запрос владельцу отправлен. Mac заблокирован,
+оба iPhone недоступны, браузерная сессия Apple истекла.
+
+Подготовка API из `465a7d5` прошла. Установка применила миграции 034-038, но
+остановилась на проверке данных: при репетиции прежнего API внутренний туннель
+кассы обновил `cloud_branch_availability`. Подтверждены прежние branch/device/stops
+и монотонные revision/observed_at; остальные таблицы и последовательности совпали.
+Явный откат восстановил API `e236824`, public `9bb92b9` и прежние ACL. Схема 038
+и актуальный стоп-лист сохранены; ферма выключена. Auth вернул HTTP 200,
+readiness true; блокировки освобождены. Живая БД из дампа не восстанавливалась.
+Приватные доказательства: `.local/farm-pilot-release/465a7d56b4d7f168e8762dd247b8f653c9553371/`.
+
+Следующий выпуск должен учитывать сохранённую схему 038 и проверять heartbeat
+отдельно от остальных данных. Исправленный helper требует новой зелёной CI.
+Нативный код не меняется относительно `465a7d5`: пересборка IPA из-за исправления
+скрипта выпуска и веб-теста не требуется.
 
 ## 4 октября: PICK FARM - экономика
 
