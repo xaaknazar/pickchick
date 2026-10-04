@@ -2563,11 +2563,12 @@
         "tests/operations/test_kaspi_checkout_release.py",
         "tests/operations/fixtures/kaspi-checkout-content-gateway.Caddyfile",
         "tests/operations/gateway_catalog.py",
-        "tests/backoffice/browser_operations.py"
+        "tests/backoffice/browser_operations.py",
+        "tests/mobile/app-config.test.mjs"
       ],
       "status": "active",
-      "head": "28c43c572e59d4ab8b56b832c021f32aa655d0e8",
-      "updatedAt": "2026-10-04T14:19:03.201Z"
+      "head": "9b8498b1c21dd5a1804971dbb831d97004423fa3",
+      "updatedAt": "2026-10-04T14:43:25.361Z"
     }
   ]
 }
