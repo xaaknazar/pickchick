@@ -2511,6 +2511,27 @@
       "updatedAt": "2026-10-04T13:21:18.497Z",
       "summary": "PR174/shared aa7e015: generated painted farm, 18 plant phases, explicit tools/shop/removal/recovery; 11engine,6client,2PGHTTP,7roadmap, scopedbuild/type/lint/contracts and browser3sizes passed; independent visual findings resolved. Roadmap deployed aa7e015 and health verified; businessAPI unchanged. CI still running.",
       "nextAction": "Physical native orientation/gesture/FPS/rendering acceptance and economy review, then separately gated API037-038 and TestFlight pilot after full green CI. Farm flags remain off."
+    },
+    {
+      "id": "farm-economy",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-economy",
+      "scopes": [
+        "packages/farm-game",
+        "packages/farm-persistence/tests",
+        "apps/mobile/src/games/pick-farm",
+        "tests/mobile/browser_pick_farm.py",
+        "tests/mobile/pick-farm-client.test.mjs",
+        "packages/contracts/openapi.json",
+        "docs/design/pick-farm-gameplay.md",
+        "docs/operations/pick-farm.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "aa7e015cbc50604f27739be4c400ecff4953c0b6",
+      "updatedAt": "2026-10-04T13:25:09.689Z"
     }
   ]
 }
