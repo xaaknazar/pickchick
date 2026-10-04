@@ -2562,11 +2562,12 @@
         "tests/mobile/ios/FarmSmokeTests.swift",
         "tests/operations/test_kaspi_checkout_release.py",
         "tests/operations/fixtures/kaspi-checkout-content-gateway.Caddyfile",
-        "tests/operations/gateway_catalog.py"
+        "tests/operations/gateway_catalog.py",
+        "tests/backoffice/browser_operations.py"
       ],
       "status": "active",
-      "head": "511f7a2db3c5863142c16eee21059706a51aae78",
-      "updatedAt": "2026-10-04T14:07:11.330Z"
+      "head": "28c43c572e59d4ab8b56b832c021f32aa655d0e8",
+      "updatedAt": "2026-10-04T14:19:03.201Z"
     }
   ]
 }
