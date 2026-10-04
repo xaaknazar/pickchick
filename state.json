@@ -2438,6 +2438,20 @@
       "updatedAt": "2026-10-04T12:21:03.944Z"
     },
     {
+      "id": "field-ui",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-field-ui",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
+        "apps/mobile/src/games/pick-farm/styles.ts",
+        "apps/mobile/src/games/pick-farm/visuals.tsx",
+        "apps/mobile/src/games/pick-farm/motion.tsx"
+      ],
+      "status": "active",
+      "head": "927eb55e951d5976f24366e4b59617e1e277695a",
+      "updatedAt": "2026-10-04T12:21:38.630Z"
+    },
+    {
       "id": "farm-open-field",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/farm-open-field",
@@ -2455,25 +2469,14 @@
         "docs/01-technical-spec.md",
         "apps/mobile/PRODUCT.md",
         "packages/contracts/openapi.json",
-        "scripts/contracts.mjs"
+        "scripts/contracts.mjs",
+        "db/cloud/migrations/038_cloud_farm_field_capacity.sql",
+        "tests/operations/test_server_pilot_release.py",
+        "tests/operations/test_auth_four_digit_release.py"
       ],
       "status": "active",
       "head": "927eb55e951d5976f24366e4b59617e1e277695a",
-      "updatedAt": "2026-10-04T12:21:14.552Z"
-    },
-    {
-      "id": "field-ui",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/farm-field-ui",
-      "scopes": [
-        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
-        "apps/mobile/src/games/pick-farm/styles.ts",
-        "apps/mobile/src/games/pick-farm/visuals.tsx",
-        "apps/mobile/src/games/pick-farm/motion.tsx"
-      ],
-      "status": "active",
-      "head": "927eb55e951d5976f24366e4b59617e1e277695a",
-      "updatedAt": "2026-10-04T12:21:38.630Z"
+      "updatedAt": "2026-10-04T12:22:48.504Z"
     }
   ]
 }
