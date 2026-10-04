@@ -2460,6 +2460,20 @@
       "status": "active",
       "head": "927eb55e951d5976f24366e4b59617e1e277695a",
       "updatedAt": "2026-10-04T12:21:14.552Z"
+    },
+    {
+      "id": "field-ui",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-field-ui",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
+        "apps/mobile/src/games/pick-farm/styles.ts",
+        "apps/mobile/src/games/pick-farm/visuals.tsx",
+        "apps/mobile/src/games/pick-farm/motion.tsx"
+      ],
+      "status": "active",
+      "head": "927eb55e951d5976f24366e4b59617e1e277695a",
+      "updatedAt": "2026-10-04T12:21:38.630Z"
     }
   ]
 }
