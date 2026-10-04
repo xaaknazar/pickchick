@@ -2366,6 +2366,22 @@
       "updatedAt": "2026-10-04T10:05:46.782Z"
     },
     {
+      "id": "pick-farm-server",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pick-farm-server",
+      "scopes": [
+        "packages/farm-persistence",
+        "db/cloud/migrations/037_cloud_farm.sql",
+        "services/api/src/farm-controller.ts",
+        "services/api/src/index.ts",
+        "services/api/package.json",
+        "infra/staging/farm-grants.mjs"
+      ],
+      "status": "active",
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-04T10:09:44.123Z"
+    },
+    {
       "id": "pick-farm",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/pick-farm",
@@ -2389,27 +2405,13 @@
         "apps/mobile/src/components/AccountGate.tsx",
         "apps/mobile/PRODUCT.md",
         "tests/mobile/pick-farm-client.test.mjs",
-        "scripts/contracts.mjs"
+        "scripts/contracts.mjs",
+        "package.json",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
-      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
-      "updatedAt": "2026-10-04T10:06:33.984Z"
-    },
-    {
-      "id": "pick-farm-server",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/pick-farm-server",
-      "scopes": [
-        "packages/farm-persistence",
-        "db/cloud/migrations/037_cloud_farm.sql",
-        "services/api/src/farm-controller.ts",
-        "services/api/src/index.ts",
-        "services/api/package.json",
-        "infra/staging/farm-grants.mjs"
-      ],
-      "status": "active",
-      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
-      "updatedAt": "2026-10-04T10:09:44.123Z"
+      "head": "b804ab2a67b06d71c55379eaa231224ee257f220",
+      "updatedAt": "2026-10-04T10:16:05.208Z"
     }
   ]
 }
