@@ -2338,6 +2338,31 @@
       "updatedAt": "2026-10-03T20:33:23.908Z",
       "summary": "PR171, shared 3fabe7c: единый каталог с ACK кассы, отдельный гостевой kiosk checkout, серверная цена/стопы, Kaspi recovery и kitchen channel. Локально build/typecheck/lint/format/contracts/design; 82 commerce PG, 4 menu PG, 2 edge PG, 192 unit/kiosk, 42 payment unit, 109 release guards, 7 roadmap прошли. Roadmap source3fabe7c опубликован и соседние бизнес-сервисы сохранены. GitHub combined CI status недоступен403, полная CI не подтверждена; коммерческие флаги выключены.",
       "nextAction": "Следующий этап: подтвердить CI, подготовить guarded cloud034-036/edge017 release, runtime grants/gateway routes и native enrollment iPad; затем физический контрольный заказ и приемка. Webkassa, POS-терминал и автономная точка остаются отдельными зависимостями."
+    },
+    {
+      "id": "pick-farm",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pick-farm",
+      "scopes": [
+        "apps/mobile/src/app",
+        "apps/mobile/src/screens/GameScreens.tsx",
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/games/pick-farm/api.ts",
+        "apps/mobile/src/games/pick-farm/useFarm.ts",
+        "apps/mobile/src/games/pick-farm/useFarmOrientation.ts",
+        "apps/mobile/app.config.ts",
+        "apps/mobile/package.json",
+        "pnpm-lock.yaml",
+        "packages/contracts/openapi.json",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/01-technical-spec.md",
+        "docs/operations/pick-farm.md"
+      ],
+      "status": "active",
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-04T10:04:03.167Z"
     }
   ]
 }
