@@ -96,6 +96,22 @@ class FarmRelease(unittest.TestCase):
         self.assertEqual(obj.baseline_schema,38)
         self.assertEqual(obj.baseline_migrations(),files)
 
+    def test_public_gateway_permissions_and_restricted_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for public, expected in [(False,0o600),(True,0o644)]:
+                path = Path(directory)/('gateway.Caddyfile' if public else 'compose.yaml')
+                subprocess.run([sys.executable,'-c',r.file_writer_program(public_gateway=public),str(path)],input=b'content',check=True)
+                self.assertEqual(path.read_bytes(),b'content')
+                self.assertEqual(path.stat().st_mode & 0o777,expected)
+        command = r.gateway_validation_command('/protected/release/gateway.Caddyfile')
+        self.assertIn('--network none --read-only --cap-drop ALL --cap-add NET_BIND_SERVICE',command)
+        self.assertIn('--security-opt no-new-privileges:true --tmpfs /tmp --tmpfs /config --tmpfs /data',command)
+        self.assertIn('/protected/release/gateway.Caddyfile:/tmp/Caddyfile:ro',command)
+        self.assertIn(r.transport.CADDY+' validate --config /tmp/Caddyfile --adapter caddyfile',command)
+        source = (ROOT/'infra/staging/release-farm-pilot.py').read_text()
+        self.assertIn("quote(file_writer_program(public_gateway=True))+' '+quote(new+'/gateway.Caddyfile')",source)
+        self.assertIn("self.remote(gateway_validation_command(new+'/gateway.Caddyfile'))",source)
+
     def test_compose_changes_only_api_farm_flag_and_preserves_owner_service(self):
         text = 'name: staging\nservices:\n  api:\n    env_file: [/protected/auth, /protected/checkout]\n    environment:\n      CUSTOMER_AUTH_ENABLED: "true"\n      APP_ENV: staging\n      BACKOFFICE_ENABLED: "true"\n  provision:\n    environment:\n      APP_ENV: staging\n'
         with patch.object(r,'COMPOSE_BASELINE',r.digest(text.encode())):

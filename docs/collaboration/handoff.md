@@ -1,3 +1,20 @@
+## 4 октября: сервер PICK FARM установлен
+
+API/public pointers: `2a6d5cb4fe9af1ae108f257d7833edcae8f22d1d`, schema 038,
+FARM_ENABLED=1. CI 37214694594: 11/11. Публичные файлы/manifest сохранили исходное
+происхождение e236824; маршруты фермы включены, анонимные запросы дают 401.
+Auth/Kaspi/worker/кухня сохранены. Owned locks сняты. При открытии шлюза исправлен
+режим его публичного Caddyfile на 0644; содержимое соответствует prepared hash.
+Защищённые before/prepared/backup/result.json в .local/farm-pilot-release/2a6d5cb.../.
+Helper получил постоянный mode/validator fix (151 operations pass); после этого
+API не развёртывался. Следующие релизы обязаны начинаться от фактического 2a6d5cb,
+не от старого e236824 или schema033. Не повторять apply завершённого выпуска.
+
+Нативный IPA 0.2.0 (9) из465a7d5 готов и не менялся. Командная Apple-загрузка
+не получает App Store Connect account; Xcode видит аккаунт, проверяется ручная
+отправка через Organizer. Физическая приёмка и доступность в TestFlight пока
+не подтверждены. Старые записи ниже описывают историю восстановления.
+
 ## 4 октября: PICK FARM TestFlight - сборка готова, выпуск не завершён
 
 [PR 176](https://github.com/xaaknazar/pickchick/pull/176), ветка `codex/farm-testflight`.

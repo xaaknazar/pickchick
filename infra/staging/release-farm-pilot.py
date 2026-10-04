@@ -119,6 +119,19 @@ def verify_availability(before, after):
         require((revision == prior and stamp == earlier) or (revision > prior and stamp > earlier), 'Availability heartbeat pair inconsistent')
 
 
+def file_writer_program(*, public_gateway=False):
+    # Caddy drops DAC override privileges; its public configuration must be readable.
+    mode = '0o644' if public_gateway else '0o600'
+    return 'from pathlib import Path;import sys;p=Path(sys.argv[1]);p.write_bytes(sys.stdin.buffer.read());p.chmod('+mode+')'
+
+
+def gateway_validation_command(path):
+    return ('docker run --rm --network none --read-only --cap-drop ALL --cap-add NET_BIND_SERVICE '
+            '--security-opt no-new-privileges:true --tmpfs /tmp --tmpfs /config --tmpfs /data '
+            '--entrypoint caddy -v '+quote(path+':/tmp/Caddyfile:ro')+' '+transport.CADDY+
+            ' validate --config /tmp/Caddyfile --adapter caddyfile')
+
+
 def release_env_program():
     # The inherited historical generator used literal backslash-n delimiters.
     return r'''from pathlib import Path
@@ -280,7 +293,7 @@ print(json.dumps(result,sort_keys=True))'''
         target = REMOTE+'/releases/'+self.sha
         self.remote(f'test ! -e {target} && mkdir {target} && tar -xf - -C {target}',input=archive,timeout=180)
         self.remote('python3 -c '+quote(release_env_program())+' '+' '.join(map(quote,[REMOTE+'/releases/'+BASELINE+'/release.env',target+'/release.env',self.sha,BASELINE])))
-        writer = 'from pathlib import Path;import sys;p=Path(sys.argv[1]);p.write_bytes(sys.stdin.buffer.read());p.chmod(0o600)'
+        writer = file_writer_program()
         self.remote('python3 -c '+quote(writer)+' '+quote(target+'/infra/staging/compose.yaml'),input=compose)
         self.remote('! docker image inspect pickchick-api:'+self.sha+' >/dev/null 2>&1')
         image = self.remote(f'cd {target} && docker build -q -f infra/staging/Dockerfile --build-arg RELEASE_SHA={self.sha} -t pickchick-api:{self.sha} .',timeout=1200)
@@ -290,7 +303,7 @@ print(json.dumps(result,sort_keys=True))'''
         web_compose = json.loads(self.remote(market.web_compose(PUBLIC_BASELINE)+' config --format json'))
         relocated = director.relocate_public_mounts(web_compose,old,new)
         self.remote('python3 -c '+quote(writer)+' '+quote(new+'/compose.yaml'),input=json.dumps(relocated))
-        self.remote('python3 -c '+quote(writer)+' '+quote(new+'/gateway.Caddyfile'),input=gateway)
+        self.remote('python3 -c '+quote(file_writer_program(public_gateway=True))+' '+quote(new+'/gateway.Caddyfile'),input=gateway)
         previous = json.loads(self.remote('cat '+quote(old+'/public-web/.release.json')))
         manifest = json.loads(self.remote('cat '+quote(new+'/public-web/.release.json')))
         verify_manifest(previous,manifest)
@@ -298,7 +311,7 @@ print(json.dumps(result,sort_keys=True))'''
                 self.file_hashes([new+'/public-web/.release.json'])[new+'/public-web/.release.json'], 'Manifest bytes changed')
         self.remote(market.api_compose(self.sha)+' config --quiet')
         self.remote(market.web_compose(self.sha)+' config --quiet')
-        self.remote('docker run --rm --network none --entrypoint caddy -v '+new+'/gateway.Caddyfile:/tmp/Caddyfile:ro '+transport.CADDY+' validate --config /tmp/Caddyfile --adapter caddyfile')
+        self.remote(gateway_validation_command(new+'/gateway.Caddyfile'))
         prepared = {'sha':self.sha,'old_web':PUBLIC_BASELINE,'old_api':BASELINE,'image_id':image,'public_manifest':manifest,
             'gateway_sha256':digest(gateway.encode()),'rollback_files':rollback,
             'baseline_capabilities':self.http_json('/v1/capabilities',public=False),'baseline_auth':self.http_json('/v1/auth/config'),
