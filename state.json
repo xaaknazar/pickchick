@@ -2527,11 +2527,12 @@
         "docs/operations/pick-farm.md",
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
       ],
       "status": "active",
-      "head": "aa7e015cbc50604f27739be4c400ecff4953c0b6",
-      "updatedAt": "2026-10-04T13:25:09.689Z"
+      "head": "9bb92b9eaf9bd46c9459664384af652cc2426fdf",
+      "updatedAt": "2026-10-04T13:36:49.034Z"
     }
   ]
 }
