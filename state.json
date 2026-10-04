@@ -2409,11 +2409,13 @@
         "scripts/contracts.mjs",
         "package.json",
         ".github/workflows/ci.yml",
-        "tests/mobile/browser_pick_farm.py"
+        "tests/mobile/browser_pick_farm.py",
+        "tests/operations/test_server_pilot_release.py",
+        "tests/operations/test_auth_four_digit_release.py"
       ],
       "status": "active",
       "head": "5c58a5259a4426e1cf0add761fac46e9ab493f26",
-      "updatedAt": "2026-10-04T10:20:53.777Z"
+      "updatedAt": "2026-10-04T10:25:58.066Z"
     }
   ]
 }
