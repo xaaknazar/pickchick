@@ -1,0 +1,29 @@
+{
+  "name": "@pickchick/farm-persistence",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:integration": "node --test --test-concurrency=1 tests/postgres.test.mjs tests/http.test.mjs"
+  },
+  "dependencies": {
+    "@pickchick/database": "workspace:*",
+    "@pickchick/farm-game": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.13.3",
+    "@nestjs/common": "12.0.1",
+    "@pickchick/platform": "workspace:*",
+    "@pickchick/customer-identity": "workspace:*"
+  }
+}

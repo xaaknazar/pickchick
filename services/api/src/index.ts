@@ -1,3 +1,5 @@
+import { FarmController } from './farm-controller.js';
+import { FARM, FarmPersistence } from '@pickchick/farm-persistence';
 import { KioskCheckoutController } from './kiosk-checkout-controller.js';
 import { CustomerCheckoutController } from './customer-checkout-controller.js';
 import type { IncomingMessage } from 'node:http';
@@ -156,6 +158,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
     controllers: [
+      FarmController,
       KioskCheckoutController,
       HealthController,
       TipTopPayController,
@@ -173,6 +176,12 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
+      {
+        provide: FARM,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new FarmPersistence(resources.pool, process.env.FARM_ENABLED === '1'),
+      },
       {
         provide: BACKOFFICE,
         inject: [RESOURCE],
