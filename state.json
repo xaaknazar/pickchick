@@ -2440,22 +2440,6 @@
       "nextAction": "Root owns integrated PR/CI and roadmap; native acceptance and controlled deployment remain separate."
     },
     {
-      "id": "field-ui",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/farm-field-ui",
-      "scopes": [
-        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
-        "apps/mobile/src/games/pick-farm/styles.ts",
-        "apps/mobile/src/games/pick-farm/visuals.tsx",
-        "apps/mobile/src/games/pick-farm/motion.tsx"
-      ],
-      "status": "available",
-      "head": "dbde0c5ad078c3e46fd6864f102d41e77e30ce3c",
-      "updatedAt": "2026-10-04T12:26:13.062Z",
-      "summary": "UI dbde0c5 published: open field placement, targeted eslint/prettier/diff passed; integrated typecheck/browser pending parent",
-      "nextAction": "Integrate with field-engine and withered art, verify native gestures and browser"
-    },
-    {
       "id": "farm-open-field",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/farm-open-field",
@@ -2482,6 +2466,22 @@
       "status": "active",
       "head": "57722bbd19e2a5b88f26f4b12b69846561e66366",
       "updatedAt": "2026-10-04T12:39:46.563Z"
+    },
+    {
+      "id": "field-ui",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-field-ui",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
+        "apps/mobile/src/games/pick-farm/styles.ts",
+        "apps/mobile/src/games/pick-farm/visuals.tsx",
+        "apps/mobile/src/games/pick-farm/motion.tsx"
+      ],
+      "status": "active",
+      "head": "9400b535ce963f001677ada666e5b8a8c19ee045",
+      "updatedAt": "2026-10-04T12:47:02.451Z",
+      "summary": "UI dbde0c5 published: open field placement, targeted eslint/prettier/diff passed; integrated typecheck/browser pending parent",
+      "nextAction": "Integrate with field-engine and withered art, verify native gestures and browser"
     }
   ]
 }
