@@ -2463,9 +2463,11 @@
         "tests/operations/test_auth_four_digit_release.py",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "57722bbd19e2a5b88f26f4b12b69846561e66366",
-      "updatedAt": "2026-10-04T12:39:46.563Z"
+      "status": "done",
+      "head": "9400b535ce963f001677ada666e5b8a8c19ee045",
+      "updatedAt": "2026-10-04T12:47:11.339Z",
+      "summary": "Shared9400b535; PR173. Six crops, free64x64 field, purchase/move, hours/loss, v1upgrade and assets. 7engine+9client/account+2PGHTTP+7guards+7roadmap; build/typecheck/lint/contracts; browser3sizes. Roadmap deployed9400b535, gameplayAPI unchanged e236824/schema033.",
+      "nextAction": "Native gesture/FPS acceptance and economy review; full CI then separate farm API migrations037-038 and TestFlight pilot."
     },
     {
       "id": "field-ui",
