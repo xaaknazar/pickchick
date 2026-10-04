@@ -2568,11 +2568,11 @@
         "tests/mobile/browser_demo_account.py",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "4e34ddf70d2678a7d228bdb2534e504f592dc1e7",
-      "updatedAt": "2026-10-04T19:23:28.425Z",
-      "summary": "Shared4e34ddf docs checkpoint; roadmap81d11b1 deployed after full CI11/11, API remains2a6d5cb. Ready IPA0.2.0(9)/465a7d5 unchanged. Xcode restarted after Mac unlock; Apple Accounts EMPTY, sign-in form open. Upload not performed. Dedicated signing/profile scope restored.",
-      "nextAction": "User must sign into Xcode Apple Account. Resume existing ready archive with manual existing signature, preserve build9/internal testers. Temporary profile local copy in release/gui-signing/PickChick.mobileprovision. New keychain scope stop file needed if resumed. Public roadmap pointer81d11b1, gateway1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51. Physical iPhones unavailable."
+      "status": "available",
+      "head": "bfc4c40a6c65e9e57dbb7147e56a9bdbe47a5f58",
+      "updatedAt": "2026-10-04T19:27:52.464Z",
+      "summary": "Shared bfc4c40 and PR176 updated. Apple upload 0.2.0(9)/465a7d5 SUCCEEDED after Xcode sign-in; release deliveryStatus=submitted, keychain restored. Native/server exact CI11/11. Roadmap81d11b1 online; latest upload fact saved GitHub only, docs CI pending.",
+      "nextAction": "App Store Connect browser tabs3/7 still login; user asked to sign in. After browser login verify build9 processed and existing PickChick Internal group2testers, add prepared notes /tmp/pickchick-farm-testflight-notes.txt; no new groups/invites. Physical iPhone unavailable. Publish latest roadmap after fullCI and actual Apple outcome, finish shared task. API2a6d5cb/public81d11b1; do not repeat API deploy or upload build9."
     }
   ]
 }
