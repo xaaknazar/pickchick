@@ -22,7 +22,7 @@
 		-Server
 	}
 	@synthetic_surfaces {
-		not path /v1/content/* /v1/admin/backoffice/* /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*
+		not path /v1/customer-farm /v1/customer-farm/commands /v1/content/* /v1/admin/backoffice/* /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*
 	}
 	header @synthetic_surfaces X-PickChick-Data synthetic
 	@catalog_draft_body {
@@ -86,6 +86,54 @@
 			transport http {
 				dial_timeout 2s
 				response_header_timeout 5s
+			}
+		}
+	}
+	@farm_preflight {
+		method OPTIONS
+		path /v1/customer-farm /v1/customer-farm/commands
+		header Access-Control-Request-Method GET POST
+	}
+	handle @farm_preflight {
+		header Access-Control-Allow-Origin *
+		header Access-Control-Allow-Methods GET,POST
+		header Access-Control-Allow-Headers Authorization,Content-Type
+		header Cache-Control no-store
+		respond "" 204
+	}
+	@farm_get {
+		method GET
+		path /v1/customer-farm
+	}
+	handle @farm_get {
+		header X-PickChick-Data customer-game
+		header Cache-Control no-store
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			header_up X-Forwarded-For {client_ip}
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 7s
+			}
+		}
+	}
+	@farm_post {
+		method POST
+		path /v1/customer-farm/commands
+	}
+	handle @farm_post {
+		header X-PickChick-Data customer-game
+		header Cache-Control no-store
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			header_up X-Forwarded-For {client_ip}
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 7s
 			}
 		}
 	}
