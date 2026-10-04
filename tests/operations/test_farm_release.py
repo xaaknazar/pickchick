@@ -138,6 +138,22 @@ class FarmRelease(unittest.TestCase):
         self.assertEqual(obj.retain_failure(r.market.CommandUncertain('unknown completion')),'unknown')
         self.assertEqual(calls,[])
 
+    def test_rollback_post_reopen_failure_recloses_old_gateway(self):
+        obj = object.__new__(r.Release); obj.sha = 'a'*40; obj.maintenance = '/owned/maintenance'
+        for phase in ['rollback_reopening','rollback_reopened']:
+            obj.phase = phase; calls = []; saved = {}
+            obj.cleanup = lambda action:calls.append(action)
+            obj.remote = lambda command,**kwargs:calls.append(command)
+            obj.http = lambda *args,**kwargs:(503,b'')
+            obj.save = lambda name,value:saved.update({name:value})
+            self.assertEqual(obj.retain_failure(r.market.GuardFailure('rollback probe failed')),'closed')
+            self.assertTrue(saved['failure-context.json']['maintenance_reclosed'])
+            self.assertTrue(any(r.market.web_compose(r.PUBLIC_BASELINE)+' -f /owned/maintenance/compose.json' in c for c in calls))
+            self.assertFalse(any(r.market.web_compose(obj.sha) in c for c in calls))
+            calls.clear()
+            self.assertEqual(obj.retain_failure(r.market.CommandUncertain('unknown rollback completion')),'unknown')
+            self.assertEqual(calls,[])
+
     def test_explicit_rollback_reuses_only_verified_original_owner(self):
         import uuid
         with tempfile.TemporaryDirectory() as directory:

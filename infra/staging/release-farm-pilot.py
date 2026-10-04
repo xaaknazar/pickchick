@@ -311,10 +311,11 @@ print(json.dumps(result,sort_keys=True))'''
         phase = getattr(self,'phase','before_reopening')
         ingress = 'unknown'
         reclosed = False
-        if phase in ['reopening','reopened'] and not isinstance(error,market.CommandUncertain):
+        if phase in ['reopening','reopened','rollback_reopening','rollback_reopened'] and not isinstance(error,market.CommandUncertain):
             try:
                 self.cleanup('status')
-                self.remote(market.web_compose(self.sha)+' -f '+quote(self.maintenance+'/compose.json')+
+                web_sha = PUBLIC_BASELINE if phase.startswith('rollback_') else self.sha
+                self.remote(market.web_compose(web_sha)+' -f '+quote(self.maintenance+'/compose.json')+
                     ' up -d --no-deps --wait --wait-timeout 90 gateway',timeout=150)
                 require(self.http('/v1/test/orders',method='POST')[0] == 503,'Failure maintenance did not close ingress')
                 ingress, reclosed = 'closed', True
@@ -380,7 +381,11 @@ os.unlink(path+'/owner.json');os.rmdir(path)
             actual = self.remote('readlink -f '+path)
             require(actual in [old,new], 'Concurrent pointer change; inspect before rollback')
             if actual == new: self.switch(path,new,old)
+        self.phase = 'rollback_reopening'
+        self.save('phase.json',{'phase':self.phase,'ingress':'unknown'})
         self.remote(market.web_compose(PUBLIC_BASELINE)+' up -d --no-deps --wait --wait-timeout 90 gateway',timeout=150)
+        self.phase = 'rollback_reopened'
+        self.save('phase.json',{'phase':self.phase,'ingress':'open'})
         require(self.fingerprint() == before['neighbors'], 'Neighbor changed during rollback')
         self.cleanup('release')
         self.save('rollback.json',{'schema_retained':38,'acl_restored':True,'live_dump_restored':False,'farm_data_erased':False})
