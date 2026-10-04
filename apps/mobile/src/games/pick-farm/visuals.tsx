@@ -74,9 +74,11 @@ const cropBounds: Record<CropId, readonly [number, number, number, number]> = {
 export const CropArt = memo(function CropArt({
   cropId,
   size = 44,
+  phase = 'ready',
 }: {
   cropId: CropId;
   size?: number;
+  phase?: 'growing' | 'ready' | 'withered';
 }) {
   const [left, top, right, bottom] = cropBounds[cropId];
   const scale = size / Math.max(right - left, bottom - top);
@@ -84,7 +86,13 @@ export const CropArt = memo(function CropArt({
     <View
       pointerEvents="none"
       accessible={false}
-      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      style={{
+        width: size,
+        height: size,
+        opacity: phase === 'withered' ? 0.5 : 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
       <View
         style={{
@@ -110,43 +118,68 @@ export const CropArt = memo(function CropArt({
   );
 });
 export function isoPoint(col: number, row: number) {
-  return { x: 450 + (col - row) * 46, y: 90 + (col + row) * 23 };
+  return { x: 450 + (col - 32 - (row - 28)) * 48, y: 230 + (col - 32 + (row - 28)) * 24 };
 }
-export const Landscape = memo(function Landscape() {
-  const tiles = Array.from({ length: 81 }, (_, i) => ({ col: i % 9, row: Math.floor(i / 9) }));
+export function cellAtPoint(px: number, py: number) {
+  return {
+    x: Math.round(32 + (px - 450) / 96 + (py - 230) / 48),
+    y: Math.round(28 - (px - 450) / 96 + (py - 230) / 48),
+  };
+}
+export const Landscape = memo(function Landscape({
+  grid = false,
+  cell = { x: 32, y: 30 },
+}: {
+  grid?: boolean;
+  cell?: { x: number; y: number };
+}) {
+  const house = isoPoint(32, 28);
+  const lines: { x: number; y: number; length: number; angle: string }[] = [];
+  if (grid) {
+    const minX = Math.max(0, cell.x - 8),
+      maxX = Math.min(64, cell.x + 9);
+    const minY = Math.max(0, cell.y - 8),
+      maxY = Math.min(64, cell.y + 9);
+    for (let x = minX; x <= maxX; x++) {
+      const a = isoPoint(x - 0.5, minY - 0.5),
+        b = isoPoint(x - 0.5, maxY - 0.5);
+      lines.push({
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+        length: Math.hypot(b.x - a.x, b.y - a.y),
+        angle: `${Math.atan2(b.y - a.y, b.x - a.x)}rad`,
+      });
+    }
+    for (let y = minY; y <= maxY; y++) {
+      const a = isoPoint(minX - 0.5, y - 0.5),
+        b = isoPoint(maxX - 0.5, y - 0.5);
+      lines.push({
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+        length: Math.hypot(b.x - a.x, b.y - a.y),
+        angle: `${Math.atan2(b.y - a.y, b.x - a.x)}rad`,
+      });
+    }
+  }
   return (
     <View pointerEvents="none" style={{ position: 'absolute', width: 900, height: 600 }}>
-      {tiles
-        .sort((a, b) => a.col + a.row - b.col - b.row)
-        .map(({ col, row }) => {
-          const p = isoPoint(col, row);
-          return (
-            <Sprite key={`${col}-${row}`} kind={col === 7 || row === 1 ? 'path' : 'grass'} {...p} />
-          );
-        })}
-      {Array.from({ length: 7 }, (_, i) => {
-        const p = isoPoint(i + 1, 8);
-        return <Sprite key={`f-${i}`} kind="fence" x={p.x - 22} y={p.y + 9} width={48} />;
-      })}
-      {Array.from({ length: 7 }, (_, i) => {
-        const p = isoPoint(8, i + 1);
-        return <Sprite key={`s-${i}`} kind="fenceSide" x={p.x + 22} y={p.y + 9} width={48} />;
-      })}
-      <Sprite kind="door" x={485} y={133} width={58} />
-      <Sprite kind="wall" x={540} y={133} width={58} />
-      <Sprite kind="roof" x={512} y={108} width={112} />
-      <Sprite kind="hay" x={610} y={204} width={65} />
-      <Sprite kind="hay" x={627} y={222} width={48} />
-      {[
-        { x: 220, y: 244 },
-        { x: 274, y: 326 },
-        { x: 698, y: 299 },
-        { x: 600, y: 421 },
-      ].map((p, i) => (
-        <View key={`tree-${i}`} style={{ position: 'absolute', left: p.x - 37, top: p.y - 75 }}>
-          <CropArt cropId="apple" size={74} />
-        </View>
+      {lines.map((line, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: line.x - line.length / 2,
+            top: line.y,
+            width: line.length,
+            height: 1,
+            backgroundColor: '#F7FFDC80',
+            transform: [{ rotate: line.angle }],
+          }}
+        />
       ))}
+      <Sprite kind="door" x={house.x - 26} y={house.y} width={58} />
+      <Sprite kind="wall" x={house.x + 29} y={house.y} width={58} />
+      <Sprite kind="roof" x={house.x} y={house.y - 25} width={112} />
     </View>
   );
 });

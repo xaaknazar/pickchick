@@ -4,9 +4,8 @@ import type { CropId } from '@pickchick/farm-game';
 import { font } from '../../theme';
 import { farmPalette } from './styles';
 
-/** One shared native-driver clock for every crop; backgrounding freezes the field. */
+/** Motion is reserved for acknowledged actions and phase transitions. */
 export function useFarmMotion() {
-  const sway = useRef(new Animated.Value(0)).current;
   const [reduced, setReduced] = useState(true);
   const [active, setActive] = useState(AppState.currentState === 'active');
   useEffect(() => {
@@ -22,54 +21,18 @@ export function useFarmMotion() {
       app.remove();
     };
   }, []);
-  useEffect(() => {
-    if (reduced || !active) {
-      sway.stopAnimation();
-      sway.setValue(0);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sway, {
-          toValue: 1,
-          duration: 2300,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(sway, {
-          toValue: -1,
-          duration: 4600,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(sway, {
-          toValue: 0,
-          duration: 2300,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => {
-      loop.stop();
-      sway.setValue(0);
-    };
-  }, [active, reduced, sway]);
-  return { sway, reduced, active };
+  return { reduced, active };
 }
 
 export function CropMotion({
   cropId,
   ready,
-  sway,
   reduced,
   active,
   children,
 }: {
   cropId: CropId | null;
   ready: boolean;
-  sway: Animated.Value;
   reduced: boolean;
   active: boolean;
   children: ReactNode;
@@ -95,23 +58,10 @@ export function CropMotion({
     growth.start();
     return () => growth.stop();
   }, [cropId, ready, reduced, active, scale]);
-  const amplitude = cropId === 'apple' ? 0.7 : 1.7;
   return (
     <Animated.View
       pointerEvents="none"
-      style={{
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: [
-          { scale },
-          {
-            rotate: sway.interpolate({
-              inputRange: [-1, 1],
-              outputRange: [`-${amplitude}deg`, `${amplitude}deg`],
-            }),
-          },
-        ],
-      }}
+      style={{ alignItems: 'center', justifyContent: 'center', transform: [{ scale }] }}
     >
       {children}
     </Animated.View>

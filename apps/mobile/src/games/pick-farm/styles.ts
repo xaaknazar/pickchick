@@ -4,7 +4,7 @@ export const farmPalette = {
   ink: '#18332C',
   muted: '#506253',
   paper: '#FFF9EA',
-  field: '#B6D49B',
+  field: '#8FC34D',
   blue: '#0047BB',
   orange: '#FF6900',
   border: '#D5DBC6',
