@@ -2530,9 +2530,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
+      "status": "done",
       "head": "9bb92b9eaf9bd46c9459664384af652cc2426fdf",
-      "updatedAt": "2026-10-04T13:36:49.034Z"
+      "updatedAt": "2026-10-04T13:37:42.896Z",
+      "summary": "9bb92b9 integrated shared; PR175; engine15/client7/PG2/roadmap7 and browser3sizes pass; roadmap deployed source9bb92b9; CI running; business API/TestFlight unchanged",
+      "nextAction": "Native and player economy acceptance, then separately gated farm API/TestFlight pilot"
     }
   ]
 }
