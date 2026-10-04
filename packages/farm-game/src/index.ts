@@ -17,7 +17,7 @@ export const CROPS = [
     growSeconds: 3600,
     harvestWindowSeconds: 3600,
     seedCost: 4,
-    sellPrice: 3,
+    sellPrice: 4,
     harvestYield: 3,
     unlockLevel: 1,
     maxHarvests: 1,
@@ -28,8 +28,8 @@ export const CROPS = [
     kind: 'vegetable',
     growSeconds: 10800,
     harvestWindowSeconds: 10800,
-    seedCost: 6,
-    sellPrice: 4,
+    seedCost: 12,
+    sellPrice: 10,
     harvestYield: 3,
     unlockLevel: 1,
     maxHarvests: 1,
@@ -41,7 +41,7 @@ export const CROPS = [
     growSeconds: 7200,
     harvestWindowSeconds: 7200,
     seedCost: 8,
-    sellPrice: 5,
+    sellPrice: 7,
     harvestYield: 3,
     unlockLevel: 1,
     maxHarvests: 1,
@@ -52,8 +52,8 @@ export const CROPS = [
     kind: 'flower',
     growSeconds: 14400,
     harvestWindowSeconds: 14400,
-    seedCost: 10,
-    sellPrice: 6,
+    seedCost: 18,
+    sellPrice: 13,
     harvestYield: 3,
     unlockLevel: 1,
     maxHarvests: 1,
@@ -64,8 +64,8 @@ export const CROPS = [
     kind: 'flower',
     growSeconds: 21600,
     harvestWindowSeconds: 21600,
-    seedCost: 12,
-    sellPrice: 7,
+    seedCost: 24,
+    sellPrice: 17,
     harvestYield: 3,
     unlockLevel: 1,
     maxHarvests: 1,
@@ -76,8 +76,8 @@ export const CROPS = [
     kind: 'tree',
     growSeconds: 28800,
     harvestWindowSeconds: 28800,
-    seedCost: 20,
-    sellPrice: 5,
+    seedCost: 0,
+    sellPrice: 10,
     harvestYield: 3,
     unlockLevel: 1,
     maxHarvests: 3,
@@ -99,21 +99,21 @@ export const ORDERS = [
     id: 'vegetable-basket',
     name: 'Овощная корзина',
     requires: { carrot: 3, tomato: 3 },
-    rewardCoins: 25,
+    rewardCoins: 46,
     rewardXp: 30,
   },
   {
     id: 'berry-basket',
     name: 'Фруктовая корзина',
     requires: { strawberry: 3, apple: 3 },
-    rewardCoins: 35,
+    rewardCoins: 57,
     rewardXp: 40,
   },
   {
     id: 'flower-basket',
     name: 'Букет',
     requires: { sunflower: 3, tulip: 3 },
-    rewardCoins: 45,
+    rewardCoins: 99,
     rewardXp: 50,
   },
 ] as const;
@@ -249,7 +249,13 @@ export const FarmCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('expand') }).strict(),
   z.object({ type: z.literal('recover') }).strict(),
   z.object({ type: z.literal('plant'), plotId: integer, cropId: CropIdSchema }).strict(),
-  z.object({ type: z.literal('harvest'), plotId: integer }).strict(),
+  z
+    .object({
+      type: z.literal('harvest'),
+      plotId: integer,
+      destination: z.enum(['sell', 'storage']).optional(),
+    })
+    .strict(),
   z.object({ type: z.literal('sell'), cropId: CropIdSchema, quantity: bounded.min(1) }).strict(),
   z
     .object({
@@ -296,6 +302,29 @@ export function createFarm(now: number): FarmState {
     completedOrders: 0,
   };
 }
+/** Per-cycle profit excludes bed acquisition; apple planting cost is the full first tree purchase. */
+export function cropEconomics(cropId: CropId) {
+  const crop = CROPS.find((item) => item.id === CropIdSchema.parse(cropId))!;
+  const revenue = crop.sellPrice * crop.harvestYield;
+  const tree = crop.kind === 'tree';
+  const profit = revenue - crop.seedCost;
+  return {
+    revenue,
+    plantingCost: tree ? TREE_COST : crop.seedCost,
+    profit,
+    growthSeconds: crop.growSeconds,
+    paybackHarvests: Math.ceil((tree ? TREE_COST : BED_COST) / profit),
+  };
+}
+/** Lifetime placement counter prevents removal/rebuy from resetting expansion prices. */
+export function nextLandCost(input: FarmState, kind: 'bed' | 'tree'): number {
+  const state = upgradeFarmState(input);
+  const parsedKind = z.enum(['bed', 'tree']).parse(kind);
+  const count = BigInt(state.nextPlotId);
+  const price = BigInt(parsedKind === 'tree' ? TREE_COST : BED_COST) + 25n * count * count;
+  // Representability ceiling only: balances are bounded far below this price.
+  return Number(price > BigInt(Number.MAX_SAFE_INTEGER) ? BigInt(Number.MAX_SAFE_INTEGER) : price);
+}
 /** Recovery gives one normal carrot cycle, never currency or instant rewards. */
 export function canRecoverFarm(input: FarmState, now: number): boolean {
   integer.parse(now);
@@ -305,7 +334,8 @@ export function canRecoverFarm(input: FarmState, now: number): boolean {
     state.plots.every(
       (plot) => plot.kind === 'bed' && ['empty', 'withered'].includes(cropPhase(plot, now)),
     ) &&
-    state.coins < (state.plots.length ? 4 : BED_COST + 4)
+    state.coins <
+      (state.plots.length ? CROPS[0].seedCost : nextLandCost(state, 'bed') + CROPS[0].seedCost)
   );
 }
 /** Pure transition. Only the trusted server supplies now; persistence handles idempotency. Coins are fictional game currency. */
@@ -387,7 +417,8 @@ export function applyFarmCommand(
       const crop = CROPS.find((item) => item.id === plot.cropId)!;
       requireRule(cropPhase(plot, now) !== 'withered', 'CROP_WITHERED');
       requireRule(cropPhase(plot, now) === 'ready', 'CROP_NOT_READY');
-      state.inventory[crop.id] += crop.harvestYield;
+      if (command.destination === 'sell') state.coins += crop.sellPrice * crop.harvestYield;
+      else state.inventory[crop.id] += crop.harvestYield;
       state.xp += 10;
       if (plot.kind === 'tree') {
         plot.harvests = (plot.harvests + 1) % 3;
@@ -421,7 +452,7 @@ export function applyFarmCommand(
       'CELL_OCCUPIED',
     );
     const tree = command.type === 'buyTree';
-    const cost = tree ? TREE_COST : BED_COST;
+    const cost = nextLandCost(state, tree ? 'tree' : 'bed');
     requireRule(state.coins >= cost, 'INSUFFICIENT_COINS');
     state.coins -= cost;
     state.plots.push({

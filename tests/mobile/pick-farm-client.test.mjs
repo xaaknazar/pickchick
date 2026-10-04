@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createFarm, applyFarmCommand } from '../../packages/farm-game/dist/index.js';
+import { createFarm, applyFarmCommand, CROPS } from '../../packages/farm-game/dist/index.js';
 import {
   FarmClient,
   FarmClientError,
@@ -12,6 +12,7 @@ const plant = { type: 'plant', plotId: 0, cropId: 'carrot' };
 function fixture() {
   let raw = null;
   let state = applyFarmCommand(createFarm(1000), { type: 'buyPlot', x: 31, y: 31 }, 1000);
+  let now = 1000;
   let lose = false;
   let reject = false;
   let failWrite = false;
@@ -30,7 +31,7 @@ function fixture() {
         sent.push(intent);
         if (reject) throw new FarmClientError('STALE_STATE', 409);
         if (!receipts.has(intent.commandId)) {
-          state = applyFarmCommand(state, intent.command, 1000);
+          state = applyFarmCommand(state, intent.command, now);
           receipts.add(intent.commandId);
         }
         if (lose) {
@@ -38,7 +39,7 @@ function fixture() {
           throw new FarmClientError('NETWORK_UNAVAILABLE');
         }
       }
-      return { state, serverNow: 1000 };
+      return { state, serverNow: now };
     },
   };
   return {
@@ -49,6 +50,10 @@ function fixture() {
     },
     get state() {
       return state;
+    },
+    readyCarrot: () => {
+      state = applyFarmCommand(state, plant, now);
+      now += CROPS.find((crop) => crop.id === 'carrot').growSeconds * 1000;
     },
     lose: () => {
       lose = true;
@@ -160,4 +165,26 @@ test('HTTPS transport validates response, uses bearer header and preserves auth 
     farmRequest('https://example.test', async () => Response.json('x'.repeat(1048577)))('test'),
     { code: 'INVALID_RESPONSE' },
   );
+});
+
+test('lost auto-sale response retries the same durable destination without double credit', async () => {
+  const f = fixture();
+  f.readyCarrot();
+  const client = new FarmClient(f.io);
+  await client.refresh();
+  f.lose();
+  await assert.rejects(client.send({ type: 'harvest', plotId: 0, destination: 'sell' }), {
+    code: 'NETWORK_UNAVAILABLE',
+  });
+  const savedIntent = JSON.parse(f.raw);
+  assert.equal(savedIntent.command.destination, 'sell');
+  assert.equal(f.state.coins, 358);
+  assert.equal(f.state.inventory.carrot, 0);
+  const restarted = new FarmClient(f.io);
+  const recovered = await restarted.refresh();
+  assert.deepEqual(f.sent[1], savedIntent);
+  assert.equal(recovered.state.coins, 358);
+  assert.equal(recovered.state.inventory.carrot, 0);
+  assert.equal(recovered.state.plots[0].cropId, null);
+  assert.equal(f.raw, null);
 });

@@ -17,8 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CROPS,
   ORDERS,
-  BED_COST,
-  TREE_COST,
+  cropEconomics,
+  nextLandCost,
   FIELD_SIZE,
   HOUSE_CELL,
   cropPhase,
@@ -123,6 +123,44 @@ function FarmTool({
   );
 }
 
+function HarvestMode({
+  destination,
+  onChange,
+}: {
+  destination: 'sell' | 'storage';
+  onChange(value: 'sell' | 'storage'): void;
+}) {
+  return (
+    <View style={s.harvestMode} accessibilityLabel="Куда отправить урожай">
+      {(
+        [
+          { id: 'sell', label: 'Собрать и продать', icon: 'cash-outline' },
+          { id: 'storage', label: 'На склад для заказов', icon: 'archive-outline' },
+        ] as const
+      ).map((option) => (
+        <Pressable
+          key={option.id}
+          testID={`pick-farm-destination-${option.id}`}
+          accessibilityRole="button"
+          accessibilityLabel={option.label}
+          accessibilityState={{ selected: destination === option.id }}
+          onPress={() => onChange(option.id)}
+          style={({ pressed }) => [
+            s.harvestOption,
+            destination === option.id && s.harvestSelected,
+            pressed && s.pressed,
+          ]}
+        >
+          <Icon name={option.icon} size={18} color={destination === option.id ? p.paper : p.ink} />
+          <Text style={[s.harvestLabel, destination === option.id && { color: p.paper }]}>
+            {option.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 export function PickFarmScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
@@ -130,6 +168,7 @@ export function PickFarmScreen() {
   const { state, serverNow, loading, busy, error, retry, send } = useFarm();
   const [panel, setPanel] = useState<Panel>(null);
   const [tool, setTool] = useState<'inspect' | 'harvest' | 'plant' | 'move' | 'remove'>('inspect');
+  const [harvestDestination, setHarvestDestination] = useState<'sell' | 'storage'>('sell');
   const [seed, setSeed] = useState<CropId>('carrot');
   const [hint, setHint] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -170,15 +209,24 @@ export function PickFarmScreen() {
         command.type === 'harvest'
           ? state?.plots.find((plot) => plot.id === command.plotId)?.cropId
           : null;
+      const receipt =
+        harvested && command.type === 'harvest'
+          ? command.destination === 'sell'
+            ? `+${cropEconomics(harvested).revenue} монет за урожай`
+            : `+${cropFor(harvested).harvestYield} ${cropFor(harvested).name} на склад`
+          : command.type === 'plant'
+            ? `-${cropFor(command.cropId).seedCost} монет за семена`
+            : command.type === 'sell'
+              ? `+${command.quantity * cropFor(command.cropId).sellPrice} монет за продажу`
+              : command.type === 'fulfill'
+                ? `+${ORDERS.find((order) => order.id === command.orderId)?.rewardCoins ?? 0} монет за заказ`
+                : null;
       void send(command)
         .then((saved) => {
           if (saved === true) setHint(null);
-          if (saved === true && harvested) {
+          if (saved === true && receipt) {
             feedbackId.current += 1;
-            setFeedback({
-              id: feedbackId.current,
-              text: `+${cropFor(harvested).harvestYield} ${cropFor(harvested).name} на склад`,
-            });
+            setFeedback({ id: feedbackId.current, text: receipt });
           }
         })
         .catch(() => undefined);
@@ -215,7 +263,8 @@ export function PickFarmScreen() {
         setSelected(plot.id);
         if (tool === 'harvest') {
           const phase = cropPhase(plot, serverNow);
-          if (phase === 'ready') act({ type: 'harvest', plotId: plot.id });
+          if (phase === 'ready')
+            act({ type: 'harvest', plotId: plot.id, destination: harvestDestination });
           else
             setHint(
               phase === 'withered'
@@ -232,7 +281,7 @@ export function PickFarmScreen() {
             return;
           }
           if ((state?.coins ?? 0) < cropFor(seed).seedCost) {
-            setHint('Не хватает монет. Продайте урожай на складе.');
+            setHint('Не хватает монет. Соберите и продайте урожай или проверьте склад.');
             return;
           }
           act({ type: 'plant', plotId: plot.id, cropId: seed });
@@ -261,7 +310,7 @@ export function PickFarmScreen() {
         setPanel('place');
       }
     },
-    [fit, width, height, state, panel, tool, seed, busy, serverNow, act],
+    [fit, width, height, state, panel, tool, seed, busy, serverNow, act, harvestDestination],
   );
   const responder = useMemo(
     () =>
@@ -341,6 +390,8 @@ export function PickFarmScreen() {
         </View>
       </View>
     );
+  const bedCost = nextLandCost(state, 'bed');
+  const treeCost = nextLandCost(state, 'tree');
   const readyCount = state.plots.filter((plot) => cropPhase(plot, serverNow) === 'ready').length;
   const phase = current ? cropPhase(current, serverNow) : 'empty';
   const occupied =
@@ -553,6 +604,11 @@ export function PickFarmScreen() {
           onPress={() => updateCamera(0, 0, 1)}
         />
       </View>
+      {!panel && tool === 'harvest' && (
+        <View style={{ position: 'absolute', top: top + 60, left }}>
+          <HarvestMode destination={harvestDestination} onChange={setHarvestDestination} />
+        </View>
+      )}
       {!panel && (
         <View style={{ position: 'absolute', bottom, left, right, gap: 8 }}>
           {canRecoverFarm(state, serverNow) && (
@@ -568,9 +624,9 @@ export function PickFarmScreen() {
                   ? 'Сохраняем...'
                   : hint ||
                     (tool === 'harvest'
-                      ? `Сбор: касайтесь урожая с галочкой (${readyCount})`
+                      ? `${harvestDestination === 'sell' ? 'Продажа за монеты' : 'На склад без продажи'}: касайтесь урожая с галочкой (${readyCount})`
                       : tool === 'plant'
-                        ? `${cropFor(seed).name}: ${cropFor(seed).seedCost} монет за посадку. Выберите пустые грядки.`
+                        ? `${cropFor(seed).name}: -${cropFor(seed).seedCost} за семена, продажа ${cropEconomics(seed).revenue}, прибыль +${cropEconomics(seed).profit}. Выберите пустые грядки.`
                         : tool === 'move'
                           ? 'Перенос: выберите грядку или яблоню.'
                           : tool === 'remove'
@@ -662,7 +718,7 @@ export function PickFarmScreen() {
             {panel === 'shop' && (
               <View style={[s.row, { marginBottom: 8, flexWrap: 'wrap' }]}>
                 <Button
-                  label={`Грядка - ${BED_COST} монет`}
+                  label={`Грядка - ${bedCost} монет`}
                   primary
                   onPress={() => {
                     setPlacement('bed');
@@ -670,7 +726,7 @@ export function PickFarmScreen() {
                   }}
                 />
                 <Button
-                  label={`Яблоня - ${TREE_COST} монет`}
+                  label={`Яблоня - ${treeCost} монет`}
                   onPress={() => {
                     setPlacement('tree');
                     setPanel('place');
@@ -704,11 +760,11 @@ export function PickFarmScreen() {
                       accessibilityRole="button"
                       accessibilityState={{
                         disabled:
-                          busy || state.coins < (item.id === 'apple' ? TREE_COST : item.seedCost),
+                          busy || state.coins < (item.id === 'apple' ? treeCost : item.seedCost),
                       }}
-                      accessibilityLabel={`${item.name}. ${item.id === 'apple' ? TREE_COST : item.seedCost} монет. ${item.growSeconds} секунд. ${item.id === 'apple' ? 'Купить яблоню' : 'Выбрать для посадки'}`}
+                      accessibilityLabel={`${item.name}. ${item.id === 'apple' ? treeCost : item.seedCost} монет. Рост ${duration(item.growSeconds)}. Продажа ${cropEconomics(item.id).revenue} монет. ${item.id === 'apple' ? `Каждый сбор ${cropEconomics(item.id).profit} монет без новых семян.` : `Чистая прибыль ${cropEconomics(item.id).profit} монет без стоимости грядки.`} ${item.id === 'apple' ? 'Купить яблоню' : 'Выбрать для посадки'}`}
                       disabled={
-                        busy || state.coins < (item.id === 'apple' ? TREE_COST : item.seedCost)
+                        busy || state.coins < (item.id === 'apple' ? treeCost : item.seedCost)
                       }
                       onPress={() => {
                         if (item.id === 'apple') {
@@ -727,7 +783,7 @@ export function PickFarmScreen() {
                       style={({ pressed }) => [
                         s.choice,
                         { padding: 10, gap: 4 },
-                        state.coins < (item.id === 'apple' ? TREE_COST : item.seedCost) &&
+                        state.coins < (item.id === 'apple' ? treeCost : item.seedCost) &&
                           s.disabled,
                         pressed && s.pressed,
                       ]}
@@ -735,13 +791,18 @@ export function PickFarmScreen() {
                       <CropArt cropId={item.id} size={52} />
                       <Text style={s.choiceName}>{item.name}</Text>
                       <Text style={s.muted}>
-                        {item.id === 'apple' ? TREE_COST : item.seedCost} монет ·{' '}
-                        {duration(item.growSeconds)}
+                        {item.id === 'apple'
+                          ? `Дерево ${treeCost} монет`
+                          : `Семена ${item.seedCost} монет`}{' '}
+                        · {duration(cropEconomics(item.id).growthSeconds)}
                       </Text>
                       <Text style={s.muted}>
+                        Продажа урожая {cropEconomics(item.id).revenue} монет
+                      </Text>
+                      <Text style={s.profit}>
                         {item.id === 'apple'
-                          ? 'Плодоносит повторно'
-                          : `Урожай ${item.harvestYield} шт. · продажа ${item.harvestYield * item.sellPrice} монет`}
+                          ? `За сбор +${cropEconomics(item.id).profit} монет · окупится за ${Math.ceil(treeCost / cropEconomics(item.id).revenue)} сборов`
+                          : `Чистая прибыль +${cropEconomics(item.id).profit} монет`}
                       </Text>
                     </Pressable>
                   ))}
@@ -763,6 +824,9 @@ export function PickFarmScreen() {
                     {phase === 'ready' && current.plantedAt !== null
                       ? `Соберите в течение ${duration((current.plantedAt + (crop.growSeconds + crop.harvestWindowSeconds) * 1000 - serverNow) / 1000)}. `
                       : ''}
+                    {phase === 'growing'
+                      ? `После созревания на сбор будет ${duration(crop.harvestWindowSeconds)}. `
+                      : ''}
                     {crop.id === 'apple'
                       ? 'Дерево остаётся и плодоносит повторно.'
                       : 'После сбора здесь можно посадить снова.'}
@@ -770,16 +834,31 @@ export function PickFarmScreen() {
                 </View>
                 <Button
                   label={
-                    phase === 'withered' ? 'Очистить' : remaining ? 'Растёт' : 'Собрать урожай'
+                    phase === 'withered'
+                      ? 'Очистить'
+                      : remaining
+                        ? 'Растёт'
+                        : harvestDestination === 'sell'
+                          ? `Собрать и продать · ${crop.harvestYield * crop.sellPrice}`
+                          : `На склад · ${crop.harvestYield} шт.`
                   }
                   icon="basket-outline"
                   primary
                   testID="pick-farm-harvest"
                   disabled={busy || phase === 'growing'}
                   onPress={() =>
-                    act({ type: phase === 'withered' ? 'clear' : 'harvest', plotId: current.id })
+                    act(
+                      phase === 'withered'
+                        ? { type: 'clear', plotId: current.id }
+                        : { type: 'harvest', plotId: current.id, destination: harvestDestination },
+                    )
                   }
                 />
+              </View>
+            )}
+            {panel === 'plot' && crop && phase !== 'withered' && (
+              <View style={{ marginTop: 12 }}>
+                <HarvestMode destination={harvestDestination} onChange={setHarvestDestination} />
               </View>
             )}
             {panel === 'plot' && current && (
@@ -895,7 +974,10 @@ export function PickFarmScreen() {
             {panel === 'place' && (
               <View style={{ gap: 10 }}>
                 <Text style={s.text}>
-                  Коснитесь свободной клетки. Поле можно перемещать и приближать.
+                  Коснитесь свободной клетки.{' '}
+                  {placement !== 'move'
+                    ? `Стоимость ${placement === 'tree' ? treeCost : bedCost} монет. После покупки останется ${Math.max(0, state.coins - (placement === 'tree' ? treeCost : bedCost))}.`
+                    : 'Перенос бесплатный.'}
                 </Text>
                 <View style={[s.row, { flexWrap: 'wrap' }]}>
                   <Text style={s.text}>
@@ -926,13 +1008,13 @@ export function PickFarmScreen() {
                     label={
                       placement === 'move'
                         ? 'Переместить сюда'
-                        : `Купить - ${placement === 'tree' ? TREE_COST : BED_COST} монет`
+                        : `Купить - ${placement === 'tree' ? treeCost : bedCost} монет`
                     }
                     disabled={
                       busy ||
                       !validCell ||
                       (placement !== 'move' &&
-                        state.coins < (placement === 'tree' ? TREE_COST : BED_COST))
+                        state.coins < (placement === 'tree' ? treeCost : bedCost))
                     }
                     onPress={() => {
                       const command: FarmCommand =
@@ -973,8 +1055,10 @@ export function PickFarmScreen() {
                 )}
                 <Text style={s.text}>
                   Купите грядку на свободном месте, посадите семена и соберите урожай. Продавайте
-                  его на складе или выполняйте заказы. Яблоня плодоносит снова после каждого сбора.
-                  Кнопка «Собрать» включает сбор по касанию; «Посадить» выбирает семена для
+                  его сразу при сборе или выбирайте «На склад для заказов». Продажа сразу даёт
+                  монеты; склад сохраняет продукты без продажи. Чистая прибыль в магазине - выручка
+                  минус цена семян, без стоимости грядки. Яблоня плодоносит снова после каждого
+                  сбора. Кнопка «Собрать» включает сбор по касанию; «Посадить» выбирает семена для
                   нескольких пустых грядок. «Готово» завершает инструмент. «Удалить» всегда просит
                   подтверждение и не возвращает монеты. Рост занимает часы. После созревания есть
                   ограниченное время для сбора: затем урожай увянет и будет потерян. Увядшие посадки
@@ -983,6 +1067,11 @@ export function PickFarmScreen() {
                 <Text style={s.text}>
                   Перемещайте поле одним пальцем, приближайте двумя. Кнопки справа меняют масштаб и
                   возвращают ферму в центр.
+                </Text>
+                <Text style={s.muted}>
+                  Новые участки дорожают после каждой покупки. Стоимость грядки - вложение в
+                  постоянное место; она не входит в прибыль с семян. Яблоня покупается один раз и
+                  даёт урожай без повторной платы. Удаление не снижает стоимость следующего участка.
                 </Text>
                 <Text style={s.muted}>
                   Прогресс сохраняется на сервере. Монеты и XP используются только внутри фермы.

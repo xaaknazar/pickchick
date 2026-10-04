@@ -113,7 +113,7 @@ with sync_playwright() as p:
             expect(page.get_by_test_id('pick-farm-panel-place')).to_have_count(0)
             assert calls[-1]['command'] == {'type': 'buyPlot', 'x': 32, 'y': 30}
             bed = saved['state']['plots'][0]
-            # Explicit planting tool keeps its selection, then ripe harvesting goes to storage.
+            # Explicit planting tool keeps its selection, then ripe harvesting sells by default.
             page.get_by_test_id('pick-farm-tool-plant').click()
             page.get_by_test_id('pick-farm-seed-carrot').click()
             tap_cell(bed['x'], bed['y'])
@@ -122,19 +122,38 @@ with sync_playwright() as p:
             assert calls[-1]['command']['type'] == 'plant'
             select_plot(bed)
             expect(page.get_by_test_id('pick-farm-harvest')).to_be_disabled()
+            page.wait_for_function('Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)')
+            page.wait_for_timeout(650)  # Wait for the crop panel NativeImage CSS background mount.
+            page.screenshot(path=str(OUT / f'crop-growing-{width}.png'))
             close_panel()
             saved['now'] += CROPS['carrot']['growSeconds'] * 1000
             reload_field()
             page.get_by_test_id('pick-farm-tool-harvest').click()
+            page.screenshot(path=str(OUT / f'harvest-sell-{width}.png'))
+            tap_cell(bed['x'], bed['y'])
+            page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
+            assert calls[-1]['command'] == {'type': 'harvest', 'plotId': bed['id'], 'destination': 'sell'}
+            assert saved['state']['inventory']['carrot'] == 0
+            assert saved['state']['coins'] == 358  # 500 - 150 land - 4 seed + 12 harvest.
+            assert not page.get_by_test_id('pick-farm-panel-plot').count()
+            # Orders remain possible through an explicit storage destination.
+            select_plot(bed)
+            page.get_by_test_id('pick-farm-seed-carrot').click()
+            page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
+            saved['now'] += CROPS['carrot']['growSeconds'] * 1000
+            reload_field()
+            page.get_by_test_id('pick-farm-tool-harvest').click()
+            page.get_by_test_id('pick-farm-destination-storage').click()
+            page.screenshot(path=str(OUT / f'harvest-storage-{width}.png'))
             tap_cell(bed['x'], bed['y'])
             page.wait_for_function("document.body.innerText.includes('Склад 3')")
-            assert saved['state']['inventory']['carrot'] == 3
-            assert not page.get_by_test_id('pick-farm-panel-plot').count()
+            assert calls[-1]['command'] == {'type': 'harvest', 'plotId': bed['id'], 'destination': 'storage'}
+            assert saved['state']['inventory']['carrot'] == 3 and saved['state']['coins'] == 354
             done()
             page.get_by_role('button', name='Склад', exact=False).click()
             page.get_by_test_id('pick-farm-sell-carrot').click()
             expect(page.get_by_test_id('pick-farm-sell-carrot')).to_be_disabled()
-            assert saved['state']['coins'] == 355
+            assert saved['state']['coins'] == 366
             close_panel()
             # Wilt and clear preserve land and do not produce inventory.
             select_plot(bed)
@@ -158,20 +177,24 @@ with sync_playwright() as p:
             tap_cell(bed['x'], bed['y'])
             page.get_by_test_id('pick-farm-remove-confirm').click()
             expect(page.get_by_test_id('pick-farm-panel-remove')).to_have_count(0)
-            assert len(saved['state']['plots']) == 0 and saved['state']['coins'] == 351
+            assert len(saved['state']['plots']) == 0 and saved['state']['coins'] == 362
             done()
             page.get_by_test_id('pick-farm-shop').click()
-            page.get_by_role('button', name='Яблоня - 250 монет', exact=True).click()
-            page.get_by_role('button', name='Купить - 250 монет', exact=True).click()
+            page.get_by_role('button', name='Яблоня - 275 монет', exact=True).click()
+            page.get_by_role('button', name='Купить - 275 монет', exact=True).click()
             expect(page.get_by_test_id('pick-farm-panel-place')).to_have_count(0)
             tree = saved['state']['plots'][0]
             assert tree['id'] != bed['id']
-            for _ in range(3):
+            tree_coins = saved['state']['coins']
+            for harvest_index in range(3):
                 saved['now'] += CROPS['apple']['growSeconds'] * 1000
                 reload_field()
                 select_plot(tree)
                 page.get_by_test_id('pick-farm-harvest').click()
                 expect(page.get_by_test_id('pick-farm-harvest')).to_be_disabled()
+                assert calls[-1]['command']['destination'] == 'sell'
+                assert saved['state']['coins'] == tree_coins + (harvest_index + 1) * 30
+                assert saved['state']['inventory']['apple'] == 0
                 close_panel()
             assert saved['state']['plots'][0]['harvests'] == 0
             page.get_by_test_id('pick-farm-tool-move').click()
@@ -243,4 +266,4 @@ with sync_playwright() as p:
             raise
         context.close()
     browser.close()
-print('Farm tools 852/667/1024: empty field, inverse cell purchase, planting, ready harvest, wilt/clear, permanent tree, pan/zoom, storage/orders passed; synthetic HTTP only.')
+print('Farm tools 852/667/1024: empty field, inverse cell purchase, planting, default auto-sale, explicit storage/sale, escalating land, wilt/clear, permanent tree, pan/zoom, storage/orders passed; synthetic HTTP only.')

@@ -294,6 +294,66 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
       }),
       (e) => e.code === 'RECOVERY_NOT_AVAILABLE',
     );
+    // Selling during harvest is one durable effect, including receipt failure and replay.
+    const e = randomUUID();
+    await scoped.query('INSERT INTO identity_customers(id) VALUES($1)', [e]);
+    const saleInitial = await farm.get(e);
+    const saleReady = {
+      ...saleInitial.state,
+      nextPlotId: 1,
+      coins: 0,
+      plots: [
+        {
+          id: 0,
+          x: 32,
+          y: 30,
+          kind: 'bed',
+          cropId: 'carrot',
+          plantedAt: saleInitial.serverNow - 3600100,
+          harvests: 0,
+        },
+      ],
+    };
+    await scoped.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [e, saleReady]);
+    const autoSale = {
+      commandId: randomUUID(),
+      expectedRevision: 0,
+      command: { type: 'harvest', plotId: 0, destination: 'sell' },
+    };
+    await scoped.query(
+      'CREATE TRIGGER receipt_failure BEFORE INSERT ON customer_farm_commands FOR EACH ROW EXECUTE FUNCTION reject_receipt()',
+    );
+    await assert.rejects(farm.command(e, autoSale));
+    assert.deepEqual(
+      (await farm.get(e)).state,
+      saleReady,
+      'failed receipt rolls back coins, XP and crop',
+    );
+    await scoped.query('DROP TRIGGER receipt_failure ON customer_farm_commands');
+    const sales = await Promise.all([farm.command(e, autoSale), farm.command(e, autoSale)]);
+    assert.equal(sales[0].state.coins, 12);
+    assert.equal(sales[0].state.inventory.carrot, 0);
+    assert.equal(sales[0].state.xp, 10);
+    assert.deepEqual(sales[0].state, sales[1].state);
+    assert.deepEqual(
+      (await new FarmPersistence(scoped, true).command(e, autoSale)).state,
+      sales[0].state,
+    );
+    await assert.rejects(
+      farm.command(e, {
+        ...autoSale,
+        command: { ...autoSale.command, destination: 'storage' },
+      }),
+      (error) => error.code === 'COMMAND_ID_CONFLICT',
+    );
+    await assert.rejects(
+      farm.command(e, {
+        ...autoSale,
+        commandId: randomUUID(),
+        expectedRevision: 1,
+      }),
+      (error) => error.code === 'PLOT_EMPTY',
+    );
     const role = 'farm_role_' + randomUUID().replaceAll('-', '');
     let restricted;
     try {

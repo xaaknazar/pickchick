@@ -115,7 +115,7 @@ test('sales and repeated orders consume inventory, failed actions leave inputs u
   let state = harvest(plant(), 3600000);
   const before = globalThis.structuredClone(state);
   state = run(state, { type: 'sell', cropId: 'carrot', quantity: 2 }, 3600000);
-  assert.equal(state.coins, 352);
+  assert.equal(state.coins, 354);
   assert.deepEqual(before.inventory, {
     carrot: 3,
     tomato: 0,
@@ -264,7 +264,7 @@ test('bankruptcy recovery produces one normal carrot cycle without currency rewa
     assert.throws(() => run(recovered, { type: 'recover' }, now), /RECOVERY_NOT_AVAILABLE/);
     const grown = run(recovered, { type: 'harvest', plotId: recovered.plots[0].id }, now + 3600000);
     const sold = run(grown, { type: 'sell', cropId: 'carrot', quantity: 3 }, now + 3600000);
-    assert.equal(sold.coins, original.coins + 9);
+    assert.equal(sold.coins, original.coins + 12);
     assert.equal(canRecoverFarm(sold, now + 3600000), false);
   }
   for (const original of [

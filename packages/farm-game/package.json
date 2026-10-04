@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "simulate:economy": "node scripts/simulate-economy.mjs"
   },
   "dependencies": {
     "zod": "4.5.4"

@@ -145,3 +145,9 @@ The imagery sources are meadow-painted-v2.png, props-painted-v2.png and plants-p
 - Don't substitute flat green scenery or the rejected house for the painted meadow.
 - Don't add perpetual sway, prearranged plots or decorations as part of this slice.
 - Don't treat the web export as evidence that native landscape behavior passed.
+
+## Economy interaction
+
+Harvest defaults to an explicit sale destination: the primary action harvests and sells atomically, with a coin receipt. The alternative “На склад для заказов” retains produce and shows a quantity receipt. The field destination selector stays under the upper-left HUD, clear of the central planting area. Both field tools and plot details expose the same selected destination; every client harvest sends it explicitly. Neither mode silently sells stored order ingredients.
+
+Seed choices distinguish seed cost, growth duration, full harvest sale revenue and net profit after seed cost. Plot acquisition is excluded from per-cycle seed profit and explained in help. Apple cards show the current upfront tree price, recurring harvest revenue without new seeds and payback harvest count. Current land purchase prices come from the shared economy helper and remain visible before placement; removal does not reset acquisition pricing. Plot details communicate the harvest window before maturity, then show its remaining time. Preserve the painted world and compact landscape layout.
