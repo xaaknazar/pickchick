@@ -1,3 +1,13 @@
+## 4 октября: PICK FARM TestFlight - подготовка
+
+Ветка codex/farm-testflight от shared9bb92b9. Владелец разрешил первый pilot.
+Build9 и farm-pilot включают ферму поверх прежних customer-pilot флагов.
+Подготовлен отдельный read-only native XCTest. 25 release-helper тестов и
+resolved config прошли. Upload/native acceptance пока не подтверждены.
+Mac был заблокирован, оба iPhone unavailable, ASC сессия истекла: вопросы
+владельцу отправлены. Сервер требует guarded033->038, FARM_ENABLED и farm routes;
+действующие политики Kaspi/Telegram и коммерческие feature flags сохраняются.
+
 ## 4 октября: PICK FARM - экономика
 
 Ветка `codex/farm-economy` от shared aa7e015. Harvest destination sell/storage,

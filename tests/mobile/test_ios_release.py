@@ -61,6 +61,59 @@ class ReleasePreflightTests(unittest.TestCase):
             release.run_xcode(["xcodebuild", "archive"], Path(directory) / "archive.log", env)
             self.assertEqual(run.call_args.kwargs["env"], env)
 
+    def test_farm_pilot_pins_customer_flags_and_enables_farm_without_mutating_source(self):
+        original = dict(release.CUSTOMER_PILOT_FLAGS)
+        source = {key: "wrong" for key in release.FARM_PILOT_FLAGS}
+        source.update(PICKCHICK_APP_VARIANT="development", EXPO_NO_DOTENV="0", UNRELATED="kept")
+        before = dict(source)
+        env = release.archive_environment("farm-pilot", source)
+        self.assertEqual(release.FARM_PILOT_FLAGS, original | {"EXPO_PUBLIC_PICK_FARM": "1"})
+        self.assertEqual({key: env[key] for key in release.FARM_PILOT_FLAGS}, release.FARM_PILOT_FLAGS)
+        self.assertEqual(env["PICKCHICK_APP_VARIANT"], "release")
+        self.assertEqual(env["EXPO_NO_DOTENV"], "1")
+        self.assertEqual(env["UNRELATED"], "kept")
+        self.assertEqual(source, before)
+        self.assertEqual(release.CUSTOMER_PILOT_FLAGS, original)
+        self.assertNotIn("EXPO_PUBLIC_PICK_FARM", release.CUSTOMER_PILOT_FLAGS)
+        flags = release.feature_profile_flags("farm-pilot")
+        flags["EXPO_PUBLIC_PICK_FARM"] = "0"
+        self.assertEqual(release.FARM_PILOT_FLAGS["EXPO_PUBLIC_PICK_FARM"], "1")
+
+    def test_farm_profile_delivery_rejects_missing_changed_extra_and_cross_profile_flags(self):
+        metadata = {"featureProfile": "farm-pilot", "embeddedPublicEnv": dict(release.FARM_PILOT_FLAGS)}
+        release.verify_feature_profile(metadata, "farm-pilot")
+        for changed in [dict(release.CUSTOMER_PILOT_FLAGS),
+                        release.FARM_PILOT_FLAGS | {"EXPO_PUBLIC_PICK_FARM": "0"},
+                        release.FARM_PILOT_FLAGS | {"EXPO_PUBLIC_ORDER_SIMULATOR": "1"},
+                        release.FARM_PILOT_FLAGS | {"EXTRA": "1"}]:
+            with self.subTest(flags=changed), self.assertRaisesRegex(RuntimeError, "do not match"):
+                release.verify_feature_profile(metadata | {"embeddedPublicEnv": changed}, "farm-pilot")
+        for requested in ["legacy", "customer-pilot"]:
+            with self.subTest(profile=requested), self.assertRaisesRegex(RuntimeError, "differs"):
+                release.verify_feature_profile(metadata, requested)
+        with self.assertRaisesRegex(RuntimeError, "differs"):
+            release.verify_feature_profile({"featureProfile": "customer-pilot",
+                                            "embeddedPublicEnv": dict(release.CUSTOMER_PILOT_FLAGS)}, "farm-pilot")
+        with self.assertRaisesRegex(RuntimeError, "EXPO_NO_CLIENT_ENV_VARS"):
+            release.archive_environment("farm-pilot", {"EXPO_NO_CLIENT_ENV_VARS": "1"})
+        with self.assertRaisesRegex(RuntimeError, "Unknown"):
+            release.archive_environment("unknown", {})
+
+    def test_farm_archive_passes_exact_pinned_environment_to_xcode(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(release.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            env = release.archive_environment("farm-pilot", {})
+            release.run_xcode(["xcodebuild", "archive"], Path(directory) / "archive.log", env)
+            self.assertEqual(run.call_args.kwargs["env"], env)
+            self.assertEqual(env["EXPO_PUBLIC_PICK_FARM"], "1")
+
+    def test_farm_profile_cannot_be_used_for_kiosk(self):
+        result = subprocess.run([sys.executable, release.__file__, "doctor", "--app", "kiosk",
+                                 "--feature-profile", "farm-pilot"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("only for the mobile app", result.stdout)
+        self.assertNotIn("Local Apple build environment", result.stdout)
+
     def test_public_staging_url_without_embedded_credentials(self):
         self.assertEqual(
             release.checked_api_url("https://pickchick.185.129.51.103.nip.io/"),

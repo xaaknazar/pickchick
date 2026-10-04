@@ -29,6 +29,7 @@ CUSTOMER_PILOT_FLAGS = {
     "EXPO_PUBLIC_ORDER_SIMULATOR": "0",
     "EXPO_PUBLIC_UNPAID_TEST_ORDERS": "0",
 }
+FARM_PILOT_FLAGS = {**CUSTOMER_PILOT_FLAGS, "EXPO_PUBLIC_PICK_FARM": "1"}
 
 
 def select_app(name):
@@ -364,15 +365,26 @@ def write_private_json(path, data):
         handle.write("\n")
 
 
+def feature_profile_flags(feature_profile):
+    """Return an independent allowlisted flag snapshot for release metadata."""
+    profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS}
+    if feature_profile == "legacy":
+        return None
+    if feature_profile not in profiles:
+        fail("Unknown release feature profile.")
+    return dict(profiles[feature_profile])
+
+
 def archive_environment(feature_profile, source=None):
     """Pin the JS bundle switches independently of the invoking shell and dotenv."""
-    if feature_profile != "customer-pilot":
+    flags = feature_profile_flags(feature_profile)
+    if flags is None:
         return None
     source = os.environ if source is None else source
     if "EXPO_NO_CLIENT_ENV_VARS" in source:
-        fail("EXPO_NO_CLIENT_ENV_VARS prevents the customer-pilot flags from reaching the JS bundle.")
+        fail("EXPO_NO_CLIENT_ENV_VARS prevents the pilot flags from reaching the JS bundle.")
     env = dict(source)
-    env.update(CUSTOMER_PILOT_FLAGS)
+    env.update(flags)
     env["PICKCHICK_APP_VARIANT"] = "release"
     env["EXPO_NO_DOTENV"] = "1"
     return env
@@ -382,8 +394,9 @@ def verify_feature_profile(metadata, requested):
     archived = metadata.get("featureProfile", "legacy")
     if archived != requested:
         fail("The requested feature profile differs from the archived release.")
-    if archived == "customer-pilot" and metadata.get("embeddedPublicEnv") != CUSTOMER_PILOT_FLAGS:
-        fail("The archived customer-pilot feature flags are missing or do not match.")
+    flags = feature_profile_flags(archived)
+    if flags is not None and metadata.get("embeddedPublicEnv") != flags:
+        fail(f"The archived {archived} feature flags are missing or do not match.")
 
 
 def run_xcode(command, log, env=None):
@@ -441,7 +454,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["doctor", "archive", "export", "upload"])
     parser.add_argument("--app", choices=["mobile", "kiosk"], default="mobile")
-    parser.add_argument("--feature-profile", choices=["legacy", "customer-pilot"],
+    parser.add_argument("--feature-profile", choices=["legacy", "customer-pilot", "farm-pilot"],
                         default="legacy", help="Explicit JS feature set for a mobile TestFlight archive")
     parser.add_argument("--workspace")
     parser.add_argument("--scheme")
@@ -455,8 +468,8 @@ def main():
     parser.add_argument("--keychain-password-file", help="Optional private hex password file to unlock only the dedicated keychain")
     args = parser.parse_args()
     select_app(args.app)
-    if args.feature_profile == "customer-pilot" and args.app != "mobile":
-        fail("The customer-pilot feature profile is available only for the mobile app.")
+    if args.feature_profile in {"customer-pilot", "farm-pilot"} and args.app != "mobile":
+        fail("Pilot feature profiles are available only for the mobile app.")
     args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
     args.scheme = args.scheme or APP_TARGET
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.release):
@@ -520,7 +533,7 @@ def perform_phase(args, signing, artifacts):
                         "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY,
                         "version": version, "build": build,
                         "featureProfile": args.feature_profile,
-                        "embeddedPublicEnv": (CUSTOMER_PILOT_FLAGS if bundle_env else {}),
+                        "embeddedPublicEnv": (feature_profile_flags(args.feature_profile) or {}),
                         "gitSha": local_command(["git", "rev-parse", "HEAD"]).strip(),
                         "dirty": bool(local_command(["git", "status", "--porcelain"]).strip()),
                         "archiveStatus": "started", "signing": public_signing(signing)}
