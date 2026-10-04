@@ -2351,21 +2351,6 @@
       "updatedAt": "2026-10-04T10:04:55.130Z"
     },
     {
-      "id": "pick-farm-server",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/pick-farm-server",
-      "scopes": [
-        "packages/farm-persistence",
-        "db/cloud/migrations/037_cloud_farm.sql",
-        "services/api/src/farm-controller.ts",
-        "services/api/src/index.ts",
-        "services/api/package.json"
-      ],
-      "status": "active",
-      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
-      "updatedAt": "2026-10-04T10:05:13.505Z"
-    },
-    {
       "id": "pick-farm-ui",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/pick-farm-ui",
@@ -2409,6 +2394,22 @@
       "status": "active",
       "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
       "updatedAt": "2026-10-04T10:06:33.984Z"
+    },
+    {
+      "id": "pick-farm-server",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pick-farm-server",
+      "scopes": [
+        "packages/farm-persistence",
+        "db/cloud/migrations/037_cloud_farm.sql",
+        "services/api/src/farm-controller.ts",
+        "services/api/src/index.ts",
+        "services/api/package.json",
+        "infra/staging/farm-grants.mjs"
+      ],
+      "status": "active",
+      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
+      "updatedAt": "2026-10-04T10:09:44.123Z"
     }
   ]
 }
