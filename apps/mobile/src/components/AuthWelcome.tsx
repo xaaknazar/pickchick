@@ -97,6 +97,7 @@ export function AuthWelcome(props: ScreenProps) {
     return () => loop.stop();
   }, [phase, reduced, active]);
   const game =
+    flow?.destination === 'magic-sort' ||
     flow?.destination === 'pick-man' ||
     flow?.destination === 'pick-blocks' ||
     flow?.destination === 'M26';

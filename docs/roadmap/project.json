@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-04",
+  "updatedAt": "2026-10-05",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -63,7 +63,8 @@
     "docs/operations/director-console.md",
     "docs/operations/launch-readiness-2026-10-04.md",
     "docs/operations/commercial-channels.md",
-    "docs/operations/pick-farm.md"
+    "docs/operations/pick-farm.md",
+    "docs/design/magic-sort.md"
   ],
   "workstreams": [
     {
@@ -4059,6 +4060,35 @@
         "implemented": true,
         "verified": false,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "magic-sort-prototype",
+      "workstream": "games",
+      "title": "Magic Sort - сортировка жидкостей",
+      "summary": "24 бутылки, жёлтый коллектор, оригинальная графика, переливание, отмена, подсказки и локальное сохранение по аккаунту. 100 раскладок и полный браузерный уровень проверены; native и TestFlight впереди.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["games-local"],
+      "evidence": [
+        {
+          "label": "Механика, визуальный источник и проверки",
+          "path": "docs/design/magic-sort.md"
+        }
+      ],
+      "acceptance": [
+        "24 бутылки и центральный коллектор доступны без прокрутки на телефоне.",
+        "Каждая стартовая раскладка имеет проверенное решение; недопустимый ход не меняет состояние.",
+        "Прогресс восстанавливается для того же аккаунта после перезапуска.",
+        "Физический iPhone: управление, анимации, фон/возврат и выход; владелец принимает игру."
+      ],
+      "nextAction": "Проверить на физическом iPhone и выпустить в следующей сборке TestFlight после зелёной CI. Серверная синхронизация - отдельный этап.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
         "accepted": false
       }
     }

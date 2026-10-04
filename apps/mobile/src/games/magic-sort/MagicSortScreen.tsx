@@ -1,0 +1,573 @@
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Image,
+  Pressable,
+  Text,
+  View,
+  useWindowDimensions,
+  BackHandler,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon, type IconName } from '../../components/UI';
+import { useReducedMotion } from '../../components/Motion';
+import { isSealed, isWon, hasMoves, type Color } from './engine';
+import { useMagicSort } from './useMagicSort';
+import { sortColors as c, sortStyles as s } from './styles';
+const glass = require('../../../assets/games/magic-sort/bottle-glass.png');
+const propsAtlas = require('../../../assets/games/magic-sort/props-atlas.png');
+const colorNames: Record<Color, string> = {
+  yellow: 'жёлтый',
+  ivory: 'белый',
+  taupe: 'бежевый',
+  orange: 'оранжевый',
+  rose: 'розовый',
+  wine: 'бордовый',
+};
+function Prop({ kind, width, height }: { kind: 'shelf' | 'cork'; width: number; height: number }) {
+  const box = kind === 'shelf' ? ([38, 238, 1216, 386] as const) : ([474, 738, 782, 1095] as const);
+  const sx = width / (box[2] - box[0]),
+    sy = height / (box[3] - box[1]);
+  return (
+    <View pointerEvents="none" accessible={false} style={{ width, height, overflow: 'hidden' }}>
+      <Image
+        source={propsAtlas}
+        resizeMode="stretch"
+        style={{
+          position: 'absolute',
+          left: -box[0] * sx,
+          top: -box[1] * sy,
+          width: 1254 * sx,
+          height: 1254 * sy,
+        }}
+      />
+    </View>
+  );
+}
+function GlassSlice({
+  width,
+  height,
+  sourceTop,
+  sourceBottom,
+}: {
+  width: number;
+  height: number;
+  sourceTop: number;
+  sourceBottom: number;
+}) {
+  const scaleY = height / (sourceBottom - sourceTop);
+  return (
+    <View style={{ width, height, overflow: 'hidden' }}>
+      <Image
+        source={glass}
+        resizeMode="stretch"
+        style={{
+          position: 'absolute',
+          left: (-300 * width) / 492,
+          top: -sourceTop * scaleY,
+          width: (1101 * width) / 492,
+          height: 1428 * scaleY,
+          opacity: 0.58,
+        }}
+      />
+    </View>
+  );
+}
+function Bottle({
+  colors,
+  width,
+  height,
+  collector = false,
+}: {
+  colors: readonly Color[];
+  width: number;
+  height: number;
+  collector?: boolean;
+}) {
+  const capacity = collector ? 16 : 4;
+  const neckHeight = collector ? width * 0.9 : height * 0.22;
+  const baseHeight = collector ? width * 0.24 : height * 0.075;
+  const bodyHeight = height - neckHeight - baseHeight;
+  const sealed = !collector && isSealed(colors);
+  return (
+    <View pointerEvents="none" accessible={false} style={{ width, height, position: 'relative' }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: width * 0.075,
+          right: width * 0.075,
+          top: neckHeight,
+          bottom: baseHeight,
+          borderRadius: width * 0.19,
+          overflow: 'hidden',
+          backgroundColor: '#CFEBEB0A',
+        }}
+      >
+        {colors.map((color, index) => (
+          <View
+            key={index}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: (index * bodyHeight) / capacity,
+              height: bodyHeight / capacity + 0.5,
+              backgroundColor: c[color],
+            }}
+          />
+        ))}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: width * 0.075,
+            width: width * 0.08,
+            backgroundColor: '#FFFFFF24',
+            borderRadius: 10,
+          }}
+        />
+      </View>
+      {!!colors.length && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: width * 0.075,
+            right: width * 0.075,
+            top:
+              neckHeight +
+              bodyHeight * (1 - colors.length / capacity) -
+              Math.max(5, width * 0.18) / 2,
+            height: Math.max(5, width * 0.18),
+            borderRadius: width / 2,
+            overflow: 'hidden',
+            backgroundColor: c[colors[colors.length - 1]!],
+            borderTopWidth: 1,
+            borderTopColor: '#FFFFFF65',
+          }}
+        >
+          <View style={{ position: 'absolute', inset: 0, backgroundColor: '#FFFFFF26' }} />
+        </View>
+      )}
+      <View style={{ position: 'absolute', inset: 0 }}>
+        <GlassSlice width={width} height={neckHeight} sourceTop={14} sourceBottom={330} />
+        <GlassSlice width={width} height={bodyHeight} sourceTop={330} sourceBottom={1304} />
+        <GlassSlice width={width} height={baseHeight} sourceTop={1304} sourceBottom={1414} />
+      </View>
+      {sealed && (
+        <View style={{ position: 'absolute', left: width * 0.21, top: -height * 0.015 }}>
+          <Prop kind="cork" width={width * 0.58} height={height * 0.1} />
+        </View>
+      )}
+      {collector && (
+        <View
+          style={{
+            position: 'absolute',
+            top: collector ? width * 0.17 : height * 0.055,
+            right: -3,
+            width: 12,
+            height: 18,
+            borderRadius: 3,
+            backgroundColor: c.accent,
+            transform: [{ rotate: '-18deg' }],
+            borderWidth: 2,
+            borderColor: '#F9DEA3',
+          }}
+        />
+      )}
+    </View>
+  );
+}
+function Control({
+  label,
+  icon,
+  onPress,
+  disabled = false,
+  testID,
+}: {
+  label: string;
+  icon: IconName;
+  onPress(): void;
+  disabled?: boolean;
+  testID?: string;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [s.action, disabled && s.disabled, pressed && s.pressed]}
+    >
+      <Icon name={icon} size={20} color={c.ink} />
+      <Text style={s.actionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+export function MagicSortScreen() {
+  const router = useRouter(),
+    insets = useSafeAreaInsets(),
+    { width, height } = useWindowDimensions();
+  const model = useMagicSort(),
+    reduced = useReducedMotion();
+  const [panel, setPanel] = useState<'help' | 'restart' | null>(null);
+  const progress = useRef(new Animated.Value(0)).current;
+  const top = Math.max(insets.top, 12),
+    bottom = Math.max(insets.bottom, 12);
+  const boardWidth = Math.min(width - 12, 570),
+    collectorWidth = boardWidth * 0.105;
+  const slot = (boardWidth - collectorWidth - 12) / 6;
+  const rowHeight = Math.max(56, Math.min(154, (height - top - bottom - 158) / 4));
+  const boardHeight = rowHeight * 4,
+    bottleWidth = slot * 0.8,
+    bottleHeight = rowHeight - 17;
+  const position = (index: number) => {
+    if (index === 24) return { x: boardWidth / 2 - collectorWidth / 2, y: 0 };
+    const row = Math.floor(index / 6),
+      col = index % 6;
+    return {
+      x:
+        (col < 3 ? col * slot : 3 * slot + collectorWidth + 12 + (col - 3) * slot) +
+        (slot - bottleWidth) / 2,
+      y: row * rowHeight + 4,
+    };
+  };
+  useEffect(() => {
+    progress.stopAnimation();
+    progress.setValue(0);
+    if (!model.pending) return;
+    const pending = model.pending;
+    if (reduced) {
+      model.finishPour(pending);
+      return;
+    }
+    const animation = Animated.timing(progress, {
+      toValue: 1,
+      duration: 760,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished) model.finishPour(pending);
+    });
+    return () => animation.stop();
+  }, [model.pending, model.finishPour, reduced, progress]);
+  useEffect(() => {
+    const back = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (panel) {
+        setPanel(null);
+        return true;
+      }
+      if (!model.paused) {
+        model.pause();
+        return true;
+      }
+      return false;
+    });
+    return () => back.remove();
+  }, [panel, model.paused, model.pause]);
+  const source = model.pending ? position(model.pending.move.from) : null;
+  const target = model.pending ? position(model.pending.move.to) : null;
+  const targetWidth = model.pending?.move.to === 24 ? collectorWidth : bottleWidth;
+  const tilt = source && target && source.x < target.x ? 65 : -65;
+  const pouredX = target
+    ? target.x +
+      targetWidth / 2 -
+      bottleWidth / 2 -
+      (tilt > 0 ? bottleHeight * 0.25 : -bottleHeight * 0.25)
+    : 0;
+  const won = model.game ? isWon(model.game) : false;
+  return (
+    <View testID="magic-sort-screen" style={[s.screen, { paddingTop: top, paddingBottom: bottom }]}>
+      <View style={s.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Выйти из Magic Sort"
+          onPress={() => {
+            model.pause();
+            router.back();
+          }}
+          style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+        >
+          <Icon name="arrow-back" color={c.ink} />
+        </Pressable>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={s.title}>MAGIC SORT</Text>
+          <Text testID="magic-sort-moves" style={s.caption}>
+            Ходы: {model.game?.history.length ?? 0}
+          </Text>
+        </View>
+        <Pressable
+          testID="magic-sort-help"
+          accessibilityRole="button"
+          accessibilityLabel="Как играть"
+          disabled={!!model.pending}
+          onPress={() => setPanel('help')}
+          style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+        >
+          <Icon name="help-circle-outline" color={c.ink} />
+        </Pressable>
+      </View>
+      <View
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: boardHeight }}
+      >
+        {!model.game ? (
+          <ActivityIndicator color={c.accent} />
+        ) : (
+          <View testID="magic-sort-board" style={{ width: boardWidth, height: boardHeight }}>
+            {Array.from({ length: 4 }, (_, row) => (
+              <View
+                key={row}
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  top: (row + 1) * rowHeight - 13,
+                  left: 0,
+                  right: 0,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Prop kind="shelf" width={slot * 3} height={20} />
+                <Prop kind="shelf" width={slot * 3} height={20} />
+              </View>
+            ))}
+            {model.game.bottles.map((colors, index) => {
+              const pos = position(index),
+                selected = model.selected === index;
+              return (
+                <Pressable
+                  key={index}
+                  testID={`magic-sort-bottle-${index}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Бутылка ${index + 1}: ${colors.length ? colors.map((color) => colorNames[color]).join(', ') : 'пустая'}${isSealed(colors) ? ', закрыта' : ''}`}
+                  accessibilityState={{
+                    selected,
+                    disabled: !!model.pending || model.paused || isSealed(colors),
+                  }}
+                  disabled={!!model.pending || model.paused || isSealed(colors)}
+                  onPress={() => model.select(index)}
+                  style={({ pressed }) => [
+                    {
+                      position: 'absolute',
+                      left: pos.x - (slot - bottleWidth) / 2,
+                      top: pos.y - 4,
+                      width: slot,
+                      height: rowHeight - 7,
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      borderRadius: 12,
+                      backgroundColor: selected ? '#F2CB6426' : 'transparent',
+                      opacity: model.pending?.move.from === index ? 0 : pressed ? 0.75 : 1,
+                      transform: [{ translateY: selected ? -7 : 0 }],
+                    },
+                  ]}
+                >
+                  <Bottle colors={colors} width={bottleWidth} height={bottleHeight} />
+                </Pressable>
+              );
+            })}
+            <Pressable
+              testID="magic-sort-collector"
+              accessibilityRole="button"
+              accessibilityLabel={`Жёлтый коллектор: ${model.game.collector.length} из 16`}
+              accessibilityState={{ disabled: !!model.pending || model.paused }}
+              disabled={!!model.pending || model.paused}
+              onPress={() => model.select(24)}
+              hitSlop={{ left: 6, right: 6 }}
+              style={({ pressed }) => [
+                {
+                  position: 'absolute',
+                  left: boardWidth / 2 - collectorWidth / 2,
+                  top: 0,
+                  width: collectorWidth,
+                  height: boardHeight - 12,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+            >
+              <Bottle
+                colors={model.game.collector}
+                collector
+                width={collectorWidth}
+                height={boardHeight - 12}
+              />
+            </Pressable>
+            {model.pending && source && target && (
+              <>
+                <Animated.View
+                  pointerEvents="none"
+                  testID="magic-sort-pour"
+                  style={{
+                    position: 'absolute',
+                    zIndex: 8,
+                    width: bottleWidth,
+                    height: bottleHeight,
+                    transform: [
+                      {
+                        translateX: progress.interpolate({
+                          inputRange: [0, 0.32, 0.78, 1],
+                          outputRange: [source.x, pouredX, pouredX, source.x],
+                        }),
+                      },
+                      {
+                        translateY: progress.interpolate({
+                          inputRange: [0, 0.32, 0.78, 1],
+                          outputRange: [
+                            source.y,
+                            target.y - bottleHeight * 0.38,
+                            target.y - bottleHeight * 0.38,
+                            source.y,
+                          ],
+                        }),
+                      },
+                      {
+                        rotate: progress.interpolate({
+                          inputRange: [0, 0.32, 0.78, 1],
+                          outputRange: ['0deg', `${tilt}deg`, `${tilt}deg`, '0deg'],
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <Bottle
+                    colors={model.game.bottles[model.pending.move.from] ?? []}
+                    width={bottleWidth}
+                    height={bottleHeight}
+                  />
+                </Animated.View>
+                <Animated.View
+                  pointerEvents="none"
+                  testID="magic-sort-stream"
+                  style={{
+                    position: 'absolute',
+                    zIndex: 7,
+                    left: target.x + targetWidth / 2 - 2,
+                    top: target.y - 10,
+                    width: 4,
+                    height: Math.max(20, bottleHeight * 0.21),
+                    borderRadius: 3,
+                    backgroundColor: c[model.pending.color],
+                    opacity: progress.interpolate({
+                      inputRange: [0, 0.3, 0.38, 0.74, 0.82, 1],
+                      outputRange: [0, 0, 1, 1, 0, 0],
+                    }),
+                  }}
+                />
+              </>
+            )}
+          </View>
+        )}
+      </View>
+      <View style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 18 }}>
+        <Text testID="magic-sort-notice" accessibilityLiveRegion="polite" style={s.notice}>
+          {model.saveError ? 'Прогресс пока не сохранён. Повторите сохранение.' : model.notice}
+        </Text>
+      </View>
+      {model.saveError ? (
+        <View style={s.dock}>
+          <Control label="Сохранить снова" icon="refresh" onPress={model.retrySave} />
+        </View>
+      ) : (
+        <View style={s.dock}>
+          <Control
+            label="Отменить"
+            icon="arrow-undo"
+            testID="magic-sort-undo"
+            disabled={!model.game?.history.length || !!model.pending || model.paused}
+            onPress={model.undo}
+          />
+          <Control
+            label="Подсказка"
+            icon="bulb-outline"
+            testID="magic-sort-hint"
+            disabled={!!model.pending || !model.game || model.paused}
+            onPress={model.hint}
+          />
+          <Control
+            label="Заново"
+            icon="refresh"
+            testID="magic-sort-restart"
+            disabled={!!model.pending || !model.game}
+            onPress={() => setPanel('restart')}
+          />
+          <Control label="Пауза" icon="pause" testID="magic-sort-pause" onPress={model.pause} />
+        </View>
+      )}
+      {(panel ||
+        model.paused ||
+        won ||
+        (model.game && !hasMoves(model.game) && !model.pending)) && (
+        <View testID={won ? 'magic-sort-won' : 'magic-sort-overlay'} style={s.overlay}>
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>
+              {panel === 'help'
+                ? 'Как играть'
+                : panel === 'restart'
+                  ? 'Начать заново?'
+                  : won
+                    ? 'Все цвета на месте'
+                    : model.paused
+                      ? 'Пауза'
+                      : 'Нет доступных ходов'}
+            </Text>
+            <Text style={s.body}>
+              {panel === 'help'
+                ? 'Выберите бутылку и затем другую с таким же верхним цветом или пустую. Переливается весь верхний слой, если хватает места. Жёлтый собирайте в длинной бутылке по центру; остальные цвета - в отдельных полных бутылках. Готовые бутылки закрываются пробкой. Прогресс сохраняется на этом устройстве для вашего аккаунта. Монеты и награды не начисляются.'
+                : panel === 'restart'
+                  ? 'Все ходы этого уровня будут отменены. Раскладка останется прежней.'
+                  : won
+                    ? 'Жёлтый собран в центре, остальные бутылки закрыты. Следующая головоломка готова.'
+                    : model.paused
+                      ? 'Переливание остановлено. Продолжите, когда будете готовы.'
+                      : 'Отмените последний ход или начните уровень заново.'}
+            </Text>
+            {panel ? (
+              <>
+                <Pressable
+                  style={s.panelButton}
+                  onPress={() => {
+                    if (panel === 'restart') model.restart();
+                    setPanel(null);
+                  }}
+                  testID="magic-sort-panel-confirm"
+                  accessibilityRole="button"
+                >
+                  <Text style={s.panelButtonLabel}>
+                    {panel === 'restart' ? 'Начать заново' : 'Понятно'}
+                  </Text>
+                </Pressable>
+                {panel === 'restart' && (
+                  <Pressable
+                    accessibilityRole="button"
+                    style={s.panelButton}
+                    onPress={() => setPanel(null)}
+                  >
+                    <Text style={s.panelButtonLabel}>Продолжить уровень</Text>
+                  </Pressable>
+                )}
+              </>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                testID="magic-sort-resume"
+                style={s.panelButton}
+                onPress={won ? model.nextLevel : model.paused ? model.resume : model.undo}
+              >
+                <Text style={s.panelButtonLabel}>
+                  {won ? 'Следующий уровень' : model.paused ? 'Продолжить' : 'Отменить ход'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}

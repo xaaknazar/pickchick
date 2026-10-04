@@ -66,6 +66,7 @@ export default function Auth() {
     else if (destination === 'M19') router.dismissTo('/(tabs)/orders');
     else if (destination === 'pick-man') router.dismissTo('/games/pick-man');
     else if (destination === 'pick-blocks') router.dismissTo('/games/pick-blocks');
+    else if (destination === 'magic-sort') router.dismissTo('/games/magic-sort');
     else if (destination === 'pick-farm') router.dismissTo('/games/pick-farm');
     else if (destination)
       router.dismissTo({ pathname: '/screen/[id]', params: { id: destination } });

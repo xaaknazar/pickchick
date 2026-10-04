@@ -7,6 +7,7 @@ import type { ScreenProps } from '../model';
 import { PickBlocksCard } from '../games/pick-blocks/visuals';
 import { PickFarmCard } from '../games/pick-farm/visuals';
 import { FARM_ENABLED } from '../games/pick-farm/api';
+import { MagicSortCard } from '../games/magic-sort/MagicSortCard';
 import { PickManCard } from '../games/pick-man/visuals';
 import {
   Body,
@@ -53,6 +54,7 @@ export function Events(props: ScreenProps) {
         <Heading testID="events-games" style={s.eventSection}>
           Игры
         </Heading>
+        <MagicSortCard />
         {FARM_ENABLED ? <PickFarmCard /> : null}
         {published.gameEnabled('pick-blocks') ? <PickBlocksCard /> : null}
         {published.gameEnabled('pick-man') ? <PickManCard /> : null}

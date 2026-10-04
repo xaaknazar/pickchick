@@ -238,6 +238,7 @@ jobs:
           run_regression .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_pick_blocks.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_pick_man.py
+          run_regression env MAGIC_SORT_UI_URL=http://127.0.0.1:4182 .local/design-venv/bin/python tests/mobile/browser_magic_sort.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_arcade.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_arcade_motion.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_account_required.py

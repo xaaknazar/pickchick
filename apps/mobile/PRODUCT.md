@@ -27,3 +27,7 @@ Preserve PickChick branding, Jost/Manrope typography and established blue/orange
 ## Evidence and open decisions
 
 Existing visual authority: docs/design/design-system.md, docs/design/ai-design-workflow.md, packages/design-tokens and the mobile reference source. Farm direction and scope approved in the conversation on 4 October 2026. Detailed crop economics are prototype configuration, not an approved restaurant reward programme. Public release, long-term progression, social features and real rewards need subsequent acceptance.
+
+## Magic Sort - 5 October 2026
+
+The owner requested a portrait liquid-sorting game with 24 four-unit bottles, four wooden shelf rows and a tall yellow-only collector, following the supplied screenshot and recording. Magic Sort is the corrected name. Use original generated glass, cork, shelf and cover art with dynamic native liquid layers. This first playable slice has account-scoped local saves, undo, hints, restart confirmation and verified-solvable seeded levels. It does not award money, Chiki or restaurant benefits. Cross-device progress and native acceptance remain separate stages. See docs/design/magic-sort.md.

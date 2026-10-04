@@ -30,6 +30,7 @@ export function AccountGate({
   const game =
     destination === 'pick-man' ||
     destination === 'pick-farm' ||
+    destination === 'magic-sort' ||
     destination === 'pick-blocks' ||
     destination === 'M27' ||
     destination === 'M28';

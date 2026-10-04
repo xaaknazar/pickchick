@@ -1,0 +1,74 @@
+---
+name: Magic Sort
+description: Portrait glass-and-liquid sorting puzzle in the PickChick arcade.
+colors:
+  background: '#515B5C'
+  surface: '#3D484A'
+  ink: '#FCF4E3'
+  accent: '#EDBB47'
+  yellow: '#E6B91B'
+  ivory: '#EEEFE9'
+  taupe: '#AC9C87'
+  orange: '#D88B50'
+  rose: '#A46C79'
+  wine: '#591F29'
+typography:
+  title:
+    fontFamily: Jost_700Bold
+    fontSize: 22px
+  action:
+    fontFamily: Manrope_700Bold
+    fontSize: 11px
+rounded:
+  action: 14px
+spacing:
+  dock-gap: 8px
+components:
+  dock-action:
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.ink}'
+    rounded: '{rounded.action}'
+    height: 48px
+---
+
+## Overview
+
+Magic Sort follows the supplied portrait reference: 24 small glass bottles on four shelf rows, surrounding one tall central yellow collector. The realized React Native screen uses original generated glass, oak shelf/cork sprites and a separate arcade cover. Prompts and generation date are recorded in `apps/mobile/assets/games/magic-sort/provenance.json`; these assets are not copied from the reference.
+
+Independent Impeccable documentation rationale: the muted teal backdrop gives the six liquids clear separation; glass highlights and warm shelves establish a tactile world without adding competing decoration. Gold marks both the collector goal and selection. The compact header and persistent action dock preserve board space and make the next interaction explicit. This rationale documents the implemented source, not an approved visual comparison or native acceptance.
+
+## Colors
+
+The palette is yellow, ivory, taupe, orange, rose and wine. The level contains exactly 88 units: yellow16, ivory16, taupe8, orange16, rose16, wine16. Liquid is rendered from state behind the transparent glass artwork; selected bottles receive a gold highlight. A completed bottle is corked, giving completion a shape cue in addition to color.
+
+## Typography
+
+The header uses Jost700 at22px; action labels use Manrope700 at11px. Supporting text uses Manrope600 at12px. Help panels use Jost600 headings and Manrope400 body text. These are the existing mobile font families.
+
+## Layout
+
+The board has four rows of six small bottle positions, divided around the collector. Board width is capped at570px and follows the available viewport; the collector occupies10.5% of that width. Safe-area insets protect the header and dock. Small bottles hold four units; the collector holds16. Scrambled levels distribute eight spare small-bottle slots across partially filled bottles, so the number of entirely empty bottles varies.
+
+## Elevation & Depth
+
+Transparent glass reflections, the liquid meniscus and oak shelves provide depth. Pour motion communicates source, destination and color. Reduced-motion handling and background interruption must preserve the committed board state; native motion quality remains to be verified.
+
+## Shapes
+
+Slim glass bottles and the taller central vial carry the reference composition. Full monochrome non-yellow small bottles automatically seal and become immutable. Yellow small bottles remain open because all yellow belongs in the collector. Action controls have14px radii and48px minimum height.
+
+## Components
+
+Select a source and then a destination. A legal pour transfers the largest contiguous top-color run that fits. A small destination must be empty or have the same top color; neither source nor destination may be sealed. The central collector accepts only yellow and never pours out. Overflow, invalid indices, self-pours and incompatible colors are rejected without mutation.
+
+Victory requires16 yellow units in the collector and every nonempty small bottle full, monochrome and sealed. Undo reconstructs the previous board, including unsealing; reset replays the current seed and a new level changes the seed. No-move detection and hints are local engine functions. A hint follows the solution witness only while the move history matches its prefix; otherwise it is explicitly a valid suggestion, with no guarantee of solving the level.
+
+Generation starts from a solvable crossed-color template and applies deterministic reverse moves. Each scramble is accepted only when its legal maximal forward inverse restores the exact previous board. Inverses are prepended to the witness, and the complete witness must replay to victory. Across tested seeds0-99, all levels contain three-color bottles and buried yellow;54 contain four-color bottles. Verified witnesses contain53-68 moves. The bounded scramble can saturate before its target; this is not an optimal-solution or difficulty ranking.
+
+Persistence is local and account-scoped. The storage adapter serializes load/save/clear operations, captures saves before queued writes and continues after storage failures. Saves are bounded to100,000 string characters and1024 moves. Validation regenerates the seed, checks the original witness and replays all history, rejecting corruption, illegal moves and changed contents. An eight-seed cache returns independent copies. There are no money, loyalty points or other financial rewards.
+
+## Do's and Don'ts
+
+Keep actual liquid layers, capacity and cork state visible. Label off-witness hints as suggestions. Preserve account isolation and safe interruption of pending pours. Do not infer native readiness from browser or engine checks.
+
+Verification: `node --test tests/mobile/magic-sort.test.mjs` passed7 tests, including100 seed replays, conservation, capacity, collector rules, sealing/undo, invalid saves and queued account persistence. Scoped ESLint, Prettier, strict TypeScript with `noUncheckedIndexedAccess`, and `git diff --check` passed. A local Mac benchmark of100 serializations at100-move history took7.92ms total; this is not a phone-performance measurement. Expo iOS/Hermes and web exports passed. A browser journey made all60 solution moves through the bottle controls, verified illegal pours, undo, restart cancellation/confirmation and saved progress at320/390/430 widths without page errors. Root additionally checked guest login continuation and a normal animated pour through the actual UI. A physical-phone build, layout/gestures/performance and TestFlight distribution have not yet been checked for Magic Sort.
