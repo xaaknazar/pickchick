@@ -219,6 +219,7 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
     );
     const full = {
       ...cleared.state,
+      nextPlotId: 4095,
       plots: Array.from({ length: 4096 }, (_, id) => ({
         id,
         x: id % 64,
@@ -236,6 +237,62 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
       (await farm.get(c)).state.plots.length,
       4095,
       'large free field fits persisted JSON bound',
+    );
+    // Removal/recovery receipts survive retry and restart; IDs cannot target replacement beds.
+    const d = randomUUID();
+    await scoped.query('INSERT INTO identity_customers(id) VALUES($1)', [d]);
+    const fresh = await farm.get(d);
+    const buy = await farm.command(d, {
+      commandId: randomUUID(),
+      expectedRevision: fresh.state.revision,
+      command: { type: 'buyPlot', x: 32, y: 30 },
+    });
+    const remove = {
+      commandId: randomUUID(),
+      expectedRevision: buy.state.revision,
+      command: { type: 'removePlot', plotId: buy.state.plots[0].id },
+    };
+    const removed = await farm.command(d, remove);
+    assert.equal(removed.state.plots.length, 0);
+    assert.equal(removed.state.coins, buy.state.coins);
+    const replacement = await farm.command(d, {
+      commandId: randomUUID(),
+      expectedRevision: removed.state.revision,
+      command: { type: 'buyPlot', x: 32, y: 30 },
+    });
+    assert.notEqual(replacement.state.plots[0].id, buy.state.plots[0].id);
+    const reconnected = new FarmPersistence(scoped, true);
+    assert.deepEqual((await reconnected.command(d, remove)).state, replacement.state);
+    await assert.rejects(
+      reconnected.command(d, {
+        commandId: randomUUID(),
+        expectedRevision: replacement.state.revision,
+        command: remove.command,
+      }),
+      (e) => e.code === 'PLOT_NOT_FOUND',
+    );
+    await scoped.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [
+      d,
+      { ...replacement.state, coins: 0 },
+    ]);
+    const recovery = {
+      commandId: randomUUID(),
+      expectedRevision: replacement.state.revision,
+      command: { type: 'recover' },
+    };
+    const rescued = await reconnected.command(d, recovery);
+    assert.equal(rescued.state.plots[0].cropId, 'carrot');
+    assert.equal(rescued.state.coins, 0);
+    assert.equal(rescued.state.xp, 0);
+    assert.equal(rescued.state.plots[0].plantedAt, rescued.serverNow);
+    assert.deepEqual((await reconnected.command(d, recovery)).state, rescued.state);
+    await assert.rejects(
+      reconnected.command(d, {
+        ...recovery,
+        commandId: randomUUID(),
+        expectedRevision: rescued.state.revision,
+      }),
+      (e) => e.code === 'RECOVERY_NOT_AVAILABLE',
     );
     const role = 'farm_role_' + randomUUID().replaceAll('-', '');
     let restricted;

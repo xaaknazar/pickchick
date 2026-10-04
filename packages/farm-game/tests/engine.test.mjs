@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { z } from 'zod';
 import {
   createFarm,
+  canRecoverFarm,
   applyFarmCommand as run,
   FarmStateSchema,
   FarmCommandSchema,
@@ -152,6 +154,7 @@ test('legacy upgrade preserves progress/timestamps with deterministic unique pos
       harvests: id === 0 ? 2 : 0,
     })),
   };
+  delete legacy.nextPlotId;
   legacy.inventory.carrot = 15;
   const migrated = upgradeFarmState(legacy);
   assert.equal(migrated.version, 2);
@@ -184,7 +187,106 @@ test('full field permits 4095 unique cells and rejects extra purchases', () => {
         harvests: 0,
       });
     }
+  state.nextPlotId = state.plots.length;
   assert.equal(FarmStateSchema.safeParse(state).success, true);
   assert.throws(() => run(state, { type: 'buyPlot', x: 0, y: 0 }, 0), /MAX_PLOTS/);
   assert.equal(state.plots.length, 4095);
+});
+
+test('remove empty beds, planted beds and trees without refund or rewards', () => {
+  for (const original of [
+    bed(),
+    plant(),
+    run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 0, y: 0 }, 0),
+  ]) {
+    const before = globalThis.structuredClone(original);
+    const removed = run(original, { type: 'removePlot', plotId: 0 }, 0);
+    assert.equal(removed.plots.length, 0);
+    assert.equal(removed.coins, before.coins);
+    assert.equal(removed.xp, before.xp);
+    assert.deepEqual(removed.inventory, before.inventory);
+    assert.equal(removed.completedOrders, before.completedOrders);
+    assert.equal(removed.nextPlotId, before.nextPlotId);
+    assert.equal(removed.revision, before.revision + 1);
+    assert.deepEqual(original, before);
+    assert.throws(() => run(removed, { type: 'removePlot', plotId: 0 }, 0), /PLOT_NOT_FOUND/);
+  }
+});
+test('plot IDs remain monotonic after deletion and surviving IDs resolve correctly', () => {
+  let state = bed(bed(), 1, 0);
+  state = run(state, { type: 'removePlot', plotId: 0 }, 0);
+  state = run(state, { type: 'plant', plotId: 1, cropId: 'carrot' }, 0);
+  state = run(state, { type: 'harvest', plotId: 1 }, 3600000);
+  assert.equal(state.inventory.carrot, 3);
+  state = run(state, { type: 'sell', cropId: 'carrot', quantity: 3 }, 3600000);
+  assert.equal(state.inventory.carrot, 0);
+  state = run(state, { type: 'removePlot', plotId: 1 }, 3600000);
+  state = run({ ...state, coins: 500 }, { type: 'buyPlot', x: 0, y: 0 }, 3600000);
+  assert.equal(state.plots[0].id, 2);
+  assert.equal(state.nextPlotId, 3);
+  assert.throws(() => run(state, { type: 'harvest', plotId: 0 }, 3600000), /PLOT_NOT_FOUND/);
+  const old = bed(bed(), 1, 0);
+  delete old.nextPlotId;
+  assert.equal(upgradeFarmState(old).nextPlotId, 2);
+  assert.equal(FarmStateSchema.safeParse({ ...state, nextPlotId: 2 }).success, false);
+  assert.equal(
+    FarmStateSchema.safeParse({ ...state, plots: [state.plots[0], { ...state.plots[0], x: 1 }] })
+      .success,
+    false,
+  );
+  assert.equal(
+    FarmStateSchema.safeParse({ ...state, plots: [{ ...state.plots[0], ...HOUSE_CELL }] }).success,
+    false,
+  );
+  assert.throws(() => run(createFarm(0), { type: 'removePlot', plotId: 0 }, 0), /PLOT_NOT_FOUND/);
+  for (const plotId of [-1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1])
+    assert.equal(FarmCommandSchema.safeParse({ type: 'removePlot', plotId }).success, false);
+});
+
+test('bankruptcy recovery produces one normal carrot cycle without currency rewards', () => {
+  for (const original of [
+    { ...createFarm(0), coins: 0 },
+    { ...bed(), coins: 3 },
+    { ...plant(), coins: 0 },
+  ]) {
+    const now = 7200000;
+    assert.equal(canRecoverFarm(original, now), true);
+    const recovered = run(original, { type: 'recover' }, now);
+    assert.equal(recovered.coins, original.coins);
+    assert.equal(recovered.xp, original.xp);
+    assert.deepEqual(recovered.inventory, original.inventory);
+    assert.equal(recovered.plots[0].cropId, 'carrot');
+    if (!original.plots.length) {
+      assert.equal(recovered.plots[0].x, HOUSE_CELL.x);
+      assert.equal(recovered.plots[0].y, HOUSE_CELL.y + 2);
+    }
+    assert.equal(cropPhase(recovered.plots[0], now), 'growing');
+    assert.throws(() => run(recovered, { type: 'recover' }, now), /RECOVERY_NOT_AVAILABLE/);
+    const grown = run(recovered, { type: 'harvest', plotId: recovered.plots[0].id }, now + 3600000);
+    const sold = run(grown, { type: 'sell', cropId: 'carrot', quantity: 3 }, now + 3600000);
+    assert.equal(sold.coins, original.coins + 9);
+    assert.equal(canRecoverFarm(sold, now + 3600000), false);
+  }
+  for (const original of [
+    createFarm(0),
+    { ...createFarm(0), coins: 154 },
+    { ...bed(), coins: 4 },
+    plant(),
+    { ...createFarm(0), coins: 0, inventory: { ...createFarm(0).inventory, tulip: 1 } },
+    { ...run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 0, y: 0 }, 0), coins: 0 },
+  ]) {
+    assert.equal(canRecoverFarm(original, 0), false);
+    assert.throws(() => run(original, { type: 'recover' }, 0), /RECOVERY_NOT_AVAILABLE/);
+  }
+});
+
+test('canonical state supports JSON Schema contracts while old v2 states upgrade', () => {
+  const schema = z.toJSONSchema(FarmStateSchema);
+  assert.ok(schema.required.includes('nextPlotId'));
+  const old = bed();
+  delete old.nextPlotId;
+  assert.equal(FarmStateSchema.safeParse(old).success, false);
+  assert.equal(upgradeFarmState(old).nextPlotId, 1);
+  const next = run(old, { type: 'removePlot', plotId: 0 }, 0);
+  assert.equal(next.nextPlotId, 1);
 });

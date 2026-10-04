@@ -9727,6 +9727,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 1000000000
+          },
+          "nextPlotId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -9736,7 +9741,8 @@
           "xp",
           "plots",
           "inventory",
-          "completedOrders"
+          "completedOrders",
+          "nextPlotId"
         ],
         "additionalProperties": false
       },
@@ -9749,6 +9755,19 @@
               "type": {
                 "type": "string",
                 "const": "expand"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "recover"
               }
             },
             "required": [
@@ -9963,6 +9982,25 @@
               "plotId"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "removePlot"
+              },
+              "plotId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "plotId"
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -9988,6 +10026,19 @@
                   "type": {
                     "type": "string",
                     "const": "expand"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "recover"
                   }
                 },
                 "required": [
@@ -10190,6 +10241,25 @@
                   "type": {
                     "type": "string",
                     "const": "clear"
+                  },
+                  "plotId": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "type",
+                  "plotId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "removePlot"
                   },
                   "plotId": {
                     "type": "integer",

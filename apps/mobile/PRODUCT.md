@@ -4,7 +4,9 @@
 
 ## Platform
 
-adaptive - React Native / Expo application for iOS and Android; web export is a development and visual review surface.
+adaptive
+
+React Native / Expo application for iOS and Android; web export is a development and visual review surface.
 
 ## Users and purpose
 
@@ -20,7 +22,7 @@ The farm opens fullscreen in landscape on phones, with pan and pinch zoom. Leavi
 
 ## Brand commitments
 
-Preserve PickChick branding, Jost/Manrope typography and established blue/orange controls. The farm is a distinct green outdoor game scene inspired by the owner's reference, not a redesign of restaurant screens. Use original or appropriately licensed art, not unverified archived Lovely Farm assets.
+Preserve PickChick branding, Jost/Manrope typography and established blue/orange controls. The farm uses a distinct painterly 2D meadow, coherent house/soil artwork and 18 crop stage sprites, with a forest/cream/orange interactive dock. This code-led replacement follows the owner's rejection of the flat green scene and mismatched house; there is no approved visual comp yet. Restaurant screens retain their established visual system. Use original or appropriately licensed art, not unverified archived Lovely Farm assets.
 
 ## Evidence and open decisions
 

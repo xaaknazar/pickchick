@@ -184,15 +184,22 @@ const PlotSchema = z
     harvests: z.number().int().min(0).max(2),
   })
   .strict();
-export const FarmStateSchema = LegacyFarmStateBase.extend({
+const FarmStateBase = LegacyFarmStateBase.extend({
   version: z.literal(2),
   plots: z.array(PlotSchema).max(FIELD_SIZE * FIELD_SIZE - 1),
-}).superRefine((state, ctx) => {
+  nextPlotId: integer,
+});
+export const FarmStateSchema = FarmStateBase.superRefine((state, ctx) => {
   const cells = new Set<string>();
+  const ids = new Set<number>();
+  if (!Number.isSafeInteger(state.nextPlotId)) {
+    ctx.addIssue({ code: 'custom', message: 'Invalid next plot ID', path: ['nextPlotId'] });
+  }
   state.plots.forEach((plot, index) => {
     const cell = `${plot.x},${plot.y}`;
     if (
-      plot.id !== index ||
+      ids.has(plot.id) ||
+      plot.id >= state.nextPlotId ||
       cells.has(cell) ||
       (plot.x === HOUSE_CELL.x && plot.y === HOUSE_CELL.y) ||
       (plot.cropId === null) !== (plot.plantedAt === null) ||
@@ -202,6 +209,7 @@ export const FarmStateSchema = LegacyFarmStateBase.extend({
       ctx.addIssue({ code: 'custom', message: 'Invalid plot state', path: ['plots', index] });
     }
     cells.add(cell);
+    ids.add(plot.id);
   });
 });
 export type FarmState = z.infer<typeof FarmStateSchema>;
@@ -211,6 +219,7 @@ export function upgradeFarmState(input: unknown): FarmState {
     return FarmStateSchema.parse({
       ...legacy,
       version: 2,
+      nextPlotId: legacy.plots.length,
       plots: legacy.plots.map((plot, index) => ({
         ...plot,
         x: 29 + (index % 6),
@@ -219,7 +228,13 @@ export function upgradeFarmState(input: unknown): FarmState {
       })),
     });
   }
-  return FarmStateSchema.parse(input);
+  const compatible = FarmStateBase.extend({ nextPlotId: integer.optional() }).parse(input);
+  return FarmStateSchema.parse({
+    ...compatible,
+    nextPlotId:
+      compatible.nextPlotId ??
+      compatible.plots.reduce((next, plot) => Math.max(next, plot.id + 1), 0),
+  });
 }
 export type CropPhase = 'empty' | 'growing' | 'ready' | 'withered';
 export function cropPhase(plot: FarmState['plots'][number], now: number): CropPhase {
@@ -232,6 +247,7 @@ export function cropPhase(plot: FarmState['plots'][number], now: number): CropPh
 }
 export const FarmCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('expand') }).strict(),
+  z.object({ type: z.literal('recover') }).strict(),
   z.object({ type: z.literal('plant'), plotId: integer, cropId: CropIdSchema }).strict(),
   z.object({ type: z.literal('harvest'), plotId: integer }).strict(),
   z.object({ type: z.literal('sell'), cropId: CropIdSchema, quantity: bounded.min(1) }).strict(),
@@ -252,6 +268,7 @@ export const FarmCommandSchema = z.discriminatedUnion('type', [
     .strict(),
   z.object({ type: z.literal('movePlot'), plotId: integer, x: coordinate, y: coordinate }).strict(),
   z.object({ type: z.literal('clear'), plotId: integer }).strict(),
+  z.object({ type: z.literal('removePlot'), plotId: integer }).strict(),
 ]);
 export type FarmCommand = z.infer<typeof FarmCommandSchema>;
 export class FarmGameError extends Error {
@@ -271,12 +288,25 @@ export function createFarm(now: number): FarmState {
   return {
     version: 2,
     revision: 0,
+    nextPlotId: 0,
     coins: 500,
     xp: 0,
     plots: [],
     inventory: { carrot: 0, tomato: 0, strawberry: 0, sunflower: 0, tulip: 0, apple: 0 },
     completedOrders: 0,
   };
+}
+/** Recovery gives one normal carrot cycle, never currency or instant rewards. */
+export function canRecoverFarm(input: FarmState, now: number): boolean {
+  integer.parse(now);
+  const state = upgradeFarmState(input);
+  return (
+    Object.values(state.inventory).every((quantity) => quantity === 0) &&
+    state.plots.every(
+      (plot) => plot.kind === 'bed' && ['empty', 'withered'].includes(cropPhase(plot, now)),
+    ) &&
+    state.coins < (state.plots.length ? 4 : BED_COST + 4)
+  );
 }
 /** Pure transition. Only the trusted server supplies now; persistence handles idempotency. Coins are fictional game currency. */
 export function applyFarmCommand(
@@ -285,7 +315,7 @@ export function applyFarmCommand(
   now: number,
 ): FarmState {
   integer.parse(now);
-  const parsed = FarmStateSchema.parse(input);
+  const parsed = upgradeFarmState(input);
   const command = FarmCommandSchema.parse(rawCommand);
   requireRule(command.type !== 'expand', 'LEGACY_COMMAND');
   requireRule(
@@ -297,15 +327,37 @@ export function applyFarmCommand(
     plots: parsed.plots.map((plot) => ({ ...plot })),
     inventory: { ...parsed.inventory },
   };
-  if (
+  if (command.type === 'recover') {
+    requireRule(canRecoverFarm(state, now), 'RECOVERY_NOT_AVAILABLE');
+    let plot = state.plots[0];
+    if (!plot) {
+      plot = {
+        id: state.nextPlotId,
+        x: HOUSE_CELL.x,
+        y: HOUSE_CELL.y + 2,
+        kind: 'bed',
+        cropId: null,
+        plantedAt: null,
+        harvests: 0,
+      };
+      state.plots.push(plot);
+      state.nextPlotId += 1;
+    }
+    plot.cropId = 'carrot';
+    plot.plantedAt = now;
+    plot.harvests = 0;
+  } else if (
     command.type === 'plant' ||
     command.type === 'harvest' ||
     command.type === 'clear' ||
-    command.type === 'movePlot'
+    command.type === 'movePlot' ||
+    command.type === 'removePlot'
   ) {
-    const plot = state.plots[command.plotId];
+    const plot = state.plots.find((candidate) => candidate.id === command.plotId);
     requireRule(!!plot, 'PLOT_NOT_FOUND');
-    if (command.type === 'movePlot') {
+    if (command.type === 'removePlot') {
+      state.plots = state.plots.filter((candidate) => candidate.id !== plot.id);
+    } else if (command.type === 'movePlot') {
       requireRule(!(command.x === HOUSE_CELL.x && command.y === HOUSE_CELL.y), 'CELL_RESERVED');
       requireRule(
         !state.plots.some(
@@ -373,7 +425,7 @@ export function applyFarmCommand(
     requireRule(state.coins >= cost, 'INSUFFICIENT_COINS');
     state.coins -= cost;
     state.plots.push({
-      id: state.plots.length,
+      id: state.nextPlotId,
       x: command.x,
       y: command.y,
       kind: tree ? 'tree' : 'bed',
@@ -382,6 +434,7 @@ export function applyFarmCommand(
       harvests: 0,
     });
   }
+  if (command.type === 'buyPlot' || command.type === 'buyTree') state.nextPlotId += 1;
   state.revision += 1;
   requireRule(FarmStateSchema.safeParse(state).success, 'PROGRESSION_LIMIT');
   return state;

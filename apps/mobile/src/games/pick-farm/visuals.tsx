@@ -8,30 +8,13 @@ import { Image } from 'expo-image';
 import { View } from 'react-native';
 import type { CropId } from '@pickchick/farm-game';
 
-// Static require calls let Metro bundle every asset for offline rendering.
-const sprites = {
-  grass: require('../../../assets/games/pick-farm/grass.png'),
-  path: require('../../../assets/games/pick-farm/path.png'),
-  soil: require('../../../assets/games/pick-farm/soil.png'),
-  sprouts: require('../../../assets/games/pick-farm/sprouts.png'),
-  roof: require('../../../assets/games/pick-farm/roof.png'),
-  wall: require('../../../assets/games/pick-farm/wall.png'),
-  door: require('../../../assets/games/pick-farm/door.png'),
-  fence: require('../../../assets/games/pick-farm/fence.png'),
-  fenceSide: require('../../../assets/games/pick-farm/fence-side.png'),
-  hay: require('../../../assets/games/pick-farm/hay.png'),
-};
-const bounds = {
-  grass: [38, 389, 218, 493],
-  path: [38, 395, 218, 493],
-  soil: [0, 373, 256, 512],
-  sprouts: [26, 377, 219, 490],
-  roof: [0, 242, 256, 512],
-  wall: [115, 278, 256, 512],
-  door: [0, 277, 141, 512],
-  fence: [0, 377, 134, 512],
-  fenceSide: [115, 377, 256, 512],
-  hay: [15, 350, 211, 489],
+// Generated atlases remain intact. Each view clips its own source rectangle.
+const propsAtlas = require('../../../assets/games/pick-farm/props-painted-v2.png');
+const plantsAtlas = require('../../../assets/games/pick-farm/plants-painted-v2.png');
+const propBounds = {
+  house: [10, 16, 677, 668],
+  soil: [741, 235, 1429, 623],
+  sprouts: [1473, 235, 2157, 622],
 } as const;
 export const Sprite = memo(function Sprite({
   kind,
@@ -39,92 +22,99 @@ export const Sprite = memo(function Sprite({
   y,
   width = 92,
 }: {
-  kind: keyof typeof sprites;
+  kind: keyof typeof propBounds;
   x: number;
   y: number;
   width?: number;
 }) {
-  const [left, top, right, bottom] = bounds[kind];
+  const [left, top, right, bottom] = propBounds[kind];
   const scale = width / (right - left);
+  const height = (bottom - top) * scale;
   return (
-    <Image
-      source={sprites[kind]}
+    <View
       pointerEvents="none"
       accessible={false}
       style={{
         position: 'absolute',
-        left: x - width / 2 - left * scale,
-        top: y - (bottom - top) * scale - top * scale,
-        width: 256 * scale,
-        height: 512 * scale,
+        left: x - width / 2,
+        top: y - height,
+        width,
+        height,
+        overflow: 'hidden',
       }}
-    />
+    >
+      <NativeImage
+        source={propsAtlas}
+        resizeMode="stretch"
+        accessible={false}
+        style={{
+          position: 'absolute',
+          left: -left * scale,
+          top: -top * scale,
+          width: 2172 * scale,
+          height: 724 * scale,
+        }}
+      />
+    </View>
   );
 });
-// Original generated atlas stays intact; each native view clips one sprite region.
-const cropAtlas = require('../../../assets/games/pick-farm/crops-generated.png');
-const witheredAtlas = require('../../../assets/games/pick-farm/crops-withered-generated.png');
-const cropBounds: Record<CropId, readonly [number, number, number, number]> = {
-  carrot: [0, 65, 432, 578],
-  tomato: [432, 65, 828, 580],
-  strawberry: [829, 197, 1254, 579],
-  sunflower: [0, 600, 434, 1160],
-  tulip: [432, 628, 815, 1160],
-  apple: [816, 618, 1254, 1165],
-};
-const witheredBounds: Record<CropId, readonly [number, number, number, number]> = {
-  carrot: [0, 75, 421, 600],
-  tomato: [422, 75, 820, 586],
-  strawberry: [822, 190, 1235, 595],
-  sunflower: [0, 620, 428, 1164],
-  tulip: [430, 650, 810, 1164],
-  apple: [811, 600, 1245, 1168],
+const cropColumn: Record<CropId, number> = {
+  carrot: 0,
+  tomato: 1,
+  strawberry: 2,
+  sunflower: 3,
+  tulip: 4,
+  apple: 5,
 };
 export const CropArt = memo(function CropArt({
   cropId,
-  size = 44,
+  size = 64,
   phase = 'ready',
 }: {
   cropId: CropId;
   size?: number;
   phase?: 'growing' | 'ready' | 'withered';
 }) {
-  const [left, top, right, bottom] = (phase === 'withered' ? witheredBounds : cropBounds)[cropId];
-  const scale = size / Math.max(right - left, bottom - top);
+  const row = phase === 'growing' ? 0 : phase === 'withered' ? 2 : 1;
+  const left = cropColumn[cropId] * 256 + 4;
+  const top = row * (1024 / 3) + 3;
+  const spriteWidth = 248,
+    spriteHeight = 1024 / 3 - 6;
+  const scale = size / spriteHeight;
   return (
     <View
       pointerEvents="none"
       accessible={false}
-      style={{
-        width: size,
-        height: size,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={{ width: size, height: size, flexShrink: 0, position: 'relative' }}
     >
       <View
         style={{
-          width: (right - left) * scale,
-          height: (bottom - top) * scale,
+          position: 'absolute',
+          left: (size - spriteWidth * scale) / 2,
+          top: 0,
+          width: spriteWidth * scale,
+          height: size,
           overflow: 'hidden',
+          flexShrink: 0,
         }}
       >
         <NativeImage
-          source={phase === 'withered' ? witheredAtlas : cropAtlas}
+          source={plantsAtlas}
           resizeMode="stretch"
           accessible={false}
           style={{
             position: 'absolute',
-            width: 1254 * scale,
-            height: 1254 * scale,
             left: -left * scale,
             top: -top * scale,
+            width: 1536 * scale,
+            height: 1024 * scale,
           }}
         />
       </View>
     </View>
   );
 });
+
 export function isoPoint(col: number, row: number) {
   return { x: 450 + (col - 32 - (row - 28)) * 48, y: 230 + (col - 32 + (row - 28)) * 24 };
 }
@@ -185,9 +175,7 @@ export const Landscape = memo(function Landscape({
           }}
         />
       ))}
-      <Sprite kind="door" x={house.x - 26} y={house.y} width={58} />
-      <Sprite kind="wall" x={house.x + 29} y={house.y} width={58} />
-      <Sprite kind="roof" x={house.x} y={house.y - 25} width={112} />
+      <Sprite kind="house" x={house.x} y={house.y + 6} width={160} />
     </View>
   );
 });

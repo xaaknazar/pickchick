@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-04T13:11:35.012313+00:00",
+  "title": "Design System: Pick Farm",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Primary",
+        "canonical": "#283E35",
+        "tonalRamp": [
+          "oklch(15% 0.0321 167.07)",
+          "oklch(26% 0.0321 167.07)",
+          "oklch(38% 0.0321 167.07)",
+          "oklch(49% 0.0321 167.07)",
+          "oklch(61% 0.0321 167.07)",
+          "oklch(72% 0.0321 167.07)",
+          "oklch(84% 0.0321 167.07)",
+          "oklch(95% 0.0321 167.07)"
+        ]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Accent",
+        "canonical": "#F4AE57",
+        "tonalRamp": [
+          "oklch(15% 0.1315 69.83)",
+          "oklch(26% 0.1315 69.83)",
+          "oklch(38% 0.1315 69.83)",
+          "oklch(49% 0.1315 69.83)",
+          "oklch(61% 0.1315 69.83)",
+          "oklch(72% 0.1315 69.83)",
+          "oklch(84% 0.1315 69.83)",
+          "oklch(95% 0.1315 69.83)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#F8F0DD",
+        "tonalRamp": [
+          "oklch(15% 0.0265 87.85)",
+          "oklch(26% 0.0265 87.85)",
+          "oklch(38% 0.0265 87.85)",
+          "oklch(49% 0.0265 87.85)",
+          "oklch(61% 0.0265 87.85)",
+          "oklch(72% 0.0265 87.85)",
+          "oklch(84% 0.0265 87.85)",
+          "oklch(95% 0.0265 87.85)"
+        ]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Field",
+        "canonical": "#748742",
+        "tonalRamp": [
+          "oklch(15% 0.0971 122.11)",
+          "oklch(26% 0.0971 122.11)",
+          "oklch(38% 0.0971 122.11)",
+          "oklch(49% 0.0971 122.11)",
+          "oklch(61% 0.0971 122.11)",
+          "oklch(72% 0.0971 122.11)",
+          "oklch(84% 0.0971 122.11)",
+          "oklch(95% 0.0971 122.11)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#18332C",
+        "tonalRamp": [
+          "oklch(15% 0.0358 175.01)",
+          "oklch(26% 0.0358 175.01)",
+          "oklch(38% 0.0358 175.01)",
+          "oklch(49% 0.0358 175.01)",
+          "oklch(61% 0.0358 175.01)",
+          "oklch(72% 0.0358 175.01)",
+          "oklch(84% 0.0358 175.01)",
+          "oklch(95% 0.0358 175.01)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#506253",
+        "tonalRamp": [
+          "oklch(15% 0.0324 149.85)",
+          "oklch(26% 0.0324 149.85)",
+          "oklch(38% 0.0324 149.85)",
+          "oklch(49% 0.0324 149.85)",
+          "oklch(61% 0.0324 149.85)",
+          "oklch(72% 0.0324 149.85)",
+          "oklch(84% 0.0324 149.85)",
+          "oklch(95% 0.0324 149.85)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "canonical": "#CABB9E",
+        "tonalRamp": [
+          "oklch(15% 0.0430 83.84)",
+          "oklch(26% 0.0430 83.84)",
+          "oklch(38% 0.0430 83.84)",
+          "oklch(49% 0.0430 83.84)",
+          "oklch(61% 0.0430 83.84)",
+          "oklch(72% 0.0430 83.84)",
+          "oklch(84% 0.0430 83.84)",
+          "oklch(95% 0.0430 83.84)"
+        ]
+      },
+      "growth": {
+        "role": "neutral",
+        "displayName": "Growth",
+        "canonical": "#317247",
+        "tonalRamp": [
+          "oklch(15% 0.0959 152.41)",
+          "oklch(26% 0.0959 152.41)",
+          "oklch(38% 0.0959 152.41)",
+          "oklch(49% 0.0959 152.41)",
+          "oklch(61% 0.0959 152.41)",
+          "oklch(72% 0.0959 152.41)",
+          "oklch(84% 0.0959 152.41)",
+          "oklch(95% 0.0959 152.41)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Game titles."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Panel titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Help and explanations."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Dock tool labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "pill",
+        "value": "0 3px 9px rgba(54,89,50,.13)",
+        "purpose": "HUD control separation."
+      },
+      {
+        "name": "dock",
+        "value": "0 5px 12px rgba(24,42,32,.24)",
+        "purpose": "Dock separation."
+      },
+      {
+        "name": "panel",
+        "value": "0 8px 20px rgba(32,59,39,.2)",
+        "purpose": "Contextual panels."
+      }
+    ],
+    "motion": [
+      {
+        "name": "pressed-opacity",
+        "value": "0.75",
+        "purpose": "Immediate native press feedback."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-shop",
+        "value": "700px"
+      }
+    ],
+    "spriteFrames": {
+      "shopPreview": 52,
+      "storagePreview": 64,
+      "position": "absolute",
+      "flexShrink": 0,
+      "alpha": "preserved",
+      "purpose": "Fixed crop preview frames clip atlas rectangles without exposing neighboring sprites."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Forest primary action, including the leading bed purchase button in the shop.",
+      "html": "<button class=\"ds-button-primary\">Посадить</button>",
+      "css": ".ds-button-primary { background:#283E35; color:#FFFFFF; border:0; border-radius:14px; padding:0 14px; min-height:48px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; }.ds-button-primary:hover { opacity:.9; } .ds-button-primary:focus-visible { outline:3px solid #F4AE57; outline-offset:3px; } .ds-button-primary:active { opacity:.75; } .ds-button-primary:disabled { opacity:.48; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Native component translated to a standalone review preview.",
+      "html": "<button class=\"ds-button-secondary\">Закрыть</button>",
+      "css": ".ds-button-secondary { background:#F8F0DD; color:#18332C; border:0; border-radius:14px; padding:0 14px; min-height:48px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; }.ds-button-secondary:hover { opacity:.9; } .ds-button-secondary:focus-visible { outline:3px solid #F4AE57; outline-offset:3px; } .ds-button-secondary:active { opacity:.75; } .ds-button-secondary:disabled { opacity:.48; }"
+    },
+    {
+      "name": "Active Tool",
+      "kind": "button",
+      "refersTo": "dock-active",
+      "description": "Native component translated to a standalone review preview.",
+      "html": "<button class=\"ds-dock-active\">Лопата</button>",
+      "css": ".ds-dock-active { background:#F4AE57; color:#18332C; border:0; border-radius:14px; padding:6px 9px; min-height:48px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; }.ds-dock-active:hover { opacity:.9; } .ds-dock-active:focus-visible { outline:3px solid #F4AE57; outline-offset:3px; } .ds-dock-active:active { opacity:.75; } .ds-dock-active:disabled { opacity:.48; }"
+    },
+    {
+      "name": "Dock",
+      "kind": "nav",
+      "refersTo": "dock",
+      "description": "Native component translated to a standalone review preview.",
+      "html": "<nav class=\"ds-dock\">Магазин · Склад · Заказы</nav>",
+      "css": ".ds-dock { background:#283E35F5; color:#F8F0DD; border:0; border-radius:20px; padding:8px; min-height:48px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Native component translated to a standalone review preview.",
+      "html": "<div class=\"ds-panel\">Магазин</div>",
+      "css": ".ds-panel { background:#F8F0DD; color:#18332C; border:0; border-radius:20px; padding:16px; min-height:48px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; }"
+    },
+    {
+      "name": "Crop Choice",
+      "kind": "card",
+      "refersTo": "choice",
+      "description": "Parchment culture choice with a compact 52 pixel shop preview; storage previews use 64 pixels.",
+      "html": "<div class=\"ds-choice\">Морковь · 4</div>",
+      "css": ".ds-choice { background:#EEE4CC; color:#18332C; border:0; border-radius:14px; padding:14px; min-height:48px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A painted meadow",
+    "overview": "The meadow is the primary visual surface. Painted grass, a coherent farmhouse and soil, and six crops in growing, ready and withered stages form one 2D outdoor world. Forest controls and cream panels keep actions readable without covering the scene with dashboard cards.\n\nThis is a code-led redesign following the owner’s rejection of the flat green field and mismatched house. It records the implementation in styles.ts, visuals.tsx and PickFarmScreen.tsx; it is not an approved visual comp or final visual acceptance. The scope is this game only.",
+    "keyCharacteristics": [
+      "Painterly imagery with actual transparent sprite edges.",
+      "Forest dock, cream panels and warm orange selection.",
+      "Fullscreen landscape with pan, pinch zoom and safe-area controls."
+    ],
+    "rules": [
+      {
+        "name": "The One Meadow Rule",
+        "body": "House, soil and crops share the painted world; do not mix unrelated asset styles.",
+        "section": "overview"
+      },
+      {
+        "name": "The Selection Rule",
+        "body": "Warm orange identifies the active tool; keep its label readable in ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Alpha Rule",
+        "body": "Clip source rectangles without flattening alpha or retaining adjacent atlas artwork.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do preserve server-owned state, growth windows and existing game actions.",
+      "Do keep the exit and contextual controls reachable above native safe areas.",
+      "Do show the correct crop artwork for growing, ready and withered phases."
+    ],
+    "donts": [
+      "Don't substitute flat green scenery or the rejected house for the painted meadow.",
+      "Don't add perpetual sway, prearranged plots or decorations as part of this slice.",
+      "Don't treat the web export as evidence that native landscape behavior passed."
+    ]
+  }
+}
