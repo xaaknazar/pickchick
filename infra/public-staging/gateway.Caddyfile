@@ -92,7 +92,7 @@
 	@farm_preflight {
 		method OPTIONS
 		path /v1/customer-farm /v1/customer-farm/commands
-		header Access-Control-Request-Method GET POST
+		header_regexp farm_preflight_method Access-Control-Request-Method ^(GET|POST)$
 	}
 	handle @farm_preflight {
 		header Access-Control-Allow-Origin *

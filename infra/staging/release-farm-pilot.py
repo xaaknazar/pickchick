@@ -62,7 +62,8 @@ def farm_gateway_block():
             block.count('header_up -Cookie') == 2 and block.count('header_up -X-Device-Id') == 2 and
             'header_up -Authorization' not in block and 'path_regexp' not in block and
             'path /v1/customer-farm\n' in block and 'path /v1/customer-farm/commands\n' in block and
-            'method GET' in block and 'method POST' in block and 'method OPTIONS' in block,
+            'method GET' in block and 'method POST' in block and 'method OPTIONS' in block and
+            'header_regexp farm_preflight_method Access-Control-Request-Method ^(GET|POST)$' in block,
             'Canonical farm routes differ from bounded customer API contract')
     return block
 

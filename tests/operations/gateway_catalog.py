@@ -88,6 +88,16 @@ with tempfile.TemporaryDirectory(prefix='pickchick-gateway-') as directory:
         preflight = request('/v1/test/orders/watch', 'OPTIONS', headers={**headers, 'Access-Control-Request-Method':'POST'})
         assert preflight[0] == 204
         assert preflight[1]['access-control-allow-origin'] == '*'
+        # Farm preflight is limited to its two paths and exact GET/POST verbs.
+        for farm_path in ['/v1/customer-farm', '/v1/customer-farm/commands']:
+            for verb in ['GET', 'POST']:
+                farm_preflight = request(farm_path, 'OPTIONS', headers={**headers, 'Access-Control-Request-Method': verb})
+                assert farm_preflight[0] == 204, farm_preflight[:2]
+                assert farm_preflight[1]['access-control-allow-origin'] == '*'
+                assert farm_preflight[1]['access-control-allow-methods'] == 'GET,POST'
+            for verb in ['DELETE', 'PUT', 'GETPOST']:
+                assert request(farm_path, 'OPTIONS', headers={**headers, 'Access-Control-Request-Method': verb})[0] == 404
+        assert request('/v1/customer-farm/unknown', 'OPTIONS', headers={**headers, 'Access-Control-Request-Method': 'POST'})[0] == 404
         started = time.monotonic()
         watched = request('/v1/test/orders/watch', 'POST', {'versions':[]}, headers)
         assert watched[0] == 200 and time.monotonic()-started >= 10
