@@ -26,7 +26,8 @@
     "@pickchick/fulfillment-transport": "workspace:*",
     "@pickchick/commerce-core": "workspace:*",
     "@pickchick/pos-order-sync": "workspace:*",
-    "@pickchick/backoffice-core": "workspace:*"
+    "@pickchick/backoffice-core": "workspace:*",
+    "@pickchick/farm-persistence": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",
