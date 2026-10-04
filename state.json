@@ -2561,11 +2561,12 @@
         "infra/public-staging/gateway.Caddyfile",
         "tests/mobile/ios/FarmSmokeTests.swift",
         "tests/operations/test_kaspi_checkout_release.py",
-        "tests/operations/fixtures/kaspi-checkout-content-gateway.Caddyfile"
+        "tests/operations/fixtures/kaspi-checkout-content-gateway.Caddyfile",
+        "tests/operations/gateway_catalog.py"
       ],
       "status": "active",
-      "head": "f109b693585b594737881761db3ef15732446a47",
-      "updatedAt": "2026-10-04T14:00:54.567Z"
+      "head": "511f7a2db3c5863142c16eee21059706a51aae78",
+      "updatedAt": "2026-10-04T14:07:11.330Z"
     }
   ]
 }
