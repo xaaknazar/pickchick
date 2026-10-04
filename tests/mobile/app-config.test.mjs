@@ -25,7 +25,8 @@ test('default and explicit release preserve the original app identity and backen
   assert.deepEqual(release, resolveVariant('release'));
   const { plugins, ...originalFields } = release;
   const { plugins: originalPlugins, ...original } = base;
-  assert.deepEqual(originalFields, original);
+  // The native binary must permit the farm route to rotate; app routes choose orientation.
+  assert.deepEqual(originalFields, { ...original, orientation: 'default' });
   assert.deepEqual(plugins, [
     ...originalPlugins,
     ['expo-dev-client', { addGeneratedScheme: false }],
@@ -91,6 +92,13 @@ test('Expo native introspection keeps release and development URL schemes separa
       ),
     );
     assert.deepEqual(iosSchemes.sort(), [expected, expectedId].sort());
+    for (const orientation of [
+      'UIInterfaceOrientationPortrait',
+      'UIInterfaceOrientationLandscapeLeft',
+      'UIInterfaceOrientationLandscapeRight',
+    ]) {
+      assert.ok(mods.ios.infoPlist.UISupportedInterfaceOrientations.includes(orientation));
+    }
     assert.deepEqual(androidSchemes, [expected]);
     assert.deepEqual(resolved.extra, { ...base.extra, router: {} });
     assert.equal(resolved.ios.bundleIdentifier, expectedId);
