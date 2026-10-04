@@ -2484,6 +2484,27 @@
       "updatedAt": "2026-10-04T12:47:07.803Z",
       "summary": "UI dbde0c5 integrated in shared9400b535; targeted lint/format and all3viewport browser mechanics including pan and sixcrop atlas passed",
       "nextAction": "Physical iPhone/Android pinch, orientation, FPS and visual acceptance remain pending; root publishes roadmap"
+    },
+    {
+      "id": "farm-tools",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-tools",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm",
+        "packages/farm-game",
+        "packages/farm-persistence",
+        "tests/mobile/browser_pick_farm.py",
+        "docs/operations/pick-farm.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/design/pick-farm-gameplay.md",
+        "packages/contracts/openapi.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "9400b535ce963f001677ada666e5b8a8c19ee045",
+      "updatedAt": "2026-10-04T12:54:45.643Z"
     }
   ]
 }
