@@ -2568,9 +2568,9 @@
         "tests/mobile/browser_demo_account.py",
         "@vps/roadmap"
       ],
-      "status": "available",
+      "status": "active",
       "head": "bfc4c40a6c65e9e57dbb7147e56a9bdbe47a5f58",
-      "updatedAt": "2026-10-04T19:27:52.464Z",
+      "updatedAt": "2026-10-04T19:30:20.776Z",
       "summary": "Shared bfc4c40 and PR176 updated. Apple upload 0.2.0(9)/465a7d5 SUCCEEDED after Xcode sign-in; release deliveryStatus=submitted, keychain restored. Native/server exact CI11/11. Roadmap81d11b1 online; latest upload fact saved GitHub only, docs CI pending.",
       "nextAction": "App Store Connect browser tabs3/7 still login; user asked to sign in. After browser login verify build9 processed and existing PickChick Internal group2testers, add prepared notes /tmp/pickchick-farm-testflight-notes.txt; no new groups/invites. Physical iPhone unavailable. Publish latest roadmap after fullCI and actual Apple outcome, finish shared task. API2a6d5cb/public81d11b1; do not repeat API deploy or upload build9."
     }
