@@ -4,7 +4,7 @@
 0.2.0 (9), отдельный farm-pilot профиль и внешний read-only native smoke.
 25 release-helper тестов и Expo config прошли; подпись и native workspace
 проверены. Archive и export из593ce95 прошли. Подготовлен guarded API033-038
-с13 проверками; upload, серверное включение и физическая приёмка ещё не подтверждены. [Доставка и продолжение](operations/mobile-testflight.md).
+с14 проверками; upload, серверное включение и физическая приёмка ещё не подтверждены. [Доставка и продолжение](operations/mobile-testflight.md).
 
 ## 4 октября: PICK FARM - экономика и автоматическая продажа
 

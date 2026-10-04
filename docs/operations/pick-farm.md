@@ -164,4 +164,10 @@ HTTP в браузере подставной, реальные API отдель
 релиза и --owner-id UUID исходного apply из защищённого lock-owner-UUID.json.
 Он проверяет того же владельца локального/удалённого lock, закрывает вход,
 восстанавливает прежние ACL/API и оставляет миграции/данные. Live dump не восстанавливает.
-13 локальных guard-тестов прошли; рабочий сервер этим checkpoint ещё не обновлён.
+14 локальных guard-тестов прошли; рабочий сервер этим checkpoint ещё не обновлён.
+
+При проверке выпуска исправлены historical schema020 gateway fixture и Caddy
+preflight matcher. Pinned Caddy runtime/HTTP ограничения и все145 operations
+тестов прошли. Повторявшаяся ошибка CDP Response.json в backoffice test устранена
+чтением реального upstream до передачи браузеру; assertions тела и UI сохранены.
+Изолированная PostgreSQL/browser проверка:16 разделов,3 размера, errors[].

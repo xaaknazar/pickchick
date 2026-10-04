@@ -36,14 +36,34 @@ with sync_playwright() as pw:
  for period in ['yesterday','year']:
   stage('preset '+period)
   expect(at('op-refresh')).to_be_enabled()
-  with page.expect_response(lambda r:snapshot_request(r.request,period),timeout=15000) as pending:
-   at('period-'+period).click()
-  expect(at('op-refresh')).to_be_enabled()
-  stage('preset ready '+period)
-  response=pending.value;assert response.status==200
-  body=response.json();assert body['period']==period
-  assert body['period_start']<body['period_end']
-  expect(at('period-'+period)).to_have_attribute('aria-pressed','true')
+  # Read the actual upstream response before handing it to Chromium. Its CDP
+  # resource may disappear after the application consumes the streaming body.
+  captured_preset={}
+  def capture_preset(route):
+   assert snapshot_request(route.request,period)
+   upstream=route.fetch()
+   captured_preset.update(status=upstream.status,body=upstream.json(),url=route.request.url)
+   route.fulfill(response=upstream)
+  route_pattern='**/v1/admin/backoffice/branches/*?period='+period
+  page.route(route_pattern,capture_preset)
+  try:
+   with page.expect_response(lambda r:snapshot_request(r.request,period),timeout=15000) as pending:
+    at('period-'+period).click()
+   expect(at('op-refresh')).to_be_enabled()
+   stage('preset ready '+period)
+   assert pending.value.status==200 and captured_preset['status']==200
+   assert parse_qs(urlparse(captured_preset['url']).query)=={'period':[period]}
+   body=captured_preset['body'];assert body['period']==period
+   assert body['period_start']<body['period_end']
+   expect(at('period-'+period)).to_have_attribute('aria-pressed','true')
+   # Enabled controls alone also occur on errors. Prove the app accepted and
+   # rendered this real response, rather than hiding a failed model load.
+   expect(page.locator('.content')).not_to_contain_text('Данные недоступны')
+   expect(page.locator('.content .op-bars')).to_be_visible()
+   expect(page.locator('.content .op-bar')).to_have_count(len(body['chart']))
+   for day in body['chart']:expect(page.locator('.content progress[aria-label="'+day['day']+'"]').first).to_be_visible()
+  finally:
+   page.unroute(route_pattern,capture_preset)
  stage('custom report range')
  # Choosing custom dates keeps the previously applied range until explicit Apply.
  at('period-custom').click();expect(at('period-start')).to_be_visible()
