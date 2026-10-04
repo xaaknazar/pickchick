@@ -2568,9 +2568,11 @@
         "tests/mobile/browser_demo_account.py",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "2a6d5cb4fe9af1ae108f257d7833edcae8f22d1d",
-      "updatedAt": "2026-10-04T17:52:39.965Z"
+      "status": "available",
+      "head": "81d11b1fc4d68a3d4dfd7663612e4c182021cb40",
+      "updatedAt": "2026-10-04T18:28:55.658Z",
+      "summary": "PR176/shared81d11b1 published and remote SHA verified. API2a6d5cb/schema038/FARM_ENABLED=1 deployed after full CI37214694594(11/11); owned release locks removed, public assets and neighboring services preserved. IPA0.2.0(9)/465a7d5 ready after CI37210373987(11/11), native guest1pass. 151ops+7roadmap pass. Xcode Organizer found app but upload not complete: Mac locked during manual signing. Temporary keychain/profile scope restored. Physical iPhones unavailable.",
+      "nextAction": "Unlock Mac, resume existing Organizer signing/profile and internal TestFlight upload without changing build9 or creating certificate. Verify Apple processing/group, then phone game acceptance. Roadmap81d11b1 package SHA b0dfda3470cbcc8363aaac954321725894e5f242ff11b050c5e7142239fa197b staged/inspected on VPS; online not updated pending CI37224449099. API/public baseline2a6d5cb, gateway1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51. Do not repeat completed farm API apply."
     }
   ]
 }
