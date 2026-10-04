@@ -2568,9 +2568,9 @@
         "tests/mobile/browser_demo_account.py",
         "@vps/roadmap"
       ],
-      "status": "available",
+      "status": "active",
       "head": "4e34ddf70d2678a7d228bdb2534e504f592dc1e7",
-      "updatedAt": "2026-10-04T19:22:38.295Z",
+      "updatedAt": "2026-10-04T19:23:28.425Z",
       "summary": "Shared4e34ddf docs checkpoint; roadmap81d11b1 deployed after full CI11/11, API remains2a6d5cb. Ready IPA0.2.0(9)/465a7d5 unchanged. Xcode restarted after Mac unlock; Apple Accounts EMPTY, sign-in form open. Upload not performed. Dedicated signing/profile scope restored.",
       "nextAction": "User must sign into Xcode Apple Account. Resume existing ready archive with manual existing signature, preserve build9/internal testers. Temporary profile local copy in release/gui-signing/PickChick.mobileprovision. New keychain scope stop file needed if resumed. Public roadmap pointer81d11b1, gateway1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51. Physical iPhones unavailable."
     }
