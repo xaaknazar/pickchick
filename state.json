@@ -2564,11 +2564,12 @@
         "tests/operations/fixtures/kaspi-checkout-content-gateway.Caddyfile",
         "tests/operations/gateway_catalog.py",
         "tests/backoffice/browser_operations.py",
-        "tests/mobile/app-config.test.mjs"
+        "tests/mobile/app-config.test.mjs",
+        "tests/mobile/browser_demo_account.py"
       ],
       "status": "active",
-      "head": "9b8498b1c21dd5a1804971dbb831d97004423fa3",
-      "updatedAt": "2026-10-04T14:43:25.361Z"
+      "head": "465a7d56b4d7f168e8762dd247b8f653c9553371",
+      "updatedAt": "2026-10-04T15:21:31.042Z"
     }
   ]
 }
