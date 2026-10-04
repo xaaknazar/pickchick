@@ -1,0 +1,311 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		max_header_size 32KB
+		timeouts {
+			read_header 5s
+			read_body 5s
+			write 40s
+			idle 30s
+		}
+	}
+}
+
+:8080 {
+	header {
+		Cache-Control no-store
+		X-Content-Type-Options nosniff
+		X-PickChick-Environment staging
+		X-PickChick-Ordering disabled
+		-Server
+	}
+	@synthetic_surfaces {
+		not path /v1/content/* /v1/admin/backoffice/* /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*
+	}
+	header @synthetic_surfaces X-PickChick-Data synthetic
+	@catalog_draft_body {
+		method PUT
+		path_regexp catalog_draft_body ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/draft$
+	}
+	request_body @catalog_draft_body {
+		max_size 320KB
+	}
+	@small_body {
+		not {
+			method PUT
+			path_regexp small_body_exception ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/draft$
+		}
+	}
+	request_body @small_body {
+		max_size 16KB
+	}
+
+	@backoffice_get {
+		method GET
+		path_regexp backoffice_get ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$
+	}
+	handle @backoffice_get {
+		header X-PickChick-Data backoffice
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@backoffice_post {
+		method POST
+		path_regexp backoffice_post ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/commands$
+	}
+	handle @backoffice_post {
+		header X-PickChick-Data backoffice
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@published_content {
+		method GET
+		path_regexp published_content ^/v1/content/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+	}
+	handle @published_content {
+		header X-PickChick-Data backoffice
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			header_up -Authorization
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@catalog_admin_get {
+		method GET
+		path_regexp catalog_admin_get ^/v1/admin/catalog/branches(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$
+	}
+	handle @catalog_admin_get {
+		header X-PickChick-Data catalog
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@catalog_admin_post {
+		method POST
+		path_regexp catalog_admin_post ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(draft/seed|publish)$
+	}
+	handle @catalog_admin_post {
+		header X-PickChick-Data catalog
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	handle @catalog_draft_body {
+		header X-PickChick-Data catalog
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@published_catalog {
+		method GET
+		path_regexp published_catalog ^/v1/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+	}
+	handle @published_catalog {
+		header X-PickChick-Data catalog
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Authorization
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@backoffice_root {
+		method GET HEAD
+		path /backoffice
+	}
+	redir @backoffice_root /backoffice/ 308
+	@backoffice {
+		method GET HEAD
+		path /backoffice/ /backoffice/*
+	}
+	handle @backoffice {
+		header {
+			X-PickChick-Data catalog
+			Referrer-Policy no-referrer
+			X-Frame-Options DENY
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+		}
+		uri strip_prefix /backoffice
+		root * /srv/public/backoffice
+		file_server
+	}
+
+	@health {
+		method GET
+		path /health/live
+	}
+	handle @health {
+		header Access-Control-Allow-Origin *
+		header Content-Type application/json
+		respond `{"service":"pickchick-public-gateway","alive":true,"environment":"staging"}` 200
+	}
+
+	@catalog {
+		method GET
+		path /v1/capabilities /v1/branches /v1/branches/10000000-0000-4000-8000-000000000003/menu
+	}
+	handle @catalog {
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Authorization
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@test_get_preflight {
+		method OPTIONS
+		header Origin *
+		header Access-Control-Request-Method GET
+		path_regexp test_get_preflight ^/v1/test/(catalog|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|kitchen|display|manager/orders)$
+	}
+	handle @test_get_preflight {
+		header {
+			Access-Control-Allow-Origin *
+			Access-Control-Allow-Methods GET
+			Access-Control-Allow-Headers Authorization,Content-Type,Idempotency-Key
+			Access-Control-Max-Age 300
+		}
+		respond "" 204
+	}
+
+	@test_get {
+		method GET
+		path_regexp test_get ^/v1/test/(catalog|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|kitchen|display|manager/orders)$
+	}
+	handle @test_get {
+		header Access-Control-Allow-Origin *
+		# Bearer is forwarded only for these exact TEST contract routes.
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@test_post_preflight {
+		method OPTIONS
+		header Origin *
+		header Access-Control-Request-Method POST
+		path_regexp test_post_preflight ^/v1/test/(sessions|sessions/continue|quotes|orders/watch|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
+	}
+	handle @test_post_preflight {
+		header {
+			Access-Control-Allow-Origin *
+			Access-Control-Allow-Methods POST
+			Access-Control-Allow-Headers Authorization,Content-Type,Idempotency-Key
+			Access-Control-Max-Age 300
+		}
+		respond "" 204
+	}
+
+	# Bounded event wait: all ordinary upstream requests retain their 5s header limit.
+	@test_order_watch {
+		method POST
+		path /v1/test/orders/watch
+	}
+	handle @test_order_watch {
+		header Access-Control-Allow-Origin *
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
+
+	@test_post {
+		method POST
+		path_regexp test_post ^/v1/test/(sessions|sessions/continue|quotes|orders|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(simulated-payment|cancel|handoff|resolve-payment)|orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/tasks/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/complete)$
+	}
+	handle @test_post {
+		header Access-Control-Allow-Origin *
+		# Bearer is forwarded only for these exact TEST contract routes.
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@operations {
+		method GET HEAD
+		path /kiosk /kitchen/prep /kitchen/assembly /display /manager /test/kitchen/prep /test/kitchen/assembly /test/display
+	}
+	handle @operations {
+		root * /srv/public/operations
+		rewrite * /index.html
+		file_server
+	}
+	@operations_assets {
+		method GET HEAD
+		path /assets/*
+	}
+	handle @operations_assets {
+		root * /srv/public/operations
+		file_server
+	}
+	@prototype {
+		method GET HEAD
+		path /design/prototype/index.html /design/prototype/app.js /design/prototype/ui.js /design/prototype/views.js /design/prototype/screens.json /design/prototype/styles.css /design/prototype/reference-fonts.css /design/prototype/reference-mobile.css /design/prototype/reference-mobile.js /design/prototype/reference-kiosk.css /design/prototype/reference-kiosk.js /design/prototype/reference-operations.css /design/prototype/reference-operations.js /design/prototype/assets/* /packages/design-tokens/tokens.css /packages/design-tokens/tokens.json
+	}
+	handle @prototype {
+		root * /srv/public
+		file_server
+	}
+
+	handle {
+		header Content-Type application/json
+		respond `{"code":"NOT_FOUND","environment":"staging"}` 404
+	}
+}

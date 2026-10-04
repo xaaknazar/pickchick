@@ -3,7 +3,10 @@
 Ветка codex/farm-testflight от shared9bb92b9. Владелец разрешил первый pilot.
 Build9 и farm-pilot включают ферму поверх прежних customer-pilot флагов.
 Подготовлен отдельный read-only native XCTest. 25 release-helper тестов и
-resolved config прошли. Upload/native acceptance пока не подтверждены.
+resolved config прошли. Archive/export593ce95 прошли; native Release guest XCTest
+1passed/0failed/0skipped. Поле под аккаунтом и физическая приёмка не проверены.
+Guarded API helper14 тестов; первыйCI остановлен legacy gatewayfixture и
+flaky Playwright responsebody в backoffice. Финальная CI/загрузка ожидаются.
 Mac был заблокирован, оба iPhone unavailable, ASC сессия истекла: вопросы
 владельцу отправлены. Сервер требует guarded033->038, FARM_ENABLED и farm routes;
 действующие политики Kaspi/Telegram и коммерческие feature flags сохраняются.

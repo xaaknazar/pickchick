@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
@@ -8,6 +9,14 @@ import unittest
 ROOT=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('kaspi_checkout_release',ROOT/'infra/staging/release-kaspi-checkout.py')
 r=importlib.util.module_from_spec(spec);sys.modules[spec.name]=r;spec.loader.exec_module(r)
+
+def historical_content_gateway():
+ # Pin the canonical content-enabled gateway at the schema020 API baseline,
+ # rather than feeding later farm/director changes into a historical transformer.
+ path=ROOT/'tests/operations/fixtures/kaspi-checkout-content-gateway.Caddyfile'
+ raw=path.read_bytes()
+ assert hashlib.sha256(raw).hexdigest() == '1b9913e18bb7730222b908cca461fb79d42e37122ef9bccc9fd7a5f748f18d5c'
+ return raw.decode()
 
 class CheckoutRelease(unittest.TestCase):
  def test_exact_migrations_and_preserved_fiscal_data(self):
@@ -24,7 +33,7 @@ class CheckoutRelease(unittest.TestCase):
   obj.profile.old_web='0'*40
   with self.assertRaises(r.market.GuardFailure):obj.web_manifest_source()
  def test_gateway_keeps_existing_routes_and_bounded_wait(self):
-  old=(ROOT/'infra/public-staging/gateway.Caddyfile').read_text()
+  old=historical_content_gateway()
   auth=r.pilot.extend_gateway(old,'172.18.0.4')
   new=r.extend_checkout(auth)
   self.assertIn('response_header_timeout 25s',new)
@@ -38,7 +47,7 @@ class CheckoutRelease(unittest.TestCase):
   obj=object.__new__(r.Release);obj.args=SimpleNamespace(enable_customer_auth=False)
   manifest={'source_sha':'a'*40}
   self.assertIs(obj.prepare_public('/unused',manifest),manifest)
-  old=(ROOT/'infra/public-staging/gateway.Caddyfile').read_text()
+  old=historical_content_gateway()
   new=obj.gateway_candidate(old)
   self.assertNotIn('@pilot_auth',new)
   self.assertIn('@customer_checkout',new)
