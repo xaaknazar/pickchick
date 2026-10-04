@@ -2433,9 +2433,11 @@
       "scopes": [
         "packages/farm-game"
       ],
-      "status": "active",
-      "head": "927eb55e951d5976f24366e4b59617e1e277695a",
-      "updatedAt": "2026-10-04T12:21:03.944Z"
+      "status": "done",
+      "head": "9400b535ce963f001677ada666e5b8a8c19ee045",
+      "updatedAt": "2026-10-04T12:46:36.488Z",
+      "summary": "Engine d0b8cb1 integrated shared9400b535 via reviewed equivalent ancestry. Build, lint, format, diff and7 targeted tests passed; persistence fixture gap found in review and corrected by root.",
+      "nextAction": "Root owns integrated PR/CI and roadmap; native acceptance and controlled deployment remain separate."
     },
     {
       "id": "field-ui",
