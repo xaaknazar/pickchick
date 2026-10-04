@@ -2380,9 +2380,11 @@
         "tests/mobile/pick-farm-ui",
         "apps/mobile/src/games/pick-farm/motion.tsx"
       ],
-      "status": "active",
-      "head": "b47ac5e76ae53286131c61ad5ba407de8eb2ce8a",
-      "updatedAt": "2026-10-04T10:17:21.315Z"
+      "status": "done",
+      "head": "e002fb6d1fb5f43d026234cb35fc368ebbeeb2ed",
+      "updatedAt": "2026-10-04T10:37:39.620Z",
+      "summary": "Native landscape farm UI, licensed/generated asset integration and reduced-motion-aware crop/harvest animations included in PR172 and shared927eb55. ESLint/format/diff passed; integrated browser gameplay and bounded visual review passed at852/667/1024; physical native acceptance pending.",
+      "nextAction": "Continue native physical touch/orientation/accessibility acceptance from PR172; prototype server save and assets remain documented by root."
     },
     {
       "id": "pick-farm",
