@@ -2420,9 +2420,11 @@
         "tests/operations/test_auth_four_digit_release.py",
         "@vps/roadmap"
       ],
-      "status": "active",
+      "status": "done",
       "head": "927eb55e951d5976f24366e4b59617e1e277695a",
-      "updatedAt": "2026-10-04T10:35:57.902Z"
+      "updatedAt": "2026-10-04T10:38:00.338Z",
+      "summary": "PICK FARM implemented: native landscape UI, six crops, original generated assets, motion, PostgreSQL persistence; targeted tests and browser fixtures passed; PR172/shared927eb55",
+      "nextAction": "Native device orientation/gesture acceptance and separately gated API037/runtime/grants/TestFlight rollout after CI; production flags remain off"
     }
   ]
 }
