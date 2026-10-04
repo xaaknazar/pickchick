@@ -2346,9 +2346,11 @@
       "scopes": [
         "packages/farm-game"
       ],
-      "status": "active",
-      "head": "3fabe7cdb0ef1137287badcd5ae97d910007d827",
-      "updatedAt": "2026-10-04T10:04:55.130Z"
+      "status": "done",
+      "head": "d8b2ed7eeda6d064d24f4dd423b3ca217a541466",
+      "updatedAt": "2026-10-04T10:37:21.648Z",
+      "summary": "Детерминированный прототип фермы включён в общий срез: шесть культур, 3 повторяемых заказа, 12-24 грядки, серверное время, строгие схемы, immutable transitions. TypeScript build и 6 engine-тестов прошли; интеграция PR #172 включает scoped lint и проверки серверного сохранения.",
+      "nextAction": "Следующий этап - согласованный native pilot и визуальная/устройственная приёмка; реальные бонусы и ресторанные эффекты не подключены."
     },
     {
       "id": "pick-farm-server",
