@@ -2596,11 +2596,12 @@
         "tests/mobile/browser_magic_sort.py",
         "package.json",
         "@vps/roadmap",
-        "apps/mobile/src/components/AccountGate.tsx"
+        "apps/mobile/src/components/AccountGate.tsx",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
       "head": "bfc4c40a6c65e9e57dbb7147e56a9bdbe47a5f58",
-      "updatedAt": "2026-10-04T19:35:30.612Z"
+      "updatedAt": "2026-10-04T19:44:55.259Z"
     }
   ]
 }
