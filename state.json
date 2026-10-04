@@ -2559,11 +2559,13 @@
         "@devices/iphone",
         "tests/operations/test_farm_release.py",
         "infra/public-staging/gateway.Caddyfile",
-        "tests/mobile/ios/FarmSmokeTests.swift"
+        "tests/mobile/ios/FarmSmokeTests.swift",
+        "tests/operations/test_kaspi_checkout_release.py",
+        "tests/operations/fixtures/kaspi-checkout-content-gateway.Caddyfile"
       ],
       "status": "active",
-      "head": "9bb92b9eaf9bd46c9459664384af652cc2426fdf",
-      "updatedAt": "2026-10-04T13:42:42.045Z"
+      "head": "f109b693585b594737881761db3ef15732446a47",
+      "updatedAt": "2026-10-04T14:00:54.567Z"
     }
   ]
 }
