@@ -2500,11 +2500,15 @@
         "docs/roadmap/project.json",
         "docs/design/pick-farm-gameplay.md",
         "packages/contracts/openapi.json",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "apps/mobile/assets/games/pick-farm",
+        "apps/mobile/PRODUCT.md",
+        "apps/mobile/src/games/pick-farm/DESIGN.md",
+        "apps/mobile/src/games/pick-farm/.impeccable"
       ],
       "status": "active",
       "head": "9400b535ce963f001677ada666e5b8a8c19ee045",
-      "updatedAt": "2026-10-04T12:54:45.643Z"
+      "updatedAt": "2026-10-04T13:05:47.030Z"
     }
   ]
 }
