@@ -14,7 +14,7 @@ Restaurant guests browse food, order for takeaway or dine-in, follow fulfillment
 
 The existing ordering and payment flows remain separate from game state. Authenticated server identity owns persistent player progress. Client clocks, balances and claimed rewards are not authoritative. Game currency is not restaurant money or a loyalty balance.
 
-The owner approved an initial farm inspired by the gameplay of Lovely Farm: vegetables, fruit, flowers and trees, planting, harvesting, a store, inventory, orders and persistent progress. Animals are outside this first stage. The first playable slice has six cultures and repeat-harvest apple trees.
+The owner approved an initial farm inspired by the gameplay of Lovely Farm: vegetables, fruit, flowers and trees, planting, harvesting, a store, inventory, orders and persistent progress. Animals are outside this first stage. The revised slice keeps all six crops on an open 64x64 field. Players buy and place individual beds or permanent apple trees (one cell each), with a fixed house as an anchor. Start with an empty field and 500 coins; beds cost150 and trees250. Growth takes hours; the harvest window equals growth time, then the crop is lost and must be cleared. Trees survive lost harvests. Remove perpetual sway and the prearranged island. Fences, decorations and house upgrades come later.
 
 The farm opens fullscreen in landscape on phones, with pan and pinch zoom. Leaving it restores the normal portrait app. Safe areas and a visible exit remain available. Background growth follows server time.
 

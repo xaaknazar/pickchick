@@ -69,7 +69,7 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
       );
       if (
         !response.headers.get('content-type')?.includes('application/json') ||
-        Number(response.headers.get('content-length') ?? 0) > 65536 ||
+        Number(response.headers.get('content-length') ?? 0) > 1048576 ||
         !response.body?.getReader
       )
         throw new FarmClientError('INVALID_RESPONSE');
@@ -81,7 +81,7 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
           const next = await reader.read();
           if (next.done) break;
           total += next.value.byteLength;
-          if (total > 65536) {
+          if (total > 1048576) {
             controller.abort();
             void reader.cancel().catch(() => {});
             throw new FarmClientError('INVALID_RESPONSE');

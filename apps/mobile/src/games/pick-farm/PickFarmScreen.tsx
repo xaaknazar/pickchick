@@ -104,8 +104,7 @@ export function PickFarmScreen() {
   const feedbackId = useRef(0);
   const clearFeedback = useCallback(() => setFeedback(null), []);
   const camera = useRef({ x: 0, y: 0, zoom: 1 });
-  const gestureStart = useRef({ x: 0, y: 0, zoom: 1, distance: 0 });
-  const movedAt = useRef(0);
+  const gestureStart = useRef({ x: 0, y: 0, zoom: 1, distance: 0, moved: false, multi: false });
   const pan = useRef(new Animated.ValueXY()).current;
   const zoom = useRef(new Animated.Value(1)).current;
   const fit = Math.min(1.3, Math.max(0.75, height / 520));
@@ -129,19 +128,58 @@ export function PickFarmScreen() {
     const [a, b] = e.nativeEvent.touches;
     return a && b ? Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY) : 0;
   };
+  const selectAt = useCallback(
+    (event: GestureResponderEvent) => {
+      const scale = camera.current.zoom * fit;
+      // Web Pressable mouse events expose page coordinates, native exposes local ones.
+      const tapX = Number.isFinite(event.nativeEvent.locationX)
+        ? event.nativeEvent.locationX
+        : event.nativeEvent.pageX;
+      const tapY = Number.isFinite(event.nativeEvent.locationY)
+        ? event.nativeEvent.locationY
+        : event.nativeEvent.pageY;
+      const px = (tapX - width / 2 - camera.current.x) / scale;
+      const py = (tapY - height / 2 - 54 - camera.current.y + 70 * scale) / scale;
+      const { x, y } = cellAtPoint(px + 450, py + 230);
+      if (
+        x < 0 ||
+        y < 0 ||
+        x >= FIELD_SIZE ||
+        y >= FIELD_SIZE ||
+        (panel !== 'place' && x === HOUSE_CELL.x && y === HOUSE_CELL.y)
+      )
+        return;
+      const plot = state?.plots.find((item) => item.x === x && item.y === y);
+      setCell({ x, y });
+      if (panel === 'place') return;
+      if (plot) {
+        setSelected(plot.id);
+        setPanel('plot');
+      } else {
+        setPlacement('bed');
+        setPanel('place');
+      }
+    },
+    [fit, width, height, state, panel],
+  );
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: (e) => e.nativeEvent.touches.length > 1,
+        onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (e, g) =>
           e.nativeEvent.touches.length > 1 || Math.abs(g.dx) + Math.abs(g.dy) > 7,
         onPanResponderGrant: (e) => {
-          gestureStart.current = { ...camera.current, distance: distance(e) };
-          movedAt.current = Date.now();
+          gestureStart.current = {
+            ...camera.current,
+            distance: distance(e),
+            moved: false,
+            multi: e.nativeEvent.touches.length > 1,
+          };
         },
         onPanResponderMove: (e, g) => {
-          movedAt.current = Date.now();
           const start = gestureStart.current;
+          if (Math.abs(g.dx) + Math.abs(g.dy) > 7) start.moved = true;
+          if (e.nativeEvent.touches.length > 1) start.multi = true;
           const d = distance(e);
           if (d > 0) {
             if (start.distance === 0) {
@@ -149,16 +187,13 @@ export function PickFarmScreen() {
               start.zoom = camera.current.zoom;
             }
             updateCamera(camera.current.x, camera.current.y, (start.zoom * d) / start.distance);
-          } else updateCamera(start.x + g.dx, start.y + g.dy, camera.current.zoom);
+          } else if (start.moved) updateCamera(start.x + g.dx, start.y + g.dy, camera.current.zoom);
         },
-        onPanResponderRelease: () => {
-          movedAt.current = Date.now();
-        },
-        onPanResponderTerminate: () => {
-          movedAt.current = Date.now();
+        onPanResponderRelease: (e) => {
+          if (!gestureStart.current.moved && !gestureStart.current.multi) selectAt(e);
         },
       }),
-    [updateCamera],
+    [updateCamera, selectAt],
   );
   useEffect(() => {
     const back = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -262,37 +297,11 @@ export function PickFarmScreen() {
           />
         </View>
       )}
-      <Pressable
+      <View
         style={{ flex: 1 }}
         {...responder.panHandlers}
         testID="pick-farm-world"
         accessibilityLabel="Поле фермы. Выберите место для грядки"
-        onPress={(event) => {
-          if (Date.now() - movedAt.current < 180) return;
-          const scale = camera.current.zoom * fit;
-          const px = (event.nativeEvent.locationX - width / 2 - camera.current.x) / scale;
-          const py =
-            (event.nativeEvent.locationY - height / 2 - 54 - camera.current.y + 70 * scale) / scale;
-          const { x, y } = cellAtPoint(px + 450, py + 230);
-          if (
-            x < 0 ||
-            y < 0 ||
-            x >= FIELD_SIZE ||
-            y >= FIELD_SIZE ||
-            (panel !== 'place' && x === HOUSE_CELL.x && y === HOUSE_CELL.y)
-          )
-            return;
-          const plot = state.plots.find((item) => item.x === x && item.y === y);
-          setCell({ x, y });
-          if (panel === 'place') return;
-          if (plot) {
-            setSelected(plot.id);
-            setPanel('plot');
-          } else {
-            setPlacement('bed');
-            setPanel('place');
-          }
-        }}
       >
         <Animated.View
           pointerEvents="none"
@@ -369,7 +378,7 @@ export function PickFarmScreen() {
             </View>
           )}
         </Animated.View>
-      </Pressable>
+      </View>
       <View style={[s.hud, { top, left }]}>
         <IconButton label="Выйти из фермы" icon="arrow-back" onPress={() => router.back()} />
         <View style={s.pill}>
@@ -434,7 +443,9 @@ export function PickFarmScreen() {
               ? 'Сохраняем...'
               : readyCount
                 ? `Готово к сбору: ${readyCount}`
-                : 'Коснитесь грядки'}
+                : state.plots.length
+                  ? 'Коснитесь грядки'
+                  : 'Выберите место для грядки'}
           </Text>
         </View>
       )}
@@ -485,10 +496,13 @@ export function PickFarmScreen() {
                       <CropArt cropId={item.id} size={36} />
                       <Text style={s.choiceName}>{item.name}</Text>
                       <Text style={s.muted}>
-                        {item.seedCost} монет · {duration(item.growSeconds)}
+                        {item.id === 'apple' ? TREE_COST : item.seedCost} монет ·{' '}
+                        {duration(item.growSeconds)}
                       </Text>
                       <Text style={s.muted}>
-                        {item.id === 'apple' ? '3 урожая с дерева' : `Урожай: ${item.harvestYield}`}
+                        {item.id === 'apple'
+                          ? 'Плодоносит повторно'
+                          : `Урожай: ${item.harvestYield}`}
                       </Text>
                     </Pressable>
                   ))}
@@ -497,7 +511,7 @@ export function PickFarmScreen() {
             )}
             {panel === 'plot' && crop && current && (
               <View style={[s.row, { alignItems: 'center', flexWrap: 'wrap' }]}>
-                <CropArt cropId={crop.id} size={54} />
+                <CropArt cropId={crop.id} size={54} phase={phase === 'empty' ? undefined : phase} />
                 <View style={{ flex: 1, minWidth: 150 }}>
                   <Text style={s.text}>
                     {phase === 'withered'
@@ -511,7 +525,7 @@ export function PickFarmScreen() {
                       ? `Соберите в течение ${duration((current.plantedAt + (crop.growSeconds + crop.harvestWindowSeconds) * 1000 - serverNow) / 1000)}. `
                       : ''}
                     {crop.id === 'apple'
-                      ? `Сбор ${current.harvests + 1} из ${crop.maxHarvests}. Дерево плодоносит повторно.`
+                      ? 'Дерево остаётся и плодоносит повторно.'
                       : 'После сбора здесь можно посадить снова.'}
                   </Text>
                 </View>
@@ -703,9 +717,9 @@ export function PickFarmScreen() {
               <View style={{ gap: 8 }}>
                 <Text style={s.text}>
                   Купите грядку на свободном месте, посадите семена и соберите урожай. Продавайте
-                  его на складе или выполняйте заказы. Яблоня даёт три урожая. Рост занимает часы.
-                  После созревания есть ограниченное время для сбора: затем урожай увянет и будет
-                  потерян. Увядшие посадки нужно очистить.
+                  его на складе или выполняйте заказы. Яблоня плодоносит снова после каждого сбора.
+                  Рост занимает часы. После созревания есть ограниченное время для сбора: затем
+                  урожай увянет и будет потерян. Увядшие посадки нужно очистить.
                 </Text>
                 <Text style={s.text}>
                   Перемещайте поле одним пальцем, приближайте двумя. Кнопки справа меняют масштаб и

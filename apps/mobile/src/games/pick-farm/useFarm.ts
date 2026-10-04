@@ -12,6 +12,11 @@ const messages: Record<string, string> = {
   FARM_UNAVAILABLE: 'Ферма ещё готовится к открытию. Попробуйте зайти позже.',
   UNAUTHORIZED: 'Войдите в аккаунт, чтобы открыть свою ферму.',
   STALE_STATE: 'Ферма обновилась на другом устройстве. Проверьте участок и повторите действие.',
+  CROP_WITHERED: 'Урожай потерян. Очистите грядку, чтобы посадить снова.',
+  CELL_RESERVED: 'Здесь стоит дом. Выберите другую клетку.',
+  CROP_NOT_WITHERED: 'Этот урожай ещё не потерян. Очистка не нужна.',
+  CELL_OCCUPIED: 'Это место уже занято. Выберите другую клетку.',
+  LEGACY_COMMAND: 'Планировка фермы обновилась. Выберите место для новой грядки.',
   CROP_NOT_READY: 'Урожай ещё растёт. Осталось немного подождать.',
   INSUFFICIENT_COINS: 'Не хватает монет. Соберите и продайте урожай.',
   ORDER_NOT_READY: 'Сначала соберите все продукты для этого заказа.',
@@ -107,7 +112,9 @@ export function useFarm() {
     const timer = setInterval(() => {
       if (AppState.currentState === 'active' || AppState.currentState == null)
         setServerNow(
-          clock.current.server + Math.max(0, performance.now() - clock.current.monotonic),
+          Math.floor(
+            clock.current.server + Math.max(0, performance.now() - clock.current.monotonic),
+          ),
         );
     }, 1000);
     return () => {

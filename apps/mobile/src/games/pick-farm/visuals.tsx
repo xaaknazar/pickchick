@@ -63,6 +63,7 @@ export const Sprite = memo(function Sprite({
 });
 // Original generated atlas stays intact; each native view clips one sprite region.
 const cropAtlas = require('../../../assets/games/pick-farm/crops-generated.png');
+const witheredAtlas = require('../../../assets/games/pick-farm/crops-withered-generated.png');
 const cropBounds: Record<CropId, readonly [number, number, number, number]> = {
   carrot: [0, 65, 432, 578],
   tomato: [432, 65, 828, 580],
@@ -70,6 +71,14 @@ const cropBounds: Record<CropId, readonly [number, number, number, number]> = {
   sunflower: [0, 600, 434, 1160],
   tulip: [432, 628, 815, 1160],
   apple: [816, 618, 1254, 1165],
+};
+const witheredBounds: Record<CropId, readonly [number, number, number, number]> = {
+  carrot: [0, 75, 421, 600],
+  tomato: [422, 75, 820, 586],
+  strawberry: [822, 190, 1235, 595],
+  sunflower: [0, 620, 428, 1164],
+  tulip: [430, 650, 810, 1164],
+  apple: [811, 600, 1245, 1168],
 };
 export const CropArt = memo(function CropArt({
   cropId,
@@ -80,7 +89,7 @@ export const CropArt = memo(function CropArt({
   size?: number;
   phase?: 'growing' | 'ready' | 'withered';
 }) {
-  const [left, top, right, bottom] = cropBounds[cropId];
+  const [left, top, right, bottom] = (phase === 'withered' ? witheredBounds : cropBounds)[cropId];
   const scale = size / Math.max(right - left, bottom - top);
   return (
     <View
@@ -89,7 +98,6 @@ export const CropArt = memo(function CropArt({
       style={{
         width: size,
         height: size,
-        opacity: phase === 'withered' ? 0.5 : 1,
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -102,7 +110,7 @@ export const CropArt = memo(function CropArt({
         }}
       >
         <NativeImage
-          source={cropAtlas}
+          source={phase === 'withered' ? witheredAtlas : cropAtlas}
           resizeMode="stretch"
           accessible={false}
           style={{

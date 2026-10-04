@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { transaction, type DatabasePool, type DatabaseClient } from '@pickchick/database';
 import {
   createFarm,
+  upgradeFarmState,
   applyFarmCommand,
   FarmStateSchema,
   FarmCommandSchema,
@@ -65,7 +66,13 @@ export class FarmPersistence {
     const row = await db.query('SELECT state FROM customer_farms WHERE customer_id=$1 FOR UPDATE', [
       customerId,
     ]);
-    return { state: FarmStateSchema.parse(row.rows[0].state), serverNow };
+    const state = upgradeFarmState(row.rows[0].state);
+    if (row.rows[0].state.version !== state.version)
+      await db.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [
+        customerId,
+        state,
+      ]);
+    return { state, serverNow };
   }
   async get(customerId: string) {
     this.available();

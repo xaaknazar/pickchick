@@ -11,7 +11,7 @@ import {
 const plant = { type: 'plant', plotId: 0, cropId: 'carrot' };
 function fixture() {
   let raw = null;
-  let state = createFarm(1000);
+  let state = applyFarmCommand(createFarm(1000), { type: 'buyPlot', x: 31, y: 31 }, 1000);
   let lose = false;
   let reject = false;
   let failWrite = false;
@@ -60,7 +60,7 @@ function fixture() {
       failWrite = true;
     },
     advance: () => {
-      state = applyFarmCommand(state, { ...plant, plotId: 1 }, 1000);
+      state = applyFarmCommand(state, { type: 'movePlot', plotId: 0, x: 33, y: 33 }, 1000);
     },
   };
 }
@@ -78,8 +78,8 @@ test('lost response survives restart and retries one immutable intent without an
   const recovered = await restarted.refresh();
   assert.equal(f.sent.length, 2);
   assert.deepEqual(f.sent[1], saved);
-  assert.equal(recovered.state.revision, 2);
-  assert.ok(recovered.state.coins < coins);
+  assert.equal(recovered.state.revision, 3);
+  assert.equal(recovered.state.coins, coins);
   assert.equal(f.raw, null);
 });
 test('definite conflict discards rejected intent and refreshes without retrying new action', async () => {
@@ -89,7 +89,7 @@ test('definite conflict discards rejected intent and refreshes without retrying 
   f.reject();
   await assert.rejects(client.send(plant), { code: 'STALE_STATE' });
   assert.equal(f.raw, null);
-  assert.equal(client.snapshot.state.revision, 0);
+  assert.equal(client.snapshot.state.revision, 1);
   assert.equal(f.sent.length, 1);
 });
 test('failed durable write never sends a command', async () => {
@@ -139,7 +139,7 @@ test('HTTPS transport validates response, uses bearer header and preserves auth 
     request = { url, ...init };
     return Response.json({ state: f.state, serverNow: 1000 });
   });
-  assert.equal((await send('synthetic-token')).state.coins, 100);
+  assert.equal((await send('synthetic-token')).state.coins, 350);
   assert.equal(request.headers.Authorization, 'Bearer synthetic-token');
   assert.equal(request.redirect, 'error');
   assert.equal(request.cache, 'no-store');
@@ -157,7 +157,7 @@ test('HTTPS transport validates response, uses bearer header and preserves auth 
     { code: 'INVALID_RESPONSE' },
   );
   await assert.rejects(
-    farmRequest('https://example.test', async () => Response.json('x'.repeat(70000)))('test'),
+    farmRequest('https://example.test', async () => Response.json('x'.repeat(1048577)))('test'),
     { code: 'INVALID_RESPONSE' },
   );
 });

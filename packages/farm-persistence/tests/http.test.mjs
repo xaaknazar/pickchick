@@ -24,7 +24,11 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
   let app;
   const previous = process.env.FARM_ENABLED;
   try {
-    for (const filename of ['007_cloud_customer_identity.sql', '037_cloud_farm.sql'])
+    for (const filename of [
+      '007_cloud_customer_identity.sql',
+      '037_cloud_farm.sql',
+      '038_cloud_farm_field_capacity.sql',
+    ])
       await pool.query(
         await readFile(
           new URL('../../../db/cloud/migrations/' + filename, import.meta.url),
@@ -114,7 +118,7 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
     const command = {
       commandId: randomUUID(),
       expectedRevision: 0,
-      command: { type: 'plant', plotId: 0, cropId: 'carrot' },
+      command: { type: 'buyPlot', x: 31, y: 31 },
     };
     assert.equal((await request('/commands', command)).status, 200);
     const stale = await request('/commands', { ...command, commandId: randomUUID() });

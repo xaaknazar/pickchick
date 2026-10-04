@@ -46,3 +46,13 @@ tree; consistent 3/4 view, warm upper-left light, detailed rounded hand-painted 
 casual game style, individual isolated sprites, no soil/pots/text/grid/watermark.
 Result is 1254x1254 RGBA. Runtime regions follow the actual illustration bounds.
 The previous botanical SVG references remain licensed but are no longer rendered.
+
+## Lost-harvest atlas - 2026-10-04
+
+`crops-withered-generated.png`: built-in image_gen edit of the original crop atlas,
+transparent 1254x1254 PNG copied unchanged. Runtime clips each measured sprite region.
+Prompt: preserve the six-cell layout, scale, isometric angle and painted 3D style;
+carrots with dry ochre fronds and shriveled roots; limp brown tomato bush with spoiled
+fruit; dried strawberry leaves/berries; bowed sunflowers and fallen petals; dry drooping
+tulips; living green apple tree with shriveled fruit and fallen apples. No text, floor,
+UI or background. Distinct lost crop for each species; apple tree does not die.

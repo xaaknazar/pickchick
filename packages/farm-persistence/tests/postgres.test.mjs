@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createPool } from '@pickchick/database';
 import { FarmPersistence } from '../dist/index.js';
@@ -24,6 +24,12 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
         'utf8',
       ),
     );
+    await db.query(
+      await readFile(
+        new URL('../../../db/cloud/migrations/038_cloud_farm_field_capacity.sql', import.meta.url),
+        'utf8',
+      ),
+    );
   } finally {
     db.release();
   }
@@ -44,13 +50,14 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
     const command = {
       commandId: randomUUID(),
       expectedRevision: 0,
-      command: { type: 'plant', plotId: 0, cropId: 'carrot' },
+      command: { type: 'buyPlot', x: 31, y: 31 },
     };
     const results = await Promise.all([farm.command(a, command), farm.command(a, command)]);
     assert.equal(results[0].state.revision, 1);
     assert.equal(results[1].state.revision, 1);
-    assert.equal(results[0].state.plots[0].plantedAt, results[0].serverNow);
-    assert.equal(results[0].state.coins, 96);
+    assert.equal(results[0].state.plots[0].plantedAt, null);
+    assert.equal(results[0].state.plots[0].x, 31);
+    assert.equal(results[0].state.coins, 350);
     assert.equal((await farm.get(b)).state.revision, 0);
     await assert.rejects(
       farm.command(a, { ...command, command: { type: 'expand' } }),
@@ -65,7 +72,7 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
         farm.command(a, {
           commandId: randomUUID(),
           expectedRevision: 1,
-          command: { type: 'plant', plotId: plotId + 1, cropId: 'carrot' },
+          command: { type: 'plant', plotId: 0, cropId: plotId === 0 ? 'carrot' : 'tomato' },
         }),
       ),
     );
@@ -106,7 +113,7 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
       farm.command(a, {
         commandId: randomUUID(),
         expectedRevision: 2,
-        command: { type: 'plant', plotId: 3, cropId: 'carrot' },
+        command: { type: 'movePlot', plotId: 0, x: 33, y: 33 },
       }),
     );
     assert.equal((await farm.get(a)).state.revision, 2, 'state update rolls back with receipt');
@@ -119,9 +126,116 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
       farm.command(b, {
         commandId: randomUUID(),
         expectedRevision: 0,
-        command: { type: 'plant', plotId: 0, cropId: 'carrot' },
+        command: { type: 'buyPlot', x: 31, y: 31 },
       }),
       (e) => e.code === 'RATE_LIMITED',
+    );
+    const legacy = {
+      version: 1,
+      revision: 7,
+      coins: 17,
+      xp: 10,
+      completedOrders: 1,
+      plots: Array.from({ length: 12 }, (_, id) => ({
+        id,
+        cropId: id === 0 ? 'carrot' : null,
+        plantedAt: id === 0 ? 1000 : null,
+        harvests: 0,
+      })),
+      inventory: { carrot: 3, tomato: 0, strawberry: 0, sunflower: 0, tulip: 0, apple: 0 },
+    };
+    const c = randomUUID();
+    await scoped.query('INSERT INTO identity_customers(id) VALUES($1)', [c]);
+    await scoped.query('INSERT INTO customer_farms(customer_id,state) VALUES($1,$2)', [c, legacy]);
+    const oldExpand = { commandId: randomUUID(), expectedRevision: 6, command: { type: 'expand' } };
+    const oldHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          command: oldExpand.command,
+          commandId: oldExpand.commandId,
+          expectedRevision: 6,
+        }),
+      )
+      .digest('hex');
+    await scoped.query(
+      'INSERT INTO customer_farm_commands(customer_id,command_id,request_hash,revision) VALUES($1,$2,$3,7)',
+      [c, oldExpand.commandId, oldHash],
+    );
+    const replayUpgrade = await farm.command(c, oldExpand);
+    assert.equal(replayUpgrade.state.version, 2);
+    assert.equal(replayUpgrade.state.revision, 7, 'legacy receipt survives lazy upgrade');
+    const migrated = await farm.get(c);
+    assert.equal(migrated.state.version, 2);
+    assert.equal(migrated.state.coins, 17);
+    assert.equal(migrated.state.revision, 7);
+    assert.equal(migrated.state.inventory.carrot, 3);
+    assert.equal(migrated.state.plots[0].plantedAt, 1000);
+    await assert.rejects(
+      farm.command(c, {
+        commandId: randomUUID(),
+        expectedRevision: 7,
+        command: { type: 'harvest', plotId: 0 },
+      }),
+      (e) => e.code === 'CROP_WITHERED',
+    );
+    const cleared = await farm.command(c, {
+      commandId: randomUUID(),
+      expectedRevision: 7,
+      command: { type: 'clear', plotId: 0 },
+    });
+    assert.equal(cleared.state.inventory.carrot, 3);
+    assert.equal(cleared.state.plots[0].cropId, null);
+    const mature = {
+      ...cleared.state,
+      plots: cleared.state.plots.map((plot, id) =>
+        id === 0 ? { ...plot, cropId: 'carrot', plantedAt: cleared.serverNow - 3600100 } : plot,
+      ),
+    };
+    await scoped.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [c, mature]);
+    const collect = {
+      commandId: randomUUID(),
+      expectedRevision: mature.revision,
+      command: { type: 'harvest', plotId: 0 },
+    };
+    const collected = await farm.command(c, collect);
+    assert.equal(collected.state.inventory.carrot, 6);
+    const later = {
+      ...collected.state,
+      plots: collected.state.plots.map((plot, id) =>
+        id === 0 ? { ...plot, cropId: 'carrot', plantedAt: 1000 } : plot,
+      ),
+    };
+    await scoped.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [c, later]);
+    const replayHarvest = await farm.command(c, collect);
+    assert.equal(
+      replayHarvest.state.inventory.carrot,
+      6,
+      'successful harvest replay after window never doubles reward',
+    );
+    assert.equal(
+      replayHarvest.state.plots[0].plantedAt,
+      1000,
+      'replay leaves later crop unchanged',
+    );
+    const full = {
+      ...cleared.state,
+      plots: Array.from({ length: 4096 }, (_, id) => ({
+        id,
+        x: id % 64,
+        y: Math.floor(id / 64),
+        kind: 'bed',
+        cropId: null,
+        plantedAt: null,
+        harvests: 0,
+      }))
+        .filter((p) => !(p.x === 32 && p.y === 28))
+        .map((p, id) => ({ ...p, id })),
+    };
+    await scoped.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [c, full]);
+    assert.equal(
+      (await farm.get(c)).state.plots.length,
+      4095,
+      'large free field fits persisted JSON bound',
     );
     const role = 'farm_role_' + randomUUID().replaceAll('-', '');
     let restricted;
@@ -139,7 +253,7 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
           await restrictedFarm.command(a, {
             commandId: randomUUID(),
             expectedRevision: 2,
-            command: { type: 'plant', plotId: 3, cropId: 'carrot' },
+            command: { type: 'movePlot', plotId: 0, x: 33, y: 33 },
           })
         ).state.revision,
         3,
