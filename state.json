@@ -2595,11 +2595,12 @@
         "tests/mobile/magic-sort.test.mjs",
         "tests/mobile/browser_magic_sort.py",
         "package.json",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "apps/mobile/src/components/AccountGate.tsx"
       ],
       "status": "active",
       "head": "bfc4c40a6c65e9e57dbb7147e56a9bdbe47a5f58",
-      "updatedAt": "2026-10-04T19:30:32.132Z"
+      "updatedAt": "2026-10-04T19:35:30.612Z"
     }
   ]
 }
