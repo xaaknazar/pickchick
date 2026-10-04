@@ -2474,11 +2474,12 @@
         "scripts/contracts.mjs",
         "db/cloud/migrations/038_cloud_farm_field_capacity.sql",
         "tests/operations/test_server_pilot_release.py",
-        "tests/operations/test_auth_four_digit_release.py"
+        "tests/operations/test_auth_four_digit_release.py",
+        "@vps/roadmap"
       ],
       "status": "active",
-      "head": "927eb55e951d5976f24366e4b59617e1e277695a",
-      "updatedAt": "2026-10-04T12:22:48.504Z"
+      "head": "57722bbd19e2a5b88f26f4b12b69846561e66366",
+      "updatedAt": "2026-10-04T12:39:46.563Z"
     }
   ]
 }
