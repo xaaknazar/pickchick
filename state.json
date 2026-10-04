@@ -2477,11 +2477,11 @@
         "apps/mobile/src/games/pick-farm/visuals.tsx",
         "apps/mobile/src/games/pick-farm/motion.tsx"
       ],
-      "status": "active",
+      "status": "done",
       "head": "9400b535ce963f001677ada666e5b8a8c19ee045",
-      "updatedAt": "2026-10-04T12:47:02.451Z",
-      "summary": "UI dbde0c5 published: open field placement, targeted eslint/prettier/diff passed; integrated typecheck/browser pending parent",
-      "nextAction": "Integrate with field-engine and withered art, verify native gestures and browser"
+      "updatedAt": "2026-10-04T12:47:07.803Z",
+      "summary": "UI dbde0c5 integrated in shared9400b535; targeted lint/format and all3viewport browser mechanics including pan and sixcrop atlas passed",
+      "nextAction": "Physical iPhone/Android pinch, orientation, FPS and visual acceptance remain pending; root publishes roadmap"
     }
   ]
 }
