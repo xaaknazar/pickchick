@@ -2976,11 +2976,13 @@
         "tests/operations/test_tiptoppay_test_release.py",
         "docs/operations/deployments/2026-10-05-tiptoppay-test.md",
         "@vps/api",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "infra/staging/tiptoppay-test-grants.mjs",
+        "tests/unit/tiptoppay-test-grants.test.mjs"
       ],
       "status": "active",
-      "head": "395e75d482ccf057251cf83f9815334733ecd26e",
-      "updatedAt": "2026-10-05T17:35:21.173Z"
+      "head": "332136d333af076d57b91b06c839eb46a0f5997b",
+      "updatedAt": "2026-10-05T17:39:10.441Z"
     }
   ]
 }
