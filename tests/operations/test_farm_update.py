@@ -16,6 +16,13 @@ sys.modules[spec.name] = r
 spec.loader.exec_module(r)
 
 class FarmUpdateRelease(unittest.TestCase):
+    def test_reviewed_testflight12_installed_baselines(self):
+        self.assertEqual(r.BASELINE,'14bbd28d25975bfa0d888a1bf5f3d733ff679434')
+        self.assertEqual(r.PUBLIC_BASELINE,'331d663a1002fb180334f6e8206afa7e8b553067')
+        self.assertEqual(r.GATEWAY_BASELINE,'1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51')
+        self.assertEqual(r.COMPOSE_BASELINE,'c62c24cb90418e791b9740352ffcafe4c664a1669887914d79dfea96dbbc5db2')
+        self.assertEqual(object.__new__(r.Release).web_manifest_source(),'e236824b80ee315eae48c371d722f4f6459aac8c')
+
     def test_profile_is_exact_schema38_without_migrations_or_settings(self):
         args=SimpleNamespace(expected_api_sha=r.BASELINE,expected_public_sha=r.PUBLIC_BASELINE,expected_gateway_sha256=r.GATEWAY_BASELINE)
         with patch.object(r.market.Release,'__init__') as init:r.Release(args)
