@@ -1,3 +1,4 @@
+import { GardenArt } from './GardenArt';
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
 import { Image as NativeImage, Pressable, Text } from 'react-native';
@@ -191,7 +192,13 @@ export function CellOutline({
   );
 }
 
-export const Landscape = memo(function Landscape({ grid = false }: { grid?: boolean }) {
+export const Landscape = memo(function Landscape({
+  grid = false,
+  houseStyle = 'classic',
+}: {
+  grid?: boolean;
+  houseStyle?: 'classic' | 'mint' | 'sunshine';
+}) {
   const { minX, minY, maxX, maxY } = PLANTING_BOUNDS;
   const house = isoPoint(HOUSE_DISPLAY_CELL.x, HOUSE_DISPLAY_CELL.y);
   const lines: { x: number; y: number; length: number; angle: string; edge: boolean }[] = [];
@@ -230,6 +237,11 @@ export const Landscape = memo(function Landscape({ grid = false }: { grid?: bool
       ))}
       <View testID="pick-farm-house" style={{ position: 'absolute', left: house.x, top: house.y }}>
         <Sprite kind="house" x={0} y={0} width={240} />
+        {houseStyle !== 'classic' && (
+          <View style={{ position: 'absolute', left: 30, top: -45 }}>
+            <GardenArt id={houseStyle} size={100} />
+          </View>
+        )}
       </View>
     </View>
   );

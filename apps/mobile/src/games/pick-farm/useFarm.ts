@@ -3,13 +3,34 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { fetch as expoFetch } from 'expo/fetch';
-import type { FarmCommand } from '@pickchick/farm-game';
+import { CROPS, type FarmCommand } from '@pickchick/farm-game';
 import { HarvestQueue } from './harvest-queue';
 import { API_URL } from '../../api';
 import { useAccount } from '../../useAccount';
 import { FarmClient, FarmClientError, farmRequest, type FarmSnapshot } from './api';
 
 const messages: Record<string, string> = {
+  GOAL_NOT_READY: 'Сначала выполните цель задания.',
+  REWARD_CLAIMED: 'Эта награда уже получена.',
+  PLOT_NOT_EMPTY: 'Сначала соберите урожай или уберите семена.',
+  PLOT_NOT_STORED: 'Этот объект уже находится на участке.',
+  DECORATION_ALREADY_PLACED: 'Украшение уже стоит на участке.',
+  DECORATION_NOT_FOUND: 'Украшение уже перемещено. Откройте ваши вещи.',
+  DECORATION_NOT_PLACED: 'Украшение находится в ваших вещах.',
+  HOUSE_STYLE_LOCKED: 'Этот облик дома откроется на следующем уровне.',
+  RECIPE_LOCKED: 'Рецепт пока не открыт. Выполняйте задания сада.',
+  STATION_NOT_OWNED: 'Сначала откройте эту мастерскую.',
+  STATION_OWNED: 'Эта мастерская уже открыта.',
+  JOB_NOT_FOUND: 'Изделие уже забрано. Проверьте склад мастерской.',
+  MAX_DECORATIONS: 'Достигнут предел украшений. Уберите часть в ваши вещи.',
+  PROGRESSION_LIMIT: 'Достигнут предел сохранения. Продайте часть запасов.',
+  FARM_CLIENT_UPGRADE_REQUIRED: 'Обновите PickChick, чтобы продолжить игру в ферму.',
+  QUEST_NOT_READY: 'Сначала выполните цель главы.',
+  QUEST_ALREADY_CLAIMED: 'Награда уже получена.',
+  DECORATION_LOCKED: 'Украшение откроется на следующем этапе развития.',
+  STATION_LOCKED: 'Мастерская пока не открыта. Выполняйте задания Алекса.',
+  PRODUCTION_NOT_READY: 'Изделие ещё готовится.',
+  QUEUE_FULL: 'Сначала заберите готовые изделия.',
   FARM_UNAVAILABLE: 'Ферма ещё готовится к открытию. Попробуйте зайти позже.',
   UNAUTHORIZED: 'Войдите в аккаунт, чтобы открыть свою ферму.',
   STALE_STATE: 'Ферма обновилась на другом устройстве. Проверьте участок и повторите действие.',
@@ -60,6 +81,8 @@ export function useFarm() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<{ id: number; text: string } | null>(null);
+  const receiptId = useRef(0);
   const [serverNow, setServerNow] = useState(0);
   const currentClient = useRef(client);
   currentClient.current = client;
@@ -78,12 +101,28 @@ export function useFarm() {
       setBusy(true);
       setError(null);
       try {
+        const previous = client.snapshot?.state;
         const next = await (command ? client.send(command) : client.refresh());
         if (currentClient.current !== client) return false;
         clock.current = { server: next.serverNow, monotonic: performance.now() };
         owner.current = client;
         setSnapshot(next);
         setServerNow(next.serverNow);
+        if (command) {
+          const parts: string[] = [];
+          if (previous && next.state.revision === previous.revision + 1) {
+            const coins = next.state.coins - previous.coins;
+            if (coins) parts.push(`${coins > 0 ? '+' : ''}${coins} монет`);
+            for (const crop of CROPS) {
+              const n = next.state.inventory[crop.id] - previous.inventory[crop.id];
+              if (n > 0) parts.push(`${crop.name}: +${n} на склад`);
+            }
+          }
+          setReceipt({
+            id: ++receiptId.current,
+            text: parts.join(' · ') || (command.type === 'harvest' ? 'Урожай собран' : 'Сохранено'),
+          });
+        }
         return true;
       } catch (cause) {
         if (currentClient.current !== client) return false;
@@ -118,6 +157,7 @@ export function useFarm() {
     currentClient.current = client;
     owner.current = null;
     setSnapshot(null);
+    setReceipt(null);
     setLoading(true);
     setError(null);
     void run();
@@ -139,6 +179,8 @@ export function useFarm() {
     };
   }, [run, client]);
   return {
+    customerId,
+    receipt,
     state: owner.current === client ? (snapshot?.state ?? null) : null,
     serverNow,
     loading,

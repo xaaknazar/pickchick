@@ -64,3 +64,8 @@ ESLint и Prettier. Полная mobile TypeScript-проверка отдель
 ограничена отсутствующими dist внутренних workspace-пакетов; её повторяет
 интеграция после сборки зависимостей. Нативная производительность и игровая
 приёмка входят в общую интеграцию, не подтверждаются одним атласом.
+# Original harvest audio
+
+`apps/mobile/assets/games/pick-farm/garden-harvest.wav` is an original 0.32-second
+mono PCM chime synthesized locally from sine tones with attack/decay envelopes.
+No sampled recordings or third-party music. Sound is optional and off by default.

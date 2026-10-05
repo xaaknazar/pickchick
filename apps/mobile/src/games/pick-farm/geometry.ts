@@ -56,3 +56,30 @@ export function worldAtPagePoint(
     y: (page.y - frame.y - frame.height / 2 - 48 - camera.y) / scale + WORLD_CENTER.y,
   };
 }
+
+/** Zoom about the point the player is holding, before applying world boundary limits. */
+export function cameraAroundPoint(
+  camera: FarmCamera,
+  point: { x: number; y: number },
+  zoom: number,
+) {
+  const ratio = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)) / camera.zoom;
+  return {
+    x: point.x - (point.x - camera.x) * ratio,
+    y: point.y - (point.y - camera.y) * ratio,
+    zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)),
+  };
+}
+/** Cull far-away sprites; keep a margin for tall trees and selection effects. */
+export function worldPointVisible(
+  point: { x: number; y: number },
+  camera: FarmCamera,
+  fit: number,
+  width: number,
+  height: number,
+) {
+  const x = width / 2 + camera.x + (point.x - WORLD_CENTER.x) * fit * camera.zoom;
+  const y = height / 2 + 48 + camera.y + (point.y - WORLD_CENTER.y) * fit * camera.zoom;
+  const margin = Math.max(120, 150 * fit * camera.zoom);
+  return x >= -margin && x <= width + margin && y >= -margin && y <= height + margin;
+}

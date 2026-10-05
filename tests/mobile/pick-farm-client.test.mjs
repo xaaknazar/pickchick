@@ -148,7 +148,7 @@ test('HTTPS transport validates response, uses bearer header and preserves auth 
   assert.equal(request.headers.Authorization, 'Bearer synthetic-token');
   assert.equal(request.redirect, 'error');
   assert.equal(request.cache, 'no-store');
-  assert.equal(request.url, 'https://example.test/v1/customer-farm');
+  assert.equal(request.url, 'https://example.test/v1/customer-farm?protocol=2');
   await assert.rejects(
     farmRequest('https://example.test', async () =>
       Response.json({ code: 'UNAUTHORIZED' }, { status: 401 }),
@@ -187,4 +187,19 @@ test('lost auto-sale response retries the same durable destination without doubl
   assert.equal(recovered.state.inventory.carrot, 0);
   assert.equal(recovered.state.plots[0].cropId, null);
   assert.equal(f.raw, null);
+});
+
+test('protocol mismatch requests an app update and cannot parse or replace saves', async () => {
+  const request = farmRequest(
+    'https://example.test',
+    async () =>
+      new Response(JSON.stringify({ code: 'FARM_UNAVAILABLE', minimumProtocol: 3 }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      }),
+  );
+  await assert.rejects(
+    request('token'),
+    (e) => e.code === 'FARM_CLIENT_UPGRADE_REQUIRED' && e.status === 503,
+  );
 });

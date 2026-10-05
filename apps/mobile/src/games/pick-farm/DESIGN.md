@@ -78,6 +78,20 @@ components:
 
 # Design System: Pick Farm
 
+## October 5 progression extension
+
+No bottom tool dock is rendered. Tap ripe crops to harvest; sweep across ripe crops
+to queue collection, hold to drag an object. Two fingers control camera zoom.
+Journal, inventory and shop are compact top actions. Shop opens decorations,
+belongings, house appearance and workshops in the existing cream panel.
+Generated garden-atlas-v1 sprites share the painted style; Alex's existing portrait
+introduces the current chapter. The minimum zoom remains the full 32x32 overview;
+placement moves to a usable close view, and the camera is saved per account/device.
+Horizontal catalog rails do not shrink inside vertical panels; native iPhone
+decoration buttons were checked after correcting clipped bottoms.
+Original optional harvest audio is off by default. Full tablet layout and physical
+gesture acceptance remain unverified; browser fixtures are not native acceptance.
+
 ## Overview
 
 **Creative North Star: "A painted meadow"**
