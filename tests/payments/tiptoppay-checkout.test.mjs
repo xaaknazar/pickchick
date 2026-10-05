@@ -502,6 +502,7 @@ test('signed TipTop TEST sandbox flow is durable and never touches commercial or
         createHmac('sha256', options.apiSecret).update(raw).digest('base64'),
       );
     };
+    await assert.rejects(send('pay'), { code: 'BINDING' });
     const testEnv = {
       TIPTOPPAY_TEST_CHECKOUT_ENABLED: 'true',
       TIPTOPPAY_TEST_WEBHOOKS_ENABLED: 'true',
@@ -565,6 +566,10 @@ test('signed TipTop TEST sandbox flow is durable and never touches commercial or
     await assert.rejects(send('pay', { Amount: '1001' }));
     await assert.rejects(send('pay', { AccountId: randomUUID() }));
     assert.deepEqual(await send('check'), { code: 0 });
+    await assert.rejects(send('pay', { TransactionId: '70002' }), { code: 'BINDING' });
+    await assert.rejects(send('fail', { TransactionId: '70002', ReasonCode: '5206' }), {
+      code: 'BINDING',
+    });
     assert.deepEqual(await send('check', { TransactionId: '70002' }), { code: 13 });
     await f.pool.query(
       "UPDATE commerce_tiptoppay_test_payments SET expires_at=clock_timestamp()-interval '1 minute' WHERE id=$1",
@@ -586,6 +591,43 @@ test('signed TipTop TEST sandbox flow is durable and never touches commercial or
       ])
     ).rows[0];
     assert.notEqual(stored.token_hash, token);
+    const nextQuote = await f.repo.issueQuote(f.scope, randomUUID(), {
+      ...f.priced(),
+      customerId: customer,
+    });
+    const runtimeRole = 'ttp_test_' + randomUUID().replaceAll('-', '');
+    await f.admin.query(`CREATE ROLE ${runtimeRole} LOGIN`);
+    const runtimeUrl = new URL(f.url.toString());
+    runtimeUrl.username = runtimeRole;
+    const runtimePool = createPool(runtimeUrl.toString(), 8);
+    try {
+      await f.admin.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${runtimeRole}`);
+      await f.admin.query(`GRANT SELECT ON ${f.schema}.commerce_quotes TO ${runtimeRole}`);
+      await f.admin.query(
+        `GRANT SELECT,INSERT,UPDATE ON ${f.schema}.commerce_tiptoppay_test_payments TO ${runtimeRole}`,
+      );
+      const runtime = new TipTopPayTestCheckout(runtimePool, options);
+      const results = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          runtime.create(customer, { quoteId: nextQuote.quoteId, method: 'card' }),
+        ),
+      );
+      assert.equal(new Set(results.map((result) => result.id)).size, 1);
+      assert.equal(
+        (
+          await runtimePool.query(
+            "SELECT has_table_privilege(current_user,'commerce_quotes','UPDATE') allowed",
+          )
+        ).rows[0].allowed,
+        false,
+      );
+      assert.equal((await runtime.read(customer, results[0].id)).state, 'pending');
+      assert.equal(await f.count('commerce_tiptoppay_test_payments'), 2);
+    } finally {
+      await runtimePool.end();
+      await f.admin.query(`DROP OWNED BY ${runtimeRole}`);
+      await f.admin.query(`DROP ROLE ${runtimeRole}`);
+    }
   }));
 test('TEST configuration is explicit, defaults to generic card without unverified routing, rejects LIVE', () => {
   const env = {
