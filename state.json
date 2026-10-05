@@ -2929,6 +2929,21 @@
       "status": "active",
       "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
       "updatedAt": "2026-10-05T17:03:28.322Z"
+    },
+    {
+      "id": "tiptoppay-mobile",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-mobile",
+      "scopes": [
+        "apps/mobile/src/components/PaymentChoice.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/components/KaspiPaymentState.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/store.tsx"
+      ],
+      "status": "active",
+      "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
+      "updatedAt": "2026-10-05T17:04:33.190Z"
     }
   ]
 }
