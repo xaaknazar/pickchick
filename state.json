@@ -2853,11 +2853,13 @@
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "docs/operations/product-photo-pilot.md",
+        "docs/operations/images/combo-transition"
       ],
       "status": "active",
       "head": "a619be7284364d5c572a5989c6f203358a396822",
-      "updatedAt": "2026-10-05T11:52:57.611Z"
+      "updatedAt": "2026-10-05T12:00:13.128Z"
     }
   ]
 }
