@@ -2760,9 +2760,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "8cef269409a15752aa0803c8d19282afcf13118f",
-      "updatedAt": "2026-10-05T09:03:25.549Z"
+      "status": "done",
+      "head": "ac767d318c7861c58cca6193a423129d3070b371",
+      "updatedAt": "2026-10-05T09:12:57.922Z",
+      "summary": "Research documented; economy simulation rerun; roadmap checks 7/7; PR #187; ac767d318c7861c58cca6193a423129d3070b371 included in shared; roadmap published, business services unchanged.",
+      "nextAction": "Choose first-session phase, working camera and withering rule before implementation. No gameplay or TestFlight changes in this research."
     }
   ]
 }
