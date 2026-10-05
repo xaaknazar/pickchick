@@ -2642,9 +2642,11 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "2f0ae726b9a366273b64dad41a34fd506fc1548a",
-      "updatedAt": "2026-10-05T05:48:15.779Z"
+      "status": "done",
+      "head": "1dd52155527af2c94f4ba10ba2d4a68e43cd2056",
+      "updatedAt": "2026-10-05T05:53:22.679Z",
+      "summary": "1dd5215 PR181 fixes source switching, removes highlight, keeps hit areas stable. 10 tests, TypeScript, ESLint, export and 390px ordinary/collector UI pass. TestFlight 10 unchanged; CI started.",
+      "nextAction": "Next TestFlight build after full CI; physical iPhone acceptance and roadmap online refresh pending."
     }
   ]
 }
