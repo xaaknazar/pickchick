@@ -16,6 +16,16 @@ spec.loader.exec_module(r)
 
 
 class TestRelease(unittest.TestCase):
+    def test_only_backoffice_files_and_provenance_may_change(self):
+        old={'source_sha':'old','base_source_sha':'original','files':{'legal/privacy.html':'legal','roadmap/app.js':'roadmap','backoffice/app.js':'old'},'component_sources':{'backoffice':'old','operations':'preserved'}}
+        new=copy.deepcopy(old)
+        new['source_sha']='new';new['component_sources']['backoffice']='new'
+        new['files'].update({'backoffice/'+n:'new' for n in ['app.js','operations.js','domain.js','index.html']})
+        r.verify_manifest(old,new,'new')
+        for alter in [lambda x:x['files'].update({'legal/privacy.html':'changed'}),lambda x:x['component_sources'].update({'operations':'changed'}),lambda x:x.update({'base_source_sha':'changed'}),lambda x:x['files'].pop('backoffice/operations.js')]:
+            bad=copy.deepcopy(new);alter(bad)
+            with self.assertRaises(r.market.GuardFailure):r.verify_manifest(old,bad,'new')
+
     def test_profile_exact_schema_and_ci(self):
         args = SimpleNamespace(expected_api_sha=r.BASELINE,expected_public_sha=r.PUBLIC_BASELINE,expected_gateway_sha256=r.GATEWAY_BASELINE)
         with patch.object(r.sys,'version_info',(3,12)),patch.object(r.market.Release,'__init__') as init:

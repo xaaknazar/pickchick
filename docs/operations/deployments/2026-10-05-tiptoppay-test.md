@@ -7,8 +7,11 @@ Public pointer now uses the roadmap SHA; gateway digest remains
 `1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51`.
 
 `release-tiptoppay-test.py` requires Python 3.12 and exact green CI for all 11
-jobs. It preserves auth/Kaspi/farm/kitchen policy and all public asset bytes,
-adding bounded TEST gateway routes and an immutable private TEST environment.
+jobs. It preserves auth/Kaspi/farm/kitchen policy and all non-backoffice public
+asset bytes, adding bounded TEST gateway routes and an immutable private TEST
+environment. The backoffice is compiled from the same exact SHA; only its files,
+component provenance and overall manifest source advance. All other public files
+and provenance remain unchanged and receive explicit hash checks.
 Migrations 039/040 create separate empty tables. The sole API ACL delta is
 SELECT/INSERT/UPDATE for `commerce_tiptoppay_test_payments`; no commercial
 capture, order, outbox, provider-account or worker permission is added.
@@ -29,6 +32,6 @@ it never restores the live database dump or drops tables.
 
 This checkpoint prepares the release. VPS installation, real provider TEST
 notifications and physical native checkout acceptance are not yet confirmed.
-The backoffice public bundle is a separate guarded update; this release preserves
-the currently published files. Individual wallets require provider routing/domain
+The backoffice public bundle includes separate TEST observation reporting from
+the same candidate source. Individual wallets require provider routing/domain
 verification before their own acceptance.

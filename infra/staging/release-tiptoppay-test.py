@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import tarfile
 import uuid
 
 spec = importlib.util.spec_from_file_location('tiptoppay_farm_base', Path(__file__).with_name('release-farm-pilot.py'))
@@ -22,7 +23,6 @@ require, quote, digest, REMOTE = market.require, market.quote, market.digest, ma
 file_writer_program = base.file_writer_program
 release_env_program = base.release_env_program
 gateway_validation_command = base.gateway_validation_command
-verify_manifest = base.verify_manifest
 BASELINE = 'f39863718f074e923ae24ffecf37d8bf36987cdf'
 PUBLIC_BASELINE = '239148bf3329f6ec8e467b9425bcdff6189dd414'
 GATEWAY_BASELINE = '1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51'
@@ -43,6 +43,17 @@ TEST_FLAGS = {
     'TIPTOPPAY_LIVE_VERIFIED':'false', 'TIPTOPPAY_RECONCILE_ENABLED':'false',
     'TIPTOPPAY_METHOD_ROUTING_VERIFIED':'false', 'TIPTOPPAY_APPLE_PAY_DOMAIN_VERIFIED':'false',
 }
+
+
+def verify_manifest(before,after,sha):
+    require(after['source_sha'] == sha and after.get('component_sources',{}).get('backoffice') == sha, 'Backoffice provenance differs')
+    require({k:v for k,v in before['files'].items() if not k.startswith('backoffice/')} ==
+            {k:v for k,v in after['files'].items() if not k.startswith('backoffice/')}, 'Non-backoffice files changed')
+    require({k:v for k,v in before.get('component_sources',{}).items() if k != 'backoffice'} ==
+            {k:v for k,v in after.get('component_sources',{}).items() if k != 'backoffice'}, 'Other component provenance changed')
+    require({k:v for k,v in before.items() if k not in ['source_sha','files','component_sources']} ==
+            {k:v for k,v in after.items() if k not in ['source_sha','files','component_sources']}, 'Other public metadata changed')
+    require(all('backoffice/'+name in after['files'] for name in ['app.js','operations.js','domain.js','index.html']), 'Backoffice bundle incomplete')
 
 
 def test_environment(path):
@@ -192,8 +203,10 @@ class Release(base.Release):
         require(self.http_json('/v1/customer-checkout/availability').get('hours') == proof['baseline_hours'], 'Kaspi checkout hours changed')
         require(self.http_json('/kitchen-live/health')['sourceSha'] == proof['kitchen_sha'], 'Kitchen bridge changed')
         actual = json.loads(self.remote('docker exec '+market.GATEWAY+' cat /srv/public/.release.json'))
-        verify_manifest(proof['public_manifest'],actual)
+        require(proof['public_manifest'] == actual, 'Published manifest differs')
         require(self.prepared_artifacts(actual) == proof['artifacts'], 'Prepared/public artifacts changed')
+        code,body = self.http('/backoffice/operations.js')
+        require(code == 200 and digest(body) == actual['files']['backoffice/operations.js'], 'Published TEST reporting bundle differs')
         require(self.http('/v1/customer-checkout/test-payments',method='POST')[0] == 401, 'Anonymous TEST creation accepted or route unavailable')
         require(self.http('/v1/customer-checkout/test-payments/00000000-0000-4000-8000-000000000001')[0] == 401, 'Anonymous TEST read accepted')
         require(self.http('/v1/integrations/tiptoppay/test-checkout')[0] == 200, 'Hosted TEST page unavailable')
@@ -239,10 +252,31 @@ class Release(base.Release):
         self.remote('python3 -c '+quote(writer)+' '+quote(new+'/compose.yaml'),input=json.dumps(relocated))
         self.remote('python3 -c '+quote(file_writer_program(public_gateway=True))+' '+quote(new+'/gateway.Caddyfile'),input=gateway)
         previous = json.loads(self.remote('cat '+quote(old+'/public-web/.release.json')))
-        manifest = json.loads(self.remote('cat '+quote(new+'/public-web/.release.json')))
-        verify_manifest(previous,manifest)
-        require(self.file_hashes([old+'/public-web/.release.json'])[old+'/public-web/.release.json'] ==
-                self.file_hashes([new+'/public-web/.release.json'])[new+'/public-web/.release.json'], 'Manifest bytes changed')
+        self.execute(['corepack','pnpm','--filter','@pickchick/backoffice...','build'],timeout=180)
+        bundle = self.private/'backoffice.tar'
+        with tarfile.open(bundle,'w') as tar:
+            for file in (market.REPO/'apps/backoffice/dist').rglob('*'):
+                require(not file.is_symlink(), 'Backoffice build contains symlink')
+                if file.is_file():tar.add(file,arcname='backoffice/'+str(file.relative_to(market.REPO/'apps/backoffice/dist')))
+        # Replace only the BO directory inside this newly created immutable public release.
+        remover = "from pathlib import Path;import shutil,sys;p=Path(sys.argv[1]);assert not p.is_symlink() and p.name=='backoffice';shutil.rmtree(p)"
+        self.remote('python3 -c '+quote(remover)+' '+quote(new+'/public-web/backoffice'))
+        self.remote('tar -xf - -C '+quote(new+'/public-web'),input=bundle.read_bytes(),timeout=180)
+        updater = r'''from pathlib import Path
+import json,hashlib,sys
+root=Path(sys.argv[1]);sha=sys.argv[2];p=root/'public-web/.release.json'
+m=json.loads(p.read_text());m['files']={k:v for k,v in m['files'].items() if not k.startswith('backoffice/')};m['source_sha']=sha
+m.setdefault('component_sources',{})['backoffice']=sha
+for f in (root/'public-web/backoffice').rglob('*'):
+ assert not f.is_symlink()
+ if f.is_file():
+  f.chmod(0o644);m['files'][str(f.relative_to(root/'public-web'))]=hashlib.sha256(f.read_bytes()).hexdigest()
+ elif f.is_dir():f.chmod(0o755)
+p.write_text(json.dumps(m,indent=2)+'\n');p.chmod(0o644)
+print(json.dumps(m))
+'''
+        manifest = json.loads(self.remote('python3 -c '+quote(updater)+' '+quote(new)+' '+quote(self.sha)))
+        verify_manifest(previous,manifest,self.sha)
         self.remote(market.api_compose(self.sha)+' config --quiet')
         self.remote(market.web_compose(self.sha)+' config --quiet')
         self.remote(gateway_validation_command(new+'/gateway.Caddyfile'))
@@ -254,7 +288,7 @@ class Release(base.Release):
         prepared['artifacts'] = self.prepared_artifacts(manifest)
         require(prepared['artifacts']['image_id'] == image and self.rollback_artifacts() == rollback, 'Preparation drift')
         self.save('prepared.json',prepared)
-        print('Prepared TEST TipTopPay API and gateway; public files and active services unchanged',flush=True)
+        print('Prepared TEST TipTopPay API, backoffice and gateway; active services unchanged',flush=True)
 
     def apply(self):
         self.source_checks(); self.ci(); self.runtime_old()
@@ -314,8 +348,8 @@ class Release(base.Release):
         self.cleanup('release')
         self.phase = 'complete'
         self.save('phase.json',{'phase':self.phase,'ingress':'open'})
-        self.save('result.json',{'source_sha':self.sha,'schema':40,'tiptoppay_test_enabled':True,'public_assets_preserved':True,'runtime_acl_verified':True,'worker_preserved':True,'old_image_compatible':True,'backup':backup})
-        print('Published TEST TipTopPay API and bounded gateway; all existing public assets preserved',flush=True)
+        self.save('result.json',{'source_sha':self.sha,'schema':40,'tiptoppay_test_enabled':True,'backoffice_updated':True,'non_backoffice_assets_preserved':True,'runtime_acl_verified':True,'worker_preserved':True,'old_image_compatible':True,'backup':backup})
+        print('Published TEST TipTopPay API, backoffice and bounded gateway; other public assets preserved',flush=True)
 
     def retain_failure(self, error):
         phase = getattr(self,'phase','before_reopening')
