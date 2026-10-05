@@ -4,6 +4,7 @@ import {
   CustomerCheckoutConfigSchema,
   CustomerQuoteSchema,
   CustomerHostedPaymentSchema,
+  CustomerTestPaymentSchema,
 } from '@pickchick/contracts';
 import { API_URL } from './api';
 import { createCustomerRequest } from './customer-http';
@@ -19,14 +20,19 @@ export const commerceRequest = (
 ) =>
   createCustomerRequest(API_URL, nativeFetch, {
     allowed:
-      /^\/v1\/customer-checkout\/(config|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/payment-method|\/hosted-payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
+      /^\/v1\/customer-checkout\/(config|quotes|test-payments(?:\/[a-f0-9-]{36})?|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/payment-method|\/hosted-payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
     timeoutMs: 28000,
     maxBytes: 128000,
     accept: 'application/json; profile=pickchick.checkout-wallets-v1',
     signal,
   })(path, method, body, token);
 
-export { CustomerCommerceOrderSchema, CustomerCheckoutConfigSchema, CustomerQuoteSchema };
+export {
+  CustomerCommerceOrderSchema,
+  CustomerCheckoutConfigSchema,
+  CustomerQuoteSchema,
+  CustomerTestPaymentSchema,
+};
 export const checkoutItems = (cart: CartLine[]) =>
   cart.map((line) => ({
     productId: line.product.id,
@@ -70,5 +76,26 @@ export function parseHostedPayment(value: unknown, expectedOrderId: string) {
     Date.parse(payment.expiresAt) <= Date.now()
   )
     throw new Error('Invalid hosted payment response');
+  return payment;
+}
+
+export function parseHostedTestPayment(value: unknown, expectedQuoteId: string) {
+  const result = CustomerTestPaymentSchema.safeParse(value);
+  if (!result.success) throw new Error('Invalid test payment response');
+  const payment = result.data;
+  if (!payment.checkoutUrl || payment.quoteId !== expectedQuoteId)
+    throw new Error('Invalid test payment response');
+  const url = new URL(payment.checkoutUrl);
+  if (
+    url.protocol !== 'https:' ||
+    url.origin !== new URL(API_URL).origin ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.pathname !== '/v1/integrations/tiptoppay/test-checkout' ||
+    !/^#[a-f0-9]{64}$/.test(url.hash) ||
+    Date.parse(payment.expiresAt) <= Date.now()
+  )
+    throw new Error('Invalid test payment response');
   return payment;
 }
