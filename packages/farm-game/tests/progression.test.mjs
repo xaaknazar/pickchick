@@ -113,3 +113,38 @@ test('three-day absence withers but permits recovery and 90-day full-field bound
     assert.ok(b.xp < 1000000000);
   }
 });
+
+test('empty owned station cannot strand a bankrupt player; legacy order counter upgrades on command', () => {
+  let s = createFarm(0);
+  s.xp = 350;
+  s = run(s, { type: 'buyPlot', x: 16, y: 16 }, 0);
+  s = run(s, { type: 'buyStation', stationId: 'kitchen' }, 0);
+  s.coins = 0;
+  const recovered = run(s, { type: 'recover' }, 0);
+  assert.equal(recovered.plots[0].cropId, 'carrot');
+  const old = createFarm(0);
+  delete old.progression;
+  old.completedOrders = 7;
+  const upgraded = run(old, { type: 'buyPlot', x: 16, y: 16 }, 0);
+  assert.equal(upgraded.progression.orders, 7);
+  assert.equal(upgraded.completedOrders, 7);
+});
+test('90-day sessions complete ten chapters and recover after three-day absence without unbounded growth', async () => {
+  const { simulateProgression } = await import('../scripts/simulate-progression.mjs');
+  const regular = simulateProgression({ intervalHours: 24, prioritizeProduction: true });
+  const absent = simulateProgression({
+    intervalHours: 24,
+    prioritizeProduction: true,
+    absenceDay: 10,
+  });
+  for (const r of [regular, absent]) {
+    assert.equal(r.level, 10);
+    assert.equal(r.chapters, 10);
+    assert.equal(r.plots, 8);
+    assert.ok(r.coins > 0 && r.coins < 100000);
+    assert.ok(r.milestones[10] <= 21);
+  }
+  assert.equal(regular.losses, 0);
+  assert.ok(absent.losses > 0);
+  assert.ok(absent.harvests > 500);
+});

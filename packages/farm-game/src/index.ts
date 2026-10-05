@@ -588,7 +588,8 @@ function requireRule(condition: boolean, code: string): asserts condition {
   if (!condition) throw new FarmGameError(code);
 }
 export function levelForXp(xp: number): number {
-  return Math.min(10, 1 + Math.floor(Math.sqrt(bounded.parse(xp) / 100)));
+  const amount = bounded.parse(xp);
+  return LEVEL_XP.filter((threshold) => amount >= threshold).length;
 }
 export function createFarm(now: number): FarmState {
   integer.parse(now);
@@ -637,7 +638,7 @@ export function canRecoverFarm(input: FarmState, now: number): boolean {
   return (
     (!state.progression ||
       (state.progression.storedPlots.length === 0 &&
-        state.progression.stations.length === 0 &&
+        state.progression.stations.every((station) => station.queue.length === 0) &&
         Object.values(state.progression.products).every((n) => n === 0))) &&
     Object.values(state.inventory).every((quantity) => quantity === 0) &&
     state.plots.every(
@@ -663,7 +664,9 @@ export function applyFarmCommand(
   );
   const state: FarmState = {
     ...parsed,
-    progression: structuredClone(parsed.progression ?? newProgression()),
+    progression: structuredClone(
+      parsed.progression ?? { ...newProgression(), orders: parsed.completedOrders },
+    ),
     plots: parsed.plots.map((plot) => ({ ...plot })),
     inventory: { ...parsed.inventory },
   };
@@ -869,7 +872,7 @@ export const QUESTS = [
     metric: 'harvested',
     target: 1,
     rewardCoins: 25,
-    rewardXp: 30,
+    rewardXp: 40,
   },
   {
     id: 'garden-path',
@@ -954,10 +957,10 @@ export function levelUnlocks(level: number) {
   };
 }
 export function getProgression(state: FarmState) {
-  return state.progression ?? newProgression();
+  return state.progression ?? { ...newProgression(), orders: state.completedOrders };
 }
 export function tutorialProgress(state: FarmState) {
-  const p = state.progression ?? newProgression();
+  const p = getProgression(state);
   return {
     plantings: p.tutorialPlantings,
     harvested: p.harvested,
@@ -965,7 +968,7 @@ export function tutorialProgress(state: FarmState) {
   };
 }
 export function questProgress(state: FarmState) {
-  const p = state.progression ?? newProgression();
+  const p = getProgression(state);
   return QUESTS.map((q, index) => {
     const value =
       q.metric === 'decorations'
@@ -1118,11 +1121,11 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     if (weekly)
       p.claimedGoals = p.claimedGoals.filter((v) => !v.startsWith('weekly:') || v === key);
     state.coins += weekly ? 50 : 10;
-    state.xp += weekly ? 20 : 5;
+    state.xp += weekly ? 60 : 20;
   }
 }
 
-export const LEVEL_XP = Array.from({ length: 10 }, (_, i) => i * i * 100);
+export const LEVEL_XP = [0, 40, 100, 200, 350, 550, 800, 1100, 1500, 2000] as const;
 export function goalProgress(state: FarmState, now: number) {
   integer.parse(now);
   const p = getProgression(state);
@@ -1165,6 +1168,6 @@ export function goalProgress(state: FarmState, now: number) {
       p.claimedGoals.includes(g.id === 'weekly-garden' ? `weekly:${week}` : g.id) &&
       (g.id === 'weekly-garden' || same),
     rewardCoins: g.id === 'weekly-garden' ? 50 : 10,
-    rewardXp: g.id === 'weekly-garden' ? 20 : 5,
+    rewardXp: g.id === 'weekly-garden' ? 60 : 20,
   }));
 }
