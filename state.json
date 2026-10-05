@@ -2871,11 +2871,12 @@
         "infra/staging/release-farm-update.py",
         "tests/operations/test_farm_update_release.py",
         "docs/operations/deployments/2026-10-05-farm-progression.md",
-        "@vps/api"
+        "@vps/api",
+        "tests/operations/test_farm_update.py"
       ],
       "status": "active",
       "head": "331d663a1002fb180334f6e8206afa7e8b553067",
-      "updatedAt": "2026-10-05T13:18:20.475Z"
+      "updatedAt": "2026-10-05T13:19:41.261Z"
     }
   ]
 }
