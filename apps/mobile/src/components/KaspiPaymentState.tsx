@@ -16,7 +16,7 @@ import { assets } from '../assets';
 import { invoiceSecondsRemaining, paymentCopy } from '../commerce-presentation';
 import { money } from '../domain';
 import { Body, Button, Caption, Heading, Icon, BottomActions } from './UI';
-import { PaymentMark } from './PaymentChoice';
+import { paymentName, PaymentMark } from './PaymentChoice';
 import { useReducedMotion } from './Motion';
 import { colors, font } from '../theme';
 import { checkoutStyle } from './CheckoutPresentation';
@@ -44,6 +44,8 @@ export function KaspiPaymentState({
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
   const [openError, setOpenError] = useState(false);
   const pulse = useRef(new Animated.Value(0)).current;
+  const method = order?.paymentMethod ?? 'kaspi';
+  const kaspi = method === 'kaspi';
   const phase = order?.phase ?? 'awaiting_restaurant';
   const failed = phase === 'failed';
   const waiting = phase === 'awaiting_payment';
@@ -111,7 +113,9 @@ export function KaspiPaymentState({
             {deadlineReached
               ? 'Проверяем отмену счёта'
               : waiting
-                ? 'Отличный выбор!\nЖдём оплату в Kaspi'
+                ? kaspi
+                  ? 'Отличный выбор!\nЖдём оплату в Kaspi'
+                  : `Ждём оплату · ${paymentName(method)}`
                 : paymentCopy[phase].title}
           </Heading>
         ) : null}
@@ -178,7 +182,7 @@ export function KaspiPaymentState({
                     <Image source={assets.pickManChick} contentFit="contain" style={s.hero} />
                   </Animated.View>
                   <View style={s.kaspiBadge}>
-                    <PaymentMark method="kaspi" size={56} />
+                    <PaymentMark method={method} size={56} />
                   </View>
                 </>
               )}
@@ -193,11 +197,13 @@ export function KaspiPaymentState({
         ) : null}
         <Caption style={s.detail} accessibilityLiveRegion="polite">
           {paid
-            ? `${money(order?.totalMinor ?? '0')} · Kaspi`
+            ? `${money(order?.totalMinor ?? '0')} · ${paymentName(method)}`
             : deadlineReached
-              ? 'Время оплаты истекло. Ждём подтверждение Kaspi. Если вы успели оплатить, заказ продолжится.'
+              ? 'Время оплаты истекло. Ждём подтверждение банка. Если вы успели оплатить, заказ продолжится.'
               : waiting
-                ? `Подтвердите счёт на ${money(order?.totalMinor ?? '0')} в приложении Kaspi.kz. Обычно это быстро.`
+                ? kaspi
+                  ? `Подтвердите счёт на ${money(order?.totalMinor ?? '0')} в приложении Kaspi.kz. Обычно это быстро.`
+                  : `Завершите оплату на защищённой странице и вернитесь в PickChick. Закрытие страницы не отменяет платёж.`
                 : paymentCopy[phase].detail}
         </Caption>
         {waiting && remaining !== null && remaining > 0 ? (
@@ -263,7 +269,7 @@ export function KaspiPaymentState({
             {!order ? (
               <Button title="Вернуться к оформлению" secondary onPress={onCart} style={s.button} />
             ) : null}
-            {!deadlineReached && (waiting || phase === 'checking') ? (
+            {kaspi && !deadlineReached && (waiting || phase === 'checking') ? (
               <Button
                 title="Открыть Kaspi.kz"
                 testID="kaspi-open-app"

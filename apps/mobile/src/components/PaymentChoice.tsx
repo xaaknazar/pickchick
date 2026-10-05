@@ -5,14 +5,21 @@ import { orderSimulatorEnabled } from '../order-simulator';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { MobileModel, PaymentMethod } from '../model';
+import type { MobileModel } from '../model';
+import { paymentNames, type CommercePaymentMethod } from '../payment-methods';
 import { Body, Caption, Heading, Icon, CloseButton, Row, styles as ui } from './UI';
 import { colors, font } from '../theme';
 
-export function paymentName(method: PaymentMethod) {
-  return method === 'kaspi' ? 'Kaspi' : 'Банковская карта';
+export function paymentName(method: CommercePaymentMethod) {
+  return paymentNames[method];
 }
-export function PaymentMark({ method, size = 34 }: { method: PaymentMethod; size?: number }) {
+export function PaymentMark({
+  method,
+  size = 34,
+}: {
+  method: CommercePaymentMethod;
+  size?: number;
+}) {
   return method === 'kaspi' ? (
     <Image
       source={assets.kaspi}
@@ -36,7 +43,19 @@ export function PaymentMark({ method, size = 34 }: { method: PaymentMethod; size
     </View>
   );
 }
-export function PaymentChoice({ model }: { model: MobileModel }) {
+export function PaymentChoice({
+  model,
+  methods = ['kaspi', 'card'],
+  selected = model.paymentMethod,
+  onSelect,
+  disabled = false,
+}: {
+  model: MobileModel;
+  methods?: readonly CommercePaymentMethod[];
+  selected?: CommercePaymentMethod;
+  onSelect?(method: CommercePaymentMethod): void;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
   return (
@@ -44,15 +63,17 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
       <Pressable
         testID="payment-method"
         accessibilityRole="button"
-        accessibilityLabel={`Способ оплаты: ${paymentName(model.paymentMethod)}, изменить`}
+        accessibilityLabel={`Способ оплаты: ${paymentName(selected)}, изменить`}
+        disabled={disabled || methods.length === 0}
+        accessibilityState={{ disabled: disabled || methods.length === 0 }}
         onPress={() => setOpen(true)}
         style={s.trigger}
       >
         <Caption style={{ fontSize: 11, lineHeight: 16 }}>Способ оплаты</Caption>
         <Row style={{ gap: 7 }}>
-          <PaymentMark method={model.paymentMethod} size={22} />
+          <PaymentMark method={selected} size={22} />
           <Body style={{ fontFamily: font.bold, fontSize: 14, lineHeight: 21 }}>
-            {paymentName(model.paymentMethod)}
+            {paymentName(selected)}
           </Body>
           <Icon name="chevron-up" size={16} />
         </Row>
@@ -80,26 +101,30 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
                 </Heading>
               </Row>
               <Caption>
-                {orderSimulatorEnabled
-                  ? 'Оплата и чеки - в процессе подключения. Реквизиты не нужны.'
-                  : 'Выберите удобный способ. Онлайн-оплата скоро появится.'}
+                {onSelect
+                  ? 'Оплата подтверждается банком. Реквизиты вводятся на защищённой странице.'
+                  : orderSimulatorEnabled
+                    ? 'Оплата и чеки - в процессе подключения. Реквизиты не нужны.'
+                    : 'Выберите удобный способ. Онлайн-оплата скоро появится.'}
               </Caption>
-              {(['kaspi', 'card'] as const).map((method) => (
+              {methods.map((method) => (
                 <Pressable
                   key={method}
                   testID={`payment-method-${method}`}
                   accessibilityRole="radio"
                   accessibilityState={{
-                    checked: model.paymentMethod === method,
-                    selected: model.paymentMethod === method,
+                    checked: selected === method,
+                    selected: selected === method,
                   }}
                   onPress={() => {
-                    model.setPaymentMethod(method);
+                    if (onSelect) onSelect(method);
+                    else if (method === 'kaspi' || method === 'card')
+                      model.setPaymentMethod(method);
                     setOpen(false);
                   }}
                   style={[
                     s.option,
-                    model.paymentMethod === method && {
+                    selected === method && {
                       borderColor: colors.action,
                       backgroundColor: colors.raised,
                     },
@@ -111,11 +136,13 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
                     <Caption>
                       {method === 'kaspi'
                         ? 'Оплата в приложении Kaspi.kz'
-                        : 'Оплата банковской картой'}
+                        : method === 'card'
+                          ? 'Оплата на защищённой странице'
+                          : 'Доступность проверит платёжная страница'}
                     </Caption>
                   </View>
                   <Icon
-                    name={model.paymentMethod === method ? 'radio-button-on' : 'radio-button-off'}
+                    name={selected === method ? 'radio-button-on' : 'radio-button-off'}
                     color={colors.accent}
                   />
                 </Pressable>
