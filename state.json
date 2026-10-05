@@ -3038,6 +3038,18 @@
       "status": "active",
       "head": "0b3aaf5b5195546d68a0d5aa2fc8fa01fb633547",
       "updatedAt": "2026-10-05T18:13:41.752Z"
+    },
+    {
+      "id": "tiptop-domain-https",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-checkout",
+      "scopes": [
+        "infra/domains",
+        "docs/operations/deployments/2026-10-05-domain-test.md"
+      ],
+      "status": "active",
+      "head": "86fa1cd945bed3c795bdc33ea152d70b67397c60",
+      "updatedAt": "2026-10-05T18:40:54.139Z"
     }
   ]
 }
