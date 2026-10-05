@@ -42,7 +42,10 @@ export function simulateEconomy({ days, intervalHours, cropId, reinvest = false 
         command({ type: 'plant', plotId: plot.id, cropId }, now);
     }
     if (reinvest)
-      while (state.coins >= nextLandCost(state, 'bed') + crop.seedCost * (state.plots.length + 1))
+      while (
+        state.plots.length < 1024 &&
+        state.coins >= nextLandCost(state, 'bed') + crop.seedCost * (state.plots.length + 1)
+      )
         purchase(now);
     if (canRecoverFarm(state, now)) {
       command({ type: 'recover' }, now);
@@ -70,3 +73,18 @@ export function economyScenarios() {
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
   process.stdout.write(`${JSON.stringify(economyScenarios(), null, 2)}\n`);
+
+/** Conservative gross bounds: all 1024 cells, perfect cycles, no seed/land deductions. */
+export function fullFieldBounds(days) {
+  const seconds = days * 86400;
+  return CROPS.map((crop) => ({
+    days,
+    cropId: crop.id,
+    cells: 1024,
+    grossCoins: Math.floor(seconds / crop.growSeconds) * 1024 * crop.harvestYield * crop.sellPrice,
+    xp:
+      Math.floor(seconds / crop.growSeconds) *
+      1024 *
+      Math.max(1, Math.min(20, Math.floor(crop.growSeconds / 900))),
+  }));
+}
