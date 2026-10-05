@@ -2975,11 +2975,12 @@
         "infra/staging/release-tiptoppay-test.py",
         "tests/operations/test_tiptoppay_test_release.py",
         "docs/operations/deployments/2026-10-05-tiptoppay-test.md",
-        "@vps/api"
+        "@vps/api",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "395e75d482ccf057251cf83f9815334733ecd26e",
-      "updatedAt": "2026-10-05T17:34:25.757Z"
+      "updatedAt": "2026-10-05T17:35:21.173Z"
     }
   ]
 }
