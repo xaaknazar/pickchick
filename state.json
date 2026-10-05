@@ -2765,6 +2765,27 @@
       "updatedAt": "2026-10-05T09:12:57.922Z",
       "summary": "Research documented; economy simulation rerun; roadmap checks 7/7; PR #187; ac767d318c7861c58cca6193a423129d3070b371 included in shared; roadmap published, business services unchanged.",
       "nextAction": "Choose first-session phase, working camera and withering rule before implementation. No gameplay or TestFlight changes in this research."
+    },
+    {
+      "id": "farm-full-play",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-full-play",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm",
+        "apps/mobile/assets/games/pick-farm",
+        "tests/mobile/farm-geometry.test.mjs",
+        "tests/mobile/farm-harvest-queue.test.mjs",
+        "docs/design/pick-farm-gameplay.md",
+        "docs/design/pick-farm-review-2026-10-05.md",
+        "docs/operations/pick-farm.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "ac767d318c7861c58cca6193a423129d3070b371",
+      "updatedAt": "2026-10-05T10:21:20.466Z"
     }
   ]
 }
