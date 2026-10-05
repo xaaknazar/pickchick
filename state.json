@@ -2895,27 +2895,6 @@
       "updatedAt": "2026-10-05T16:59:10.786Z"
     },
     {
-      "id": "tiptoppay-mobile",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/tiptoppay-mobile",
-      "scopes": [
-        "apps/mobile/src/components/PaymentChoice.tsx",
-        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
-        "apps/mobile/src/components/KaspiPaymentState.tsx",
-        "apps/mobile/src/model.ts",
-        "apps/mobile/src/store.tsx",
-        "apps/mobile/src/payment-methods.ts",
-        "tests/mobile/payment-methods.test.mjs",
-        "tests/mobile/browser_kaspi_checkout.py",
-        "apps/mobile/src/commerce-checkout.ts"
-      ],
-      "status": "available",
-      "head": "c3f77b9a567bf7087c54b0463bbd9a8506a1172b",
-      "updatedAt": "2026-10-05T17:27:53.947Z",
-      "summary": "Mobile hosted card/wallet checkout published c3f77b9 with ebdad26; 23 focused tests, mobile tsc, targeted ESLint/Prettier, web export; legacy Kaspi browser four sizes and hosted valid/invalid four sizes passed. No bank, VPS or native release changed.",
-      "nextAction": "Root integrates ebdad26 + c3f77b9 after helper/contracts; updates shared docs/roadmap and performs coordinated backend acceptance. Native physical wallet availability remains unverified."
-    },
-    {
       "id": "tiptoppay-checkout",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-checkout",
@@ -2963,6 +2942,28 @@
       "updatedAt": "2026-10-05T17:26:25.092Z",
       "summary": "Contracts840672b; hostedcheckout4b62393 +workerDB0def885. 15 focused unit/HTTP/PostgreSQL and66 Commerce/Kaspi PG regressions passed; API build, lint, format, contracts check passed. Root coordinated generated OpenAPI/scripts overlap with available farm task. All gate flags off; no bank calls/deploy. Refund adapter unavailable.",
       "nextAction": "Root independent financial review, integrate own branch, docs/roadmap+runtime grants+fullCI. Live terminal/merchant/domain/routing/fiscal approval and real device acceptance required before enabling."
+    },
+    {
+      "id": "tiptoppay-mobile",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-mobile",
+      "scopes": [
+        "apps/mobile/src/components/PaymentChoice.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/components/KaspiPaymentState.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/payment-methods.ts",
+        "tests/mobile/payment-methods.test.mjs",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "apps/mobile/src/commerce-checkout.ts",
+        "apps/mobile/src/components/TestPaymentState.tsx"
+      ],
+      "status": "active",
+      "head": "c3f77b9a567bf7087c54b0463bbd9a8506a1172b",
+      "updatedAt": "2026-10-05T17:28:24.311Z",
+      "summary": "Mobile hosted card/wallet checkout published c3f77b9 with ebdad26; 23 focused tests, mobile tsc, targeted ESLint/Prettier, web export; legacy Kaspi browser four sizes and hosted valid/invalid four sizes passed. No bank, VPS or native release changed.",
+      "nextAction": "Root integrates ebdad26 + c3f77b9 after helper/contracts; updates shared docs/roadmap and performs coordinated backend acceptance. Native physical wallet availability remains unverified."
     }
   ]
 }
