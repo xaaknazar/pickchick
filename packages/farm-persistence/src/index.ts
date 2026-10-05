@@ -67,7 +67,7 @@ export class FarmPersistence {
       customerId,
     ]);
     const state = upgradeFarmState(row.rows[0].state);
-    if (row.rows[0].state.version !== state.version)
+    if (stable(row.rows[0].state) !== stable(state))
       await db.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [
         customerId,
         state,

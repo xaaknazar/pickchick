@@ -14,6 +14,20 @@
             "customerBearer": []
           }
         ],
+        "parameters": [
+          {
+            "name": "protocol",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2"
+              ]
+            },
+            "description": "Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -54,6 +68,20 @@
         "security": [
           {
             "customerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "protocol",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2"
+              ]
+            },
+            "description": "Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves."
           }
         ],
         "requestBody": {
@@ -10365,6 +10393,15 @@
           },
           "state": {
             "$ref": "#/components/schemas/FarmState"
+          },
+          "minimumProtocol": {
+            "type": "integer",
+            "enum": [
+              2
+            ]
+          },
+          "message": {
+            "type": "string"
           }
         }
       },
