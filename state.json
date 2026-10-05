@@ -2811,11 +2811,13 @@
         "docs/roadmap/project.json",
         "@vps/roadmap",
         "tests/mobile/pick-farm-client.test.mjs",
-        "tests/mobile/browser_farm_progression.py"
+        "tests/mobile/browser_farm_progression.py",
+        "docs/operations/images/farm-progression",
+        "docs/design/pick-farm-garden-art.md"
       ],
       "status": "active",
-      "head": "20d2fd6bd4b68806efad90e5f56ff8056f471393",
-      "updatedAt": "2026-10-05T10:37:40.422Z"
+      "head": "c04f0ba8a6591938b420fa47a2d98faa79a8bd12",
+      "updatedAt": "2026-10-05T10:51:12.613Z"
     }
   ]
 }
