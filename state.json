@@ -2739,11 +2739,13 @@
         "docs/operations/pick-farm.md",
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "docs/operations/images/farm-soil",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "bf3cfd9eeb117876046cac896fafa19ddb635889",
-      "updatedAt": "2026-10-05T08:28:26.963Z"
+      "updatedAt": "2026-10-05T08:39:54.128Z"
     }
   ]
 }
