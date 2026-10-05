@@ -7986,6 +7986,90 @@
         }
       }
     },
+    "/v1/customer-checkout/test-payments": {
+      "post": {
+        "operationId": "createCustomerTestPayment",
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "quoteId",
+                  "method"
+                ],
+                "properties": {
+                  "quoteId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "card",
+                      "apple_pay",
+                      "google_pay"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Isolated TEST payment. No commercial order or money effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerTestPayment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/customer-checkout/test-payments/{id}": {
+      "get": {
+        "operationId": "readCustomerTestPayment",
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-only TEST status; no checkout token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerTestPayment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/edge/v1/fulfillment/config": {
       "get": {
         "operationId": "getLocalFulfillmentConfig",
@@ -23818,6 +23902,61 @@
         ],
         "additionalProperties": false
       },
+      "CustomerTestPayment": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "quoteId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,15})$"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "card",
+              "apple_pay",
+              "google_pay"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "failed",
+              "expired"
+            ]
+          },
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "quoteId",
+          "amountMinor",
+          "method",
+          "state",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
       "CustomerCommerceOrder": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -24023,6 +24162,13 @@
                 "google_pay"
               ]
             }
+          },
+          "paymentEnvironment": {
+            "type": "string",
+            "enum": [
+              "live",
+              "test"
+            ]
           },
           "orderCommentEnabled": {
             "default": false,

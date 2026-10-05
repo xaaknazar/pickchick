@@ -10,6 +10,8 @@ import {
   CustomerCheckout,
   digest,
   TipTopPayHostedSessions,
+  TipTopPayTestCheckout,
+  tipTopPayTestOptions,
   TipTopPayReceiver,
   tipTopPayCheckoutOptions,
   findTipTopPayPayment,
@@ -424,4 +426,184 @@ test('hosted HTTP page uses official script and rejects disabled capabilities wi
   } finally {
     await app.close();
   }
+});
+
+test('signed TipTop TEST sandbox flow is durable and never touches commercial orders, ledger, kitchen or fiscal outbox', () =>
+  fixture(async (f) => {
+    const customer = f.scope.principalId;
+    const quote = await f.repo.issueQuote(f.scope, randomUUID(), {
+      ...f.priced(),
+      customerId: customer,
+    });
+    const options = {
+      organizationId: f.scope.organizationId,
+      branchId: f.scope.branchId,
+      maxMinor: '100000',
+      publicId: 'pk_sandbox',
+      apiSecret: 'synthetic-sandbox-secret',
+      origin: 'https://checkout.example',
+      methods: ['card'],
+      routingVerified: false,
+    };
+    const sandbox = new TipTopPayTestCheckout(f.pool, options);
+    const tables = [
+      'commerce_orders',
+      'commerce_payment_attempts',
+      'commerce_provider_inbox',
+      'commerce_captures',
+      'commerce_fiscal_documents',
+      'commerce_outbox',
+      'cloud_fulfillment_projection',
+    ];
+    const baseline = await Promise.all(tables.map((table) => f.count(table)));
+    await assert.rejects(sandbox.create(randomUUID(), { quoteId: quote.quoteId, method: 'card' }));
+    await assert.rejects(
+      new TipTopPayTestCheckout(f.pool, { ...options, maxMinor: '1' }).create(customer, {
+        quoteId: quote.quoteId,
+        method: 'card',
+      }),
+    );
+    const first = await sandbox.create(customer, { quoteId: quote.quoteId, method: 'card' });
+    const second = await sandbox.create(customer, { quoteId: quote.quoteId, method: 'card' });
+    assert.equal(first.id, second.id);
+    assert.equal(await f.count('commerce_tiptoppay_test_payments'), 1);
+    assert.equal(new URL(second.checkoutUrl).pathname, '/v1/integrations/tiptoppay/test-checkout');
+    await assert.rejects(sandbox.open(new URL(first.checkoutUrl).hash.slice(1)));
+    const token = new URL(second.checkoutUrl).hash.slice(1);
+    const params = await sandbox.open(token);
+    assert.equal(params.externalId, second.id);
+    assert.equal(params.amount, 1000);
+    assert.equal(params.userInfo.accountId, customer);
+    assert.ok(!('restrictedPaymentMethods' in params));
+    await assert.rejects(sandbox.open(token));
+    assert.ok(
+      !(
+        'checkoutUrl' in
+        (await sandbox.create(customer, { quoteId: quote.quoteId, method: 'card' }))
+      ),
+    );
+    await assert.rejects(sandbox.read(randomUUID(), first.id));
+    const fields = {
+      TransactionId: '70001',
+      InvoiceId: first.id,
+      AccountId: customer,
+      Amount: '1000',
+      Currency: 'KZT',
+      TestMode: '1',
+      Status: 'Completed',
+      OperationType: 'Payment',
+      DateTime: '2026-10-05 12:00:00',
+    };
+    const send = (event, patch = {}) => {
+      const raw = Buffer.from(new URLSearchParams({ ...fields, ...patch }).toString());
+      return sandbox.receive(
+        event,
+        raw,
+        createHmac('sha256', options.apiSecret).update(raw).digest('base64'),
+      );
+    };
+    const testEnv = {
+      TIPTOPPAY_TEST_CHECKOUT_ENABLED: 'true',
+      TIPTOPPAY_TEST_WEBHOOKS_ENABLED: 'true',
+      TIPTOPPAY_MODE: 'test',
+      TIPTOPPAY_PUBLIC_ID: options.publicId,
+      TIPTOPPAY_API_SECRET: options.apiSecret,
+      TIPTOPPAY_CHECKOUT_ORIGIN: options.origin,
+      CUSTOMER_KASPI_ORGANIZATION_ID: options.organizationId,
+      CUSTOMER_KASPI_BRANCH_ID: options.branchId,
+      TIPTOPPAY_WEBHOOKS_ENABLED: 'false',
+      TIPTOPPAY_CHECKOUT_ENABLED: 'false',
+    };
+    const previous = Object.fromEntries(Object.keys(testEnv).map((key) => [key, process.env[key]]));
+    Object.assign(process.env, testEnv);
+    const app = await createApi({
+      service: 'api',
+      environment: 'test',
+      port: 0,
+      databaseUrl: f.url.toString(),
+    });
+    try {
+      await app.listen(0, '127.0.0.1');
+      const origin = await app.getUrl();
+      const page = await fetch(origin + '/v1/integrations/tiptoppay/test-checkout');
+      assert.equal(page.status, 200);
+      assert.ok((await page.text()).includes('Тестовый терминал'));
+      const raw = Buffer.from(new URLSearchParams(fields).toString());
+      const headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-HMAC': createHmac('sha256', options.apiSecret).update(raw).digest('base64'),
+      };
+      const response = await fetch(origin + '/v1/integrations/tiptoppay/test-check', {
+        method: 'POST',
+        headers,
+        body: raw,
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { code: 0 });
+      assert.equal(
+        (
+          await fetch(origin + '/v1/integrations/tiptoppay/test-pay', {
+            method: 'POST',
+            headers: { ...headers, 'Content-HMAC': 'invalid' },
+            body: raw,
+          })
+        ).status,
+        401,
+      );
+      assert.equal(
+        (await fetch(origin + '/v1/customer-checkout/test-payments/' + first.id)).status,
+        401,
+      );
+    } finally {
+      await app.close();
+      for (const key of Object.keys(testEnv)) {
+        if (previous[key] === undefined) delete process.env[key];
+        else process.env[key] = previous[key];
+      }
+    }
+    await assert.rejects(send('pay', { TestMode: '0' }));
+    await assert.rejects(send('pay', { Amount: '1001' }));
+    await assert.rejects(send('pay', { AccountId: randomUUID() }));
+    assert.deepEqual(await send('check'), { code: 0 });
+    assert.deepEqual(await send('check', { TransactionId: '70002' }), { code: 13 });
+    await f.pool.query(
+      "UPDATE commerce_tiptoppay_test_payments SET expires_at=clock_timestamp()-interval '1 minute' WHERE id=$1",
+      [first.id],
+    );
+    assert.equal((await sandbox.read(customer, first.id)).state, 'expired');
+    assert.deepEqual(await send('check'), { code: 13 });
+    await send('fail', { ReasonCode: '5206' });
+    assert.equal((await sandbox.read(customer, first.id)).state, 'failed');
+    await Promise.all(Array.from({ length: 5 }, () => send('pay')));
+    assert.equal((await sandbox.read(customer, first.id)).state, 'paid');
+    await send('fail', { ReasonCode: '5206' });
+    assert.equal((await sandbox.read(customer, first.id)).state, 'paid');
+    assert.deepEqual(await sandbox.status(token), { status: 'observed' });
+    assert.deepEqual(await Promise.all(tables.map((table) => f.count(table))), baseline);
+    const stored = (
+      await f.pool.query('SELECT token_hash FROM commerce_tiptoppay_test_payments WHERE id=$1', [
+        first.id,
+      ])
+    ).rows[0];
+    assert.notEqual(stored.token_hash, token);
+  }));
+test('TEST configuration is explicit, defaults to generic card without unverified routing, rejects LIVE', () => {
+  const env = {
+    TIPTOPPAY_TEST_CHECKOUT_ENABLED: 'true',
+    TIPTOPPAY_TEST_WEBHOOKS_ENABLED: 'true',
+    TIPTOPPAY_MODE: 'test',
+    TIPTOPPAY_PUBLIC_ID: 'pk_sandbox',
+    TIPTOPPAY_API_SECRET: 'synthetic-sandbox-secret',
+    TIPTOPPAY_CHECKOUT_ORIGIN: 'https://checkout.example',
+    CUSTOMER_KASPI_ORGANIZATION_ID: randomUUID(),
+    CUSTOMER_KASPI_BRANCH_ID: randomUUID(),
+    TIPTOPPAY_TEST_CHECKOUT_METHODS: 'card,google_pay',
+  };
+  assert.deepEqual(tipTopPayTestOptions(env).methods, ['card']);
+  assert.deepEqual(
+    tipTopPayTestOptions({ ...env, TIPTOPPAY_METHOD_ROUTING_VERIFIED: 'true' }).methods,
+    ['card', 'google_pay'],
+  );
+  assert.throws(() => tipTopPayTestOptions({ ...env, TIPTOPPAY_MODE: 'live' }));
+  assert.equal(tipTopPayTestOptions({}), null);
 });
