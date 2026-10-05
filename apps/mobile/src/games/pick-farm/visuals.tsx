@@ -7,7 +7,7 @@ import { useGameCardHeight } from '../ArcadeCard';
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 import { PLANTING_BOUNDS, HOUSE_DISPLAY_CELL, type CropId } from '@pickchick/farm-game';
-import { isoPoint } from './geometry';
+import { isoPoint, GROUND_TRANSFORM, TILE_WIDTH } from './geometry';
 export { isoPoint, cellAtPoint } from './geometry';
 
 // Generated atlases remain intact. Each view clips its own source rectangle.
@@ -117,34 +117,77 @@ export const CropArt = memo(function CropArt({
   );
 });
 
-export function CellOutline({ x, y, color = '#FFF9EA' }: { x: number; y: number; color?: string }) {
-  const corners = [
-    [-48, 0],
-    [0, -24],
-    [48, 0],
-    [0, 24],
-  ] as const;
+/** Soil and selection use the same projected square, not separate rotated line segments. */
+export const SoilTile = memo(function SoilTile({
+  x,
+  y,
+  size = TILE_WIDTH,
+}: {
+  x: number;
+  y: number;
+  size?: number;
+}) {
+  const frame = {
+    position: 'absolute' as const,
+    left: x - size / 2,
+    top: y - size / 2,
+    width: size,
+    height: size,
+    borderRadius: 3,
+    transform: GROUND_TRANSFORM,
+  };
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: x, top: y }}>
-      {corners.map((a, i) => {
-        const b = corners[(i + 1) % 4]!;
-        const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        return (
-          <View
-            key={i}
-            style={{
-              position: 'absolute',
-              left: (a[0] + b[0]) / 2 - length / 2,
-              top: (a[1] + b[1]) / 2 - 1.5,
-              width: length,
-              height: 3,
-              backgroundColor: color,
-              transform: [{ rotate: `${Math.atan2(b[1] - a[1], b[0] - a[0])}rad` }],
-            }}
-          />
-        );
-      })}
+    <View pointerEvents="none" accessible={false}>
+      <View style={[frame, { top: y - size / 2 + size * 0.025, backgroundColor: '#694328' }]} />
+      <View style={[frame, { overflow: 'hidden', backgroundColor: '#986239' }]}>
+        <NativeImage
+          source={require('../../../assets/games/pick-farm/soil-texture-v3.png')}
+          resizeMode="cover"
+          accessible={false}
+          style={{ width: '100%', height: '100%' }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 3,
+            borderWidth: 1.5,
+            borderColor: '#B78350',
+          }}
+        />
+      </View>
     </View>
+  );
+});
+
+export function CellOutline({
+  x,
+  y,
+  color = '#FFF3CF',
+  size = TILE_WIDTH,
+}: {
+  x: number;
+  y: number;
+  color?: string;
+  size?: number;
+}) {
+  return (
+    <View
+      testID="pick-farm-cell-outline"
+      pointerEvents="none"
+      accessible={false}
+      style={{
+        position: 'absolute',
+        left: x - size / 2,
+        top: y - size / 2,
+        width: size,
+        height: size,
+        borderRadius: 3,
+        borderWidth: 3,
+        borderColor: color,
+        transform: GROUND_TRANSFORM,
+      }}
+    />
   );
 }
 

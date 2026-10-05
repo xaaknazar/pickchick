@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
 import type { CropId } from '@pickchick/farm-game';
-import { CropArt, Sprite } from './visuals';
+import { CropArt, SoilTile, CellOutline } from './visuals';
+import { BED_ANCHOR } from './geometry';
 
 export type GroundCropProps = {
   cropId: CropId | null;
@@ -13,6 +14,7 @@ export type GroundCropProps = {
   size?: number;
   motion: { reduced: boolean; active: boolean };
   testID?: string;
+  selected?: boolean;
 };
 
 /** Soil and its current planting share one anchor; initial restored crops never animate. */
@@ -25,6 +27,7 @@ export function GroundCrop({
   size = 92,
   motion,
   testID,
+  selected = false,
 }: GroundCropProps) {
   const previous = useRef({ cropId, plantedAt });
   const sow = useRef(new Animated.Value(1)).current;
@@ -64,7 +67,13 @@ export function GroundCrop({
       accessible={false}
       style={{ width: size, height: size, position: 'relative' }}
     >
-      <Sprite kind={stage === 'sprouts' ? 'sprouts' : 'soil'} x={size / 2} y={size} width={size} />
+      <SoilTile x={size / 2} y={size * BED_ANCHOR} size={size} />
+      {selected && <CellOutline x={size / 2} y={size * BED_ANCHOR} size={size} />}
+      {stage === 'sprouts' && cropId && (
+        <View style={{ position: 'absolute', left: size * 0.31, top: size * 0.35 }}>
+          <CropArt cropId={cropId} size={size * 0.38} phase="growing" />
+        </View>
+      )}
       {stage === 'seeds' && (
         <View
           testID={testID ? `${testID}-seeds` : undefined}
@@ -75,8 +84,9 @@ export function GroundCrop({
               key={index}
               style={{
                 position: 'absolute',
-                left: size * (0.27 + (index % 3) * 0.18),
-                top: size * (0.72 + Math.floor(index / 3) * 0.12),
+                left: size * (0.5 + ((index % 3) - 1 - (Math.floor(index / 3) - 0.5)) * 0.17),
+                top:
+                  size * (BED_ANCHOR + ((index % 3) - 1 + (Math.floor(index / 3) - 0.5)) * 0.085),
                 width: Math.max(2, size * 0.038),
                 height: Math.max(2, size * 0.023),
                 borderRadius: 3,

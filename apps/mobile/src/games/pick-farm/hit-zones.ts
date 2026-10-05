@@ -1,5 +1,5 @@
 import { CROPS, cropPhase, type FarmState } from '@pickchick/farm-game';
-import { isoPoint } from './geometry.ts';
+import { isoPoint, groundContains } from './geometry.ts';
 import { spriteHitMasks } from './sprite-hit-masks.ts';
 
 type Plot = FarmState['plots'][number];
@@ -56,14 +56,15 @@ export function plotAtPoint(plots: readonly Plot[], point: Point, now: number): 
           return plot;
       }
       if (sprouts) {
-        const h = (96 * 387) / 684;
-        if (spriteContains('sprouts', (x + 48) / 96, (y - (27 - h)) / h)) return plot;
+        const size = 96 * 0.38;
+        const artWidth = (size * 248) / (1024 / 3 - 6);
+        const left = -48 + 96 * 0.31 + (size - artWidth) / 2;
+        const top = -69 + 96 * 0.35;
+        if (spriteContains(`${plot.cropId}-growing`, (x - left) / artWidth, (y - top) / size))
+          return plot;
       }
     }
-    if (plot.kind === 'bed') {
-      const h = (96 * 388) / 688;
-      if (spriteContains('soil', (x + 48) / 96, (y - (27 - h)) / h)) return plot;
-    }
+    if (plot.kind === 'bed' && groundContains(x, y)) return plot;
   }
   return undefined;
 }

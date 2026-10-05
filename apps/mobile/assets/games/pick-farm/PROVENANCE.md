@@ -89,3 +89,19 @@ Final edit prompt: plants transparency
 
 Previous generated cover remains on the game entry card. Previous Kenney and crop
 atlases remain in repository as historical assets but no longer render the field.
+
+## Soil texture v3 - 5 October 2026
+
+`soil-texture-v3.png` generated with the built-in image_gen tool for PickChick.
+Original output: exec-3cf6f2e2-547b-4f71-8422-d29767e0b0f7.png.
+Copied without pixel edits. No external game artwork used.
+
+Prompt: square seamless soil texture for an existing painterly mobile farming game.
+Refined hand-painted TOP-DOWN orthographic texture of freshly cultivated warm
+chestnut brown garden soil, softly rounded fine earth clumps and 5 shallow parallel
+planting furrows running vertically. Soil fills every pixel to the edges, no outside
+background, no diamond, perspective, raised island, grass, plants, seeds, stones or
+objects. Warm soft daylight from upper left, moderate tonal variation, quiet readable
+organic detail at tiny game scale. Flat slightly moist natural umber with gentle ochre
+highlights, no black trenches, vignette or text. Square 1024x1024. The square is
+projected to an exact 2:1 isometric diamond in native code.

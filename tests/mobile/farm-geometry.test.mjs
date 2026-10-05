@@ -220,3 +220,28 @@ test('hit masks belong to the current rendered sprite atlases', async () => {
     );
   }
 });
+
+test('soil corners share the placement diamond and reject adjacent ground', async () => {
+  const { groundContains } = await import('../../apps/mobile/src/games/pick-farm/geometry.ts');
+  const center = isoPoint(31, 32);
+  const plot = { id: 7, x: 31, y: 32, kind: 'bed', cropId: null, plantedAt: null, harvests: 0 };
+  const { plotAtPoint } = await import('../../apps/mobile/src/games/pick-farm/hit-zones.ts');
+  for (const [x, y] of [
+    [0, -24],
+    [48, 0],
+    [0, 24],
+    [-48, 0],
+  ]) {
+    assert.equal(Math.abs(x) / 48 + Math.abs(y) / 24, 1);
+    assert.ok(groundContains(x * 0.999, y * 0.999));
+    assert.equal(groundContains(x * 1.001, y * 1.001), false);
+    assert.equal(
+      plotAtPoint([plot], { x: center.x + x * 0.999, y: center.y + y * 0.999 }, 0)?.id,
+      7,
+    );
+    assert.equal(
+      plotAtPoint([plot], { x: center.x + x * 1.001, y: center.y + y * 1.001 }, 0),
+      undefined,
+    );
+  }
+});

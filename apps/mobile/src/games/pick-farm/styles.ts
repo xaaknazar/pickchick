@@ -137,15 +137,6 @@ export const farmStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selection: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 10,
-    borderColor: '#FFF9EA',
-    borderWidth: 3,
-    transform: [{ rotate: '45deg' }, { scaleY: 0.5 }],
-  },
   ready: {
     position: 'absolute',
     right: 4,

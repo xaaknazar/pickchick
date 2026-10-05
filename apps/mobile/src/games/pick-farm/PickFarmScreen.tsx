@@ -565,33 +565,34 @@ export function PickFarmScreen() {
                   pointerEvents="none"
                   style={{ position: 'absolute', left: point.x, top: point.y }}
                 >
-                  {selected === plot.id && <CellOutline x={0} y={0} />}
+                  {plot.kind === 'tree' && selected === plot.id && <CellOutline x={0} y={0} />}
                   <View
                     testID={`pick-farm-plot-${plot.id}`}
                     style={[s.plot, { left: -48, top: -69, width: 96, height: 96 }]}
                   >
-                    <CropMotion cropId={plot.cropId} ready={plotPhase === 'ready'} {...motion}>
-                      {plot.kind === 'bed' ? (
-                        <GroundCrop
-                          cropId={plot.cropId}
-                          plantedAt={plot.plantedAt}
-                          growSeconds={planted?.growSeconds ?? 1}
-                          phase={plotPhase}
-                          now={serverNow}
-                          size={96}
-                          motion={motion}
-                          testID={`pick-farm-growth-${plot.id}`}
-                        />
-                      ) : (
-                        planted && (
+                    {plot.kind === 'bed' ? (
+                      <GroundCrop
+                        selected={selected === plot.id}
+                        cropId={plot.cropId}
+                        plantedAt={plot.plantedAt}
+                        growSeconds={planted?.growSeconds ?? 1}
+                        phase={plotPhase}
+                        now={serverNow}
+                        size={96}
+                        motion={motion}
+                        testID={`pick-farm-growth-${plot.id}`}
+                      />
+                    ) : (
+                      planted && (
+                        <CropMotion cropId={plot.cropId} ready={plotPhase === 'ready'} {...motion}>
                           <CropArt
                             cropId={planted.id}
                             size={plot.kind === 'tree' ? 112 : plotPhase === 'growing' ? 58 : 76}
                             phase={plotPhase === 'empty' ? undefined : plotPhase}
                           />
-                        )
-                      )}
-                    </CropMotion>
+                        </CropMotion>
+                      )
+                    )}
                     {plotPhase === 'ready' && (
                       <View style={s.ready}>
                         <Icon name="checkmark" color="#FFFFFF" size={17} />

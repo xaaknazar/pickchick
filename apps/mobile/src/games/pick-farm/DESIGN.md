@@ -124,7 +124,7 @@ Painted shading creates scene depth; UI shadows separate controls from grass. Pi
 
 ## Shapes
 
-Soft rectangular controls use the rounded scale, with panels and dock at its largest step. The selected cell uses four lines joining the exact projected diamond corners, matching soil and hit testing. Sprite source rectangles use absolute overflow clips inside nonshrinking frames and preserve the generated PNG alpha.
+Soft rectangular controls use the rounded scale, with panels and dock at its largest step. Soil and selection share one centered square projected with the same affine matrix to a 96x48 diamond. A single closed border replaces separate line segments; selection remains stationary during planting. Sprite source rectangles use absolute overflow clips inside nonshrinking frames and preserve the generated PNG alpha.
 
 **The Alpha Rule.** Clip source rectangles without flattening alpha or retaining adjacent atlas artwork.
 
@@ -132,7 +132,7 @@ Soft rectangular controls use the rounded scale, with panels and dock at its lar
 
 Buttons use cream for secondary actions and forest for primary actions. Pressed opacity is 0.75; disabled opacity is 0.48. The bottom dock is removed; actions are contextual. Metrics sit in translucent forest pills. Cream panels expose shop, storage, orders, plot details, removal confirmation and help; choices use a warmer parchment inset. Shop purchase actions lead the panel: the bed button uses forest primary styling, with the tree button beside it. The culture strip follows with a visible scroll cue and compact 52 pixel crop previews; storage uses 64 pixel previews. The shop has no introductory text block. There is no standalone text-input component in this surface.
 
-The imagery sources are meadow-painted-v2.png, props-painted-v2.png and plants-painted-v2.png. The props atlas provides house and soil; the plants atlas contains six columns and three phase rows, giving 18 crop sprites. Use clipped source coordinates from visuals.tsx rather than substituting emoji or screenshots. Decorative images remain outside the accessibility tree; actionable plots keep their own labels.
+The imagery sources are meadow-painted-v2.png, props-painted-v2.png and plants-painted-v2.png. The props atlas provides the house; soil-texture-v3.png provides a top-down generated soil texture projected to the exact ground diamond; the plants atlas contains six columns and three phase rows, giving 18 crop sprites. Use clipped source coordinates from visuals.tsx rather than substituting emoji or screenshots. Decorative images remain outside the accessibility tree; actionable plots keep their own labels.
 
 ## Do's and Don'ts
 
@@ -167,3 +167,12 @@ Inspect and hold resolve the frontmost opaque sprite, including foliage above a 
 ## Contextual actions - 5 October 2026
 
 No persistent bottom instruction strip or move-confirmation block. A ripe plot harvests directly; rapid taps on distinct plots are serialized and duplicates deduplicated. Empty/growing plots open a small card beside the object. Removing seeds/planting preserves the bed, with explicit destructive confirmation. Ground taps do not open a purchase prompt. Seed selection mode has only a small top cancel control. Farm API must support removeCrop before the next native release.
+
+## Soil and selection refinement - 5 October 2026
+
+Warm cultivated soil has restrained furrows, a shallow earth edge and no thick outline
+unless selected. Selection is one closed cream contour, co-located with the soil
+surface. Planting animation affects only seeds/plants, never the bed footprint.
+Seeds follow two projected rows. Early sprouts reuse the crop-specific art at a small
+size over the same soil, avoiding a second mismatched soil sprite. Empty soil hit testing
+uses that same diamond, while foliage retains alpha hit masks. No economy or API change.
