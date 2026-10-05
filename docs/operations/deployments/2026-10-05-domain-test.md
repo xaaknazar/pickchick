@@ -11,7 +11,11 @@ CI. Старый `pickchick.Caddyfile` сохраняет запрет всех 
 `test-checkout-session`, `test-checkout-status`, `test-check`, `test-pay`,
 `test-fail` под `/v1/integrations/tiptoppay/`. Все остальные пути и неверные методы
 остаются 503. Запросы передаются установленному public gateway, который сохраняет
-ограничения размера, методов, auth и HMAC. Оба файла имеют фиксированный reviewed
+ограничения размера, методов, auth и HMAC. TEST handlers и общий запрет
+находятся в явном `route`, чтобы Caddy не сортировал общий path matcher раньше
+комбинированных method/path TEST matchers. Порядок закреплён тестом;
+[официальная документация route](https://caddyserver.com/docs/caddyfile/directives/route)
+подтверждает отсутствие внутренней пересортировки. Оба файла имеют фиксированный reviewed
 SHA-256 в helper; TEST блок требует `--allow-tiptoppay-test`.
 
 В TEST режиме capabilities старого и нового адреса сравниваются байт в байт:

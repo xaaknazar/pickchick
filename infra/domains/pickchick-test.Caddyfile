@@ -13,38 +13,41 @@
 		method POST
 		path /v1/integrations/tiptoppay/test-checkout-session /v1/integrations/tiptoppay/test-checkout-status /v1/integrations/tiptoppay/test-check /v1/integrations/tiptoppay/test-pay /v1/integrations/tiptoppay/test-fail
 	}
-	handle @tiptop_test_get {
-		reverse_proxy pickchick-public-gateway:8080 {
-			header_up Host pickchick.185.129.51.103.nip.io
-			transport http {
-				dial_timeout 2s
-				response_header_timeout 32s
-			}
-		}
-	}
-	handle @tiptop_test_post {
-		reverse_proxy pickchick-public-gateway:8080 {
-			header_up Host pickchick.185.129.51.103.nip.io
-			transport http {
-				dial_timeout 2s
-				response_header_timeout 32s
-			}
-		}
-	}
 	@payment_callback path /v1/integrations/tiptoppay/*
-	handle @payment_callback {
-		respond "PAYMENT_INTEGRATION_PENDING" 503
-	}
 	@staff path /roadmap /roadmap/* /backoffice /backoffice/* /kitchen /kitchen/* /kitchen-live /kitchen-live/* /display /display/*
-	handle @staff {
-		redir https://pickchick.185.129.51.103.nip.io{uri} 308
-	}
-	handle {
-		reverse_proxy pickchick-public-gateway:8080 {
-			header_up Host pickchick.185.129.51.103.nip.io
-			transport http {
-				dial_timeout 2s
-				response_header_timeout 32s
+	# Preserve TEST-before-blanket order; route disables handler sorting.
+	route {
+		handle @tiptop_test_get {
+			reverse_proxy pickchick-public-gateway:8080 {
+				header_up Host pickchick.185.129.51.103.nip.io
+				transport http {
+					dial_timeout 2s
+					response_header_timeout 32s
+				}
+			}
+		}
+		handle @tiptop_test_post {
+			reverse_proxy pickchick-public-gateway:8080 {
+				header_up Host pickchick.185.129.51.103.nip.io
+				transport http {
+					dial_timeout 2s
+					response_header_timeout 32s
+				}
+			}
+		}
+		handle @payment_callback {
+			respond "PAYMENT_INTEGRATION_PENDING" 503
+		}
+		handle @staff {
+			redir https://pickchick.185.129.51.103.nip.io{uri} 308
+		}
+		handle {
+			reverse_proxy pickchick-public-gateway:8080 {
+				header_up Host pickchick.185.129.51.103.nip.io
+				transport http {
+					dial_timeout 2s
+					response_header_timeout 32s
+				}
 			}
 		}
 	}

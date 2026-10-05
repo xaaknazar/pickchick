@@ -65,6 +65,11 @@ class Guards(unittest.TestCase):
         self.assertIn(b'@payment_callback path /v1/integrations/tiptoppay/*', block)
         self.assertIn(b'PAYMENT_INTEGRATION_PENDING" 503', block)
         self.assertNotIn(b'.well-known', block)
+        route = block.split(b'\troute {\n', 1)[1].split(b'\n}\npickchick.kz', 1)[0]
+        self.assertLess(route.index(b'handle @tiptop_test_get'), route.index(b'handle @payment_callback'))
+        self.assertLess(route.index(b'handle @tiptop_test_post'), route.index(b'handle @payment_callback'))
+        self.assertLess(route.index(b'handle @payment_callback'), route.index(b'handle @staff'))
+        self.assertTrue(route.rstrip().endswith(b'}'))
 
     def test_http_probes_require_signed_test_boundary_and_live_unavailable(self):
         for allow in [False, True]:
