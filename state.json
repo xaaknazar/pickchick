@@ -2853,9 +2853,11 @@
         "@vps/api",
         "tests/operations/test_farm_update.py"
       ],
-      "status": "active",
-      "head": "331d663a1002fb180334f6e8206afa7e8b553067",
-      "updatedAt": "2026-10-05T13:19:41.261Z"
+      "status": "done",
+      "head": "cdc77126ff65c8a70b22bfc6048818530aff9ffa",
+      "updatedAt": "2026-10-05T17:33:50.552Z",
+      "summary": "API protocol2 f398 installed, CI37344732404 11/11green; backuprestore passed and unchanged schema/data/ACL/public/kitchen/Kaspi. Report cdc7712 integrated shared239148b.",
+      "nextAction": "TestFlight12 processing/physical acceptance; TEST-only TipTopPay rollout separate task."
     },
     {
       "id": "combo-transition-polish",
