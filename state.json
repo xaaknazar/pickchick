@@ -2679,9 +2679,11 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "ae1618b135d7e1ee77530178ea4c4c060f37966d",
-      "updatedAt": "2026-10-05T06:28:27.476Z"
+      "status": "done",
+      "head": "9e7626f56d9efd897384d08a5f535e1aafda4c9c",
+      "updatedAt": "2026-10-05T06:38:20.059Z",
+      "summary": "Visible sprite hit zones, measured field coordinates and drag grab offset. 17 geometry/client tests, typecheck/lint/web export, isolated browser foliage and boundary checks passed. PR183 9e7626f integrated in shared.",
+      "nextAction": "Native iPhone gesture acceptance and next release/TestFlight; online roadmap awaiting release CI."
     }
   ]
 }
