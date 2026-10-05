@@ -36,7 +36,6 @@ mobile TypeScript/ESLint, contracts/API build и web export. Изолирова�
 docs/operations/images/farm-progression. Текущие правила дополняют исторические
 записи ниже; старые формулы цен и таймеров не применять к новым посадкам.
 
-
 ## 5 октября: аудит PICK FARM и исследование похожих игр
 
 Сохранён `docs/design/pick-farm-review-2026-10-05.md`: аудит текущего engine/UI,

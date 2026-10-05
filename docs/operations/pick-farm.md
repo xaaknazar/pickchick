@@ -36,7 +36,6 @@ mobile TypeScript/ESLint, contracts/API build и web export. Изолирова�
 docs/operations/images/farm-progression. Текущие правила дополняют исторические
 записи ниже; старые формулы цен и таймеров не применять к новым посадкам.
 
-
 # PICK FARM - игровой срез
 
 ## 5 октября: PICK FARM - ровный контур и новая земля
