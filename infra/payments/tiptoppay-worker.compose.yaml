@@ -1,0 +1,30 @@
+# One read-only-bank reconciliation pass; systemd timer runs this service.
+# No ports, charge APIs, customer phone decryption or Kaspi bridge access.
+name: pickchick-tiptoppay-reconcile
+services:
+  worker:
+    image: pickchick-api:${API_RELEASE_SHA:?Set exact CI-verified API SHA}
+    user: '1000:1000'
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: 'no'
+    command:
+      - node
+      - --env-file=/run/pickchick/tiptoppay.env
+      - services/api/dist/tiptoppay-reconcile-worker.js
+    volumes:
+      - ${TIPTOPPAY_SECRETS_DIR:?Set protected directory}/tiptoppay-worker.env:/run/pickchick/tiptoppay.env:ro
+    networks: [staging]
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+networks:
+  staging:
+    external: true
+    name: pickchick-staging_default

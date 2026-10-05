@@ -1,0 +1,14 @@
+[Unit]
+Description=PickChick TipTop Pay bank status reconciliation
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/pickchick-staging/tiptoppay
+# Contains API_RELEASE_SHA and TIPTOPPAY_SECRETS_DIR only, never API credentials.
+EnvironmentFile=/opt/pickchick-staging/tiptoppay/release.env
+ExecStart=/usr/bin/docker compose -f tiptoppay-worker.compose.yaml run --rm --no-deps worker
+TimeoutStartSec=180
+UMask=0077
+NoNewPrivileges=true
