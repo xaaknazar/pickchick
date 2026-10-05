@@ -2892,9 +2892,11 @@
         "docs/collaboration/handoff.md",
         "@apple/testflight"
       ],
-      "status": "active",
-      "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
-      "updatedAt": "2026-10-05T16:59:10.786Z"
+      "status": "done",
+      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
+      "updatedAt": "2026-10-05T17:42:32.113Z",
+      "summary": "TestFlight12 testing, source/CI proof merged239148b shared; roadmap239 published.",
+      "nextAction": "Physical iPhone acceptance; TipTop separate build13."
     },
     {
       "id": "tiptoppay-checkout",
