@@ -13,7 +13,7 @@ import { economyScenarios } from '../scripts/simulate-economy.mjs';
 
 const planted = () =>
   run(
-    run(createFarm(0), { type: 'buyPlot', x: 0, y: 0 }, 0),
+    run(createFarm(0), { type: 'buyPlot', x: 16, y: 16 }, 0),
     { type: 'plant', plotId: 0, cropId: 'carrot' },
     0,
   );
@@ -87,7 +87,7 @@ test('longer bed crops increase per-harvest profit while short crops reward freq
   assert.ok(
     apple.paybackHarvests * apple.growthSeconds > cropEconomics('carrot').paybackHarvests * 3600,
   );
-  let tree = run(createFarm(0), { type: 'buyTree', x: 0, y: 0, cropId: 'apple' }, 0);
+  let tree = run(createFarm(0), { type: 'buyTree', x: 16, y: 16, cropId: 'apple' }, 0);
   for (let cycle = 1; cycle <= 9; cycle++)
     tree = run(tree, { type: 'harvest', plotId: 0, destination: 'sell' }, cycle * 28800000);
   assert.equal(tree.coins, 520);
@@ -98,14 +98,14 @@ test('land price grows quadratically by lifetime placements and cannot reset via
   let state = createFarm(0);
   assert.equal(nextLandCost(state, 'bed'), 150);
   assert.equal(nextLandCost(state, 'tree'), 250);
-  state = run(state, { type: 'buyPlot', x: 0, y: 0 }, 0);
+  state = run(state, { type: 'buyPlot', x: 16, y: 16 }, 0);
   assert.equal(nextLandCost(state, 'bed'), 175);
   state = run(state, { type: 'removePlot', plotId: 0 }, 0);
   assert.equal(nextLandCost(state, 'bed'), 175);
   assert.equal(canRecoverFarm({ ...state, coins: 154 }, 0), true);
   assert.equal(canRecoverFarm({ ...state, coins: 179 }, 0), false);
   assert.throws(
-    () => run({ ...state, coins: 174 }, { type: 'buyPlot', x: 0, y: 0 }, 0),
+    () => run({ ...state, coins: 174 }, { type: 'buyPlot', x: 16, y: 16 }, 0),
     /INSUFFICIENT_COINS/,
   );
   const recovered = run({ ...state, coins: 0 }, { type: 'recover' }, 0);

@@ -19,7 +19,7 @@ export function simulateEconomy({ days, intervalHours, cropId, reinvest = false 
   const purchase = (now) => {
     const price = nextLandCost(state, 'bed');
     const id = state.nextPlotId;
-    command({ type: 'buyPlot', x: id % 64, y: Math.floor(id / 64) }, now);
+    command({ type: 'buyPlot', x: 16 + (id % 32), y: 16 + Math.floor(id / 32) }, now);
     stats.landSpend += price;
     command({ type: 'plant', plotId: id, cropId }, now);
   };

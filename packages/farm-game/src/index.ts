@@ -165,7 +165,21 @@ const LegacyFarmStateSchema = LegacyFarmStateBase.superRefine((state, ctx) => {
   });
 });
 export const FIELD_SIZE = 64;
-export const HOUSE_CELL = { x: 32, y: 28 } as const;
+/** Inclusive32×32 placement bounds; stored legacy coordinates still use FIELD_SIZE. */
+export const PLANTING_BOUNDS = { minX: 16, maxX: 47, minY: 16, maxY: 47 } as const;
+/** Fixed visual house outside planting bounds; historical beds are never relocated. */
+export const HOUSE_DISPLAY_CELL = { x: 14, y: 14 } as const;
+export function isPlantingCell(x: number, y: number): boolean {
+  return (
+    Number.isInteger(x) &&
+    Number.isInteger(y) &&
+    x >= PLANTING_BOUNDS.minX &&
+    x <= PLANTING_BOUNDS.maxX &&
+    y >= PLANTING_BOUNDS.minY &&
+    y <= PLANTING_BOUNDS.maxY
+  );
+}
+export const HOUSE_CELL = HOUSE_DISPLAY_CELL;
 export const BED_COST = 150;
 export const TREE_COST = 250;
 const coordinate = z
@@ -201,7 +215,6 @@ export const FarmStateSchema = FarmStateBase.superRefine((state, ctx) => {
       ids.has(plot.id) ||
       plot.id >= state.nextPlotId ||
       cells.has(cell) ||
-      (plot.x === HOUSE_CELL.x && plot.y === HOUSE_CELL.y) ||
       (plot.cropId === null) !== (plot.plantedAt === null) ||
       (plot.kind === 'tree' && plot.cropId !== 'apple') ||
       (plot.kind === 'bed' && (plot.cropId === 'apple' || plot.harvests !== 0))
@@ -363,8 +376,8 @@ export function applyFarmCommand(
     if (!plot) {
       plot = {
         id: state.nextPlotId,
-        x: HOUSE_CELL.x,
-        y: HOUSE_CELL.y + 2,
+        x: 32,
+        y: 30,
         kind: 'bed',
         cropId: null,
         plantedAt: null,
@@ -388,6 +401,7 @@ export function applyFarmCommand(
     if (command.type === 'removePlot') {
       state.plots = state.plots.filter((candidate) => candidate.id !== plot.id);
     } else if (command.type === 'movePlot') {
+      requireRule(isPlantingCell(command.x, command.y), 'CELL_OUTSIDE_FIELD');
       requireRule(!(command.x === HOUSE_CELL.x && command.y === HOUSE_CELL.y), 'CELL_RESERVED');
       requireRule(
         !state.plots.some(
@@ -446,6 +460,7 @@ export function applyFarmCommand(
     state.completedOrders += 1;
   } else {
     requireRule(state.plots.length < FIELD_SIZE * FIELD_SIZE - 1, 'MAX_PLOTS');
+    requireRule(isPlantingCell(command.x, command.y), 'CELL_OUTSIDE_FIELD');
     requireRule(!(command.x === HOUSE_CELL.x && command.y === HOUSE_CELL.y), 'CELL_RESERVED');
     requireRule(
       !state.plots.some((plot) => plot.x === command.x && plot.y === command.y),

@@ -6,7 +6,9 @@ import { font } from '../../theme';
 import { useGameCardHeight } from '../ArcadeCard';
 import { Image } from 'expo-image';
 import { View } from 'react-native';
-import type { CropId } from '@pickchick/farm-game';
+import { PLANTING_BOUNDS, HOUSE_DISPLAY_CELL, type CropId } from '@pickchick/farm-game';
+import { isoPoint } from './geometry';
+export { isoPoint, cellAtPoint } from './geometry';
 
 // Generated atlases remain intact. Each view clips its own source rectangle.
 const propsAtlas = require('../../../assets/games/pick-farm/props-painted-v2.png');
@@ -115,49 +117,57 @@ export const CropArt = memo(function CropArt({
   );
 });
 
-export function isoPoint(col: number, row: number) {
-  return { x: 450 + (col - 32 - (row - 28)) * 48, y: 230 + (col - 32 + (row - 28)) * 24 };
+export function CellOutline({ x, y, color = '#FFF9EA' }: { x: number; y: number; color?: string }) {
+  const corners = [
+    [-48, 0],
+    [0, -24],
+    [48, 0],
+    [0, 24],
+  ] as const;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: x, top: y }}>
+      {corners.map((a, i) => {
+        const b = corners[(i + 1) % 4]!;
+        const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: (a[0] + b[0]) / 2 - length / 2,
+              top: (a[1] + b[1]) / 2 - 1.5,
+              width: length,
+              height: 3,
+              backgroundColor: color,
+              transform: [{ rotate: `${Math.atan2(b[1] - a[1], b[0] - a[0])}rad` }],
+            }}
+          />
+        );
+      })}
+    </View>
+  );
 }
-export function cellAtPoint(px: number, py: number) {
-  return {
-    x: Math.round(32 + (px - 450) / 96 + (py - 230) / 48),
-    y: Math.round(28 - (px - 450) / 96 + (py - 230) / 48),
+
+export const Landscape = memo(function Landscape({ grid = false }: { grid?: boolean }) {
+  const { minX, minY, maxX, maxY } = PLANTING_BOUNDS;
+  const house = isoPoint(HOUSE_DISPLAY_CELL.x, HOUSE_DISPLAY_CELL.y);
+  const lines: { x: number; y: number; length: number; angle: string; edge: boolean }[] = [];
+  const add = (a: { x: number; y: number }, b: { x: number; y: number }, edge: boolean) => {
+    lines.push({
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+      length: Math.hypot(b.x - a.x, b.y - a.y),
+      angle: `${Math.atan2(b.y - a.y, b.x - a.x)}rad`,
+      edge,
+    });
   };
-}
-export const Landscape = memo(function Landscape({
-  grid = false,
-  cell = { x: 32, y: 30 },
-}: {
-  grid?: boolean;
-  cell?: { x: number; y: number };
-}) {
-  const house = isoPoint(32, 28);
-  const lines: { x: number; y: number; length: number; angle: string }[] = [];
-  if (grid) {
-    const minX = Math.max(0, cell.x - 8),
-      maxX = Math.min(64, cell.x + 9);
-    const minY = Math.max(0, cell.y - 8),
-      maxY = Math.min(64, cell.y + 9);
-    for (let x = minX; x <= maxX; x++) {
-      const a = isoPoint(x - 0.5, minY - 0.5),
-        b = isoPoint(x - 0.5, maxY - 0.5);
-      lines.push({
-        x: (a.x + b.x) / 2,
-        y: (a.y + b.y) / 2,
-        length: Math.hypot(b.x - a.x, b.y - a.y),
-        angle: `${Math.atan2(b.y - a.y, b.x - a.x)}rad`,
-      });
-    }
-    for (let y = minY; y <= maxY; y++) {
-      const a = isoPoint(minX - 0.5, y - 0.5),
-        b = isoPoint(maxX - 0.5, y - 0.5);
-      lines.push({
-        x: (a.x + b.x) / 2,
-        y: (a.y + b.y) / 2,
-        length: Math.hypot(b.x - a.x, b.y - a.y),
-        angle: `${Math.atan2(b.y - a.y, b.x - a.x)}rad`,
-      });
-    }
+  for (let x = minX; x <= maxX + 1; x++) {
+    const edge = x === minX || x === maxX + 1;
+    if (grid || edge) add(isoPoint(x - 0.5, minY - 0.5), isoPoint(x - 0.5, maxY + 0.5), edge);
+  }
+  for (let y = minY; y <= maxY + 1; y++) {
+    const edge = y === minY || y === maxY + 1;
+    if (grid || edge) add(isoPoint(minX - 0.5, y - 0.5), isoPoint(maxX + 0.5, y - 0.5), edge);
   }
   return (
     <View pointerEvents="none" style={{ position: 'absolute', width: 900, height: 600 }}>
@@ -169,13 +179,15 @@ export const Landscape = memo(function Landscape({
             left: line.x - line.length / 2,
             top: line.y,
             width: line.length,
-            height: 1,
-            backgroundColor: '#F7FFDC80',
+            height: line.edge ? 12 : 2,
+            backgroundColor: line.edge ? '#EAD6A0' : '#F7FFDC55',
             transform: [{ rotate: line.angle }],
           }}
         />
       ))}
-      <Sprite kind="house" x={house.x} y={house.y + 6} width={160} />
+      <View testID="pick-farm-house" style={{ position: 'absolute', left: house.x, top: house.y }}>
+        <Sprite kind="house" x={0} y={0} width={240} />
+      </View>
     </View>
   );
 });

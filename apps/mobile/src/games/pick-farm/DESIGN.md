@@ -1,6 +1,6 @@
 ---
 name: Pick Farm
-description: Painterly open meadow with a forest dock and cream controls
+description: Painterly 32x32 meadow with direct gestures and cream controls
 colors:
   primary: '#283E35'
   accent: '#F4AE57'
@@ -89,7 +89,7 @@ This is a code-led redesign following the owner’s rejection of the flat green 
 **Key Characteristics:**
 
 - Painterly imagery with actual transparent sprite edges.
-- Forest dock, cream panels and warm orange selection.
+- Compact forest HUD, cream panels and warm orange cell selection.
 - Fullscreen landscape with pan, pinch zoom and safe-area controls.
 
 **The One Meadow Rule.** House, soil and crops share the painted world; do not mix unrelated asset styles.
@@ -112,9 +112,11 @@ Jost carries display and panel headings; Manrope carries body text, metrics and 
 
 ## Layout
 
-Native platform: adaptive React Native for iOS and Android. The farm opens fullscreen in landscape and restores portrait when leaving. The meadow covers the viewport while an independent camera pans and scales the isometric field. The logical field stays 64x64 with the house at (32,28); placement guides appear around the target cell. The projection advances 48 pixels horizontally and 24 vertically per axis.
+Native platform: adaptive React Native for iOS and Android. The farm opens fullscreen in landscape and restores portrait when leaving. The plantable field is a fixed 32x32 square (legacy coordinates 16..47 on each axis); the house is fixed at (14,14), outside that boundary. Historical 64x64 save coordinates remain valid. Older plots outside the new boundary remain intact and can be managed through help, including moving them into the new field.
 
-The camera zoom clamps from 0.6 to 2. HUD and dock remain fixed outside the world transform. Safe-area offsets apply to exit, metrics, contextual tools and bottom dock. The dock caps at 620 pixels and fills available width. Panels scroll within the available height; wider screens above 700 pixels use a wider shop layout. Minimum buttons are 48x48 logical pixels; dock tools are at least 72x58. Preserve native Pressable, accessibility labels and modal behavior.
+The initial camera fits the whole field and house. Zoom clamps from 1 to 8 relative to that fit; zooming out beyond the overview and panning at overview are disabled. Pinch zooms; one finger pans after zooming in. HUD remains outside the world transform. No bottom tool dock or directional placement arrows: tap an empty bed to choose seeds, tap a ripe crop to harvest, hold 420 ms and drag to move. Releasing outside the field or onto another plot cancels the move. Plot details retain move and confirmed removal actions. Shop contains storage and orders; help contains the harvest destination and accessible zoom controls.
+
+The projection advances 48 pixels horizontally and 24 vertically per axis. Soil, plants, cell outlines and touch conversion use the same coordinates. Purchase/move confirmation uses a compact footer so the field remains available for choosing a destination. Panels scroll within safe areas; minimum buttons remain 48x48 logical pixels.
 
 ## Elevation & Depth
 
@@ -122,13 +124,13 @@ Painted shading creates scene depth; UI shadows separate controls from grass. Pi
 
 ## Shapes
 
-Soft rectangular controls use the rounded scale, with panels and dock at its largest step. The selected cell is an isometric diamond formed from a square rotated 45 degrees and compressed vertically to 0.5. Sprite source rectangles use absolute overflow clips inside nonshrinking frames and preserve the generated PNG alpha.
+Soft rectangular controls use the rounded scale, with panels and dock at its largest step. The selected cell uses four lines joining the exact projected diamond corners, matching soil and hit testing. Sprite source rectangles use absolute overflow clips inside nonshrinking frames and preserve the generated PNG alpha.
 
 **The Alpha Rule.** Clip source rectangles without flattening alpha or retaining adjacent atlas artwork.
 
 ## Components
 
-Buttons use cream for secondary actions and forest for primary actions. Pressed opacity is 0.75; disabled opacity is 0.48. The dock combines icon and label with orange active state. Metrics sit in translucent forest pills. Cream panels expose shop, storage, orders, plot details, removal confirmation and help; choices use a warmer parchment inset. Shop purchase actions lead the panel: the bed button uses forest primary styling, with the tree button beside it. The culture strip follows with a visible scroll cue and compact 52 pixel crop previews; storage uses 64 pixel previews. The shop has no introductory text block. There is no standalone text-input component in this surface.
+Buttons use cream for secondary actions and forest for primary actions. Pressed opacity is 0.75; disabled opacity is 0.48. The bottom dock is removed; actions are contextual. Metrics sit in translucent forest pills. Cream panels expose shop, storage, orders, plot details, removal confirmation and help; choices use a warmer parchment inset. Shop purchase actions lead the panel: the bed button uses forest primary styling, with the tree button beside it. The culture strip follows with a visible scroll cue and compact 52 pixel crop previews; storage uses 64 pixel previews. The shop has no introductory text block. There is no standalone text-input component in this surface.
 
 The imagery sources are meadow-painted-v2.png, props-painted-v2.png and plants-painted-v2.png. The props atlas provides house and soil; the plants atlas contains six columns and three phase rows, giving 18 crop sprites. Use clipped source coordinates from visuals.tsx rather than substituting emoji or screenshots. Decorative images remain outside the accessibility tree; actionable plots keep their own labels.
 
@@ -148,6 +150,12 @@ The imagery sources are meadow-painted-v2.png, props-painted-v2.png and plants-p
 
 ## Economy interaction
 
-Harvest defaults to an explicit sale destination: the primary action harvests and sells atomically, with a coin receipt. The alternative “На склад для заказов” retains produce and shows a quantity receipt. The field destination selector stays under the upper-left HUD, clear of the central planting area. Both field tools and plot details expose the same selected destination; every client harvest sends it explicitly. Neither mode silently sells stored order ingredients.
+Harvest defaults to an explicit sale destination: the primary action harvests and sells atomically, with a coin receipt. The alternative “На склад для заказов” retains produce and shows a quantity receipt. The destination selector lives in help and plot details, clear of the planting area. Direct harvest uses that same selected destination; every client harvest sends it explicitly. Neither mode silently sells stored order ingredients.
 
 Seed choices distinguish seed cost, growth duration, full harvest sale revenue and net profit after seed cost. Plot acquisition is excluded from per-cycle seed profit and explained in help. Apple cards show the current upfront tree price, recurring harvest revenue without new seeds and payback harvest count. Current land purchase prices come from the shared economy helper and remain visible before placement; removal does not reset acquisition pricing. Plot details communicate the harvest window before maturity, then show its remaining time. Preserve the painted world and compact landscape layout.
+
+## Planting feedback and verification - 5 October 2026
+
+GroundCrop owns both the soil and plant anchor. The first 10% of growth shows seeds, 10-35% shows sprouts, then the crop-specific growing sprite. Ready and withered artwork remains crop-specific; apple trees use their tree lifecycle. A short seed-fall plays only after a new acknowledged planting, not on restoring a saved farm. Reduced motion and background state stop animation.
+
+Verified with 18 engine/economy tests, 11 geometry/client tests, mobile TypeScript/ESLint and web export. An isolated 844x390 preview confirmed the overview, zoomed phases, planting (4 coins deducted) and tap harvest (39 coins and 10 XP awarded). Native pinch/long-press acceptance is pending. These changes require the next API deployment and native build; TestFlight 0.2.0 (10) remains unchanged.

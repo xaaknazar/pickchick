@@ -1,4 +1,6 @@
-"""Open-field farm with isolated HTTP fixtures and the actual v2 game engine."""
+"""Open-field farm with isolated HTTP fixtures and the actual v2 game engine.
+Scenario adapted for contextual gestures; not executed during the farm-gestures edit.
+"""
 import json
 import os
 import subprocess
@@ -90,13 +92,14 @@ with sync_playwright() as p:
         def tap_cell(x, y):
             world = page.get_by_test_id('pick-farm-world').locator(':scope > div').first.bounding_box()
             scale = world['width'] / 900
-            point = {'x': world['x'] + (450 + (x - 32 - (y - 28)) * 48) * scale,
-                     'y': world['y'] + (230 + (x - 32 + (y - 28)) * 24) * scale}
+            point = {'x': world['x'] + (450 + (x - y) * 48) * scale,
+                     'y': world['y'] + (300 + (x + y - 63) * 24) * scale}
             page.mouse.click(point['x'], point['y'])
 
         def done():
-            if page.get_by_test_id('pick-farm-tool-done').count():
-                page.get_by_test_id('pick-farm-tool-done').click()
+            button = page.get_by_role('button', name='Готово', exact=True)
+            if button.count():
+                button.click()
 
         def select_plot(plot):
             done()
@@ -113,11 +116,9 @@ with sync_playwright() as p:
             expect(page.get_by_test_id('pick-farm-panel-place')).to_have_count(0)
             assert calls[-1]['command'] == {'type': 'buyPlot', 'x': 32, 'y': 30}
             bed = saved['state']['plots'][0]
-            # Explicit planting tool keeps its selection, then ripe harvesting sells by default.
-            page.get_by_test_id('pick-farm-tool-plant').click()
+            # An empty bed opens seeds; choosing one plants directly.
+            select_plot(bed)
             page.get_by_test_id('pick-farm-seed-carrot').click()
-            tap_cell(bed['x'], bed['y'])
-            expect(page.get_by_test_id('pick-farm-tool-done')).to_be_visible()
             page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
             assert calls[-1]['command']['type'] == 'plant'
             select_plot(bed)
@@ -128,7 +129,6 @@ with sync_playwright() as p:
             close_panel()
             saved['now'] += CROPS['carrot']['growSeconds'] * 1000
             reload_field()
-            page.get_by_test_id('pick-farm-tool-harvest').click()
             page.screenshot(path=str(OUT / f'harvest-sell-{width}.png'))
             tap_cell(bed['x'], bed['y'])
             page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
@@ -142,14 +142,16 @@ with sync_playwright() as p:
             page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
             saved['now'] += CROPS['carrot']['growSeconds'] * 1000
             reload_field()
-            page.get_by_test_id('pick-farm-tool-harvest').click()
+            page.get_by_role('button', name='Как играть', exact=True).click()
             page.get_by_test_id('pick-farm-destination-storage').click()
+            close_panel()
             page.screenshot(path=str(OUT / f'harvest-storage-{width}.png'))
             tap_cell(bed['x'], bed['y'])
-            page.wait_for_function("document.body.innerText.includes('Склад 3')")
+            page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
             assert calls[-1]['command'] == {'type': 'harvest', 'plotId': bed['id'], 'destination': 'storage'}
             assert saved['state']['inventory']['carrot'] == 3 and saved['state']['coins'] == 354
             done()
+            page.get_by_test_id('pick-farm-shop').click()
             page.get_by_role('button', name='Склад', exact=False).click()
             page.get_by_test_id('pick-farm-sell-carrot').click()
             expect(page.get_by_test_id('pick-farm-sell-carrot')).to_be_disabled()
@@ -168,19 +170,21 @@ with sync_playwright() as p:
             assert saved['state']['inventory']['carrot'] == 0
             close_panel()
             # Destructive mode always requires confirmation; cancelling is a no-op.
-            page.get_by_test_id('pick-farm-tool-remove').click()
-            tap_cell(bed['x'], bed['y'])
+            select_plot(bed)
+            page.get_by_role('button', name='Удалить', exact=True).click()
             expect(page.get_by_test_id('pick-farm-panel-remove')).to_be_visible()
             before = len(calls)
             page.get_by_role('button', name='Оставить', exact=True).click()
             assert len(calls) == before and len(saved['state']['plots']) == 1
-            tap_cell(bed['x'], bed['y'])
+            select_plot(bed)
+            page.get_by_role('button', name='Удалить', exact=True).click()
             page.get_by_test_id('pick-farm-remove-confirm').click()
             expect(page.get_by_test_id('pick-farm-panel-remove')).to_have_count(0)
             assert len(saved['state']['plots']) == 0 and saved['state']['coins'] == 362
             done()
             page.get_by_test_id('pick-farm-shop').click()
             page.get_by_role('button', name='Яблоня - 275 монет', exact=True).click()
+            tap_cell(32, 30)
             page.get_by_role('button', name='Купить - 275 монет', exact=True).click()
             expect(page.get_by_test_id('pick-farm-panel-place')).to_have_count(0)
             tree = saved['state']['plots'][0]
@@ -189,17 +193,15 @@ with sync_playwright() as p:
             for harvest_index in range(3):
                 saved['now'] += CROPS['apple']['growSeconds'] * 1000
                 reload_field()
-                select_plot(tree)
-                page.get_by_test_id('pick-farm-harvest').click()
-                expect(page.get_by_test_id('pick-farm-harvest')).to_be_disabled()
+                tap_cell(tree['x'], tree['y'])
+                page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
                 assert calls[-1]['command']['destination'] == 'sell'
                 assert saved['state']['coins'] == tree_coins + (harvest_index + 1) * 30
                 assert saved['state']['inventory']['apple'] == 0
-                close_panel()
             assert saved['state']['plots'][0]['harvests'] == 0
-            page.get_by_test_id('pick-farm-tool-move').click()
-            tap_cell(tree['x'], tree['y'])
-            page.get_by_role('button', name='На клетку вправо', exact=True).click()
+            select_plot(tree)
+            page.get_by_role('button', name='Переместить', exact=True).click()
+            tap_cell(tree['x'] + 1, tree['y'])
             page.get_by_role('button', name='Переместить сюда', exact=True).click()
             expect(page.get_by_test_id('pick-farm-panel-place')).to_have_count(0)
             assert calls[-1]['command']['type'] == 'movePlot'
@@ -212,11 +214,12 @@ with sync_playwright() as p:
             page.mouse.move(width / 2 + 90, height / 2 - 35, steps=8)
             page.mouse.up()
             camera_after = world.evaluate('(el) => getComputedStyle(el.firstElementChild).transform')
-            assert camera_after != camera_before
+            assert camera_after == camera_before  # overview cannot pan below the fitted field
             assert len(calls) == before and not page.get_by_test_id('pick-farm-panel-place').count()
-            page.get_by_role('button', name='Вернуть ферму в центр', exact=True).click()
-            page.get_by_role('button', name='Приблизить ферму', exact=True).click()
-            page.get_by_role('button', name='Отдалить ферму', exact=True).click()
+            page.get_by_role('button', name='Как играть', exact=True).click()
+            page.get_by_role('button', name='Приблизить', exact=True).click()
+            page.get_by_role('button', name='Весь участок', exact=True).click()
+            close_panel()
             # Six-crop fixture exercises real engine, no production balances changed.
             overview = json.loads(json.dumps(fixture['state']))
             overview['revision'] = saved['state']['revision'] + 1
@@ -235,11 +238,13 @@ with sync_playwright() as p:
             page.wait_for_function('Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)')
             page.screenshot(path=str(OUT / f'shop-{width}.png'))
             close_panel()
+            page.get_by_test_id('pick-farm-shop').click()
             page.get_by_role('button', name='Склад', exact=False).click()
             page.wait_for_function('Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)')
             page.wait_for_timeout(650)  # RN Web NativeImage mounts its CSS background after the image event.
             page.screenshot(path=str(OUT / f'storage-{width}.png'))
             close_panel()
+            page.get_by_test_id('pick-farm-shop').click()
             page.get_by_role('button', name='Заказы', exact=True).click()
             page.wait_for_function('Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)')
             page.wait_for_timeout(650)
@@ -254,7 +259,7 @@ with sync_playwright() as p:
             rescue['coins'] = 0
             saved.update(state=rescue, now=NOW)
             reload_field()
-            page.get_by_role('button', name='Нет семян? Получить помощь', exact=True).click()
+            page.get_by_role('button', name='Как играть', exact=True).click()
             page.get_by_test_id('pick-farm-recover').click()
             expect(page.get_by_test_id('pick-farm-recover')).to_have_count(0)
             assert saved['state']['coins'] == 0 and saved['state']['plots'][0]['cropId'] == 'carrot'

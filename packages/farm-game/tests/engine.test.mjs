@@ -13,8 +13,11 @@ import {
   BED_COST,
   TREE_COST,
   HOUSE_CELL,
+  PLANTING_BOUNDS,
+  HOUSE_DISPLAY_CELL,
+  isPlantingCell,
 } from '../dist/index.js';
-const bed = (state = createFarm(0), x = 0, y = 0) => run(state, { type: 'buyPlot', x, y }, 0);
+const bed = (state = createFarm(0), x = 16, y = 16) => run(state, { type: 'buyPlot', x, y }, 0);
 const plant = (state = bed(), cropId = 'carrot', now = 0) =>
   run(state, { type: 'plant', cropId, plotId: 0 }, now);
 const harvest = (state, now) => run(state, { type: 'harvest', plotId: 0 }, now);
@@ -26,12 +29,12 @@ test('empty field, placement prices, collision, reserved cell and immutable move
   assert.equal(purchased.coins, 500 - BED_COST);
   assert.equal(initial.plots.length, 0);
   assert.throws(() => bed(purchased), /CELL_OCCUPIED/);
-  assert.throws(() => bed(initial, HOUSE_CELL.x, HOUSE_CELL.y), /CELL_RESERVED/);
-  const moved = run(purchased, { type: 'movePlot', plotId: 0, x: 63, y: 63 }, 0);
+  assert.throws(() => bed(initial, HOUSE_CELL.x, HOUSE_CELL.y), /CELL_OUTSIDE_FIELD/);
+  const moved = run(purchased, { type: 'movePlot', plotId: 0, x: 47, y: 47 }, 0);
   assert.equal(moved.coins, purchased.coins);
-  assert.equal(purchased.plots[0].x, 0);
+  assert.equal(purchased.plots[0].x, 16);
   assert.throws(
-    () => run(bed(purchased, 1, 1), { type: 'movePlot', plotId: 0, x: 1, y: 1 }, 0),
+    () => run(bed(purchased, 17, 17), { type: 'movePlot', plotId: 0, x: 17, y: 17 }, 0),
     /CELL_OCCUPIED/,
   );
   assert.throws(() => bed({ ...initial, coins: 149 }), /INSUFFICIENT_COINS/);
@@ -42,7 +45,7 @@ test('every crop has an equal harvest window and exact growth/loss boundaries', 
   for (const crop of CROPS) {
     let state =
       crop.kind === 'tree'
-        ? run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 0, y: 0 }, 0)
+        ? run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 16, y: 16 }, 0)
         : plant(bed(), crop.id);
     const deadline = crop.growSeconds * 1000;
     const plot = state.plots[0];
@@ -63,7 +66,7 @@ test('every crop has an equal harvest window and exact growth/loss boundaries', 
   }
 });
 test('permanent trees continue after three harvests and lost fruit, beds remain empty', () => {
-  let state = run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 0, y: 0 }, 0);
+  let state = run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 16, y: 16 }, 0);
   assert.equal(state.coins, 500 - TREE_COST);
   const growth = CROPS.find((c) => c.id === 'apple').growSeconds * 1000;
   for (let cycle = 1; cycle <= 7; cycle++) {
@@ -85,7 +88,7 @@ test('strict state/command validation and trusted clock protect progression', ()
   assert.throws(() => harvest(state, 99), /CLOCK_BEFORE_PLANTING/);
   for (const command of [
     { type: 'harvest', plotId: 0, now: 999999 },
-    { type: 'buyTree', x: 0, y: 0, cropId: 'carrot' },
+    { type: 'buyTree', x: 16, y: 16, cropId: 'carrot' },
     { type: 'sell', cropId: 'carrot', quantity: 1.5 },
   ])
     assert.equal(FarmCommandSchema.safeParse(command).success, false);
@@ -189,7 +192,7 @@ test('full field permits 4095 unique cells and rejects extra purchases', () => {
     }
   state.nextPlotId = state.plots.length;
   assert.equal(FarmStateSchema.safeParse(state).success, true);
-  assert.throws(() => run(state, { type: 'buyPlot', x: 0, y: 0 }, 0), /MAX_PLOTS/);
+  assert.throws(() => run(state, { type: 'buyPlot', x: 16, y: 16 }, 0), /MAX_PLOTS/);
   assert.equal(state.plots.length, 4095);
 });
 
@@ -197,7 +200,7 @@ test('remove empty beds, planted beds and trees without refund or rewards', () =
   for (const original of [
     bed(),
     plant(),
-    run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 0, y: 0 }, 0),
+    run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 16, y: 16 }, 0),
   ]) {
     const before = globalThis.structuredClone(original);
     const removed = run(original, { type: 'removePlot', plotId: 0 }, 0);
@@ -213,7 +216,7 @@ test('remove empty beds, planted beds and trees without refund or rewards', () =
   }
 });
 test('plot IDs remain monotonic after deletion and surviving IDs resolve correctly', () => {
-  let state = bed(bed(), 1, 0);
+  let state = bed(bed(), 17, 16);
   state = run(state, { type: 'removePlot', plotId: 0 }, 0);
   state = run(state, { type: 'plant', plotId: 1, cropId: 'carrot' }, 0);
   state = run(state, { type: 'harvest', plotId: 1 }, 3600000);
@@ -221,11 +224,11 @@ test('plot IDs remain monotonic after deletion and surviving IDs resolve correct
   state = run(state, { type: 'sell', cropId: 'carrot', quantity: 3 }, 3600000);
   assert.equal(state.inventory.carrot, 0);
   state = run(state, { type: 'removePlot', plotId: 1 }, 3600000);
-  state = run({ ...state, coins: 500 }, { type: 'buyPlot', x: 0, y: 0 }, 3600000);
+  state = run({ ...state, coins: 500 }, { type: 'buyPlot', x: 16, y: 16 }, 3600000);
   assert.equal(state.plots[0].id, 2);
   assert.equal(state.nextPlotId, 3);
   assert.throws(() => run(state, { type: 'harvest', plotId: 0 }, 3600000), /PLOT_NOT_FOUND/);
-  const old = bed(bed(), 1, 0);
+  const old = bed(bed(), 17, 16);
   delete old.nextPlotId;
   assert.equal(upgradeFarmState(old).nextPlotId, 2);
   assert.equal(FarmStateSchema.safeParse({ ...state, nextPlotId: 2 }).success, false);
@@ -236,7 +239,7 @@ test('plot IDs remain monotonic after deletion and surviving IDs resolve correct
   );
   assert.equal(
     FarmStateSchema.safeParse({ ...state, plots: [{ ...state.plots[0], ...HOUSE_CELL }] }).success,
-    false,
+    true,
   );
   assert.throws(() => run(createFarm(0), { type: 'removePlot', plotId: 0 }, 0), /PLOT_NOT_FOUND/);
   for (const plotId of [-1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1])
@@ -257,8 +260,8 @@ test('bankruptcy recovery produces one normal carrot cycle without currency rewa
     assert.deepEqual(recovered.inventory, original.inventory);
     assert.equal(recovered.plots[0].cropId, 'carrot');
     if (!original.plots.length) {
-      assert.equal(recovered.plots[0].x, HOUSE_CELL.x);
-      assert.equal(recovered.plots[0].y, HOUSE_CELL.y + 2);
+      assert.equal(recovered.plots[0].x, 32);
+      assert.equal(recovered.plots[0].y, 30);
     }
     assert.equal(cropPhase(recovered.plots[0], now), 'growing');
     assert.throws(() => run(recovered, { type: 'recover' }, now), /RECOVERY_NOT_AVAILABLE/);
@@ -273,7 +276,7 @@ test('bankruptcy recovery produces one normal carrot cycle without currency rewa
     { ...bed(), coins: 4 },
     plant(),
     { ...createFarm(0), coins: 0, inventory: { ...createFarm(0).inventory, tulip: 1 } },
-    { ...run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 0, y: 0 }, 0), coins: 0 },
+    { ...run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 16, y: 16 }, 0), coins: 0 },
   ]) {
     assert.equal(canRecoverFarm(original, 0), false);
     assert.throws(() => run(original, { type: 'recover' }, 0), /RECOVERY_NOT_AVAILABLE/);
@@ -289,4 +292,64 @@ test('canonical state supports JSON Schema contracts while old v2 states upgrade
   assert.equal(upgradeFarmState(old).nextPlotId, 1);
   const next = run(old, { type: 'removePlot', plotId: 0 }, 0);
   assert.equal(next.nextPlotId, 1);
+});
+
+test('new land and move targets use inclusive32x32 bounds; visual house stays outside', () => {
+  assert.deepEqual(PLANTING_BOUNDS, { minX: 16, maxX: 47, minY: 16, maxY: 47 });
+  assert.equal(isPlantingCell(HOUSE_DISPLAY_CELL.x, HOUSE_DISPLAY_CELL.y), false);
+  for (const [x, y] of [
+    [16, 16],
+    [16, 47],
+    [47, 16],
+    [47, 47],
+  ]) {
+    assert.ok(isPlantingCell(x, y));
+    assert.equal(bed(createFarm(0), x, y).plots.length, 1);
+  }
+  for (const [x, y] of [
+    [15, 16],
+    [48, 16],
+    [16, 15],
+    [16, 48],
+    [0, 0],
+    [63, 63],
+  ]) {
+    for (const type of ['buyPlot', 'buyTree'])
+      assert.throws(
+        () =>
+          run(createFarm(0), { type, x, y, ...(type === 'buyTree' ? { cropId: 'apple' } : {}) }, 0),
+        /CELL_OUTSIDE_FIELD/,
+      );
+    assert.throws(() => run(bed(), { type: 'movePlot', plotId: 0, x, y }, 0), /CELL_OUTSIDE_FIELD/);
+  }
+});
+test('legacy beds retain coordinates and lifecycle; manual moves can bring them inside', () => {
+  const legacy = bed();
+  legacy.plots[0].x = 0;
+  legacy.plots[0].y = 63;
+  assert.ok(FarmStateSchema.safeParse(legacy).success);
+  const planted = run(legacy, { type: 'plant', plotId: 0, cropId: 'carrot' }, 0);
+  assert.equal(planted.plots[0].x, 0);
+  assert.equal(planted.plots[0].y, 63);
+  const grown = run(planted, { type: 'harvest', plotId: 0, destination: 'sell' }, 3600000);
+  assert.equal(grown.plots[0].x, 0);
+  const moved = run(planted, { type: 'movePlot', plotId: 0, x: 47, y: 47 }, 0);
+  assert.equal(moved.plots[0].cropId, 'carrot');
+  assert.equal(moved.plots[0].x, 47);
+  assert.equal(legacy.plots[0].x, 0);
+  const recovered = run({ ...legacy, coins: 0 }, { type: 'recover' }, 0);
+  assert.equal(recovered.plots[0].x, 0);
+  assert.equal(recovered.plots[0].y, 63);
+  const fresh = run({ ...createFarm(0), coins: 0 }, { type: 'recover' }, 0);
+  assert.ok(isPlantingCell(fresh.plots[0].x, fresh.plots[0].y));
+});
+
+test('former house cell is usable and historical bed at visual house coordinates stays valid', () => {
+  const center = bed(createFarm(0), 32, 28);
+  assert.equal(center.plots[0].x, 32);
+  const legacy = bed();
+  legacy.plots[0].x = HOUSE_CELL.x;
+  legacy.plots[0].y = HOUSE_CELL.y;
+  assert.ok(FarmStateSchema.safeParse(legacy).success);
+  assert.deepEqual(upgradeFarmState(legacy).plots, legacy.plots);
 });

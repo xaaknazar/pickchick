@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet, type ViewStyle } from 'react-native';
 import { font } from '../../theme';
 export const farmPalette = {
   ink: '#18332C',
@@ -11,7 +11,12 @@ export const farmPalette = {
   green: '#317247',
 };
 export const farmStyles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: farmPalette.field, overflow: 'hidden' },
+  screen: {
+    flex: 1,
+    backgroundColor: farmPalette.field,
+    // CSS clip prevents browser focus from scrolling the transformed world inside this container.
+    overflow: (Platform.OS === 'web' ? 'clip' : 'hidden') as ViewStyle['overflow'],
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14 },
   title: { fontFamily: font.display, fontSize: 23, color: farmPalette.ink },
   text: { fontFamily: font.body, fontSize: 14, color: farmPalette.ink, lineHeight: 21 },

@@ -14,11 +14,19 @@ export function useFarmMotion() {
       if (alive) setReduced(value);
     });
     const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    const app = AppState.addEventListener('change', (value) => setActive(value === 'active'));
+    const visible = () =>
+      setActive(
+        AppState.currentState === 'active' && (typeof document === 'undefined' || !document.hidden),
+      );
+    const app = AppState.addEventListener('change', visible);
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visible);
+    visible();
     return () => {
       alive = false;
       motion.remove();
       app.remove();
+      if (typeof document !== 'undefined')
+        document.removeEventListener('visibilitychange', visible);
     };
   }, []);
   return { reduced, active };
