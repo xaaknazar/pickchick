@@ -2915,30 +2915,6 @@
       "nextAction": "Root integrates ebdad26 + c3f77b9 after helper/contracts; updates shared docs/roadmap and performs coordinated backend acceptance. Native physical wallet availability remains unverified."
     },
     {
-      "id": "tiptoppay-backend",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/tiptoppay-backend",
-      "scopes": [
-        "packages/commerce-core/src/tiptoppay-checkout.ts",
-        "tests/payments/tiptoppay-checkout.test.mjs",
-        "packages/commerce-core/src/tiptoppay.ts",
-        "packages/commerce-core/src/customer-checkout.ts",
-        "packages/commerce-core/src/order-view.ts",
-        "packages/commerce-core/src/index.ts",
-        "packages/contracts/src/customer-commerce.ts",
-        "services/api/src/customer-checkout-controller.ts",
-        "services/api/src/customer-checkout-response.ts",
-        "services/api/src/tiptoppay-controller.ts",
-        "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql",
-        "services/api/src/tiptoppay-reconcile-worker.ts"
-      ],
-      "status": "available",
-      "head": "0def885ab544b592d7f2e02abc5f338fcf87e3a4",
-      "updatedAt": "2026-10-05T17:22:34.129Z",
-      "summary": "Contracts840672b; hostedcheckout4b62393 +workerDB0def885. 15 focused unit/HTTP/PostgreSQL and66 Commerce/Kaspi PG regressions passed; API build, lint, format, contracts check passed. Root coordinated generated OpenAPI/scripts overlap with available farm task. All gate flags off; no bank calls/deploy. Refund adapter unavailable.",
-      "nextAction": "Root independent financial review, integrate own branch, docs/roadmap+runtime grants+fullCI. Live terminal/merchant/domain/routing/fiscal approval and real device acceptance required before enabling."
-    },
-    {
       "id": "tiptoppay-checkout",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-checkout",
@@ -2961,6 +2937,32 @@
       "status": "active",
       "head": "fe691809cf984e1bb8f1e4bfd6d16bf76738f4d7",
       "updatedAt": "2026-10-05T17:24:07.474Z"
+    },
+    {
+      "id": "tiptoppay-backend",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-backend",
+      "scopes": [
+        "packages/commerce-core/src/tiptoppay-checkout.ts",
+        "tests/payments/tiptoppay-checkout.test.mjs",
+        "packages/commerce-core/src/tiptoppay.ts",
+        "packages/commerce-core/src/customer-checkout.ts",
+        "packages/commerce-core/src/order-view.ts",
+        "packages/commerce-core/src/index.ts",
+        "packages/contracts/src/customer-commerce.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "services/api/src/customer-checkout-response.ts",
+        "services/api/src/tiptoppay-controller.ts",
+        "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql",
+        "services/api/src/tiptoppay-reconcile-worker.ts",
+        "packages/commerce-core/src/tiptoppay-test-checkout.ts",
+        "db/cloud/migrations/040_cloud_tiptoppay_test_checkout.sql"
+      ],
+      "status": "active",
+      "head": "b504de315ed08526b2cce15fe1555d8c82230958",
+      "updatedAt": "2026-10-05T17:26:25.092Z",
+      "summary": "Contracts840672b; hostedcheckout4b62393 +workerDB0def885. 15 focused unit/HTTP/PostgreSQL and66 Commerce/Kaspi PG regressions passed; API build, lint, format, contracts check passed. Root coordinated generated OpenAPI/scripts overlap with available farm task. All gate flags off; no bank calls/deploy. Refund adapter unavailable.",
+      "nextAction": "Root independent financial review, integrate own branch, docs/roadmap+runtime grants+fullCI. Live terminal/merchant/domain/routing/fiscal approval and real device acceptance required before enabling."
     }
   ]
 }
