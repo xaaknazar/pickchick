@@ -12,6 +12,14 @@ export async function readCheckoutOrder(
 ) {
   // Ownership is checked before consulting any provider/fulfillment projection.
   const order = await repository.readOrder(scope, orderId);
+  if (!walletsEnabled && order.attempts.length) {
+    walletsEnabled = !!(
+      await pool.query(
+        `SELECT 1 FROM commerce_payment_attempts a JOIN commerce_provider_accounts p ON p.id=a.account_id WHERE a.order_id=$1 AND p.provider='tiptoppay' LIMIT 1`,
+        [orderId],
+      )
+    ).rowCount;
+  }
   const [invoice, projection, branch, method, hosted] = await Promise.all([
     pool.query<{ state: string; operation_id: string | null; expires_at: Date | null }>(
       'SELECT state,operation_id,expires_at FROM commerce_kaspi_invoices WHERE order_id=$1 ORDER BY issue_started_at DESC LIMIT 1',

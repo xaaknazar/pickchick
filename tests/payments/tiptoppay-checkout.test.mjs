@@ -264,6 +264,19 @@ test('hosted capabilities rotate before open, allow one widget, bind Check and d
       assert.equal(first.attemptId, second.attemptId);
       assert.equal(second.attemptId, attempt.attemptId);
       assert.equal(await f.count('commerce_payment_attempts'), 1);
+      const disabledCheckout = new CustomerCheckout(f.pool, {
+        organizationId: f.scope.organizationId,
+        branchId: f.scope.branchId,
+        paymentAccountId: randomUUID(),
+        customerIds: [customer],
+        maxOrderMinor: '100000',
+        approvalReference: opts.approvalReference,
+      });
+      const recovered = await disabledCheckout.read(customer, order.orderId);
+      assert.equal(recovered.paymentMethod, 'card');
+      assert.equal(recovered.phase, 'awaiting_payment');
+      assert.equal(recovered.expiresAt, second.expiresAt);
+
       await assert.rejects(hosted.open(new URL(first.checkoutUrl).hash.slice(1)));
       const token = new URL(second.checkoutUrl).hash.slice(1);
       const otherLegal = randomUUID();
@@ -324,10 +337,15 @@ test('hosted capabilities rotate before open, allow one widget, bind Check and d
         "UPDATE commerce_tiptoppay_sessions SET expires_at=clock_timestamp()-interval '1 minute'",
       );
       assert.deepEqual(await send('check'), { code: 13 });
+      assert.equal((await disabledCheckout.read(customer, order.orderId)).phase, 'checking');
       assert.deepEqual(await send('fail', { ReasonCode: '5206' }), { code: 0 });
       assert.equal((await repo.readOrder(f.scope, order.orderId)).attempts[0].state, 'unknown');
       await f.pool.query('UPDATE commerce_provider_accounts SET enabled=false WHERE id=$1', [
         f.payment,
+      ]);
+      await f.pool.query('UPDATE branches SET legal_entity_id=$2 WHERE id=$1', [
+        f.scope.branchId,
+        otherLegal,
       ]);
       await Promise.all(Array.from({ length: 5 }, () => send('pay')));
       assert.deepEqual(await hosted.status(token), { status: 'observed' });

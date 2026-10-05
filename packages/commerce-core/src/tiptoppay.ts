@@ -136,7 +136,8 @@ export class TipTopPayReceiver {
        JOIN commerce_orders o ON o.id=a.order_id
        JOIN commerce_provider_accounts p ON p.id=a.account_id
         AND p.organization_id=o.organization_id AND p.branch_id=o.branch_id
-       JOIN branches b ON b.id=o.branch_id AND b.organization_id=o.organization_id AND b.legal_entity_id=p.legal_entity_id
+       JOIN branches b ON b.id=o.branch_id AND b.organization_id=o.organization_id
+        AND o.snapshot->>'legalEntityId'=p.legal_entity_id::text
        LEFT JOIN commerce_provider_accounts f ON f.id=o.fiscal_account_id
         AND f.legal_entity_id=p.legal_entity_id AND f.kind='fiscal'
        WHERE a.id=$1 AND p.id=$2 AND p.provider='tiptoppay'
