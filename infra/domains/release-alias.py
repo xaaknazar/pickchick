@@ -22,9 +22,21 @@ OLD = 'https://pickchick.185.129.51.103.nip.io'
 NAMES = ['deploy-caddy-1', 'deploy-server-1', 'deploy-db-1', 'pickchick-public-gateway',
          'pickchick-staging-api-1', 'pickchick-staging-cloud-db-1',
          'pickchick-staging-redis-cache-1', 'pickchick-kitchen-portal', 'pickchick-roadmap']
-JOBS = {'Build, contracts and PostgreSQL integration', 'Local kitchen UI and recovery',
-        'Private staging image and restricted database role', 'Design screens and interaction smoke',
-        'Cloud-edge fulfillment transport and recovery', 'iPad kiosk state, bundles and browser recovery'}
+JOBS = {
+    'Build, contracts and PostgreSQL integration',
+    'Cloud-edge fulfillment transport and recovery',
+    'Design screens and interaction smoke',
+    'Foundation POS and backoffice integration',
+    'Foundation mobile bundles and checkout recovery',
+    'Foundation server account and Kaspi fixtures',
+    'Foundation simulator browser regressions',
+    'Foundation static checks and transaction invariants',
+    'Local kitchen UI and recovery',
+    'Private staging image and restricted database role',
+    'iPad kiosk state, bundles and browser recovery',
+}
+DEFAULT_BLOCK_SHA256 = '95606e088bfc2c2fc2d10212c42bc2228bfb126bdfc01ee90fbe173ebd2e9042'
+TEST_BLOCK_SHA256 = 'a8c109b03fbba06960c7112fb6d8a3afc1b07652d5e886bb7e05b29ccd3a5834'
 MARKER = b'\n# BEGIN PICKCHICK DOMAIN ALIASES\n'
 
 
@@ -86,24 +98,43 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def http(url):
+def http(url, *, method=None, data=None, headers=None):
     try:
-        r = urllib.request.build_opener(NoRedirect()).open(url, timeout=8)
+        r = urllib.request.build_opener(NoRedirect()).open(
+            urllib.request.Request(url, method=method, data=data, headers=headers or {}), timeout=8)
     except urllib.error.HTTPError as e:
         r = e
     with r:
         return r.status, dict(r.headers), r.read()
 
 
-def baseline_http():
+def baseline_http(allow_test=False):
     code, _, body = http('https://185.129.51.103.nip.io/')
     require(code == 200, 'Neighbor HTTPS unavailable')
     status, _, cap = http(OLD+'/v1/capabilities')
-    require(status == 200 and json.loads(cap)['features']['payments'] is False, 'Unexpected payment baseline')
+    require(status == 200 and isinstance(json.loads(cap).get('features'), dict)
+            and (allow_test or json.loads(cap)['features']['payments'] is False), 'Unexpected payment baseline')
     return digest(body), cap
 
 
-def candidate(original, block):
+def verify_payment_routes(origin, allow_test):
+    for event in ['check', 'pay', 'fail', 'checkout']:
+        method = 'GET' if event == 'checkout' else 'POST'
+        require(http(origin+'/v1/integrations/tiptoppay/'+event, method=method)[0] == 503,
+                'Commercial TipTopPay guard missing')
+    require(http(origin+'/v1/integrations/tiptoppay/test-checkout')[0] == (200 if allow_test else 503),
+            'Hosted TEST route differs from selected mode')
+    for event in ['check', 'pay', 'fail']:
+        status = http(origin+'/v1/integrations/tiptoppay/test-'+event, method='POST',
+                      data=b'TestMode=1', headers={'Content-Type': 'application/x-www-form-urlencoded'})[0]
+        require(status == (401 if allow_test else 503), 'Unsigned TEST webhook guard differs')
+    require(http(origin+'/v1/integrations/tiptoppay/test-pay')[0] == 503,
+            'Wrong-method TEST callback exposed')
+
+
+def candidate(original, block, allow_tiptoppay_test=False):
+    require(digest(block) == (TEST_BLOCK_SHA256 if allow_tiptoppay_test else DEFAULT_BLOCK_SHA256),
+            'Unreviewed domain block or TEST forwarding not explicitly authorized')
     require(MARKER not in original and b'pickchick.kz' not in original, 'Domain aliases already exist')
     require(block and b'pickchick.kz {' in block and b'api.pickchick.kz {' in block
             and b'www.pickchick.kz {' in block, 'Missing domain block')
@@ -132,10 +163,10 @@ def main(args):
     require(digest(original) == args.expected_front_hash, 'Front configuration changed')
     block = args.block.read_bytes()
     require(digest(block) == args.block_sha256, 'Block digest mismatch')
-    new = candidate(original, block)
+    new = candidate(original, block, args.allow_tiptoppay_test)
     guards(args)
     before = containers()
-    neighbor, capabilities = baseline_http()
+    neighbor, capabilities = baseline_http(args.allow_tiptoppay_test)
     caddy('validate', new)
     if not args.apply:
         print(json.dumps({'validated': True, 'applied': False, 'candidate_sha256': digest(new)}))
@@ -170,6 +201,7 @@ def main(args):
                     require(status == 200 and body == capabilities, 'Alias API differs')
                     require(headers.get('Strict-Transport-Security') == 'max-age=86400', 'HSTS absent')
                     require(http('https://'+host+'/v1/integrations/tiptoppay/pay')[0] == 503, 'Payment guard missing')
+                    verify_payment_routes('https://'+host, args.allow_tiptoppay_test)
                     require(http('https://'+host+'/roadmap/')[0] == 308, 'Staff redirect missing')
                 status, headers, _ = http('https://www.pickchick.kz/')
                 require(status == 308 and headers.get('Location') == 'https://pickchick.kz/', 'www redirect differs')
@@ -180,10 +212,11 @@ def main(args):
                 time.sleep(2)
         guards(args)
         require(containers() == before, 'Existing container restarted or changed')
-        require(baseline_http() == (neighbor, capabilities), 'Original public responses changed')
+        require(baseline_http(args.allow_tiptoppay_test) == (neighbor, capabilities), 'Original public responses changed')
         record = {'source_sha': args.source_sha, 'front_before_sha256': digest(original),
                   'front_after_sha256': digest(new), 'trusted_https_verified': True,
-                  'containers_unchanged': True, 'api_deployed': False, 'payment_enabled': False}
+                  'containers_unchanged': True, 'api_deployed': False, 'commercial_tiptoppay_enabled': False,
+                  'tiptoppay_test_forwarded': args.allow_tiptoppay_test}
         (release/'result.json').write_text(json.dumps(record, indent=2)+'\n')
         print(json.dumps(record))
     except Uncertain:
@@ -196,7 +229,7 @@ def main(args):
                 write_front(original)
                 caddy('reload', original)
                 require(FRONT.read_bytes() == original and containers() == before
-                        and baseline_http() == (neighbor, capabilities), 'Rollback unverified')
+                        and baseline_http(args.allow_tiptoppay_test) == (neighbor, capabilities), 'Rollback unverified')
             except Exception:
                 release_lock = False
                 raise RuntimeError('Rollback unverified; lock retained for inspection') from None
@@ -214,6 +247,8 @@ if __name__ == '__main__':
         p.add_argument('--'+name, required=True)
     p.add_argument('--ci-proof', type=Path, required=True)
     p.add_argument('--block', type=Path, required=True)
+    p.add_argument('--allow-tiptoppay-test', action='store_true',
+                   help='Forward only reviewed isolated TEST endpoints to the installed gateway')
     p.add_argument('--apply', action='store_true')
     try:
         main(p.parse_args())

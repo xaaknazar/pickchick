@@ -43,6 +43,43 @@ class Guards(unittest.TestCase):
         with self.assertRaises(RuntimeError): alias.candidate(new, block)
         with self.assertRaises(RuntimeError): alias.candidate(original, b'partial')
 
+    def test_profile_matches_all_current_foundation_jobs(self):
+        import re
+        workflow = Path(__file__).resolve().parents[2]/'.github/workflows/ci.yml'
+        names = set(re.findall(r'^    name: (.+)$', workflow.read_text(), re.MULTILINE))
+        self.assertEqual(alias.JOBS, names)
+        self.assertEqual(len(names), 11)
+        p = proof(); p['jobs']['jobs'].append(dict(p['jobs']['jobs'][0]))
+        p['jobs']['total_count'] += 1
+        with self.assertRaises(RuntimeError): alias.verify_ci(p, SHA)
+
+    def test_test_forwarding_requires_exact_reviewed_block_and_explicit_gate(self):
+        original = b'old.example { respond "unchanged" }'
+        block = Path(__file__).with_name('pickchick-test.Caddyfile').read_bytes()
+        with self.assertRaises(RuntimeError): alias.candidate(original, block)
+        new = alias.candidate(original, block, True)
+        self.assertTrue(new.startswith(original))
+        for changed in [block.replace(b'method POST', b'method GET'),
+                        block.replace(b'test-pay ', b'pay '), block+b'other.example {}']:
+            with self.assertRaises(RuntimeError): alias.candidate(original, changed, True)
+        self.assertIn(b'@payment_callback path /v1/integrations/tiptoppay/*', block)
+        self.assertIn(b'PAYMENT_INTEGRATION_PENDING" 503', block)
+        self.assertNotIn(b'.well-known', block)
+
+    def test_http_probes_require_signed_test_boundary_and_live_unavailable(self):
+        for allow in [False, True]:
+            def http(url, **kwargs):
+                path = url.split('https://synthetic')[1]
+                if allow and path.endswith('/test-checkout'): return 200, {}, b''
+                if allow and '/test-' in path and kwargs.get('method') == 'POST':
+                    self.assertEqual(kwargs['data'], b'TestMode=1')
+                    return 401, {}, b''
+                return 503, {}, b''
+            with patch.object(alias, 'http', side_effect=http):
+                alias.verify_payment_routes('https://synthetic', allow)
+        with patch.object(alias, 'http', return_value=(200, {}, b'')):
+            with self.assertRaises(RuntimeError): alias.verify_payment_routes('https://synthetic', True)
+
     def test_writer_is_isolated_to_existing_file_owner(self):
         class Stat:
             st_uid, st_gid = 1001, 50
