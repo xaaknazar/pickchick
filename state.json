@@ -2809,9 +2809,11 @@
         "packages/contracts/openapi.json",
         "scripts/contracts.mjs"
       ],
-      "status": "active",
-      "head": "ac767d318c7861c58cca6193a423129d3070b371",
-      "updatedAt": "2026-10-05T10:25:02.468Z"
+      "status": "available",
+      "head": "229139b287cda4b20fe30cf583cef52de1a4571f",
+      "updatedAt": "2026-10-05T10:32:33.557Z",
+      "summary": "bf0ff68 +229139b опубликованы; протокол query=2 до persistence, OpenAPI, legacy no-write, durable progression. API build/lint/format/contracts/diff и HTTP/Postgres 2/2 изолированно port55439 passed. Engine ba63205 включён локально как4948c9b; root cherry-picks original. Live данные и deploy не затронуты.",
+      "nextAction": "Root: интегрировать bf0ff68, ba63205,229139b; полная CI, согласованный клиентprotocol2; finish после общего среза."
     }
   ]
 }
