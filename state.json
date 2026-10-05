@@ -2895,23 +2895,6 @@
       "updatedAt": "2026-10-05T16:59:10.786Z"
     },
     {
-      "id": "tiptoppay-checkout",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/tiptoppay-checkout",
-      "scopes": [
-        "apps/mobile/src/commerce-checkout.ts",
-        "apps/mobile/src/screens/Checkout.tsx",
-        "apps/mobile/src/screens/Payment.tsx",
-        "apps/backoffice/src",
-        "docs/operations/tiptoppay-checkout.md",
-        "packages/backoffice-core/src/index.ts",
-        "tests/backoffice/tiptoppay-reporting.test.mjs"
-      ],
-      "status": "active",
-      "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
-      "updatedAt": "2026-10-05T17:05:39.896Z"
-    },
-    {
       "id": "tiptoppay-mobile",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-mobile",
@@ -2950,6 +2933,26 @@
       "status": "active",
       "head": "840672b6ace58968e86b3a171e7082b4ab490da3",
       "updatedAt": "2026-10-05T17:10:52.190Z"
+    },
+    {
+      "id": "tiptoppay-checkout",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-checkout",
+      "scopes": [
+        "apps/mobile/src/commerce-checkout.ts",
+        "apps/mobile/src/screens/Checkout.tsx",
+        "apps/mobile/src/screens/Payment.tsx",
+        "apps/backoffice/src",
+        "docs/operations/tiptoppay-checkout.md",
+        "packages/backoffice-core/src/index.ts",
+        "tests/backoffice/tiptoppay-reporting.test.mjs",
+        "infra/payments/tiptoppay.env.example",
+        "infra/payments/tiptoppay-grants.mjs",
+        "tests/unit/tiptoppay-grants.test.mjs"
+      ],
+      "status": "active",
+      "head": "9fa0d51dfac56d335b702b44f2c01d4ae6a78281",
+      "updatedAt": "2026-10-05T17:17:20.680Z"
     }
   ]
 }
