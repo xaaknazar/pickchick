@@ -191,8 +191,8 @@ with sync_playwright() as playwright:
         first = FIXTURE['game']['witness'][0]
         bottle(page, first['from']).click()
         bottle(page, FIXTURE['illegal']).click()
-        expect(bottle(page, FIXTURE['illegal'])).to_have_attribute('aria-selected', 'true')
-        expect(bottle(page, first['from'])).to_have_attribute('aria-selected', 'false')
+        expect(bottle(page, FIXTURE['illegal']).locator(':scope > div')).to_have_css('transform', 'matrix(1, 0, 0, 1, 0, -7)')
+        expect(bottle(page, first['from']).locator(':scope > div')).to_have_css('transform', 'matrix(1, 0, 0, 1, 0, 0)')
         assert saved(page) == FIXTURE['game'], 'Illegal pour must not persist a move'
         bottle(page, FIXTURE['illegal']).click()  # Cancel the newly selected source.
         assert pour(page, first, 1) == FIXTURE['afterFirst']
