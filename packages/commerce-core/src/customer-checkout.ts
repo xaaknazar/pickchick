@@ -219,12 +219,13 @@ export class CustomerCheckout {
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
-    const tipTopReady = this.tipTop
-      ? await this.pool.query(
-          `SELECT 1 FROM commerce_provider_accounts p JOIN branches b ON b.id=p.branch_id AND b.organization_id=p.organization_id AND b.legal_entity_id=p.legal_entity_id WHERE p.id=$1 AND p.provider='tiptoppay' AND p.kind='payment' AND p.external_reference=$2 AND p.enabled AND p.branch_id=$3 AND p.organization_id=$4`,
-          [this.tipTop.accountId, this.tipTop.publicId, scope.branchId, scope.organizationId],
-        )
-      : null;
+    const tipTopReady =
+      this.tipTop && this.tipTop.approvalReference === this.options!.approvalReference
+        ? await this.pool.query(
+            `SELECT 1 FROM commerce_provider_accounts p JOIN branches b ON b.id=p.branch_id AND b.organization_id=p.organization_id AND b.legal_entity_id=p.legal_entity_id WHERE p.id=$1 AND p.provider='tiptoppay' AND p.kind='payment' AND p.external_reference=$2 AND p.enabled AND p.branch_id=$3 AND p.organization_id=$4`,
+            [this.tipTop.accountId, this.tipTop.publicId, scope.branchId, scope.organizationId],
+          )
+        : null;
     return {
       enabled: row.ready,
       paymentMethods: ['kaspi', ...(tipTopReady?.rowCount ? this.tipTop!.methods : [])],
