@@ -153,6 +153,38 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
       (await request('/commands', { ...command, customerId: randomUUID() })).body.code,
       'INVALID_REQUEST',
     );
+    const store = {
+      commandId: randomUUID(),
+      expectedRevision: 1,
+      command: { type: 'storePlot', plotId: 0 },
+    };
+    const stored = await request('/commands', store);
+    assert.equal(stored.status, 200);
+    assert.equal(stored.body.state.plots.length, 0);
+    assert.equal(stored.body.state.progression.storedPlots.length, 1);
+    assert.deepEqual((await request('/commands', store)).body.state, stored.body.state);
+    const place = await request('/commands', {
+      commandId: randomUUID(),
+      expectedRevision: 2,
+      command: { type: 'placePlot', plotId: 0, x: 30, y: 31 },
+    });
+    assert.equal(place.status, 200);
+    assert.equal(place.body.state.plots[0].x, 30);
+    assert.equal(place.body.state.progression.storedPlots.length, 0);
+    const forged = await request('/commands', {
+      commandId: randomUUID(),
+      expectedRevision: 3,
+      command: { type: 'claimQuest', questId: 'first-harvest' },
+      progression: { harvested: 999 },
+    });
+    assert.equal(forged.body.code, 'INVALID_REQUEST');
+    const unearned = await request('/commands', {
+      commandId: randomUUID(),
+      expectedRevision: 3,
+      command: { type: 'claimQuest', questId: 'first-harvest' },
+    });
+    assert.equal(unearned.body.code, 'QUEST_NOT_READY');
+    assert.equal((await request()).body.state.revision, 3);
     await pool.query(
       "UPDATE identity_sessions SET access_expires_at=clock_timestamp()-interval '1 second'",
     );

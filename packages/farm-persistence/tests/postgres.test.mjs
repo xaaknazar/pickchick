@@ -78,6 +78,15 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
     );
     assert.equal(competing.filter((x) => x.status === 'fulfilled').length, 1);
     assert.equal(competing.find((x) => x.status === 'rejected').reason.code, 'STALE_STATE');
+    const planting = competing.find((x) => x.status === 'fulfilled').value;
+    assert.equal(planting.state.plots[0].plantedAt, planting.serverNow);
+    assert.equal(planting.state.plots[0].timing.growSeconds, 45);
+    assert.equal(planting.state.progression.tutorialPlantings, 1);
+    assert.deepEqual(
+      (await scoped.query('SELECT state FROM customer_farms WHERE customer_id=$1', [a])).rows[0]
+        .state,
+      planting.state,
+    );
     assert.equal(
       (await farm.command(a, command)).state.revision,
       2,
@@ -113,10 +122,15 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
       farm.command(a, {
         commandId: randomUUID(),
         expectedRevision: 2,
-        command: { type: 'movePlot', plotId: 0, x: 33, y: 33 },
+        command: { type: 'movePlot', plotId: 0, x: 30, y: 31 },
       }),
     );
     assert.equal((await farm.get(a)).state.revision, 2, 'state update rolls back with receipt');
+    assert.equal(
+      (await farm.get(a)).state.plots[0].x,
+      31,
+      'valid movement rolls back with failed receipt',
+    );
     await scoped.query('DROP TRIGGER receipt_failure ON customer_farm_commands');
     await scoped.query(
       "INSERT INTO customer_farm_commands(customer_id,command_id,request_hash,revision) SELECT $1,gen_random_uuid(),repeat('e',64),0 FROM generate_series(1,120)",
@@ -130,6 +144,86 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
       }),
       (e) => e.code === 'RATE_LIMITED',
     );
+    // Progression effects and their receipts share the same durable transaction.
+    const progressionCustomer = randomUUID();
+    await scoped.query('INSERT INTO identity_customers(id) VALUES($1)', [progressionCustomer]);
+    let progression = (await farm.get(progressionCustomer)).state;
+    progression = {
+      ...progression,
+      coins: 10000,
+      xp: 10000,
+      inventory: { ...progression.inventory, strawberry: 9 },
+    };
+    await scoped.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [
+      progressionCustomer,
+      progression,
+    ]);
+    async function run(command) {
+      const input = { commandId: randomUUID(), expectedRevision: progression.revision, command };
+      const result = await farm.command(progressionCustomer, input);
+      progression = result.state;
+      return { input, result };
+    }
+    const decoration = await run({ type: 'buyDecoration', decorationId: 'path', x: 20, y: 20 });
+    const duplicate = await farm.command(progressionCustomer, decoration.input);
+    assert.deepEqual(duplicate.state, progression);
+    assert.equal(progression.progression.decorations.length, 1);
+    await run({ type: 'storeDecoration', instanceId: 0 });
+    await run({ type: 'placeDecoration', instanceId: 0, x: 21, y: 21 });
+    await run({ type: 'moveDecoration', instanceId: 0, x: 22, y: 22 });
+    await run({ type: 'setHouseStyle', style: 'mint' });
+    await run({ type: 'buyStation', stationId: 'kitchen' });
+    const production = await run({ type: 'startProduction', recipeId: 'jam' });
+    assert.equal(progression.inventory.strawberry, 6);
+    assert.deepEqual(
+      (await farm.command(progressionCustomer, production.input)).state,
+      progression,
+    );
+    assert.equal(progression.progression.stations[0].queue.length, 1);
+    const job = progression.progression.stations[0].queue[0];
+    assert.ok(job.readyAt >= production.result.serverNow + 900000);
+    const collectInput = {
+      commandId: randomUUID(),
+      expectedRevision: progression.revision,
+      command: { type: 'collectProduction', stationId: 'kitchen', jobId: job.id },
+    };
+    await assert.rejects(
+      farm.command(progressionCustomer, collectInput),
+      (e) => e.code === 'PRODUCTION_NOT_READY',
+    );
+    assert.deepEqual(
+      (await farm.get(progressionCustomer)).state,
+      progression,
+      'early collection has no financial effect',
+    );
+    // Advance only this isolated fixture; production readiness still uses the DB clock.
+    job.readyAt = production.result.serverNow - 1;
+    progression.progression.harvested = 1;
+    await scoped.query('UPDATE customer_farms SET state=$2 WHERE customer_id=$1', [
+      progressionCustomer,
+      progression,
+    ]);
+    progression = (await farm.command(progressionCustomer, collectInput)).state;
+    assert.equal(progression.progression.products.jam, 1);
+    assert.equal(
+      (await farm.command(progressionCustomer, collectInput)).state.progression.products.jam,
+      1,
+    );
+    const quest = await run({ type: 'claimQuest', questId: 'first-harvest' });
+    const questCoins = progression.coins;
+    assert.equal((await farm.command(progressionCustomer, quest.input)).state.coins, questCoins);
+    await assert.rejects(
+      farm.command(progressionCustomer, {
+        ...quest.input,
+        commandId: randomUUID(),
+        expectedRevision: progression.revision,
+      }),
+      (e) => e.code === 'REWARD_CLAIMED',
+    );
+    assert.equal((await farm.get(progressionCustomer)).state.coins, questCoins);
+    await run({ type: 'sellProduct', recipeId: 'jam', quantity: 1 });
+    assert.equal(progression.progression.products.jam, 0);
+    assert.equal(progression.coins, questCoins + 30);
     const legacy = {
       version: 1,
       revision: 7,
@@ -370,7 +464,7 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
           await restrictedFarm.command(a, {
             commandId: randomUUID(),
             expectedRevision: 2,
-            command: { type: 'movePlot', plotId: 0, x: 33, y: 33 },
+            command: { type: 'movePlot', plotId: 0, x: 30, y: 31 },
           })
         ).state.revision,
         3,
