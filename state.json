@@ -2604,6 +2604,28 @@
       "updatedAt": "2026-10-05T04:53:20.804Z",
       "summary": "Magic Sort initial prototype and continuous pouring follow-up saved as a91abb5, PR178, included shared-development. 8 engine/storage tests, 100 v2 witnesses, legacy compatibility, mobile TypeScript/lint, web/iOS exports; 63-move browser journey and 320/390 flow geometry pass. Previous d95 checkpoint full CI green and online roadmap deployed.",
       "nextAction": "Follow-up full CI then roadmap publish and native iPhone/TestFlight acceptance; no payment/API changes."
+    },
+    {
+      "id": "games-testflight",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/games-testflight",
+      "scopes": [
+        "apps/mobile/assets/games",
+        "apps/mobile/src/games/magic-sort/MagicSortCard.tsx",
+        "apps/mobile/src/games/pick-farm/visuals.tsx",
+        "apps/mobile/src/screens/GameScreens.tsx",
+        "apps/mobile/PRODUCT.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/design/games-alex-covers.md",
+        "docs/operations/mobile-testflight.md",
+        "@release/ios",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "a91abb54d69654e75fe662b4b9d59caa764c51be",
+      "updatedAt": "2026-10-05T04:55:40.105Z"
     }
   ]
 }
