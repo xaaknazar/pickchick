@@ -2722,9 +2722,11 @@
         "packages/contracts/openapi.json",
         "tests/mobile/browser_magic_sort.py"
       ],
-      "status": "active",
-      "head": "937fbd669108b19c7a15956229025a7eed491d12",
-      "updatedAt": "2026-10-05T07:11:11.643Z"
+      "status": "done",
+      "head": "bf3cfd9eeb117876046cac896fafa19ddb635889",
+      "updatedAt": "2026-10-05T08:12:31.020Z",
+      "summary": "TestFlight 0.2.0 (11) доступна PickChick Internal: Тестируется, build 0f645dc9-bd85-4bff-a902-d442efc5b5c3. Источник/API 14bbd28, полная CI 37278526740 11/11. API-only выпуск сохранил данные/ACL/schema038. Roadmap bf3cfd9 опубликован и проверен; public pointer bf3cfd9, API 14bbd28, gateway 1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51. Документы bf3cfd9 опубликованы и включены в shared.",
+      "nextAction": "Владелец обновляет TestFlight до 0.2.0 (11) и принимает на iPhone жесты фермы, касания растений, сохранение и выбор бутылок. Физическая приёмка пока не подтверждена."
     }
   ]
 }
