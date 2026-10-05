@@ -8,10 +8,11 @@ export async function readCheckoutOrder(
   repository: CommerceRepository,
   scope: CommerceScope,
   orderId: string,
+  walletsEnabled = false,
 ) {
   // Ownership is checked before consulting any provider/fulfillment projection.
   const order = await repository.readOrder(scope, orderId);
-  const [invoice, projection, branch] = await Promise.all([
+  const [invoice, projection, branch, method, hosted] = await Promise.all([
     pool.query<{ state: string; operation_id: string | null; expires_at: Date | null }>(
       'SELECT state,operation_id,expires_at FROM commerce_kaspi_invoices WHERE order_id=$1 ORDER BY issue_started_at DESC LIMIT 1',
       [orderId],
@@ -29,6 +30,18 @@ export async function readCheckoutOrder(
       [orderId],
     ),
     pool.query<{ name: string }>('SELECT name FROM branches WHERE id=$1', [scope.branchId]),
+    walletsEnabled
+      ? pool.query<{ method: 'kaspi' | 'card' | 'apple_pay' | 'google_pay' }>(
+          'SELECT method FROM commerce_checkout_payment_methods WHERE order_id=$1',
+          [orderId],
+        )
+      : Promise.resolve({ rows: [] }),
+    walletsEnabled
+      ? pool.query<{ expires_at: Date }>(
+          'SELECT expires_at FROM commerce_tiptoppay_sessions WHERE order_id=$1',
+          [orderId],
+        )
+      : Promise.resolve({ rows: [] }),
   ]);
   const bank = invoice.rows[0],
     kitchen = projection.rows[0];
@@ -47,21 +60,26 @@ export async function readCheckoutOrder(
             : ['accepted', 'in_production'].includes(kitchen?.state ?? '')
               ? 'preparing'
               : 'paid'
-        : bank?.state === 'unknown' || order.attempts.some((a) => a.state === 'unknown')
+        : bank?.state === 'unknown' ||
+            order.attempts.some((a) => a.state === 'unknown') ||
+            (hosted.rows[0] && hosted.rows[0].expires_at.getTime() <= Date.now())
           ? 'checking'
           : bank?.state === 'failed' || order.attempts.some((a) => a.state === 'failed')
             ? 'failed'
             : bank?.state === 'issued' && bank.operation_id
               ? 'awaiting_payment'
-              : order.attempts.length
-                ? 'sending'
-                : order.state === 'awaiting_payment'
-                  ? 'ready_to_pay'
-                  : 'awaiting_restaurant';
+              : hosted.rows.length
+                ? 'awaiting_payment'
+                : order.attempts.length
+                  ? 'sending'
+                  : order.state === 'awaiting_payment'
+                    ? 'ready_to_pay'
+                    : 'awaiting_restaurant';
   const sale = order.fiscalDocuments.find((d) => d.kind === 'sale' && d.state === 'issued');
   // Receipt URLs are intentionally omitted until a dedicated fiscal adapter exposes a verified receipt.
   const body = {
     orderId,
+    paymentMethod: method.rows[0]?.method ?? 'kaspi',
     branchId: scope.branchId,
     createdAt: order.createdAt,
     updatedAt: kitchen?.observed_at.toISOString() ?? order.updatedAt,
@@ -74,7 +92,7 @@ export async function readCheckoutOrder(
     kitchenComment:
       typeof order.snapshot.kitchenComment === 'string' ? order.snapshot.kitchenComment : null,
     phase,
-    expiresAt: bank?.expires_at?.toISOString() ?? null,
+    expiresAt: bank?.expires_at?.toISOString() ?? hosted.rows[0]?.expires_at.toISOString() ?? null,
     receipt: sale ? 'issued' : order.fiscalPolicy === 'deferred_pilot' ? 'deferred' : 'pending',
     receiptUrl: null,
     items: (
