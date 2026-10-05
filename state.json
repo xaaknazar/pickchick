@@ -2773,9 +2773,11 @@
       "scopes": [
         "packages/farm-game"
       ],
-      "status": "active",
-      "head": "ac767d318c7861c58cca6193a423129d3070b371",
-      "updatedAt": "2026-10-05T10:22:24.152Z"
+      "status": "available",
+      "head": "f85f6ada0669f7437c8c0d5a9a6023775dbbb2f9",
+      "updatedAt": "2026-10-05T11:00:35.876Z",
+      "summary": "Engine integrated into shared 1c1ccc8 via cherry-picks db78ada/fe84b75; progression, decorations, production and recovery fixes verified; 28 farm tests pass in integrated branch. Original branch commits ba63205/f85f6ad retained; no code changes pending.",
+      "nextAction": "Root completes CI static fix and integrated release checks; finish claim from a compatible branch after confirming cherry-picked content in shared."
     },
     {
       "id": "farm-progression-api",
