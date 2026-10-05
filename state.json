@@ -3011,6 +3011,20 @@
       "status": "active",
       "head": "4b1e40129be0973188588c29175afc8cc364a4f8",
       "updatedAt": "2026-10-05T17:51:03.269Z"
+    },
+    {
+      "id": "tiptop-historical-fixtures",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-checkout",
+      "scopes": [
+        "tests/operations/test_auth_four_digit_release.py",
+        "tests/operations/test_server_pilot_release.py",
+        "tests/operations/test_farm_release.py",
+        "tests/operations/test_farm_update.py"
+      ],
+      "status": "active",
+      "head": "4b1e40129be0973188588c29175afc8cc364a4f8",
+      "updatedAt": "2026-10-05T17:52:34.542Z"
     }
   ]
 }
