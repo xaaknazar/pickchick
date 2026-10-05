@@ -458,32 +458,35 @@ export function MagicSortScreen() {
                       alignItems: 'center',
                       justifyContent: 'flex-end',
                       borderRadius: 12,
-                      backgroundColor: selected ? '#F2CB6426' : 'transparent',
                       opacity: model.pending?.move.from === index ? 0 : pressed ? 0.75 : 1,
-                      transform: [{ translateY: selected ? -7 : 0 }],
                     },
                   ]}
                 >
-                  <Bottle
-                    colors={
-                      model.pending?.move.to === index
-                        ? (model.pending.next.bottles[index] ?? colors)
-                        : colors
-                    }
-                    width={bottleWidth}
-                    height={bottleHeight}
-                    fluid={
-                      model.pending?.move.to === index
-                        ? {
-                            progress,
-                            before: colors.length,
-                            after: model.pending.next.bottles[index]?.length ?? colors.length,
-                            role: 'target',
-                            incoming: model.pending.color,
-                          }
-                        : undefined
-                    }
-                  />
+                  <View
+                    pointerEvents="none"
+                    style={{ transform: [{ translateY: selected ? -7 : 0 }] }}
+                  >
+                    <Bottle
+                      colors={
+                        model.pending?.move.to === index
+                          ? (model.pending.next.bottles[index] ?? colors)
+                          : colors
+                      }
+                      width={bottleWidth}
+                      height={bottleHeight}
+                      fluid={
+                        model.pending?.move.to === index
+                          ? {
+                              progress,
+                              before: colors.length,
+                              after: model.pending.next.bottles[index]?.length ?? colors.length,
+                              role: 'target',
+                              incoming: model.pending.color,
+                            }
+                          : undefined
+                      }
+                    />
+                  </View>
                 </Pressable>
               );
             })}

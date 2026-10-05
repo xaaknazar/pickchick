@@ -60,6 +60,28 @@ export function pour(state: GameState, from: number, to: number): GameState | nu
   const next = transfer(state, from, to);
   return next ? { ...next, history: [...state.history, { from, to }] } : null;
 }
+export type BottleTap =
+  | { kind: 'select'; index: number }
+  | { kind: 'deselect' }
+  | { kind: 'blocked' }
+  | { kind: 'pour'; from: number; to: number; next: GameState };
+
+export function resolveBottleTap(
+  state: GameState,
+  selected: number | null,
+  index: number,
+): BottleTap {
+  if (selected === index) return { kind: 'deselect' };
+  if (selected !== null) {
+    const next = pour(state, selected, index);
+    if (next) return { kind: 'pour', from: selected, to: index, next };
+  }
+  const bottle = state.bottles[index];
+  if (Number.isInteger(index) && bottle?.length && !isSealed(bottle))
+    return { kind: 'select', index };
+  return { kind: 'blocked' };
+}
+
 function generateV1(seed: number): GameState {
   seed = Number.isSafeInteger(seed) ? seed >>> 0 : 1;
   let random = seed || 0x9e3779b9;

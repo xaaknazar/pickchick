@@ -35,7 +35,7 @@ components:
 
 Magic Sort follows the supplied portrait reference: 24 small glass bottles on four shelf rows, surrounding one tall central yellow collector. The realized React Native screen uses original generated glass, oak shelf/cork sprites and a separate arcade cover. Prompts and generation date are recorded in `apps/mobile/assets/games/magic-sort/provenance.json`; these assets are not copied from the reference.
 
-Independent Impeccable documentation rationale: the muted teal backdrop gives the four liquids clear separation; glass highlights and warm shelves establish a tactile world without adding competing decoration. Gold marks both the collector goal and selection. The compact header and persistent action dock preserve board space and make the next interaction explicit. This rationale documents the implemented source, not an approved visual comparison or native acceptance.
+Independent Impeccable documentation rationale: the muted teal backdrop gives the four liquids clear separation; glass highlights and warm shelves establish a tactile world without adding competing decoration. Gold marks the collector goal; selection uses a small bottle lift without a colored backdrop. The compact header and persistent action dock preserve board space and make the next interaction explicit. This rationale documents the implemented source, not an approved visual comparison or native acceptance.
 
 ## Colors
 
@@ -90,3 +90,17 @@ The 320px collector flow was rechecked after export: flying source stays below
 the move counter, board and controls remain inside the viewport; transfer and
 pause/restore checks still pass. The full 63-move suite was not repeated for this
 layout-only correction.
+
+## Bottle selection correction (2026-10-05)
+
+A tap on an incompatible or full unsealed bottle now switches the source instead
+of trapping the previous selection. Compatible targets still pour; tapping the
+source again deselects it. Empty/sealed bottles and the collector cannot become
+sources. The golden selection backdrop is removed; only the bottle image lifts,
+keeping its touch area fixed.
+
+10 engine/storage/interaction tests, mobile TypeScript/ESLint and web export pass.
+Browser 390x844 verified source switching, no move counted on selection, ordinary
+and collector pours after switching. Screenshot: `/tmp/magic-sort-selection-fixed.png`.
+This correction is not in TestFlight build 10; native acceptance and a new build
+remain separate release steps.

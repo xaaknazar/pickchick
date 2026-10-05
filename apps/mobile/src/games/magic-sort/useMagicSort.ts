@@ -5,7 +5,7 @@ import { AppState, Platform } from 'react-native';
 import { useAccount } from '../../useAccount';
 import {
   createLevel,
-  pour,
+  resolveBottleTap,
   undo,
   resetLevel,
   newLevel,
@@ -133,35 +133,36 @@ export function useMagicSort() {
     (index: number) => {
       const state = current.current;
       if (!state || moving.current || isPaused.current) return;
-      if (selected === null) {
-        if (index === 24 || !state.bottles[index]?.length) {
-          setNotice('Сначала выберите непустую бутылку.');
-          return;
-        }
-        setSelected(index);
+      const action = resolveBottleTap(state, selected, index);
+      if (action.kind === 'select') {
+        setSelected(action.index);
         setNotice(
           'Теперь выберите бутылку того же цвета или пустую. Жёлтый можно отправить в центр.',
         );
         return;
       }
-      if (selected === index) {
+      if (action.kind === 'deselect') {
         setSelected(null);
         setNotice('Выбор отменён.');
         return;
       }
-      const next = pour(state, selected, index);
-      if (!next) {
-        setNotice('Сюда нельзя перелить: нужен тот же верхний цвет и свободное место.');
+      if (action.kind === 'blocked') {
+        setNotice(
+          selected === null
+            ? 'Сначала выберите непустую бутылку.'
+            : 'Сюда нельзя перелить: нужен тот же верхний цвет и свободное место.',
+        );
         return;
       }
-      const bottle = state.bottles[selected]!;
+      const { from, to, next } = action;
+      const bottle = state.bottles[from]!;
       const operation = {
         before: state,
         accountId: owner.current,
-        move: { from: selected, to: index },
+        move: { from, to },
         next,
         color: bottle[bottle.length - 1]!,
-        quantity: bottle.length - next.bottles[selected]!.length,
+        quantity: bottle.length - next.bottles[from]!.length,
       };
       moving.current = operation;
       setPending(operation);

@@ -486,3 +486,43 @@ test('published version1 fixture resumes, resets and undoes without seed reinter
   assert.equal(e.createLevel(42).version, 2);
   assert.notDeepEqual(e.createLevel(42).bottles, initial.bottles);
 });
+
+test('bottle taps switch source on incompatible or full bottles without a move', () => {
+  const state = e.createLevel(1);
+  state.bottles[0] = ['yellow', 'orange'];
+  state.bottles[1] = ['yellow', 'wine'];
+  state.bottles[2] = ['wine', 'orange', 'orange', 'orange'];
+  const before = clone(state);
+  assert.deepEqual(e.resolveBottleTap(state, null, 0), { kind: 'select', index: 0 });
+  assert.deepEqual(e.resolveBottleTap(state, 0, 1), { kind: 'select', index: 1 });
+  assert.deepEqual(e.resolveBottleTap(state, 0, 2), { kind: 'select', index: 2 });
+  assert.deepEqual(e.resolveBottleTap(state, 1, 1), { kind: 'deselect' });
+  assert.deepEqual(state, before);
+});
+test('bottle taps pour to compatible targets and collector, but never select empty or sealed bottles', () => {
+  const state = e.createLevel(1);
+  state.bottles[0] = ['wine', 'orange'];
+  state.bottles[1] = ['orange'];
+  state.bottles[2] = [];
+  state.bottles[3] = ['yellow'];
+  state.bottles[4] = Array(4).fill('ivory');
+  for (const [from, to] of [
+    [0, 1],
+    [0, 2],
+    [3, 24],
+  ]) {
+    const action = e.resolveBottleTap(state, from, to);
+    assert.equal(action.kind, 'pour');
+    assert.deepEqual(action.next, e.pour(state, from, to));
+    assert.equal(action.from, from);
+    assert.equal(action.to, to);
+  }
+  for (const [from, to] of [
+    [null, 2],
+    [null, 4],
+    [0, 4],
+    [0, 24],
+    [null, 24],
+  ])
+    assert.deepEqual(e.resolveBottleTap(state, from, to), { kind: 'blocked' });
+});
