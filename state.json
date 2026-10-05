@@ -2661,9 +2661,11 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "1dd52155527af2c94f4ba10ba2d4a68e43cd2056",
-      "updatedAt": "2026-10-05T05:55:26.520Z"
+      "status": "done",
+      "head": "ae1618b135d7e1ee77530178ea4c4c060f37966d",
+      "updatedAt": "2026-10-05T06:25:53.852Z",
+      "summary": "32x32 field, house outside, direct gestures, planting stages. 18 engine/economy and 11 geometry/client tests, typecheck/lint/web export, isolated CUA checks passed. PR182 ae1618b integrated in shared.",
+      "nextAction": "Full CI then API deployment and next TestFlight; native pinch/hold acceptance pending. Online roadmap not refreshed."
     }
   ]
 }
