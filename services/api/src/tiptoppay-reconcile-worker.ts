@@ -7,7 +7,10 @@ async function main() {
   if (process.env.TIPTOPPAY_RECONCILE_ENABLED !== 'true') return;
   const config = tipTopPayConfig(process.env);
   if (!config) throw new Error('TIPTOPPAY_RECONCILE_NOT_CONFIGURED');
-  const pool = createPool(process.env.DATABASE_URL ?? '');
+  const databaseUrl =
+    process.env.TIPTOPPAY_RECONCILE_DATABASE_URL ?? process.env.CLOUD_DATABASE_URL;
+  if (!databaseUrl) throw new Error('TIPTOPPAY_RECONCILE_DATABASE_NOT_CONFIGURED');
+  const pool = createPool(databaseUrl);
   try {
     const due = await transaction(pool, async (client) => {
       const rows = await client.query<{ attempt_id: string }>(
