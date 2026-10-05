@@ -2743,9 +2743,11 @@
         "docs/operations/images/farm-soil",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "bf3cfd9eeb117876046cac896fafa19ddb635889",
-      "updatedAt": "2026-10-05T08:39:54.128Z"
+      "status": "done",
+      "head": "8cef269409a15752aa0803c8d19282afcf13118f",
+      "updatedAt": "2026-10-05T08:43:30.582Z",
+      "summary": "8cef269 published and integrated into shared, PR186. Soil and selection share a single 2:1 projection; generated soil v3, seed rows and small sprouts. TypeScript/ESLint,18 geometry/client,7 roadmap tests and isolated web previews 844x390/1024x768 pass. Full CI37285093621/37285164678 pending. Roadmap 8cef269 deployed with unchanged business containers; API14bbd28, gateway1df3d12b60e829081bc90b77256cfc5a84b30064cabe8039cae519a41465ed51. Native/TestFlight unchanged.",
+      "nextAction": "Verify native gestures and new soil, complete full CI, then include in next TestFlight. Build11 remains current; owner visual acceptance pending."
     }
   ]
 }
