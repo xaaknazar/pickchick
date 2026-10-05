@@ -2985,6 +2985,18 @@
       "status": "active",
       "head": "332136d333af076d57b91b06c839eb46a0f5997b",
       "updatedAt": "2026-10-05T17:39:10.441Z"
+    },
+    {
+      "id": "tiptoppay-testflight13",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-testflight13",
+      "scopes": [
+        "apps/mobile/app.json",
+        "docs/operations/mobile-testflight13.md"
+      ],
+      "status": "active",
+      "head": "e2dadf885d86f5d286385eac882b1c6c2e72809c",
+      "updatedAt": "2026-10-05T17:43:19.912Z"
     }
   ]
 }
