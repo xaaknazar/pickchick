@@ -1,3 +1,4 @@
+import { type TipTopPayTestOptions } from './tiptoppay-test-checkout.js';
 import {
   TipTopPayHostedSessions,
   CheckoutPaymentMethodSchema,
@@ -102,6 +103,7 @@ export class CustomerCheckout {
     private readonly options: CheckoutOptions | null,
     private readonly now: () => Date = () => new Date(),
     private readonly tipTop: TipTopPayCheckoutOptions | null = null,
+    private readonly tipTopTest: TipTopPayTestOptions | null = null,
   ) {
     this.repository = new CommerceRepository(pool, options ?? undefined);
   }
@@ -228,7 +230,15 @@ export class CustomerCheckout {
         : null;
     return {
       enabled: row.ready,
-      paymentMethods: ['kaspi', ...(tipTopReady?.rowCount ? this.tipTop!.methods : [])],
+      paymentMethods: [
+        'kaspi',
+        ...(this.tipTopTest
+          ? this.tipTopTest.methods
+          : tipTopReady?.rowCount
+            ? this.tipTop!.methods
+            : []),
+      ],
+      ...(this.tipTopTest ? { paymentEnvironment: 'test' as const } : {}),
       orderCommentEnabled: true,
       branchId: scope.branchId,
       restaurant: row.name,
