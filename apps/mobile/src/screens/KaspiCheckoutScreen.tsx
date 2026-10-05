@@ -483,7 +483,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
           await request(`/orders/${order.orderId}`, 'GET', undefined, controller.signal),
         );
         if (controller.signal.aborted) return;
-        await ExpoLinking.openURL(hosted.checkoutUrl);
+        // expo-linking navigates the current web tab; keep checkout mounted while the bank page opens.
+        await (Platform.OS === 'web' ? Linking : ExpoLinking).openURL(hosted.checkoutUrl);
         return;
       }
       await accept(
