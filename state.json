@@ -2952,11 +2952,15 @@
         "tests/backoffice/tiptoppay-reporting.test.mjs",
         "infra/payments/tiptoppay.env.example",
         "infra/payments/tiptoppay-grants.mjs",
-        "tests/unit/tiptoppay-grants.test.mjs"
+        "tests/unit/tiptoppay-grants.test.mjs",
+        "infra/payments/tiptoppay-worker.compose.yaml",
+        "infra/payments/pickchick-tiptoppay-reconcile.service",
+        "infra/payments/pickchick-tiptoppay-reconcile.timer",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
-      "head": "9fa0d51dfac56d335b702b44f2c01d4ae6a78281",
-      "updatedAt": "2026-10-05T17:17:20.680Z"
+      "head": "fe691809cf984e1bb8f1e4bfd6d16bf76738f4d7",
+      "updatedAt": "2026-10-05T17:24:07.474Z"
     }
   ]
 }
