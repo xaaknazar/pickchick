@@ -7,7 +7,6 @@ import {
   CROPS,
   cropEconomics,
   nextLandCost,
-  canRecoverFarm,
 } from '../dist/index.js';
 import { economyScenarios } from '../scripts/simulate-economy.mjs';
 

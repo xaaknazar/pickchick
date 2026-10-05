@@ -1011,7 +1011,14 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     const plot = state.plots.find((v) => v.id === c.plotId);
     requireRule(!!plot, 'PLOT_NOT_FOUND');
     requireRule(plot.kind === 'tree' || plot.cropId === null, 'PLOT_NOT_EMPTY');
-    const { x, y, ...stored } = plot;
+    const stored = {
+      id: plot.id,
+      kind: plot.kind,
+      cropId: plot.cropId,
+      plantedAt: plot.plantedAt,
+      harvests: plot.harvests,
+      ...(plot.timing ? { timing: plot.timing } : {}),
+    };
     p.storedPlots.push(stored);
     state.plots = state.plots.filter((v) => v.id !== plot.id);
   } else if (c.type === 'placePlot') {
