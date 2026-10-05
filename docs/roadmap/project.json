@@ -219,6 +219,34 @@
   ],
   "tasks": [
     {
+      "id": "combo-transition-polish",
+      "workstream": "mobile",
+      "title": "Combo transition and PICK FARM card polish",
+      "summary": "Native picker retains outgoing content; iOS cart save waits for dismissal. Green caption background removed. Native iPhone 17 fixture, video and 16 selection tests passed. Not released to TestFlight.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Implementation and native evidence",
+          "path": "docs/operations/product-photo-pilot.md"
+        }
+      ],
+      "acceptance": [
+        "Closing replacement shows the underlying combo without a blank white surface.",
+        "Confirmed choices persist; cancelling discards draft choices.",
+        "PICK FARM caption has no green plaque."
+      ],
+      "nextAction": "Include in the next CI-approved mobile release and verify on a physical iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
       "id": "checkout-connection-flow",
       "workstream": "mobile",
       "title": "Проверять связь на этапе отправки счёта",

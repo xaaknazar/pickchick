@@ -61,6 +61,8 @@ export function PhotoProduct(props: Props) {
   );
   const [quantity, setQuantity] = useState(props.editing?.quantity ?? 1);
   const [picker, setPicker] = useState<Picker | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const afterPickerDismiss = useRef<(() => void) | null>(null);
   const [info, setInfo] = useState(false);
   const [footerHeight, setFooterHeight] = useState(110);
   const [companionCounts, setCompanionCounts] = useState<Record<string, number>>({});
@@ -233,12 +235,12 @@ export function PhotoProduct(props: Props) {
   );
   return (
     <View style={s.page} testID={`photo-product-${product.id}`}>
-      <StatusBar style={picker || info || blue ? 'light' : 'dark'} />
+      <StatusBar style={pickerVisible || info || blue ? 'light' : 'dark'} />
       <View
         style={{ flex: 1 }}
-        aria-hidden={!!picker || info}
-        accessibilityElementsHidden={!!picker || info}
-        importantForAccessibility={picker || info ? 'no-hide-descendants' : 'auto'}
+        aria-hidden={pickerVisible || info}
+        accessibilityElementsHidden={pickerVisible || info}
+        importantForAccessibility={pickerVisible || info ? 'no-hide-descendants' : 'auto'}
       >
         <ScrollView
           ref={scroll}
@@ -424,7 +426,10 @@ export function PhotoProduct(props: Props) {
                     accessibilityRole="button"
                     accessibilityLabel={`Заменить ${group.id === 'drink' ? 'напиток' : 'соус'} ${index + 1}: ${option?.label ?? 'не выбран'}`}
                     testID={`photo-replace-${group.id}-${index}`}
-                    onPress={() => setPicker({ group, index, chosen: optionId })}
+                    onPress={() => {
+                      setPicker({ group, index, chosen: optionId });
+                      setPickerVisible(true);
+                    }}
                   >
                     <OptionImage id={optionId} size={82} />
                     <View style={{ flex: 1, gap: 3 }}>
@@ -555,7 +560,18 @@ export function PhotoProduct(props: Props) {
           style={[s.close, { top: Math.max(0, insets.top - 16), left: 16 }]}
         />
       </View>
-      <MotionModal visible={!!picker} animationType="slide" onRequestClose={() => setPicker(null)}>
+      <MotionModal
+        visible={pickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerVisible(false)}
+        onDismiss={() => {
+          const complete = afterPickerDismiss.current;
+          afterPickerDismiss.current = null;
+          complete?.();
+        }}
+      >
+        {/* Keep the outgoing content mounted until the native dismissal finishes. */}
         {picker ? (
           <View
             style={[s.modal, { paddingTop: insets.top }]}
@@ -563,7 +579,10 @@ export function PhotoProduct(props: Props) {
             testID="photo-replacement-dialog"
           >
             <Row style={s.modalHeader}>
-              <CloseButton label="Закрыть замену без сохранения" onPress={() => setPicker(null)} />
+              <CloseButton
+                label="Закрыть замену без сохранения"
+                onPress={() => setPickerVisible(false)}
+              />
               <Text style={s.modalTitle}>
                 {picker.group.id === 'drink' ? 'Напиток' : 'Соус'} {picker.index + 1} из{' '}
                 {picker.group.min}
@@ -651,9 +670,12 @@ export function PhotoProduct(props: Props) {
                 onPress={() => {
                   if (!replacement || replacementReason) return;
                   setSelections(replacement);
-                  setPicker(null);
-                  // Editing an existing line commits once, directly back to the cart.
-                  if (props.editing && props.onSave) save(replacement);
+                  setPickerVisible(false);
+                  // iOS must dismiss its modal before saving unmounts the editor.
+                  if (props.editing && props.onSave) {
+                    if (Platform.OS === 'ios') afterPickerDismiss.current = () => save(replacement);
+                    else save(replacement);
+                  }
                 }}
               >
                 <Text style={s.addText}>Готово</Text>

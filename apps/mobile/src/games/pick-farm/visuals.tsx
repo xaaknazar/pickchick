@@ -261,7 +261,7 @@ export function PickFarmCard() {
         marginTop: 12,
         borderRadius: 26,
         overflow: 'hidden',
-        backgroundColor: '#B6D49B',
+        backgroundColor: 'transparent',
         opacity: pressed ? 0.88 : 1,
       })}
     >
@@ -281,17 +281,35 @@ export function PickFarmCard() {
           left: 0,
           right: 0,
           padding: 18,
-          backgroundColor: '#18332CEB',
           flexDirection: 'row',
           alignItems: 'center',
           gap: 12,
         }}
       >
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: font.display, fontSize: 26, color: '#FFFFFF' }}>
+          <Text
+            style={{
+              fontFamily: font.display,
+              fontSize: 26,
+              color: '#FFFFFF',
+              textShadowColor: '#000000CC',
+              textShadowOffset: { width: 0, height: 1 },
+              textShadowRadius: 4,
+            }}
+          >
             PICK FARM
           </Text>
-          <Text style={{ fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: '#EDF4D9' }}>
+          <Text
+            style={{
+              fontFamily: font.medium,
+              fontSize: 12,
+              lineHeight: 18,
+              color: '#FFFFFF',
+              textShadowColor: '#000000',
+              textShadowOffset: { width: 0, height: 1 },
+              textShadowRadius: 3,
+            }}
+          >
             Семена, урожай и ваша маленькая ферма.
           </Text>
         </View>
