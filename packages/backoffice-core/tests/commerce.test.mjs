@@ -244,6 +244,7 @@ test('director calendar bounds financial events, rejects unknown shift and repor
     assert.equal(past.refunds.length, 0);
     assert.equal(past.chart.length, 0);
     assert.deepEqual(past.truncated, {
+      test_payments: false,
       orders: false,
       pos: false,
       finance: false,
