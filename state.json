@@ -2718,11 +2718,13 @@
         "infra/staging/release-farm-update.py",
         "tests/operations/test_farm_update.py",
         "@vps",
-        "@release/ios"
+        "@release/ios",
+        "packages/contracts/openapi.json",
+        "tests/mobile/browser_magic_sort.py"
       ],
       "status": "active",
       "head": "937fbd669108b19c7a15956229025a7eed491d12",
-      "updatedAt": "2026-10-05T07:10:04.760Z"
+      "updatedAt": "2026-10-05T07:11:11.643Z"
     }
   ]
 }
