@@ -1,3 +1,32 @@
+## 5 октября: TestFlight 0.2.0 (11) доступна
+
+Сборка из `14bbd28d25975bfa0d888a1bf5f3d733ff679434` загружена и обработана
+Apple. В существующей группе PickChick Internal (2 тестировщика) подтверждён
+статус «Тестируется»; русское «Что тестировать» сохранено. Build ID:
+`0f645dc9-bd85-4bff-a902-d442efc5b5c3`. Новые тестировщики не добавлялись.
+
+PICK FARM включает участок 32x32, дом за границей, точные зоны касания,
+прямой сбор, перенос удержанием и компактное меню без нижних панелей.
+Magic Sort позволяет менять выбранную бутылку без подсветки.
+Профиль farm-pilot, server auth/Kaspi и существующая подпись сохранены.
+
+[Foundation CI 37278526740](https://github.com/xaaknazar/pickchick/actions/runs/37278526740)
+прошла 11/11 jobs для точного исходника выпуска. Дополнительно подтверждены
+31 тест API-only release guards, browser Magic Sort (63 хода до победы,
+три размера экрана, анимация и отмена), archive/export/codesign/upload.
+Предупреждения об отсутствующих dSYM сторонних framework не блокировали upload.
+
+Farm API обновлён до того же SHA: removeCrop и границы 32x32 доступны.
+Schema 038 сохранена, миграций нет; backup/restore rehearsal, неизменность
+игровых данных и ACL, сохранность банковского worker и public bundle проверены.
+Физическая приёмка на iPhone ещё не выполнена: обновить TestFlight, проверить
+касания, удержание/перенос, масштаб и сохранение после повторного входа в игру.
+
+Артефакт: `farm-actions-20261005-11-14bbd28`, IPA 129075522 bytes,
+SHA-256 `88860451b4bf83280894e46cfd2f6f1b0d43e2630339802b8ded2e1e733dfdfb`.
+Private release metadata: archive/export complete, delivery submitted,
+ascAppId 6809208492; temporarySigningSettingsRestored=true.
+
 ## 5 октября: подготовка TestFlight 0.2.0 (11)
 
 По поручению владельца готовится сборка 11 с фиксированным участком 32x32,
