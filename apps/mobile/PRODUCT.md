@@ -31,3 +31,5 @@ Existing visual authority: docs/design/design-system.md, docs/design/ai-design-w
 ## Magic Sort - 5 October 2026
 
 The owner requested a portrait liquid-sorting game with 24 four-unit bottles, four wooden shelf rows and a tall yellow-only collector, following the supplied screenshot and recording. Magic Sort is the corrected name. Use original generated glass, cork, shelf and cover art with dynamic native liquid layers. This first playable slice has account-scoped local saves, undo, hints, restart confirmation and verified-solvable seeded levels. It does not award money, Chiki or restaurant benefits. Cross-device progress and native acceptance remain separate stages. See docs/design/magic-sort.md.
+
+Follow-up: new Magic Sort levels use four colors in total (yellow, ivory, orange and wine), with legacy six-color saves preserved. Pouring should visibly drain the source and fill the receiver continuously, including the tall yellow collector, while committed progress changes only after the transfer finishes.

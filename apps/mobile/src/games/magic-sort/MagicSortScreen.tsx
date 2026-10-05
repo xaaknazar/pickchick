@@ -16,6 +16,7 @@ import { Icon, type IconName } from '../../components/UI';
 import { useReducedMotion } from '../../components/Motion';
 import { isSealed, isWon, hasMoves, type Color } from './engine';
 import { useMagicSort } from './useMagicSort';
+import { POUR_DURATION, POUR_TIMELINE, pouringPose } from './motion';
 import { sortColors as c, sortStyles as s } from './styles';
 const glass = require('../../../assets/games/magic-sort/bottle-glass.png');
 const propsAtlas = require('../../../assets/games/magic-sort/props-atlas.png');
@@ -81,17 +82,54 @@ function Bottle({
   width,
   height,
   collector = false,
+  fluid,
 }: {
   colors: readonly Color[];
   width: number;
   height: number;
   collector?: boolean;
+  fluid?: {
+    progress: Animated.Value;
+    before: number;
+    after: number;
+    role: 'source' | 'target';
+    incoming?: Color;
+  };
 }) {
   const capacity = collector ? 16 : 4;
   const neckHeight = collector ? width * 0.9 : height * 0.22;
   const baseHeight = collector ? width * 0.24 : height * 0.075;
   const bodyHeight = height - neckHeight - baseHeight;
-  const sealed = !collector && isSealed(colors);
+  const sealed = !collector && !fluid && isSealed(colors);
+  const fillHeight = fluid
+    ? fluid.progress.interpolate({
+        inputRange: [...POUR_TIMELINE],
+        outputRange: [fluid.before, fluid.before, fluid.after, fluid.after].map(
+          (amount) => (amount * bodyHeight) / capacity,
+        ),
+      })
+    : (colors.length * bodyHeight) / capacity;
+  const surfaceTop = fluid
+    ? fluid.progress.interpolate({
+        inputRange: [...POUR_TIMELINE],
+        outputRange: [fluid.before, fluid.before, fluid.after, fluid.after].map(
+          (amount) =>
+            neckHeight + bodyHeight * (1 - amount / capacity) - Math.max(5, width * 0.18) / 2,
+        ),
+      })
+    : neckHeight + bodyHeight * (1 - colors.length / capacity) - Math.max(5, width * 0.18) / 2;
+  const flowOpacity = fluid?.progress.interpolate({
+    inputRange: [0, 0.22, 0.25, 0.75, 0.78, 1],
+    outputRange: [0, 0, 0.8, 0.8, 0, 0],
+  });
+  const surfaceOpacity = fluid
+    ? fluid.progress.interpolate({
+        inputRange: [...POUR_TIMELINE],
+        outputRange: [fluid.before, fluid.before, fluid.after, fluid.after].map((amount) =>
+          amount ? 1 : 0,
+        ),
+      })
+    : 1;
   return (
     <View pointerEvents="none" accessible={false} style={{ width, height, position: 'relative' }}>
       <View
@@ -106,19 +144,31 @@ function Bottle({
           backgroundColor: '#CFEBEB0A',
         }}
       >
-        {colors.map((color, index) => (
-          <View
-            key={index}
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: (index * bodyHeight) / capacity,
-              height: bodyHeight / capacity + 0.5,
-              backgroundColor: c[color],
-            }}
-          />
-        ))}
+        <Animated.View
+          testID={fluid ? `magic-sort-${fluid.role}-fill` : undefined}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: fillHeight,
+            overflow: 'hidden',
+          }}
+        >
+          {colors.map((color, index) => (
+            <View
+              key={index}
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: (index * bodyHeight) / capacity,
+                height: bodyHeight / capacity + 0.5,
+                backgroundColor: c[color],
+              }}
+            />
+          ))}
+        </Animated.View>
         <View
           style={{
             position: 'absolute',
@@ -131,27 +181,66 @@ function Bottle({
           }}
         />
       </View>
+      {fluid?.incoming && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: width / 2 - 1.5,
+            top: neckHeight * 0.3,
+            width: 3,
+            height: fluid.progress.interpolate({
+              inputRange: [...POUR_TIMELINE],
+              outputRange: [fluid.before, fluid.before, fluid.after, fluid.after].map(
+                (amount) => neckHeight * 0.7 + bodyHeight * (1 - amount / capacity),
+              ),
+            }),
+            borderRadius: 2,
+            backgroundColor: c[fluid.incoming],
+            opacity: flowOpacity,
+          }}
+        />
+      )}
       {!!colors.length && (
-        <View
+        <Animated.View
           pointerEvents="none"
           style={{
             position: 'absolute',
             left: width * 0.075,
             right: width * 0.075,
-            top:
-              neckHeight +
-              bodyHeight * (1 - colors.length / capacity) -
-              Math.max(5, width * 0.18) / 2,
+            top: surfaceTop,
+            opacity: surfaceOpacity,
+            transform: [
+              {
+                scaleX: fluid
+                  ? fluid.progress.interpolate({
+                      inputRange: [0, 0.22, 0.34, 0.46, 0.58, 0.7, 0.78, 1],
+                      outputRange: [1, 1, 1.06, 0.98, 1.05, 0.98, 1, 1],
+                    })
+                  : 1,
+              },
+            ],
             height: Math.max(5, width * 0.18),
             borderRadius: width / 2,
             overflow: 'hidden',
-            backgroundColor: c[colors[colors.length - 1]!],
+            backgroundColor:
+              fluid?.role === 'source' && fluid.after > 0
+                ? fluid.progress.interpolate({
+                    inputRange: [0, 0.76, 0.78, 1],
+                    outputRange: [
+                      c[colors[colors.length - 1]!],
+                      c[colors[colors.length - 1]!],
+                      c[colors[fluid.after - 1]!],
+                      c[colors[fluid.after - 1]!],
+                    ],
+                  })
+                : c[colors[colors.length - 1]!],
             borderTopWidth: 1,
             borderTopColor: '#FFFFFF65',
           }}
         >
           <View style={{ position: 'absolute', inset: 0, backgroundColor: '#FFFFFF26' }} />
-        </View>
+        </Animated.View>
       )}
       <View style={{ position: 'absolute', inset: 0 }}>
         <GlassSlice width={width} height={neckHeight} sourceTop={14} sourceBottom={330} />
@@ -223,7 +312,8 @@ export function MagicSortScreen() {
   const boardWidth = Math.min(width - 12, 570),
     collectorWidth = boardWidth * 0.105;
   const slot = (boardWidth - collectorWidth - 12) / 6;
-  const rowHeight = Math.max(56, Math.min(154, (height - top - bottom - 158) / 4));
+  const pourClearance = width <= 340 ? 20 : 0;
+  const rowHeight = Math.max(56, Math.min(154, (height - top - bottom - 158 - pourClearance) / 4));
   const boardHeight = rowHeight * 4,
     bottleWidth = slot * 0.8,
     bottleHeight = rowHeight - 17;
@@ -249,9 +339,9 @@ export function MagicSortScreen() {
     }
     const animation = Animated.timing(progress, {
       toValue: 1,
-      duration: 760,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: true,
+      duration: POUR_DURATION,
+      easing: Easing.linear,
+      useNativeDriver: false,
     });
     animation.start(({ finished }) => {
       if (finished) model.finishPour(pending);
@@ -275,13 +365,12 @@ export function MagicSortScreen() {
   const source = model.pending ? position(model.pending.move.from) : null;
   const target = model.pending ? position(model.pending.move.to) : null;
   const targetWidth = model.pending?.move.to === 24 ? collectorWidth : bottleWidth;
-  const tilt = source && target && source.x < target.x ? 65 : -65;
-  const pouredX = target
-    ? target.x +
-      targetWidth / 2 -
-      bottleWidth / 2 -
-      (tilt > 0 ? bottleHeight * 0.25 : -bottleHeight * 0.25)
+  const direction: 1 | -1 = source && target && source.x < target.x ? 1 : -1;
+  const landingX = target ? target.x + targetWidth / 2 : 0;
+  const landingY = target
+    ? target.y + (model.pending?.move.to === 24 ? collectorWidth * 0.025 : 6 + bottleHeight * 0.025)
     : 0;
+  const pose = pouringPose(bottleWidth, bottleHeight, landingX, landingY, direction);
   const won = model.game ? isWon(model.game) : false;
   return (
     <View testID="magic-sort-screen" style={[s.screen, { paddingTop: top, paddingBottom: bottom }]}>
@@ -315,7 +404,13 @@ export function MagicSortScreen() {
         </Pressable>
       </View>
       <View
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: boardHeight }}
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: boardHeight + pourClearance,
+          paddingTop: pourClearance,
+        }}
       >
         {!model.game ? (
           <ActivityIndicator color={c.accent} />
@@ -369,7 +464,26 @@ export function MagicSortScreen() {
                     },
                   ]}
                 >
-                  <Bottle colors={colors} width={bottleWidth} height={bottleHeight} />
+                  <Bottle
+                    colors={
+                      model.pending?.move.to === index
+                        ? (model.pending.next.bottles[index] ?? colors)
+                        : colors
+                    }
+                    width={bottleWidth}
+                    height={bottleHeight}
+                    fluid={
+                      model.pending?.move.to === index
+                        ? {
+                            progress,
+                            before: colors.length,
+                            after: model.pending.next.bottles[index]?.length ?? colors.length,
+                            role: 'target',
+                            incoming: model.pending.color,
+                          }
+                        : undefined
+                    }
+                  />
                 </Pressable>
               );
             })}
@@ -393,7 +507,22 @@ export function MagicSortScreen() {
               ]}
             >
               <Bottle
-                colors={model.game.collector}
+                colors={
+                  model.pending?.move.to === 24
+                    ? model.pending.next.collector
+                    : model.game.collector
+                }
+                fluid={
+                  model.pending?.move.to === 24
+                    ? {
+                        progress,
+                        before: model.game.collector.length,
+                        after: model.pending.next.collector.length,
+                        role: 'target',
+                        incoming: model.pending.color,
+                      }
+                    : undefined
+                }
                 collector
                 width={collectorWidth}
                 height={boardHeight - 12}
@@ -412,25 +541,20 @@ export function MagicSortScreen() {
                     transform: [
                       {
                         translateX: progress.interpolate({
-                          inputRange: [0, 0.32, 0.78, 1],
-                          outputRange: [source.x, pouredX, pouredX, source.x],
+                          inputRange: [...POUR_TIMELINE],
+                          outputRange: [source.x, pose.x, pose.x, source.x],
                         }),
                       },
                       {
                         translateY: progress.interpolate({
-                          inputRange: [0, 0.32, 0.78, 1],
-                          outputRange: [
-                            source.y,
-                            target.y - bottleHeight * 0.38,
-                            target.y - bottleHeight * 0.38,
-                            source.y,
-                          ],
+                          inputRange: [...POUR_TIMELINE],
+                          outputRange: [source.y - 1, pose.y, pose.y, source.y + 6],
                         }),
                       },
                       {
                         rotate: progress.interpolate({
-                          inputRange: [0, 0.32, 0.78, 1],
-                          outputRange: ['0deg', `${tilt}deg`, `${tilt}deg`, '0deg'],
+                          inputRange: [...POUR_TIMELINE],
+                          outputRange: ['0deg', `${pose.angle}deg`, `${pose.angle}deg`, '0deg'],
                         }),
                       },
                     ],
@@ -438,6 +562,12 @@ export function MagicSortScreen() {
                 >
                   <Bottle
                     colors={model.game.bottles[model.pending.move.from] ?? []}
+                    fluid={{
+                      progress,
+                      before: model.game.bottles[model.pending.move.from]?.length ?? 0,
+                      after: model.pending.next.bottles[model.pending.move.from]?.length ?? 0,
+                      role: 'source',
+                    }}
                     width={bottleWidth}
                     height={bottleHeight}
                   />
@@ -447,19 +577,68 @@ export function MagicSortScreen() {
                   testID="magic-sort-stream"
                   style={{
                     position: 'absolute',
-                    zIndex: 7,
-                    left: target.x + targetWidth / 2 - 2,
-                    top: target.y - 10,
+                    zIndex: 9,
+                    left: pose.mouthX - 2,
+                    top: pose.mouthY,
                     width: 4,
-                    height: Math.max(20, bottleHeight * 0.21),
+                    height: pose.streamLength,
                     borderRadius: 3,
                     backgroundColor: c[model.pending.color],
+                    transformOrigin: 'center top',
+                    transform: [
+                      { rotate: `${pose.streamAngle}deg` },
+                      {
+                        scaleX: progress.interpolate({
+                          inputRange: [0, 0.22, 0.35, 0.48, 0.61, 0.74, 0.78, 1],
+                          outputRange: [0.4, 0.4, 1, 0.8, 1, 0.9, 0.4, 0.4],
+                        }),
+                      },
+                    ],
                     opacity: progress.interpolate({
-                      inputRange: [0, 0.3, 0.38, 0.74, 0.82, 1],
+                      inputRange: [0, 0.22, 0.25, 0.75, 0.78, 1],
                       outputRange: [0, 0, 1, 1, 0, 0],
                     }),
                   }}
-                />
+                >
+                  <View
+                    testID="magic-sort-source-mouth"
+                    style={{ position: 'absolute', top: -1, left: 1, width: 2, height: 2 }}
+                  />
+                  <View
+                    testID="magic-sort-target-mouth"
+                    style={{ position: 'absolute', bottom: -1, left: 1, width: 2, height: 2 }}
+                  />
+                  <Animated.View
+                    style={{
+                      position: 'absolute',
+                      left: 0.5,
+                      width: 1,
+                      height: 4,
+                      borderRadius: 1,
+                      backgroundColor: '#FFFFFF85',
+                      transform: [
+                        {
+                          translateY: progress.interpolate({
+                            inputRange: [0, 0.22, 0.34, 0.35, 0.47, 0.48, 0.6, 0.61, 0.73, 0.78, 1],
+                            outputRange: [
+                              0,
+                              0,
+                              pose.streamLength - 4,
+                              0,
+                              pose.streamLength - 4,
+                              0,
+                              pose.streamLength - 4,
+                              0,
+                              pose.streamLength - 4,
+                              0,
+                              0,
+                            ],
+                          }),
+                        },
+                      ],
+                    }}
+                  />
+                </Animated.View>
               </>
             )}
           </View>
@@ -521,7 +700,7 @@ export function MagicSortScreen() {
               {panel === 'help'
                 ? 'Выберите бутылку и затем другую с таким же верхним цветом или пустую. Переливается весь верхний слой, если хватает места. Жёлтый собирайте в длинной бутылке по центру; остальные цвета - в отдельных полных бутылках. Готовые бутылки закрываются пробкой. Прогресс сохраняется на этом устройстве для вашего аккаунта. Монеты и награды не начисляются.'
                 : panel === 'restart'
-                  ? 'Все ходы этого уровня будут отменены. Раскладка останется прежней.'
+                  ? 'Начните эту раскладку заново или выберите новую с четырьмя цветами. Текущие ходы будут отменены.'
                   : won
                     ? 'Жёлтый собран в центре, остальные бутылки закрыты. Следующая головоломка готова.'
                     : model.paused
@@ -543,6 +722,19 @@ export function MagicSortScreen() {
                     {panel === 'restart' ? 'Начать заново' : 'Понятно'}
                   </Text>
                 </Pressable>
+                {panel === 'restart' && (
+                  <Pressable
+                    accessibilityRole="button"
+                    testID="magic-sort-new-layout"
+                    style={s.panelButton}
+                    onPress={() => {
+                      model.nextLevel();
+                      setPanel(null);
+                    }}
+                  >
+                    <Text style={s.panelButtonLabel}>Новая раскладка</Text>
+                  </Pressable>
+                )}
                 {panel === 'restart' && (
                   <Pressable
                     accessibilityRole="button"

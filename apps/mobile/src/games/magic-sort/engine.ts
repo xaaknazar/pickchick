@@ -1,4 +1,5 @@
 export const COLORS = ['yellow', 'ivory', 'taupe', 'orange', 'rose', 'wine'] as const;
+export const ACTIVE_COLORS = ['yellow', 'ivory', 'orange', 'wine'] as const;
 export type Color = (typeof COLORS)[number];
 export const BOTTLE_COUNT = 24;
 export const SMALL_CAPACITY = 4;
@@ -7,7 +8,7 @@ export const COLLECTOR_INDEX = 24;
 export const MAX_MOVES = 1024;
 export type Move = { from: number; to: number };
 export type GameState = {
-  version: 1;
+  version: 1 | 2;
   seed: number;
   bottles: Color[][];
   collector: Color[];
@@ -59,7 +60,7 @@ export function pour(state: GameState, from: number, to: number): GameState | nu
   const next = transfer(state, from, to);
   return next ? { ...next, history: [...state.history, { from, to }] } : null;
 }
-function generateLevel(seed: number): GameState {
+function generateV1(seed: number): GameState {
   seed = Number.isSafeInteger(seed) ? seed >>> 0 : 1;
   let random = seed || 0x9e3779b9;
   const next = () => {
@@ -169,8 +170,117 @@ function generateLevel(seed: number): GameState {
   if (!isWon(verified)) throw new Error('Unsolved level witness');
   return state;
 }
+// Version1 is frozen above so existing saves retain their exact seeded board.
+function generateV2(seed: number): GameState {
+  seed = Number.isSafeInteger(seed) ? seed >>> 0 : 1;
+  let random = seed || 0x9e3779b9;
+  const next = () => {
+    random ^= random << 13;
+    random ^= random >>> 17;
+    random ^= random << 5;
+    return random >>> 0;
+  };
+  // Construct independently solvable crossing pairs. Each pair uses one buffer:
+  // A=[c,c,d,d], B=[d,d,c,c]; A→buffer, B→A, B→buffer.
+  const edges: [Color, Color][] = Array.from(
+    { length: 3 },
+    () =>
+      [
+        ['ivory', 'orange'],
+        ['orange', 'wine'],
+        ['wine', 'ivory'],
+      ] as [Color, Color][],
+  ).flat();
+  const bottles: Color[][] = [];
+  for (const edge of edges) {
+    const [c, d] = next() % 2 ? edge : ([edge[1], edge[0]] as [Color, Color]);
+    bottles.push([c, c, d, d], [d, d, c, c]);
+  }
+  for (let i = 0; i < 4; i++) bottles.push(['yellow', 'yellow', 'yellow', 'yellow']);
+  bottles.push([], []);
+  const permutation = Array.from({ length: BOTTLE_COUNT }, (_, i) => i);
+  for (let i = BOTTLE_COUNT - 1; i > 0; i--) {
+    const j = next() % (i + 1);
+    [permutation[i], permutation[j]] = [permutation[j]!, permutation[i]!];
+  }
+  const location = (original: number) => permutation.indexOf(original);
+  const witness: Move[] = [];
+  for (let i = 18; i < 22; i++) witness.push({ from: location(i), to: COLLECTOR_INDEX });
+  let buffer = location(22);
+  for (let i = 0; i < 18; i += 2) {
+    const a = location(i),
+      b = location(i + 1);
+    witness.push({ from: a, to: buffer }, { from: b, to: a }, { from: b, to: buffer });
+    buffer = b;
+  }
+  let state: GameState = {
+    version: 2,
+    seed,
+    bottles: permutation.map((i) => bottles[i]!),
+    collector: [],
+    history: [],
+    witness,
+  };
+  // Reverse a legal forward pour, accepting only exact maximal-run inverses.
+  // Unlike an arbitrary shuffle, every accepted board retains a solution.
+  const inverse: Move[] = [];
+  // Establish a buried yellow before random scrambling, using exact inverse checks.
+  for (const [donor, receiver] of [
+    [location(18), location(22)],
+    [location(0), location(22)],
+  ]) {
+    const mixed = state.bottles.map((b) => [...b]);
+    const color = mixed[donor!]!.pop()!;
+    mixed[receiver!]!.push(color);
+    const candidate = { ...state, bottles: mixed };
+    const restored = transfer(candidate, receiver!, donor!);
+    if (!restored || JSON.stringify(restored.bottles) !== JSON.stringify(state.bottles))
+      throw new Error('Invalid initial scramble');
+    inverse.push({ from: receiver!, to: donor! });
+    state = candidate;
+  }
+  const buriedYellow = (board: Color[][]) =>
+    board.some((b) => b.includes('yellow') && b[b.length - 1] !== 'yellow');
+  const target = 90 + (next() % 51);
+  const seen = new Set([JSON.stringify(state.bottles)]);
+  for (let attempt = 0; attempt < 30_000 && inverse.length < target; attempt++) {
+    const donor = next() % BOTTLE_COUNT,
+      receiver = next() % BOTTLE_COUNT;
+    if (donor === receiver) continue;
+    const source = state.bottles[donor]!,
+      destination = state.bottles[receiver]!;
+    if (!source.length || destination.length >= SMALL_CAPACITY) continue;
+    const color = source[source.length - 1]!;
+    let run = 1;
+    while (run < source.length && source[source.length - 1 - run] === color) run++;
+    const count = 1 + (next() % Math.min(run, SMALL_CAPACITY - destination.length));
+    const remaining = source.slice(0, -count);
+    if (remaining.length && remaining[remaining.length - 1] !== color) continue;
+    const mixed = state.bottles.map((b) => [...b]);
+    mixed[donor] = remaining;
+    mixed[receiver]!.push(...Array<Color>(count).fill(color));
+    if (!buriedYellow(mixed)) continue;
+    const signature = JSON.stringify(mixed);
+    if (seen.has(signature)) continue;
+    const candidate = { ...state, bottles: mixed };
+    const restored = transfer(candidate, receiver, donor);
+    if (!restored || JSON.stringify(restored.bottles) !== JSON.stringify(state.bottles)) continue;
+    seen.add(signature);
+    inverse.push({ from: receiver, to: donor });
+    state = candidate;
+  }
+  state = { ...state, witness: [...inverse.reverse(), ...witness] };
+  let verified = state;
+  for (const move of state.witness) {
+    const result = transfer(verified, move.from, move.to);
+    if (!result) throw new Error('Invalid level witness');
+    verified = result;
+  }
+  if (!isWon(verified)) throw new Error('Unsolved level witness');
+  return state;
+}
 // Small immutable cache avoids regenerating the witness on every save and undo.
-const levelCache = new Map<number, GameState>();
+const levelCache = new Map<string, GameState>();
 function copyLevel(state: GameState): GameState {
   return {
     ...state,
@@ -180,12 +290,13 @@ function copyLevel(state: GameState): GameState {
     witness: state.witness.map((m) => ({ ...m })),
   };
 }
-export function createLevel(seed = 1): GameState {
+export function createLevel(seed = 1, version: 1 | 2 = 2): GameState {
   const normalized = Number.isSafeInteger(seed) ? seed >>> 0 : 1;
-  let state = levelCache.get(normalized);
+  const key = version + ':' + normalized;
+  let state = levelCache.get(key);
   if (!state) {
-    state = generateLevel(normalized);
-    levelCache.set(normalized, state);
+    state = version === 1 ? generateV1(normalized) : generateV2(normalized);
+    levelCache.set(key, state);
     if (levelCache.size > 8) levelCache.delete(levelCache.keys().next().value!);
   }
   return copyLevel(state);
@@ -197,13 +308,13 @@ export function isWon(state: GameState): boolean {
   );
 }
 export function resetLevel(state: GameState): GameState {
-  return createLevel(state.seed);
+  return createLevel(state.seed, state.version);
 }
 export function newLevel(state: GameState, seed = (state.seed + 1) >>> 0): GameState {
   return createLevel(seed);
 }
 export function undo(state: GameState): GameState {
-  let result = createLevel(state.seed);
+  let result = createLevel(state.seed, state.version);
   for (const move of state.history.slice(0, -1)) result = pour(result, move.from, move.to)!;
   return result;
 }
@@ -237,7 +348,7 @@ export function parseGame(value: unknown): GameState | null {
   const raw = value as Record<string, unknown>;
   if (
     Object.keys(raw).sort().join(',') !== 'bottles,collector,history,seed,version,witness' ||
-    raw.version !== 1 ||
+    (raw.version !== 1 && raw.version !== 2) ||
     !Number.isInteger(raw.seed) ||
     (raw.seed as number) < 0 ||
     (raw.seed as number) > 0xffffffff ||
@@ -245,7 +356,7 @@ export function parseGame(value: unknown): GameState | null {
     raw.history.length > MAX_MOVES
   )
     return null;
-  let state = createLevel(raw.seed as number);
+  let state = createLevel(raw.seed as number, raw.version as 1 | 2);
   if (JSON.stringify(raw.witness) !== JSON.stringify(state.witness)) return null;
   for (const move of raw.history) {
     if (
