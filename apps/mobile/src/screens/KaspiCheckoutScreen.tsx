@@ -8,11 +8,19 @@ import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
   CheckoutSheetHeader,
   CheckoutAction,
-  UpcomingPayments,
   checkoutStyle,
 } from '../components/CheckoutPresentation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  Linking,
+  Modal,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
+import * as ExpoLinking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
@@ -30,6 +38,7 @@ import {
   cartSignature,
   normalizedOrderComment,
   maskedPhone,
+  parseHostedPayment,
 } from '../commerce-checkout';
 import { OrderStatusView } from './OrderStatusScreen';
 import { CompletedOrderScreen } from './CompletedOrderScreen';
@@ -40,7 +49,8 @@ import { CheckoutDetails } from './CheckoutScreen';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { OrderHeader } from '../components/OrderPresentation';
 import { OrderSheet } from '../components/OrderSheet';
-import { PaymentMark } from '../components/PaymentChoice';
+import { availablePaymentMethods, type CommercePaymentMethod } from '../payment-methods';
+import { PaymentChoice, paymentName } from '../components/PaymentChoice';
 import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
 import { colors, font } from '../theme';
@@ -52,6 +62,7 @@ type Pending = {
   signature: string;
   orderId?: string;
   sendInvoice?: boolean;
+  paymentMethod?: CommercePaymentMethod;
 };
 const root = '/v1/customer-checkout';
 
@@ -66,6 +77,11 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const [config, setConfig] = useState<ReturnType<
     typeof CustomerCheckoutConfigSchema.parse
   > | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<CommercePaymentMethod>('kaspi');
+  const methods = availablePaymentMethods(config?.paymentMethods, Platform.OS);
+  useEffect(() => {
+    if (config && !methods.includes(selectedMethod)) setSelectedMethod(methods[0] ?? 'kaspi');
+  }, [config, selectedMethod]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [order, setOrder] = useState<CustomerCommerceOrder | null>(null);
   const [history, setHistory] = useState<CustomerCommerceOrder[]>([]);
@@ -134,6 +150,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         await AsyncStorage.removeItem(key);
         pending.current = null;
       }
+      setSelectedMethod(current.paymentMethod ?? pending.current?.paymentMethod ?? 'kaspi');
       setOrder(current);
       return current;
     },
@@ -215,7 +232,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
         if (
           !/^[a-f0-9-]{36}$/.test(parsed.key) ||
           !/^[a-f0-9-]{36}$/.test(parsed.quoteId) ||
-          typeof parsed.signature !== 'string'
+          typeof parsed.signature !== 'string' ||
+          (parsed.paymentMethod !== undefined &&
+            !['kaspi', 'card', 'apple_pay', 'google_pay'].includes(parsed.paymentMethod))
         )
           throw new Error('INVALID_PENDING');
         draft = parsed;
@@ -345,7 +364,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
         if (
           !/^[a-f0-9-]{36}$/.test(draft.key) ||
           !/^[a-f0-9-]{36}$/.test(draft.quoteId) ||
-          typeof draft.signature !== 'string'
+          typeof draft.signature !== 'string' ||
+          (draft.paymentMethod !== undefined &&
+            !['kaspi', 'card', 'apple_pay', 'google_pay'].includes(draft.paymentMethod))
         )
           throw new Error('INVALID_PENDING');
         pending.current = draft;
@@ -368,6 +389,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
         return value;
       });
       setConfig(setup);
+      if (!availablePaymentMethods(setup.paymentMethods, Platform.OS).includes(selectedMethod)) {
+        setError('Способ оплаты сейчас недоступен. Выберите другой способ.');
+        return;
+      }
       if (!setup.orderCommentEnabled && comment) {
         setError('Комментарий временно недоступен. Удалите его, чтобы оформить заказ.');
         return;
@@ -404,6 +429,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         quoteId: currentQuote.quoteId,
         signature,
         sendInvoice: true,
+        paymentMethod: selectedMethod,
       };
       await AsyncStorage.setItem(key, JSON.stringify(draft)).catch(() => {
         throw new Error('CHECKOUT_STORAGE');
@@ -432,6 +458,34 @@ function KaspiCheckoutSession(props: ScreenProps) {
     preparation.current = controller;
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     try {
+      const method = pending.current?.paymentMethod ?? order.paymentMethod ?? 'kaspi';
+      if (method !== (order.paymentMethod ?? 'kaspi')) {
+        await accept(
+          await request(
+            `/orders/${order.orderId}/payment-method`,
+            'POST',
+            { method },
+            controller.signal,
+          ),
+        );
+      }
+      if (method !== 'kaspi') {
+        const hosted = parseHostedPayment(
+          await request(
+            `/orders/${order.orderId}/hosted-payment`,
+            'POST',
+            undefined,
+            controller.signal,
+          ),
+          order.orderId,
+        );
+        await accept(
+          await request(`/orders/${order.orderId}`, 'GET', undefined, controller.signal),
+        );
+        if (controller.signal.aborted) return;
+        await ExpoLinking.openURL(hosted.checkoutUrl);
+        return;
+      }
       await accept(
         await prepareCheckout(
           () => request(`/orders/${order.orderId}/payment`, 'POST', undefined, controller.signal),
@@ -500,8 +554,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
         </Row>
         <CheckoutAction
           testID="kaspi-checkout-submit"
-          title={busy ? 'Готовим счёт…' : 'Оплатить через'}
-          kaspi={!busy}
+          title={
+            busy
+              ? 'Готовим оплату…'
+              : selectedMethod === 'kaspi'
+                ? 'Оплатить через'
+                : `Оплатить · ${paymentName(selectedMethod)}`
+          }
+          kaspi={!busy && selectedMethod === 'kaspi'}
           onPress={() => void submit()}
           disabled={busy}
         />
@@ -538,9 +598,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
           setRefresh((c) => c + 1);
         }}
         extraAction={
-          order.phase === 'ready_to_pay' && (!pending.current?.sendInvoice || paymentPaused) ? (
+          (order.phase === 'ready_to_pay' && (!pending.current?.sendInvoice || paymentPaused)) ||
+          (order.phase === 'awaiting_payment' && (order.paymentMethod ?? 'kaspi') !== 'kaspi') ? (
             <Button
-              title={`Отправить счёт на ${money(order.totalMinor)}`}
+              title={
+                (pending.current?.paymentMethod ?? order.paymentMethod ?? 'kaspi') === 'kaspi'
+                  ? `Отправить счёт на ${money(order.totalMinor)}`
+                  : 'Открыть страницу оплаты'
+              }
               onPress={() => void pay()}
               disabled={busy}
             />
@@ -685,7 +750,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           {!history.length && loaded && !error ? (
             <Empty
               title="Заказов пока нет"
-              detail="Здесь появятся ваши заказы с оплатой Kaspi."
+              detail="Здесь появятся ваши заказы."
               action={<Button title="Выбрать блюда" onPress={() => props.navigate('M06')} />}
             />
           ) : null}
@@ -723,19 +788,20 @@ function KaspiCheckoutSession(props: ScreenProps) {
           }
           paymentContent={
             <>
-              <View style={checkoutStyle.paymentPanel}>
-                <Row style={{ minHeight: 64, padding: 14, gap: 12 }}>
-                  <PaymentMark method="kaspi" size={36} />
-                  <View style={s.flex}>
-                    <Body style={{ fontFamily: font.medium, fontSize: 15 }}>Kaspi.kz</Body>
-                    <Caption style={{ fontSize: 12, lineHeight: 18 }}>
-                      Счёт придёт на {maskedPhone(auth.account?.phone)}
-                    </Caption>
-                  </View>
-                  <Icon name="checkmark-circle" color={colors.accent} size={22} />
-                </Row>
-                <UpcomingPayments />
-              </View>
+              <PaymentChoice
+                model={props.model}
+                methods={methods}
+                selected={selectedMethod}
+                onSelect={setSelectedMethod}
+                disabled={busy || !config}
+              />
+              {selectedMethod === 'kaspi' ? (
+                <Caption>Счёт придёт на {maskedPhone(auth.account?.phone)}</Caption>
+              ) : (
+                <Caption>
+                  Откроется защищённая платёжная страница. После оплаты вернитесь в PickChick.
+                </Caption>
+              )}
               <Caption style={{ fontSize: 12, lineHeight: 18, marginHorizontal: 8 }}>
                 Фискальный чек пока не выпускается - Webkassa подключается.
               </Caption>
