@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { fetch as expoFetch } from 'expo/fetch';
 import type { FarmCommand } from '@pickchick/farm-game';
+import { HarvestQueue } from './harvest-queue';
 import { API_URL } from '../../api';
 import { useAccount } from '../../useAccount';
 import { FarmClient, FarmClientError, farmRequest, type FarmSnapshot } from './api';
@@ -18,6 +19,8 @@ const messages: Record<string, string> = {
   CROP_NOT_WITHERED: 'Этот урожай ещё не потерян. Очистка не нужна.',
   CELL_OCCUPIED: 'Это место уже занято. Выберите другую клетку.',
   LEGACY_COMMAND: 'Планировка фермы обновилась. Выберите место для новой грядки.',
+  CROP_REQUIRES_BED: 'Посадку можно убрать только с грядки.',
+  PLOT_EMPTY: 'На грядке уже нет посадки.',
   CROP_NOT_READY: 'Урожай ещё растёт. Осталось немного подождать.',
   INSUFFICIENT_COINS: 'Не хватает монет. Соберите и продайте урожай.',
   ORDER_NOT_READY: 'Сначала соберите все продукты для этого заказа.',
@@ -102,6 +105,15 @@ export function useFarm() {
     },
     [client],
   );
+  const harvestQueue = useRef<HarvestQueue | null>(null);
+  useEffect(() => {
+    const queue = new HarvestQueue(run);
+    harvestQueue.current = queue;
+    return () => {
+      queue.dispose();
+      if (harvestQueue.current === queue) harvestQueue.current = null;
+    };
+  }, [run]);
   useEffect(() => {
     currentClient.current = client;
     owner.current = null;
@@ -136,5 +148,7 @@ export function useFarm() {
       void run();
     },
     send: (command: FarmCommand) => run(command),
+    harvest: (command: Extract<FarmCommand, { type: 'harvest' }>) =>
+      harvestQueue.current?.enqueue(command) ?? Promise.resolve(false),
   };
 }

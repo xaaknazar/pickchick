@@ -353,3 +353,25 @@ test('former house cell is usable and historical bed at visual house coordinates
   assert.ok(FarmStateSchema.safeParse(legacy).success);
   assert.deepEqual(upgradeFarmState(legacy).plots, legacy.plots);
 });
+
+test('removeCrop discards planting but preserves bed, money, XP, storage and acquisition cost', () => {
+  for (const age of [0, 3600_000, 7200_000]) {
+    const before = plant();
+    const after = run(before, { type: 'removeCrop', plotId: 0 }, age);
+    assert.deepEqual(after.plots[0], {
+      ...before.plots[0],
+      cropId: null,
+      plantedAt: null,
+      harvests: 0,
+    });
+    for (const key of ['coins', 'xp', 'inventory', 'nextPlotId'])
+      assert.deepEqual(after[key], before[key]);
+    assert.throws(() => run(after, { type: 'removeCrop', plotId: 0 }, age), /PLOT_EMPTY/);
+    assert.equal(
+      run(after, { type: 'plant', plotId: 0, cropId: 'tomato' }, age).plots[0].cropId,
+      'tomato',
+    );
+  }
+  const tree = run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 32, y: 30 }, 0);
+  assert.throws(() => run(tree, { type: 'removeCrop', plotId: 0 }, 0), /CROP_REQUIRES_BED/);
+});

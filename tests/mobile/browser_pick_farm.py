@@ -97,7 +97,7 @@ with sync_playwright() as p:
             page.mouse.click(point['x'], point['y'])
 
         def done():
-            button = page.get_by_role('button', name='Готово', exact=True)
+            button = page.get_by_role('button', name='Закончить посадку', exact=True)
             if button.count():
                 button.click()
 
@@ -110,6 +110,8 @@ with sync_playwright() as p:
             reload_field()
             assert saved['state']['version'] == 2 and not saved['state']['plots']
             page.screenshot(path=str(OUT / f'field-empty-{width}.png'))
+            page.get_by_test_id('pick-farm-shop').click()
+            page.get_by_role('button', name='Грядка - 150 монет', exact=True).click()
             tap_cell(32, 30)
             expect(page.get_by_test_id('pick-farm-panel-place')).to_be_visible()
             page.get_by_role('button', name='Купить - 150 монет', exact=True).click()
@@ -118,11 +120,12 @@ with sync_playwright() as p:
             bed = saved['state']['plots'][0]
             # An empty bed opens seeds; choosing one plants directly.
             select_plot(bed)
+            page.get_by_role('button', name='Посадить', exact=True).click()
             page.get_by_test_id('pick-farm-seed-carrot').click()
             page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
             assert calls[-1]['command']['type'] == 'plant'
             select_plot(bed)
-            expect(page.get_by_test_id('pick-farm-harvest')).to_be_disabled()
+            expect(page.get_by_role('button', name='Убрать посадку', exact=True)).to_be_visible()
             page.wait_for_function('Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)')
             page.wait_for_timeout(650)  # Wait for the crop panel NativeImage CSS background mount.
             page.screenshot(path=str(OUT / f'crop-growing-{width}.png'))
@@ -138,6 +141,7 @@ with sync_playwright() as p:
             assert not page.get_by_test_id('pick-farm-panel-plot').count()
             # Orders remain possible through an explicit storage destination.
             select_plot(bed)
+            page.get_by_role('button', name='Посадить', exact=True).click()
             page.get_by_test_id('pick-farm-seed-carrot').click()
             page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
             saved['now'] += CROPS['carrot']['growSeconds'] * 1000
@@ -159,6 +163,7 @@ with sync_playwright() as p:
             close_panel()
             # Wilt and clear preserve land and do not produce inventory.
             select_plot(bed)
+            page.get_by_role('button', name='Посадить', exact=True).click()
             page.get_by_test_id('pick-farm-seed-carrot').click()
             page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
             saved['now'] += (CROPS['carrot']['growSeconds'] + CROPS['carrot']['harvestWindowSeconds']) * 1000
@@ -171,13 +176,13 @@ with sync_playwright() as p:
             close_panel()
             # Destructive mode always requires confirmation; cancelling is a no-op.
             select_plot(bed)
-            page.get_by_role('button', name='Удалить', exact=True).click()
+            page.get_by_role('button', name='Удалить грядку', exact=True).click()
             expect(page.get_by_test_id('pick-farm-panel-remove')).to_be_visible()
             before = len(calls)
             page.get_by_role('button', name='Оставить', exact=True).click()
             assert len(calls) == before and len(saved['state']['plots']) == 1
             select_plot(bed)
-            page.get_by_role('button', name='Удалить', exact=True).click()
+            page.get_by_role('button', name='Удалить грядку', exact=True).click()
             page.get_by_test_id('pick-farm-remove-confirm').click()
             expect(page.get_by_test_id('pick-farm-panel-remove')).to_have_count(0)
             assert len(saved['state']['plots']) == 0 and saved['state']['coins'] == 362
@@ -199,11 +204,16 @@ with sync_playwright() as p:
                 assert saved['state']['coins'] == tree_coins + (harvest_index + 1) * 30
                 assert saved['state']['inventory']['apple'] == 0
             assert saved['state']['plots'][0]['harvests'] == 0
-            select_plot(tree)
-            page.get_by_role('button', name='Переместить', exact=True).click()
-            tap_cell(tree['x'] + 1, tree['y'])
-            page.get_by_role('button', name='Переместить сюда', exact=True).click()
-            expect(page.get_by_test_id('pick-farm-panel-place')).to_have_count(0)
+            # Direct hold/drag: no move mode or confirmation footer.
+            world_box = page.get_by_test_id('pick-farm-world').locator(':scope > div').first.bounding_box()
+            scale = world_box['width'] / 900
+            tx = world_box['x'] + (450 + (tree['x'] - tree['y']) * 48) * scale
+            ty = world_box['y'] + (300 + (tree['x'] + tree['y'] - 63) * 24) * scale
+            page.mouse.move(tx, ty)
+            page.mouse.down()
+            page.wait_for_timeout(450)
+            page.mouse.move(tx + 48 * scale, ty + 24 * scale, steps=10)
+            page.mouse.up()
             assert calls[-1]['command']['type'] == 'movePlot'
             done()
             before = len(calls)

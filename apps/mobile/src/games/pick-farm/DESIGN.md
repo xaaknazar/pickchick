@@ -112,11 +112,11 @@ Jost carries display and panel headings; Manrope carries body text, metrics and 
 
 ## Layout
 
-Native platform: adaptive React Native for iOS and Android. The farm opens fullscreen in landscape and restores portrait when leaving. The plantable field is a fixed 32x32 square (legacy coordinates 16..47 on each axis); the house is fixed at (14,14), outside that boundary. Historical 64x64 save coordinates remain valid. Older plots outside the new boundary remain intact and can be managed through help, including moving them into the new field.
+Native platform: adaptive React Native for iOS and Android. The farm opens fullscreen in landscape and restores portrait when leaving. The plantable field is a fixed 32x32 square (legacy coordinates 16..47 on each axis); the house is fixed at (14,14), outside that boundary. Historical 64x64 save coordinates remain valid. Older plots outside the new boundary remain intact and can be managed through help, without deleting their progress.
 
-The initial camera fits the whole field and house. Zoom clamps from 1 to 8 relative to that fit; zooming out beyond the overview and panning at overview are disabled. Pinch zooms; one finger pans after zooming in. HUD remains outside the world transform. No bottom tool dock or directional placement arrows: tap an empty bed to choose seeds, tap a ripe crop to harvest, hold 420 ms and drag to move. Releasing outside the field or onto another plot cancels the move. Plot details retain move and confirmed removal actions. Shop contains storage and orders; help contains the harvest destination and accessible zoom controls.
+The initial camera fits the whole field and house. Zoom clamps from 1 to 8 relative to that fit; zooming out beyond the overview and panning at overview are disabled. Pinch zooms; one finger pans after zooming in. HUD remains outside the world transform. No bottom tool dock or directional placement arrows: tap an empty bed to choose seeds, tap a ripe crop to harvest, hold 420 ms and drag to move. Releasing outside the field or onto another plot cancels the move. Plot details use a compact contextual card with planting/removal actions; movement is direct hold-and-drag. Shop contains storage and orders; help contains the harvest destination and accessible zoom controls.
 
-The projection advances 48 pixels horizontally and 24 vertically per axis. Soil, plants, cell outlines and touch conversion use the same coordinates. Purchase/move confirmation uses a compact footer so the field remains available for choosing a destination. Panels scroll within safe areas; minimum buttons remain 48x48 logical pixels.
+The projection advances 48 pixels horizontally and 24 vertically per axis. Soil, plants, cell outlines and touch conversion use the same coordinates. Only new purchases use a compact price/cancel control below the top HUD. Movement has no confirmation footer. Panels scroll within safe areas; minimum buttons remain 48x48 logical pixels.
 
 ## Elevation & Depth
 
@@ -163,3 +163,7 @@ Verified with 18 engine/economy tests, 11 geometry/client tests, mobile TypeScri
 ## Precise interaction zones
 
 Inspect and hold resolve the frontmost opaque sprite, including foliage above a neighbouring ground cell. Hit masks are generated from the existing atlas alpha at 128×128; transparent corners pass through. Placement resolves the ground diamond only. Dragging preserves the original grab offset. The measured game container, camera and zoom share one inverse coordinate conversion, including a native sheet offset. Out-of-bounds placement invalidates the selected destination instead of retaining an earlier valid cell.
+
+## Contextual actions - 5 October 2026
+
+No persistent bottom instruction strip or move-confirmation block. A ripe plot harvests directly; rapid taps on distinct plots are serialized and duplicates deduplicated. Empty/growing plots open a small card beside the object. Removing seeds/planting preserves the bed, with explicit destructive confirmation. Ground taps do not open a purchase prompt. Seed selection mode has only a small top cancel control. Farm API must support removeCrop before the next native release.

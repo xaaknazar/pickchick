@@ -287,6 +287,7 @@ export const FarmCommandSchema = z.discriminatedUnion('type', [
     .strict(),
   z.object({ type: z.literal('movePlot'), plotId: integer, x: coordinate, y: coordinate }).strict(),
   z.object({ type: z.literal('clear'), plotId: integer }).strict(),
+  z.object({ type: z.literal('removeCrop'), plotId: integer }).strict(),
   z.object({ type: z.literal('removePlot'), plotId: integer }).strict(),
 ]);
 export type FarmCommand = z.infer<typeof FarmCommandSchema>;
@@ -393,6 +394,7 @@ export function applyFarmCommand(
     command.type === 'plant' ||
     command.type === 'harvest' ||
     command.type === 'clear' ||
+    command.type === 'removeCrop' ||
     command.type === 'movePlot' ||
     command.type === 'removePlot'
   ) {
@@ -411,6 +413,12 @@ export function applyFarmCommand(
       );
       plot.x = command.x;
       plot.y = command.y;
+    } else if (command.type === 'removeCrop') {
+      requireRule(plot.kind === 'bed', 'CROP_REQUIRES_BED');
+      requireRule(plot.cropId !== null, 'PLOT_EMPTY');
+      plot.cropId = null;
+      plot.plantedAt = null;
+      plot.harvests = 0;
     } else if (command.type === 'clear') {
       requireRule(cropPhase(plot, now) === 'withered', 'CROP_NOT_WITHERED');
       plot.harvests = 0;
