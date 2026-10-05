@@ -2877,6 +2877,22 @@
       "updatedAt": "2026-10-05T16:59:05.049Z",
       "summary": "331d663 merged and UI verified; roadmap updated; native12 release follows.",
       "nextAction": "TestFlight12 release owns next stage."
+    },
+    {
+      "id": "testflight-12",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/testflight-12",
+      "scopes": [
+        "apps/mobile/app.json",
+        "docs/operations/mobile-testflight.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@apple/testflight"
+      ],
+      "status": "active",
+      "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
+      "updatedAt": "2026-10-05T16:59:10.786Z"
     }
   ]
 }
