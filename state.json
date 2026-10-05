@@ -2872,11 +2872,11 @@
         "docs/operations/product-photo-pilot.md",
         "docs/operations/images/combo-transition"
       ],
-      "status": "active",
+      "status": "done",
       "head": "331d663a1002fb180334f6e8206afa7e8b553067",
-      "updatedAt": "2026-10-05T16:58:58.815Z",
-      "summary": "331d663: picker content retained through native dismissal; iOS edit-save deferred; farm green caption removed. Native iPhone apply/cancel/edit and 50-frame video verified; TypeScript/lint/16 selection and 7 roadmap tests passed. PR189/shared published. CI running; TestFlight unchanged.",
-      "nextAction": "Include in next approved mobile build; physical iPhone acceptance remains."
+      "updatedAt": "2026-10-05T16:59:05.049Z",
+      "summary": "331d663 merged and UI verified; roadmap updated; native12 release follows.",
+      "nextAction": "TestFlight12 release owns next stage."
     }
   ]
 }
