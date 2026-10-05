@@ -2893,6 +2893,21 @@
       "status": "active",
       "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
       "updatedAt": "2026-10-05T16:59:10.786Z"
+    },
+    {
+      "id": "tiptoppay-checkout",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-checkout",
+      "scopes": [
+        "apps/mobile/src/commerce-checkout.ts",
+        "apps/mobile/src/screens/Checkout.tsx",
+        "apps/mobile/src/screens/Payment.tsx",
+        "apps/backoffice/src",
+        "docs/operations/tiptoppay-checkout.md"
+      ],
+      "status": "active",
+      "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
+      "updatedAt": "2026-10-05T17:01:30.969Z"
     }
   ]
 }
