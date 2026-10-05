@@ -245,3 +245,15 @@ test('soil corners share the placement diamond and reject adjacent ground', asyn
     );
   }
 });
+
+test('pinch preserves held point and culling retains edge sprites', async () => {
+  const { cameraAroundPoint, worldPointVisible } =
+    await import('../../apps/mobile/src/games/pick-farm/geometry.ts');
+  const old = { x: 20, y: -30, zoom: 2 },
+    point = { x: 90, y: 50 };
+  const next = cameraAroundPoint(old, point, 4);
+  assert.equal((point.x - old.x) / old.zoom, (point.x - next.x) / next.zoom);
+  assert.equal((point.y - old.y) / old.zoom, (point.y - next.y) / next.zoom);
+  assert.equal(worldPointVisible({ x: 450, y: 300 }, old, 0.125, 844, 390), true);
+  assert.equal(worldPointVisible({ x: 9000, y: 9000 }, old, 0.125, 844, 390), false);
+});

@@ -52,7 +52,7 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetcher(
-        `${base.origin}/v1/customer-farm${intent ? '/commands' : ''}`,
+        `${base.origin}/v1/customer-farm${intent ? '/commands' : ''}?protocol=2`,
         {
           method: intent ? 'POST' : 'GET',
           credentials: 'omit',
@@ -103,7 +103,12 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
           value && typeof value === 'object' && 'code' in value && typeof value.code === 'string'
             ? value.code
             : 'INVALID_RESPONSE';
-        throw new FarmClientError(code, response.status);
+        throw new FarmClientError(
+          value && typeof value === 'object' && 'minimumProtocol' in value
+            ? 'FARM_CLIENT_UPGRADE_REQUIRED'
+            : code,
+          response.status,
+        );
       }
       return parseSnapshot(value);
     } catch (error) {

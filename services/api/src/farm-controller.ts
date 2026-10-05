@@ -10,6 +10,7 @@ import {
   HttpException,
   Inject,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import {
@@ -36,6 +37,7 @@ export class FarmController {
   private async execute(
     authorization: string | undefined,
     response: { setHeader(name: string, value: string): unknown },
+    protocol: string | undefined,
     input?: unknown,
   ) {
     response.setHeader('Cache-Control', 'no-store');
@@ -43,10 +45,21 @@ export class FarmController {
       if (process.env.FARM_ENABLED !== '1') throw new FarmPersistenceError('FARM_UNAVAILABLE');
       const token = authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '';
       const { customer } = await this.identity.me(token);
+      // Old clients parse a strict state schema. Reject before lazy creation/migration.
+      if (protocol !== '2')
+        throw new HttpException(
+          {
+            code: 'FARM_UNAVAILABLE',
+            minimumProtocol: 2,
+            message: 'Обновите PickChick, чтобы продолжить игру в ферму.',
+          },
+          503,
+        );
       return input === undefined
         ? await this.farm.get(customer.id)
         : await this.farm.command(customer.id, input);
     } catch (error) {
+      if (error instanceof HttpException) throw error;
       if (error instanceof FarmPersistenceError) {
         const status =
           error.code === 'FARM_UNAVAILABLE'
@@ -73,15 +86,17 @@ export class FarmController {
   }
   @Get() get(
     @Headers('authorization') auth: string | undefined,
+    @Query('protocol') protocol: string | undefined,
     @Res({ passthrough: true }) response: { setHeader(name: string, value: string): unknown },
   ) {
-    return this.execute(auth, response);
+    return this.execute(auth, response, protocol);
   }
   @Post('commands') @HttpCode(200) command(
     @Headers('authorization') auth: string | undefined,
+    @Query('protocol') protocol: string | undefined,
     @Res({ passthrough: true }) response: { setHeader(name: string, value: string): unknown },
     @Body() input: unknown,
   ) {
-    return this.execute(auth, response, input ?? null);
+    return this.execute(auth, response, protocol, input ?? null);
   }
 }

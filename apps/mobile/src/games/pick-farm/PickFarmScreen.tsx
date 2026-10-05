@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
@@ -18,6 +19,11 @@ import {
   CROPS,
   ORDERS,
   cropEconomics,
+  cropTiming,
+  DECORATIONS,
+  getProgression,
+  questProgress,
+  tutorialProgress,
   nextLandCost,
   isPlantingCell,
   cropPhase,
@@ -26,16 +32,32 @@ import {
   type CropId,
   type FarmCommand,
 } from '@pickchick/farm-game';
+import { GardenArt } from './GardenArt';
+import {
+  GardenPanels,
+  chapterAdvice,
+  type GardenPanel,
+  type GardenPlacement,
+} from './GardenPanels';
 import { Icon, type IconName } from '../../components/UI';
 import { useFarm } from './useFarm';
+import { useFarmSound } from './useFarmSound';
 import { CropArt, Landscape, CellOutline, isoPoint, cellAtPoint } from './visuals';
 import { farmPalette as p, farmStyles as s } from './styles';
 import { GroundCrop } from './PlantingVisual';
-import { clampCamera, fitFarm, worldAtPagePoint } from './geometry';
+import {
+  clampCamera,
+  fitFarm,
+  worldAtPagePoint,
+  cameraAroundPoint,
+  worldPointVisible,
+} from './geometry';
 import { plotAtPoint } from './hit-zones';
 import { CropMotion, HarvestFeedback, useFarmMotion, type FarmFeedback } from './motion';
 
 type Panel =
+  | GardenPanel
+  | 'decoration'
   | 'plot'
   | 'shop'
   | 'storage'
@@ -161,21 +183,29 @@ export function PickFarmScreen() {
   }, []);
   useEffect(measureField, [measureField, window.width, window.height]);
   const inset = useSafeAreaInsets();
-  const { state, serverNow, loading, busy, error, retry, send, harvest } = useFarm();
+  const { state, serverNow, loading, busy, error, retry, send, harvest, receipt, customerId } =
+    useFarm();
   const [panel, setPanel] = useState<Panel>(null);
   const [tool, setTool] = useState<'inspect' | 'plant'>('inspect');
   const [harvestDestination, setHarvestDestination] = useState<'sell' | 'storage'>('sell');
   const [seed, setSeed] = useState<CropId>('carrot');
   const [hint, setHint] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [gardenPlacement, setGardenPlacement] = useState<GardenPlacement | null>(null);
+  const [selectedDecoration, setSelectedDecoration] = useState<number | null>(null);
   const [placement, setPlacement] = useState<'bed' | 'tree' | 'move'>('bed');
   const [cell, setCell] = useState({ x: 32, y: 30 });
   const motion = useFarmMotion();
+  const [sound, setSound] = useState(false);
+  useFarmSound(receipt?.id, sound, motion.active);
   const [feedback, setFeedback] = useState<FarmFeedback | null>(null);
-  const feedbackId = useRef(0);
+  useEffect(() => {
+    if (receipt) setFeedback(receipt);
+  }, [receipt]);
   const pendingHarvests = useRef(new Set<number>());
   const clearFeedback = useCallback(() => setFeedback(null), []);
   const camera = useRef({ x: 0, y: 0, zoom: 1 });
+  const [cameraView, setCameraView] = useState(camera.current);
   const gestureStart = useRef({ x: 0, y: 0, zoom: 1, distance: 0, moved: false, multi: false });
   const pan = useRef(new Animated.ValueXY()).current;
   const zoom = useRef(new Animated.Value(1)).current;
@@ -191,6 +221,7 @@ export function PickFarmScreen() {
         height - inset.top - inset.bottom,
       );
       camera.current = next;
+      setCameraView(next);
       pan.setValue({ x: next.x, y: next.y });
       zoom.setValue(next.zoom);
     },
@@ -199,28 +230,47 @@ export function PickFarmScreen() {
   useEffect(() => {
     updateCamera(0, 0, camera.current.zoom);
   }, [updateCamera]);
+  useEffect(() => {
+    if (!customerId) return;
+    let active = true;
+    const key = `pickchick.farm.camera.v1.${customerId}`;
+    void AsyncStorage.getItem(key)
+      .then((raw) => {
+        if (!active || !raw) return;
+        try {
+          const v = JSON.parse(raw);
+          if ([v.x, v.y, v.zoom].every(Number.isFinite)) updateCamera(v.x, v.y, v.zoom);
+        } catch {
+          /* Ignore invalid view preferences, never the farm save. */
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+      void AsyncStorage.setItem(key, JSON.stringify(camera.current)).catch(() => undefined);
+    };
+  }, [customerId, updateCamera]);
+  const focusCell = useCallback(
+    (x: number, y: number) => {
+      const point = isoPoint(x, y);
+      const scale = Math.min(8, Math.max(4, 0.8 / fit));
+      updateCamera(-(point.x - 450) * fit * scale, -(point.y - 300) * fit * scale - 36, scale);
+    },
+    [fit, updateCamera],
+  );
+  const beginGardenPlacement = (value: GardenPlacement) => {
+    setGardenPlacement(value);
+    setPlacement('bed');
+    setTool('inspect');
+    setPanel('place');
+    focusCell(cell.x, cell.y);
+  };
   const distance = (e: GestureResponderEvent) => {
     const [a, b] = e.nativeEvent.touches;
     return a && b ? Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY) : 0;
   };
   const act = useCallback(
     (command: FarmCommand) => {
-      const harvested =
-        command.type === 'harvest'
-          ? state?.plots.find((plot) => plot.id === command.plotId)?.cropId
-          : null;
-      const receipt =
-        harvested && command.type === 'harvest'
-          ? command.destination === 'sell'
-            ? `+${cropEconomics(harvested).revenue} монет за урожай`
-            : `+${cropFor(harvested).harvestYield} ${cropFor(harvested).name} на склад`
-          : command.type === 'plant'
-            ? `-${cropFor(command.cropId).seedCost} монет за семена`
-            : command.type === 'sell'
-              ? `+${command.quantity * cropFor(command.cropId).sellPrice} монет за продажу`
-              : command.type === 'fulfill'
-                ? `+${ORDERS.find((order) => order.id === command.orderId)?.rewardCoins ?? 0} монет за заказ`
-                : null;
       if (command.type === 'harvest') {
         if (pendingHarvests.current.has(command.plotId)) return;
         pendingHarvests.current.add(command.plotId);
@@ -228,17 +278,13 @@ export function PickFarmScreen() {
       void (command.type === 'harvest' ? harvest(command) : send(command))
         .then((saved) => {
           if (saved === true) setHint(null);
-          if (saved === true && receipt) {
-            feedbackId.current += 1;
-            setFeedback({ id: feedbackId.current, text: receipt });
-          }
         })
         .catch(() => undefined)
         .finally(() => {
           if (command.type === 'harvest') pendingHarvests.current.delete(command.plotId);
         });
     },
-    [send, harvest, state],
+    [send, harvest],
   );
   const worldAt = useCallback(
     (event: GestureResponderEvent) =>
@@ -261,6 +307,19 @@ export function PickFarmScreen() {
     (event: GestureResponderEvent) => {
       if (panel && panel !== 'place' && panel !== 'plot') return;
       const ground = pointAt(event);
+      const decoration = state
+        ? getProgression(state).decorations.find((d) => d.x === ground.x && d.y === ground.y)
+        : undefined;
+      if (decoration && panel !== 'place') {
+        setSelectedDecoration(decoration.id);
+        setSelected(null);
+        setPanel('decoration');
+        return;
+      }
+      if (panel !== 'place' && ground.x < 16 && ground.y < 16) {
+        setPanel('house');
+        return;
+      }
       // Placement always targets the ground diamond, never a neighbouring plant's foliage.
       const plot =
         panel === 'place'
@@ -302,6 +361,9 @@ export function PickFarmScreen() {
   );
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragPlot = useRef<number | null>(null);
+  const dragDecoration = useRef<number | null>(null);
+  const sweepStart = useRef<number | null>(null);
+  const swept = useRef(new Set<number>());
   const dragOffset = useRef({ x: 0, y: 0 });
   const dragTarget = useCallback(
     (event: GestureResponderEvent) => {
@@ -324,11 +386,34 @@ export function PickFarmScreen() {
         onPanResponderGrant: (e) => {
           cancelHold();
           dragPlot.current = null;
+          dragDecoration.current = null;
           const target = pointAt(e);
           const pointer = worldAt(e);
           const plot =
             plotAtPoint(state?.plots ?? [], pointer, serverNow) ??
             state?.plots.find((p) => p.x === target.x && p.y === target.y);
+          sweepStart.current = plot && cropPhase(plot, serverNow) === 'ready' ? plot.id : null;
+          swept.current.clear();
+          const decoration = state
+            ? getProgression(state).decorations.find((d) => d.x === target.x && d.y === target.y)
+            : undefined;
+          if (
+            (!panel || panel === 'decoration') &&
+            !busy &&
+            decoration &&
+            e.nativeEvent.touches.length === 1
+          ) {
+            holdTimer.current = setTimeout(() => {
+              setPanel(null);
+              dragDecoration.current = decoration.id;
+              setSelectedDecoration(decoration.id);
+              setSelected(null);
+              const center = isoPoint(decoration.x!, decoration.y!);
+              dragOffset.current = { x: center.x - pointer.x, y: center.y - pointer.y };
+              setCell({ x: decoration.x!, y: decoration.y! });
+              setHint(null);
+            }, 420);
+          }
           if ((!panel || panel === 'plot') && !busy && plot && e.nativeEvent.touches.length === 1) {
             holdTimer.current = setTimeout(() => {
               setPanel(null);
@@ -354,14 +439,32 @@ export function PickFarmScreen() {
             start.moved = true;
             cancelHold();
           }
-          if (dragPlot.current !== null && e.nativeEvent.touches.length === 1) {
+          if (
+            (dragPlot.current !== null || dragDecoration.current !== null) &&
+            e.nativeEvent.touches.length === 1
+          ) {
             setCell(dragTarget(e));
             return;
           }
           if (e.nativeEvent.touches.length > 1) {
             start.multi = true;
+            sweepStart.current = null;
             cancelHold();
             dragPlot.current = null;
+            dragDecoration.current = null;
+          }
+          if (!start.multi && start.moved && sweepStart.current !== null) {
+            const pointer = worldAt(e);
+            const next = plotAtPoint(state?.plots ?? [], pointer, serverNow);
+            for (const id of [sweepStart.current, next?.id]) {
+              if (id === undefined || swept.current.has(id)) continue;
+              const plot = state?.plots.find((p) => p.id === id);
+              if (plot && cropPhase(plot, serverNow) === 'ready') {
+                swept.current.add(id);
+                act({ type: 'harvest', plotId: id, destination: harvestDestination });
+              }
+            }
+            return;
           }
           const d = distance(e);
           if (d > 0) {
@@ -369,12 +472,43 @@ export function PickFarmScreen() {
               start.distance = d;
               start.zoom = camera.current.zoom;
             }
-            updateCamera(camera.current.x, camera.current.y, (start.zoom * d) / start.distance);
+            const [a, b] = e.nativeEvent.touches;
+            if (a && b) {
+              const pivot = {
+                x: (a.pageX + b.pageX) / 2 - fieldFrame.current.x - width / 2,
+                y: (a.pageY + b.pageY) / 2 - fieldFrame.current.y - height / 2 - 48,
+              };
+              const next = cameraAroundPoint(
+                camera.current,
+                pivot,
+                (start.zoom * d) / start.distance,
+              );
+              updateCamera(next.x, next.y, next.zoom);
+            }
           } else if (start.moved && !start.multi)
             updateCamera(start.x + g.dx, start.y + g.dy, camera.current.zoom);
         },
         onPanResponderRelease: (e) => {
           cancelHold();
+          if (dragDecoration.current !== null) {
+            const instanceId = dragDecoration.current;
+            dragDecoration.current = null;
+            if (!gestureStart.current.moved) {
+              setPanel('decoration');
+              return;
+            }
+            const target = dragTarget(e);
+            const taken =
+              state?.plots.some((p) => p.x === target.x && p.y === target.y) ||
+              (state &&
+                getProgression(state).decorations.some(
+                  (d) => d.id !== instanceId && d.x === target.x && d.y === target.y,
+                ));
+            if (isPlantingCell(target.x, target.y) && !taken)
+              act({ type: 'moveDecoration', instanceId, ...target });
+            else setHint('Нужна свободная клетка внутри участка.');
+            return;
+          }
           if (dragPlot.current !== null) {
             const plotId = dragPlot.current;
             dragPlot.current = null;
@@ -387,7 +521,10 @@ export function PickFarmScreen() {
             const occupied = state?.plots.some(
               (plot) => plot.id !== plotId && plot.x === target.x && plot.y === target.y,
             );
-            if (isPlantingCell(target.x, target.y) && !occupied)
+            const decorOccupied =
+              state &&
+              getProgression(state).decorations.some((d) => d.x === target.x && d.y === target.y);
+            if (isPlantingCell(target.x, target.y) && !occupied && !decorOccupied)
               act({ type: 'movePlot', plotId, ...target });
             else setHint('Перенос отменён: нужна свободная клетка внутри участка.');
             return;
@@ -397,6 +534,7 @@ export function PickFarmScreen() {
         onPanResponderTerminate: () => {
           cancelHold();
           dragPlot.current = null;
+          dragDecoration.current = null;
           setHint(null);
         },
       }),
@@ -411,6 +549,9 @@ export function PickFarmScreen() {
       busy,
       panel,
       cancelHold,
+      width,
+      height,
+      harvestDestination,
       act,
     ],
   );
@@ -434,7 +575,7 @@ export function PickFarmScreen() {
   const crop = current?.cropId ? cropFor(current.cropId) : null;
   const remaining =
     current && crop && current.plantedAt !== null
-      ? Math.max(0, (current.plantedAt + crop.growSeconds * 1000 - serverNow) / 1000)
+      ? Math.max(0, (current.plantedAt + cropTiming(current).growSeconds * 1000 - serverNow) / 1000)
       : 0;
   if (!state)
     return (
@@ -459,6 +600,17 @@ export function PickFarmScreen() {
         </View>
       </View>
     );
+  const progression = getProgression(state);
+  const tutorial = tutorialProgress(state);
+  const nextQuest = questProgress(state).find((q) => !q.claimed && q.available);
+  const decoration = progression.decorations.find((d) => d.id === selectedDecoration);
+  const decorationInfo = DECORATIONS.find((d) => d.id === decoration?.decorationId);
+  const placeCost =
+    gardenPlacement?.kind === 'decoration'
+      ? DECORATIONS.find((d) => d.id === gardenPlacement.decorationId)!.cost
+      : gardenPlacement
+        ? 0
+        : nextLandCost(state, placement === 'tree' ? 'tree' : 'bed');
   const bedCost = nextLandCost(state, 'bed');
   const treeCost = nextLandCost(state, 'tree');
   const phase = current ? cropPhase(current, serverNow) : 'empty';
@@ -466,7 +618,12 @@ export function PickFarmScreen() {
     (plot) =>
       plot.x === cell.x && plot.y === cell.y && !(placement === 'move' && plot.id === selected),
   );
-  const validCell = isPlantingCell(cell.x, cell.y) && !occupied;
+  const validCell =
+    isPlantingCell(cell.x, cell.y) &&
+    !occupied &&
+    !progression.decorations.some(
+      (d) => d.x === cell.x && d.y === cell.y && d.id !== dragDecoration.current,
+    );
   const storageCount = Object.values(state.inventory).reduce((a, b) => a + b, 0);
   const contextPoint = current ? isoPoint(current.x, current.y) : { x: 450, y: 300 };
   const contextX =
@@ -478,6 +635,12 @@ export function PickFarmScreen() {
       ? crop?.name || `Грядка ${Number(selected) + 1}`
       : {
           shop: 'Магазин фермы',
+          journal: 'История вашего сада',
+          garden: 'Украшения',
+          workshop: 'Мастерские',
+          belongings: 'Ваши вещи',
+          house: 'Дом Алекса',
+          decoration: decorationInfo?.name ?? 'Украшение',
           remove: current?.kind === 'tree' ? 'Удалить яблоню?' : 'Удалить грядку?',
           removeCrop: 'Убрать посадку?',
           seeds: 'Выберите семена',
@@ -499,23 +662,6 @@ export function PickFarmScreen() {
       style={s.screen}
       testID="pick-farm-screen"
     >
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: -80,
-          top: -60,
-          width: width + 160,
-          height: height + 120,
-        }}
-      >
-        <NativeImage
-          source={require('../../../assets/games/pick-farm/meadow-painted-v2.png')}
-          resizeMode="cover"
-          accessible={false}
-          style={{ width: '100%', height: '100%' }}
-        />
-      </Animated.View>
       {feedback && (
         <View
           pointerEvents="none"
@@ -551,9 +697,51 @@ export function PickFarmScreen() {
             ],
           }}
         >
-          <Landscape grid={panel === 'place' || dragPlot.current !== null} />
+          <NativeImage
+            source={require('../../../assets/games/pick-farm/meadow-painted-v2.png')}
+            resizeMode="stretch"
+            accessible={false}
+            style={{ position: 'absolute', left: -1750, top: -1100, width: 4400, height: 2800 }}
+          />
+          <Landscape
+            houseStyle={progression.houseStyle}
+            grid={panel === 'place' || dragPlot.current !== null || dragDecoration.current !== null}
+          />
+          {progression.decorations
+            .filter((d) => d.x !== null && d.y !== null)
+            .map((d) => {
+              const pt = isoPoint(d.x!, d.y!);
+              if (!worldPointVisible(pt, cameraView, fit, width, height)) return null;
+              return (
+                <View
+                  key={`decor-${d.id}`}
+                  style={{
+                    position: 'absolute',
+                    left: pt.x - 48,
+                    top: pt.y - 76,
+                    opacity: dragDecoration.current === d.id ? 0.3 : 1,
+                  }}
+                >
+                  <GardenArt id={d.decorationId} size={96} />
+                </View>
+              );
+            })}
+          {progression.stations.map((station, i) => {
+            const pt = isoPoint(13, 18 + i * 3);
+            return (
+              <View
+                key={station.id}
+                style={{ position: 'absolute', left: pt.x - 75, top: pt.y - 130 }}
+              >
+                <GardenArt id={station.id} size={150} />
+              </View>
+            );
+          })}
           {state.plots
             .slice()
+            .filter((plot) =>
+              worldPointVisible(isoPoint(plot.x, plot.y), cameraView, fit, width, height),
+            )
             .sort((a, b) => a.x + a.y - b.x - b.y)
             .map((plot) => {
               const point = isoPoint(plot.x, plot.y),
@@ -563,7 +751,12 @@ export function PickFarmScreen() {
                 <View
                   key={plot.id}
                   pointerEvents="none"
-                  style={{ position: 'absolute', left: point.x, top: point.y }}
+                  style={{
+                    position: 'absolute',
+                    left: point.x,
+                    top: point.y,
+                    opacity: dragPlot.current === plot.id ? 0.25 : 1,
+                  }}
                 >
                   {plot.kind === 'tree' && selected === plot.id && <CellOutline x={0} y={0} />}
                   <View
@@ -575,7 +768,7 @@ export function PickFarmScreen() {
                         selected={selected === plot.id}
                         cropId={plot.cropId}
                         plantedAt={plot.plantedAt}
-                        growSeconds={planted?.growSeconds ?? 1}
+                        growSeconds={cropTiming(plot).growSeconds}
                         phase={plotPhase}
                         now={serverNow}
                         size={96}
@@ -603,7 +796,57 @@ export function PickFarmScreen() {
                 </View>
               );
             })}
-          {(panel === 'place' || dragPlot.current !== null) && (
+          {dragPlot.current !== null && current && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: isoPoint(cell.x, cell.y).x - 48,
+                top: isoPoint(cell.x, cell.y).y - 69,
+                opacity: validCell ? 0.85 : 0.4,
+              }}
+            >
+              {current.kind === 'bed' ? (
+                <GroundCrop
+                  selected
+                  cropId={current.cropId}
+                  plantedAt={current.plantedAt}
+                  growSeconds={cropTiming(current).growSeconds}
+                  phase={phase}
+                  now={serverNow}
+                  size={96}
+                  motion={{ reduced: true, active: false }}
+                />
+              ) : (
+                <CropArt cropId="apple" size={112} phase={phase === 'empty' ? undefined : phase} />
+              )}
+            </View>
+          )}
+          {panel === 'place' && gardenPlacement?.kind === 'decoration' && (
+            <View
+              style={{
+                position: 'absolute',
+                left: isoPoint(cell.x, cell.y).x - 48,
+                top: isoPoint(cell.x, cell.y).y - 76,
+                opacity: 0.6,
+              }}
+            >
+              <GardenArt id={gardenPlacement.decorationId} size={96} />
+            </View>
+          )}
+          {dragDecoration.current !== null && decoration && (
+            <View
+              style={{
+                position: 'absolute',
+                left: isoPoint(cell.x, cell.y).x - 48,
+                top: isoPoint(cell.x, cell.y).y - 76,
+                opacity: validCell ? 0.85 : 0.4,
+              }}
+            >
+              <GardenArt id={decoration.decorationId} size={96} />
+            </View>
+          )}
+          {(panel === 'place' || dragPlot.current !== null || dragDecoration.current !== null) && (
             <CellOutline
               x={isoPoint(cell.x, cell.y).x}
               y={isoPoint(cell.x, cell.y).y}
@@ -633,6 +876,13 @@ export function PickFarmScreen() {
         </View>
       </View>
       <View style={[s.hud, { top, right }]}>
+        <IconButton
+          label="Задания Алекса"
+          icon="clipboard-outline"
+          onPress={() => setPanel('journal')}
+        />
+        <IconButton label="Заказы фермы" icon="basket-outline" onPress={() => setPanel('orders')} />
+
         <Button
           label="Магазин"
           icon="storefront-outline"
@@ -645,6 +895,48 @@ export function PickFarmScreen() {
           onPress={() => setPanel('help')}
         />
       </View>
+      {!panel && !hint && tool === 'inspect' && nextQuest && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Задание: ${nextQuest.name}`}
+          onPress={() => {
+            if (!state.plots.length) {
+              focusCell(32, 30);
+              setPanel('shop');
+            } else setPanel('journal');
+          }}
+          style={[
+            s.pill,
+            {
+              position: 'absolute',
+              top: top + 62,
+              left,
+              maxWidth: Math.min(280, width / 2),
+              paddingVertical: 10,
+            },
+          ]}
+        >
+          <View style={[s.row, { gap: 8 }]}>
+            <NativeImage
+              source={require('../../../assets/profile/alex-avatar.png')}
+              accessible={false}
+              style={{ width: 32, height: 32, borderRadius: 10 }}
+            />
+            <Text style={[s.choiceName, { flex: 1 }]}>
+              {nextQuest.name} · {nextQuest.progress}/{nextQuest.target}
+            </Text>
+          </View>
+          <Text style={s.muted}>
+            {!state.plots.length
+              ? 'Алекс: начнём с первой грядки'
+              : nextQuest.progress >= nextQuest.target
+                ? 'Награда готова. Нажмите, чтобы забрать'
+                : !tutorial.complete && tutorial.plantings < 2
+                  ? 'Первые две моркови вырастут за 45 секунд'
+                  : chapterAdvice[nextQuest.id]}
+          </Text>
+        </Pressable>
+      )}
       {!panel && (hint || tool === 'plant') && (
         <View
           style={{
@@ -673,18 +965,25 @@ export function PickFarmScreen() {
             <IconButton label="Отменить размещение" icon="close" onPress={() => setPanel(null)} />
             <Button
               primary
-              label={`Купить - ${placement === 'tree' ? treeCost : bedCost} монет`}
-              disabled={
-                busy || !validCell || state.coins < (placement === 'tree' ? treeCost : bedCost)
-              }
+              label={placeCost ? `Разместить - ${placeCost} монет` : 'Разместить бесплатно'}
+              disabled={busy || !validCell || state.coins < placeCost}
               onPress={() => {
                 const command: FarmCommand =
-                  placement === 'tree'
-                    ? { type: 'buyTree', cropId: 'apple', ...cell }
-                    : { type: 'buyPlot', ...cell };
+                  gardenPlacement?.kind === 'decoration'
+                    ? { type: 'buyDecoration', decorationId: gardenPlacement.decorationId, ...cell }
+                    : gardenPlacement?.kind === 'storedDecoration'
+                      ? { type: 'placeDecoration', instanceId: gardenPlacement.instanceId, ...cell }
+                      : gardenPlacement?.kind === 'storedPlot'
+                        ? { type: 'placePlot', plotId: gardenPlacement.plotId, ...cell }
+                        : placement === 'tree'
+                          ? { type: 'buyTree', cropId: 'apple', ...cell }
+                          : { type: 'buyPlot', ...cell };
                 void send(command)
                   .then((saved) => {
-                    if (saved) setPanel(null);
+                    if (saved) {
+                      setPanel(null);
+                      setGardenPlacement(null);
+                    }
                   })
                   .catch(() => undefined);
               }}
@@ -724,6 +1023,49 @@ export function PickFarmScreen() {
           </View>
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 3 }}>
             {panel === 'shop' && (
+              <View style={[s.row, { flexWrap: 'wrap', marginBottom: 12 }]}>
+                {(
+                  [
+                    { id: 'garden', label: 'Украшения' },
+                    { id: 'workshop', label: 'Мастерские' },
+                    { id: 'belongings', label: 'Ваши вещи' },
+                    { id: 'house', label: 'Дом' },
+                  ] as const
+                ).map((item) => (
+                  <Button key={item.id} label={item.label} onPress={() => setPanel(item.id)} />
+                ))}
+              </View>
+            )}
+            {(['journal', 'garden', 'workshop', 'belongings', 'house'] as string[]).includes(
+              panel,
+            ) && (
+              <GardenPanels
+                panel={panel as GardenPanel}
+                state={state}
+                now={serverNow}
+                busy={busy}
+                act={act}
+                place={beginGardenPlacement}
+              />
+            )}
+            {panel === 'decoration' && decoration && (
+              <View style={{ gap: 10 }}>
+                <GardenArt id={decoration.decorationId} size={96} />
+                <Text style={s.text}>
+                  Удерживайте и перетаскивайте украшение пальцем. На складе оно сохранится для новой
+                  планировки.
+                </Text>
+                <Button
+                  label="Убрать в вещи"
+                  disabled={busy}
+                  onPress={() => {
+                    act({ type: 'storeDecoration', instanceId: decoration.id });
+                    setPanel(null);
+                  }}
+                />
+              </View>
+            )}
+            {panel === 'shop' && (
               <View style={[s.row, { marginBottom: 8, flexWrap: 'wrap' }]}>
                 <Button
                   label={`Склад ${storageCount}`}
@@ -739,14 +1081,18 @@ export function PickFarmScreen() {
                   label={`Грядка - ${bedCost} монет`}
                   primary
                   onPress={() => {
+                    setGardenPlacement(null);
                     setPlacement('bed');
+                    focusCell(cell.x, cell.y);
                     setPanel('place');
                   }}
                 />
                 <Button
                   label={`Яблоня - ${treeCost} монет`}
                   onPress={() => {
+                    setGardenPlacement(null);
                     setPlacement('tree');
+                    focusCell(cell.x, cell.y);
                     setPanel('place');
                   }}
                 />
@@ -786,6 +1132,8 @@ export function PickFarmScreen() {
                       }
                       onPress={() => {
                         if (item.id === 'apple') {
+                          setGardenPlacement(null);
+                          focusCell(cell.x, cell.y);
                           setPlacement('tree');
                           setTool('inspect');
                           setPanel('place');
@@ -808,6 +1156,9 @@ export function PickFarmScreen() {
                     >
                       <CropArt cropId={item.id} size={52} />
                       <Text style={s.choiceName}>{item.name}</Text>
+                      {item.id === 'carrot' && tutorial.plantings < 2 && (
+                        <Text style={s.profit}>Учебная посадка: 45 секунд</Text>
+                      )}
                       <Text style={s.muted}>
                         {item.id === 'apple'
                           ? `Дерево ${treeCost} монет`
@@ -853,6 +1204,13 @@ export function PickFarmScreen() {
                     onPress={() => setPanel('seeds')}
                   />
                 )}
+                {crop && current.plantedAt !== null && phase !== 'withered' && (
+                  <Text style={s.muted}>
+                    {phase === 'ready'
+                      ? `Соберите в течение ${duration((current.plantedAt + (cropTiming(current).growSeconds + cropTiming(current).harvestWindowSeconds) * 1000 - serverNow) / 1000)}`
+                      : `После созревания есть ${duration(cropTiming(current).harvestWindowSeconds)} для сбора`}
+                  </Text>
+                )}
                 {crop && phase === 'ready' && (
                   <Button
                     label="Собрать"
@@ -883,6 +1241,17 @@ export function PickFarmScreen() {
                     icon="close"
                     disabled={busy}
                     onPress={() => setPanel('removeCrop')}
+                  />
+                )}
+                {(current.kind === 'tree' || !current.cropId) && (
+                  <Button
+                    label="Убрать в вещи"
+                    icon="archive-outline"
+                    disabled={busy}
+                    onPress={() => {
+                      act({ type: 'storePlot', plotId: current.id });
+                      setPanel(null);
+                    }}
                   />
                 )}
                 <Button
@@ -960,24 +1329,38 @@ export function PickFarmScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ gap: 8 }}
                 >
-                  {CROPS.map((item) => (
-                    <View key={item.id} style={[s.choice, { width: 150 }]}>
-                      <View style={s.row}>
-                        <CropArt cropId={item.id} size={64} />
-                        <Text style={s.choiceName}>{state.inventory[item.id]} шт.</Text>
+                  {CROPS.map((item) => {
+                    const needs = Object.entries(
+                      ORDERS.find((o) => o.id === progression.reserveOrderId)?.requires ?? {},
+                    );
+                    const reserved = Math.min(
+                      state.inventory[item.id],
+                      needs.find(([id]) => id === item.id)?.[1] ?? 0,
+                    );
+                    const surplus = state.inventory[item.id] - reserved;
+                    return (
+                      <View key={item.id} style={[s.choice, { width: 150 }]}>
+                        <View style={s.row}>
+                          <CropArt cropId={item.id} size={64} />
+                          <Text style={s.choiceName}>{state.inventory[item.id]} шт.</Text>
+                        </View>
+                        <Text style={s.choiceName}>{item.name}</Text>
+                        {item.id === 'carrot' && tutorial.plantings < 2 && (
+                          <Text style={s.profit}>Учебная посадка: 45 секунд</Text>
+                        )}
+                        <Text style={s.muted}>{item.sellPrice} монет за шт.</Text>
+                        {reserved > 0 && (
+                          <Text style={s.profit}>{reserved} оставлено для заказа</Text>
+                        )}
+                        <Button
+                          label={`Продать ${surplus} · ${surplus * item.sellPrice}`}
+                          disabled={busy || !surplus}
+                          testID={`pick-farm-sell-${item.id}`}
+                          onPress={() => act({ type: 'sell', cropId: item.id, quantity: surplus })}
+                        />
                       </View>
-                      <Text style={s.choiceName}>{item.name}</Text>
-                      <Text style={s.muted}>{item.sellPrice} монет за шт.</Text>
-                      <Button
-                        label={`Продать · ${state.inventory[item.id] * item.sellPrice}`}
-                        disabled={busy || !state.inventory[item.id]}
-                        testID={`pick-farm-sell-${item.id}`}
-                        onPress={() =>
-                          act({ type: 'sell', cropId: item.id, quantity: state.inventory[item.id] })
-                        }
-                      />
-                    </View>
-                  ))}
+                    );
+                  })}
                 </ScrollView>
               </>
             )}
@@ -1005,6 +1388,22 @@ export function PickFarmScreen() {
                         +{order.rewardCoins} монет · +{order.rewardXp} XP
                       </Text>
                       <Button
+                        testID={`pick-farm-reserve-${order.id}`}
+                        label={
+                          progression.reserveOrderId === order.id
+                            ? 'Сохраняем урожай'
+                            : 'Оставлять урожай для заказа'
+                        }
+                        disabled={busy}
+                        active={progression.reserveOrderId === order.id}
+                        onPress={() =>
+                          act({
+                            type: 'setOrderReserve',
+                            orderId: progression.reserveOrderId === order.id ? null : order.id,
+                          })
+                        }
+                      />
+                      <Button
                         label="Выполнить"
                         primary
                         disabled={busy || !available}
@@ -1018,6 +1417,11 @@ export function PickFarmScreen() {
             )}
             {panel === 'help' && (
               <View style={{ gap: 8 }}>
+                <Button
+                  label={sound ? 'Звук: включён' : 'Звук: выключен'}
+                  icon={sound ? 'volume-high-outline' : 'volume-mute-outline'}
+                  onPress={() => setSound(!sound)}
+                />
                 <HarvestMode destination={harvestDestination} onChange={setHarvestDestination} />
                 {state.plots.some((plot) => !isPlantingCell(plot.x, plot.y)) && (
                   <>
@@ -1050,7 +1454,8 @@ export function PickFarmScreen() {
                   <>
                     <Text style={s.text}>
                       Не осталось урожая и монет для посадки? Помощь даст морковь на грядке
-                      бесплатно. Она вырастет за 1 час. Продайте урожай, чтобы продолжить.
+                      бесплатно. Время роста будет показано на грядке. Продайте урожай, чтобы
+                      продолжить.
                     </Text>
                     <Button
                       label="Восстановить ферму"
@@ -1069,8 +1474,8 @@ export function PickFarmScreen() {
                   сбора. Коснитесь спелой грядки для сбора, пустой - для выбора семян. Удерживайте
                   грядку, затем перетащите пальцем. Крестик рядом с названием семян завершает
                   посадку. Удаление грядки всегда просит подтверждение и не возвращает монеты. Рост
-                  занимает часы. После созревания есть ограниченное время для сбора: затем урожай
-                  увянет и будет потерян. Увядшие посадки нужно очистить.
+                  занимает от нескольких минут до часов. После созревания есть ограниченное время
+                  для сбора: затем урожай увянет и будет потерян. Увядшие посадки нужно очистить.
                 </Text>
                 <Text style={s.text}>
                   Участок 32×32. Дом стоит за границей. Приближайте двумя пальцами; после увеличения
@@ -1079,7 +1484,7 @@ export function PickFarmScreen() {
                 <Text style={s.muted}>
                   Новые участки дорожают после каждой покупки. Стоимость грядки - вложение в
                   постоянное место; она не входит в прибыль с семян. Яблоня покупается один раз и
-                  даёт урожай без повторной платы. Удаление не снижает стоимость следующего участка.
+                  даёт урожай без повторной платы. Хранение в вещах не требует повторной покупки.
                 </Text>
                 <Text style={s.muted}>
                   Прогресс сохраняется на сервере. Монеты и XP используются только внутри фермы.
