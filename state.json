@@ -2629,6 +2629,22 @@
       "updatedAt": "2026-10-05T05:42:48.034Z",
       "summary": "TestFlight 0.2.0 (10) Testing in existing PickChick Internal; source 1ad568b CI 11/11, clean archive and Alex cover assets verified. Delivery docs 2f0ae72 in shared, PR 180. Online roadmap published at release source 1ad568b; final delivery status remains GitHub-only.",
       "nextAction": "Update TestFlight on physical iPhone and accept both games; refresh online roadmap final delivery facts in the next approved roadmap release."
+    },
+    {
+      "id": "magic-sort-selection",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/magic-sort-selection",
+      "scopes": [
+        "apps/mobile/src/games/magic-sort",
+        "tests/mobile/magic-sort.test.mjs",
+        "docs/design/magic-sort.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "2f0ae726b9a366273b64dad41a34fd506fc1548a",
+      "updatedAt": "2026-10-05T05:48:15.779Z"
     }
   ]
 }
