@@ -100,11 +100,14 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
     app = await createHttpApplication(TestModule);
     await app.listen(0, '127.0.0.1');
     const origin = await app.getUrl();
-    async function request(path = '', body, auth = token) {
-      const response = await fetch(origin + '/v1/customer-farm' + path, {
-        headers: { authorization: 'Bearer ' + auth, 'content-type': 'application/json' },
-        ...(body ? { method: 'POST', body: JSON.stringify(body) } : {}),
-      });
+    async function request(path = '', body, auth = token, protocol = '2') {
+      const response = await fetch(
+        origin + '/v1/customer-farm' + path + (protocol ? '?protocol=' + protocol : ''),
+        {
+          headers: { authorization: 'Bearer ' + auth, 'content-type': 'application/json' },
+          ...(body ? { method: 'POST', body: JSON.stringify(body) } : {}),
+        },
+      );
       assert.equal(response.headers.get('cache-control'), 'no-store');
       return { status: response.status, body: await response.json() };
     }
@@ -112,6 +115,14 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
     assert.deepEqual(await request(), { status: 503, body: { code: 'FARM_UNAVAILABLE' } });
     process.env.FARM_ENABLED = '1';
     assert.equal((await request('', undefined, 'd'.repeat(64))).status, 401);
+    for (const protocol of ['', '1', '3']) {
+      const legacy = await request('', undefined, token, protocol);
+      assert.equal(legacy.status, 503);
+      assert.equal(legacy.body.code, 'FARM_UNAVAILABLE');
+      assert.equal(legacy.body.minimumProtocol, 2);
+      assert.match(legacy.body.message, /Обновите/);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM customer_farms')).rows[0].n, 0);
+    }
     const initial = await request();
     assert.equal(initial.status, 200);
     assert.equal(initial.body.state.revision, 0);
@@ -121,6 +132,15 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
       command: { type: 'buyPlot', x: 31, y: 31 },
     };
     assert.equal((await request('/commands', command)).status, 200);
+    const saved = (await pool.query('SELECT state FROM customer_farms')).rows[0].state;
+    const legacyCommand = await request(
+      '/commands',
+      { ...command, commandId: randomUUID() },
+      token,
+      '',
+    );
+    assert.equal(legacyCommand.body.minimumProtocol, 2);
+    assert.deepEqual((await pool.query('SELECT state FROM customer_farms')).rows[0].state, saved);
     const stale = await request('/commands', { ...command, commandId: randomUUID() });
     assert.equal(stale.status, 409);
     assert.equal(stale.body.code, 'STALE_STATE');

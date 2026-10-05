@@ -181,6 +181,16 @@ const openapi = {
       get: {
         operationId: 'getCustomerFarm',
         security: [{ customerBearer: [] }],
+        parameters: [
+          {
+            name: 'protocol',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', enum: ['2'] },
+            description:
+              'Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves.',
+          },
+        ],
         responses: {
           200: response('FarmSnapshot'),
           401: response('FarmError'),
@@ -192,6 +202,16 @@ const openapi = {
       post: {
         operationId: 'commandCustomerFarm',
         security: [{ customerBearer: [] }],
+        parameters: [
+          {
+            name: 'protocol',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', enum: ['2'] },
+            description:
+              'Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves.',
+          },
+        ],
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/FarmRequest' } } },
@@ -426,7 +446,12 @@ const openapi = {
         type: 'object',
         required: ['code'],
         additionalProperties: false,
-        properties: { code: { type: 'string' }, state: { $ref: '#/components/schemas/FarmState' } },
+        properties: {
+          code: { type: 'string' },
+          state: { $ref: '#/components/schemas/FarmState' },
+          minimumProtocol: { type: 'integer', enum: [2] },
+          message: { type: 'string' },
+        },
       },
 
       Branch: jsonSchema(BranchSchema),
