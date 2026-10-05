@@ -95,7 +95,7 @@ with sync_playwright() as p:
         def command(action, kind):
             before = len(calls)
             action()
-            page.wait_for_function("document.body.innerText.includes('Сохраняем') === false")
+            page.wait_for_function("document.body.innerText.includes('Сохраняем...') === false")
             deadline = time.monotonic() + 5
             while len(calls) == before and time.monotonic() < deadline:
                 page.wait_for_timeout(50)
@@ -116,6 +116,7 @@ with sync_playwright() as p:
             command(lambda: page.get_by_role('button', name='Разместить - 150 монет', exact=True).click(), 'buyPlot')
             bed = saved['state']['plots'][0]
             tap(bed['x'], bed['y'])
+            page.get_by_role('button', name='Посадить', exact=True).click()
             command(lambda: page.get_by_test_id('pick-farm-seed-carrot').click(), 'plant')
             assert saved['state']['plots'][0]['timing']['growSeconds'] == 45
             saved['now'] += 44000
@@ -142,6 +143,7 @@ with sync_playwright() as p:
             command(lambda: page.get_by_test_id('pick-farm-reserve-welcome-basket').click(), 'setOrderReserve')
             close()
             tap(bed['x'], bed['y'])
+            page.get_by_role('button', name='Посадить', exact=True).click()
             command(lambda: page.get_by_test_id('pick-farm-seed-carrot').click(), 'plant')
             saved['now'] += 45000
             reload()
