@@ -1,7 +1,16 @@
 import { z } from 'zod';
 const amount = z.string().regex(/^(0|[1-9][0-9]{0,15})$/);
+export const CustomerPaymentMethodSchema = z.enum(['kaspi', 'card', 'apple_pay', 'google_pay']);
+export const CustomerHostedPaymentSchema = z.strictObject({
+  orderId: z.uuid(),
+  attemptId: z.uuid(),
+  checkoutUrl: z.url(),
+  expiresAt: z.iso.datetime(),
+});
+export type CustomerHostedPayment = z.infer<typeof CustomerHostedPaymentSchema>;
 export const CustomerCheckoutConfigSchema = z.strictObject({
   enabled: z.boolean(),
+  paymentMethods: z.array(CustomerPaymentMethodSchema).optional(),
   orderCommentEnabled: z.boolean().optional().default(false),
   branchId: z.uuid(),
   restaurant: z.string(),
@@ -16,6 +25,7 @@ export const CustomerQuoteSchema = z.strictObject({
 });
 export const CustomerCommerceOrderSchema = z.strictObject({
   orderId: z.uuid(),
+  paymentMethod: CustomerPaymentMethodSchema.optional(),
   revision: z.string().regex(/^[a-f0-9]{64}$/),
   restaurant: z.string(),
   branchId: z.uuid(),
