@@ -191,9 +191,10 @@ with sync_playwright() as playwright:
         first = FIXTURE['game']['witness'][0]
         bottle(page, first['from']).click()
         bottle(page, FIXTURE['illegal']).click()
-        expect(page.get_by_test_id('magic-sort-notice')).to_contain_text('нельзя перелить')
+        expect(bottle(page, FIXTURE['illegal'])).to_have_attribute('aria-selected', 'true')
+        expect(bottle(page, first['from'])).to_have_attribute('aria-selected', 'false')
         assert saved(page) == FIXTURE['game'], 'Illegal pour must not persist a move'
-        bottle(page, first['from']).click()  # Cancel the still-selected source.
+        bottle(page, FIXTURE['illegal']).click()  # Cancel the newly selected source.
         assert pour(page, first, 1) == FIXTURE['afterFirst']
         page.get_by_test_id('magic-sort-undo').click()
         assert wait_history(page, 0) == FIXTURE['game']
