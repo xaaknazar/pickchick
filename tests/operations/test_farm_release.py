@@ -73,7 +73,7 @@ class FarmRelease(unittest.TestCase):
         obj.args=SimpleNamespace(branch='codex/farm-testflight')
         obj.profile=r.market.ReleaseProfile('farm',r.BASELINE,r.PUBLIC_BASELINE,38,(),r.CI_JOBS,frozenset(),'farm-pilot-release',(),exact_ci_jobs=True)
         original_profile=obj.profile
-        files=sorted(path.name for path in (ROOT/'db/cloud/migrations').glob('*.sql'))
+        files=sorted(path.name for path in (ROOT/'db/cloud/migrations').glob('*.sql') if int(path.name[:3])<=38)
         original=[name for name in files if int(name[:3])<=33]
         shows=[]
         def git(*args):
@@ -90,7 +90,17 @@ class FarmRelease(unittest.TestCase):
             shows.append(name)
             return (ROOT/'db/cloud/migrations'/name).read_bytes()
         obj.git=git; obj.execute=execute
-        obj.source_checks()
+        # Model the reviewed schema038 source checkout, not today's schema040 tree.
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot=Path(directory); migrations=snapshot/'db/cloud/migrations'
+            migrations.mkdir(parents=True)
+            for name in files:
+                (migrations/name).write_bytes((ROOT/'db/cloud/migrations'/name).read_bytes())
+            gateway=snapshot/'infra/public-staging/gateway.Caddyfile'
+            gateway.parent.mkdir(parents=True)
+            gateway.write_bytes((ROOT/'infra/public-staging/gateway.Caddyfile').read_bytes())
+            with patch.object(r.market,'REPO',snapshot):
+                obj.source_checks()
         self.assertEqual(shows,original)
         self.assertIs(obj.profile,original_profile)
         self.assertEqual(obj.baseline_schema,38)
