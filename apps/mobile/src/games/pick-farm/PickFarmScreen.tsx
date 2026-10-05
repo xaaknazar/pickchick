@@ -31,7 +31,8 @@ import { useFarm } from './useFarm';
 import { CropArt, Landscape, CellOutline, isoPoint, cellAtPoint } from './visuals';
 import { farmPalette as p, farmStyles as s } from './styles';
 import { GroundCrop } from './PlantingVisual';
-import { clampCamera, fitFarm } from './geometry';
+import { clampCamera, fitFarm, worldAtPagePoint } from './geometry';
+import { plotAtPoint } from './hit-zones';
 import { CropMotion, HarvestFeedback, useFarmMotion, type FarmFeedback } from './motion';
 
 type Panel = 'plot' | 'shop' | 'storage' | 'orders' | 'place' | 'help' | 'remove' | null;
@@ -135,7 +136,20 @@ function HarvestMode({
 
 export function PickFarmScreen() {
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
+  const window = useWindowDimensions();
+  const [viewport, setViewport] = useState({ width: window.width, height: window.height });
+  const { width, height } = viewport;
+  const fieldRef = useRef<View>(null);
+  const fieldFrame = useRef({ x: 0, y: 0, width, height });
+  const measureField = useCallback(() => {
+    fieldRef.current?.measure((_x, _y, w, h, pageX, pageY) => {
+      if (w > 0 && h > 0) {
+        fieldFrame.current = { x: pageX, y: pageY, width: w, height: h };
+        setViewport((old) => (old.width === w && old.height === h ? old : { width: w, height: h }));
+      }
+    });
+  }, []);
+  useEffect(measureField, [measureField, window.width, window.height]);
   const inset = useSafeAreaInsets();
   const { state, serverNow, loading, busy, error, retry, send } = useFarm();
   const [panel, setPanel] = useState<Panel>(null);
@@ -208,24 +222,36 @@ export function PickFarmScreen() {
     },
     [send, state],
   );
+  const worldAt = useCallback(
+    (event: GestureResponderEvent) =>
+      worldAtPagePoint(
+        { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY },
+        fieldFrame.current,
+        camera.current,
+        fit,
+      ),
+    [fit],
+  );
   const pointAt = useCallback(
     (event: GestureResponderEvent) => {
-      const scale = camera.current.zoom * fit;
-      const tapX = event.nativeEvent.pageX;
-      const tapY = event.nativeEvent.pageY;
-      return cellAtPoint(
-        (tapX - width / 2 - camera.current.x) / scale + 450,
-        (tapY - height / 2 - 48 - camera.current.y) / scale + 300,
-      );
+      const point = worldAt(event);
+      return cellAtPoint(point.x, point.y);
     },
-    [fit, width, height],
+    [worldAt],
   );
   const selectAt = useCallback(
     (event: GestureResponderEvent) => {
       if ((panel && panel !== 'place') || busy) return;
-      const { x, y } = pointAt(event);
-      const plot = state?.plots.find((item) => item.x === x && item.y === y);
+      const ground = pointAt(event);
+      // Placement always targets the ground diamond, never a neighbouring plant's foliage.
+      const plot =
+        panel === 'place'
+          ? undefined
+          : (plotAtPoint(state?.plots ?? [], worldAt(event), serverNow) ??
+            state?.plots.find((item) => item.x === ground.x && item.y === ground.y));
+      const { x, y } = plot ?? ground;
       if (!isPlantingCell(x, y) && !plot) {
+        if (panel === 'place') setCell({ x, y });
         setHint('Грядки можно размещать только внутри границы участка.');
         return;
       }
@@ -251,10 +277,18 @@ export function PickFarmScreen() {
         setPanel('place');
       }
     },
-    [pointAt, panel, busy, state, tool, seed, serverNow, act, harvestDestination],
+    [pointAt, worldAt, panel, busy, state, tool, seed, serverNow, act, harvestDestination],
   );
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragPlot = useRef<number | null>(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const dragTarget = useCallback(
+    (event: GestureResponderEvent) => {
+      const point = worldAt(event);
+      return cellAtPoint(point.x + dragOffset.current.x, point.y + dragOffset.current.y);
+    },
+    [worldAt],
+  );
   const cancelHold = useCallback(() => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
     holdTimer.current = null;
@@ -270,10 +304,15 @@ export function PickFarmScreen() {
           cancelHold();
           dragPlot.current = null;
           const target = pointAt(e);
-          const plot = state?.plots.find((p) => p.x === target.x && p.y === target.y);
+          const pointer = worldAt(e);
+          const plot =
+            plotAtPoint(state?.plots ?? [], pointer, serverNow) ??
+            state?.plots.find((p) => p.x === target.x && p.y === target.y);
           if (!panel && !busy && plot && e.nativeEvent.touches.length === 1) {
             holdTimer.current = setTimeout(() => {
               dragPlot.current = plot.id;
+              const center = isoPoint(plot.x, plot.y);
+              dragOffset.current = { x: center.x - pointer.x, y: center.y - pointer.y };
               setSelected(plot.id);
               setCell({ x: plot.x, y: plot.y });
               setPlacement('move');
@@ -294,7 +333,7 @@ export function PickFarmScreen() {
             cancelHold();
           }
           if (dragPlot.current !== null && e.nativeEvent.touches.length === 1) {
-            setCell(pointAt(e));
+            setCell(dragTarget(e));
             return;
           }
           if (e.nativeEvent.touches.length > 1) {
@@ -322,7 +361,7 @@ export function PickFarmScreen() {
               setPanel('plot');
               return;
             }
-            const target = pointAt(e);
+            const target = dragTarget(e);
             const occupied = state?.plots.some(
               (plot) => plot.id !== plotId && plot.x === target.x && plot.y === target.y,
             );
@@ -339,7 +378,19 @@ export function PickFarmScreen() {
           setHint(null);
         },
       }),
-    [updateCamera, selectAt, pointAt, state, busy, panel, cancelHold, act],
+    [
+      updateCamera,
+      selectAt,
+      pointAt,
+      worldAt,
+      dragTarget,
+      serverNow,
+      state,
+      busy,
+      panel,
+      cancelHold,
+      act,
+    ],
   );
   useEffect(() => {
     const back = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -365,7 +416,7 @@ export function PickFarmScreen() {
       : 0;
   if (!state)
     return (
-      <View style={s.screen}>
+      <View ref={fieldRef} collapsable={false} onLayout={measureField} style={s.screen}>
         <View style={s.center}>
           <CropArt cropId="apple" size={84} />
           <Text style={s.title}>PICK FARM</Text>
@@ -412,7 +463,13 @@ export function PickFarmScreen() {
           help: 'Ваша маленькая ферма',
         }[panel || 'help'];
   return (
-    <View style={s.screen} testID="pick-farm-screen">
+    <View
+      ref={fieldRef}
+      collapsable={false}
+      onLayout={measureField}
+      style={s.screen}
+      testID="pick-farm-screen"
+    >
       <Animated.View
         pointerEvents="none"
         style={{

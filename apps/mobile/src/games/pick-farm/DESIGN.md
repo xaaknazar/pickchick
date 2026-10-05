@@ -159,3 +159,7 @@ Seed choices distinguish seed cost, growth duration, full harvest sale revenue a
 GroundCrop owns both the soil and plant anchor. The first 10% of growth shows seeds, 10-35% shows sprouts, then the crop-specific growing sprite. Ready and withered artwork remains crop-specific; apple trees use their tree lifecycle. A short seed-fall plays only after a new acknowledged planting, not on restoring a saved farm. Reduced motion and background state stop animation.
 
 Verified with 18 engine/economy tests, 11 geometry/client tests, mobile TypeScript/ESLint and web export. An isolated 844x390 preview confirmed the overview, zoomed phases, planting (4 coins deducted) and tap harvest (39 coins and 10 XP awarded). Native pinch/long-press acceptance is pending. These changes require the next API deployment and native build; TestFlight 0.2.0 (10) remains unchanged.
+
+## Precise interaction zones
+
+Inspect and hold resolve the frontmost opaque sprite, including foliage above a neighbouring ground cell. Hit masks are generated from the existing atlas alpha at 128×128; transparent corners pass through. Placement resolves the ground diamond only. Dragging preserves the original grab offset. The measured game container, camera and zoom share one inverse coordinate conversion, including a native sheet offset. Out-of-bounds placement invalidates the selected destination instead of retaining an earlier valid cell.

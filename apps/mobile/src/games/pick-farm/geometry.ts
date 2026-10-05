@@ -32,3 +32,19 @@ export function clampCamera(
   const maxY = Math.max(0, (1960 * fit * scale - (height - 144)) / 2);
   return { x: clamp(x, -maxX, maxX), y: clamp(y, -maxY, maxY), zoom: scale };
 }
+
+export type FieldFrame = { x: number; y: number; width: number; height: number };
+export type FarmCamera = { x: number; y: number; zoom: number };
+/** Inverse of the rendered world, including the actual screen's offset in a native sheet. */
+export function worldAtPagePoint(
+  page: { x: number; y: number },
+  frame: FieldFrame,
+  camera: FarmCamera,
+  fit: number,
+) {
+  const scale = camera.zoom * fit;
+  return {
+    x: (page.x - frame.x - frame.width / 2 - camera.x) / scale + WORLD_CENTER.x,
+    y: (page.y - frame.y - frame.height / 2 - 48 - camera.y) / scale + WORLD_CENTER.y,
+  };
+}
