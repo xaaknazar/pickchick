@@ -3,6 +3,7 @@ import {
   CustomerCommerceOrderSchema,
   CustomerCheckoutConfigSchema,
   CustomerQuoteSchema,
+  CustomerHostedPaymentSchema,
 } from '@pickchick/contracts';
 import { API_URL } from './api';
 import { createCustomerRequest } from './customer-http';
@@ -18,10 +19,10 @@ export const commerceRequest = (
 ) =>
   createCustomerRequest(API_URL, nativeFetch, {
     allowed:
-      /^\/v1\/customer-checkout\/(config|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
+      /^\/v1\/customer-checkout\/(config|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/payment-method|\/hosted-payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
     timeoutMs: 28000,
     maxBytes: 128000,
-    accept: 'application/json; profile=pickchick.checkout-comments-v1',
+    accept: 'application/json; profile=pickchick.checkout-wallets-v1',
     signal,
   })(path, method, body, token);
 
@@ -49,3 +50,25 @@ export function maskedPhone(phone?: string) {
 }
 
 export { publishedCartVersion } from './published-catalog';
+
+// Only our HTTPS checkout page may receive the opaque, short-lived payment token.
+// Never include the rejected URL in errors: its fragment is a bearer credential.
+export function parseHostedPayment(value: unknown, expectedOrderId: string) {
+  const result = CustomerHostedPaymentSchema.safeParse(value);
+  if (!result.success) throw new Error('Invalid hosted payment response');
+  const payment = result.data;
+  const url = new URL(payment.checkoutUrl);
+  if (
+    payment.orderId !== expectedOrderId ||
+    url.protocol !== 'https:' ||
+    url.origin !== new URL(API_URL).origin ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.pathname !== '/v1/integrations/tiptoppay/checkout' ||
+    !/^#[a-f0-9]{64}$/.test(url.hash) ||
+    Date.parse(payment.expiresAt) <= Date.now()
+  )
+    throw new Error('Invalid hosted payment response');
+  return payment;
+}
