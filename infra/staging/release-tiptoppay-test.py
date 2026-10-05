@@ -198,14 +198,14 @@ class Release(base.Release):
         require(self.http('/v1/customer-checkout/test-payments/00000000-0000-4000-8000-000000000001')[0] == 401, 'Anonymous TEST read accepted')
         require(self.http('/v1/integrations/tiptoppay/test-checkout')[0] == 200, 'Hosted TEST page unavailable')
         for event in ['check','pay','fail']:
-            require(self.http('/v1/integrations/tiptoppay/test-'+event,method='POST',headers={'Content-Type':'application/x-www-form-urlencoded'},body=b'')[0] == 401, 'Unsigned TEST webhook accepted')
+            require(self.http('/v1/integrations/tiptoppay/test-'+event,method='POST',headers={'Content-Type':'application/x-www-form-urlencoded'},body=b'TestMode=1')[0] == 401, 'Unsigned TEST webhook accepted')
         for event in ['check','pay','fail','checkout']:
             require(self.http('/v1/integrations/tiptoppay/'+event,method='POST' if event != 'checkout' else 'GET')[0] == 404, 'Live TipTopPay route exposed')
 
     def http(self,path,*,public=True,method='GET',headers=None,body=None):
         if headers is None and body is None:
             return market.Release.http(self,path,public=public,method=method)
-        require(public and method == 'POST' and headers == {'Content-Type':'application/x-www-form-urlencoded'} and body == b'', 'Only empty unsigned TEST probes allowed')
+        require(public and method == 'POST' and headers == {'Content-Type':'application/x-www-form-urlencoded'} and body == b'TestMode=1', 'Only unsigned TEST-mode probes allowed')
         command = ['curl','--silent','--show-error','--max-time','15','--max-filesize','2000000',
             '-X','POST','-H','Content-Type: application/x-www-form-urlencoded','--data-binary','@-',
             '--resolve',market.HOST+':443:'+market.IP,'-w','\n%{http_code}','https://'+market.HOST+path]
