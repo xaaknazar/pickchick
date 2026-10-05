@@ -2915,11 +2915,20 @@
       "branch": "codex/tiptoppay-backend",
       "scopes": [
         "packages/commerce-core/src/tiptoppay-checkout.ts",
-        "tests/payments/tiptoppay-checkout.test.mjs"
+        "tests/payments/tiptoppay-checkout.test.mjs",
+        "packages/commerce-core/src/tiptoppay.ts",
+        "packages/commerce-core/src/customer-checkout.ts",
+        "packages/commerce-core/src/order-view.ts",
+        "packages/commerce-core/src/index.ts",
+        "packages/contracts/src/customer-commerce.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "services/api/src/customer-checkout-response.ts",
+        "services/api/src/tiptoppay-controller.ts",
+        "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql"
       ],
       "status": "active",
       "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
-      "updatedAt": "2026-10-05T17:02:48.053Z"
+      "updatedAt": "2026-10-05T17:03:28.322Z"
     }
   ]
 }
