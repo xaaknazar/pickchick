@@ -2939,11 +2939,11 @@
         "packages/commerce-core/src/tiptoppay-test-checkout.ts",
         "db/cloud/migrations/040_cloud_tiptoppay_test_checkout.sql"
       ],
-      "status": "active",
-      "head": "b504de315ed08526b2cce15fe1555d8c82230958",
-      "updatedAt": "2026-10-05T17:26:25.092Z",
-      "summary": "Contracts840672b; hostedcheckout4b62393 +workerDB0def885. 15 focused unit/HTTP/PostgreSQL and66 Commerce/Kaspi PG regressions passed; API build, lint, format, contracts check passed. Root coordinated generated OpenAPI/scripts overlap with available farm task. All gate flags off; no bank calls/deploy. Refund adapter unavailable.",
-      "nextAction": "Root independent financial review, integrate own branch, docs/roadmap+runtime grants+fullCI. Live terminal/merchant/domain/routing/fiscal approval and real device acceptance required before enabling."
+      "status": "available",
+      "head": "a0af45a3c1b38e29550f2e3eaae4fa119051ac85",
+      "updatedAt": "2026-10-05T17:35:35.577Z",
+      "summary": "TEST extension published159d756+a0af45a. Isolated table040, TESTsignedCheck/Pay/Fail and hostedwidget, authenticated quoteowner/org/branch/cap; no commercial money/order/outbox/kitchen effects. 17unit/HTTP/PG focused and66Commerce/Kaspi regression passed; build/lint/format/contracts passed. Sharedadvanced239148b onlymobile/docs/farmops, parent notified for explicit integration. No realbankrequest/deploy by child.",
+      "nextAction": "Root integrate refreshedshared and TEST commits, fullCI/runtime grants/gateway/provider callbacks/mobile device acceptance; keep LIVE flags off."
     },
     {
       "id": "tiptoppay-mobile",
