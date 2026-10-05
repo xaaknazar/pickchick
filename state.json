@@ -3027,6 +3027,17 @@
       "status": "active",
       "head": "b3bb527f3295b9c9f95c81d9caa7572f8d394320",
       "updatedAt": "2026-10-05T17:59:40.875Z"
+    },
+    {
+      "id": "tiptop-bo-fixture",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-checkout",
+      "scopes": [
+        "packages/backoffice-core/tests/commerce.test.mjs"
+      ],
+      "status": "active",
+      "head": "0b3aaf5b5195546d68a0d5aa2fc8fa01fb633547",
+      "updatedAt": "2026-10-05T18:13:41.752Z"
     }
   ]
 }
