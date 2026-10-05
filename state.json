@@ -2932,9 +2932,11 @@
         "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql",
         "services/api/src/tiptoppay-reconcile-worker.ts"
       ],
-      "status": "active",
-      "head": "840672b6ace58968e86b3a171e7082b4ab490da3",
-      "updatedAt": "2026-10-05T17:10:52.190Z"
+      "status": "available",
+      "head": "0def885ab544b592d7f2e02abc5f338fcf87e3a4",
+      "updatedAt": "2026-10-05T17:22:34.129Z",
+      "summary": "Contracts840672b; hostedcheckout4b62393 +workerDB0def885. 15 focused unit/HTTP/PostgreSQL and66 Commerce/Kaspi PG regressions passed; API build, lint, format, contracts check passed. Root coordinated generated OpenAPI/scripts overlap with available farm task. All gate flags off; no bank calls/deploy. Refund adapter unavailable.",
+      "nextAction": "Root independent financial review, integrate own branch, docs/roadmap+runtime grants+fullCI. Live terminal/merchant/domain/routing/fiscal approval and real device acceptance required before enabling."
     },
     {
       "id": "tiptoppay-checkout",
