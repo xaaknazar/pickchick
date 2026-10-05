@@ -2621,11 +2621,12 @@
         "docs/design/games-alex-covers.md",
         "docs/operations/mobile-testflight.md",
         "@release/ios",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "apps/mobile/app.json"
       ],
       "status": "active",
       "head": "a91abb54d69654e75fe662b4b9d59caa764c51be",
-      "updatedAt": "2026-10-05T04:55:40.105Z"
+      "updatedAt": "2026-10-05T04:59:43.296Z"
     }
   ]
 }
