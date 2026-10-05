@@ -199,8 +199,9 @@ export function PickFarmCard() {
       })}
     >
       <Image
-        source={require('../../../assets/games/pick-farm/cover-generated.png')}
+        source={require('../../../assets/games/pick-farm/cover-alex.png')}
         contentFit="cover"
+        contentPosition={{ left: '75%', top: '35%' }}
         accessible={false}
         pointerEvents="none"
         style={{ position: 'absolute', width: '100%', height: '100%' }}

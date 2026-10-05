@@ -1,0 +1,7 @@
+{
+  "date": "2026-10-05",
+  "tool": "image_gen.imagegen",
+  "asset": "cover-alex.png",
+  "references": ["assets/profile/alex-avatar.png", "assets/order-status/chef-ready.png"],
+  "prompt": "Create one premium 3D illustrated game cover for PickChick's farming game, landscape 1536x1024. Use the attached images strictly as character identity references: Alex is the same friendly white rooster with red comb, yellow beak, black glossy sunglasses, orange shirt and cobalt blue overalls. Change his role to FARMER: a charming straw hat behind his comb, gardening gloves, holding a freshly harvested bunch of onions and a small wooden basket of tomatoes. No chef hat, no food platter, no drinks. Scene: inviting isometric miniature farm with tidy individual soil plots, onions and tomatoes growing, a small wooden farmhouse and one fruit tree in the back, warm morning light. Alex prominently occupies the right half, recognizable head and torso not cropped; mid-left has clear lower detail green grass space for native UI title overlay. Rich tactile feathers, dimensional vegetables and wood, polished high end casual mobile game key art, restrained natural green and golden palette with orange and cobalt brand accents. Clear readable silhouettes at card thumbnail size. Compose all important elements inside central 80% safe region for wide card crop. No text, no words, no lettering, no watermark, no borders or app UI. Original scene with continuity of Alex's exact character design."
+}
