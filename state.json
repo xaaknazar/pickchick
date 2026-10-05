@@ -2895,27 +2895,6 @@
       "updatedAt": "2026-10-05T16:59:10.786Z"
     },
     {
-      "id": "tiptoppay-backend",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/tiptoppay-backend",
-      "scopes": [
-        "packages/commerce-core/src/tiptoppay-checkout.ts",
-        "tests/payments/tiptoppay-checkout.test.mjs",
-        "packages/commerce-core/src/tiptoppay.ts",
-        "packages/commerce-core/src/customer-checkout.ts",
-        "packages/commerce-core/src/order-view.ts",
-        "packages/commerce-core/src/index.ts",
-        "packages/contracts/src/customer-commerce.ts",
-        "services/api/src/customer-checkout-controller.ts",
-        "services/api/src/customer-checkout-response.ts",
-        "services/api/src/tiptoppay-controller.ts",
-        "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql"
-      ],
-      "status": "active",
-      "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
-      "updatedAt": "2026-10-05T17:03:28.322Z"
-    },
-    {
       "id": "tiptoppay-checkout",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-checkout",
@@ -2949,6 +2928,28 @@
       "status": "active",
       "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
       "updatedAt": "2026-10-05T17:09:17.032Z"
+    },
+    {
+      "id": "tiptoppay-backend",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-backend",
+      "scopes": [
+        "packages/commerce-core/src/tiptoppay-checkout.ts",
+        "tests/payments/tiptoppay-checkout.test.mjs",
+        "packages/commerce-core/src/tiptoppay.ts",
+        "packages/commerce-core/src/customer-checkout.ts",
+        "packages/commerce-core/src/order-view.ts",
+        "packages/commerce-core/src/index.ts",
+        "packages/contracts/src/customer-commerce.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "services/api/src/customer-checkout-response.ts",
+        "services/api/src/tiptoppay-controller.ts",
+        "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql",
+        "services/api/src/tiptoppay-reconcile-worker.ts"
+      ],
+      "status": "active",
+      "head": "840672b6ace58968e86b3a171e7082b4ab490da3",
+      "updatedAt": "2026-10-05T17:10:52.190Z"
     }
   ]
 }
