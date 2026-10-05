@@ -96,6 +96,10 @@ export class TipTopPayTestCheckout {
     const request = parse(z.strictObject({ quoteId: UUIDSchema, method: methodSchema }), input);
     if (!this.options.methods.includes(request.method)) throw new CommerceError('NOT_READY');
     return transaction(this.pool, async (client) => {
+      // Quotes are immutable; serialize TEST issuance without requiring UPDATE on finance tables.
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        `tiptoppay-test:${request.quoteId}`,
+      ]);
       const quote = (
         await client.query<{
           organization_id: string;
@@ -104,7 +108,7 @@ export class TipTopPayTestCheckout {
           snapshot: unknown;
           expires_at: Date;
         }>(
-          `SELECT organization_id,branch_id,total_minor::text,snapshot,expires_at FROM commerce_quotes WHERE id=$1 AND customer_id=$2 AND principal_id=$2 AND snapshot->>'channel'='mobile' AND organization_id=$3 AND branch_id=$4 FOR UPDATE`,
+          `SELECT organization_id,branch_id,total_minor::text,snapshot,expires_at FROM commerce_quotes WHERE id=$1 AND customer_id=$2 AND principal_id=$2 AND snapshot->>'channel'='mobile' AND organization_id=$3 AND branch_id=$4`,
           [request.quoteId, customerId, this.options!.organizationId, this.options!.branchId],
         )
       ).rows[0];
@@ -257,6 +261,10 @@ export class TipTopPayTestCheckout {
           [row.id, payment.operationId],
         );
       } else if (event === 'pay') {
+        // TEST success proves the exact operation previously authorized by Check.
+        // Unlike LIVE capture accounting, this sandbox has no money fact to preserve.
+        if (!row.operation_id || row.operation_id !== payment.operationId)
+          throw new TipTopPayError('BINDING');
         if (row.paid_operation_id && row.paid_operation_id !== payment.operationId)
           throw new TipTopPayError('BINDING');
         await client.query(
@@ -264,6 +272,8 @@ export class TipTopPayTestCheckout {
           [row.id, payment.operationId],
         );
       } else if (row.state !== 'paid') {
+        if (row.operation_id && row.operation_id !== payment.operationId)
+          throw new TipTopPayError('BINDING');
         await client.query(
           "UPDATE commerce_tiptoppay_test_payments SET state='failed',reason_code=$2,updated_at=clock_timestamp() WHERE id=$1",
           [row.id, fields.ReasonCode],
