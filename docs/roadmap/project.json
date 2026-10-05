@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-05",
+  "updatedAt": "2026-10-05T17:31:23.878738Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -222,7 +222,7 @@
       "id": "combo-transition-polish",
       "workstream": "mobile",
       "title": "Combo transition and PICK FARM card polish",
-      "summary": "Native picker retains outgoing content; iOS cart save waits for dismissal. Green caption background removed. Native iPhone 17 fixture, video and 16 selection tests passed. Not released to TestFlight.",
+      "summary": "Native picker retains outgoing content; iOS cart save waits for dismissal. Green caption background removed. Native iPhone 17 fixture, video and 16 selection tests passed. Not released to TestFlight. Обновление: выпущено в TestFlight12, API protocol=2 f398637 установлен; обе CI зелёные. Физическая приёмка открыта.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -231,6 +231,10 @@
         {
           "label": "Implementation and native evidence",
           "path": "docs/operations/product-photo-pilot.md"
+        },
+        {
+          "label": "TestFlight12 и серверный выпуск",
+          "path": "docs/operations/mobile-testflight.md"
         }
       ],
       "acceptance": [
@@ -238,11 +242,11 @@
         "Confirmed choices persist; cancelling discards draft choices.",
         "PICK FARM caption has no green plaque."
       ],
-      "nextAction": "Include in the next CI-approved mobile release and verify on a physical iPhone.",
+      "nextAction": "Проверить на физическом iPhone в TestFlight12; планшет и производительность полного поля отдельно.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -1054,7 +1058,7 @@
       "id": "mobile-testflight",
       "workstream": "mobile",
       "title": "Доставить базовую сборку в TestFlight",
-      "summary": "PickChick 0.2.0 (6) из чистого 0025457 собран, подписан и загружен после полной CI 36868949571 (6/6). Apple завершила обработку, сборка доступна существующей PickChick Internal (2 тестировщика). Текущий дизайн, серверный вход, Kaspi, стоп-лист, комментарии и напитки включены; симулятор/неоплаченный TEST-путь выключены. Native Release smoke прошёл. При проверке availability fresh=false, поэтому оформление защищённо заблокировано до связи с кассой. WhatsApp/Webkassa не включены; физическая приёмка новой версии ещё не подтверждена. Готовится сборка7: аватар Алекса и исправление клавиатуры комментария; поставка пока не подтверждена.",
+      "summary": "TestFlight 0.2.0 (12) доступна PickChick Internal (2 тестировщика). Apple processing, archive/export/upload подтверждены; CI native978c6e5 и API f398637 зелёные. Обновлённая ферма protocol=2 установлена, белая вспышка выбора исправлена. TipTop Pay в сборку12 не входит. Физическая приёмка открыта.",
       "status": "done",
       "owner": "development",
       "phase": "foundation",
@@ -1070,7 +1074,7 @@
         }
       ],
       "acceptance": ["Базовая сборка доступна во внутреннем тестировании на iPhone."],
-      "nextAction": "Обновить PickChick в TestFlight на iPhone; восстановить свежий обмен кассы с VPS и проверить обычный вход/заказ. Не считать отключение защиты решением недоступного ресторана.",
+      "nextAction": "Обновить сборку12 на iPhone, проверить переход выбора и ферму; TipTop Pay выпускается отдельно.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -4136,7 +4140,7 @@
       "id": "pick-farm-progression",
       "workstream": "games",
       "title": "PICK FARM - история сада, украшения и мастерские",
-      "summary": "Реализован одиночный цикл: 45 секунд обучения, 10 глав, ежедневные/недельные цели, резерв, 12 украшений, 2 мастерские/4 рецепта, хранение объектов и новый баланс. Целевые тесты и browser journey прошли, native iPhone панели проверены. Физическая приёмка, tablet adaptation, полная CI и согласованный protocol=2 выпуск ещё не завершены. Live API и TestFlight 11 не изменены.",
+      "summary": "Реализован одиночный цикл: 45 секунд обучения, 10 глав, ежедневные/недельные цели, резерв, 12 украшений, 2 мастерские/4 рецепта, хранение объектов и новый баланс. Целевые тесты и browser journey прошли, native iPhone панели проверены. Физическая приёмка, tablet adaptation, полная CI и согласованный protocol=2 выпуск ещё не завершены. Live API и TestFlight 11 не изменены. Обновление: выпущено в TestFlight12, API protocol=2 f398637 установлен; обе CI зелёные. Физическая приёмка открыта.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4153,6 +4157,10 @@
         {
           "label": "Оригинальные изображения и происхождение",
           "path": "docs/design/pick-farm-garden-art.md"
+        },
+        {
+          "label": "TestFlight12 и серверный выпуск",
+          "path": "docs/operations/mobile-testflight.md"
         }
       ],
       "acceptance": [
@@ -4161,11 +4169,11 @@
         "Физический iPhone: перенос, сбор проведением, камера, фон и повторный вход.",
         "Полная зелёная CI и согласованный выпуск API protocol=2 / нового TestFlight."
       ],
-      "nextAction": "Завершить физическую приёмку жестов, проверить CI, подготовить согласованный Farm API protocol=2 и TestFlight. Планшет и массовое поле требуют отдельной проверки.",
+      "nextAction": "Проверить на физическом iPhone в TestFlight12; планшет и производительность полного поля отдельно.",
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }
