@@ -596,9 +596,12 @@ test('signed TipTop TEST sandbox flow is durable and never touches commercial or
       customerId: customer,
     });
     const runtimeRole = 'ttp_test_' + randomUUID().replaceAll('-', '');
-    await f.admin.query(`CREATE ROLE ${runtimeRole} LOGIN`);
+    // CI uses password authentication; never inherit the administrator credential.
+    const runtimePassword = randomUUID();
+    await f.admin.query(`CREATE ROLE ${runtimeRole} LOGIN PASSWORD '${runtimePassword}'`);
     const runtimeUrl = new URL(f.url.toString());
     runtimeUrl.username = runtimeRole;
+    runtimeUrl.password = runtimePassword;
     const runtimePool = createPool(runtimeUrl.toString(), 8);
     try {
       await f.admin.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${runtimeRole}`);
