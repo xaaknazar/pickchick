@@ -2899,29 +2899,6 @@
       "nextAction": "Physical iPhone acceptance; TipTop separate build13."
     },
     {
-      "id": "tiptoppay-checkout",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/tiptoppay-checkout",
-      "scopes": [
-        "apps/mobile/src/screens/Checkout.tsx",
-        "apps/mobile/src/screens/Payment.tsx",
-        "apps/backoffice/src",
-        "docs/operations/tiptoppay-checkout.md",
-        "packages/backoffice-core/src/index.ts",
-        "tests/backoffice/tiptoppay-reporting.test.mjs",
-        "infra/payments/tiptoppay.env.example",
-        "infra/payments/tiptoppay-grants.mjs",
-        "tests/unit/tiptoppay-grants.test.mjs",
-        "infra/payments/tiptoppay-worker.compose.yaml",
-        "infra/payments/pickchick-tiptoppay-reconcile.service",
-        "infra/payments/pickchick-tiptoppay-reconcile.timer",
-        ".github/workflows/ci.yml"
-      ],
-      "status": "active",
-      "head": "fe691809cf984e1bb8f1e4bfd6d16bf76738f4d7",
-      "updatedAt": "2026-10-05T17:27:53.947Z"
-    },
-    {
       "id": "tiptoppay-backend",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-backend",
@@ -3025,6 +3002,31 @@
       "status": "active",
       "head": "4b1e40129be0973188588c29175afc8cc364a4f8",
       "updatedAt": "2026-10-05T17:52:34.542Z"
+    },
+    {
+      "id": "tiptoppay-checkout",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-checkout",
+      "scopes": [
+        "apps/mobile/src/screens/Checkout.tsx",
+        "apps/mobile/src/screens/Payment.tsx",
+        "apps/backoffice/src",
+        "docs/operations/tiptoppay-checkout.md",
+        "packages/backoffice-core/src/index.ts",
+        "tests/backoffice/tiptoppay-reporting.test.mjs",
+        "infra/payments/tiptoppay.env.example",
+        "infra/payments/tiptoppay-grants.mjs",
+        "tests/unit/tiptoppay-grants.test.mjs",
+        "infra/payments/tiptoppay-worker.compose.yaml",
+        "infra/payments/pickchick-tiptoppay-reconcile.service",
+        "infra/payments/pickchick-tiptoppay-reconcile.timer",
+        ".github/workflows/ci.yml",
+        "tests/unit/customer-checkout-response.test.mjs",
+        "apps/backoffice/src/styles.css"
+      ],
+      "status": "active",
+      "head": "b3bb527f3295b9c9f95c81d9caa7572f8d394320",
+      "updatedAt": "2026-10-05T17:59:40.875Z"
     }
   ]
 }
