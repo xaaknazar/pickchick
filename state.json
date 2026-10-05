@@ -2647,6 +2647,23 @@
       "updatedAt": "2026-10-05T05:53:22.679Z",
       "summary": "1dd5215 PR181 fixes source switching, removes highlight, keeps hit areas stable. 10 tests, TypeScript, ESLint, export and 390px ordinary/collector UI pass. TestFlight 10 unchanged; CI started.",
       "nextAction": "Next TestFlight build after full CI; physical iPhone acceptance and roadmap online refresh pending."
+    },
+    {
+      "id": "farm-gestures",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-gestures",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm",
+        "packages/farm-game",
+        "tests/mobile",
+        "docs/design/pick-farm-gameplay.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "1dd52155527af2c94f4ba10ba2d4a68e43cd2056",
+      "updatedAt": "2026-10-05T05:55:26.520Z"
     }
   ]
 }
