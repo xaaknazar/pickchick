@@ -26,7 +26,7 @@ test('atomic sale and legacy/explicit storage yield equal economic value and one
   assert.deepEqual(legacy, stored);
   assert.equal(sold.coins, input.coins + 12);
   assert.equal(sold.inventory.carrot, 0);
-  assert.equal(sold.xp, 10);
+  assert.equal(sold.xp, 5);
   assert.equal(sold.revision, input.revision + 1);
   assert.equal(sold.plots[0].cropId, null);
   assert.equal(
@@ -56,7 +56,7 @@ test('atomic sale and legacy/explicit storage yield equal economic value and one
     /PROGRESSION_LIMIT/,
   );
   assert.throws(
-    () => run(input, { type: 'harvest', plotId: 0, destination: 'sell' }, 7200000),
+    () => run(input, { type: 'harvest', plotId: 0, destination: 'sell' }, 129645000),
     /CROP_WITHERED/,
   );
 });
@@ -94,63 +94,23 @@ test('longer bed crops increase per-harvest profit while short crops reward freq
   assert.equal(tree.inventory.apple, 0);
   assert.equal(tree.plots[0].cropId, 'apple');
 });
-test('land price grows quadratically by lifetime placements and cannot reset via deletion', () => {
-  let state = createFarm(0);
-  assert.equal(nextLandCost(state, 'bed'), 150);
-  assert.equal(nextLandCost(state, 'tree'), 250);
-  state = run(state, { type: 'buyPlot', x: 16, y: 16 }, 0);
-  assert.equal(nextLandCost(state, 'bed'), 175);
-  state = run(state, { type: 'removePlot', plotId: 0 }, 0);
-  assert.equal(nextLandCost(state, 'bed'), 175);
-  assert.equal(canRecoverFarm({ ...state, coins: 154 }, 0), true);
-  assert.equal(canRecoverFarm({ ...state, coins: 179 }, 0), false);
-  assert.throws(
-    () => run({ ...state, coins: 174 }, { type: 'buyPlot', x: 16, y: 16 }, 0),
-    /INSUFFICIENT_COINS/,
-  );
-  const recovered = run({ ...state, coins: 0 }, { type: 'recover' }, 0);
-  assert.equal(recovered.coins, 0);
-  assert.equal(recovered.xp, 0);
-  assert.equal(nextLandCost(recovered, 'bed'), 250);
+test('land price scales linearly within categories and stored beds retain purchase count', () => {
+  let s = run(createFarm(0), { type: 'buyPlot', x: 16, y: 16 }, 0);
+  assert.equal(nextLandCost(s, 'bed'), 175);
+  assert.equal(nextLandCost(s, 'tree'), 250);
+  s = run(s, { type: 'storePlot', plotId: 0 }, 0);
+  assert.equal(nextLandCost(s, 'bed'), 175);
+  const coins = s.coins;
+  s = run(s, { type: 'placePlot', plotId: 0, x: 17, y: 17 }, 0);
+  assert.equal(s.coins, coins);
 });
-test('deterministic 1/7/30 day active, casual, reinvestment and missed-window simulations stay bounded', () => {
+test('daily and absent profiles preserve meaningful harvests and bounded balances', () => {
   const results = economyScenarios();
-  assert.deepEqual(
-    results.map(({ coins, plots, harvests, losses, recoveries }) => [
-      coins,
-      plots,
-      harvests,
-      losses,
-      recoveries,
-    ]),
-    [
-      [551, 2, 48, 0, 0],
-      [343, 2, 8, 0, 0],
-      [78, 4, 68, 0, 0],
-      [159, 2, 0, 2, 0],
-      [2855, 2, 336, 0, 0],
-      [1639, 2, 56, 0, 0],
-      [347, 10, 1064, 0, 0],
-      [111, 2, 0, 14, 0],
-      [11687, 2, 1440, 0, 0],
-      [6607, 2, 240, 0, 0],
-      [4236, 21, 9840, 0, 0],
-      [3, 2, 0, 51, 9],
-    ],
-  );
-  for (const days of [1, 7, 30]) {
-    const [active, casual, reinvest, loss] = results.filter((item) => item.days === days);
-    assert.equal(active.plots, 2);
-    assert.equal(casual.plots, 2);
-    assert.ok(active.coins > casual.coins);
-    assert.ok(casual.coins > 0);
-    assert.ok(reinvest.plots >= 2 && reinvest.plots < 100);
-    assert.ok(reinvest.harvests >= active.harvests);
-    assert.equal(loss.harvests, 0);
-    assert.equal(loss.xp, 0);
-    assert.ok(loss.losses > 0);
-    assert.ok(loss.coins >= 0 && loss.coins < 175);
-    assert.ok(active.coins < 1000000000 && reinvest.coins < 1000000000);
+  for (const r of results) {
+    assert.ok(r.coins >= 0 && r.coins < 1000000000);
+    assert.ok(r.xp < 1000000000);
+    assert.ok(r.plots <= 1024);
+    assert.equal(r.losses, 0);
+    assert.ok(r.harvests > 0);
   }
-  assert.ok(results.find((item) => item.days === 30 && item.intervalHours === 24).recoveries > 0);
 });

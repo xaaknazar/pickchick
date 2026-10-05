@@ -9,6 +9,7 @@ import {
   FarmCommandSchema,
   CROPS,
   cropPhase,
+  cropTiming,
   upgradeFarmState,
   BED_COST,
   TREE_COST,
@@ -41,24 +42,25 @@ test('empty field, placement prices, collision, reserved cell and immutable move
   for (const x of [-1, 64, 1.5, Infinity])
     assert.equal(FarmCommandSchema.safeParse({ type: 'buyPlot', x, y: 0 }).success, false);
 });
-test('every crop has an equal harvest window and exact growth/loss boundaries', () => {
+test('new crops have a 36-hour harvest window and exact growth/loss boundaries', () => {
   for (const crop of CROPS) {
     let state =
       crop.kind === 'tree'
         ? run(createFarm(0), { type: 'buyTree', cropId: 'apple', x: 16, y: 16 }, 0)
         : plant(bed(), crop.id);
-    const deadline = crop.growSeconds * 1000;
+    const deadline = cropTiming(state.plots[0]).growSeconds * 1000;
+    const loss = deadline + 129600000;
     const plot = state.plots[0];
-    assert.equal(crop.harvestWindowSeconds, crop.growSeconds);
+    assert.equal(cropTiming(plot).harvestWindowSeconds, 129600);
     assert.equal(cropPhase(plot, deadline - 1), 'growing');
     assert.throws(() => harvest(state, deadline - 1), /CROP_NOT_READY/);
     assert.equal(cropPhase(plot, deadline), 'ready');
     assert.equal(harvest(state, deadline).inventory[crop.id], 3);
-    assert.equal(cropPhase(plot, 2 * deadline - 1), 'ready');
-    assert.equal(harvest(state, 2 * deadline - 1).inventory[crop.id], 3);
-    assert.equal(cropPhase(plot, 2 * deadline), 'withered');
-    assert.throws(() => harvest(state, 2 * deadline), /CROP_WITHERED/);
-    const cleared = run(state, { type: 'clear', plotId: 0 }, 2 * deadline);
+    assert.equal(cropPhase(plot, loss - 1), 'ready');
+    assert.equal(harvest(state, loss - 1).inventory[crop.id], 3);
+    assert.equal(cropPhase(plot, loss), 'withered');
+    assert.throws(() => harvest(state, loss), /CROP_WITHERED/);
+    const cleared = run(state, { type: 'clear', plotId: 0 }, loss);
     assert.equal(cleared.inventory[crop.id], 0);
     assert.equal(cleared.xp, 0);
     assert.equal(cleared.plots[0].cropId, crop.kind === 'tree' ? 'apple' : null);
@@ -74,8 +76,8 @@ test('permanent trees continue after three harvests and lost fruit, beds remain 
     assert.equal(state.plots[0].cropId, 'apple');
     assert.equal(state.plots[0].harvests, cycle % 3);
   }
-  state = run(state, { type: 'clear', plotId: 0 }, 9 * growth);
-  assert.equal(state.plots[0].plantedAt, 9 * growth);
+  state = run(state, { type: 'clear', plotId: 0 }, 7 * growth + 129600000 + growth);
+  assert.equal(state.plots[0].plantedAt, 7 * growth + 129600000 + growth);
   assert.equal(state.inventory.apple, 21);
   assert.throws(() => plant(bed(), 'apple'), /CROP_REQUIRES_TREE/);
   const empty = harvest(plant(), 3600000);
@@ -158,6 +160,7 @@ test('legacy upgrade preserves progress/timestamps with deterministic unique pos
     })),
   };
   delete legacy.nextPlotId;
+  delete legacy.progression;
   legacy.inventory.carrot = 15;
   const migrated = upgradeFarmState(legacy);
   assert.equal(migrated.version, 2);
@@ -252,7 +255,7 @@ test('bankruptcy recovery produces one normal carrot cycle without currency rewa
     { ...bed(), coins: 3 },
     { ...plant(), coins: 0 },
   ]) {
-    const now = 7200000;
+    const now = 200000000;
     assert.equal(canRecoverFarm(original, now), true);
     const recovered = run(original, { type: 'recover' }, now);
     assert.equal(recovered.coins, original.coins);
