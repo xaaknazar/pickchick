@@ -2767,27 +2767,6 @@
       "nextAction": "Choose first-session phase, working camera and withering rule before implementation. No gameplay or TestFlight changes in this research."
     },
     {
-      "id": "farm-full-play",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/farm-full-play",
-      "scopes": [
-        "apps/mobile/src/games/pick-farm",
-        "apps/mobile/assets/games/pick-farm",
-        "tests/mobile/farm-geometry.test.mjs",
-        "tests/mobile/farm-harvest-queue.test.mjs",
-        "docs/design/pick-farm-gameplay.md",
-        "docs/design/pick-farm-review-2026-10-05.md",
-        "docs/operations/pick-farm.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "@vps/roadmap"
-      ],
-      "status": "active",
-      "head": "ac767d318c7861c58cca6193a423129d3070b371",
-      "updatedAt": "2026-10-05T10:21:20.466Z"
-    },
-    {
       "id": "farm-progression-engine",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/farm-progression-engine",
@@ -2814,6 +2793,29 @@
       "updatedAt": "2026-10-05T10:32:33.557Z",
       "summary": "bf0ff68 +229139b опубликованы; протокол query=2 до persistence, OpenAPI, legacy no-write, durable progression. API build/lint/format/contracts/diff и HTTP/Postgres 2/2 изолированно port55439 passed. Engine ba63205 включён локально как4948c9b; root cherry-picks original. Live данные и deploy не затронуты.",
       "nextAction": "Root: интегрировать bf0ff68, ba63205,229139b; полная CI, согласованный клиентprotocol2; finish после общего среза."
+    },
+    {
+      "id": "farm-full-play",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-full-play",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm",
+        "apps/mobile/assets/games/pick-farm",
+        "tests/mobile/farm-geometry.test.mjs",
+        "tests/mobile/farm-harvest-queue.test.mjs",
+        "docs/design/pick-farm-gameplay.md",
+        "docs/design/pick-farm-review-2026-10-05.md",
+        "docs/operations/pick-farm.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap",
+        "tests/mobile/pick-farm-client.test.mjs",
+        "tests/mobile/browser_farm_progression.py"
+      ],
+      "status": "active",
+      "head": "20d2fd6bd4b68806efad90e5f56ff8056f471393",
+      "updatedAt": "2026-10-05T10:37:40.422Z"
     }
   ]
 }
