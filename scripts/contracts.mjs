@@ -1,3 +1,9 @@
+import {
+  CustomerPaymentMethodSchema,
+  CustomerHostedPaymentSchema,
+  CustomerCommerceOrderSchema,
+  CustomerCheckoutConfigSchema,
+} from '@pickchick/contracts';
 import { FarmStateSchema, FarmCommandSchema } from '@pickchick/farm-game';
 import { FarmRequestSchema } from '@pickchick/farm-persistence';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -915,6 +921,56 @@ Object.assign(openapi.paths, {
     get: catalogOperation('readPublishedCatalog', 'CatalogPublic', undefined, true, true),
   },
 });
+
+// Additive opt-in wallets; installed strict clients retain their legacy representation.
+Object.assign(openapi.components.schemas, {
+  CustomerPaymentMethod: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['method'],
+    properties: { method: jsonSchema(CustomerPaymentMethodSchema) },
+  },
+  CustomerHostedPayment: jsonSchema(CustomerHostedPaymentSchema),
+  CustomerCommerceOrder: jsonSchema(CustomerCommerceOrderSchema),
+  CustomerCheckoutConfig: jsonSchema(CustomerCheckoutConfigSchema),
+});
+openapi.components.securitySchemes.customerBearer = { type: 'http', scheme: 'bearer' };
+for (const [suffix, operationId, response, body] of [
+  [
+    'payment-method',
+    'selectCustomerPaymentMethod',
+    'CustomerCommerceOrder',
+    'CustomerPaymentMethod',
+  ],
+  ['hosted-payment', 'openCustomerHostedPayment', 'CustomerHostedPayment', null],
+]) {
+  openapi.paths[`/v1/customer-checkout/orders/{orderId}/${suffix}`] = {
+    post: {
+      operationId,
+      security: [{ customerBearer: [] }],
+      parameters: [
+        { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+      ],
+      ...(body
+        ? {
+            requestBody: {
+              required: true,
+              content: { 'application/json': { schema: { $ref: `#/components/schemas/${body}` } } },
+            },
+          }
+        : {}),
+      responses: {
+        200: {
+          description:
+            'Server-owned order/payment session; opt in via pickchick.checkout-wallets-v1 for order wallet fields',
+          content: { 'application/json': { schema: { $ref: `#/components/schemas/${response}` } } },
+        },
+        409: { description: 'A started financial attempt freezes the payment method' },
+        503: { description: 'Checkout unavailable or not approved' },
+      },
+    },
+  };
+}
 
 // Staff-only LAN kitchen. No cloud ingress, setup or payment contract is exposed.
 Object.assign(openapi.components.schemas, {
