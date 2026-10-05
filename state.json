@@ -2862,6 +2862,20 @@
       "updatedAt": "2026-10-05T12:16:04.675Z",
       "summary": "331d663: picker content retained through native dismissal; iOS edit-save deferred; farm green caption removed. Native iPhone apply/cancel/edit and 50-frame video verified; TypeScript/lint/16 selection and 7 roadmap tests passed. PR189/shared published. CI running; TestFlight unchanged.",
       "nextAction": "Include in next approved mobile build; physical iPhone acceptance remains."
+    },
+    {
+      "id": "tf12-farm-api",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tf12-farm-api",
+      "scopes": [
+        "infra/staging/release-farm-update.py",
+        "tests/operations/test_farm_update_release.py",
+        "docs/operations/deployments/2026-10-05-farm-progression.md",
+        "@vps/api"
+      ],
+      "status": "active",
+      "head": "331d663a1002fb180334f6e8206afa7e8b553067",
+      "updatedAt": "2026-10-05T13:18:20.475Z"
     }
   ]
 }
