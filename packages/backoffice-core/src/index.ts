@@ -284,6 +284,25 @@ export class Backoffice {
       const publications = await rows(
         `SELECT DISTINCT ON(kind,record_id) id,kind,record_id,revision,published_at,payload FROM bo_publications WHERE branch_id=$1 ORDER BY kind,record_id,revision DESC`,
       );
+      // Optional sandbox projection, deliberately excluded from all financial totals.
+      const testPaymentsReadable =
+        (
+          await rows(
+            "SELECT has_table_privilege(current_user,to_regclass('commerce_tiptoppay_test_payments'),'SELECT') readable",
+            [],
+          )
+        )[0]?.readable === true;
+      const testPayments =
+        testPaymentsReadable && !q.shift_id
+          ? await rows(
+              `SELECT id,amount_minor::text,method,
+          CASE WHEN state='pending' AND expires_at<=clock_timestamp() THEN 'expired' ELSE state END state,
+          paid_operation_id,created_at,updated_at,snapshot->'lines' lines
+         FROM commerce_tiptoppay_test_payments WHERE branch_id=$1 AND organization_id=$4
+          AND created_at >= $2 AND created_at < $3 ORDER BY created_at DESC,id LIMIT 101`,
+              [branch, start, end, actor.organization_id],
+            )
+          : [];
       return {
         schema_version: 1,
         branch_id: branch,
@@ -331,6 +350,7 @@ export class Backoffice {
           : metrics,
         chart: q.shift_id ? [] : chart,
         finance: q.shift_id ? [] : finance.slice(0, 200),
+        test_payments: testPayments.slice(0, 100),
         refunds: q.shift_id ? [] : refunds.slice(0, 200),
         issues: q.shift_id ? [] : issues.slice(0, 100),
         devices,
@@ -347,6 +367,7 @@ export class Backoffice {
         documents,
         publications,
         limits: {
+          test_payments: 100,
           cashier_orders: 200,
           cashier_shifts: 200,
           orders: 200,
@@ -357,6 +378,7 @@ export class Backoffice {
           records: 2000,
         },
         truncated: {
+          test_payments: testPayments.length > 100,
           cashier_orders: cashierRows.length > 200,
           cashier_shifts: shiftRows.length > 200,
           orders: orders.length > 200,
@@ -442,9 +464,19 @@ export class Backoffice {
         ).rows;
         return { order: pos, owner: 'edge', captures: [], refunds: [], fiscal: [], events };
       }
+      const paymentAttempts = (
+        await db.query(
+          `SELECT a.id,a.intended_minor::text,a.state,a.created_at,p.provider
+           FROM commerce_payment_attempts a JOIN commerce_provider_accounts p ON p.id=a.account_id
+           WHERE a.order_id=$1 ORDER BY a.created_at,a.id`,
+          [id],
+        )
+      ).rows;
       const captures = (
         await db.query(
-          'SELECT id,amount_minor::text,occurred_at FROM commerce_captures WHERE order_id=$1 ORDER BY occurred_at',
+          `SELECT c.id,c.amount_minor::text,c.occurred_at,c.operation_id,p.provider
+           FROM commerce_captures c JOIN commerce_provider_accounts p ON p.id=c.account_id
+           WHERE c.order_id=$1 ORDER BY c.occurred_at`,
           [id],
         )
       ).rows;
@@ -466,7 +498,15 @@ export class Backoffice {
           [id],
         )
       ).rows;
-      return { order: o, owner: 'cloud', captures, refunds, fiscal, events };
+      return {
+        order: o,
+        owner: 'cloud',
+        payment_attempts: paymentAttempts,
+        captures,
+        refunds,
+        fiscal,
+        events,
+      };
     });
   }
   async command(token: string, branch: string, input: unknown) {
@@ -592,7 +632,16 @@ export class Backoffice {
               { orderId: c.id, reason: req.reason },
               db,
             );
-          } else
+          } else {
+            // A queued request is not a supported bank refund. Do not offer one
+            // for TipTop Pay until its correlated refund adapter is installed.
+            const capture = (
+              await db.query(
+                `SELECT p.provider FROM commerce_captures c JOIN commerce_provider_accounts p ON p.id=c.account_id WHERE c.id=$1 AND c.order_id=$2`,
+                [c.capture_id, c.id],
+              )
+            ).rows[0];
+            if (capture?.provider === 'tiptoppay') return fail('NOT_READY');
             result = await commerce.requestRefund(
               scope,
               req.request_id,
@@ -605,6 +654,7 @@ export class Backoffice {
               },
               db,
             );
+          }
         }
         await db.query(
           'INSERT INTO bo_audit(id,branch_id,organization_id,actor_id,request_id,action,entity_id,reason,before_value,after_value) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',

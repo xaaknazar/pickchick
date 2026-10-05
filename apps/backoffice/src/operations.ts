@@ -22,6 +22,8 @@ export const sections = [
 ] as const;
 const labels: Record<string, string> = {
   open: 'Открыта',
+  tiptoppay: 'TipTop Pay',
+  'kaspi-remote': 'Kaspi',
   'order.created': 'Заказ создан',
   'order.cancelled': 'Заказ отменён',
   'edge.fulfillment_accepted': 'Принят кухней',
@@ -970,8 +972,33 @@ export class OperationsView {
           ]),
         ),
       );
+      if (Array.isArray(data['payment_attempts']) && data['payment_attempts'].length) {
+        d.append(
+          el('h3', '', 'Попытки оплаты'),
+          table(
+            ['Способ', 'Сумма', 'Статус', 'Создана'],
+            (data['payment_attempts'] as Data[]).map((r) => [
+              status(r['provider']),
+              amount(r['intended_minor']),
+              badge(r['state']),
+              date(r['created_at']),
+            ]),
+          ),
+        );
+      }
+      d.append(
+        el('h3', '', 'Подтверждённые оплаты'),
+        table(
+          ['Способ', 'Сумма', 'Операция банка', 'Подтверждена'],
+          (data['captures'] as Data[]).map((r) => [
+            status(r['provider']),
+            amount(r['amount_minor']),
+            val(r['operation_id']),
+            date(r['occurred_at']),
+          ]),
+        ),
+      );
       for (const [key, title] of [
-        ['captures', 'Подтверждённые оплаты'],
         ['refunds', 'Возвраты'],
         ['fiscal', 'Фискальные документы'],
       ] as const)
@@ -1017,7 +1044,9 @@ export class OperationsView {
             ),
           ),
         );
-        for (const capture of data['captures'] as Data[])
+        for (const capture of (data['captures'] as Data[]).filter(
+          (c) => c['provider'] !== 'tiptoppay',
+        ))
           d.append(
             button('Запросить возврат по оплате ' + String(capture['id']).slice(0, 8), () => {
               const refund = dialog(
@@ -1420,6 +1449,33 @@ export class OperationsView {
           ['Проблемы сверки', String(d.issues.length) + (clipped?.['issues'] ? '+' : '')],
         ]),
       );
+      if (d.test_payments?.length) {
+        const sandbox = panel(
+          'Тестовые оплаты TipTop Pay',
+          'Без списания денег. Не входят в продажи, бонусы и чеки; не отправляются на кухню.',
+        );
+        const testStates: Record<string, string> = {
+          pending: 'Ожидает проверки',
+          paid: 'Тест пройден',
+          failed: 'Тест отклонён',
+          expired: 'Время истекло',
+        };
+        sandbox.append(
+          table(
+            ['Дата', 'Сумма теста', 'Позиции', 'Результат', 'Операция'],
+            d.test_payments.map((v) => [
+              date(v['created_at']),
+              amount(v['amount_minor']),
+              (Array.isArray(v['lines']) ? (v['lines'] as Data[]) : [])
+                .map((l) => val(l['title'] ?? l['name']) + ' × ' + val(l['quantity']))
+                .join(', '),
+              testStates[String(v['state'])] ?? 'Проверяется',
+              val(v['paid_operation_id']),
+            ]),
+          ),
+        );
+        content.append(sandbox);
+      }
       const p = panel('Фискальные документы', 'Статус приходит от фискального адаптера.');
       p.append(
         table(

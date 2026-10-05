@@ -1,0 +1,9 @@
+[Unit]
+Description=Check pending PickChick TipTop Pay payments
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=pickchick-tiptoppay-reconcile.service
+[Install]
+WantedBy=timers.target
