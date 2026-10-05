@@ -2698,9 +2698,11 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "9e7626f56d9efd897384d08a5f535e1aafda4c9c",
-      "updatedAt": "2026-10-05T06:44:05.157Z"
+      "status": "done",
+      "head": "937fbd669108b19c7a15956229025a7eed491d12",
+      "updatedAt": "2026-10-05T06:54:57.780Z",
+      "summary": "Removed bottom move footer; direct harvest queue, contextual menu and removeCrop. 19 engine/economy and 20 mobile tests, typecheck/lint/web export passed. Browser rapid harvest/removal/replant verified. PR184 937fbd6 integrated in shared.",
+      "nextAction": "Full CI then farm API removeCrop deployment and next TestFlight; native hold/drag acceptance pending. Online roadmap not refreshed."
     }
   ]
 }
