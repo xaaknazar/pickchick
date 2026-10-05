@@ -52,7 +52,7 @@ class FarmUpdateRelease(unittest.TestCase):
             if args[0]=='status':return ''
             if args[0]=='ls-remote':return obj.sha+' refs/heads/'+obj.args.branch
             self.assertEqual(args,('ls-tree','-r','--name-only',r.BASELINE,'--','db/cloud/migrations/'))
-            return '\n'.join('db/cloud/migrations/'+path.name for path in sorted((ROOT/'db/cloud/migrations').glob('*.sql')))
+            return '\n'.join('db/cloud/migrations/'+path.name for path in sorted((ROOT/'db/cloud/migrations').glob('*.sql')) if int(path.name[:3])<=38)
         obj.git=git
         seen=[]
         def execute(args):
@@ -62,7 +62,15 @@ class FarmUpdateRelease(unittest.TestCase):
             return (ROOT/args[2].split(':',1)[1]).read_bytes()
         obj.execute=execute
         self.assertEqual(len(obj.baseline_migrations()),38)
-        obj.source_checks()
+        # The installed API and candidate at this historical release both stop at038.
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot=Path(directory); migrations=snapshot/'db/cloud/migrations'
+            migrations.mkdir(parents=True)
+            for path in (ROOT/'db/cloud/migrations').glob('*.sql'):
+                if int(path.name[:3])<=38:
+                    (migrations/path.name).write_bytes(path.read_bytes())
+            with patch.object(r.market,'REPO',snapshot):
+                obj.source_checks()
         self.assertEqual(len(seen),38)
 
     def test_runtime_snapshot_allows_only_paired_availability_heartbeat(self):
