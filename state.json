@@ -2994,9 +2994,11 @@
         "apps/mobile/app.json",
         "docs/operations/mobile-testflight13.md"
       ],
-      "status": "active",
-      "head": "e2dadf885d86f5d286385eac882b1c6c2e72809c",
-      "updatedAt": "2026-10-05T17:43:19.912Z"
+      "status": "available",
+      "head": "da7d65d650507276400e1ffd6c7b076d28962c24",
+      "updatedAt": "2026-10-05T17:48:58.688Z",
+      "summary": "Build13 source bump e560157 published; prep doc da7d65d published. Config version/bundle/team verified. Xcode26.6 firstlaunch and farm-pilot doctor at actual build12 magic-sort workspace passed with existing private manual signing inputs; no settings changed. No archive/prebuild/export/upload for13. Build12 observed3h24wallclock has192.7min timestampgap, activecompile duration unknown.",
+      "nextAction": "Root cherry-picks bump/doc before finalCI; only clean finalSHA with green fullCI may begin native13. Reuse clean native workspace by branch at exactSHA, prebuild13, doctor, archive/export/upload with newlabel and same private inputs; verify Apple processing/internalgroup separately."
     }
   ]
 }
