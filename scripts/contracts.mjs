@@ -1,6 +1,7 @@
 import {
   CustomerPaymentMethodSchema,
   CustomerHostedPaymentSchema,
+  CustomerTestPaymentSchema,
   CustomerCommerceOrderSchema,
   CustomerCheckoutConfigSchema,
 } from '@pickchick/contracts';
@@ -931,6 +932,7 @@ Object.assign(openapi.components.schemas, {
     properties: { method: jsonSchema(CustomerPaymentMethodSchema) },
   },
   CustomerHostedPayment: jsonSchema(CustomerHostedPaymentSchema),
+  CustomerTestPayment: jsonSchema(CustomerTestPaymentSchema),
   CustomerCommerceOrder: jsonSchema(CustomerCommerceOrderSchema),
   CustomerCheckoutConfig: jsonSchema(CustomerCheckoutConfigSchema),
 });
@@ -971,6 +973,54 @@ for (const [suffix, operationId, response, body] of [
     },
   };
 }
+
+openapi.paths['/v1/customer-checkout/test-payments'] = {
+  post: {
+    operationId: 'createCustomerTestPayment',
+    security: [{ customerBearer: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['quoteId', 'method'],
+            properties: {
+              quoteId: { type: 'string', format: 'uuid' },
+              method: { type: 'string', enum: ['card', 'apple_pay', 'google_pay'] },
+            },
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: 'Isolated TEST payment. No commercial order or money effect.',
+        content: {
+          'application/json': { schema: { $ref: '#/components/schemas/CustomerTestPayment' } },
+        },
+      },
+    },
+  },
+};
+openapi.paths['/v1/customer-checkout/test-payments/{id}'] = {
+  get: {
+    operationId: 'readCustomerTestPayment',
+    security: [{ customerBearer: [] }],
+    parameters: [
+      { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+    ],
+    responses: {
+      200: {
+        description: 'Owner-only TEST status; no checkout token',
+        content: {
+          'application/json': { schema: { $ref: '#/components/schemas/CustomerTestPayment' } },
+        },
+      },
+    },
+  },
+};
 
 // Staff-only LAN kitchen. No cloud ingress, setup or payment contract is exposed.
 Object.assign(openapi.components.schemas, {

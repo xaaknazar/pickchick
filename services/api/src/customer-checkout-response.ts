@@ -6,7 +6,8 @@ export function checkoutRepresentation<T>(value: T, accept?: string): T {
   if (accept?.split(',').some((part) => part.trim() === WALLETS_PROFILE)) return value;
   if (!value || typeof value !== 'object') return value;
   const response = value as Record<string, unknown>;
-  const { paymentMethods, paymentMethod, ...walletLegacy } = response;
+  const { paymentMethods, paymentMethod, paymentEnvironment, ...walletLegacy } = response;
+  void paymentEnvironment;
   void paymentMethods;
   void paymentMethod;
   if (Array.isArray(walletLegacy.orders))
