@@ -3888,7 +3888,7 @@
       "id": "payments-tiptoppay-receiver",
       "workstream": "payments",
       "title": "Подготовить защищённый приём TipTopPay Check/Pay",
-      "summary": "Реализован отключённый receiver, HMAC и привязка оплаты, PostgreSQL-дедупликация; 10 новых, 6 unit ядра и 23 PG проверки прошли. Официальный /test принял ключ без списания. DNS применён, HTTPS/API на VPS не выпущены. Полный эквайринг этим не завершён.",
+      "summary": "5 октября: добавлены серверный hosted checkout и изолированный TEST-путь по решению владельца. TEST использует котировку, отдельную таблицу040 и подписанные уведомления, без коммерческих заказов/денег/кухни. Mobile сохраняет корзину и TEST-сессию; бэк-офис отделяет sandbox от продаж. Адресные PG/HTTP/mobile/browser проверки пройдены; guarded VPS выпуск, официальная TEST-карта и кошельки ещё не приняты.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -3897,13 +3897,17 @@
         {
           "label": "TipTopPay: код, DNS и проверка доступа без списания - 28 сентября",
           "path": "docs/operations/payment-domain-pilot.md"
+        },
+        {
+          "label": "Изолированный TEST checkout и ограничения кошельков - 5 октября",
+          "path": "docs/operations/tiptoppay-checkout.md"
         }
       ],
       "acceptance": [
         "Подписанный Pay сохраняется один раз при повторах, неверная сумма/аккаунт/TEST отклоняются.",
         "Публичный webhook проходит проверку после guarded выпуска; checkout включается отдельным этапом."
       ],
-      "nextAction": "Проверить общую CI, выпустить HTTPS/gateway по runbook; затем checkout, кошельки, сверка и Webkassa.",
+      "nextAction": "Полная CI, guarded TEST-выпуск с минимальными правами, настройка TEST Check/Pay/Fail в кабинете, приёмка официальной TEST-оплаты и отдельный TestFlight13. Kaspi остаётся LIVE, LIVE TipTop выключен.",
       "checks": {
         "implemented": true,
         "verified": true,

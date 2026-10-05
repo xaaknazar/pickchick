@@ -8,3 +8,7 @@ export * from './availability.js';
 
 export * from './kiosk-checkout.js';
 export * from './kiosk-sessions.js';
+
+export * from './tiptoppay-checkout.js';
+
+export * from './tiptoppay-test-checkout.js';

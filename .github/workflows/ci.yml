@@ -49,6 +49,7 @@ jobs:
           pnpm test:commerce
           node --env-file=.env --test --test-concurrency=1 tests/operations/windows-reserved-number.test.mjs tests/operations/windows-native-service-upgrade.test.mjs
           node --test tests/payments/tiptoppay-http.test.mjs tests/payments/kaspi-remote-http.test.mjs
+          node --env-file=.env --input-type=module -e 'process.env.COMMERCE_TEST_DATABASE_URL=process.env.CLOUD_DATABASE_URL; await import("./tests/payments/tiptoppay-checkout.test.mjs");'
           python3 -m unittest discover -s infra/domains -p 'test_*.py'
       - name: Verify Chiki ledger, reservations and refund debt
         run: pnpm test:loyalty

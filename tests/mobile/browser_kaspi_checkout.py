@@ -1,5 +1,5 @@
 """Real checkout UI against isolated bank-free HTTP fixtures; no external requests escape."""
-import json, os, subprocess
+import json, os, re, subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -13,24 +13,31 @@ BRANCH=CATALOG['branch_id']; CUSTOMER='40000000-0000-4000-8000-000000000001'; OR
 future=(datetime.now(timezone.utc)+timedelta(hours=2)).isoformat().replace('+00:00','Z')
 customer={'id':CUSTOMER,'phone':'+77000000000','nickname':'UI test','birth_date':None,'gender':None,'profile_completed_at':None,'created_at':'2026-09-07T10:00:00.000Z'}
 envelope={'version':1,'device_id':'40000000-0000-4000-8000-000000000004','tokens':{'access_token':'a'*64,'refresh_token':'b'*64,'access_expires_at':future,'session_id':'40000000-0000-4000-8000-000000000002','customer':customer},'challenge':None,'otp_request':None,'verify_intent':None,'refresh_request_id':None,'closing':None}
+TEST_INVALID=os.environ.get('CHECKOUT_TEST_INVALID')=='1'
+TEST_PAYMENT=TEST_INVALID or os.environ.get('CHECKOUT_TEST_PAYMENT')=='1'
+TEST_CONFIG=TEST_PAYMENT or os.environ.get('CHECKOUT_TEST_MIXED_KASPI')=='1'
+INVALID_HOSTED=os.environ.get('CHECKOUT_HOSTED_INVALID_TEST')=='1'
+HOSTED=os.environ.get('CHECKOUT_HOSTED_TEST')=='1' or INVALID_HOSTED
+API_ORIGIN=re.search(r"API_URL = '([^']+)'",(ROOT/'apps/mobile/src/api.ts').read_text()).group(1)
 errors=[]
 with sync_playwright() as p:
  browser=p.chromium.launch()
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
-  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
+  state={'test_created':False,'test_opened':False,'test_posts':0,'test_reads':0,'test_drop':True,'test_state':'pending','commercial_requests':0,'payment_method':'kaspi','hosted_calls':0,'method_calls':0,'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
-   return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
+   return {**({'paymentMethod':state['payment_method']} if HOSTED else {}),'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
    if state['teardown']:r.abort();return
    path=urlparse(r.request.url).path; method=r.request.method
    body=r.request.post_data_json if r.request.post_data else None
+   if path.startswith('/v1/customer-checkout/orders'):state['commercial_requests']+=1
    if path.startswith('/v1/customer-checkout/') and path.endswith('/feedback'):
     assert r.request.headers.get('accept')=='application/json'
     assert r.request.headers.get('authorization')=='Bearer '+envelope['tokens']['access_token']
    elif path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
-    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1'
+    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-wallets-v1'
    data=None
    if path=='/v1/customers/me':data={'customer':customer}
    elif path=='/v1/customer-checkout/availability' and method=='GET':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':p['id'],'available':True,'stoppedOptions':[]} for p in CATALOG['products']]}
@@ -55,9 +62,9 @@ with sync_playwright() as p:
    elif path=='/v1/customer-checkout/config':
     state['config_reads']+=1
     if state['config_offline']:r.abort();return
-    data={'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot','orderCommentEnabled':True}
+    data={**({'paymentMethods':['kaspi','card','google_pay'],'paymentEnvironment':'test'} if TEST_CONFIG else {'paymentMethods':['kaspi','card','apple_pay','google_pay']} if HOSTED else {}),'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot','orderCommentEnabled':True}
    elif path=='/v1/customer-checkout/quotes':
-    assert page.get_by_test_id('kaspi-connecting').count()==1, 'Quotes must start inside the connecting scene'
+    assert page.get_by_test_id('test-payment-state' if TEST_PAYMENT else 'kaspi-connecting').count()==1, 'Quotes must start inside the connecting scene'
     state['quotes']+=1;state['quote_keys'].append(body['key'])
     assert 'totalMinor' not in body
     assert body['branchId']=='7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
@@ -65,6 +72,24 @@ with sync_playwright() as p:
     assert len(state['quote_comment'])<=60
     if state['quote_drop']:state['quote_drop']=False;r.abort();return
     data={'quoteId':'40000000-0000-4000-8000-000000000005','totalMinor':state['quote_total'],'expiresAt':future,'serviceMode':body['serviceMode'],'kitchenComment':state['quote_comment'] or None}
+   elif path=='/v1/customer-checkout/test-payments':
+    assert TEST_PAYMENT and method=='POST' and body=={'quoteId':'40000000-0000-4000-8000-000000000005','method':'card'}
+    state['test_posts']+=1;state['test_created']=True
+    if state['test_drop']:state['test_drop']=False;r.abort();return
+    data={'id':'40000000-0000-4000-8000-000000000007','quoteId':body['quoteId'],'amountMinor':'419000','method':'card','state':state['test_state'],'expiresAt':future}
+    if not state['test_opened']:data['checkoutUrl']=API_ORIGIN+'/v1/integrations/tiptoppay/test-checkout#'+'b'*64
+    if TEST_INVALID:
+     invalid={320:'https://untrusted.example/v1/integrations/tiptoppay/test-checkout#'+'b'*64,393:API_ORIGIN.replace('https:','http:')+'/v1/integrations/tiptoppay/test-checkout#'+'b'*64,768:API_ORIGIN+'/v1/integrations/tiptoppay/checkout#'+'b'*64}
+     if width in invalid:data['checkoutUrl']=invalid[width]
+     else:data['expiresAt']='2000-01-01T00:00:00Z'
+   elif path=='/v1/customer-checkout/test-payments/40000000-0000-4000-8000-000000000007':
+    assert TEST_PAYMENT and method=='GET' and state['test_created']
+    state['test_reads']+=1
+    data={'id':'40000000-0000-4000-8000-000000000007','quoteId':'40000000-0000-4000-8000-000000000005','amountMinor':'419000','method':'card','state':state['test_state'],'expiresAt':future}
+   elif path=='/v1/integrations/tiptoppay/test-checkout':
+    assert TEST_PAYMENT and state['test_created']
+    state['test_opened']=True
+    r.fulfill(status=200,content_type='text/html',body='<h1>Bank-free TEST widget fixture</h1>');return
    elif path=='/v1/customer-checkout/orders':
     if state['blocked']:
      r.fulfill(status=403,json={'code':'FORBIDDEN','message_key':'errors.forbidden','trace_id':'40000000-0000-4000-8000-000000000009','retryable':False},headers={'Access-Control-Allow-Origin':'*'});return
@@ -73,7 +98,28 @@ with sync_playwright() as p:
      state['keys'].append(body['key']);state['created']=True;state['comment']=state['quote_comment']
      if state['drop']:state['drop']=False;r.abort();return
      data=order()
+   elif path==f'/v1/customer-checkout/orders/{ORDER}' and method=='GET':data=order()
+   elif path==f'/v1/customer-checkout/orders/{ORDER}/payment-method':
+    assert state['created'] and state['phase']=='ready_to_pay'
+    assert body=={'method':'card'}
+    state['method_calls']+=1;state['payment_method']='card';state['revision']+=1;data=order()
+   elif path==f'/v1/customer-checkout/orders/{ORDER}/hosted-payment':
+    assert state['created'] and state['payment_method']=='card'
+    state['hosted_calls']+=1
+    if state['hosted_calls']>1:
+     r.fulfill(status=409,json={'code':'PAYMENT_CHECK_REQUIRED','message_key':'errors.payment_check_required','trace_id':ORDER,'retryable':False},headers={'Access-Control-Allow-Origin':'*'});return
+    assert state['phase']=='ready_to_pay'
+    state['payments']+=1;state['phase']='awaiting_payment';state['revision']+=1
+    data={'orderId':ORDER,'attemptId':'40000000-0000-4000-8000-000000000006','checkoutUrl':API_ORIGIN+'/v1/integrations/tiptoppay/checkout#'+'a'*64,'expiresAt':future}
+    if INVALID_HOSTED:
+     invalid={320:'https://untrusted.example/v1/integrations/tiptoppay/checkout#'+'a'*64,393:API_ORIGIN.replace('https:','http:')+'/v1/integrations/tiptoppay/checkout#'+'a'*64,768:API_ORIGIN+'/wrong-path#'+'a'*64}
+     if width in invalid:data['checkoutUrl']=invalid[width]
+     else:data['expiresAt']='2000-01-01T00:00:00Z'
+   elif path=='/v1/integrations/tiptoppay/checkout':
+    assert HOSTED
+    r.fulfill(status=200,content_type='text/html',body='<h1>Isolated bank-free hosted fixture</h1>');return
    elif path==f'/v1/customer-checkout/orders/{ORDER}/payment':
+    assert state['payment_method']=='kaspi'
     assert not state['config_offline'] and state['quotes']>=2 and state['created'], 'No invoice before completed checks and accepted order'
     state['payments']+=1;state['phase']='awaiting_payment';state['revision']+=1;data=order()
    elif path==f'/v1/customer-checkout/orders/{ORDER}/watch':
@@ -92,6 +138,88 @@ with sync_playwright() as p:
   button=page.get_by_test_id('kaspi-checkout-submit')
   expect(button).to_be_enabled()
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
+  if TEST_PAYMENT:
+   state.update(blocked=False,drop=False,quote_drop=False,quote_total='419000')
+   page.get_by_test_id('payment-method').click()
+   page.get_by_test_id('payment-method-card').click()
+   expect(page.get_by_test_id('test-payment-disclaimer')).to_contain_text('Тестовая оплата - деньги не спишутся')
+   if TEST_INVALID:
+    button.click()
+    expect(page.get_by_text('Не удалось подготовить тестовую оплату. Корзина сохранена - проверьте соединение.',exact=True)).to_be_visible(timeout=15000)
+    assert len(context.pages)==1 and state['commercial_requests']==0 and state['payments']==0 and state['test_posts']==2
+    page.wait_for_timeout(300)
+    assert state['test_posts']==2
+    expect(page.get_by_test_id('test-payment-state')).not_to_contain_text('Тестовая оплата прошла')
+    state['teardown']=True;page.wait_for_timeout(100)
+    context.unroute_all(behavior='ignoreErrors');context.close()
+    continue
+   with context.expect_page() as popup_info:button.click()
+   popup=popup_info.value
+   expect(popup.get_by_text('Bank-free TEST widget fixture')).to_be_visible()
+   expect(page.get_by_test_id('test-payment-state')).to_be_visible()
+   expect(page.get_by_test_id('test-payment-state')).not_to_contain_text('Тестовая оплата прошла')
+   popup.close()
+   assert state['test_posts']==2 and state['commercial_requests']==0 and state['payments']==0
+   posts=state['test_posts'];page.reload()
+   expect(page.get_by_test_id('test-payment-state')).to_be_visible(timeout=15000)
+   assert state['test_posts']==posts and state['test_reads']>0 and state['commercial_requests']==0
+   expect(page.get_by_test_id('kaspi-paid')).to_have_count(0)
+   state['test_state']='paid'
+   expect(page.get_by_text('Тестовая оплата прошла',exact=True)).to_be_visible(timeout=10000)
+   expect(page.get_by_test_id('test-payment-state')).to_contain_text('Заказ не создан и на кухню не отправлен')
+   assert state['commercial_requests']==0 and state['payments']==0
+   page.screenshot(path=str(OUT/f'test-payment-{width}.png'))
+   page.get_by_role('button',name='Вернуться к оформлению',exact=True).click()
+   expect(page.get_by_test_id('kaspi-checkout-total')).to_contain_text('4 190')
+   state['teardown']=True;page.wait_for_timeout(100)
+   context.unroute_all(behavior='ignoreErrors');context.close()
+   continue
+  if HOSTED:
+   state.update(blocked=False,drop=False,quote_drop=False,quote_total='419000',quotes=2)
+   page.get_by_test_id('payment-method').click()
+   expect(page.get_by_test_id('payment-method-apple_pay')).to_have_count(0)
+   expect(page.get_by_test_id('payment-method-google_pay')).to_have_count(0)
+   page.get_by_test_id('payment-method-card').click()
+   if INVALID_HOSTED:
+    button.click()
+    expect(page.get_by_text('Связь прервалась. Заказ сохранён - повторно оплачивать не нужно.',exact=True)).to_be_visible(timeout=15000)
+    assert len(context.pages)==1 and state['payments']==1 and state['hosted_calls']==1
+    expect(page.get_by_test_id('kaspi-paid')).to_have_count(0)
+    page.wait_for_timeout(500)
+    assert state['hosted_calls']==1
+    state['teardown']=True
+    for held in state['held_routes']:
+     try:held.abort()
+     except Exception:pass
+    page.wait_for_timeout(100)
+    context.unroute_all(behavior='ignoreErrors');context.close()
+    continue
+   with context.expect_page() as popup_info:button.click()
+   popup=popup_info.value
+   expect(popup.get_by_text('Isolated bank-free hosted fixture')).to_be_visible()
+   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату · Банковская карта')
+   assert state['payments']==1 and state['method_calls']==1 and state['hosted_calls']==1
+   popup.close()
+   expect(page.get_by_test_id('kaspi-paid')).to_have_count(0)
+   page.wait_for_timeout(250)
+   assert state['payments']==1
+   page.screenshot(path=str(OUT/f'hosted-{width}.png'))
+   page.get_by_role('button',name='Открыть страницу оплаты',exact=True).click()
+   page.wait_for_timeout(300)
+   assert state['hosted_calls']==2 and state['payments']==1
+   expect(page.get_by_test_id('kaspi-paid')).to_have_count(0)
+   page.reload()
+   expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=15000)
+   assert state['payments']==1 and state['hosted_calls']==2
+   state['phase']='paid';state['paid']=True;state['revision']+=1
+   page.wait_for_timeout(150);state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+   expect(page.get_by_test_id('kaspi-paid')).to_contain_text('Оплачено')
+   state['teardown']=True
+   for held in state['held_routes']:
+    try:held.abort()
+    except Exception:pass
+   context.unroute_all(behavior='ignoreErrors');context.close()
+   continue
   # A definitive account rejection is only checked after explicit payment.
   button.click()
   expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта. Корзина сохранена - можно вернуться к ней позже.',exact=True)).to_be_visible()
@@ -296,4 +424,4 @@ with sync_playwright() as p:
   context.close()
  browser.close()
 assert not errors,errors
-print('PASS: 4 sizes, no pre-pay quote, actionable offline checkout, cancellation, duplicate taps, same-key quote/order recovery, price confirmation, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen/completed stages, server-backed review save/retry/reload, no overflow')
+print('PASS: invalid TEST hosted responses never open bank page or create commercial orders on four sizes' if TEST_INVALID else 'PASS: isolated TEST payments on four sizes; no commercial order/payment, lost response idempotence, reload GET-only, trusted TEST outcome, retained cart' if TEST_PAYMENT else ('PASS: invalid hosted responses blocked on four sizes' if INVALID_HOSTED else 'PASS: hosted browser close/reopen/reload require trusted bank status on four sizes') if HOSTED else 'PASS: 4 sizes, no pre-pay quote, actionable offline checkout, cancellation, duplicate taps, same-key quote/order recovery, price confirmation, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen/completed stages, server-backed review save/retry/reload, no overflow')

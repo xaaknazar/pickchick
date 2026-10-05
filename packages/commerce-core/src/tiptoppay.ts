@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { DatabasePool } from '@pickchick/database';
+import { transaction, type DatabasePool } from '@pickchick/database';
 import { CommerceRepository } from './repository.js';
+import { tipTopPayCheckoutOptions } from './tiptoppay-checkout.js';
 import { MAX_MINOR, UUIDSchema } from './model.js';
 
 export class TipTopPayError extends Error {
@@ -13,6 +14,7 @@ export interface TipTopPayConfig {
   apiSecret: string;
   accountId: string;
   acceptNewPayments: boolean;
+  approvalReference?: string;
 }
 
 // Receiving real bank observations and initiating new charges are separate switches.
@@ -30,7 +32,14 @@ export function tipTopPayConfig(env: NodeJS.ProcessEnv): TipTopPayConfig | null 
   )
     throw new TipTopPayError('INVALID');
   // New payments stay disabled until the independent checkout/fiscal rollout.
-  return { publicId, apiSecret, accountId, acceptNewPayments: false };
+  const checkout = tipTopPayCheckoutOptions(env);
+  return {
+    publicId,
+    apiSecret,
+    accountId,
+    acceptNewPayments: !!checkout,
+    ...(checkout ? { approvalReference: checkout.approvalReference } : {}),
+  };
 }
 
 export function verifyTipTopPayForm(raw: Buffer, signature: string | undefined, secret: string) {
@@ -61,12 +70,16 @@ export function tipTopPayMinor(amount: string | undefined): string {
   return minor.toString();
 }
 
-export function parseTipTopPayPayment(fields: Record<string, string>, event: 'check' | 'pay') {
+export function parseTipTopPayPayment(
+  fields: Record<string, string>,
+  event: 'check' | 'pay' | 'fail',
+) {
   if (fields.TestMode !== '0') throw new TipTopPayError('MODE');
   if (
     fields.Currency !== 'KZT' ||
     fields.OperationType !== 'Payment' ||
-    fields.Status !== 'Completed' ||
+    (event !== 'fail' && fields.Status !== 'Completed') ||
+    (event === 'fail' && !/^[1-9][0-9]{3}$/.test(fields.ReasonCode ?? '')) ||
     !UUIDSchema.safeParse(fields.InvoiceId).success ||
     !UUIDSchema.safeParse(fields.AccountId).success ||
     !/^[1-9][0-9]{0,18}$/.test(fields.TransactionId ?? '')
@@ -102,7 +115,8 @@ export class TipTopPayReceiver {
     signature: string | undefined,
   ): Promise<{ code: number }> {
     if (!this.config) throw new TipTopPayError('DISABLED');
-    if (event !== 'check' && event !== 'pay') throw new TipTopPayError('INVALID');
+    if (event !== 'check' && event !== 'pay' && event !== 'fail')
+      throw new TipTopPayError('INVALID');
     const fields = verifyTipTopPayForm(raw, signature, this.config.apiSecret);
     const payment = parseTipTopPayPayment(fields, event);
     const { rows } = await this.pool.query<{
@@ -122,10 +136,13 @@ export class TipTopPayReceiver {
        JOIN commerce_orders o ON o.id=a.order_id
        JOIN commerce_provider_accounts p ON p.id=a.account_id
         AND p.organization_id=o.organization_id AND p.branch_id=o.branch_id
-       JOIN commerce_provider_accounts f ON f.id=o.fiscal_account_id
+       JOIN branches b ON b.id=o.branch_id AND b.organization_id=o.organization_id
+        AND o.snapshot->>'legalEntityId'=p.legal_entity_id::text
+       LEFT JOIN commerce_provider_accounts f ON f.id=o.fiscal_account_id
         AND f.legal_entity_id=p.legal_entity_id AND f.kind='fiscal'
        WHERE a.id=$1 AND p.id=$2 AND p.provider='tiptoppay'
-        AND p.kind='payment' AND p.external_reference=$3`,
+        AND p.kind='payment' AND p.external_reference=$3
+        AND (f.id IS NOT NULL OR (o.fiscal_policy='deferred_pilot' AND o.snapshot->>'legalEntityId'=p.legal_entity_id::text))`,
       [payment.attemptId, this.config.accountId, this.config.publicId],
     );
     const row = rows[0];
@@ -136,16 +153,40 @@ export class TipTopPayReceiver {
     )
       throw new TipTopPayError('BINDING');
     if (event === 'check') {
-      return {
-        code:
-          this.config.acceptNewPayments &&
-          row.enabled &&
-          !row.has_capture &&
-          ['pending', 'unknown'].includes(row.state) &&
-          row.order_state === 'awaiting_payment'
-            ? 0
-            : 13,
-      };
+      if (
+        !this.config.acceptNewPayments ||
+        !row.enabled ||
+        row.has_capture ||
+        row.order_state !== 'awaiting_payment'
+      )
+        return { code: 13 };
+      return transaction(this.pool, async (client) => {
+        const session = (
+          await client.query<{ authorized_operation_id: string | null }>(
+            `SELECT s.authorized_operation_id FROM commerce_tiptoppay_sessions s
+           JOIN commerce_orders o ON o.id=s.order_id JOIN commerce_payment_attempts a ON a.id=s.attempt_id
+           JOIN commerce_provider_accounts p ON p.id=a.account_id AND p.enabled AND p.provider='tiptoppay' AND p.external_reference=$3
+           JOIN branches b ON b.id=o.branch_id AND b.organization_id=o.organization_id AND b.legal_entity_id=p.legal_entity_id
+           WHERE a.id=$1 AND a.state='pending' AND o.state='awaiting_payment' AND NOT o.attention_required
+            AND s.expires_at>clock_timestamp() AND s.opened_at IS NOT NULL
+            AND o.fiscal_deferral_reference=$2
+            AND NOT EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id)
+           FOR UPDATE OF s,o`,
+            [payment.attemptId, this.config!.approvalReference, this.config!.publicId],
+          )
+        ).rows[0];
+        if (
+          !session ||
+          (session.authorized_operation_id &&
+            session.authorized_operation_id !== payment.operationId)
+        )
+          return { code: 13 };
+        await client.query(
+          'UPDATE commerce_tiptoppay_sessions SET authorized_operation_id=$2 WHERE attempt_id=$1',
+          [payment.attemptId, payment.operationId],
+        );
+        return { code: 0 };
+      });
     }
     // Old/disabled accounts can still deliver late successful payments. The existing
     // transactional provider inbox deduplicates them and schedules reconciliation.
@@ -158,9 +199,11 @@ export class TipTopPayReceiver {
       {
         eventId: payment.eventId,
         attemptId: payment.attemptId,
-        outcome: 'captured',
-        operationId: payment.operationId,
-        amountMinor: payment.amountMinor,
+        // A provider Fail may be followed by fallback authorization. Preserve ambiguity.
+        outcome: event === 'fail' ? 'unknown' : 'captured',
+        ...(event === 'fail'
+          ? {}
+          : { operationId: payment.operationId, amountMinor: payment.amountMinor }),
         occurredAt: payment.occurredAt,
       },
     );

@@ -4,22 +4,31 @@ import {
   checkoutReadError,
 } from '../commerce-read-recovery';
 import { prepareCheckout } from '../checkout-preflight';
+import { TestPaymentState } from '../components/TestPaymentState';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
   CheckoutSheetHeader,
   CheckoutAction,
-  UpcomingPayments,
   checkoutStyle,
 } from '../components/CheckoutPresentation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  Linking,
+  Modal,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
+import * as ExpoLinking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
-import type { CustomerCommerceOrder } from '@pickchick/contracts';
+import type { CustomerCommerceOrder, CustomerTestPayment } from '@pickchick/contracts';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { CustomerSessionError } from '../customer-session';
-import { watchCommerceOrder } from '../commerce-watch';
+import { watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
 import {
   commerceRequest,
   CustomerCommerceOrderSchema,
@@ -30,6 +39,9 @@ import {
   cartSignature,
   normalizedOrderComment,
   maskedPhone,
+  parseHostedPayment,
+  parseHostedTestPayment,
+  CustomerTestPaymentSchema,
 } from '../commerce-checkout';
 import { OrderStatusView } from './OrderStatusScreen';
 import { CompletedOrderScreen } from './CompletedOrderScreen';
@@ -40,7 +52,8 @@ import { CheckoutDetails } from './CheckoutScreen';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { OrderHeader } from '../components/OrderPresentation';
 import { OrderSheet } from '../components/OrderSheet';
-import { PaymentMark } from '../components/PaymentChoice';
+import { availablePaymentMethods, type CommercePaymentMethod } from '../payment-methods';
+import { PaymentChoice, paymentName } from '../components/PaymentChoice';
 import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
 import { colors, font } from '../theme';
@@ -52,6 +65,7 @@ type Pending = {
   signature: string;
   orderId?: string;
   sendInvoice?: boolean;
+  paymentMethod?: CommercePaymentMethod;
 };
 const root = '/v1/customer-checkout';
 
@@ -66,7 +80,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const [config, setConfig] = useState<ReturnType<
     typeof CustomerCheckoutConfigSchema.parse
   > | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<CommercePaymentMethod>('kaspi');
+  const methods = availablePaymentMethods(config?.paymentMethods, Platform.OS);
+  useEffect(() => {
+    if (config && !methods.includes(selectedMethod)) setSelectedMethod(methods[0] ?? 'kaspi');
+  }, [config, selectedMethod]);
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [testPayment, setTestPayment] = useState<CustomerTestPayment | null>(null);
+  const [testError, setTestError] = useState('');
+  const [testCycle, setTestCycle] = useState(0);
   const [order, setOrder] = useState<CustomerCommerceOrder | null>(null);
   const [history, setHistory] = useState<CustomerCommerceOrder[]>([]);
   const [initialRating, setInitialRating] = useState<number | undefined>();
@@ -99,6 +121,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
   const key = `pickchick.commerce.pending.v1:${customerId}`;
+  const testKey = `pickchick.commerce.test-payment.v1:${customerId}`;
   const access = auth.withOrderAccess;
   const request = useCallback(
     (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
@@ -108,6 +131,49 @@ function KaspiCheckoutSession(props: ScreenProps) {
       );
     },
     [customerId, access],
+  );
+  const acceptTest = useCallback(
+    async (value: unknown) => {
+      const payment = CustomerTestPaymentSchema.parse(value);
+      const safe = { ...payment };
+      delete safe.checkoutUrl;
+      await AsyncStorage.setItem(testKey, JSON.stringify({ id: payment.id }));
+      setTestPayment(safe);
+      setSelectedMethod(payment.method);
+      return payment;
+    },
+    [testKey],
+  );
+  const testPaymentRef = useRef(testPayment);
+  testPaymentRef.current = testPayment;
+  const restoreTest = useCallback(
+    async (signal?: AbortSignal, read?: (path: string) => Promise<unknown>) => {
+      const raw = await AsyncStorage.getItem(testKey);
+      if (!raw) return false;
+      const saved = JSON.parse(raw) as { id?: string; quoteId?: string; method?: string };
+      if (saved.id && /^[a-f0-9-]{36}$/.test(saved.id)) {
+        await acceptTest(
+          await (read
+            ? read(`/test-payments/${saved.id}`)
+            : request(`/test-payments/${saved.id}`, 'GET', undefined, signal)),
+        );
+      } else if (
+        saved.quoteId &&
+        /^[a-f0-9-]{36}$/.test(saved.quoteId) &&
+        ['card', 'apple_pay', 'google_pay'].includes(saved.method ?? '')
+      ) {
+        await acceptTest(
+          await request(
+            '/test-payments',
+            'POST',
+            { quoteId: saved.quoteId, method: saved.method },
+            signal,
+          ),
+        );
+      } else throw new Error('INVALID_PENDING');
+      return true;
+    },
+    [testKey, acceptTest, request],
   );
   const accept = useCallback(
     async (value: unknown) => {
@@ -134,6 +200,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         await AsyncStorage.removeItem(key);
         pending.current = null;
       }
+      setSelectedMethod(current.paymentMethod ?? pending.current?.paymentMethod ?? 'kaspi');
       setOrder(current);
       return current;
     },
@@ -162,7 +229,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   }, []);
 
   useEffect(() => {
-    if (orderRef.current && props.screenId !== 'M19') return;
+    if ((orderRef.current || testPaymentRef.current) && props.screenId !== 'M19') return;
     let active = true;
     const controller = new AbortController();
     bootstrap.current = controller;
@@ -208,6 +275,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     const draftCommandError = (cause: unknown) =>
       recoveringCommand ? checkoutError(cause) : checkoutReadError(cause, props.screenId === 'M19');
     const run = async () => {
+      if (props.screenId !== 'M19' && (await restoreTest(controller.signal))) return;
       const raw = await AsyncStorage.getItem(key);
       let draft: Pending | null = null;
       if (raw) {
@@ -215,7 +283,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
         if (
           !/^[a-f0-9-]{36}$/.test(parsed.key) ||
           !/^[a-f0-9-]{36}$/.test(parsed.quoteId) ||
-          typeof parsed.signature !== 'string'
+          typeof parsed.signature !== 'string' ||
+          (parsed.paymentMethod !== undefined &&
+            !['kaspi', 'card', 'apple_pay', 'google_pay'].includes(parsed.paymentMethod))
         )
           throw new Error('INVALID_PENDING');
         draft = parsed;
@@ -260,6 +330,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   }, [
     request,
     recover,
+    restoreTest,
     key,
     refresh,
     props.screenId,
@@ -324,6 +395,36 @@ function KaspiCheckoutSession(props: ScreenProps) {
     const timer = setTimeout(() => setPaidMoment(false), 2000);
     return () => clearTimeout(timer);
   }, [paidMoment, foreground]);
+  useEffect(() => {
+    if (!testPayment || testPayment.state !== 'pending' || !foreground) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
+    const poll = async () => {
+      let delay = 2000;
+      try {
+        await acceptTest(
+          await request(`/test-payments/${testPayment.id}`, 'GET', undefined, controller.signal),
+        );
+        if (!controller.signal.aborted) setTestError('');
+        failures = 0;
+      } catch (cause) {
+        if (!controller.signal.aborted)
+          setTestError(
+            'Не удалось проверить тестовую оплату. Проверьте соединение или войдите снова.',
+          );
+        const retryDelay = watchRetryDelay(cause, ++failures);
+        if (retryDelay === null) return;
+        delay = Math.min(retryDelay, 5000);
+      }
+      if (!controller.signal.aborted) timer = setTimeout(() => void poll(), delay);
+    };
+    void poll();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [testPayment?.id, testPayment?.state, foreground, testCycle, request, acceptTest]);
   const submit = async () => {
     if (lock.current || !cart.current.length) return;
     lock.current = true;
@@ -339,25 +440,20 @@ function KaspiCheckoutSession(props: ScreenProps) {
       prepareCheckout(operation, controller.signal);
     try {
       // Restore the exact previous intent before any new quote/order is created.
+      if (await prepared(() => restoreTest(controller.signal))) return;
       const raw = await AsyncStorage.getItem(key);
       if (raw) {
         const draft = JSON.parse(raw) as Pending;
         if (
           !/^[a-f0-9-]{36}$/.test(draft.key) ||
           !/^[a-f0-9-]{36}$/.test(draft.quoteId) ||
-          typeof draft.signature !== 'string'
+          typeof draft.signature !== 'string' ||
+          (draft.paymentMethod !== undefined &&
+            !['kaspi', 'card', 'apple_pay', 'google_pay'].includes(draft.paymentMethod))
         )
           throw new Error('INVALID_PENDING');
         pending.current = draft;
         await accept(await prepared(() => recover(draft, controller.signal)));
-        return;
-      }
-      const result = await prepared(() => request('/orders', 'GET', undefined, controller.signal));
-      const existing = (result as { orders: unknown[] }).orders
-        .map((value) => CustomerCommerceOrderSchema.parse(value))
-        .find((value) => !paymentReceived(value.phase) && value.phase !== 'failed');
-      if (existing) {
-        await accept(existing);
         return;
       }
       const setup = await prepared(async () => {
@@ -368,9 +464,25 @@ function KaspiCheckoutSession(props: ScreenProps) {
         return value;
       });
       setConfig(setup);
+      if (!availablePaymentMethods(setup.paymentMethods, Platform.OS).includes(selectedMethod)) {
+        setError('Способ оплаты сейчас недоступен. Выберите другой способ.');
+        return;
+      }
       if (!setup.orderCommentEnabled && comment) {
         setError('Комментарий временно недоступен. Удалите его, чтобы оформить заказ.');
         return;
+      }
+      if (!(setup.paymentEnvironment === 'test' && selectedMethod !== 'kaspi')) {
+        const result = await prepared(() =>
+          request('/orders', 'GET', undefined, controller.signal),
+        );
+        const existing = (result as { orders: unknown[] }).orders
+          .map((value) => CustomerCommerceOrderSchema.parse(value))
+          .find((value) => !paymentReceived(value.phase) && value.phase !== 'failed');
+        if (existing) {
+          await accept(existing);
+          return;
+        }
       }
       const quoteKey = randomUUID();
       const currentQuote = CustomerQuoteSchema.parse(
@@ -399,11 +511,25 @@ function KaspiCheckoutSession(props: ScreenProps) {
         setPriceNotice('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.');
         return;
       }
+      if (setup.paymentEnvironment === 'test' && selectedMethod !== 'kaspi') {
+        const intent = { quoteId: currentQuote.quoteId, method: selectedMethod };
+        await AsyncStorage.setItem(testKey, JSON.stringify(intent));
+        const payment = await acceptTest(
+          await prepared(() => request('/test-payments', 'POST', intent, controller.signal)),
+        );
+        if (payment.state === 'pending' && payment.checkoutUrl) {
+          const hosted = parseHostedTestPayment(payment, currentQuote.quoteId);
+          if (!controller.signal.aborted)
+            await (Platform.OS === 'web' ? Linking : ExpoLinking).openURL(hosted.checkoutUrl!);
+        }
+        return;
+      }
       const draft: Pending = {
         key: randomUUID(),
         quoteId: currentQuote.quoteId,
         signature,
         sendInvoice: true,
+        paymentMethod: selectedMethod,
       };
       await AsyncStorage.setItem(key, JSON.stringify(draft)).catch(() => {
         throw new Error('CHECKOUT_STORAGE');
@@ -413,7 +539,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
     } catch (e) {
       // Transport failures stay on the connecting scene; only a final actionable outcome returns.
       if (controller.signal.reason === 'timeout') setConnectionPaused(true);
-      else if (!controller.signal.aborted) setError(checkoutError(e));
+      else if (!controller.signal.aborted)
+        setError(
+          config?.paymentEnvironment === 'test' && selectedMethod !== 'kaspi'
+            ? 'Не удалось подготовить тестовую оплату. Корзина сохранена - проверьте соединение.'
+            : checkoutError(e),
+        );
     } finally {
       clearTimeout(deadline);
       if (preparation.current === controller) preparation.current = null;
@@ -432,6 +563,35 @@ function KaspiCheckoutSession(props: ScreenProps) {
     preparation.current = controller;
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     try {
+      const method = pending.current?.paymentMethod ?? order.paymentMethod ?? 'kaspi';
+      if (method !== (order.paymentMethod ?? 'kaspi')) {
+        await accept(
+          await request(
+            `/orders/${order.orderId}/payment-method`,
+            'POST',
+            { method },
+            controller.signal,
+          ),
+        );
+      }
+      if (method !== 'kaspi') {
+        const hosted = parseHostedPayment(
+          await request(
+            `/orders/${order.orderId}/hosted-payment`,
+            'POST',
+            undefined,
+            controller.signal,
+          ),
+          order.orderId,
+        );
+        await accept(
+          await request(`/orders/${order.orderId}`, 'GET', undefined, controller.signal),
+        );
+        if (controller.signal.aborted) return;
+        // expo-linking navigates the current web tab; keep checkout mounted while the bank page opens.
+        await (Platform.OS === 'web' ? Linking : ExpoLinking).openURL(hosted.checkoutUrl);
+        return;
+      }
       await accept(
         await prepareCheckout(
           () => request(`/orders/${order.orderId}/payment`, 'POST', undefined, controller.signal),
@@ -500,13 +660,62 @@ function KaspiCheckoutSession(props: ScreenProps) {
         </Row>
         <CheckoutAction
           testID="kaspi-checkout-submit"
-          title={busy ? 'Готовим счёт…' : 'Оплатить через'}
-          kaspi={!busy}
+          title={
+            busy
+              ? 'Готовим оплату…'
+              : selectedMethod === 'kaspi'
+                ? 'Оплатить через'
+                : `Оплатить · ${paymentName(selectedMethod)}`
+          }
+          kaspi={!busy && selectedMethod === 'kaspi'}
           onPress={() => void submit()}
           disabled={busy}
         />
       </>
     ) : undefined;
+  const openTest = async () => {
+    if (!testPayment || lock.current) return;
+    lock.current = true;
+    try {
+      const payment = await acceptTest(
+        await request('/test-payments', 'POST', {
+          quoteId: testPayment.quoteId,
+          method: testPayment.method,
+        }),
+      );
+      if (payment.state === 'pending' && payment.checkoutUrl) {
+        const hosted = parseHostedTestPayment(payment, testPayment.quoteId);
+        await (Platform.OS === 'web' ? Linking : ExpoLinking).openURL(hosted.checkoutUrl!);
+      } else if (payment.state === 'pending')
+        setTestError('Тестовая страница уже открывалась. Проверяем результат через сервер.');
+    } catch {
+      setTestError('Не удалось открыть тестовую оплату. Результат проверит сервер.');
+    } finally {
+      lock.current = false;
+    }
+  };
+  if (
+    testPayment ||
+    ((busy || connectionPaused) &&
+      config?.paymentEnvironment === 'test' &&
+      selectedMethod !== 'kaspi')
+  )
+    return (
+      <TestPaymentState
+        payment={testPayment}
+        error={testError || error}
+        onClose={props.goBack}
+        onRetry={() => setTestCycle((c) => c + 1)}
+        onOpen={testPayment?.state === 'pending' ? () => void openTest() : undefined}
+        onFinish={() => {
+          void AsyncStorage.removeItem(testKey).then(() => {
+            setTestPayment(null);
+            setTestError('');
+            setRefresh((c) => c + 1);
+          });
+        }}
+      />
+    );
   if ((busy || connectionPaused) && !order)
     return (
       <KaspiPaymentState
@@ -538,9 +747,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
           setRefresh((c) => c + 1);
         }}
         extraAction={
-          order.phase === 'ready_to_pay' && (!pending.current?.sendInvoice || paymentPaused) ? (
+          (order.phase === 'ready_to_pay' && (!pending.current?.sendInvoice || paymentPaused)) ||
+          (order.phase === 'awaiting_payment' && (order.paymentMethod ?? 'kaspi') !== 'kaspi') ? (
             <Button
-              title={`Отправить счёт на ${money(order.totalMinor)}`}
+              title={
+                (pending.current?.paymentMethod ?? order.paymentMethod ?? 'kaspi') === 'kaspi'
+                  ? `Отправить счёт на ${money(order.totalMinor)}`
+                  : 'Открыть страницу оплаты'
+              }
               onPress={() => void pay()}
               disabled={busy}
             />
@@ -685,7 +899,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           {!history.length && loaded && !error ? (
             <Empty
               title="Заказов пока нет"
-              detail="Здесь появятся ваши заказы с оплатой Kaspi."
+              detail="Здесь появятся ваши заказы."
               action={<Button title="Выбрать блюда" onPress={() => props.navigate('M06')} />}
             />
           ) : null}
@@ -723,19 +937,23 @@ function KaspiCheckoutSession(props: ScreenProps) {
           }
           paymentContent={
             <>
-              <View style={checkoutStyle.paymentPanel}>
-                <Row style={{ minHeight: 64, padding: 14, gap: 12 }}>
-                  <PaymentMark method="kaspi" size={36} />
-                  <View style={s.flex}>
-                    <Body style={{ fontFamily: font.medium, fontSize: 15 }}>Kaspi.kz</Body>
-                    <Caption style={{ fontSize: 12, lineHeight: 18 }}>
-                      Счёт придёт на {maskedPhone(auth.account?.phone)}
-                    </Caption>
-                  </View>
-                  <Icon name="checkmark-circle" color={colors.accent} size={22} />
-                </Row>
-                <UpcomingPayments />
-              </View>
+              {config?.paymentEnvironment === 'test' && selectedMethod !== 'kaspi' ? (
+                <Body testID="test-payment-disclaimer">Тестовая оплата - деньги не спишутся</Body>
+              ) : null}
+              <PaymentChoice
+                model={props.model}
+                methods={methods}
+                selected={selectedMethod}
+                onSelect={setSelectedMethod}
+                disabled={busy || !config}
+              />
+              {selectedMethod === 'kaspi' ? (
+                <Caption>Счёт придёт на {maskedPhone(auth.account?.phone)}</Caption>
+              ) : (
+                <Caption>
+                  Откроется защищённая платёжная страница. После оплаты вернитесь в PickChick.
+                </Caption>
+              )}
               <Caption style={{ fontSize: 12, lineHeight: 18, marginHorizontal: 8 }}>
                 Фискальный чек пока не выпускается - Webkassa подключается.
               </Caption>

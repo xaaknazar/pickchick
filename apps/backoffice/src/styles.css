@@ -916,6 +916,9 @@ td:nth-child(5) {
   padding: 20px;
   min-width: 0;
 }
+.op-panel > .table-wrap {
+  overflow-x: auto;
+}
 .op-panel .panel-head {
   flex-wrap: wrap;
   gap: 12px;

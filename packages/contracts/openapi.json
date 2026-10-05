@@ -7898,6 +7898,178 @@
         }
       }
     },
+    "/v1/customer-checkout/orders/{orderId}/payment-method": {
+      "post": {
+        "operationId": "selectCustomerPaymentMethod",
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerPaymentMethod"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-owned order/payment session; opt in via pickchick.checkout-wallets-v1 for order wallet fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerCommerceOrder"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A started financial attempt freezes the payment method"
+          },
+          "503": {
+            "description": "Checkout unavailable or not approved"
+          }
+        }
+      }
+    },
+    "/v1/customer-checkout/orders/{orderId}/hosted-payment": {
+      "post": {
+        "operationId": "openCustomerHostedPayment",
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-owned order/payment session; opt in via pickchick.checkout-wallets-v1 for order wallet fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerHostedPayment"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A started financial attempt freezes the payment method"
+          },
+          "503": {
+            "description": "Checkout unavailable or not approved"
+          }
+        }
+      }
+    },
+    "/v1/customer-checkout/test-payments": {
+      "post": {
+        "operationId": "createCustomerTestPayment",
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "quoteId",
+                  "method"
+                ],
+                "properties": {
+                  "quoteId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "card",
+                      "apple_pay",
+                      "google_pay"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Isolated TEST payment. No commercial order or money effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerTestPayment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/customer-checkout/test-payments/{id}": {
+      "get": {
+        "operationId": "readCustomerTestPayment",
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-only TEST status; no checkout token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerTestPayment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/edge/v1/fulfillment/config": {
       "get": {
         "operationId": "getLocalFulfillmentConfig",
@@ -9592,8 +9764,7 @@
       },
       "customerBearer": {
         "type": "http",
-        "scheme": "bearer",
-        "description": "Opaque short-lived customer access token. Refresh rotation is persisted and revocable; no calendar or inactivity logout."
+        "scheme": "bearer"
       },
       "catalogManagerBearer": {
         "type": "http",
@@ -23677,6 +23848,351 @@
           "expected_published_version",
           "request_id",
           "confirmation"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerPaymentMethod": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "method"
+        ],
+        "properties": {
+          "method": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "string",
+            "enum": [
+              "kaspi",
+              "card",
+              "apple_pay",
+              "google_pay"
+            ]
+          }
+        }
+      },
+      "CustomerHostedPayment": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "attemptId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "orderId",
+          "attemptId",
+          "checkoutUrl",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerTestPayment": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "quoteId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,15})$"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "card",
+              "apple_pay",
+              "google_pay"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "failed",
+              "expired"
+            ]
+          },
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "quoteId",
+          "amountMinor",
+          "method",
+          "state",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerCommerceOrder": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": [
+              "kaspi",
+              "card",
+              "apple_pay",
+              "google_pay"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "restaurant": {
+            "type": "string"
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "kitchenStage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "cooking",
+                  "assembly"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "displayNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "totalMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,15})$"
+          },
+          "serviceMode": {
+            "type": "string",
+            "enum": [
+              "takeaway",
+              "dine_in"
+            ]
+          },
+          "kitchenComment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "awaiting_restaurant",
+              "ready_to_pay",
+              "sending",
+              "awaiting_payment",
+              "checking",
+              "failed",
+              "paid",
+              "preparing",
+              "ready",
+              "handed_over",
+              "attention"
+            ]
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt": {
+            "type": "string",
+            "enum": [
+              "deferred",
+              "pending",
+              "issued"
+            ]
+          },
+          "receiptUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "productId": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "totalMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,15})$"
+                },
+                "modifiers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "productId",
+                "title",
+                "quantity",
+                "totalMinor",
+                "modifiers"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "orderId",
+          "revision",
+          "restaurant",
+          "branchId",
+          "createdAt",
+          "updatedAt",
+          "kitchenStage",
+          "displayNumber",
+          "totalMinor",
+          "serviceMode",
+          "phase",
+          "expiresAt",
+          "receipt",
+          "receiptUrl",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerCheckoutConfig": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "paymentMethods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "kaspi",
+                "card",
+                "apple_pay",
+                "google_pay"
+              ]
+            }
+          },
+          "paymentEnvironment": {
+            "type": "string",
+            "enum": [
+              "live",
+              "test"
+            ]
+          },
+          "orderCommentEnabled": {
+            "default": false,
+            "type": "boolean"
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "restaurant": {
+            "type": "string"
+          },
+          "fiscalPolicy": {
+            "type": "string",
+            "const": "deferred_pilot"
+          }
+        },
+        "required": [
+          "enabled",
+          "orderCommentEnabled",
+          "branchId",
+          "restaurant",
+          "fiscalPolicy"
         ],
         "additionalProperties": false
       },

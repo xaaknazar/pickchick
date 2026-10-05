@@ -22,6 +22,9 @@ import {
   CommerceError,
   CustomerCheckout,
   customerCheckoutOptions,
+  tipTopPayCheckoutOptions,
+  TipTopPayTestCheckout,
+  tipTopPayTestOptions,
 } from '@pickchick/commerce-core';
 import { checkoutRepresentation } from './customer-checkout-response.js';
 import { RESOURCE, Resources } from '@pickchick/platform';
@@ -29,11 +32,20 @@ import { RESOURCE, Resources } from '@pickchick/platform';
 @Controller('v1/customer-checkout')
 export class CustomerCheckoutController {
   private readonly checkout: CustomerCheckout;
+  private readonly testCheckout: TipTopPayTestCheckout;
   constructor(
     @Inject(CUSTOMER_IDENTITY) private readonly identity: CustomerIdentity,
     @Inject(RESOURCE) resources: Resources,
   ) {
-    this.checkout = new CustomerCheckout(resources.pool, customerCheckoutOptions(process.env));
+    const testOptions = tipTopPayTestOptions(process.env);
+    this.testCheckout = new TipTopPayTestCheckout(resources.pool, testOptions);
+    this.checkout = new CustomerCheckout(
+      resources.pool,
+      customerCheckoutOptions(process.env),
+      undefined,
+      tipTopPayCheckoutOptions(process.env),
+      testOptions,
+    );
   }
   private async execute<T>(
     authorization: string | undefined,
@@ -136,6 +148,40 @@ export class CustomerCheckoutController {
     return this.execute(auth, async (id) =>
       checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
     );
+  }
+  @Post('test-payments') @HttpCode(200) createTestPayment(
+    @Body() body: unknown,
+    @Headers('authorization') auth: string | undefined,
+    @Res({ passthrough: true }) response: ServerResponse,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (id) => this.testCheckout.create(id, body));
+  }
+  @Get('test-payments/:id') readTestPayment(
+    @Param('id') paymentId: string,
+    @Headers('authorization') auth: string | undefined,
+    @Res({ passthrough: true }) response: ServerResponse,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (id) => this.testCheckout.read(id, paymentId));
+  }
+  @Post('orders/:orderId/payment-method') @HttpCode(200) paymentMethod(
+    @Param('orderId') orderId: string,
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
+  ) {
+    return this.execute(auth, async (id) =>
+      checkoutRepresentation(await this.checkout.paymentMethod(id, orderId, body), accept),
+    );
+  }
+  @Post('orders/:orderId/hosted-payment') @HttpCode(200) hostedPayment(
+    @Param('orderId') orderId: string,
+    @Headers('authorization') auth?: string,
+    @Res({ passthrough: true }) response?: ServerResponse,
+  ) {
+    response?.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (id) => this.checkout.hostedPayment(id, orderId));
   }
   @Get('feedback') listFeedback(
     @Res({ passthrough: true }) response: ServerResponse,

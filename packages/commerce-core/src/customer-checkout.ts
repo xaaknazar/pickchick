@@ -1,3 +1,9 @@
+import { type TipTopPayTestOptions } from './tiptoppay-test-checkout.js';
+import {
+  TipTopPayHostedSessions,
+  CheckoutPaymentMethodSchema,
+  type TipTopPayCheckoutOptions,
+} from './tiptoppay-checkout.js';
 import { readCheckoutOrder } from './order-view.js';
 import {
   RestaurantHoursSchema,
@@ -96,6 +102,8 @@ export class CustomerCheckout {
     private readonly pool: DatabasePool,
     private readonly options: CheckoutOptions | null,
     private readonly now: () => Date = () => new Date(),
+    private readonly tipTop: TipTopPayCheckoutOptions | null = null,
+    private readonly tipTopTest: TipTopPayTestOptions | null = null,
   ) {
     this.repository = new CommerceRepository(pool, options ?? undefined);
   }
@@ -213,8 +221,24 @@ export class CustomerCheckout {
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
+    const tipTopReady =
+      this.tipTop && this.tipTop.approvalReference === this.options!.approvalReference
+        ? await this.pool.query(
+            `SELECT 1 FROM commerce_provider_accounts p JOIN branches b ON b.id=p.branch_id AND b.organization_id=p.organization_id AND b.legal_entity_id=p.legal_entity_id WHERE p.id=$1 AND p.provider='tiptoppay' AND p.kind='payment' AND p.external_reference=$2 AND p.enabled AND p.branch_id=$3 AND p.organization_id=$4`,
+            [this.tipTop.accountId, this.tipTop.publicId, scope.branchId, scope.organizationId],
+          )
+        : null;
     return {
       enabled: row.ready,
+      paymentMethods: [
+        'kaspi',
+        ...(this.tipTopTest
+          ? this.tipTopTest.methods
+          : tipTopReady?.rowCount
+            ? this.tipTop!.methods
+            : []),
+      ],
+      ...(this.tipTopTest ? { paymentEnvironment: 'test' as const } : {}),
       orderCommentEnabled: true,
       branchId: scope.branchId,
       restaurant: row.name,
@@ -332,7 +356,55 @@ export class CustomerCheckout {
     const created = await repository.createDeferredFiscalOrder(scope, request.key, request.quoteId);
     return this.read(customerId, created.orderId);
   }
-  async pay(customerId: string, orderId: string) {
+  async paymentMethod(customerId: string, orderId: string, input: unknown) {
+    const scope = await this.scope(customerId);
+    await this.assertMobileOrder(scope, orderId);
+    const { method } = parse(z.strictObject({ method: CheckoutPaymentMethodSchema }), input);
+    if (!this.tipTop && method === 'kaspi') return this.read(customerId, orderId);
+    if (method !== 'kaspi' && !this.tipTop?.methods.includes(method))
+      throw new CommerceError('NOT_READY');
+    await transaction(this.pool, async (client) => {
+      await client.query('SELECT id FROM commerce_orders WHERE id=$1 FOR UPDATE', [orderId]);
+      const current = (
+        await client.query<{ method: string; locked_at: Date | null }>(
+          'SELECT method,locked_at FROM commerce_checkout_payment_methods WHERE order_id=$1',
+          [orderId],
+        )
+      ).rows[0];
+      const started = (
+        await client.query('SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1', [orderId])
+      ).rowCount;
+      if ((started || current?.locked_at) && (current?.method ?? 'kaspi') !== method)
+        throw new CommerceError('CONFLICT');
+      await client.query(
+        `INSERT INTO commerce_checkout_payment_methods(order_id,method) VALUES($1,$2)
+        ON CONFLICT(order_id) DO UPDATE SET method=EXCLUDED.method,updated_at=clock_timestamp()`,
+        [orderId, method],
+      );
+    });
+    return this.read(customerId, orderId);
+  }
+  async hostedPayment(customerId: string, orderId: string) {
+    if (!this.tipTop) throw new CommerceError('NOT_READY');
+    const eligible = await this.pool.query(
+      `SELECT 1 FROM commerce_orders o JOIN branches b ON b.id=o.branch_id
+      JOIN commerce_provider_accounts p ON p.id=$3 AND p.organization_id=o.organization_id AND p.branch_id=o.branch_id
+       AND p.legal_entity_id=b.legal_entity_id AND p.provider='tiptoppay' AND p.external_reference=$4 AND p.enabled
+      WHERE o.id=$1 AND o.customer_id=$2 AND o.principal_id=$2 AND o.fiscal_policy='deferred_pilot'
+       AND o.fiscal_deferral_reference=$5`,
+      [
+        orderId,
+        customerId,
+        this.tipTop.accountId,
+        this.tipTop.publicId,
+        this.tipTop.approvalReference,
+      ],
+    );
+    if (!eligible.rowCount) throw new CommerceError('NOT_READY');
+    await this.pay(customerId, orderId, true);
+    return new TipTopPayHostedSessions(this.pool, this.tipTop).issue(customerId, orderId);
+  }
+  async pay(customerId: string, orderId: string, hosted = false) {
     const scope = await this.scope(customerId);
     await this.assertMobileOrder(scope, orderId);
     const current = await this.repository.readOrder(scope, orderId);
@@ -344,10 +416,35 @@ export class CustomerCheckout {
       scope.branchId,
       snapshotAvailabilityItems(current.snapshot),
     );
+    const method = this.tipTop
+      ? await transaction(this.pool, async (client) => {
+          await client.query('SELECT id FROM commerce_orders WHERE id=$1 FOR UPDATE', [orderId]);
+          const selected =
+            (
+              await client.query<{ method: string }>(
+                'SELECT method FROM commerce_checkout_payment_methods WHERE order_id=$1',
+                [orderId],
+              )
+            ).rows[0]?.method ?? 'kaspi';
+          if (
+            (selected !== 'kaspi') !== hosted ||
+            (hosted &&
+              !this.tipTop?.methods.includes(selected as 'card' | 'apple_pay' | 'google_pay'))
+          )
+            throw new CommerceError('NOT_READY');
+          await client.query(
+            `INSERT INTO commerce_checkout_payment_methods(order_id,method,locked_at) VALUES($1,$2,clock_timestamp())
+        ON CONFLICT(order_id) DO UPDATE SET locked_at=COALESCE(commerce_checkout_payment_methods.locked_at,clock_timestamp())`,
+            [orderId, selected],
+          );
+          return selected;
+        })
+      : 'kaspi';
     // A single stable command per order. Unknown responses never create a fresh attempt.
     await this.repository.startPaymentAttempt(scope, keyFor(orderId), {
       orderId,
-      providerAccountId: this.options!.paymentAccountId,
+      providerAccountId:
+        method === 'kaspi' ? this.options!.paymentAccountId : this.tipTop!.accountId,
     });
     return this.read(customerId, orderId);
   }
@@ -498,6 +595,6 @@ export class CustomerCheckout {
   async read(customerId: string, orderId: string) {
     const scope = await this.scope(customerId);
     await this.assertMobileOrder(scope, orderId);
-    return readCheckoutOrder(this.pool, this.repository, scope, orderId);
+    return readCheckoutOrder(this.pool, this.repository, scope, orderId, !!this.tipTop);
   }
 }

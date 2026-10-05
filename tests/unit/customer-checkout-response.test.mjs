@@ -16,7 +16,7 @@ test('checkout keeps old strict response shapes and immutable revision without m
 
 test('new checkout profile receives comment and capability; unrelated Accept values do not opt in', () => {
   const value = { orderId: 'fixture', kitchenComment: 'Соус отдельно' };
-  assert.equal(
+  assert.deepEqual(
     checkoutRepresentation(value, 'application/json; profile=pickchick.checkout-comments-v1'),
     value,
   );
@@ -24,4 +24,22 @@ test('new checkout profile receives comment and capability; unrelated Accept val
   assert.deepEqual(checkoutRepresentation(value, 'application/json; profile="other"'), {
     orderId: 'fixture',
   });
+});
+
+test('comment-only clients exclude wallet fields while wallet clients opt in to TEST metadata', () => {
+  const value = {
+    enabled: true,
+    orderCommentEnabled: true,
+    paymentMethods: ['kaspi', 'card'],
+    paymentEnvironment: 'test',
+  };
+  assert.deepEqual(
+    checkoutRepresentation(value, 'application/json; profile=pickchick.checkout-comments-v1'),
+    { enabled: true, orderCommentEnabled: true },
+  );
+  assert.deepEqual(
+    checkoutRepresentation(value, 'application/json; profile=pickchick.checkout-wallets-v1'),
+    value,
+  );
+  assert.equal(value.paymentEnvironment, 'test');
 });

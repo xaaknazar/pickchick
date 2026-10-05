@@ -32,6 +32,7 @@ export type Snapshot = {
   metrics: Data;
   chart: Data[];
   finance: Data[];
+  test_payments?: Data[];
   refunds: Data[];
   issues: Data[];
   devices: Data[];
