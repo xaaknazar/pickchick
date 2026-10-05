@@ -2822,6 +2822,23 @@
       "updatedAt": "2026-10-05T10:59:25.321Z",
       "summary": "Solo progression integrated in shared 1c1ccc8, PR188. 28 engine,23 mobile,2 PG HTTP,7 roadmap tests; typecheck/lint/export and 2 browser sizes pass. Native phone catalog clipping fixed and verified. Roadmap published with business services unchanged. Full CI pending; live game API and TF11 unchanged.",
       "nextAction": "Physical gestures/tablet/performance acceptance; green full CI; coordinated protocol2 API and next TestFlight release. Social visits/push/seasonal features remain later."
+    },
+    {
+      "id": "farm-progression-polish",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-full-play",
+      "scopes": [
+        "docs/design/pick-farm-garden-art.md",
+        "docs/design/pick-farm-review-2026-10-05.md",
+        "docs/operations/pick-farm.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "1c1ccc8b57ec5362ee0755e062a0b3bbca97871a",
+      "updatedAt": "2026-10-05T11:02:29.685Z"
     }
   ]
 }
