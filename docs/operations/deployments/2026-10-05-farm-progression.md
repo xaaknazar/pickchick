@@ -23,6 +23,7 @@ Protocol 2 согласован с новым клиентом: старый к�
 
 Адресные проверки подготовки: `python3 -m unittest discover -s tests/operations
 -p 'test_farm_update.py'` и `test_farm_release.py`.
+
 ## Установка подтверждена
 
 API установлен из `f39863718f074e923ae24ffecf37d8bf36987cdf`, ветка
