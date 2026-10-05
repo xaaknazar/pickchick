@@ -2841,6 +2841,23 @@
       "updatedAt": "2026-10-05T11:05:31.390Z",
       "summary": "Engine and lint fixes integrated into origin/codex/shared-development a619be7 with original 80e1b68 ancestry. Engine lint/build and storage test verified; integrated farm suite 28 tests previously passed.",
       "nextAction": "Root completes full CI and coordinated protocol2 API/TestFlight release; no engine work pending."
+    },
+    {
+      "id": "combo-transition-polish",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/combo-transition-polish",
+      "scopes": [
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/games/pick-farm/visuals.tsx",
+        "docs/operations/product-photo-experiment.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "a619be7284364d5c572a5989c6f203358a396822",
+      "updatedAt": "2026-10-05T11:52:57.611Z"
     }
   ]
 }
