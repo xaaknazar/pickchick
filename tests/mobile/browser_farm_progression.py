@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[2]
+ENGINE_ROOT = Path(os.environ.get('FARM_ENGINE_ROOT', str(ROOT)))
 URL = os.environ.get('FARM_UI_URL', 'http://127.0.0.1:4195').rstrip('/')
 assert urlparse(URL).hostname in ('127.0.0.1', 'localhost')
 OUT = ROOT / '.local/farm-progression'
@@ -25,7 +26,7 @@ def engine(payload):
     const p=JSON.parse(input);
     console.log(JSON.stringify(p.state ? applyFarmCommand(p.state,p.command,p.now) : {state:createFarm(p.now),crops:CROPS}));"""
     return json.loads(subprocess.check_output(
-        ['node', '--input-type=module', '-e', script], input=json.dumps(payload), cwd=ROOT, text=True))
+        ['node', '--input-type=module', '-e', script], input=json.dumps(payload), cwd=ENGINE_ROOT, text=True))
 
 
 fixture = engine({'now': NOW})
@@ -126,20 +127,19 @@ with sync_playwright() as p:
             reload()
             command(lambda: tap(bed['x'], bed['y']), 'harvest')
             page.get_by_role('button', name='Задания Алекса', exact=True).click()
-            command(lambda: page.get_by_test_id('farm-quest-first-harvest').click(), 'claimQuest')
-            expect(page.get_by_test_id('farm-quest-first-harvest')).to_have_count(0)
+            command(lambda: page.get_by_test_id('pick-farm-quest-first-harvest').click(), 'claimQuest')
+            expect(page.get_by_test_id('pick-farm-quest-first-harvest')).to_have_count(0)
             assert 'first-harvest' in saved['state']['progression']['claimedQuests']
             close()
             shop('Украшения')
-            page.get_by_test_id('farm-decor-path').click()
+            page.get_by_test_id('pick-farm-decoration-path').click()
             tap(bed['x'] + 1, bed['y'])
             command(lambda: page.get_by_role('button', name='Разместить', exact=False).click(), 'buyDecoration')
             assert saved['state']['progression']['decorations'][0]['decorationId'] == 'path'
             page.screenshot(path=str(OUT / f'first-garden-{width}.png'))
             # Reserve welcome quota: default sale must retain three carrots and credit zero coins.
             shop('Заказы')
-            order = page.get_by_text('Первая морковь', exact=True).locator('..')
-            command(lambda: order.get_by_role('button', name='Оставлять урожай для заказа', exact=True).click(), 'setOrderReserve')
+            command(lambda: page.get_by_test_id('pick-farm-reserve-welcome-basket').click(), 'setOrderReserve')
             close()
             tap(bed['x'], bed['y'])
             command(lambda: page.get_by_test_id('pick-farm-seed-carrot').click(), 'plant')
@@ -159,18 +159,16 @@ with sync_playwright() as p:
             saved['state']['revision'] += 1
             reload()
             shop('Мастерские')
-            kitchen = page.get_by_text('Садовая кухня', exact=True).locator('../..')
-            command(lambda: kitchen.get_by_role('button', name='Открыть', exact=True).click(), 'buyStation')
-            jam = page.get_by_text('Клубничное варенье', exact=True).locator('..')
-            command(lambda: jam.get_by_role('button', name='Приготовить', exact=True).click(), 'startProduction')
+            command(lambda: page.get_by_test_id('pick-farm-station-kitchen').click(), 'buyStation')
+            command(lambda: page.get_by_test_id('pick-farm-produce-jam').click(), 'startProduction')
             job = saved['state']['progression']['stations'][0]['queue'][0]
             close()
             saved['now'] = job['readyAt']
             reload()
             shop('Мастерские')
-            command(lambda: page.get_by_role('button', name='Забрать', exact=True).click(), 'collectProduction')
+            command(lambda: page.get_by_test_id(f"pick-farm-collect-kitchen-{job['id']}").click(), 'collectProduction')
             assert saved['state']['progression']['products']['jam'] == 1
-            command(lambda: page.get_by_role('button', name='Продать 1 · 30', exact=True).click(), 'sellProduct')
+            command(lambda: page.get_by_test_id('pick-farm-product-jam').click(), 'sellProduct')
             assert saved['state']['progression']['products']['jam'] == 0
             assert not errors, errors
             page.screenshot(path=str(OUT / f'workshop-{width}.png'))
