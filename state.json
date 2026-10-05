@@ -2961,11 +2961,11 @@
         "apps/mobile/src/commerce-checkout.ts",
         "apps/mobile/src/components/TestPaymentState.tsx"
       ],
-      "status": "active",
-      "head": "c3f77b9a567bf7087c54b0463bbd9a8506a1172b",
-      "updatedAt": "2026-10-05T17:28:24.311Z",
-      "summary": "Mobile hosted card/wallet checkout published c3f77b9 with ebdad26; 23 focused tests, mobile tsc, targeted ESLint/Prettier, web export; legacy Kaspi browser four sizes and hosted valid/invalid four sizes passed. No bank, VPS or native release changed.",
-      "nextAction": "Root integrates ebdad26 + c3f77b9 after helper/contracts; updates shared docs/roadmap and performs coordinated backend acceptance. Native physical wallet availability remains unverified."
+      "status": "available",
+      "head": "1934e82fed3377d88cb56fd46e648fa1fad3d485",
+      "updatedAt": "2026-10-05T17:39:52.212Z",
+      "summary": "Standalone TEST UI implemented 4df62b7; shared239148b explicitly merged. Separate durable TEST intent/id storage no URLs; no commercial order creation; cart retained. TEST valid and invalid URL browser tests four sizes each passed; Kaspi legacy LIVE flow and mixed TEST config/Kaspi LIVE four sizes passed; LIVE hosted four sizes passed; 23 focused unit tests, tsc, eslint, prettier, web export passed. No VPS/native payment integration acceptance.",
+      "nextAction": "Root cherry-picks 4df62b7 after TEST contract159d756 and earlier mobile ebdad26+c3f77b9; integrate backend, document terminal TEST gating, verify provider sandbox and publish coordinated stage."
     },
     {
       "id": "tiptoppay-test-rollout",
