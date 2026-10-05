@@ -489,3 +489,32 @@ framework, что в сборке 4: ExpoImage, React, ReactNativeDependencies, 
 его AVIF/SVG/WebP coders и hermesvm. Ограничение расшифровки их стеков остаётся.
 Профиль клиента и дата рождения локальные; реальная SMS-авторизация и серверное
 хранение DOB этим выпуском не включаются. VPS не обновлялся.
+
+## Выпуск 0.2.0 (10) - PICK FARM, Magic Sort и Алекс
+
+5 октября 2026. Исходник `1ad568b2e9faee748b21200691544aa89a78e9d5`,
+[CI 37266379755](https://github.com/xaaknazar/pickchick/actions/runs/37266379755)
+успешна во всех 11 jobs. Archive/export выполнены из чистого дерева, версия
+0.2.0 build 10, `kz.pickchick.app`, Team `DAJTP6MC3Q`. Штатный farm-pilot
+сохраняет server auth/Kaspi, включает ферму, отключает симулятор и неоплаченные
+тестовые заказы. Magic Sort зарегистрирована в «Событиях». Обе новые обложки
+с Алексом проверены побайтно внутри нативного архива.
+
+Приватный IPA: `~/Library/Caches/PickChick/releases/games-pilot-20261005-10-1ad568b/export/PickChick.ipa`.
+129056595 байт, SHA-256 `5c980b7765339401bf509b19853d2f9c75ac9dd0f33d3a1642ede26a92ec8193`.
+Upload использует отдельный export. Apple подтвердила `Uploaded PickChick` /
+`EXPORT SUCCEEDED`; release.json содержит deliveryStatus=submitted.
+
+Apple закончила обработку. Build ID `89be8312-101a-4ab1-ba86-0df6114553ec`.
+Сборка назначена существующей PickChick Internal (два прежних тестировщика),
+в таблице группы подтверждено «Тестируется». Русское «Что тестировать» сохранено.
+[Сборка в App Store Connect](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/89be8312-101a-4ab1-ba86-0df6114553ec).
+Локальное UI-свидетельство: `/tmp/pickchick-testflight-10-testing.png`.
+Физическая приёмка обеих игр в этой сборке ещё не подтверждена. Предупреждения
+об отсутствующих dSYM сторонних framework сохраняются как ограничение
+диагностики; они не остановили upload. Новые сертификаты, тестировщики и
+внешняя beta не создавались.
+
+Online roadmap опубликован из `1ad568b` с исходными фактами подготовки;
+итоговая запись о доставке ниже/в GitHub обновляется отдельно. API/Kaspi/кухня
+и существующие публичные файлы при публикации roadmap не менялись.
