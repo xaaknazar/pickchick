@@ -2767,19 +2767,6 @@
       "nextAction": "Choose first-session phase, working camera and withering rule before implementation. No gameplay or TestFlight changes in this research."
     },
     {
-      "id": "farm-progression-engine",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/farm-progression-engine",
-      "scopes": [
-        "packages/farm-game"
-      ],
-      "status": "available",
-      "head": "f85f6ada0669f7437c8c0d5a9a6023775dbbb2f9",
-      "updatedAt": "2026-10-05T11:00:35.876Z",
-      "summary": "Engine integrated into shared 1c1ccc8 via cherry-picks db78ada/fe84b75; progression, decorations, production and recovery fixes verified; 28 farm tests pass in integrated branch. Original branch commits ba63205/f85f6ad retained; no code changes pending.",
-      "nextAction": "Root completes CI static fix and integrated release checks; finish claim from a compatible branch after confirming cherry-picked content in shared."
-    },
-    {
       "id": "farm-progression-api",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/farm-progression-api",
@@ -2839,6 +2826,19 @@
       "status": "active",
       "head": "1c1ccc8b57ec5362ee0755e062a0b3bbca97871a",
       "updatedAt": "2026-10-05T11:02:29.685Z"
+    },
+    {
+      "id": "farm-progression-engine",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-progression-engine",
+      "scopes": [
+        "packages/farm-game"
+      ],
+      "status": "active",
+      "head": "9d00c02da73351aabdaadbb4e2025fe7ac4367a0",
+      "updatedAt": "2026-10-05T11:03:10.861Z",
+      "summary": "Engine integrated into shared 1c1ccc8 via cherry-picks db78ada/fe84b75; progression, decorations, production and recovery fixes verified; 28 farm tests pass in integrated branch. Original branch commits ba63205/f85f6ad retained; no code changes pending.",
+      "nextAction": "Root completes CI static fix and integrated release checks; finish claim from a compatible branch after confirming cherry-picked content in shared."
     }
   ]
 }
