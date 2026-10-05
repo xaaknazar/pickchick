@@ -2823,9 +2823,11 @@
         "docs/roadmap/project.json",
         "@vps/roadmap"
       ],
-      "status": "active",
-      "head": "1c1ccc8b57ec5362ee0755e062a0b3bbca97871a",
-      "updatedAt": "2026-10-05T11:02:29.685Z"
+      "status": "done",
+      "head": "a619be7284364d5c572a5989c6f203358a396822",
+      "updatedAt": "2026-10-05T11:07:32.482Z",
+      "summary": "a619be7 published and included in shared; CI unusedvariables fixed via80e1b68, engine/mobile lint and repository formattingpass. Roadmap health updated to a619be7; business services unchanged. Full CI rerunning, prior POS browser failure documented.",
+      "nextAction": "Full CI and physical gameplay acceptance before coordinated protocol2 API/TestFlight release. No live game deployment."
     },
     {
       "id": "farm-progression-engine",
