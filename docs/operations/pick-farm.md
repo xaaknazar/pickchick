@@ -205,3 +205,15 @@ API/gateway `2a6d5cb4fe9af1ae108f257d7833edcae8f22d1d` установлен по
 result.json и доказательства находятся в приватном каталоге выпуска 2a6d5cb.
 Постоянное исправление writer/validator прошло 151 operations-тест; API не менялось.
 Проверка игрового цикла под реальным аккаунтом на физическом телефоне остаётся.
+
+## Обновление включённого API для TestFlight 11
+
+`infra/staging/release-farm-update.py` выпускает только API поверх проверенного
+2a6d5cb/schema038 и public1ad568b. Поддерживает prepare/apply и явный rollback.
+Миграции, ACL, банковский worker, публичные файлы и флаги не меняются.
+Сохраняются encrypted backup/restore rehearsal, owned maintenance/locks,
+точная зелёная CI, хэши данных и Docker image для возврата. Для heartbeat
+доступности разрешается только парное увеличение revision/observed_at.
+Новая команда removeCrop не требует изменения схемы БД.
+
+Данный checkpoint только готовит обновление; установленный API остаётся2a6d5cb.
