@@ -2966,6 +2966,20 @@
       "updatedAt": "2026-10-05T17:28:24.311Z",
       "summary": "Mobile hosted card/wallet checkout published c3f77b9 with ebdad26; 23 focused tests, mobile tsc, targeted ESLint/Prettier, web export; legacy Kaspi browser four sizes and hosted valid/invalid four sizes passed. No bank, VPS or native release changed.",
       "nextAction": "Root integrates ebdad26 + c3f77b9 after helper/contracts; updates shared docs/roadmap and performs coordinated backend acceptance. Native physical wallet availability remains unverified."
+    },
+    {
+      "id": "tiptoppay-test-rollout",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/tiptoppay-test-rollout",
+      "scopes": [
+        "infra/staging/release-tiptoppay-test.py",
+        "tests/operations/test_tiptoppay_test_release.py",
+        "docs/operations/deployments/2026-10-05-tiptoppay-test.md",
+        "@vps/api"
+      ],
+      "status": "active",
+      "head": "395e75d482ccf057251cf83f9815334733ecd26e",
+      "updatedAt": "2026-10-05T17:34:25.757Z"
     }
   ]
 }
