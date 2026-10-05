@@ -2943,11 +2943,12 @@
         "apps/mobile/src/model.ts",
         "apps/mobile/src/store.tsx",
         "apps/mobile/src/payment-methods.ts",
-        "tests/mobile/payment-methods.test.mjs"
+        "tests/mobile/payment-methods.test.mjs",
+        "tests/mobile/browser_kaspi_checkout.py"
       ],
       "status": "active",
       "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
-      "updatedAt": "2026-10-05T17:05:42.912Z"
+      "updatedAt": "2026-10-05T17:09:17.032Z"
     }
   ]
 }
