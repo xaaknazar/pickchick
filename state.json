@@ -2908,9 +2908,11 @@
         "tests/mobile/payment-methods.test.mjs",
         "tests/mobile/browser_kaspi_checkout.py"
       ],
-      "status": "active",
-      "head": "f39863718f074e923ae24ffecf37d8bf36987cdf",
-      "updatedAt": "2026-10-05T17:09:17.032Z"
+      "status": "available",
+      "head": "c3f77b9a567bf7087c54b0463bbd9a8506a1172b",
+      "updatedAt": "2026-10-05T17:20:38.717Z",
+      "summary": "Mobile hosted card/wallet checkout published c3f77b9 with ebdad26; 23 focused tests, mobile tsc, targeted ESLint/Prettier, web export; legacy Kaspi browser four sizes and hosted valid/invalid four sizes passed. No bank, VPS or native release changed.",
+      "nextAction": "Root integrates ebdad26 + c3f77b9 after helper/contracts; updates shared docs/roadmap and performs coordinated backend acceptance. Native physical wallet availability remains unverified."
     },
     {
       "id": "tiptoppay-backend",
