@@ -114,6 +114,36 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertIn("only for the mobile app", result.stdout)
         self.assertNotIn("Local Apple build environment", result.stdout)
 
+    def test_catalog_profile_pins_flags_and_preserves_existing_profiles(self):
+        expected = release.FARM_PILOT_FLAGS | {"EXPO_PUBLIC_PUBLISHED_CATALOG": "1"}
+        env = release.archive_environment("catalog-pilot", {"EXPO_PUBLIC_PUBLISHED_CATALOG": "0"})
+        self.assertEqual(release.feature_profile_flags("catalog-pilot"), expected)
+        self.assertEqual({key: env[key] for key in expected}, expected)
+        self.assertNotIn("EXPO_PUBLIC_PUBLISHED_CATALOG", release.FARM_PILOT_FLAGS)
+        self.assertNotIn("EXPO_PUBLIC_PUBLISHED_CATALOG", release.CUSTOMER_PILOT_FLAGS)
+        flags = release.feature_profile_flags("catalog-pilot")
+        flags["EXPO_PUBLIC_PUBLISHED_CATALOG"] = "0"
+        self.assertEqual(release.CATALOG_PILOT_FLAGS, expected)
+
+    def test_catalog_delivery_requires_exact_metadata(self):
+        metadata = {"featureProfile": "catalog-pilot",
+                    "embeddedPublicEnv": dict(release.CATALOG_PILOT_FLAGS)}
+        release.verify_feature_profile(metadata, "catalog-pilot")
+        for changed in [dict(release.FARM_PILOT_FLAGS),
+                        release.CATALOG_PILOT_FLAGS | {"EXPO_PUBLIC_PUBLISHED_CATALOG": "0"},
+                        release.CATALOG_PILOT_FLAGS | {"EXTRA": "1"}]:
+            with self.subTest(flags=changed), self.assertRaisesRegex(RuntimeError, "do not match"):
+                release.verify_feature_profile(metadata | {"embeddedPublicEnv": changed}, "catalog-pilot")
+        for requested in ["legacy", "customer-pilot", "farm-pilot"]:
+            with self.subTest(profile=requested), self.assertRaisesRegex(RuntimeError, "differs"):
+                release.verify_feature_profile(metadata, requested)
+
+    def test_catalog_profile_cannot_be_used_for_kiosk(self):
+        result = subprocess.run([sys.executable, release.__file__, "doctor", "--app", "kiosk",
+                                 "--feature-profile", "catalog-pilot"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("only for the mobile app", result.stdout)
+
     def test_public_staging_url_without_embedded_credentials(self):
         self.assertEqual(
             release.checked_api_url("https://pickchick.185.129.51.103.nip.io/"),

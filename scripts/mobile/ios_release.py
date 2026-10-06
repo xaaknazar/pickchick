@@ -30,6 +30,7 @@ CUSTOMER_PILOT_FLAGS = {
     "EXPO_PUBLIC_UNPAID_TEST_ORDERS": "0",
 }
 FARM_PILOT_FLAGS = {**CUSTOMER_PILOT_FLAGS, "EXPO_PUBLIC_PICK_FARM": "1"}
+CATALOG_PILOT_FLAGS = {**FARM_PILOT_FLAGS, "EXPO_PUBLIC_PUBLISHED_CATALOG": "1"}
 
 
 def select_app(name):
@@ -367,7 +368,8 @@ def write_private_json(path, data):
 
 def feature_profile_flags(feature_profile):
     """Return an independent allowlisted flag snapshot for release metadata."""
-    profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS}
+    profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS,
+                "catalog-pilot": CATALOG_PILOT_FLAGS}
     if feature_profile == "legacy":
         return None
     if feature_profile not in profiles:
@@ -454,7 +456,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["doctor", "archive", "export", "upload"])
     parser.add_argument("--app", choices=["mobile", "kiosk"], default="mobile")
-    parser.add_argument("--feature-profile", choices=["legacy", "customer-pilot", "farm-pilot"],
+    parser.add_argument("--feature-profile", choices=["legacy", "customer-pilot", "farm-pilot", "catalog-pilot"],
                         default="legacy", help="Explicit JS feature set for a mobile TestFlight archive")
     parser.add_argument("--workspace")
     parser.add_argument("--scheme")
@@ -468,7 +470,7 @@ def main():
     parser.add_argument("--keychain-password-file", help="Optional private hex password file to unlock only the dedicated keychain")
     args = parser.parse_args()
     select_app(args.app)
-    if args.feature_profile in {"customer-pilot", "farm-pilot"} and args.app != "mobile":
+    if args.feature_profile in {"customer-pilot", "farm-pilot", "catalog-pilot"} and args.app != "mobile":
         fail("Pilot feature profiles are available only for the mobile app.")
     args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
     args.scheme = args.scheme or APP_TARGET
