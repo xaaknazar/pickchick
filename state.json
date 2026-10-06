@@ -3195,6 +3195,21 @@
       "status": "active",
       "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
       "updatedAt": "2026-10-06T09:14:39.072Z"
+    },
+    {
+      "id": "order-status-quiet",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/order-status-quiet",
+      "scopes": [
+        "apps/mobile/src/commerce-presentation.ts",
+        "apps/mobile/src/screens/ConnectedOrderScreens.tsx",
+        "apps/mobile/src/screens/OrderScreens.tsx",
+        "tests/mobile/commerce-presentation.test.mjs",
+        "docs/operations/order-status-quiet.md"
+      ],
+      "status": "active",
+      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
+      "updatedAt": "2026-10-06T09:25:11.611Z"
     }
   ]
 }
