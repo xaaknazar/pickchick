@@ -3068,11 +3068,13 @@
         "docs/operations/images/farm-v2",
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "tests/mobile/farm-pipeline.test.mjs",
+        "tests/mobile/browser_farm_v2.py"
       ],
       "status": "active",
       "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
-      "updatedAt": "2026-10-06T06:28:18.558Z"
+      "updatedAt": "2026-10-06T06:46:56.274Z"
     }
   ]
 }
