@@ -162,6 +162,7 @@ def journey(browser, width, height, legacy):
         if not button.count() and page.get_by_test_id('pick-farm-hud-more').count():
             page.get_by_test_id('pick-farm-hud-more').click()
             expect(page.get_by_test_id('pick-farm-hud-tray')).to_be_visible()
+            page.wait_for_timeout(350)
             shot('hud-tray')
         page.get_by_role('button', name=label, exact=True).click()
 

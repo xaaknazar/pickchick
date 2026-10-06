@@ -1,3 +1,14 @@
+## 6 октября: PICK FARM - животные на поле и полировка (farm-gameplay-v2)
+
+Продолжение PR #193 (общая версия `928bc68` влита). Движок: необязательный `animalIds`
+у `feedAnimals`/`collectAnimals` (протокол 3 ещё не выкачен, поэтому без смены
+протокола; клиент умеет откатиться на целый загон). Клиент: `ranch-layout.ts` (маршрут
+животных, попадание, волна земли), `Ranch.tsx`, `PickFarmScreen.tsx` (стек панелей,
+ряд HUD, отклик, касания загонов), `haptics.ts` (включится с `expo-haptics` в нативной
+сборке - `apps/mobile/ios` по-прежнему за `tiptoppay-native13`), `useFarmSound.ts`,
+`birds.wav`. Тесты: `tests/mobile/farm-ranch.test.mjs`, `farm-sound.test.mjs`,
+`farm-pipeline.test.mjs`, `browser_farm_v3.py`.
+
 ## 6 октября: PICK FARM v3 (задача farm-gameplay-v2)
 
 Продолжение PR #193 на ветке `codex/farm-gameplay-v2` (общая версия `4a76cda` влита).
