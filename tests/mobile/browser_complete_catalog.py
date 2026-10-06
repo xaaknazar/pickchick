@@ -282,10 +282,12 @@ with sync_playwright() as p:
         with page.expect_response(lambda response: urlparse(response.url).path == '/v1/test/quotes'):
             checkout.get_by_test_id('test-checkout-create').click()
         page.wait_for_function('(key) => !!localStorage.getItem(key)', arg=DRAFT)
-        expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_be_visible()
-        # A successful background order read must not erase the failed quote notice.
+        expect(checkout.get_by_test_id('test-checkout-create')).to_be_enabled()
+        expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_have_count(0)
+        # Failed quote state remains durable and retryable without a technical banner.
         expect(checkout.get_by_text(re.compile('^Статус проверен в '))).to_have_count(0)
-        expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_be_visible()
+        expect(checkout.get_by_test_id('test-checkout-create')).to_be_enabled()
+        expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_have_count(0)
         assert len(fixture.quotes) == 1
         quote = fixture.quotes[0]
         payload = node_module('contracts.js', 'module.TestCompleteCartSchema.parse(input)', quote['payload'])
@@ -303,7 +305,8 @@ with sync_playwright() as p:
         assert saved(page, DRAFT) == pending and saved(page, SESSION_KEY) == session
         with page.expect_response(lambda response: urlparse(response.url).path == '/v1/test/quotes'):
             checkout.get_by_test_id('test-checkout-create').click()
-        expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_be_visible()
+        expect(checkout.get_by_test_id('test-checkout-create')).to_be_enabled()
+        expect(checkout.get_by_text('Не удалось обновить', exact=True)).to_have_count(0)
         assert len(fixture.quotes) == 2 and fixture.quotes[0] == fixture.quotes[1]
         assert saved(page, DRAFT) == pending
         assert not fixture.violations, fixture.violations
