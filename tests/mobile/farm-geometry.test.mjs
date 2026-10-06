@@ -352,3 +352,28 @@ test('the repeated grass plane covers every ground rectangle the camera can show
   const firstCell = 31.5 - GRASS_CELLS / 2;
   assert.equal(firstCell + 0.5, Math.round(firstCell + 0.5));
 });
+
+test('the larger apple tree is selectable across its whole drawn canopy', async () => {
+  const { plotAtPoint } = await import('../../apps/mobile/src/games/pick-farm/hit-zones.ts');
+  const { TREE_ART, TREE_TOP } = await import('../../apps/mobile/src/games/pick-farm/geometry.ts');
+  const now = 1_800_000_000_000;
+  const tree = {
+    id: 7,
+    x: 30,
+    y: 30,
+    kind: 'tree',
+    cropId: 'apple',
+    plantedAt: now - 1000,
+    harvests: 0,
+  };
+  const c = isoPoint(30, 30);
+  let top = 0;
+  for (let y = TREE_TOP; y < 0; y++)
+    for (let x = -TREE_ART / 2; x <= TREE_ART / 2; x += 2)
+      if (plotAtPoint([tree], { x: c.x + x, y: c.y + y }, now)?.id === 7) {
+        top = Math.min(top, y);
+      }
+  // The old 112 px tree reached about 70 px above its cell; the new art reaches higher.
+  assert.ok(top < -95, String(top));
+  assert.ok(TREE_ART > 112);
+});

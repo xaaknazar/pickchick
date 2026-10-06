@@ -54,6 +54,8 @@ import {
   MIN_ZOOM,
   WORLD_CENTER,
   WORLD_OFFSET_Y,
+  TREE_ART,
+  TREE_IN_BOX,
   fitFarm,
   frameWorldRect,
   screenAtWorld,
@@ -258,8 +260,18 @@ export function PickFarmScreen() {
   const harvestPlot = useCallback(
     (plot: Plot, silent = false) => {
       if (!run({ type: 'harvest', plotId: plot.id, destination }, { silent })) return false;
-      const from = screenOf(plot.x, plot.y, plot.kind === 'tree' ? 70 : 40);
+      const from = screenOf(plot.x, plot.y, plot.kind === 'tree' ? 85 : 40);
       const toCoins = destination === 'sell';
+      const scale = fit * cam.camera.current.zoom;
+      if (plot.kind === 'bed' && plot.cropId)
+        addFx([
+          {
+            kind: 'pluck',
+            base: screenOf(plot.x, plot.y, -17),
+            size: 96 * 0.93 * scale,
+            cropId: plot.cropId,
+          },
+        ]);
       addFx(
         [0, 1, 2].map((i) => ({
           kind: 'fly' as const,
@@ -272,7 +284,7 @@ export function PickFarmScreen() {
       );
       return true;
     },
-    [run, destination, screenOf, addFx],
+    [run, destination, screenOf, addFx, fit, cam.camera],
   );
   const waterPlot = useCallback(
     (plot: Plot, silent = false) => {
@@ -1294,8 +1306,10 @@ export function PickFarmScreen() {
               {'art' in ghostKind && ghostKind.art ? (
                 <GardenArt id={ghostKind.art} size={96} />
               ) : 'tree' in ghostKind ? (
-                <View style={{ position: 'absolute', left: -8, top: -8 }}>
-                  <CropArt cropId="apple" size={112} phase="growing" />
+                <View
+                  style={{ position: 'absolute', left: TREE_IN_BOX.left, top: TREE_IN_BOX.top }}
+                >
+                  <CropArt cropId="apple" size={TREE_ART} phase="growing" />
                 </View>
               ) : (
                 <View style={{ width: 96, height: 96 }}>
@@ -1326,10 +1340,12 @@ export function PickFarmScreen() {
                   dragged.kind === 'bed' ? (
                     <DraggedBed plot={dragged} now={serverNow} />
                   ) : (
-                    <View style={{ position: 'absolute', left: -8, top: -8 }}>
+                    <View
+                      style={{ position: 'absolute', left: TREE_IN_BOX.left, top: TREE_IN_BOX.top }}
+                    >
                       <CropArt
                         cropId="apple"
-                        size={112}
+                        size={TREE_ART}
                         phase={dragPhase === 'empty' ? 'growing' : dragPhase}
                       />
                     </View>

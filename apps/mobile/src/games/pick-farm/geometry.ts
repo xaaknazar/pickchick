@@ -6,6 +6,12 @@ export const TILE_HEIGHT = 48;
 // for a 16-value native matrix. Order is intentional: compress AFTER rotating the square.
 export const GROUND_TRANSFORM = [{ scaleY: 0.5 }, { rotate: '45deg' }, { scale: Math.SQRT1_2 }];
 export const BED_ANCHOR = 23 / 32;
+/** Apple tree artwork size in world px; its trunk base stays at the cell's front edge. */
+export const TREE_ART = 148;
+/** Top of the tree art relative to the cell's ground centre (base stays at +35). */
+export const TREE_TOP = 35 - TREE_ART;
+/** Offset of the tree art inside the 96x96 object box drawn at (-48, -69). */
+export const TREE_IN_BOX = { left: (96 - TREE_ART) / 2, top: TREE_TOP + 69 } as const;
 export function groundContains(x: number, y: number) {
   return Math.abs(x) / (TILE_WIDTH / 2) + Math.abs(y) / (TILE_HEIGHT / 2) <= 1;
 }

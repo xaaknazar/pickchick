@@ -1,5 +1,5 @@
 import { cropPhase, growthProgress, type FarmState } from '@pickchick/farm-game';
-import { isoPoint, groundContains } from './geometry.ts';
+import { isoPoint, groundContains, TREE_ART, TREE_TOP } from './geometry.ts';
 import { spriteHitMasks } from './sprite-hit-masks.ts';
 
 type Plot = FarmState['plots'][number];
@@ -7,7 +7,7 @@ type Point = { x: number; y: number };
 const maskRows = new Map<string, string[]>();
 
 /** Indicator above an object, in world pixels from the object's ground center. */
-export const BADGE_OFFSET = { bed: -84, tree: -128 } as const;
+export const BADGE_OFFSET = { bed: -84, tree: TREE_TOP - 12 } as const;
 
 /** Test actual opaque sprite pixels, not the transparent rectangular image box. */
 export function spriteContains(key: string, u: number, v: number) {
@@ -68,9 +68,9 @@ export function plotAtPoint(
     if (plot.cropId) {
       if (stage !== 'seeds' && stage !== 'sprouts') {
         // CropArt is square; atlas artwork is centered horizontally within it.
-        const size = plot.kind === 'tree' ? 112 : 96 * 0.93;
+        const size = plot.kind === 'tree' ? TREE_ART : 96 * 0.93;
         const artWidth = (size * 248) / (1024 / 3 - 6);
-        const top = plot.kind === 'tree' ? -77 : 27 - 96 * 0.1 - size;
+        const top = plot.kind === 'tree' ? TREE_TOP : 27 - 96 * 0.1 - size;
         const left =
           plot.kind === 'tree' ? -artWidth / 2 : -48 + 96 * 0.035 + (size - artWidth) / 2;
         const phase = stage === 'empty' ? 'growing' : stage;

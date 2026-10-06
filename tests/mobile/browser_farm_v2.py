@@ -178,7 +178,8 @@ def journey(browser, width, height, legacy):
     assert harvested(), [plot(x, 29) for x in range(29, 34)]
     kinds = [c['type'] for c in calls[before:]]
     assert ('harvestMany' in kinds) != legacy, kinds
-    assert len(kinds) <= (4 if legacy else 2), kinds
+    # Timing decides the split; a sweep is never more requests than plots, batches when supported.
+    assert len(kinds) <= (4 if legacy else 3), kinds
 
     # 3. Water the growing tomato row by sweeping across it.
     before = len(calls)

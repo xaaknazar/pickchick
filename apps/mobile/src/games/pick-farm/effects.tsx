@@ -19,7 +19,8 @@ export type FarmFx =
     }
   | { id: number; kind: 'water'; at: Point; size: number }
   | { id: number; kind: 'pop'; at: Point; text: string; tone: 'coin' | 'xp' | 'info' }
-  | { id: number; kind: 'puff'; at: Point; size: number };
+  | { id: number; kind: 'puff'; at: Point; size: number }
+  | { id: number; kind: 'pluck'; base: Point; size: number; cropId: CropId };
 /** An effect before it receives its id (distributes over the union). */
 export type FarmFxInput = FarmFx extends infer T
   ? T extends unknown
@@ -231,6 +232,47 @@ function Pop({ fx, onDone }: { fx: Extract<FarmFx, { kind: 'pop' }>; onDone(id: 
   );
 }
 
+/** A harvested plant lifts out of the soil with a quick squash-and-stretch, then fades. */
+function Pluck({
+  fx,
+  onDone,
+}: {
+  fx: Extract<FarmFx, { kind: 'pluck' }>;
+  onDone(id: number): void;
+}) {
+  const t = useRef(new Animated.Value(0)).current;
+  const finish = useLatest(() => onDone(fx.id));
+  useEffect(() => {
+    const animation = Animated.timing(t, {
+      toValue: 1,
+      duration: 380,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => finished && finish.current());
+    return () => animation.stop();
+  }, [t, finish]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: fx.base.x - fx.size / 2,
+        top: fx.base.y - fx.size,
+        opacity: t.interpolate({ inputRange: [0, 0.55, 1], outputRange: [1, 0.9, 0] }),
+        transform: [
+          { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -fx.size * 0.35] }) },
+          // Stretch up as it leaves the soil, then settle smaller while it fades.
+          { scaleX: t.interpolate({ inputRange: [0, 0.25, 1], outputRange: [1, 0.86, 0.7] }) },
+          { scaleY: t.interpolate({ inputRange: [0, 0.25, 1], outputRange: [1, 1.18, 0.8] }) },
+        ],
+      }}
+    >
+      <CropArt cropId={fx.cropId} size={fx.size} />
+    </Animated.View>
+  );
+}
+
 /** Soft leaf puff when a withered bed is cleared or a plant is removed. */
 function Puff({ fx, onDone }: { fx: Extract<FarmFx, { kind: 'puff' }>; onDone(id: number): void }) {
   const t = useRef(new Animated.Value(0)).current;
@@ -304,6 +346,7 @@ export const FxLayer = memo(function FxLayer({
         if (fx.kind === 'fly') return <Fly key={fx.id} fx={fx} onDone={onDone} />;
         if (fx.kind === 'water') return <Water key={fx.id} fx={fx} onDone={onDone} />;
         if (fx.kind === 'puff') return <Puff key={fx.id} fx={fx} onDone={onDone} />;
+        if (fx.kind === 'pluck') return <Pluck key={fx.id} fx={fx} onDone={onDone} />;
         return <Pop key={fx.id} fx={fx} onDone={onDone} />;
       })}
     </View>

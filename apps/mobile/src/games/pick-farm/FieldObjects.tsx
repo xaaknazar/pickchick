@@ -6,6 +6,7 @@ import { CropArt, CellOutline } from './visuals';
 import { GroundCrop, type CropStage } from './PlantingVisual';
 import { CropMotion } from './motion';
 import { BADGE_OFFSET } from './hit-zones';
+import { TREE_ART, TREE_IN_BOX } from './geometry';
 
 export type PlotBadge = 'ready' | 'water' | 'withered' | null;
 /** World size of a status badge before its zoom-dependent counter scale. */
@@ -144,11 +145,11 @@ export const PlotView = memo(function PlotView({
           />
         ) : (
           cropId && (
-            <View style={{ position: 'absolute', left: -8, top: -8 }}>
+            <View style={{ position: 'absolute', left: TREE_IN_BOX.left, top: TREE_IN_BOX.top }}>
               <CropMotion cropId={cropId} ready={stage === 'ready'} {...motion}>
                 <CropArt
                   cropId={cropId}
-                  size={112}
+                  size={TREE_ART}
                   phase={
                     stage === 'withered' ? 'withered' : stage === 'ready' ? 'ready' : 'growing'
                   }
