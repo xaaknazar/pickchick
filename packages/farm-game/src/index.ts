@@ -410,6 +410,13 @@ export function isPlantingCell(x: number, y: number): boolean {
 export const HOUSE_CELL = HOUSE_DISPLAY_CELL;
 export const BED_COST = 150;
 export const TREE_COST = 250;
+/** Window after maturity for every new planting. Watering extends it by the time it saves. */
+export const HARVEST_WINDOW_SECONDS = 129600;
+/** Share of the planting's full growth time removed by one watering. */
+export const WATER_SPEEDUP = 0.25;
+export const WATER_XP = 1;
+/** Upper bound for one batched gesture; larger sweeps are split by the client. */
+export const BATCH_LIMIT = 64;
 const coordinate = z
   .number()
   .int()
@@ -544,6 +551,11 @@ export function cropPhase(plot: FarmState['plots'][number], now: number): CropPh
   if (elapsed < crop.growSeconds * 1000) return 'growing';
   return elapsed < (crop.growSeconds + crop.harvestWindowSeconds) * 1000 ? 'ready' : 'withered';
 }
+const plotIdList = z
+  .array(integer)
+  .min(1)
+  .max(BATCH_LIMIT)
+  .refine((ids) => new Set(ids).size === ids.length, 'Duplicate plot');
 export const FarmCommandSchema = z.discriminatedUnion('type', [
   ...ProgressionCommands,
   z.object({ type: z.literal('expand') }).strict(),
@@ -576,6 +588,16 @@ export const FarmCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('clear'), plotId: integer }).strict(),
   z.object({ type: z.literal('removeCrop'), plotId: integer }).strict(),
   z.object({ type: z.literal('removePlot'), plotId: integer }).strict(),
+  z.object({ type: z.literal('water'), plotId: integer }).strict(),
+  z.object({ type: z.literal('waterMany'), plotIds: plotIdList }).strict(),
+  z
+    .object({
+      type: z.literal('harvestMany'),
+      plotIds: plotIdList,
+      destination: z.enum(['sell', 'storage']).optional(),
+    })
+    .strict(),
+  z.object({ type: z.literal('plantMany'), plotIds: plotIdList, cropId: CropIdSchema }).strict(),
 ]);
 export type FarmCommand = z.infer<typeof FarmCommandSchema>;
 export class FarmGameError extends Error {
@@ -717,6 +739,34 @@ export function applyFarmCommand(
     plot.plantedAt = now;
     plot.harvests = 0;
     plot.timing = plantingTiming(state, 'carrot');
+  } else if (command.type === 'water') {
+    const plot = state.plots.find((candidate) => candidate.id === command.plotId);
+    requireRule(!!plot, 'PLOT_NOT_FOUND');
+    waterPlot(state, plot, now);
+  } else if (
+    command.type === 'waterMany' ||
+    command.type === 'harvestMany' ||
+    command.type === 'plantMany'
+  ) {
+    // Each listed object follows the single-object rule. Objects that changed since the
+    // gesture (already harvested, planted elsewhere, removed) are skipped; at least one
+    // must succeed, otherwise the first rejection is returned unchanged.
+    let first: FarmGameError | null = null;
+    let applied = 0;
+    for (const plotId of command.plotIds) {
+      const plot = state.plots.find((candidate) => candidate.id === plotId);
+      try {
+        requireRule(!!plot, 'PLOT_NOT_FOUND');
+        if (command.type === 'waterMany') waterPlot(state, plot, now);
+        else if (command.type === 'plantMany') plantPlot(state, plot, command.cropId, now);
+        else harvestPlot(state, plot, command.destination, now);
+        applied++;
+      } catch (error) {
+        if (!(error instanceof FarmGameError)) throw error;
+        first ??= error;
+      }
+    }
+    if (!applied) throw first!;
   } else if (
     command.type === 'plant' ||
     command.type === 'harvest' ||
@@ -757,43 +807,9 @@ export function applyFarmCommand(
       plot.plantedAt = plot.kind === 'tree' ? now : null;
       if (plot.kind === 'tree') plot.timing = plantingTiming(state, 'apple');
     } else if (command.type === 'plant') {
-      const crop = CROPS.find((item) => item.id === command.cropId)!;
-      requireRule(plot.kind === 'bed' && crop.kind !== 'tree', 'CROP_REQUIRES_TREE');
-      requireRule(plot.cropId === null, 'PLOT_OCCUPIED');
-      requireRule(levelForXp(state.xp) >= crop.unlockLevel, 'CROP_LOCKED');
-      requireRule(state.coins >= crop.seedCost, 'INSUFFICIENT_COINS');
-      state.coins -= crop.seedCost;
-      plot.cropId = crop.id;
-      plot.plantedAt = now;
-      plot.harvests = 0;
-      plot.timing = plantingTiming(state, crop.id);
+      plantPlot(state, plot, command.cropId, now);
     } else {
-      requireRule(plot.cropId !== null && plot.plantedAt !== null, 'PLOT_EMPTY');
-      const crop = CROPS.find((item) => item.id === plot.cropId)!;
-      requireRule(cropPhase(plot, now) !== 'withered', 'CROP_WITHERED');
-      requireRule(cropPhase(plot, now) === 'ready', 'CROP_NOT_READY');
-      const reserve = ORDERS.find((o) => o.id === state.progression!.reserveOrderId);
-      const wanted = reserve
-        ? ((reserve.requires as Partial<Record<CropId, number>>)[crop.id] ?? 0)
-        : 0;
-      const held =
-        command.destination === 'sell'
-          ? Math.min(crop.harvestYield, Math.max(0, wanted - state.inventory[crop.id]))
-          : crop.harvestYield;
-      state.inventory[crop.id] += held;
-      state.coins += (crop.harvestYield - held) * crop.sellPrice;
-      state.xp += cropTiming(plot).rewardXp;
-      state.progression!.harvested += 1;
-      state.progression!.harvestedCrops[crop.id] += crop.harvestYield;
-      if (plot.kind === 'tree') {
-        plot.harvests = (plot.harvests + 1) % 3;
-        plot.plantedAt = now;
-        plot.timing = plantingTiming(state, 'apple');
-      } else {
-        plot.cropId = null;
-        plot.plantedAt = null;
-        plot.harvests = 0;
-      }
+      harvestPlot(state, plot, command.destination, now);
     }
   } else if (command.type === 'sell') {
     requireRule(state.inventory[command.cropId] >= command.quantity, 'INSUFFICIENT_INVENTORY');
@@ -841,6 +857,90 @@ export function applyFarmCommand(
   return state;
 }
 
+type Plot = FarmState['plots'][number];
+function plantPlot(state: FarmState, plot: Plot, cropId: CropId, now: number) {
+  const crop = CROPS.find((item) => item.id === cropId)!;
+  requireRule(plot.kind === 'bed' && crop.kind !== 'tree', 'CROP_REQUIRES_TREE');
+  requireRule(plot.cropId === null, 'PLOT_OCCUPIED');
+  requireRule(levelForXp(state.xp) >= crop.unlockLevel, 'CROP_LOCKED');
+  requireRule(state.coins >= crop.seedCost, 'INSUFFICIENT_COINS');
+  state.coins -= crop.seedCost;
+  plot.cropId = crop.id;
+  plot.plantedAt = now;
+  plot.harvests = 0;
+  plot.timing = plantingTiming(state, crop.id);
+}
+function harvestPlot(
+  state: FarmState,
+  plot: Plot,
+  destination: 'sell' | 'storage' | undefined,
+  now: number,
+) {
+  requireRule(plot.cropId !== null && plot.plantedAt !== null, 'PLOT_EMPTY');
+  const crop = CROPS.find((item) => item.id === plot.cropId)!;
+  requireRule(cropPhase(plot, now) !== 'withered', 'CROP_WITHERED');
+  requireRule(cropPhase(plot, now) === 'ready', 'CROP_NOT_READY');
+  const reserve = ORDERS.find((o) => o.id === state.progression!.reserveOrderId);
+  const wanted = reserve
+    ? ((reserve.requires as Partial<Record<CropId, number>>)[crop.id] ?? 0)
+    : 0;
+  const held =
+    destination === 'sell'
+      ? Math.min(crop.harvestYield, Math.max(0, wanted - state.inventory[crop.id]))
+      : crop.harvestYield;
+  state.inventory[crop.id] += held;
+  state.coins += (crop.harvestYield - held) * crop.sellPrice;
+  state.xp += cropTiming(plot).rewardXp;
+  state.progression!.harvested += 1;
+  state.progression!.harvestedCrops[crop.id] += crop.harvestYield;
+  if (plot.kind === 'tree') {
+    plot.harvests = (plot.harvests + 1) % 3;
+    plot.plantedAt = now;
+    plot.timing = plantingTiming(state, 'apple');
+  } else {
+    plot.cropId = null;
+    plot.plantedAt = null;
+    plot.harvests = 0;
+  }
+}
+/**
+ * One watering per growth cycle. It moves maturity earlier by a quarter of the planting's
+ * full growth time and lengthens the harvest window by the same amount, so the wither
+ * deadline never moves. The state shape is unchanged: a planting is watered when its
+ * timing window differs from the standard window that every new planting receives.
+ */
+function waterPlot(state: FarmState, plot: Plot, now: number) {
+  requireRule(plot.cropId !== null && plot.plantedAt !== null, 'PLOT_EMPTY');
+  requireRule(cropPhase(plot, now) === 'growing', 'CROP_NOT_GROWING');
+  requireRule(!isWatered(plot), 'ALREADY_WATERED');
+  const timing = cropTiming(plot);
+  const saved = Math.max(1, Math.floor(timing.growSeconds * WATER_SPEEDUP));
+  plot.timing = {
+    growSeconds: timing.growSeconds - saved,
+    harvestWindowSeconds: timing.harvestWindowSeconds + saved,
+    rewardXp: timing.rewardXp,
+  };
+  state.xp += WATER_XP;
+}
+/** True after this growth cycle has been watered (see waterPlot). */
+export function isWatered(plot: Plot): boolean {
+  return !!plot.timing && plot.timing.harvestWindowSeconds !== HARVEST_WINDOW_SECONDS;
+}
+export function canWater(plot: Plot, now: number): boolean {
+  return plot.cropId !== null && cropPhase(plot, now) === 'growing' && !isWatered(plot);
+}
+/** Growth from planting to maturity, 0..1, using the timing fixed for this planting. */
+export function growthProgress(plot: Plot, now: number): number {
+  if (plot.cropId === null || plot.plantedAt === null) return 0;
+  const grow = Math.max(1, cropTiming(plot).growSeconds) * 1000;
+  return Math.max(0, Math.min(1, (now - plot.plantedAt) / grow));
+}
+/** Milliseconds until maturity (0 when ready or empty). */
+export function msUntilReady(plot: Plot, now: number): number {
+  if (plot.cropId === null || plot.plantedAt === null) return 0;
+  return Math.max(0, plot.plantedAt + cropTiming(plot).growSeconds * 1000 - now);
+}
+
 export function cropTiming(plot: FarmState['plots'][number]) {
   if (plot.timing) return plot.timing;
   const old = {
@@ -861,7 +961,7 @@ function plantingTiming(state: FarmState, cropId: CropId) {
   if (tutorial) p.tutorialPlantings++;
   return {
     growSeconds: tutorial ? 45 : crop.growSeconds,
-    harvestWindowSeconds: 129600,
+    harvestWindowSeconds: HARVEST_WINDOW_SECONDS,
     rewardXp: tutorial ? 5 : Math.max(1, Math.min(20, Math.floor(crop.growSeconds / 900))),
   };
 }

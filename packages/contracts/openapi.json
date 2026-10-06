@@ -10859,6 +10859,116 @@
               "plotId"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "water"
+              },
+              "plotId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "plotId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "waterMany"
+              },
+              "plotIds": {
+                "minItems": 1,
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              }
+            },
+            "required": [
+              "type",
+              "plotIds"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "harvestMany"
+              },
+              "plotIds": {
+                "minItems": 1,
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "destination": {
+                "type": "string",
+                "enum": [
+                  "sell",
+                  "storage"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "plotIds"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "plantMany"
+              },
+              "plotIds": {
+                "minItems": 1,
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "cropId": {
+                "type": "string",
+                "enum": [
+                  "carrot",
+                  "tomato",
+                  "strawberry",
+                  "sunflower",
+                  "tulip",
+                  "apple"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "plotIds",
+              "cropId"
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -11527,6 +11637,116 @@
                 "required": [
                   "type",
                   "plotId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "water"
+                  },
+                  "plotId": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "type",
+                  "plotId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "waterMany"
+                  },
+                  "plotIds": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "plotIds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "harvestMany"
+                  },
+                  "plotIds": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "destination": {
+                    "type": "string",
+                    "enum": [
+                      "sell",
+                      "storage"
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "plotIds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "plantMany"
+                  },
+                  "plotIds": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "cropId": {
+                    "type": "string",
+                    "enum": [
+                      "carrot",
+                      "tomato",
+                      "strawberry",
+                      "sunflower",
+                      "tulip",
+                      "apple"
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "plotIds",
+                  "cropId"
                 ],
                 "additionalProperties": false
               }
