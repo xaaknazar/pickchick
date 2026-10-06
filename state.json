@@ -3010,7 +3010,6 @@
       "scopes": [
         "apps/mobile/src/screens/Checkout.tsx",
         "apps/mobile/src/screens/Payment.tsx",
-        "apps/backoffice/src",
         "docs/operations/tiptoppay-checkout.md",
         "packages/backoffice-core/src/index.ts",
         "tests/backoffice/tiptoppay-reporting.test.mjs",
@@ -3021,12 +3020,12 @@
         "infra/payments/pickchick-tiptoppay-reconcile.service",
         "infra/payments/pickchick-tiptoppay-reconcile.timer",
         ".github/workflows/ci.yml",
-        "tests/unit/customer-checkout-response.test.mjs",
-        "apps/backoffice/src/styles.css"
+        "tests/unit/customer-checkout-response.test.mjs"
       ],
       "status": "active",
       "head": "b3bb527f3295b9c9f95c81d9caa7572f8d394320",
-      "updatedAt": "2026-10-05T17:59:40.875Z"
+      "updatedAt": "2026-10-05T17:59:40.875Z",
+      "summary": " 2026-10-06: владелец подтвердил паузу BO и разрешил передачу apps/backoffice/src задаче finance-ledger на втором Mac; остальные области остаются за TipTopPay."
     },
     {
       "id": "tiptop-bo-fixture",
