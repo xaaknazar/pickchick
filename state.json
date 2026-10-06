@@ -3140,30 +3140,6 @@
       "nextAction": "Root подтверждает Apple processing и группу PickChick Internal; физическая проверка каталога на iPhone отдельно. Старый tiptoppay Apple claim сохранён."
     },
     {
-      "id": "finance-ledger",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/finance-ledger",
-      "scopes": [
-        "packages/backoffice-core/src/finance.ts",
-        "tests/backoffice/finance.test.mjs",
-        "db/cloud/migrations/042_cloud_finance.sql",
-        "docs/operations/finance-ledger.md",
-        "apps/backoffice/src",
-        "packages/backoffice-core/package.json",
-        "services/api/src/finance-controller.ts",
-        "services/api/src/index.ts",
-        "tests/backoffice/finance-browser.py",
-        "tests/backoffice/finance-postgres.test.mjs",
-        "apps/backoffice/server.mjs",
-        "infra/staging/backoffice-grants.mjs",
-        "tests/backoffice/finance-model.test.mjs",
-        "tests/unit/finance-grants.test.mjs"
-      ],
-      "status": "active",
-      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
-      "updatedAt": "2026-10-06T08:58:11.029Z"
-    },
-    {
       "id": "farm-gameplay-v2",
       "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
       "branch": "codex/farm-gameplay-v2",
@@ -3190,6 +3166,34 @@
       "updatedAt": "2026-10-06T09:07:10.563Z",
       "summary": "PR #193: v2 + земля из одной сгенерированной клетки травы (112x112 клеток, блоки 8x8), луг удалён. Тесты 29 mobile, browser_farm_v2 прошли.",
       "nextAction": "Владельцу: посмотреть траву и PR #193, слить в shared-development; затем API, TestFlight, физический iPhone."
+    },
+    {
+      "id": "finance-ledger",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-ledger",
+      "scopes": [
+        "packages/backoffice-core/src/finance.ts",
+        "tests/backoffice/finance.test.mjs",
+        "db/cloud/migrations/042_cloud_finance.sql",
+        "docs/operations/finance-ledger.md",
+        "apps/backoffice/src",
+        "packages/backoffice-core/package.json",
+        "services/api/src/finance-controller.ts",
+        "services/api/src/index.ts",
+        "tests/backoffice/finance-browser.py",
+        "tests/backoffice/finance-postgres.test.mjs",
+        "apps/backoffice/server.mjs",
+        "infra/staging/backoffice-grants.mjs",
+        "tests/backoffice/finance-model.test.mjs",
+        "tests/unit/finance-grants.test.mjs",
+        "tests/backoffice/helpers.mjs",
+        "tests/backoffice/finance-http.test.mjs",
+        "infra/public-staging/gateway.Caddyfile",
+        "tests/backoffice/finance-browser.test.mjs"
+      ],
+      "status": "active",
+      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
+      "updatedAt": "2026-10-06T09:09:16.748Z"
     }
   ]
 }
