@@ -19,7 +19,7 @@ with sync_playwright() as p:
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
-  state={'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
+  state={'payment_blocked':True,'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
    return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
@@ -74,6 +74,8 @@ with sync_playwright() as p:
      if state['drop']:state['drop']=False;r.abort();return
      data=order()
    elif path==f'/v1/customer-checkout/orders/{ORDER}/payment':
+    if state['payment_blocked']:
+     state['payment_blocked']=False;r.fulfill(status=403,json={'code':'FORBIDDEN','message_key':'errors.forbidden','trace_id':'40000000-0000-4000-8000-000000000009','retryable':False},headers={'Access-Control-Allow-Origin':'*'});return
     assert not state['config_offline'] and state['quotes']>=2 and state['created'], 'No invoice before completed checks and accepted order'
     state['payments']+=1;state['phase']='awaiting_payment';state['revision']+=1;data=order()
    elif path==f'/v1/customer-checkout/orders/{ORDER}/watch':
@@ -94,7 +96,7 @@ with sync_playwright() as p:
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
   # A definitive account rejection is only checked after explicit payment.
   button.click()
-  expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта. Корзина сохранена - можно вернуться к ней позже.',exact=True)).to_be_visible()
+  expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible()
   expect(button).to_be_enabled()
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
   total=page.get_by_test_id('kaspi-checkout-total')
@@ -143,6 +145,11 @@ with sync_playwright() as p:
    assert not state['keys'] and state['payments']==0
    expect(button).to_be_enabled()
    button.click()
+  # A definitive send rejection keeps a quiet continuation action for the same order.
+  resume=page.get_by_role('button',name='Отправить счёт на',exact=False)
+  expect(resume).to_be_visible(timeout=10000)
+  assert state['payments']==0 and len(set(state['keys']))==1
+  resume.click()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
   assert len(state['keys'])==2 and state['keys'][0]==state['keys'][1], state
@@ -194,6 +201,17 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('connected-order-number')).to_contain_text('№ 2')
   expect(page.get_by_test_id('order-chef-cooking')).to_be_visible()
   expect(page.get_by_text('Соус отдельно, пожалуйста',exact=True)).to_be_visible()
+  # A paid order survives connection loss with no warning or manual reconnect UI.
+  def quiet_disconnect():
+   previous=state['held']; payment_count=state['payments']
+   previous.abort()
+   page.wait_for_timeout(1600)
+   assert state['held'] is not previous, 'Status polling must resume automatically'
+   for copy in ['Связь прервалась', 'Заказ сохранён', 'повторно оплачивать', 'Проверить соединение', 'Обновляем статусы заказов после восстановления связи']:
+    expect(page.get_by_text(copy,exact=False)).to_have_count(0)
+   expect(page.get_by_test_id('connected-order-number')).to_contain_text('№ 2')
+   assert state['payments']==payment_count, 'Reconnect must not send another invoice'
+  quiet_disconnect()
   page.screenshot(path=str(OUT/f'paid-{width}.png'))
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
   for phase,scene in [('preparing','assembly'),('ready','ready-takeaway')]:
@@ -201,6 +219,7 @@ with sync_playwright() as p:
    state['phase']=phase;state['revision']+=1
    state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
    expect(page.get_by_test_id('order-chef-'+scene)).to_be_visible()
+   quiet_disconnect()
   # Issued orders leave the tracker and load a separate server-backed review.
   page.wait_for_timeout(150)
   state['phase']='handed_over';state['revision']+=1

@@ -16,7 +16,7 @@ export const paymentCopy: Record<
   },
   sending: {
     title: 'Отправляем счёт',
-    detail: 'Подождите немного. Можно закрыть этот экран - заказ сохранён.',
+    detail: 'Подождите немного. Отправляем счёт в Kaspi.',
     step: 1,
   },
   awaiting_payment: {
@@ -26,13 +26,12 @@ export const paymentCopy: Record<
   },
   checking: {
     title: 'Уточняем оплату',
-    detail: 'Ответ банка задерживается. Не оплачивайте повторно - проверим этот же счёт.',
+    detail: 'Ждём подтверждение оплаты от Kaspi.',
     step: 1,
   },
   failed: {
     title: 'Счёт не оплачен',
-    detail:
-      'Банк завершил эту попытку без оплаты. Корзина сохранена. Если деньги списались, обратитесь в ресторан.',
+    detail: 'Банк завершил эту попытку без оплаты. Если деньги списались, обратитесь в ресторан.',
     step: 1,
   },
   paid: {
@@ -57,7 +56,7 @@ export const paymentCopy: Record<
   },
   attention: {
     title: 'Проверяем заказ',
-    detail: 'Нужна проверка ресторана. Заказ и платёж сохранены, повторно оплачивать не нужно.',
+    detail: 'Ресторан уточняет информацию по заказу.',
     step: 1,
   },
 };
@@ -71,18 +70,17 @@ export function checkoutError(error: unknown) {
     return 'Ресторан сейчас закрыт. Попробуйте оформить заказ в часы работы.';
   if (code === 'ITEM_STOPPED')
     return 'Блюдо или выбранный вариант закончились. Вернитесь в корзину и измените заказ.';
-  if (code === 'AVAILABILITY_STALE')
-    return 'Нет свежих данных от ресторана. Счёт не выставлен. Попробуйте чуть позже.';
+  if (code === 'COMMENT_UNAVAILABLE')
+    return 'Комментарий временно недоступен. Удалите его, чтобы оформить заказ.';
   if (code === 'CHECKOUT_STORAGE')
     return 'Не удалось сохранить оформление на устройстве. Счёт не отправлен. Освободите место и попробуйте снова.';
   if (['CONFLICT', 'QUOTE_EXPIRED'].includes(code))
     return 'Меню или цена изменились. Вернитесь в корзину и проверьте заказ.';
-  if (code === 'FORBIDDEN')
-    return 'Оплата Kaspi ещё не открыта для вашего аккаунта. Корзина сохранена - можно вернуться к ней позже.';
-  if (code === 'NOT_READY')
-    return 'Ресторан пока не готов принимать оплату Kaspi. Корзина сохранена - попробуйте позже.';
+  if (code === 'FORBIDDEN') return 'Оплата Kaspi ещё не открыта для вашего аккаунта.';
+
   if (code === 'UNAUTHORIZED') return 'Войдите в аккаунт снова, чтобы продолжить свой заказ.';
-  return 'Связь прервалась. Заказ сохранён - повторно оплачивать не нужно.';
+  // Connectivity and temporary restaurant readiness recover in the background.
+  return '';
 }
 
 /** View adapter only: commercial orders never become synthetic TEST orders. */
