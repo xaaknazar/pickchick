@@ -3167,6 +3167,20 @@
       "updatedAt": "2026-10-06T08:35:34.073Z",
       "summary": "catalog-pilot/build14 включены в shared850c6fa. Exact CI37433448853 success11/11; native archive/export/upload0.2.0(14), releasecatalog-price-20261006-14-850c6fa: Apple Upload succeeded06.10.2026 08:33:32UTC, deliveryStatus=submitted. Подпись восстановлена;8старых dSYMwarnings. Чистая ветка fast-forward опубликована, remote850c6fa сверён.",
       "nextAction": "Root подтверждает Apple processing и группу PickChick Internal; физическая проверка каталога на iPhone отдельно. Старый tiptoppay Apple claim сохранён."
+    },
+    {
+      "id": "finance-ledger",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-ledger",
+      "scopes": [
+        "packages/backoffice-core/src/finance.ts",
+        "tests/backoffice/finance.test.mjs",
+        "db/cloud/migrations/042_cloud_finance.sql",
+        "docs/operations/finance-ledger.md"
+      ],
+      "status": "active",
+      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
+      "updatedAt": "2026-10-06T08:52:33.281Z"
     }
   ]
 }
