@@ -3243,10 +3243,10 @@
         "docs/operations/deployments/2026-10-06-finance-ledger.md"
       ],
       "status": "active",
-      "head": "8bdb6aeb8661a213b691c01f5023b6461b4849c7",
-      "updatedAt": "2026-10-06T11:38:13.696Z",
-      "summary": "Accepted on authorized release Mac. Coordinated with own TipTop tasks: finance release installs exact 039/040 schema prerequisites before042, TipTop runtime remains disabled. VPS/API release temporarily owned by finance-ledger.",
-      "nextAction": "Принимающий Mac с SSH: после согласования своего текущего TipTop выпуска принять finance-ledger из опубликованной ветки (8bdb6ae), PR195. В своей согласованной области исправить test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py, не ослабляя production guards. Сверить реальные installed API/schema/public указатели и порядок ожидаемых039/040 перед042; зелёная полнаяCI точного source, encrypted backup/rollback, release profile и серверный claim. Выпустить API/schema/grants, gateway и backoffice с сохранением банковских worker/кухни/idrink. Проверить права и пустой журнал без синтетических записей в рабочей точке. Обновить общие status/roadmap после согласования их резерва. Полная инструкция docs/operations/finance-ledger.md."
+      "head": "d6cd144cc7cba9943b614e2a33552111f3f1f44d",
+      "updatedAt": "2026-10-06T12:06:10.904Z",
+      "summary": "Source d6cd144 published in PR195. Finance13 + browser + historical39 + releaseguard14 + realPG audit rollback passed. Live baseline850c6fa/schema038; no deployment/migrations/newbackup. CI37458393708 has9success; POS recovery5s timeout then retry blocked beforestart by confirmed GitHub Actions budget60/60. Owner asked to restorebudget.",
+      "nextAction": "After user fixesActionsbudget, rerun failedjobs on sameSHA once; obtain11greenjobproof. Then finance release prepare/apply with encrypted backup/restore and rollback, browserlogin/reports. Own TipTop coordinated:039/040 exactschema precede042, runtimeTipTop staysoff. API reservation remains finance untilcompleted."
     }
   ]
 }
