@@ -1,4 +1,8 @@
-import { reconcilePublishedCart } from './published-catalog';
+import {
+  reconcilePublishedCart,
+  restoreLegacyPublishedCart,
+  publishedCartStorageRelease,
+} from './published-catalog';
 import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
@@ -167,7 +171,6 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         );
         setMenu(result.menu);
         setPublication(result.publication);
-        if (!cartPublication.current) cartPublication.current = result.publication;
         if (!restoration.current)
           setCart((previous) => {
             if (!previous.length) cartPublication.current = result.publication;
@@ -176,19 +179,33 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         setConnectedCatalog(testCatalog);
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
+          const legacy = result.publication && !restoration.current.publication;
+          const legacyCart = legacy
+            ? restoreLegacyPublishedCart(restoration.current, designProducts)
+            : null;
           setCart(
-            restoreCart(
-              restoration.current,
-              result.publication
-                ? publishedProducts(restoration.current.publication ?? result.publication, 'ru')
-                : testCatalog
-                  ? connectedProducts(testCatalog)
-                  : serverProducts(result.menu, 'ru'),
-              result.publication && restoration.current.publication
-                ? restoration.current.releaseId
-                : nextRelease,
-            ),
+            legacy
+              ? legacyCart!
+              : restoreCart(
+                  restoration.current,
+                  result.publication
+                    ? publishedProducts(restoration.current.publication ?? result.publication, 'ru')
+                    : testCatalog
+                      ? connectedProducts(testCatalog)
+                      : serverProducts(result.menu, 'ru'),
+                  result.publication && restoration.current.publication
+                    ? restoration.current.releaseId
+                    : nextRelease,
+                ),
           );
+          if (legacy && restoration.current.lines.length) {
+            cartPublication.current = null;
+            setCatalogUpdateNotice(
+              legacyCart?.length
+                ? 'Меню обновилось. Корзина сохранена со старой версией. Обновите её и проверьте состав и цены перед оформлением.'
+                : 'Версия прежней корзины больше недоступна. Добавьте блюда из актуального меню и проверьте цены перед оформлением.',
+            );
+          }
           if (result.publication && restoration.current.publication) {
             cartPublication.current = restoration.current.publication;
             if (restoration.current.releaseId !== nextRelease && restoration.current.lines.length)
@@ -285,7 +302,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         pendingCart?.releaseId ??
         (cartPublication.current && cart.length
           ? `published:${cartPublication.current.branch.id}:${cartPublication.current.version}`
-          : releaseId),
+          : publication
+            ? publishedCartStorageRelease(cart, releaseId)
+            : releaseId),
       ...(pendingCart?.publication
         ? { publication: pendingCart.publication }
         : cartPublication.current && cart.length
@@ -417,11 +436,13 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
     selectProduct: setSelectedId,
     appendCartLines: (lines) => {
+      if (catalogUpdatePending) return false;
       restoration.current = null;
       let accepted = false;
       setCart((previous) => {
         const next = mergeCartLines(previous, lines, products);
         accepted = next !== null;
+        if (next && !previous.length) cartPublication.current = publication;
         return next ?? previous;
       });
       return accepted;
@@ -432,14 +453,15 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       const chosen = selections ?? defaultSelections(product);
       const key = cartLineKey({ product, selections: chosen });
       restoration.current = null;
-      setCart((previous) =>
-        updateQuantity(
+      setCart((previous) => {
+        if (!previous.length) cartPublication.current = publication;
+        return updateQuantity(
           previous,
           product,
           (previous.find((line) => cartLineKey(line) === key)?.quantity ?? 0) + quantity,
           chosen,
-        ),
-      );
+        );
+      });
     },
     setQuantity: (id, quantity) => {
       restoration.current = null;

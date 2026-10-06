@@ -6,6 +6,13 @@ import { createPool } from '@pickchick/database';
 import { FarmPersistence } from '../dist/index.js';
 import { farmGrants } from '../../../infra/staging/farm-grants.mjs';
 
+function assertFirstPlanting(result, cropId) {
+  assert.equal(result.state.plots[0].cropId, cropId);
+  assert.equal(result.state.plots[0].plantedAt, result.serverNow);
+  assert.equal(result.state.plots[0].timing.growSeconds, cropId === 'carrot' ? 45 : 10800);
+  assert.equal(result.state.progression.tutorialPlantings, cropId === 'carrot' ? 1 : 0);
+}
+
 // Explicit opt-in local test database. Isolated schema; no shared migration ledger.
 test('durable farm: concurrency, replay, collision, rollback, clock and isolation', async () => {
   const url = process.env.FARM_TEST_DATABASE_URL;
@@ -79,14 +86,32 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
     assert.equal(competing.filter((x) => x.status === 'fulfilled').length, 1);
     assert.equal(competing.find((x) => x.status === 'rejected').reason.code, 'STALE_STATE');
     const planting = competing.find((x) => x.status === 'fulfilled').value;
-    assert.equal(planting.state.plots[0].plantedAt, planting.serverNow);
-    assert.equal(planting.state.plots[0].timing.growSeconds, 45);
-    assert.equal(planting.state.progression.tutorialPlantings, 1);
+    const winningCrop = competing[0].status === 'fulfilled' ? 'carrot' : 'tomato';
+    assertFirstPlanting(planting, winningCrop);
     assert.deepEqual(
       (await scoped.query('SELECT state FROM customer_farms WHERE customer_id=$1', [a])).rows[0]
         .state,
       planting.state,
     );
+    // Exercise both valid race outcomes deterministically, irrespective of which
+    // connection acquired the row lock first in the concurrent case above.
+    for (const cropId of ['carrot', 'tomato']) {
+      const customer = randomUUID();
+      await scoped.query('INSERT INTO identity_customers(id) VALUES($1)', [customer]);
+      await farm.get(customer);
+      await farm.command(customer, {
+        commandId: randomUUID(),
+        expectedRevision: 0,
+        command: { type: 'buyPlot', x: 31, y: 31 },
+      });
+      const planted = await farm.command(customer, {
+        commandId: randomUUID(),
+        expectedRevision: 1,
+        command: { type: 'plant', plotId: 0, cropId },
+      });
+      assertFirstPlanting(planted, cropId);
+      assert.deepEqual((await farm.get(customer)).state, planted.state);
+    }
     assert.equal(
       (await farm.command(a, command)).state.revision,
       2,
