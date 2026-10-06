@@ -3145,11 +3145,11 @@
         "docs/operations/catalog-price-mobile.md",
         "tests/mobile/browser_catalog_price_migration.py"
       ],
-      "status": "active",
+      "status": "done",
       "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
-      "updatedAt": "2026-10-06T08:31:11.537Z",
-      "summary": "59dc2b11420b0d5d940ca12565cfc512a0431cb3 pushed and remote verified. Published catalog legacy basket retention, explicit refresh, recommendation stale guard. 26 Node tests, mobile typecheck, lint/format, published Expo export, two-size browser migration/foreground/default/photo tests passed; zero financial commands. Store overlap delegated by root and documented. No VPS/native/payment method mutations.",
-      "nextAction": "Root explicitly integrates commit with final rollout/native profile and TipTop branch, full CI, PR. PostgreSQL browser fixture not run here: Docker unavailable. General status/roadmap owned second Mac; delivery proof docs/operations/catalog-price-mobile.md."
+      "updatedAt": "2026-10-06T08:31:17.161Z",
+      "summary": "Source task merged into shared-development 850c6fa; final CI 37433448853 11/11 verified by root. Original clean task branch fast-forwarded and pushed without force to the same green shared source, no new code. Scopes released.",
+      "nextAction": "Root catalog-price-integration continues server delivery and Apple acceptance."
     },
     {
       "id": "catalog-price-audit",
