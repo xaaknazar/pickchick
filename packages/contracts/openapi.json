@@ -22,10 +22,10 @@
             "schema": {
               "type": "string",
               "enum": [
-                "2"
+                "3"
               ]
             },
-            "description": "Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves."
+            "description": "Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=3 before reading or mutating saves."
           }
         ],
         "responses": {
@@ -78,10 +78,10 @@
             "schema": {
               "type": "string",
               "enum": [
-                "2"
+                "3"
               ]
             },
-            "description": "Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves."
+            "description": "Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=3 before reading or mutating saves."
           }
         ],
         "requestBody": {
@@ -10067,7 +10067,9 @@
                               "jam",
                               "juice",
                               "bouquet",
-                              "spring-bouquet"
+                              "spring-bouquet",
+                              "pancakes",
+                              "milkshake"
                             ]
                           },
                           "readyAt": {
@@ -10105,20 +10107,147 @@
                     "jam",
                     "juice",
                     "bouquet",
-                    "spring-bouquet"
+                    "spring-bouquet",
+                    "pancakes",
+                    "milkshake"
                   ]
                 },
                 "additionalProperties": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 1000000000
+                }
+              },
+              "land": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "pens": {
+                "maxItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "coop",
+                    "barn"
+                  ]
+                }
+              },
+              "animals": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "chicken",
+                        "cow"
+                      ]
+                    },
+                    "fedAt": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "fedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "nextAnimalId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "goods": {
+                "type": "object",
+                "properties": {
+                  "egg": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  },
+                  "milk": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  }
                 },
                 "required": [
-                  "jam",
-                  "juice",
-                  "bouquet",
-                  "spring-bouquet"
-                ]
+                  "egg",
+                  "milk"
+                ],
+                "additionalProperties": false
+              },
+              "board": {
+                "minItems": 3,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "gen": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "level": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "readyAt": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "gen",
+                    "level",
+                    "readyAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "daily": {
+                "type": "object",
+                "properties": {
+                  "day": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "streak": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "day",
+                  "streak"
+                ],
+                "additionalProperties": false
               },
               "claimedQuests": {
                 "maxItems": 20,
@@ -10470,7 +10599,9 @@
                   "jam",
                   "juice",
                   "bouquet",
-                  "spring-bouquet"
+                  "spring-bouquet",
+                  "pancakes",
+                  "milkshake"
                 ]
               }
             },
@@ -10520,7 +10651,9 @@
                   "jam",
                   "juice",
                   "bouquet",
-                  "spring-bouquet"
+                  "spring-bouquet",
+                  "pancakes",
+                  "milkshake"
                 ]
               },
               "quantity": {
@@ -10552,6 +10685,181 @@
             "required": [
               "type",
               "questId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "expandLand"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "buyPen"
+              },
+              "pen": {
+                "type": "string",
+                "enum": [
+                  "coop",
+                  "barn"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "pen"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "buyAnimal"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "chicken",
+                  "cow"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "feedAnimals"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "chicken",
+                  "cow"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "collectAnimals"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "chicken",
+                  "cow"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "sellGood"
+              },
+              "good": {
+                "type": "string",
+                "enum": [
+                  "egg",
+                  "milk"
+                ]
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000000
+              }
+            },
+            "required": [
+              "type",
+              "good",
+              "quantity"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "fulfillBoard"
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              }
+            },
+            "required": [
+              "type",
+              "slot"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "skipBoard"
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              }
+            },
+            "required": [
+              "type",
+              "slot"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "claimDaily"
+              }
+            },
+            "required": [
+              "type"
             ],
             "additionalProperties": false
           },
@@ -11250,7 +11558,9 @@
                       "jam",
                       "juice",
                       "bouquet",
-                      "spring-bouquet"
+                      "spring-bouquet",
+                      "pancakes",
+                      "milkshake"
                     ]
                   }
                 },
@@ -11300,7 +11610,9 @@
                       "jam",
                       "juice",
                       "bouquet",
-                      "spring-bouquet"
+                      "spring-bouquet",
+                      "pancakes",
+                      "milkshake"
                     ]
                   },
                   "quantity": {
@@ -11332,6 +11644,181 @@
                 "required": [
                   "type",
                   "questId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "expandLand"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "buyPen"
+                  },
+                  "pen": {
+                    "type": "string",
+                    "enum": [
+                      "coop",
+                      "barn"
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "pen"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "buyAnimal"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "chicken",
+                      "cow"
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "feedAnimals"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "chicken",
+                      "cow"
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "collectAnimals"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "chicken",
+                      "cow"
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "sellGood"
+                  },
+                  "good": {
+                    "type": "string",
+                    "enum": [
+                      "egg",
+                      "milk"
+                    ]
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  }
+                },
+                "required": [
+                  "type",
+                  "good",
+                  "quantity"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "fulfillBoard"
+                  },
+                  "slot": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
+                  }
+                },
+                "required": [
+                  "type",
+                  "slot"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "skipBoard"
+                  },
+                  "slot": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
+                  }
+                },
+                "required": [
+                  "type",
+                  "slot"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "claimDaily"
+                  }
+                },
+                "required": [
+                  "type"
                 ],
                 "additionalProperties": false
               },
@@ -11794,7 +12281,7 @@
           "minimumProtocol": {
             "type": "integer",
             "enum": [
-              2
+              3
             ]
           },
           "message": {

@@ -78,7 +78,11 @@ def journey(browser, width, height, legacy):
                     'channel_selection': 'automatic', 'whatsapp_fallback_enabled': False,
                     'terms_url': 'https://example.test/terms', 'privacy_url': 'https://example.test/privacy'}
         elif parsed.path.startswith('/v1/customer-farm'):
-            assert 'protocol=2' in r.request.url
+            # A current API runs protocol 3; an older one rejects it and the client steps down.
+            if legacy and 'protocol=3' in r.request.url:
+                return r.fulfill(status=503, json={'code': 'FARM_UNAVAILABLE', 'minimumProtocol': 2},
+                                 headers={'Access-Control-Allow-Origin': '*'})
+            assert ('protocol=2' if legacy else 'protocol=3') in r.request.url, r.request.url
             if r.request.method == 'POST':
                 body = r.request.post_data_json
                 command = body['command']

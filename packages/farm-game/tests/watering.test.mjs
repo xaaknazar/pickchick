@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createFarm,
+  createFarm as newFarm,
+  LAND_MAX,
   applyFarmCommand as run,
   FarmStateSchema,
   FarmCommandSchema,
@@ -17,6 +18,11 @@ import {
   BATCH_LIMIT,
   upgradeFarmState,
 } from '../dist/index.js';
+// These rules cover the whole 32x32 field: start from a farm with all land opened.
+const createFarm = (now) => {
+  const farm = newFarm(now);
+  return { ...farm, progression: { ...farm.progression, land: LAND_MAX } };
+};
 
 const HOUR = 3600000;
 function garden(count = 4, coins = 5000) {

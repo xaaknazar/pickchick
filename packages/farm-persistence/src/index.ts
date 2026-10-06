@@ -10,6 +10,8 @@ import {
   FarmGameError,
 } from '@pickchick/farm-game';
 export const FARM = Symbol('FARM');
+/** Rules version the API accepts. Clients on an older protocol are asked to update. */
+export { FARM_PROTOCOL } from '@pickchick/farm-game';
 export const FarmRequestSchema = z
   .object({
     commandId: z.uuid(),

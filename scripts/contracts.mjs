@@ -186,9 +186,9 @@ const openapi = {
             name: 'protocol',
             in: 'query',
             required: true,
-            schema: { type: 'string', enum: ['2'] },
+            schema: { type: 'string', enum: ['3'] },
             description:
-              'Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves.',
+              'Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=3 before reading or mutating saves.',
           },
         ],
         responses: {
@@ -207,9 +207,9 @@ const openapi = {
             name: 'protocol',
             in: 'query',
             required: true,
-            schema: { type: 'string', enum: ['2'] },
+            schema: { type: 'string', enum: ['3'] },
             description:
-              'Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=2 before reading or mutating saves.',
+              'Farm gameplay protocol. Older clients receive FARM_UNAVAILABLE with minimumProtocol=3 before reading or mutating saves.',
           },
         ],
         requestBody: {
@@ -449,7 +449,7 @@ const openapi = {
         properties: {
           code: { type: 'string' },
           state: { $ref: '#/components/schemas/FarmState' },
-          minimumProtocol: { type: 'integer', enum: [2] },
+          minimumProtocol: { type: 'integer', enum: [3] },
           message: { type: 'string' },
         },
       },

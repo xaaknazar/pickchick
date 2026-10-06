@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { fetch as expoFetch } from 'expo/fetch';
-import { CROPS, type FarmCommand, type FarmState } from '@pickchick/farm-game';
+import { CROPS, FARM_PROTOCOL, type FarmCommand, type FarmState } from '@pickchick/farm-game';
 import { API_URL } from '../../api';
 import { useAccount } from '../../useAccount';
 import { FarmClient, farmRequest } from './api';
@@ -185,6 +185,11 @@ export function useFarm() {
     loading: loading && !state,
     pending: pipeline?.pending ?? 0,
     watering: pipeline?.watering ?? true,
+    /**
+     * False while the API still runs protocol 2: land, animals, the order board, daily
+     * rewards and the new recipes stay hidden because that server would reject them.
+     */
+    v3: (pipeline?.confirmed?.protocol ?? FARM_PROTOCOL) >= 3,
     error,
     clearError: () => setError(null),
     retry: () => {

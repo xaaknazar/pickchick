@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { z } from 'zod';
 import {
-  createFarm,
+  createFarm as newFarm,
+  LAND_MAX,
   canRecoverFarm,
   applyFarmCommand as run,
   FarmStateSchema,
@@ -18,6 +19,11 @@ import {
   HOUSE_DISPLAY_CELL,
   isPlantingCell,
 } from '../dist/index.js';
+// These rules cover the whole 32x32 field: start from a farm with all land opened.
+const createFarm = (now) => {
+  const farm = newFarm(now);
+  return { ...farm, progression: { ...farm.progression, land: LAND_MAX } };
+};
 const bed = (state = createFarm(0), x = 16, y = 16) => run(state, { type: 'buyPlot', x, y }, 0);
 const plant = (state = bed(), cropId = 'carrot', now = 0) =>
   run(state, { type: 'plant', cropId, plotId: 0 }, now);

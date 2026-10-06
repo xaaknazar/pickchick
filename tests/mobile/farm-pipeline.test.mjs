@@ -7,7 +7,7 @@ const HOUR = 3600000;
 function garden(beds = 4) {
   let state = { ...createFarm(0), coins: 5000 };
   for (let i = 0; i < beds; i++)
-    state = applyFarmCommand(state, { type: 'buyPlot', x: 20 + i, y: 20 }, 0);
+    state = applyFarmCommand(state, { type: 'buyPlot', x: 28 + i, y: 28 }, 0);
   return state;
 }
 /** Fake Farm API: real engine, manual completion, optional old protocol (no new rules). */

@@ -195,9 +195,100 @@ export const RECIPES = [
     sellPrice: 82,
     rewardXp: 8,
   },
+  {
+    id: 'pancakes',
+    name: 'Блинчики с клубникой',
+    stationId: 'kitchen',
+    unlockLevel: 4,
+    seconds: 1200,
+    requires: { egg: 2, strawberry: 2 },
+    sellPrice: 72,
+    rewardXp: 6,
+  },
+  {
+    id: 'milkshake',
+    name: 'Клубничный милкшейк',
+    stationId: 'kitchen',
+    unlockLevel: 6,
+    seconds: 1800,
+    requires: { milk: 1, strawberry: 3 },
+    sellPrice: 96,
+    rewardXp: 8,
+  },
 ] as const;
+/** Client/server protocol of this rules version. Older clients are asked to update. */
+export const FARM_PROTOCOL = 3;
+export const GOODS = [
+  { id: 'egg', name: 'Яйцо', sellPrice: 14 },
+  { id: 'milk', name: 'Молоко', sellPrice: 38 },
+] as const;
+export type GoodId = (typeof GOODS)[number]['id'];
+export const PENS = [
+  { id: 'coop', name: 'Курятник', cost: 200, unlockLevel: 2, capacity: 6, animal: 'chicken' },
+  { id: 'barn', name: 'Коровник', cost: 500, unlockLevel: 5, capacity: 4, animal: 'cow' },
+] as const;
+export type PenId = (typeof PENS)[number]['id'];
+export const ANIMALS = [
+  {
+    id: 'chicken',
+    name: 'Курица',
+    pen: 'coop',
+    baseCost: 60,
+    costStep: 20,
+    feed: { carrot: 1 },
+    seconds: 1200,
+    good: 'egg',
+    rewardXp: 2,
+  },
+  {
+    id: 'cow',
+    name: 'Корова',
+    pen: 'barn',
+    baseCost: 160,
+    costStep: 50,
+    feed: { tomato: 2 },
+    seconds: 3600,
+    good: 'milk',
+    rewardXp: 4,
+  },
+] as const;
+export type AnimalKind = (typeof ANIMALS)[number]['id'];
+/** Land opens from a central 12x12 square to the full 32x32 field in five purchases. */
+export const LAND_EXPANSIONS = [
+  { cost: 300, unlockLevel: 2 },
+  { cost: 700, unlockLevel: 3 },
+  { cost: 1300, unlockLevel: 5 },
+  { cost: 2200, unlockLevel: 7 },
+  { cost: 3500, unlockLevel: 9 },
+] as const;
+export const LAND_MAX = LAND_EXPANSIONS.length;
+export const DAILY_REWARDS = [
+  { coins: 20, xp: 5 },
+  { coins: 30, xp: 8 },
+  { coins: 40, xp: 10 },
+  { coins: 50, xp: 12 },
+  { coins: 60, xp: 15 },
+  { coins: 80, xp: 18 },
+  { coins: 150, xp: 30 },
+] as const;
+export const BOARD_SLOTS = 3;
+export const BOARD_CUSTOMERS = [
+  'Алекс',
+  'Айгерим',
+  'Даурен',
+  'Мадина',
+  'Ерлан',
+  'Асель',
+  'Тимур',
+  'Жанна',
+] as const;
+const goodSchema = z.enum(GOODS.map((g) => g.id));
+const penSchema = z.enum(PENS.map((v) => v.id));
+const animalSchema = z.enum(ANIMALS.map((v) => v.id));
+
 const decorationId = z.enum(DECORATIONS.map((d) => d.id));
 const recipeId = z.enum(RECIPES.map((r) => r.id));
+export type RecipeId = (typeof RECIPES)[number]['id'];
 const stationId = z.enum(['kitchen', 'florist']);
 const decorationSchema = z
   .object({
@@ -257,7 +348,20 @@ const ProgressionSchema = z
       )
       .max(2),
     nextJobId: integer,
-    products: z.record(recipeId, bounded),
+    products: z.partialRecord(recipeId, bounded),
+    land: integer.max(LAND_EXPANSIONS.length).optional(),
+    pens: z.array(penSchema).max(PENS.length).optional(),
+    animals: z
+      .array(z.object({ id: integer, kind: animalSchema, fedAt: integer.nullable() }).strict())
+      .max(PENS.reduce((n, v) => n + v.capacity, 0))
+      .optional(),
+    nextAnimalId: integer.optional(),
+    goods: z.object({ egg: bounded, milk: bounded }).strict().optional(),
+    board: z
+      .array(z.object({ gen: integer, level: integer.max(100), readyAt: integer }).strict())
+      .length(BOARD_SLOTS)
+      .optional(),
+    daily: z.object({ day: integer, streak: integer }).strict().optional(),
     claimedQuests: z.array(z.string()).max(20),
     claimedGoals: z.array(z.string()).max(12),
     goalPeriod: integer,
@@ -282,7 +386,7 @@ function newProgression(): z.infer<typeof ProgressionSchema> {
     houseStyle: 'classic',
     stations: [],
     nextJobId: 0,
-    products: { jam: 0, juice: 0, bouquet: 0, 'spring-bouquet': 0 },
+    products: Object.fromEntries(RECIPES.map((r) => [r.id, 0])) as Record<RecipeId, number>,
     claimedQuests: [],
     claimedGoals: [],
     goalPeriod: 0,
@@ -340,6 +444,15 @@ const ProgressionCommands = [
   z.object({ type: z.literal('collectProduction'), stationId, jobId: integer }).strict(),
   z.object({ type: z.literal('sellProduct'), recipeId, quantity: bounded.min(1) }).strict(),
   z.object({ type: z.literal('claimQuest'), questId: z.string().min(1).max(40) }).strict(),
+  z.object({ type: z.literal('expandLand') }).strict(),
+  z.object({ type: z.literal('buyPen'), pen: penSchema }).strict(),
+  z.object({ type: z.literal('buyAnimal'), kind: animalSchema }).strict(),
+  z.object({ type: z.literal('feedAnimals'), kind: animalSchema }).strict(),
+  z.object({ type: z.literal('collectAnimals'), kind: animalSchema }).strict(),
+  z.object({ type: z.literal('sellGood'), good: goodSchema, quantity: bounded.min(1) }).strict(),
+  z.object({ type: z.literal('fulfillBoard'), slot: integer.max(BOARD_SLOTS - 1) }).strict(),
+  z.object({ type: z.literal('skipBoard'), slot: integer.max(BOARD_SLOTS - 1) }).strict(),
+  z.object({ type: z.literal('claimDaily') }).strict(),
   z
     .object({
       type: z.literal('claimGoal'),
@@ -491,6 +604,16 @@ export const FarmStateSchema = FarmStateBase.superRefine((state, ctx) => {
         jobs.add(j.id);
       }
     }
+    const animalIds = new Set<number>();
+    for (const a of p.animals ?? []) {
+      const pen = PENS.find((v) => v.animal === a.kind)!;
+      if (animalIds.has(a.id) || a.id >= (p.nextAnimalId ?? 0) || !(p.pens ?? []).includes(pen.id))
+        invalid();
+      animalIds.add(a.id);
+    }
+    for (const pen of PENS)
+      if ((p.animals ?? []).filter((a) => a.kind === pen.animal).length > pen.capacity) invalid();
+    if (new Set(p.pens ?? []).size !== (p.pens ?? []).length) invalid();
     if (
       new Set(p.claimedQuests).size !== p.claimedQuests.length ||
       p.claimedQuests.some((id) => !QUESTS.some((q) => q.id === id))
@@ -624,7 +747,7 @@ export function createFarm(now: number): FarmState {
     plots: [],
     inventory: { carrot: 0, tomato: 0, strawberry: 0, sunflower: 0, tulip: 0, apple: 0 },
     completedOrders: 0,
-    progression: newProgression(),
+    progression: { ...newProgression(), land: 0 },
   };
 }
 /** Per-cycle profit excludes bed acquisition; apple planting cost is the full first tree purchase. */
@@ -661,7 +784,9 @@ export function canRecoverFarm(input: FarmState, now: number): boolean {
     (!state.progression ||
       (state.progression.storedPlots.length === 0 &&
         state.progression.stations.every((station) => station.queue.length === 0) &&
-        Object.values(state.progression.products).every((n) => n === 0))) &&
+        Object.values(state.progression.products).every((n) => !n) &&
+        Object.values(state.progression.goods ?? {}).every((n) => !n) &&
+        !(state.progression.animals ?? []).some((a) => a.fedAt !== null))) &&
     Object.values(state.inventory).every((quantity) => quantity === 0) &&
     state.plots.every(
       (plot) => plot.kind === 'bed' && ['empty', 'withered'].includes(cropPhase(plot, now)),
@@ -694,6 +819,9 @@ export function applyFarmCommand(
   };
   const period = Math.floor(now / 86400000);
   const progression = state.progression!;
+  // v3 structures appear on the first command of a save; older saves keep their land.
+  for (const recipe of RECIPES) progression.products[recipe.id] ??= 0;
+  progression.board ??= boardEntries(state);
   if (progression.goalPeriod !== period) {
     progression.goalPeriod = period;
     progression.claimedGoals = progression.claimedGoals.filter((v) => v.startsWith('weekly:'));
@@ -713,9 +841,11 @@ export function applyFarmCommand(
     requireRule(canRecoverFarm(state, now), 'RECOVERY_NOT_AVAILABLE');
     let plot = state.plots[0];
     if (!plot) {
-      const freeCell = Array.from({ length: 1024 }, (_, i) => ({
-        x: 16 + (i % 32),
-        y: 16 + Math.floor(i / 32),
+      const b = landBounds(state);
+      const side = b.maxX - b.minX + 1;
+      const freeCell = Array.from({ length: side * side }, (_, i) => ({
+        x: b.minX + (i % side),
+        y: b.minY + Math.floor(i / side),
       })).find(
         (cell) => !state.progression!.decorations.some((d) => d.x === cell.x && d.y === cell.y),
       );
@@ -780,7 +910,7 @@ export function applyFarmCommand(
     if (command.type === 'removePlot') {
       state.plots = state.plots.filter((candidate) => candidate.id !== plot.id);
     } else if (command.type === 'movePlot') {
-      requireRule(isPlantingCell(command.x, command.y), 'CELL_OUTSIDE_FIELD');
+      requireUnlocked(state, command.x, command.y);
       requireRule(!(command.x === HOUSE_CELL.x && command.y === HOUSE_CELL.y), 'CELL_RESERVED');
       requireRule(
         !state.plots.some(
@@ -829,7 +959,7 @@ export function applyFarmCommand(
     state.progression!.orders += 1;
   } else {
     requireRule(state.plots.length + state.progression!.storedPlots.length < 1024, 'MAX_PLOTS');
-    requireRule(isPlantingCell(command.x, command.y), 'CELL_OUTSIDE_FIELD');
+    requireUnlocked(state, command.x, command.y);
     requireRule(!(command.x === HOUSE_CELL.x && command.y === HOUSE_CELL.y), 'CELL_RESERVED');
     requireRule(
       !state.plots.some((plot) => plot.x === command.x && plot.y === command.y) &&
@@ -1094,7 +1224,7 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
   const p = state.progression!;
   const level = levelForXp(state.xp);
   const free = (x: number, y: number, ignore?: number) => {
-    requireRule(isPlantingCell(x, y), 'CELL_OUTSIDE_FIELD');
+    requireUnlocked(state, x, y);
     requireRule(
       !state.plots.some((v) => v.x === x && v.y === y) &&
         !p.decorations.some((v) => v.id !== ignore && v.x === x && v.y === y),
@@ -1168,12 +1298,12 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     requireRule(!!station, 'STATION_NOT_OWNED');
     requireRule(level >= recipe.unlockLevel, 'RECIPE_LOCKED');
     requireRule(station.queue.length < 3, 'QUEUE_FULL');
-    const needs = Object.entries(recipe.requires) as [CropId, number][];
+    const needs = Object.entries(recipe.requires) as [ItemId, number][];
     requireRule(
-      needs.every(([id, n]) => state.inventory[id] >= n),
+      needs.every(([id, n]) => itemCount(state, id) >= n),
       'INSUFFICIENT_INVENTORY',
     );
-    for (const [id, n] of needs) state.inventory[id] -= n;
+    for (const [id, n] of needs) takeItem(state, id, n);
     station.queue.push({
       id: p.nextJobId++,
       recipeId: recipe.id,
@@ -1185,14 +1315,97 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     requireRule(!!station && !!job, 'JOB_NOT_FOUND');
     requireRule(now >= job.readyAt, 'PRODUCTION_NOT_READY');
     const recipe = RECIPES.find((v) => v.id === job.recipeId)!;
-    p.products[job.recipeId]++;
+    p.products[job.recipeId] = (p.products[job.recipeId] ?? 0) + 1;
     p.produced++;
     state.xp += recipe.rewardXp;
     station.queue = station.queue.filter((v) => v.id !== job.id);
   } else if (c.type === 'sellProduct') {
-    requireRule(p.products[c.recipeId] >= c.quantity, 'INSUFFICIENT_INVENTORY');
-    p.products[c.recipeId] -= c.quantity;
+    requireRule((p.products[c.recipeId] ?? 0) >= c.quantity, 'INSUFFICIENT_INVENTORY');
+    p.products[c.recipeId] = (p.products[c.recipeId] ?? 0) - c.quantity;
     state.coins += RECIPES.find((v) => v.id === c.recipeId)!.sellPrice * c.quantity;
+  } else if (c.type === 'expandLand') {
+    const current = p.land ?? LAND_MAX;
+    requireRule(current < LAND_MAX, 'LAND_MAX');
+    const next = LAND_EXPANSIONS[current]!;
+    requireRule(level >= next.unlockLevel, 'LAND_LOCKED');
+    pay(next.cost);
+    p.land = current + 1;
+  } else if (c.type === 'buyPen') {
+    const pen = PENS.find((v) => v.id === c.pen)!;
+    requireRule(level >= pen.unlockLevel, 'PEN_LOCKED');
+    requireRule(!(p.pens ?? []).includes(pen.id), 'PEN_OWNED');
+    pay(pen.cost);
+    p.pens = [...(p.pens ?? []), pen.id];
+  } else if (c.type === 'buyAnimal') {
+    const animal = ANIMALS.find((v) => v.id === c.kind)!;
+    const pen = PENS.find((v) => v.id === animal.pen)!;
+    requireRule((p.pens ?? []).includes(pen.id), 'PEN_NOT_OWNED');
+    const owned = (p.animals ?? []).filter((v) => v.kind === animal.id).length;
+    requireRule(owned < pen.capacity, 'PEN_FULL');
+    pay(animalCost(state, animal.id));
+    const id = p.nextAnimalId ?? 0;
+    p.animals = [...(p.animals ?? []), { id, kind: animal.id, fedAt: null }];
+    p.nextAnimalId = id + 1;
+  } else if (c.type === 'feedAnimals') {
+    const animal = ANIMALS.find((v) => v.id === c.kind)!;
+    const hungry = (p.animals ?? []).filter((v) => v.kind === animal.id && v.fedAt === null);
+    requireRule(hungry.length > 0, 'ANIMALS_NOT_HUNGRY');
+    const feed = Object.entries(animal.feed) as [CropId, number][];
+    let fed = 0;
+    for (const v of hungry) {
+      if (!feed.every(([id, n]) => state.inventory[id] >= n)) break;
+      for (const [id, n] of feed) state.inventory[id] -= n;
+      v.fedAt = now;
+      fed++;
+    }
+    requireRule(fed > 0, 'INSUFFICIENT_FEED');
+  } else if (c.type === 'collectAnimals') {
+    const animal = ANIMALS.find((v) => v.id === c.kind)!;
+    const ready = (p.animals ?? []).filter(
+      (v) => v.kind === animal.id && v.fedAt !== null && now >= v.fedAt + animal.seconds * 1000,
+    );
+    requireRule(ready.length > 0, 'ANIMALS_NOT_READY');
+    const goods = p.goods ?? { egg: 0, milk: 0 };
+    for (const v of ready) {
+      v.fedAt = null;
+      goods[animal.good] += 1;
+      state.xp += animal.rewardXp;
+    }
+    p.goods = goods;
+  } else if (c.type === 'sellGood') {
+    const goods = p.goods ?? { egg: 0, milk: 0 };
+    requireRule(goods[c.good] >= c.quantity, 'INSUFFICIENT_INVENTORY');
+    goods[c.good] -= c.quantity;
+    p.goods = goods;
+    state.coins += GOODS.find((g) => g.id === c.good)!.sellPrice * c.quantity;
+  } else if (c.type === 'fulfillBoard' || c.type === 'skipBoard') {
+    const board = p.board!;
+    const entry = board[c.slot]!;
+    if (c.type === 'fulfillBoard') {
+      requireRule(now >= entry.readyAt, 'BOARD_NOT_READY');
+      const order = boardOrder(c.slot, entry);
+      const needs = Object.entries(order.requires) as [ItemId, number][];
+      requireRule(
+        needs.every(([id, n]) => itemCount(state, id) >= n),
+        'ORDER_NOT_READY',
+      );
+      for (const [id, n] of needs) takeItem(state, id, n);
+      state.coins += order.rewardCoins;
+      state.xp += order.rewardXp;
+      state.completedOrders += 1;
+      p.orders += 1;
+    } else requireRule(now >= entry.readyAt, 'BOARD_NOT_READY');
+    board[c.slot] = {
+      gen: entry.gen + BOARD_SLOTS,
+      level: Math.min(100, levelForXp(state.xp)),
+      readyAt: now + (c.type === 'fulfillBoard' ? 60_000 : 300_000),
+    };
+  } else if (c.type === 'claimDaily') {
+    const status = dailyStatus(state, now);
+    requireRule(status.available, 'REWARD_CLAIMED');
+    p.daily = { day: Math.floor(now / 86400000), streak: status.streak };
+    state.coins += status.reward.coins;
+    state.xp += status.reward.xp;
   } else if (c.type === 'claimQuest') {
     const q = questProgress(state).find((v) => v.id === c.questId);
     requireRule(!!q, 'QUEST_NOT_FOUND');
@@ -1277,4 +1490,114 @@ export function goalProgress(state: FarmState, now: number) {
     rewardCoins: g.id === 'weekly-garden' ? 50 : 10,
     rewardXp: g.id === 'weekly-garden' ? 60 : 20,
   }));
+}
+
+// ---- v3 helpers ------------------------------------------------------------------------
+export type ItemId = CropId | GoodId | RecipeId;
+export function itemInfo(id: ItemId): { name: string; sellPrice: number } {
+  return (
+    CROPS.find((v) => v.id === id) ??
+    GOODS.find((v) => v.id === id) ??
+    RECIPES.find((v) => v.id === id)!
+  );
+}
+export function itemCount(state: FarmState, id: ItemId): number {
+  if (id in state.inventory) return state.inventory[id as CropId];
+  const p = getProgression(state);
+  if (id === 'egg' || id === 'milk') return p.goods?.[id] ?? 0;
+  return p.products[id as RecipeId] ?? 0;
+}
+function takeItem(state: FarmState, id: ItemId, n: number) {
+  const p = state.progression!;
+  if (id in state.inventory) state.inventory[id as CropId] -= n;
+  else if (id === 'egg' || id === 'milk') {
+    p.goods = p.goods ?? { egg: 0, milk: 0 };
+    p.goods[id] -= n;
+  } else p.products[id as RecipeId] = (p.products[id as RecipeId] ?? 0) - n;
+}
+/** Unlocked land; saves made before land expansion keep the whole 32x32 field. */
+export function landBounds(state: FarmState) {
+  const land = getProgression(state).land ?? LAND_MAX;
+  const half = 6 + 2 * land;
+  return { minX: 32 - half, maxX: 31 + half, minY: 32 - half, maxY: 31 + half, land };
+}
+export function isUnlockedCell(state: FarmState, x: number, y: number): boolean {
+  const b = landBounds(state);
+  return isPlantingCell(x, y) && x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY;
+}
+function requireUnlocked(state: FarmState, x: number, y: number) {
+  requireRule(isPlantingCell(x, y), 'CELL_OUTSIDE_FIELD');
+  requireRule(isUnlockedCell(state, x, y), 'CELL_LOCKED');
+}
+export function nextLandExpansion(state: FarmState) {
+  const land = landBounds(state).land;
+  return land < LAND_MAX ? { ...LAND_EXPANSIONS[land]!, size: 16 + 4 * land } : null;
+}
+export function animalCost(state: FarmState, kind: AnimalKind): number {
+  const animal = ANIMALS.find((v) => v.id === kind)!;
+  const owned = (getProgression(state).animals ?? []).filter((v) => v.kind === kind).length;
+  return animal.baseCost + animal.costStep * owned;
+}
+export function animalStatus(state: FarmState, kind: AnimalKind, now: number) {
+  const animal = ANIMALS.find((v) => v.id === kind)!;
+  const list = (getProgression(state).animals ?? []).filter((v) => v.kind === kind);
+  const ready = list.filter((v) => v.fedAt !== null && now >= v.fedAt + animal.seconds * 1000);
+  const hungry = list.filter((v) => v.fedAt === null);
+  const busy = list.filter((v) => v.fedAt !== null && now < v.fedAt + animal.seconds * 1000);
+  const nextReadyAt = busy.length
+    ? Math.min(...busy.map((v) => v.fedAt! + animal.seconds * 1000))
+    : null;
+  return { animal, list, ready, hungry, busy, nextReadyAt };
+}
+function mix(a: number, b: number) {
+  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return h >>> 0;
+}
+/** Board as stored, or the first three orders of a save that has none yet. */
+export function boardEntries(state: FarmState) {
+  const p = getProgression(state);
+  const level = Math.min(100, levelForXp(state.xp));
+  return p.board ?? [0, 1, 2].map((gen) => ({ gen, level, readyAt: 0 }));
+}
+/** Deterministic board order: the same slot entry always describes the same request. */
+export function boardOrder(slot: number, entry: { gen: number; level: number }) {
+  const h = (i: number) => mix(entry.gen * 7 + slot, i);
+  const pool: ItemId[] = ['carrot', 'strawberry', 'tomato', 'sunflower', 'tulip', 'apple'];
+  if (entry.level >= 3) pool.push('egg');
+  if (entry.level >= 5) pool.push('jam', 'pancakes');
+  if (entry.level >= 6) pool.push('milk', 'bouquet');
+  const kinds = Math.min(3, 1 + (h(1) % 2) + (entry.level >= 5 ? 1 : 0));
+  const requires: Partial<Record<ItemId, number>> = {};
+  for (let i = 0; Object.keys(requires).length < kinds && i < 12; i++) {
+    const id = pool[h(10 + i) % pool.length]!;
+    if (requires[id]) continue;
+    const crop = CROPS.some((v) => v.id === id);
+    const base = crop ? 2 + (h(30 + i) % 3) + Math.floor(entry.level / 3) : 1 + (h(30 + i) % 2);
+    requires[id] = Math.min(crop ? 12 : 3, base);
+  }
+  const value = (Object.entries(requires) as [ItemId, number][]).reduce(
+    (sum, [id, n]) => sum + itemInfo(id).sellPrice * n,
+    0,
+  );
+  const count = Object.values(requires).reduce((a, b) => a + (b ?? 0), 0);
+  return {
+    customer: BOARD_CUSTOMERS[h(2) % BOARD_CUSTOMERS.length]!,
+    requires,
+    rewardCoins: Math.round(value * 1.25) + 5,
+    rewardXp: Math.min(30, 2 + count),
+  };
+}
+export function dailyStatus(state: FarmState, now: number) {
+  const day = Math.floor(now / 86400000);
+  const last = getProgression(state).daily;
+  const available = last?.day !== day;
+  const streak = !available ? last!.streak : last && last.day === day - 1 ? last.streak + 1 : 1;
+  return {
+    available,
+    streak,
+    reward: DAILY_REWARDS[(streak - 1) % DAILY_REWARDS.length]!,
+  };
 }

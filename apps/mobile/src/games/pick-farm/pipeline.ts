@@ -5,7 +5,7 @@ import {
   type FarmState,
 } from '@pickchick/farm-game';
 
-type Snapshot = { state: FarmState; serverNow: number };
+type Snapshot = { state: FarmState; serverNow: number; protocol?: number };
 /** Serial transport. One request at a time; the durable intent lives in FarmClient. */
 export type FarmLane = {
   send(command: FarmCommand): Promise<Snapshot>;

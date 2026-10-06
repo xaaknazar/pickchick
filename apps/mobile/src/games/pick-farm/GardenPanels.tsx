@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import {
-  CROPS,
   DECORATIONS,
   RECIPES,
   questProgress,
@@ -9,9 +8,11 @@ import {
   levelForXp,
   goalProgress,
   LEVEL_XP,
+  itemCount,
+  itemInfo,
   type FarmCommand,
   type FarmState,
-  type CropId,
+  type ItemId,
 } from '@pickchick/farm-game';
 import { Icon } from '../../components/UI';
 import { farmPalette as p, farmStyles as s } from './styles';
@@ -340,16 +341,17 @@ export function GardenPanels({
               contentContainerStyle={{ gap: 10, paddingBottom: 10 }}
             >
               {RECIPES.filter((r) => r.stationId === id).map((recipe) => {
-                const needs = Object.entries(recipe.requires) as [CropId, number][];
+                const needs = Object.entries(recipe.requires) as [ItemId, number][];
+                const stock = progress.products[recipe.id] ?? 0;
                 return (
                   <View key={recipe.id} style={[s.choice, { width: 210 }]}>
                     <Text style={s.choiceName}>{recipe.name}</Text>
                     <Text style={s.muted}>
                       {Math.ceil(recipe.seconds / 60)} мин · продажа {recipe.sellPrice} монет
                     </Text>
-                    {needs.map(([crop, n]) => (
-                      <Text key={crop} style={s.muted}>
-                        {CROPS.find((c) => c.id === crop)?.name}: {state.inventory[crop]} / {n}
+                    {needs.map(([item, n]) => (
+                      <Text key={item} style={s.muted}>
+                        {itemInfo(item).name}: {itemCount(state, item)} / {n}
                       </Text>
                     ))}
                     <Action
@@ -362,20 +364,20 @@ export function GardenPanels({
                         !station ||
                         station.queue.length >= 3 ||
                         level < recipe.unlockLevel ||
-                        needs.some(([crop, n]) => state.inventory[crop] < n)
+                        needs.some(([item, n]) => itemCount(state, item) < n)
                       }
                       onPress={() => act({ type: 'startProduction', recipeId: recipe.id })}
                     />
-                    {progress.products[recipe.id] > 0 && (
+                    {stock > 0 && (
                       <Action
                         testID={`pick-farm-product-${recipe.id}`}
-                        label={`Продать ${progress.products[recipe.id]} · ${progress.products[recipe.id] * recipe.sellPrice}`}
+                        label={`Продать ${stock} · ${stock * recipe.sellPrice}`}
                         disabled={busy}
                         onPress={() =>
                           act({
                             type: 'sellProduct',
                             recipeId: recipe.id,
-                            quantity: progress.products[recipe.id],
+                            quantity: stock,
                           })
                         }
                       />

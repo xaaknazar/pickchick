@@ -10,6 +10,7 @@ import {
   goalProgress,
   levelForXp,
   nextLandCost,
+  nextLandExpansion,
 } from '../dist/index.js';
 /** Server transitions for a modest mixed garden; no fabricated XP or money injections. */
 export function simulateProgression({
@@ -64,10 +65,21 @@ export function simulateProgression({
       const excess = Math.max(0, state.inventory[c.id] - 6);
       if (excess) act({ type: 'sell', cropId: c.id, quantity: excess }, now);
     }
+    // v3 loop: daily reward, land, coop and chickens, the order board.
+    act({ type: 'claimDaily' }, now);
+    act({ type: 'collectAnimals', kind: 'chicken' }, now);
+    act({ type: 'feedAnimals', kind: 'chicken' }, now);
+    for (let slot = 0; slot < 3; slot++) act({ type: 'fulfillBoard', slot }, now);
+    const land = nextLandExpansion(state);
+    if (land && state.coins > land.cost + 300) act({ type: 'expandLand' }, now);
+    if (state.coins > 400) act({ type: 'buyPen', pen: 'coop' }, now);
+    if (state.coins > 300) act({ type: 'buyAnimal', kind: 'chicken' }, now);
+    if (state.progression.goods?.egg > 6)
+      act({ type: 'sellGood', good: 'egg', quantity: state.progression.goods.egg - 6 }, now);
     for (const g of goalProgress(state, now))
       if (!g.claimed && g.progress >= g.target) act({ type: 'claimGoal', goalId: g.id }, now);
     while (state.plots.length < 8 && state.coins >= nextLandCost(state, 'bed') + 80)
-      act({ type: 'buyPlot', x: 16 + state.nextPlotId, y: 16 }, now);
+      if (!act({ type: 'buyPlot', x: 26 + state.nextPlotId, y: 26 }, now)) break;
     for (const p of state.plots)
       if (!p.cropId)
         act(
@@ -85,8 +97,8 @@ export function simulateProgression({
           {
             type: 'buyDecoration',
             decorationId: d.id,
-            x: 16 + state.progression.decorations.length,
-            y: 18,
+            x: 26 + state.progression.decorations.length,
+            y: 28,
           },
           now,
         )
@@ -110,6 +122,9 @@ export function simulateProgression({
     orders: state.completedOrders,
     produced: state.progression.produced,
     chapters: state.progression.claimedQuests.length,
+    land: state.progression.land,
+    chickens: state.progression.animals?.length ?? 0,
+    eggs: state.progression.goods?.egg ?? 0,
     milestones,
   };
 }

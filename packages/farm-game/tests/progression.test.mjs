@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createFarm,
+  createFarm as newFarm,
+  LAND_MAX,
   applyFarmCommand as run,
   cropPhase,
   cropTiming,
@@ -10,6 +11,11 @@ import {
   FarmStateSchema,
   nextLandCost,
 } from '../dist/index.js';
+// These checks predate land expansion: start from a farm with all land opened.
+const createFarm = (now) => {
+  const farm = newFarm(now);
+  return { ...farm, progression: { ...farm.progression, land: LAND_MAX } };
+};
 const plant = () =>
   run(
     run(createFarm(0), { type: 'buyPlot', x: 16, y: 16 }, 0),
