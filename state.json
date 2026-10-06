@@ -3147,11 +3147,11 @@
         "tests/mobile/browser_farm_v2.py",
         "tests/mobile/browser_pick_farm.py"
       ],
-      "status": "active",
+      "status": "available",
       "head": "1a423a099107e50d605436c0f8b8ee9aac9bed90",
-      "updatedAt": "2026-10-06T07:59:52.838Z",
-      "summary": "PR #193, 34e3ef3: мгновенные действия (prediction pipeline), полив water/waterMany, harvestMany/plantMany, точность касаний, камера, HUD, FX, полоса семян. 33 engine + 28 mobile, tsc/eslint/prettier, contracts:check, PostgreSQL16, browser_farm_v2 (844/667 + старый API), browser_farm_progression прошли. openapi.json изменён с согласия владельца (резерв farm-progression-api не закрыт). Physical/API/TestFlight не выполнялись.",
-      "nextAction": "Проверить CI PR #193, интегрировать в shared-development без force и finish; Mac1 - закрыть farm-progression-api. Затем API с новым движком (без миграций), TestFlight, физический iPhone."
+      "updatedAt": "2026-10-06T07:59:55.971Z",
+      "summary": "PR #193, 1a423a0: мгновенные действия, полив water/waterMany, harvestMany/plantMany, точность касаний, камера, HUD, FX, полоса семян. Локально: 33 engine, 28 mobile, tsc/eslint/prettier, contracts, PostgreSQL16, browser_farm_v2 (844/667 + старый API), browser_farm_progression. CI 37430727748: check/farm/mobile зелёные; audit:release (новые advisories, deps не менялись) и прежние POS browser красные. openapi.json изменён с согласия владельца.",
+      "nextAction": "Владельцу: ревью PR #193 и слияние в shared-development (агенту слияние без ревью запрещено), затем finish. Mac1: закрыть farm-progression-api. Далее API с новым движком без миграций, TestFlight, физический iPhone."
     }
   ]
 }
