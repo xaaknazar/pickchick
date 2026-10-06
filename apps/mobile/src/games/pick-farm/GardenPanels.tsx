@@ -84,6 +84,7 @@ export function GardenPanels({
   busy,
   act,
   place,
+  v3 = true,
 }: {
   panel: GardenPanel;
   state: FarmState;
@@ -91,6 +92,8 @@ export function GardenPanels({
   busy: boolean;
   act(command: FarmCommand): void;
   place(value: GardenPlacement): void;
+  /** Recipes with eggs or milk need protocol 3; an older Farm API does not know them. */
+  v3?: boolean;
 }) {
   const [journalTab, setJournalTab] = useState<'story' | 'daily'>('story');
   const progress = getProgression(state),
@@ -340,7 +343,11 @@ export function GardenPanels({
               style={{ flexShrink: 0, flexGrow: 0 }}
               contentContainerStyle={{ gap: 10, paddingBottom: 10 }}
             >
-              {RECIPES.filter((r) => r.stationId === id).map((recipe) => {
+              {RECIPES.filter(
+                (r) =>
+                  r.stationId === id &&
+                  (v3 || !Object.keys(r.requires).some((k) => k === 'egg' || k === 'milk')),
+              ).map((recipe) => {
                 const needs = Object.entries(recipe.requires) as [ItemId, number][];
                 const stock = progress.products[recipe.id] ?? 0;
                 return (

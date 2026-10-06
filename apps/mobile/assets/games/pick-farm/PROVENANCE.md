@@ -119,3 +119,19 @@ on every cell. `grass-tile.png` (192x192, one cell, seamless) and `grass-block.p
 same tile 8x8) are original procedural art from `src/games/pick-farm/build-grass-tile.py`
 (seeded NumPy noise and Pillow strokes, deterministic). `meadow-painted-v2.png` is no longer
 used and was removed from the app bundle; it remains in Git history.
+
+## Farm v3: animals, buildings, scenery, sounds - 2026-10-06
+
+All original procedural assets, deterministic (seeded), no third-party artwork or samples:
+
+- `build-grass-tile.py` now also draws three variants of the grass cell (wildflowers,
+  clover, pebbles) that share the seamless base; `grass-block.png` mixes them at random.
+- `build-v3-art.py` (Pillow + NumPy, small isometric helper in the game's 2:1 projection,
+  gradients, soft shadows, light brush grain, 4x supersampling): `coop.png`, `barn.png`,
+  `chicken.png`, `cow.png`, `egg.png`, `milk.png`, `sale-sign.png`, `bush-a.png`,
+  `bush-b.png`, `rock.png`, `flowers-a.png`, `flowers-b.png`, `tree-round.png`,
+  `tree-dark.png`, `pond.png`. The script prints the yard anchors used in
+  `src/games/pick-farm/ranch-layout.ts`; rerun both together if the art changes.
+- `build-sounds.py` (NumPy synthesis, 22.05 kHz mono WAV): `water.wav`, `plant.wav`,
+  `coin.wav`, `level.wav`, `cluck.wav`, `moo.wav`, `tap.wav`. `garden-harvest.wav` is the
+  earlier harvest chime and is unchanged.

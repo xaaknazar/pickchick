@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import { Animated, Easing, Image, Pressable, Text, View } from 'react-native';
 import type { CropId } from '@pickchick/farm-game';
 import { Icon, type IconName } from '../../components/UI';
 import { font } from '../../theme';
@@ -15,6 +15,7 @@ export type FarmFx =
       to: Point;
       cropId?: CropId;
       coin?: boolean;
+      good?: 'egg' | 'milk';
       delay: number;
     }
   | { id: number; kind: 'water'; at: Point; size: number }
@@ -100,6 +101,12 @@ function Fly({ fx, onDone }: { fx: Extract<FarmFx, { kind: 'fly' }>; onDone(id: 
     >
       {fx.coin ? (
         <Coin size={size} />
+      ) : fx.good ? (
+        <Image
+          source={goodArt[fx.good]}
+          accessible={false}
+          style={{ width: size, height: size, resizeMode: 'contain' }}
+        />
       ) : fx.cropId ? (
         <CropArt cropId={fx.cropId} size={size} />
       ) : null}
@@ -107,6 +114,10 @@ function Fly({ fx, onDone }: { fx: Extract<FarmFx, { kind: 'fly' }>; onDone(id: 
   );
 }
 
+const goodArt = {
+  egg: require('../../../assets/games/pick-farm/egg.png'),
+  milk: require('../../../assets/games/pick-farm/milk.png'),
+};
 const can = require('../../../assets/games/pick-farm/watering-can.png');
 /** The watering can tips over the bed and a short shower falls on the soil. */
 function Water({

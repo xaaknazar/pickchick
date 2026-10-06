@@ -38,6 +38,8 @@ if (p.build) {
   now += 1800 * 1000 + 1000;
   for (const plot of s.plots.filter((v) => v.kind === 'bed' && v.y === 30)) run({type: 'plant', plotId: plot.id, cropId: 'tomato'});
   s.coins = 3000;
+  // Today's gift is already taken, so the daily card does not cover this journey.
+  s.progression.daily = {day: Math.floor(now / 86400000), streak: 1};
   s.revision += 1;
   console.log(JSON.stringify({state: s, now}));
 } else {

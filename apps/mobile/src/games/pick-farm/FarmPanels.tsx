@@ -23,6 +23,7 @@ import { Icon, type IconName } from '../../components/UI';
 import { GardenArt } from './GardenArt';
 import { CropArt } from './visuals';
 import { farmPalette as p, farmStyles as s } from './styles';
+import { BoardCards, GoodsCards } from './RanchPanels';
 
 export type BasicPanel =
   | 'decoration'
@@ -144,10 +145,22 @@ export type FarmPanelProps = {
   decorationId: number | null;
   watering: boolean;
   sound: boolean;
+  /** Protocol 3 features (land, animals, board, daily); off against an older Farm API. */
+  v3: boolean;
   destination: 'sell' | 'storage';
   act(command: FarmCommand, options?: { close?: boolean }): void;
   setPanel(
-    panel: BasicPanel | 'place' | 'garden' | 'workshop' | 'belongings' | 'house' | null,
+    panel:
+      | BasicPanel
+      | 'place'
+      | 'garden'
+      | 'workshop'
+      | 'belongings'
+      | 'house'
+      | 'coop'
+      | 'barn'
+      | 'land'
+      | null,
   ): void;
   choosePlacement(kind: 'bed' | 'tree'): void;
   chooseSeed(cropId: CropId): void;
@@ -204,6 +217,28 @@ export function FarmPanel(props: FarmPanelProps) {
               onPress={() => props.choosePlacement('tree')}
             />
           </View>
+          {props.v3 && (
+            <View style={[s.row, { flexWrap: 'wrap', marginBottom: 10 }]}>
+              <Button
+                label="Расширить землю"
+                icon="expand-outline"
+                testID="pick-farm-shop-land"
+                onPress={() => setPanel('land')}
+              />
+              <Button
+                label="Курятник"
+                icon="egg-outline"
+                testID="pick-farm-shop-coop"
+                onPress={() => setPanel('coop')}
+              />
+              <Button
+                label="Коровник"
+                icon="home-outline"
+                testID="pick-farm-shop-barn"
+                onPress={() => setPanel('barn')}
+              />
+            </View>
+          )}
           <View style={[s.row, { flexWrap: 'wrap', marginBottom: 12 }]}>
             {(
               [
@@ -415,13 +450,16 @@ export function FarmPanel(props: FarmPanelProps) {
     return (
       <>
         <Text style={[s.muted, { marginBottom: 12 }]}>
-          Продайте урожай или сохраните его для заказов.
+          {props.v3
+            ? 'Продайте урожай или сохраните его для заказов и корма животным.'
+            : 'Продайте урожай или сохраните его для заказов.'}
         </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 8 }}
         >
+          {props.v3 && <GoodsCards state={state} act={act} />}
           {CROPS.map((item) => {
             const needs = Object.entries(
               ORDERS.find((o) => o.id === progression.reserveOrderId)?.requires ?? {},
@@ -459,6 +497,8 @@ export function FarmPanel(props: FarmPanelProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 10 }}
       >
+        {props.v3 && <BoardCards state={state} now={now} act={act} />}
+        {props.v3 && <View style={{ width: 2, borderRadius: 1, backgroundColor: p.border }} />}
         {ORDERS.map((order) => {
           const needs = Object.entries(order.requires) as [CropId, number][];
           const available = needs.every(([id, n]) => state.inventory[id] >= n);

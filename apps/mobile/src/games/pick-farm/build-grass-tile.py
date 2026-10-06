@@ -97,9 +97,58 @@ img = Image.alpha_composite(img, layer)
 tile = img.resize((TILE, TILE), Image.LANCZOS).convert('RGB')
 OUT.mkdir(parents=True, exist_ok=True)
 tile.save(OUT / 'grass-tile.png', optimize=True)
+
+# Variants share the tile's wrapped base; extra details stay inside a margin, so any two
+# variants still meet seamlessly. 0 plain, 1 wildflowers, 2 clover, 3 pebbles.
+MARGIN = 34 * SCALE
+
+
+def interior():
+    return rng.uniform(MARGIN, S - MARGIN), rng.uniform(MARGIN, S - MARGIN)
+
+
+def variant(kind):
+    out = img.copy()
+    extra = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(extra)
+    if kind == 1:
+        petal = rng.choice([(255, 252, 238), (255, 226, 92), (250, 196, 214)])
+        cx, cy = interior()
+        for _ in range(7):
+            x = min(S - MARGIN, max(MARGIN, cx + rng.uniform(-110, 110)))
+            y = min(S - MARGIN, max(MARGIN, cy + rng.uniform(-90, 90)))
+            d.line([(x, y), (x - 8, y + 34)], fill=(84, 128, 40, 230), width=7)
+            for a in range(5):
+                ang = a * 2 * math.pi / 5 + rng.uniform(0, 1)
+                px, py = x + math.cos(ang) * 13, y + math.sin(ang) * 13
+                d.ellipse((px - 12, py - 12, px + 12, py + 12), fill=petal + (250,))
+            d.ellipse((x - 8, y - 8, x + 8, y + 8), fill=(236, 170, 40, 255))
+    elif kind == 2:
+        for _ in range(3):
+            cx, cy = interior()
+            for _ in range(14):
+                x, y = cx + rng.uniform(-60, 60), cy + rng.uniform(-40, 40)
+                for a in range(3):
+                    ang = a * 2 * math.pi / 3 + rng.uniform(0, 0.5)
+                    px, py = x + math.cos(ang) * 9, y + math.sin(ang) * 9
+                    d.ellipse((px - 9, py - 8, px + 9, py + 8), fill=(70, 124, 38, 170))
+    elif kind == 3:
+        for _ in range(5):
+            x, y = interior()
+            r = rng.uniform(14, 26)
+            d.ellipse((x - r, y - r * 0.7 + 4, x + r, y + r * 0.7 + 4), fill=(60, 80, 30, 90))
+            g = rng.randint(150, 190)
+            d.ellipse((x - r, y - r * 0.7, x + r, y + r * 0.7), fill=(g, g - 6, g - 20, 255))
+            d.ellipse((x - r * 0.5, y - r * 0.5, x + r * 0.1, y - r * 0.1), fill=(235, 230, 214, 150))
+    extra = extra.filter(ImageFilter.GaussianBlur(0.9))
+    return Image.alpha_composite(out, extra).resize((TILE, TILE), Image.LANCZOS).convert('RGB')
+
+
+tiles = [tile] + [variant(k) for k in (1, 2, 3)]
 block = Image.new('RGB', (TILE * 8, TILE * 8))
 for by in range(8):
     for bx in range(8):
-        block.paste(tile, (bx * TILE, by * TILE))
+        r = rng.random()
+        block.paste(tiles[0 if r < 0.55 else 1 if r < 0.7 else 2 if r < 0.87 else 3], (bx * TILE, by * TILE))
 block.save(OUT / 'grass-block.png', optimize=True)
 print('grass tile', tile.size, 'block', block.size)

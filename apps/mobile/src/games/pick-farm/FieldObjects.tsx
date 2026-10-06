@@ -8,7 +8,8 @@ import { CropMotion } from './motion';
 import { BADGE_OFFSET } from './hit-zones';
 import { TREE_ART, TREE_IN_BOX } from './geometry';
 
-export type PlotBadge = 'ready' | 'water' | 'withered' | null;
+/** `feed` marks hungry animals in a pen; plots use the other three. */
+export type PlotBadge = 'ready' | 'water' | 'withered' | 'feed' | null;
 /** World size of a status badge before its zoom-dependent counter scale. */
 export const BADGE_WORLD = 28;
 
@@ -16,6 +17,7 @@ const badgeLook: Record<Exclude<PlotBadge, null>, { bg: string; icon: string; co
   ready: { bg: '#2F6B3E', icon: 'basket', color: '#FFF6DD' },
   water: { bg: '#E9F6FB', icon: 'water', color: '#2A86BA' },
   withered: { bg: '#8A6236', icon: 'leaf', color: '#F6E7C2' },
+  feed: { bg: '#D9822B', icon: 'nutrition', color: '#FFF6DD' },
 };
 
 /** Status marker that keeps a readable screen size at every zoom. */

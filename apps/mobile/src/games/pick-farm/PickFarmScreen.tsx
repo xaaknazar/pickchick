@@ -23,10 +23,13 @@ import {
   ORDERS,
   canWater,
   cropPhase,
+  dailyStatus,
   getProgression,
+  landBounds,
   goalProgress,
   growthProgress,
   isPlantingCell,
+  isUnlockedCell,
   isWatered,
   levelForXp,
   levelUnlocks,
@@ -45,7 +48,7 @@ import {
   type GardenPlacement,
 } from './GardenPanels';
 import { useFarm, farmMessage } from './useFarm';
-import { useFarmSound } from './useFarmSound';
+import { useFarmSounds } from './useFarmSound';
 import { CropArt, GrassGround, Landscape, CellOutline, isoPoint, cellAtPoint } from './visuals';
 import { farmPalette as p, farmStyles as s } from './styles';
 import { GroundCrop, cropStage } from './PlantingVisual';
@@ -77,8 +80,19 @@ import {
 } from './effects';
 import { HudButton, Wallet } from './Hud';
 import { Button, FarmPanel, SeedBar, type BasicPanel } from './FarmPanels';
+import {
+  LandOverlay,
+  Pens,
+  Scenery,
+  landSignAt,
+  penAt,
+  penCenter,
+  sceneryBack,
+  sceneryFront,
+} from './Ranch';
+import { DailyCard, LandPanel, PenPanel } from './RanchPanels';
 
-type Panel = GardenPanel | BasicPanel | 'place' | null;
+type Panel = GardenPanel | BasicPanel | 'coop' | 'barn' | 'land' | 'place' | null;
 type Placement = { kind: 'bed' } | { kind: 'tree' } | GardenPlacement;
 type Plot = FarmState['plots'][number];
 type Point = { x: number; y: number };
@@ -137,7 +151,7 @@ function nextFreeCell(state: FarmState, from: Point) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
         const x = from.x + dx,
           y = from.y + dy;
-        if (isPlantingCell(x, y) && !taken.has(`${x},${y}`)) return { x, y };
+        if (isUnlockedCell(state, x, y) && !taken.has(`${x},${y}`)) return { x, y };
       }
   return from;
 }
@@ -160,7 +174,7 @@ export function PickFarmScreen() {
   useEffect(measureField, [measureField, window.width, window.height]);
   const inset = useSafeAreaInsets();
   const farm = useFarm();
-  const { state, confirmed, serverNow, watering, receipt, customerId } = farm;
+  const { state, confirmed, serverNow, watering, receipt, customerId, v3 } = farm;
   const motion = useFarmMotion();
   const fit = fitFarm(width, height);
   const [cam, view] = useFarmCamera({ fit, width, height });
@@ -183,8 +197,11 @@ export function PickFarmScreen() {
   const [drag, setDrag] = useState<{ kind: 'plot' | 'decoration'; id: number } | null>(null);
   const dragPos = useRef(new Animated.ValueXY()).current;
   const [holdAt, setHoldAt] = useState<Point | null>(null);
-  const [sound, setSound] = useState(false);
-  useFarmSound(receipt?.id, sound, motion.active);
+  const sfx = useFarmSounds(motion.active);
+  const sound = sfx.enabled;
+  const setSound = sfx.setEnabled;
+  const play = sfx.play;
+  const [daily, setDaily] = useState(false);
   const [fx, setFx] = useState<FarmFx[]>([]);
   const fxId = useRef(0);
   const addFx = useCallback((items: FarmFxInput[]) => {
@@ -260,6 +277,7 @@ export function PickFarmScreen() {
   const harvestPlot = useCallback(
     (plot: Plot, silent = false) => {
       if (!run({ type: 'harvest', plotId: plot.id, destination }, { silent })) return false;
+      play('harvest');
       const from = screenOf(plot.x, plot.y, plot.kind === 'tree' ? 85 : 40);
       const toCoins = destination === 'sell';
       const scale = fit * cam.camera.current.zoom;
@@ -284,21 +302,25 @@ export function PickFarmScreen() {
       );
       return true;
     },
-    [run, destination, screenOf, addFx, fit, cam.camera],
+    [run, destination, screenOf, addFx, fit, cam.camera, play],
   );
   const waterPlot = useCallback(
     (plot: Plot, silent = false) => {
       if (!run({ type: 'water', plotId: plot.id }, { silent })) return false;
+      play('water');
       const at = screenOf(plot.x, plot.y, 0);
       addFx([{ kind: 'water', at, size: 80 * fit * cam.camera.current.zoom }]);
       return true;
     },
-    [run, screenOf, addFx, fit, cam.camera],
+    [run, screenOf, addFx, fit, cam.camera, play],
   );
   const plantPlot = useCallback(
-    (plot: Plot, cropId: CropId, silent = false) =>
-      run({ type: 'plant', plotId: plot.id, cropId }, { silent }),
-    [run],
+    (plot: Plot, cropId: CropId, silent = false) => {
+      const ok = run({ type: 'plant', plotId: plot.id, cropId }, { silent });
+      if (ok) play('plant');
+      return ok;
+    },
+    [run, play],
   );
   const clearPlot = useCallback(
     (plot: Plot) => {
@@ -327,13 +349,58 @@ export function PickFarmScreen() {
             : command.type === 'clear' && plot
               ? clearPlot(plot)
               : run(command);
+      if (ok && command.type === 'collectAnimals') {
+        const good = command.kind === 'chicken' ? 'egg' : 'milk';
+        const center = penCenter(command.kind === 'chicken' ? 'coop' : 'barn');
+        const from = screenAtWorld(
+          { x: center.x, y: center.y - 30 },
+          cam.camera.current,
+          fit,
+          width,
+          height,
+        );
+        play(command.kind === 'chicken' ? 'cluck' : 'moo');
+        addFx(
+          [0, 1, 2].map((i) => ({
+            kind: 'fly' as const,
+            from: { x: from.x + (i - 1) * 16, y: from.y },
+            to: anchors.current.storage,
+            good,
+            delay: i * 80,
+          })),
+        );
+      } else if (ok && command.type === 'expandLand' && state) {
+        // The new ring of land opens with a puff along its edge.
+        const b = landBounds(state);
+        const n = { minX: b.minX - 2, maxX: b.maxX + 2, minY: b.minY - 2, maxY: b.maxY + 2 };
+        const mx = (n.minX + n.maxX) / 2,
+          my = (n.minY + n.maxY) / 2;
+        play('level');
+        addFx(
+          [
+            [n.minX, n.minY],
+            [n.maxX, n.minY],
+            [n.maxX, n.maxY],
+            [n.minX, n.maxY],
+            [mx, n.minY],
+            [n.maxX, my],
+            [mx, n.maxY],
+            [n.minX, my],
+          ].map(([x, y]) => ({
+            kind: 'puff' as const,
+            at: screenAtWorld(isoPoint(x!, y!), cam.camera.current, fit, width, height),
+            size: 140 * fit * cam.camera.current.zoom,
+          })),
+        );
+      } else if (ok && ['buyPen', 'buyAnimal', 'feedAnimals', 'buyStation'].includes(command.type))
+        play('tap');
       if (ok && options.close) {
         setPanel(null);
         if (['removePlot', 'storePlot', 'removeCrop'].includes(command.type)) setSelected(null);
       }
       return ok;
     },
-    [state, waterPlot, harvestPlot, clearPlot, run],
+    [state, waterPlot, harvestPlot, clearPlot, run, play, addFx, cam.camera, fit, width, height],
   );
 
   // --- Receipts, level ups -------------------------------------------------------------------
@@ -362,7 +429,8 @@ export function PickFarmScreen() {
         tone: 'info',
       });
     if (items.length) addFx(items);
-  }, [receipt, addFx]);
+    if (receipt.coins > 0) play('coin');
+  }, [receipt, addFx, play]);
   // An older Farm API rejects watering once; explain it instead of failing silently.
   const wateringBefore = useRef(watering);
   useEffect(() => {
@@ -389,7 +457,8 @@ export function PickFarmScreen() {
       ...(now.houseStyles.length > was.houseStyles.length ? ['Новое оформление дома'] : []),
     ];
     setLevelUp({ level, unlocks });
-  }, [confirmed]);
+    play('level');
+  }, [confirmed, play]);
 
   // --- Camera: restore, frame the garden, save --------------------------------------------
   const cameraKey = customerId ? `pickchick.farm.camera.v2.${customerId}` : null;
@@ -433,6 +502,21 @@ export function PickFarmScreen() {
     cam.set(c.x, c.y, c.zoom, true);
     // Only a new layout re-validates the camera; the controls object itself is stable.
   }, [fit, width, height, cam]);
+  /** Side sheet for buildings and land: the object stays visible in the free left part. */
+  const sideWidth = Math.min(380, Math.round(width * 0.5));
+  const focusPoint = useCallback(
+    (point: Point, minZoom = 2) => {
+      const zoom = Math.max(cam.camera.current.zoom, minZoom);
+      const s = fit * zoom;
+      const target = { x: (width - sideWidth) / 2, y: height * 0.58 };
+      cam.animateTo({
+        x: target.x - width / 2 - (point.x - WORLD_CENTER.x) * s,
+        y: target.y - height / 2 - WORLD_OFFSET_Y - (point.y - WORLD_CENTER.y) * s,
+        zoom,
+      });
+    },
+    [cam, fit, width, height, sideWidth],
+  );
   const focusCell = useCallback(
     (x: number, y: number, minZoom = 3) => {
       const point = isoPoint(x, y);
@@ -486,8 +570,20 @@ export function PickFarmScreen() {
     destination,
     placement,
     cell,
+    v3,
   });
-  live.current = { state, serverNow, panel, tool, seed, watering, destination, placement, cell };
+  live.current = {
+    state,
+    serverNow,
+    panel,
+    tool,
+    seed,
+    watering,
+    destination,
+    placement,
+    cell,
+    v3,
+  };
   const actions = useRef({
     harvestPlot,
     waterPlot,
@@ -497,6 +593,7 @@ export function PickFarmScreen() {
     showHint,
     zoomAt,
     saveCamera,
+    focusPoint,
   });
   actions.current = {
     harvestPlot,
@@ -507,6 +604,7 @@ export function PickFarmScreen() {
     showHint,
     zoomAt,
     saveCamera,
+    focusPoint,
   };
   const gesture = useRef({
     mode: 'idle' as 'idle' | 'pending' | 'pan' | 'pinch' | 'sweep' | 'drag' | 'place',
@@ -695,7 +793,7 @@ export function PickFarmScreen() {
           (d) =>
             !(target.kind === 'decoration' && d.id === target.id) && d.x === to.x && d.y === to.y,
         );
-      if (!isPlantingCell(to.x, to.y) || taken) {
+      if (!L.state || !isUnlockedCell(L.state, to.x, to.y) || taken) {
         actions.current.showHint('Перенос отменён: нужна свободная клетка внутри участка.');
         return;
       }
@@ -781,6 +879,28 @@ export function PickFarmScreen() {
         return;
       }
       const ground = cellAtPoint(world.x, world.y);
+      if (L.v3) {
+        const pen = penAt(world);
+        if (pen) {
+          setSelected(null);
+          setSelectedDecoration(null);
+          setPanel(pen);
+          a.focusPoint(penCenter(pen), 2.2);
+          return;
+        }
+        if (
+          landSignAt(L.state, world) ||
+          (isPlantingCell(ground.x, ground.y) && !isUnlockedCell(L.state, ground.x, ground.y))
+        ) {
+          setSelected(null);
+          setSelectedDecoration(null);
+          setPanel('land');
+          // Show the open square's front corner beside the sheet.
+          const b = landBounds(L.state);
+          a.focusPoint(isoPoint(b.maxX + 1, b.maxY + 1), 1);
+          return;
+        }
+      }
       if (ground.x < 16 && ground.y < 16) {
         setPanel('house');
         return;
@@ -1009,6 +1129,19 @@ export function PickFarmScreen() {
     [cam.zoom],
   );
   const worldScale = useMemo(() => Animated.multiply(cam.zoom, fit), [cam.zoom, fit]);
+  const visible = useCallback(
+    (point: Point) => worldPointVisible(point, view, fit, width, height),
+    [view, fit, width, height],
+  );
+  // The daily gift greets a returning player once per visit (not on the very first screen).
+  const dailyShown = useRef(false);
+  const plotCount = state?.plots.length ?? 0;
+  const dailyReady = !!state && v3 && dailyStatus(state, serverNow).available;
+  useEffect(() => {
+    if (dailyShown.current || !dailyReady || plotCount === 0 || serverNow === 0) return;
+    dailyShown.current = true;
+    setDaily(true);
+  }, [dailyReady, plotCount, serverNow]);
   const plotsView = useMemo(() => {
     if (!state) return [];
     return state.plots
@@ -1067,7 +1200,10 @@ export function PickFarmScreen() {
   const stationReady = progression.stations.some((v) =>
     v.queue.some((j) => j.readyAt <= serverNow),
   );
-  const storageCount = Object.values(state.inventory).reduce((a, b) => a + b, 0);
+  const goods = progression.goods ?? { egg: 0, milk: 0 };
+  const storageCount =
+    Object.values(state.inventory).reduce((a, b) => a + b, 0) + (v3 ? goods.egg + goods.milk : 0);
+  const dailyAvailable = v3 && dailyStatus(state, serverNow).available;
   const current = state.plots.find((plot) => plot.id === selected);
   const decoration = progression.decorations.find((d) => d.id === selectedDecoration);
   const decorationInfo = DECORATIONS.find((d) => d.id === decoration?.decorationId);
@@ -1083,7 +1219,7 @@ export function PickFarmScreen() {
     progression.decorations.some(
       (d) => d.x === cell.x && d.y === cell.y && !(drag?.kind === 'decoration' && d.id === drag.id),
     );
-  const validCell = isPlantingCell(cell.x, cell.y) && !cellTaken;
+  const validCell = isUnlockedCell(state, cell.x, cell.y) && !cellTaken;
   const narrow = width < 720;
   const ctx = current
     ? screenAtWorld(isoPoint(current.x, current.y), view, fit, width, height)
@@ -1106,7 +1242,10 @@ export function PickFarmScreen() {
           remove: current?.kind === 'tree' ? 'Удалить яблоню?' : 'Удалить грядку?',
           removeCrop: 'Убрать посадку?',
           storage: 'Склад урожая',
-          orders: 'Заказы фермы',
+          orders: v3 ? 'Заказы и доска' : 'Заказы фермы',
+          coop: 'Курятник',
+          barn: 'Коровник',
+          land: 'Новая земля',
           place: '',
           help: 'Ваша маленькая ферма',
         }[panel || 'help'];
@@ -1226,10 +1365,20 @@ export function PickFarmScreen() {
           }}
         >
           <GrassGround />
+          <LandOverlay state={state} showSigns={v3} />
           <Landscape
             houseStyle={progression.houseStyle}
             grid={panel === 'place' || drag !== null}
           />
+          <Scenery items={sceneryBack} visible={visible} />
+          {v3 && (
+            <Pens
+              state={state}
+              now={serverNow}
+              badgeScale={badgeScale}
+              moving={motion.active && !motion.reduced}
+            />
+          )}
           {progression.stations.map((station, i) => {
             const pt = isoPoint(STATION_CELLS[i]!.x, STATION_CELLS[i]!.y);
             const ready = station.queue.some((j) => j.readyAt <= serverNow);
@@ -1285,6 +1434,7 @@ export function PickFarmScreen() {
               waterOpacity={waterOpacity}
             />
           ))}
+          <Scenery items={sceneryFront} visible={visible} />
           {(panel === 'place' || drag) && (
             <CellOutline
               x={isoPoint(cell.x, cell.y).x}
@@ -1389,6 +1539,15 @@ export function PickFarmScreen() {
           rightHud.current = e.nativeEvent.layout.x;
         }}
       >
+        {v3 && (
+          <HudButton
+            label="Подарок дня"
+            icon="gift-outline"
+            dot={dailyAvailable}
+            testID="pick-farm-daily-button"
+            onPress={() => setDaily(true)}
+          />
+        )}
         <HudButton
           label="Задания Алекса"
           icon="clipboard-outline"
@@ -1566,6 +1725,9 @@ export function PickFarmScreen() {
               right: right + (width > 700 ? 68 : 0),
               maxHeight: height - top - 64,
               ...(panel === 'shop' && width > 700 ? { left: Math.max(left, width - 740) } : {}),
+              ...(panel === 'coop' || panel === 'barn' || panel === 'land'
+                ? { top: top + 60, left: undefined, right, width: sideWidth, maxHeight: undefined }
+                : {}),
               ...(contextual
                 ? {
                     bottom: undefined,
@@ -1587,9 +1749,13 @@ export function PickFarmScreen() {
             <HudButton label="Закрыть панель" icon="close" onPress={() => setPanel(null)} />
           </View>
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 3 }}>
-            {(['journal', 'garden', 'workshop', 'belongings', 'house'] as string[]).includes(
-              panel,
-            ) ? (
+            {panel === 'coop' || panel === 'barn' ? (
+              <PenPanel pen={panel} state={state} now={serverNow} act={panelAct} />
+            ) : panel === 'land' ? (
+              <LandPanel state={state} act={panelAct} />
+            ) : (['journal', 'garden', 'workshop', 'belongings', 'house'] as string[]).includes(
+                panel,
+              ) ? (
               <GardenPanels
                 panel={panel as GardenPanel}
                 state={state}
@@ -1597,6 +1763,7 @@ export function PickFarmScreen() {
                 busy={false}
                 act={(command) => panelAct(command)}
                 place={beginPlacement}
+                v3={v3}
               />
             ) : (
               <FarmPanel
@@ -1607,9 +1774,17 @@ export function PickFarmScreen() {
                 decorationId={selectedDecoration}
                 watering={watering}
                 sound={sound}
+                v3={v3}
                 destination={destination}
                 act={panelAct}
-                setPanel={(next) => setPanel(next)}
+                setPanel={(next) => {
+                  setPanel(next);
+                  if (next === 'coop' || next === 'barn') focusPoint(penCenter(next), 2.2);
+                  if (next === 'land') {
+                    const b = landBounds(state);
+                    focusPoint(isoPoint(b.maxX, b.maxY), 1);
+                  }
+                }}
                 choosePlacement={(kind) => beginPlacement({ kind })}
                 chooseSeed={chooseSeed}
                 setSound={setSound}
@@ -1643,6 +1818,20 @@ export function PickFarmScreen() {
       )}
       {levelUp && (
         <LevelUp info={levelUp} reduced={motion.reduced} onClose={() => setLevelUp(null)} />
+      )}
+      {daily && !levelUp && v3 && (
+        <DailyCard
+          state={state}
+          now={serverNow}
+          reduced={motion.reduced}
+          onClose={() => setDaily(false)}
+          onClaim={() => {
+            if (run({ type: 'claimDaily' })) {
+              play('coin');
+              setDaily(false);
+            }
+          }}
+        />
       )}
     </View>
   );

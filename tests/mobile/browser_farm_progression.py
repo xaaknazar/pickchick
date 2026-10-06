@@ -83,12 +83,17 @@ with sync_playwright() as p:
             expect(page.get_by_test_id('pick-farm-screen')).to_be_visible()
             expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
             page.wait_for_function('Array.from(document.images).every(i => i.complete)')
+            page.wait_for_timeout(300)
+            celebrate()
 
         def celebrate():
             # A confirmed level-up shows a celebration card; dismiss it like a player would.
             page.wait_for_timeout(200)
             if page.get_by_test_id('pick-farm-level-up').count():
                 page.get_by_test_id('pick-farm-level-up').click()
+            # The daily gift greets a returning player once per visit; this journey skips it.
+            if page.get_by_test_id('pick-farm-daily').count():
+                page.get_by_role('button', name='Позже', exact=True).click()
 
         def close():
             celebrate()
