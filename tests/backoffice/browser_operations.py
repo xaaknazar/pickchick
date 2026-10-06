@@ -22,14 +22,14 @@ with sync_playwright() as pw:
  page.goto(c['url']);at=page.get_by_test_id
  at('credential-file').set_input_files({'name':'synthetic-manager.json','mimeType':'application/json','buffer':json.dumps(c['manager']).encode()})
  expect(at('nav-dash')).to_be_visible();expect(at('op-refresh')).to_be_visible()
- assert page.locator('.nav-item').count()==16
+ assert page.locator('.nav-item').count()==17
  def navigate(section):
   nav=at('nav-'+section)
   if not nav.is_visible():page.locator('.nav-secondary summary').click()
   nav.click()
  def snapshot_request(request,period):
   return '/v1/admin/backoffice/branches/' in request.url and '/orders/' not in request.url and request.method=='GET' and parse_qs(urlparse(request.url).query).get('period')==[period]
- for section in ['orders','items','stoplist','stock','reports','finance','promo','games','guests','tickets','reviews','stations','devices','shifts','audit','dash']:
+ for section in ['orders','items','stoplist','stock','reports','finance','settlements','promo','games','guests','tickets','reviews','stations','devices','shifts','audit','dash']:
   stage('navigation '+section);navigate(section);expect(page.locator('main h1')).to_be_visible();assert page.locator('.nav-item[aria-current=page]').count()==1
  navigate('reports')
  stage('report periods')
@@ -127,7 +127,7 @@ with sync_playwright() as pw:
  page.locator('.content').get_by_role('button',name='Открыть',exact=True).click()
  expect(page.locator('dialog')).to_contain_text('Synthetic shift combo')
  page.locator('dialog').get_by_role('button',name='Закрыть',exact=True).click()
- navigate('finance');expect(page.locator('.content')).to_contain_text('Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются')
+ navigate('settlements');expect(page.locator('.content')).to_contain_text('Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются')
  expect(at('op-refresh')).to_be_enabled()
  with page.expect_response(lambda r:snapshot_request(r.request,'day'),timeout=15000) as pending:at('period-day').click()
  expect(at('op-refresh')).to_be_enabled()
@@ -155,5 +155,5 @@ with sync_playwright() as pw:
   page.screenshot(path=str(out/f'shift-detail-{width}.png'),full_page=True)
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  assert errors==[],errors
- print(json.dumps({'result':'PASS','sections':16,'sizes':[1680,1024,393],'errors':errors}))
+ print(json.dumps({'result':'PASS','sections':17,'sizes':[1680,1024,393],'errors':errors}))
  stage('browser close');browser.close();stage('complete')

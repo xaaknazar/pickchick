@@ -1,4 +1,6 @@
 import { FarmController } from './farm-controller.js';
+import { FinanceController } from './finance-controller.js';
+import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
 import { FARM, FarmPersistence } from '@pickchick/farm-persistence';
 import { KioskCheckoutController } from './kiosk-checkout-controller.js';
 import { CustomerCheckoutController } from './customer-checkout-controller.js';
@@ -158,6 +160,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
     controllers: [
+      FinanceController,
       FarmController,
       KioskCheckoutController,
       HealthController,
@@ -176,6 +179,12 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
+      {
+        provide: FINANCE,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new Finance(resources.pool, config.backofficeEnabled === true),
+      },
       {
         provide: FARM,
         inject: [RESOURCE],

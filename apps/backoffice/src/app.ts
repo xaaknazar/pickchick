@@ -1,4 +1,6 @@
 import { OperationsModel } from './operations-model.js';
+import { FinanceModel } from './finance-model.js';
+import { FinanceView } from './finance.js';
 import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message } from './api.js';
@@ -21,8 +23,20 @@ const operationView = new OperationsView(
     render();
   },
 );
+const finance = new FinanceModel(
+  (path, request) => model.operations(path, request),
+  window.sessionStorage,
+  render,
+);
+const financeView = new FinanceView(finance, render, () => {
+  page = 'settlements';
+  history.replaceState(null, '', '#settlements');
+  render();
+});
 function syncOperations() {
   if (!model.actor) {
+    finance.clear();
+    financeView.clear();
     operations.clear();
     document.querySelectorAll<HTMLDialogElement>('.op-dialog').forEach((d) => {
       d.close();
@@ -31,6 +45,7 @@ function syncOperations() {
     return;
   }
   const branch = model.state?.branch.id;
+  if (branch) void finance.scope(model.actor.id, branch);
   if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
     void operations.load(model.actor.id, branch);
 }
@@ -128,6 +143,13 @@ function render() {
               ? 'Финансы'
               : label,
         () => {
+          if (
+            financeView.dirty &&
+            !window.confirm('Сохранённый на сервере журнал останется. Отменить незавершённый ввод?')
+          )
+            return;
+          if (finance.pending && page === 'finance') return;
+          financeView.clear();
           page = id;
           history.replaceState(null, '', '#' + id);
           render();
@@ -159,7 +181,15 @@ function render() {
   user.append(
     el('strong', '', model.actor.name),
     el('span', 'muted', 'Управление рестораном'),
-    button('Выйти', () => model.logout(), 'button subtle', 'logout'),
+    button(
+      'Выйти',
+      () => {
+        if (financeView.dirty && !window.confirm('Отменить несохранённый ввод и выйти?')) return;
+        model.logout();
+      },
+      'button subtle',
+      'logout',
+    ),
   );
   sidebar.append(user);
   const main = el('main', 'workspace'),
@@ -175,6 +205,14 @@ function render() {
     model.state?.branch.id ?? '',
     model.branches.map((b) => ({ value: b.id, label: b.name })),
     (id) => {
+      if (
+        financeView.dirty &&
+        !window.confirm('Отменить несохранённую финансовую операцию перед сменой точки?')
+      ) {
+        render();
+        return;
+      }
+      financeView.clear();
       if (model.dirty && !window.confirm('Отменить локальные правки перед сменой точки?')) {
         render();
         return;
@@ -184,9 +222,14 @@ function render() {
     'branch-select',
   );
   branch.querySelector('select')!.disabled =
-    model.busy || Boolean(model.pending) || operations.busy || Boolean(operations.pending);
+    model.busy ||
+    Boolean(model.pending) ||
+    operations.busy ||
+    Boolean(operations.pending) ||
+    finance.busy ||
+    Boolean(finance.pending);
   header.append(branch);
-  if (page !== 'items') {
+  if (page !== 'items' && page !== 'finance') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],
@@ -229,7 +272,7 @@ function render() {
     refresh.disabled = operations.busy || Boolean(operations.pending);
     tools.append(periods, refresh);
     header.append(tools);
-    if (['dash', 'orders', 'shifts', 'reports', 'finance'].includes(page)) {
+    if (['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page)) {
       const shifts = operations.data?.cashier_shifts ?? [];
       if (shifts.length) {
         const chooser = select(
@@ -341,8 +384,12 @@ function render() {
   main.append(content);
   shell.append(sidebar, main);
   root.replaceChildren(shell);
+  if (page === 'finance') {
+    financeView.render(content);
+    return;
+  }
   if (page !== 'items') {
-    operationView.render(page, content);
+    operationView.render(page === 'settlements' ? 'finance' : page, content);
     return;
   }
   if (model.error || localError)
@@ -718,7 +765,7 @@ model.subscribe(() => {
   render();
 });
 window.addEventListener('beforeunload', (event) => {
-  if (model.dirty || model.pending || operations.pending) {
+  if (model.dirty || model.pending || operations.pending || finance.pending || financeView.dirty) {
     event.preventDefault();
     event.returnValue = '';
   }
@@ -729,6 +776,7 @@ void model.boot();
 setInterval(() => {
   if (
     page !== 'items' &&
+    page !== 'finance' &&
     model.actor &&
     operations.branch &&
     !operations.busy &&

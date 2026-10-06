@@ -9,7 +9,14 @@ export function backofficeGrants(role, enabled) {
     throw new Error('Invalid backoffice grants');
   const own =
     'bo_records,bo_audit,bo_commands,bo_stock_balances,bo_stock_documents,bo_stock_movements,bo_publications,bo_delivery_outbox,bo_access_grants,bo_order_recipes,bo_access_audit';
+  const finance =
+    'bo_finance_accounts,bo_finance_entries,bo_finance_voids,bo_finance_commands,bo_finance_periods';
   return (
+    `DO $finance$ BEGIN IF to_regclass('bo_finance_entries') IS NOT NULL THEN REVOKE ALL ON ${finance} FROM ${role};` +
+    (enabled
+      ? `GRANT SELECT,INSERT ON ${finance} TO ${role};GRANT UPDATE(closed,revision) ON bo_finance_periods TO ${role};`
+      : '') +
+    ' END IF; END $finance$;' +
     `REVOKE ALL ON ${own} FROM ${role};REVOKE UPDATE(lock_anchor) ON bo_access_grants FROM ${role};REVOKE INSERT ON commerce_commands FROM ${role};REVOKE UPDATE(status) ON devices FROM ${role};${orderRecipeGrants(role)}` +
     (enabled
       ? `

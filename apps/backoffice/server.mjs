@@ -40,6 +40,33 @@ function reportQuery(search) {
 const allowed = (method, path) => {
   const [pathname, search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/finance$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      (search?.length ?? 0) <= 1600 &&
+      [...q.keys()].every(
+        (k) =>
+          ['start_date', 'end_date', 'center', 'page', 'category', 'basis', 'search'].includes(k) &&
+          q.getAll(k).length === 1,
+      ) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '') &&
+      /^(all|restaurant|workshop|office|shared)$/.test(q.get('center') ?? 'all') &&
+      /^\d{1,6}$/.test(q.get('page') ?? '0') &&
+      /^(both|cash|pnl)$/.test(q.get('basis') ?? 'both') &&
+      /^[a-z-]{0,60}$/.test(q.get('category') ?? '') &&
+      (q.get('search')?.length ?? 0) <= 80
+    );
+  }
+  if (
+    method === 'POST' &&
+    search === undefined &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/finance/commands$`, 'i').test(pathname)
+  )
+    return true;
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -61,9 +88,18 @@ const allowed = (method, path) => {
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ...['styles', 'fonts'].map((n) => [`/${n}.css`, [`${n}.css`, 'text/css; charset=utf-8']]),
-  ...['app', 'api', 'model', 'domain', 'dom', 'editor', 'operations', 'operations-model'].map(
-    (n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']],
-  ),
+  ...[
+    'app',
+    'api',
+    'model',
+    'domain',
+    'dom',
+    'editor',
+    'operations',
+    'operations-model',
+    'finance',
+    'finance-model',
+  ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,
     [`assets/${n}`, n.endsWith('.png') ? 'image/png' : 'image/jpeg'],

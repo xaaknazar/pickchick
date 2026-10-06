@@ -3,6 +3,8 @@ import {
   BACKOFFICE,
   grantBackoffice,
 } from '../../packages/backoffice-core/dist/index.js';
+import { FINANCE, Finance } from '../../packages/backoffice-core/dist/finance.js';
+import { FinanceController } from '../../services/api/dist/finance-controller.js';
 import {
   BackofficeController,
   BackofficeContentController,
@@ -42,8 +44,14 @@ export async function withCatalog(run, options = {}) {
     await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
     class CatalogModule {}
     Module({
-      controllers: [CatalogAdminController, BackofficeController, BackofficeContentController],
+      controllers: [
+        CatalogAdminController,
+        BackofficeController,
+        BackofficeContentController,
+        FinanceController,
+      ],
       providers: [
+        { provide: FINANCE, useValue: new Finance(cloud.pool, true) },
         { provide: CATALOG_ADMIN, useValue: service },
         { provide: BACKOFFICE, useValue: backoffice },
         {

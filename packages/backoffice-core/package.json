@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./finance": {
+      "types": "./dist/finance.d.ts",
+      "default": "./dist/finance.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"

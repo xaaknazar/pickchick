@@ -48,6 +48,28 @@ function allowedPath(path: string): boolean {
   if (/^branches(?:\/[a-f0-9-]{36}(?:\/(?:draft|draft\/seed|publish))?)?$/.test(path)) return true;
   const [pathname = '', search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  if (new RegExp(`^operations/branches/${UUID}/finance$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].every(
+        (k) =>
+          ['start_date', 'end_date', 'center', 'page', 'category', 'basis', 'search'].includes(k) &&
+          q.getAll(k).length === 1,
+      ) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '') &&
+      /^(all|restaurant|workshop|office|shared)$/.test(q.get('center') ?? 'all') &&
+      /^\d{1,6}$/.test(q.get('page') ?? '0') &&
+      /^(both|cash|pnl)$/.test(q.get('basis') ?? 'both') &&
+      /^[a-z-]{0,60}$/.test(q.get('category') ?? '') &&
+      (q.get('search')?.length ?? 0) <= 80
+    );
+  }
+  if (
+    search === undefined &&
+    new RegExp(`^operations/branches/${UUID}/finance/commands$`).test(pathname)
+  )
+    return true;
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
