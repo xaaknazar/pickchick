@@ -3080,21 +3080,6 @@
       "nextAction": "Основная задача интегрирует подготовку с каталогом, обновляет status/roadmap и получает полную зелёную CI итогового SHA; затем native doctor/archive/export/upload с catalog-pilot."
     },
     {
-      "id": "catalog-price-audit",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/catalog-price-audit",
-      "scopes": [
-        "pnpm-lock.yaml",
-        "pnpm-workspace.yaml",
-        "docs/operations/catalog-price-audit.md"
-      ],
-      "status": "available",
-      "head": "7bcbd7a2389713a14ed70a58ee749eb5c0e25837",
-      "updatedAt": "2026-10-06T07:42:26.672Z",
-      "summary": "Published verified commit 7bcbd7a2389713a14ed70a58ee749eb5c0e25837 from release candidate 178e4ab. Three fixed transitive patch versions only; official advisories linked in docs/operations/catalog-price-audit.md. Frozen install, unchanged high/critical audit gate, 5 security patch tests, executable source-map/proxy trust/compression abort smoke, format passed. Four moderate remain; no added exclusions.",
-      "nextAction": "Root integrates commit, full CI, release guard review and rearchive build 14. No full CI or native action performed in this subtask."
-    },
-    {
       "id": "farm-gameplay-v2",
       "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
       "branch": "codex/farm-gameplay-v2",
@@ -3165,6 +3150,21 @@
       "updatedAt": "2026-10-06T08:31:11.537Z",
       "summary": "59dc2b11420b0d5d940ca12565cfc512a0431cb3 pushed and remote verified. Published catalog legacy basket retention, explicit refresh, recommendation stale guard. 26 Node tests, mobile typecheck, lint/format, published Expo export, two-size browser migration/foreground/default/photo tests passed; zero financial commands. Store overlap delegated by root and documented. No VPS/native/payment method mutations.",
       "nextAction": "Root explicitly integrates commit with final rollout/native profile and TipTop branch, full CI, PR. PostgreSQL browser fixture not run here: Docker unavailable. General status/roadmap owned second Mac; delivery proof docs/operations/catalog-price-mobile.md."
+    },
+    {
+      "id": "catalog-price-audit",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-audit",
+      "scopes": [
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "docs/operations/catalog-price-audit.md"
+      ],
+      "status": "active",
+      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
+      "updatedAt": "2026-10-06T08:31:14.784Z",
+      "summary": "Published verified commit 7bcbd7a2389713a14ed70a58ee749eb5c0e25837 from release candidate 178e4ab. Three fixed transitive patch versions only; official advisories linked in docs/operations/catalog-price-audit.md. Frozen install, unchanged high/critical audit gate, 5 security patch tests, executable source-map/proxy trust/compression abort smoke, format passed. Four moderate remain; no added exclusions.",
+      "nextAction": "Root integrates commit, full CI, release guard review and rearchive build 14. No full CI or native action performed in this subtask."
     }
   ]
 }
