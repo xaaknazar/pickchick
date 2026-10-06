@@ -3213,11 +3213,11 @@
         "tests/backoffice/browser_operations.py",
         "docs/operations/images/finance-ledger"
       ],
-      "status": "active",
-      "head": "3cd8588862dd878b4535d7c38496d514b20968b5",
-      "updatedAt": "2026-10-06T10:17:58.562Z",
-      "summary": "PR #195, d98327e75c10344c3d4b0ded0db514638a66bb59: ежедневный финансовый журнал, ДДС/ОПиУ, точные суммы, отдельные даты, счета, immutable отмены, закрытие месяца и аудит. 27 адресных тестов локально; CI 37446531780: 8/10 рабочих jobs success, включая POS/backoffice; два failed из-за пяти исторических migration fixtures, общий gate failed. Код не включён в shared и не установлен. Workbook/private credentials не сохранены в Git. Runbook: docs/operations/finance-ledger.md.",
-      "nextAction": "Согласовать передачу test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py из tiptop-historical-fixtures (первые два уже запрошены у владельца); также зарезервировать/исправить test_catalog_storefront_release.py. Сохранить строгие production guards, изолировать исторические fixtures. Пройти CI, интегрировать свежий shared, обновить общие status/handoff/roadmap после farm-gameplay-v2. Для выпуска нужен согласованный порядок миграций 039/040/042, новый release profile, SSH и claim VPS. После установки подтвердить личные права бухгалтера, реальные счета/остатки и день учёта."
+      "status": "available",
+      "head": "2d29df595c9188e7e06a61bf44f99d69cac7c89e",
+      "updatedAt": "2026-10-06T10:19:22.544Z",
+      "summary": "PR #195, 2d29df595c9188e7e06a61bf44f99d69cac7c89e. Реализован durable финансовый журнал, ДДС/ОПиУ, счета, отдельные даты, отмены/аудит/закрытие месяца. Включён свежий shared 7e58f90 без конфликтов. 27 адресных тестов прошли; после объединения повторены 14 finance tests и 7 mobile presentation tests. CI кода d98327e: 37446531780, 8/10 рабочих jobs success, два failed из-за пяти historical migration fixtures; общий gate failed. Новая CI после merge/docs запущена, не заявлена зелёной. В shared не включено, VPS не обновлён. Синтетический preview и локальная тестовая БД остановлены; реальный директорский вход закрыт. Runbook и снимки сохранены в docs/operations/finance-ledger.md.",
+      "nextAction": "Согласовать четыре занятых файла tests/operations/test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py с tiptop-historical-fixtures; первые два запрошены владельцу. Также исправить test_catalog_storefront_release.py через отдельный claim. Сохранить строгие production guards; использовать исторические fixtures. Добиться зелёной CI, включить в свежий shared, обновить общие status/handoff/roadmap после передачи farm-gameplay-v2. Выпуск требует порядка миграций 039/040/042, нового release profile, разрешённого SSH и claim VPS. Затем личные права бухгалтера, подтверждённые счета/остатки и приёмка первого рабочего дня."
     }
   ]
 }
