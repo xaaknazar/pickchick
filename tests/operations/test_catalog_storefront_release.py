@@ -47,23 +47,42 @@ class CatalogStorefrontRelease(unittest.TestCase):
         obj=object.__new__(r.Release);obj.sha='a'*40
         obj.profile=r.market.ReleaseProfile('farm',r.BASELINE,r.PUBLIC_BASELINE,38,(),r.base.CI_JOBS,frozenset(),'farm-update-release',(),exact_ci_jobs=True)
         obj.args=SimpleNamespace(branch='codex/farm-testflight-11')
+        # Model the schema38 release checkout, not today's migration directory.
+        baseline={path.name:path.read_bytes() for path in sorted((ROOT/'db/cloud/migrations').glob('*.sql'))
+                  if path.name[:3].isdigit() and int(path.name[:3])<=38}
+        self.assertEqual(len(baseline),38)
         def git(*args):
             if args[0]=='rev-parse':return obj.sha
             if args[0]=='status':return ''
             if args[0]=='ls-remote':return obj.sha+' refs/heads/'+obj.args.branch
             self.assertEqual(args,('ls-tree','-r','--name-only',r.BASELINE,'--','db/cloud/migrations/'))
-            return '\n'.join('db/cloud/migrations/'+path.name for path in sorted((ROOT/'db/cloud/migrations').glob('*.sql')))
+            return '\n'.join('db/cloud/migrations/'+name for name in baseline)
         obj.git=git
         seen=[]
         def execute(args):
             self.assertEqual(args[:2],['git','show'])
             self.assertTrue(args[2].startswith(r.BASELINE+':db/cloud/migrations/'))
             seen.append(args[2])
-            return (ROOT/args[2].split(':',1)[1]).read_bytes()
+            return baseline[Path(args[2].split(':',1)[1]).name]
         obj.execute=execute
         self.assertEqual(len(obj.baseline_migrations()),38)
-        obj.source_checks()
-        self.assertEqual(len(seen),38)
+        with tempfile.TemporaryDirectory() as directory:
+            fixture=Path(directory)
+            migrations=fixture/'db/cloud/migrations'
+            migrations.mkdir(parents=True)
+            for name,data in baseline.items():(migrations/name).write_bytes(data)
+            with patch.object(r.market,'REPO',fixture):
+                obj.source_checks()
+                self.assertEqual(len(seen),38)
+                extra=migrations/'039_unreviewed.sql'
+                extra.write_text('SELECT 1;')
+                with self.assertRaisesRegex(r.market.GuardFailure,'Release migration set differs'):
+                    obj.source_checks()
+                extra.unlink()
+                name=next(iter(baseline))
+                (migrations/name).write_bytes(baseline[name]+b'\n-- changed migration\n')
+                with self.assertRaisesRegex(r.market.GuardFailure,'An existing migration was edited'):
+                    obj.source_checks()
 
     def test_runtime_snapshot_allows_only_paired_availability_heartbeat(self):
         obj=object.__new__(r.Release)
