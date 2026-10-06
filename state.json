@@ -3098,9 +3098,11 @@
         "tests/mobile/test_ios_release.py",
         "docs/operations/mobile-catalog-testflight14.md"
       ],
-      "status": "active",
-      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
-      "updatedAt": "2026-10-06T07:18:20.189Z"
+      "status": "available",
+      "head": "d56211835defc5a9337e068747612df62ccc7004",
+      "updatedAt": "2026-10-06T07:19:20.657Z",
+      "summary": "Подготовлен catalog-pilot и build14 от239148b; commit d56211835defc5a9337e068747612df62ccc7004 опубликован, remote SHA сверён. 28 helper тестов и staged diff-check успешны. app.json согласован с основной задачей; TipTop86 не включён. Native сборка не запускалась.",
+      "nextAction": "Основная задача интегрирует подготовку с каталогом, обновляет status/roadmap и получает полную зелёную CI итогового SHA; затем native doctor/archive/export/upload с catalog-pilot."
     },
     {
       "id": "catalog-price-integration",
