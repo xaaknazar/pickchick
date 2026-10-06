@@ -3080,20 +3080,6 @@
       "nextAction": "Основная задача интегрирует подготовку с каталогом, обновляет status/roadmap и получает полную зелёную CI итогового SHA; затем native doctor/archive/export/upload с catalog-pilot."
     },
     {
-      "id": "catalog-price-integration",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/catalog-price-integration",
-      "scopes": [
-        "docs/operations/catalog-price-integration.md",
-        "tests/mobile/catalog-price-parity.test.mjs"
-      ],
-      "status": "available",
-      "head": "178e4ab54b968cd98031d8f263e12eb8522d55c7",
-      "updatedAt": "2026-10-06T07:31:05.461Z",
-      "summary": "PR192; exact source178e4ab54b968cd98031d8f263e12eb8522d55c7. Published mobile prices and legacy basket migration integrated;93 actual catalog price variants match. Native0.2.0(14) archive/export done, not uploaded. CI37429267604 running. VPS unchanged;0 unsettled bank operations.",
-      "nextAction": "Finish exact-source fullCI, upload14 with catalog-pilot, guarded storefront prepare/apply and verify Apple availability. General status/roadmap still owned farm-gameplay-v2; own evidence docs/operations/catalog-price-integration.md."
-    },
-    {
       "id": "catalog-price-mobile",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/catalog-price-mobile",
@@ -3165,6 +3151,20 @@
       "updatedAt": "2026-10-06T08:12:13.839Z",
       "summary": "PR #193: v2 + земля из одной сгенерированной клетки травы (112x112 клеток, блоки 8x8), луг удалён. Тесты 29 mobile, browser_farm_v2 прошли.",
       "nextAction": "Владельцу: посмотреть траву и PR #193, слить в shared-development; затем API, TestFlight, физический iPhone."
+    },
+    {
+      "id": "catalog-price-integration",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-integration",
+      "scopes": [
+        "docs/operations/catalog-price-integration.md",
+        "tests/mobile/catalog-price-parity.test.mjs"
+      ],
+      "status": "active",
+      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
+      "updatedAt": "2026-10-06T08:27:37.954Z",
+      "summary": "PR192; exact source178e4ab54b968cd98031d8f263e12eb8522d55c7. Published mobile prices and legacy basket migration integrated;93 actual catalog price variants match. Native0.2.0(14) archive/export done, not uploaded. CI37429267604 running. VPS unchanged;0 unsettled bank operations.",
+      "nextAction": "Finish exact-source fullCI, upload14 with catalog-pilot, guarded storefront prepare/apply and verify Apple availability. General status/roadmap still owned farm-gameplay-v2; own evidence docs/operations/catalog-price-integration.md."
     }
   ]
 }
