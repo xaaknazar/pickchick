@@ -3052,21 +3052,6 @@
       "updatedAt": "2026-10-05T18:40:54.139Z"
     },
     {
-      "id": "catalog-native14",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/catalog-native14",
-      "scopes": [
-        "scripts/mobile/ios_release.py",
-        "tests/mobile/test_ios_release.py",
-        "docs/operations/mobile-catalog-testflight14.md"
-      ],
-      "status": "available",
-      "head": "d56211835defc5a9337e068747612df62ccc7004",
-      "updatedAt": "2026-10-06T07:19:20.657Z",
-      "summary": "Подготовлен catalog-pilot и build14 от239148b; commit d56211835defc5a9337e068747612df62ccc7004 опубликован, remote SHA сверён. 28 helper тестов и staged diff-check успешны. app.json согласован с основной задачей; TipTop86 не включён. Native сборка не запускалась.",
-      "nextAction": "Основная задача интегрирует подготовку с каталогом, обновляет status/roadmap и получает полную зелёную CI итогового SHA; затем native doctor/archive/export/upload с catalog-pilot."
-    },
-    {
       "id": "farm-gameplay-v2",
       "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
       "branch": "codex/farm-gameplay-v2",
@@ -3167,6 +3152,21 @@
       "updatedAt": "2026-10-06T08:31:33.630Z",
       "summary": "Опубликован guard7e2bfcf; ветка ff до shared850c6fa, удалённые SHA совпали. 14 guardtests/live readonlysmoke прошли; exact11greenCI37433448853. Штатные prepare/apply установили850c6fa API/public, catalogHTTP200 ABAYv3/PickCombo10000minor, encryptedbackuprestore и отдельная postpublicationfinancial/data/ledger/ACL/env/public проверка прошли. Новых заказов/счетов/pricewrites/bankcalls нет.",
       "nextAction": "Root завершает upload/TestFlight14 и сохраняет общий итог; физическая приёмка отдельно. Старые TipTop reservations сохранены."
+    },
+    {
+      "id": "catalog-native14",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-native14",
+      "scopes": [
+        "scripts/mobile/ios_release.py",
+        "tests/mobile/test_ios_release.py",
+        "docs/operations/mobile-catalog-testflight14.md"
+      ],
+      "status": "active",
+      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
+      "updatedAt": "2026-10-06T08:35:21.083Z",
+      "summary": "Подготовлен catalog-pilot и build14 от239148b; commit d56211835defc5a9337e068747612df62ccc7004 опубликован, remote SHA сверён. 28 helper тестов и staged diff-check успешны. app.json согласован с основной задачей; TipTop86 не включён. Native сборка не запускалась.",
+      "nextAction": "Основная задача интегрирует подготовку с каталогом, обновляет status/roadmap и получает полную зелёную CI итогового SHA; затем native doctor/archive/export/upload с catalog-pilot."
     }
   ]
 }
