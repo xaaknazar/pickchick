@@ -33,7 +33,7 @@ with sync_playwright() as p:
  page.get_by_test_id('open-cart').click();expect(page.get_by_test_id('cart-quantity-burger')).to_have_text('2');expect(page.get_by_test_id('cart-checkout')).to_contain_text('5 400,02')
  page.screenshot(path=str(OUT/'published-cart-before.png'))
  page.get_by_test_id('cart-checkout').click();page.get_by_test_id('kaspi-checkout-submit').click()
- expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта. Корзина сохранена - можно вернуться к ней позже.',exact=True)).to_be_visible(timeout=15000)
+ expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible(timeout=15000)
  assert quotes[0]['status']==200 and quotes[0]['response']['totalMinor']=='540002'
  page.get_by_test_id('checkout-close').click()
  # Add a second product before the next publication removes it.
@@ -48,7 +48,7 @@ with sync_playwright() as p:
  assert quotes[-1]['status']==409 and quotes[-1]['response']['code']=='CONFLICT'
  page.get_by_test_id('checkout-close').click();page.get_by_test_id('catalog-update-apply').click();expect(page.get_by_test_id('catalog-update-notice')).to_contain_text('Director Side');expect(page.get_by_test_id('cart-quantity-side')).to_have_count(0);expect(page.get_by_test_id('cart-quantity-burger')).to_have_text('2');expect(page.get_by_test_id('cart-checkout')).to_contain_text('5 600,02')
  page.screenshot(path=str(OUT/'published-cart-updated.png'))
- page.get_by_test_id('cart-checkout').click();page.get_by_test_id('kaspi-checkout-submit').click();expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта. Корзина сохранена - можно вернуться к ней позже.',exact=True)).to_be_visible(timeout=15000)
+ page.get_by_test_id('cart-checkout').click();page.get_by_test_id('kaspi-checkout-submit').click();expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible(timeout=15000)
  assert quotes[-1]['status']==200 and quotes[-1]['response']['totalMinor']=='560002';assert quotes[-1]['request']['items'][0]['selections']==[{'group_id':'side','option_id':'extra','quantity':1}]
  assert not errors,errors
  context.close();browser.close()
