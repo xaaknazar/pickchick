@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setImmediate } from 'node:timers';
 import {
   publishedProductData,
   publishedCartVersion,
@@ -184,4 +185,140 @@ test('explicit cart refresh retains quantity and modifiers and names removed una
   assert.deepEqual(refreshed.cart[0].selections, cart[0].selections);
   assert.equal(refreshed.cart[0].product.priceMinor, '20000');
   assert.deepEqual(refreshed.removed, [previous[1].name]);
+});
+
+test('legacy cart migration preserves old price, photos and selections until explicit refresh', async () => {
+  const { restoreLegacyPublishedCart, publishedCartStorageRelease, reconcilePublishedCart } =
+    await import('../../apps/mobile/src/published-catalog.ts');
+  const { cartTotal, defaultSelections } = await import('../../apps/mobile/src/domain.ts');
+  const legacy = {
+    id: 'pick-combo',
+    name: 'PickCombo',
+    source: 'design',
+    image: 123,
+    catalogVersion: 'mockup-v0.3',
+    priceMinor: '419000',
+    modifierGroups: [
+      {
+        id: 'drink',
+        min: 1,
+        max: 1,
+        options: [
+          {
+            id: 'cola',
+            label: 'Cola',
+            default_quantity: 1,
+            max_quantity: 1,
+            price_delta_minor: '0',
+          },
+          {
+            id: 'water',
+            label: 'Water',
+            default_quantity: 0,
+            max_quantity: 1,
+            price_delta_minor: '1000',
+          },
+        ],
+      },
+    ],
+  };
+  const saved = {
+    catalogMode: 'server',
+    releaseId: 'test:mockup-v0.3',
+    lines: [
+      {
+        id: legacy.id,
+        quantity: 2,
+        selections: [{ group_id: 'drink', option_id: 'water', quantity: 1 }],
+      },
+    ],
+  };
+  const restored = restoreLegacyPublishedCart(saved, [legacy]);
+  assert.equal(cartTotal(restored), '840000');
+  assert.equal(restored[0].product.image, 123);
+  assert.deepEqual(restored[0].selections, saved.lines[0].selections);
+  assert.equal(publishedCartStorageRelease(restored, 'published:branch:3'), saved.releaseId);
+  assert.equal(publishedCartVersion(restored, 'branch'), undefined);
+  // A restart still restores the exact old catalog, never current publication prices.
+  assert.equal(
+    cartTotal(
+      restoreLegacyPublishedCart(
+        { ...saved, releaseId: publishedCartStorageRelease(restored, 'published:branch:3') },
+        [legacy],
+      ),
+    ),
+    '840000',
+  );
+  const current = {
+    ...legacy,
+    source: 'server',
+    priceMinor: '10000',
+    catalogVersion: 'published:branch:3',
+    modifierGroups: [
+      {
+        ...legacy.modifierGroups[0],
+        options: legacy.modifierGroups[0].options.map((o) => ({
+          ...o,
+          price_delta_minor: o.id === 'water' ? '2500' : '0',
+        })),
+      },
+    ],
+  };
+  const refreshed = reconcilePublishedCart(restored, [current]).cart;
+  assert.equal(cartTotal(refreshed), '25000');
+  assert.equal(cartTotal(restored), '840000');
+  assert.equal(publishedCartVersion(refreshed, 'branch'), 3);
+  assert.deepEqual(refreshed[0].selections, saved.lines[0].selections);
+  assert.deepEqual(defaultSelections(current), [
+    { group_id: 'drink', option_id: 'cola', quantity: 1 },
+  ]);
+  assert.deepEqual(
+    restoreLegacyPublishedCart({ ...saved, releaseId: 'unknown-release' }, [legacy]),
+    [],
+  );
+  assert.equal(publishedCartStorageRelease([], 'published:branch:3'), 'published:branch:3');
+});
+
+test('published catalog failure waits for sibling read before recovery can retry', async () => {
+  const { loadCatalog } = await import('../../apps/mobile/src/api.ts');
+  const previousFetch = globalThis.fetch;
+  const previousFlag = process.env.EXPO_PUBLIC_PUBLISHED_CATALOG;
+  let finishCapabilities;
+  let settled = false;
+  process.env.EXPO_PUBLIC_PUBLISHED_CATALOG = '1';
+  globalThis.fetch = async (url) => {
+    if (new URL(url).pathname === '/v1/customer-checkout/catalog')
+      return new Response('{}', { status: 503 });
+    return new Promise((resolve) => {
+      finishCapabilities = () =>
+        resolve(
+          new Response('{}', {
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+    });
+  };
+  try {
+    const pending = loadCatalog(null).catch((error) => {
+      settled = true;
+      return error;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settled, false);
+    finishCapabilities();
+    assert.ok((await pending) instanceof Error);
+    assert.equal(settled, true);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousFlag === undefined) delete process.env.EXPO_PUBLIC_PUBLISHED_CATALOG;
+    else process.env.EXPO_PUBLIC_PUBLISHED_CATALOG = previousFlag;
+  }
+});
+
+test('legacy checkout upgrade rejection has an actionable application update message', async () => {
+  const { checkoutError } = await import('../../apps/mobile/src/commerce-presentation.ts');
+  assert.equal(
+    checkoutError(new Error('CATALOG_UPGRADE_REQUIRED')),
+    'Обновите приложение, чтобы получить актуальное меню и цены ресторана.',
+  );
 });

@@ -120,12 +120,16 @@ export async function loadCatalog(
   publication: CatalogMobileStorefront | null;
 }> {
   if (process.env.EXPO_PUBLIC_PUBLISHED_CATALOG === '1') {
-    const [capabilities, publication] = await Promise.all([
+    const [capabilitiesResult, publicationResult] = await Promise.allSettled([
       readCatalogJson('/v1/capabilities', signal).then(parseCapabilities),
       readCatalogJson('/v1/customer-checkout/catalog', signal).then((value) =>
         CatalogMobileStorefrontSchema.parse(value),
       ),
     ]);
+    if (capabilitiesResult.status === 'rejected') throw capabilitiesResult.reason;
+    if (publicationResult.status === 'rejected') throw publicationResult.reason;
+    const capabilities = capabilitiesResult.value;
+    const publication = publicationResult.value;
     const branch = BranchSchema.parse(publication.branch);
     return { capabilities, publication, branch, branches: [branch], menu: null };
   }

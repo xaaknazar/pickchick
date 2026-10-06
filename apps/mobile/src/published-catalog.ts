@@ -1,7 +1,29 @@
-import { validSelections } from './domain.ts';
+import { restoreCart, validSelections, type SavedPreferences } from './domain.ts';
 import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import type { Product, Locale, CartLine } from './model';
 const displayCopy = (text: string) => text.replace(/[\u2013\u2014]/g, '-');
+
+// Legacy baskets have no publication snapshot. Only restore an exact bundled
+// release; projecting them onto today's publication would change their prices.
+export function restoreLegacyPublishedCart(
+  preferences: SavedPreferences,
+  legacyProducts: Product[],
+): CartLine[] {
+  const version = preferences.releaseId?.replace(/^test:/, '');
+  if (!version || !legacyProducts.every((product) => product.catalogVersion === version)) return [];
+  return restoreCart(
+    preferences,
+    legacyProducts.map((product) => ({ ...product, source: 'server' })),
+    preferences.releaseId,
+  );
+}
+
+export function publishedCartStorageRelease(cart: CartLine[], currentRelease: string | null) {
+  if (!cart.length) return currentRelease;
+  const version = cart[0]!.product.catalogVersion;
+  if (!version || cart.some((line) => line.product.catalogVersion !== version)) return null;
+  return version.startsWith('published:') ? version : `test:${version}`;
+}
 
 export function publishedProductData(
   catalog: CatalogMobileStorefront,
