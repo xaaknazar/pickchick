@@ -3102,6 +3102,19 @@
       "status": "active",
       "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
       "updatedAt": "2026-10-06T07:17:28.969Z"
+    },
+    {
+      "id": "catalog-native14",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-native14",
+      "scopes": [
+        "scripts/mobile/ios_release.py",
+        "tests/mobile/test_ios_release.py",
+        "docs/operations/mobile-catalog-testflight14.md"
+      ],
+      "status": "active",
+      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
+      "updatedAt": "2026-10-06T07:18:20.189Z"
     }
   ]
 }
