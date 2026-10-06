@@ -161,6 +161,30 @@ class FinanceRelease(unittest.TestCase):
         current['tables']['commerce_tiptoppay_test_payments']['rows']=1
         with self.assertRaises(r.market.GuardFailure):obj.retained_rollback_snapshot(before)
 
+    def test_rollback_allows_only_receipted_finance_audit_append_and_preserves_old_rows(self):
+        old=[{'id':'old','sha256':'known','finance_valid':False,'receipt_key':None}]
+        added={'id':'new','sha256':'finance','finance_valid':True,'receipt_key':'actor:request'}
+        r.verify_finance_audit_append(old,old+[added])
+        for invalid in [old+[dict(added,finance_valid=False)],old+[dict(added,receipt_key=None)],
+                        [dict(old[0],sha256='modified'),added],[added],
+                        old+[added,dict(added,id='other')]]:
+            with self.assertRaises(r.market.GuardFailure):r.verify_finance_audit_append(old,invalid)
+        obj=object.__new__(r.Release)
+        prior={'schema_migrations':{'rows':38,'sha256':'old'},'bo_audit':{'rows':1,'sha256':'known'},'commerce_captures':{'rows':1,'sha256':'money'}}
+        before={'ledger':[],'availability':[],'audit_rows':old,'runtime_data':{'tables':prior,'sequences':[]}}
+        ledger=[{'version':n,'scope':'cloud','checksum':h} for n,h in r.MIGRATION_HASHES.items()]
+        current={'tables':copy.deepcopy(prior),'sequences':[]};current['tables']['bo_audit']={'rows':2,'sha256':'appended'}
+        current['tables'].update({name:{'rows':1 if name in r.FINANCE_TABLES else 0,'sha256':'new'} for name in r.NEW_TABLES})
+        obj.ledger=lambda:ledger;obj.runtime_snapshot=lambda:current;obj.availability_rows=lambda:[]
+        obj.audit_rows=lambda installed:old+[added] if installed else old
+        self.assertEqual(obj.retained_rollback_snapshot(before),(ledger,current))
+        obj.audit_rows=lambda installed:old+[dict(added,finance_valid=False)]
+        with self.assertRaises(r.market.GuardFailure):obj.retained_rollback_snapshot(before)
+        del before['audit_rows']
+        with self.assertRaises(r.market.GuardFailure):obj.retained_rollback_snapshot(before)
+        source=inspect.getsource(r.Release.audit_rows)
+        for required in ['LEFT JOIN bo_finance_commands','c.actor_id=a.actor_id','c.request_id=a.request_id','c.branch_id=a.branch_id',"a.action='finance.'"]:self.assertIn(required,source)
+
     def test_public_smoke_only_unauthenticated_probes_no_finance_or_payment_data(self):
         source=inspect.getsource(r.Release.verify_public)
         self.assertIn("self.http(branch)[0] == 401",source)

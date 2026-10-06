@@ -71,6 +71,18 @@ def gateway_candidate(raw):
     return result
 
 
+def verify_finance_audit_append(before,after):
+    old = {row['id']:row for row in before}
+    current = {row['id']:row for row in after}
+    require(len(old) == len(before) and len(current) == len(after), 'Duplicate audit proof IDs')
+    require(all(key in current and current[key]['sha256'] == row['sha256'] for key,row in old.items()),
+            'Pre-existing audit row changed or disappeared')
+    added = [row for row in after if row['id'] not in old]
+    require(all(row.get('finance_valid') is True and row.get('receipt_key') for row in added),
+            'Non-finance or unreceipted audit append')
+    require(len({row['receipt_key'] for row in added}) == len(added), 'Duplicate finance audit receipt')
+
+
 def owner_migration_program():
     return """import {createPool,migrate,transaction} from '@pickchick/database';
 const url=new URL(process.env.CLOUD_DATABASE_URL);
@@ -129,6 +141,23 @@ class Release(base.Release):
         require(self.worker_acl() == before['worker_acl'], 'Kaspi worker permissions changed')
         require(all(self.psql(market.DB,'SELECT count(*) FROM '+n) == '0' for n in NEW_TABLES), 'All new finance/payment tables must stay empty during rollout')
 
+    def audit_rows(self,finance_installed=False):
+        projection = "encode(sha256(convert_to(row_to_json(a)::text,'UTF8')),'hex')"
+        if finance_installed:
+            sql = """SELECT coalesce(json_agg(json_build_object('id',a.id,'sha256',HASH,
+            'finance_valid',coalesce(c.actor_id IS NOT NULL AND c.branch_id=a.branch_id
+              AND a.action IN ('finance.account','finance.entry','finance.void','finance.period')
+              AND a.action='finance.'||(a.after_value->>'type')
+              AND a.entity_id::text IS NOT DISTINCT FROM c.result->>'id'
+              AND (a.action<>'finance.period' OR
+                (c.result->>'month'=a.after_value->>'month' AND c.result->>'closed'=a.after_value->>'closed')),false),
+            'receipt_key',CASE WHEN c.actor_id IS NOT NULL THEN c.actor_id::text||':'||c.request_id::text END)
+            ORDER BY a.id),'[]') FROM bo_audit a LEFT JOIN bo_finance_commands c
+            ON c.actor_id=a.actor_id AND c.request_id=a.request_id"""
+        else:
+            sql = "SELECT coalesce(json_agg(json_build_object('id',a.id,'sha256',HASH,'finance_valid',false,'receipt_key',NULL) ORDER BY a.id),'[]') FROM bo_audit a"
+        return json.loads(self.psql(market.DB,sql.replace('HASH',projection)))
+
     def retained_rollback_snapshot(self,before):
         ledger = self.ledger()
         additions = [{'version':n,'scope':'cloud','checksum':h} for n,h in MIGRATION_HASHES.items()]
@@ -151,6 +180,10 @@ class Release(base.Release):
         # and domain tables without erasing or importing any new finance rows.
         augmented = {**before['runtime_data'],'tables':{**before['runtime_data']['tables'],
                     **{name:current['tables'][name] for name in expected_new}}}
+        if 'bo_audit' in current['tables']:
+            require('audit_rows' in before, 'Original per-row audit proof required for journal-preserving rollback')
+            verify_finance_audit_append(before['audit_rows'],self.audit_rows('042_cloud_finance.sql' in applied))
+            augmented['tables']['bo_audit'] = current['tables']['bo_audit']
         base.verify_availability(before['availability'],self.availability_rows())
         market.compare_existing(augmented,current,additions=True,new_tables=set())
         return ledger,current
@@ -268,7 +301,7 @@ print(json.dumps(m))
         self.remote(market.api_compose(BASELINE)+' stop --timeout 30 api',timeout=60)
         require(self.psql(market.DB,"SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND (usename='pickchick_app' OR xact_start IS NOT NULL)") == '0', 'Competing database writer')
         self.quiescent()
-        before = {'data':self.snapshot(),'runtime_data':self.runtime_snapshot(),'availability':self.availability_rows(),'ledger':self.ledger(),'acl':self.acl(),'worker_acl':self.worker_acl(),'neighbors':self.fingerprint()}
+        before = {'data':self.snapshot(),'runtime_data':self.runtime_snapshot(),'availability':self.availability_rows(),'ledger':self.ledger(),'acl':self.acl(),'worker_acl':self.worker_acl(),'neighbors':self.fingerprint(),'audit_rows':self.audit_rows()}
         expected = [{'version':name,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/name).read_bytes())} for name in self.baseline_migrations()]
         require(before['ledger'] == expected, 'Baseline migration ledger differs')
         self.save('before.json',before)
