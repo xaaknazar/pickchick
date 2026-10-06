@@ -3126,6 +3126,19 @@
       "nextAction": "Root integrates commit, full CI, release guard review and rearchive build 14. No full CI or native action performed in this subtask."
     },
     {
+      "id": "catalog-price-race-test",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-race-test",
+      "scopes": [
+        "docs/operations/catalog-price-race-test.md"
+      ],
+      "status": "available",
+      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
+      "updatedAt": "2026-10-06T08:02:07.753Z",
+      "summary": "Published verified 850c6fa5a39296f78e29ff56e2a8b8c78a7137cc from e192f05. Test-only race expectations follow actual fulfilled crop; deterministic independent PostgreSQL clients verify both carrot and tomato outcomes and durable state. Real local PostgreSQL18 integration passed plus frozen install/build/lint/format. Explicit overlap delegated by root; runtime/gameplay untouched.",
+      "nextAction": "Root integrates and runs final CI on new SHA, then resumes build 14. Old CI not rerun; local temporary PostgreSQL stopped. Evidence docs/operations/catalog-price-race-test.md."
+    },
+    {
       "id": "farm-gameplay-v2",
       "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
       "branch": "codex/farm-gameplay-v2",
@@ -3147,24 +3160,11 @@
         "tests/mobile/browser_farm_v2.py",
         "tests/mobile/browser_pick_farm.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "1a423a099107e50d605436c0f8b8ee9aac9bed90",
-      "updatedAt": "2026-10-06T07:59:55.971Z",
+      "updatedAt": "2026-10-06T08:06:51.853Z",
       "summary": "PR #193, 1a423a0: мгновенные действия, полив water/waterMany, harvestMany/plantMany, точность касаний, камера, HUD, FX, полоса семян. Локально: 33 engine, 28 mobile, tsc/eslint/prettier, contracts, PostgreSQL16, browser_farm_v2 (844/667 + старый API), browser_farm_progression. CI 37430727748: check/farm/mobile зелёные; audit:release (новые advisories, deps не менялись) и прежние POS browser красные. openapi.json изменён с согласия владельца.",
       "nextAction": "Владельцу: ревью PR #193 и слияние в shared-development (агенту слияние без ревью запрещено), затем finish. Mac1: закрыть farm-progression-api. Далее API с новым движком без миграций, TestFlight, физический iPhone."
-    },
-    {
-      "id": "catalog-price-race-test",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/catalog-price-race-test",
-      "scopes": [
-        "docs/operations/catalog-price-race-test.md"
-      ],
-      "status": "available",
-      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
-      "updatedAt": "2026-10-06T08:02:07.753Z",
-      "summary": "Published verified 850c6fa5a39296f78e29ff56e2a8b8c78a7137cc from e192f05. Test-only race expectations follow actual fulfilled crop; deterministic independent PostgreSQL clients verify both carrot and tomato outcomes and durable state. Real local PostgreSQL18 integration passed plus frozen install/build/lint/format. Explicit overlap delegated by root; runtime/gameplay untouched.",
-      "nextAction": "Root integrates and runs final CI on new SHA, then resumes build 14. Old CI not rerun; local temporary PostgreSQL stopped. Evidence docs/operations/catalog-price-race-test.md."
     }
   ]
 }
