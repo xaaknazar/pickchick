@@ -3050,6 +3050,29 @@
       "status": "active",
       "head": "86fa1cd945bed3c795bdc33ea152d70b67397c60",
       "updatedAt": "2026-10-05T18:40:54.139Z"
+    },
+    {
+      "id": "farm-gameplay-v2",
+      "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
+      "branch": "codex/farm-gameplay-v2",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm",
+        "apps/mobile/assets/games/pick-farm",
+        "packages/farm-game",
+        "tests/mobile/farm-geometry.test.mjs",
+        "tests/mobile/farm-harvest-queue.test.mjs",
+        "tests/mobile/pick-farm-client.test.mjs",
+        "tests/mobile/browser_farm_progression.py",
+        "docs/design/pick-farm-v2.md",
+        "docs/operations/pick-farm.md",
+        "docs/operations/images/farm-v2",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
+      "updatedAt": "2026-10-06T06:28:18.558Z"
     }
   ]
 }
