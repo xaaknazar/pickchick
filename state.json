@@ -3160,11 +3160,11 @@
         "tests/mobile/browser_farm_v2.py",
         "tests/mobile/browser_pick_farm.py"
       ],
-      "status": "active",
-      "head": "1a423a099107e50d605436c0f8b8ee9aac9bed90",
-      "updatedAt": "2026-10-06T08:06:51.853Z",
-      "summary": "PR #193, 1a423a0: мгновенные действия, полив water/waterMany, harvestMany/plantMany, точность касаний, камера, HUD, FX, полоса семян. Локально: 33 engine, 28 mobile, tsc/eslint/prettier, contracts, PostgreSQL16, browser_farm_v2 (844/667 + старый API), browser_farm_progression. CI 37430727748: check/farm/mobile зелёные; audit:release (новые advisories, deps не менялись) и прежние POS browser красные. openapi.json изменён с согласия владельца.",
-      "nextAction": "Владельцу: ревью PR #193 и слияние в shared-development (агенту слияние без ревью запрещено), затем finish. Mac1: закрыть farm-progression-api. Далее API с новым движком без миграций, TestFlight, физический iPhone."
+      "status": "available",
+      "head": "d21fd870962ce055a3e6841b3dfcd0bbcea0adaf",
+      "updatedAt": "2026-10-06T08:12:13.839Z",
+      "summary": "PR #193: v2 + земля из одной сгенерированной клетки травы (112x112 клеток, блоки 8x8), луг удалён. Тесты 29 mobile, browser_farm_v2 прошли.",
+      "nextAction": "Владельцу: посмотреть траву и PR #193, слить в shared-development; затем API, TestFlight, физический iPhone."
     }
   ]
 }
