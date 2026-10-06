@@ -3162,9 +3162,11 @@
         "tests/operations/test_catalog_storefront_release.py",
         "docs/operations/deployments/2026-10-06-catalog-storefront.md"
       ],
-      "status": "active",
+      "status": "done",
       "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
-      "updatedAt": "2026-10-06T08:31:27.831Z"
+      "updatedAt": "2026-10-06T08:31:33.630Z",
+      "summary": "Опубликован guard7e2bfcf; ветка ff до shared850c6fa, удалённые SHA совпали. 14 guardtests/live readonlysmoke прошли; exact11greenCI37433448853. Штатные prepare/apply установили850c6fa API/public, catalogHTTP200 ABAYv3/PickCombo10000minor, encryptedbackuprestore и отдельная postpublicationfinancial/data/ledger/ACL/env/public проверка прошли. Новых заказов/счетов/pricewrites/bankcalls нет.",
+      "nextAction": "Root завершает upload/TestFlight14 и сохраняет общий итог; физическая приёмка отдельно. Старые TipTop reservations сохранены."
     }
   ]
 }
