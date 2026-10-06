@@ -3111,6 +3111,21 @@
       "nextAction": "Root explicitly integrates commit with final rollout/native profile and TipTop branch, full CI, PR. PostgreSQL browser fixture not run here: Docker unavailable. General status/roadmap owned second Mac; delivery proof docs/operations/catalog-price-mobile.md."
     },
     {
+      "id": "catalog-price-audit",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-audit",
+      "scopes": [
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "docs/operations/catalog-price-audit.md"
+      ],
+      "status": "available",
+      "head": "7bcbd7a2389713a14ed70a58ee749eb5c0e25837",
+      "updatedAt": "2026-10-06T07:42:26.672Z",
+      "summary": "Published verified commit 7bcbd7a2389713a14ed70a58ee749eb5c0e25837 from release candidate 178e4ab. Three fixed transitive patch versions only; official advisories linked in docs/operations/catalog-price-audit.md. Frozen install, unchanged high/critical audit gate, 5 security patch tests, executable source-map/proxy trust/compression abort smoke, format passed. Four moderate remain; no added exclusions.",
+      "nextAction": "Root integrates commit, full CI, release guard review and rearchive build 14. No full CI or native action performed in this subtask."
+    },
+    {
       "id": "farm-gameplay-v2",
       "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
       "branch": "codex/farm-gameplay-v2",
@@ -3132,26 +3147,11 @@
         "tests/mobile/browser_farm_v2.py",
         "tests/mobile/browser_pick_farm.py"
       ],
-      "status": "available",
-      "head": "34e3ef3ff0933acf4355739ab8ad520e4f06bd8e",
-      "updatedAt": "2026-10-06T07:38:19.726Z",
+      "status": "active",
+      "head": "1a423a099107e50d605436c0f8b8ee9aac9bed90",
+      "updatedAt": "2026-10-06T07:59:52.838Z",
       "summary": "PR #193, 34e3ef3: мгновенные действия (prediction pipeline), полив water/waterMany, harvestMany/plantMany, точность касаний, камера, HUD, FX, полоса семян. 33 engine + 28 mobile, tsc/eslint/prettier, contracts:check, PostgreSQL16, browser_farm_v2 (844/667 + старый API), browser_farm_progression прошли. openapi.json изменён с согласия владельца (резерв farm-progression-api не закрыт). Physical/API/TestFlight не выполнялись.",
       "nextAction": "Проверить CI PR #193, интегрировать в shared-development без force и finish; Mac1 - закрыть farm-progression-api. Затем API с новым движком (без миграций), TestFlight, физический iPhone."
-    },
-    {
-      "id": "catalog-price-audit",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/catalog-price-audit",
-      "scopes": [
-        "pnpm-lock.yaml",
-        "pnpm-workspace.yaml",
-        "docs/operations/catalog-price-audit.md"
-      ],
-      "status": "available",
-      "head": "7bcbd7a2389713a14ed70a58ee749eb5c0e25837",
-      "updatedAt": "2026-10-06T07:42:26.672Z",
-      "summary": "Published verified commit 7bcbd7a2389713a14ed70a58ee749eb5c0e25837 from release candidate 178e4ab. Three fixed transitive patch versions only; official advisories linked in docs/operations/catalog-price-audit.md. Frozen install, unchanged high/critical audit gate, 5 security patch tests, executable source-map/proxy trust/compression abort smoke, format passed. Four moderate remain; no added exclusions.",
-      "nextAction": "Root integrates commit, full CI, release guard review and rearchive build 14. No full CI or native action performed in this subtask."
     }
   ]
 }
