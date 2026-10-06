@@ -73,16 +73,17 @@ with sync_playwright() as p:
 
     mode['orders'] = 'offline'
     page.reload()
-    expect(details.get_by_text('Статус пока не удалось проверить', exact=True)).to_be_visible(timeout=15000)
+    expect(details.get_by_text('Загружаем заказ', exact=True)).to_be_visible(timeout=15000)
+    expect(details.get_by_text('Статус пока не удалось проверить', exact=True)).to_have_count(0)
+    expect(details.get_by_role('button', name='Обновить статус', exact=True)).to_have_count(0)
     assert page.get_by_text('Активного платежа нет', exact=True).count() == 0
     assert page.evaluate('(key)=>localStorage.getItem(key)', SESSION_KEY) == json.dumps(SESSION)
     mode['orders'] = 'success'
-    details.get_by_role('button', name='Обновить статус', exact=True).click()
     expect(details.get_by_test_id('connected-order-number')).to_have_text(ORDER['number'], timeout=15000)
 
     page.goto(URL + '/screen/M12')
     expect(page.get_by_test_id('test-checkout-create')).to_contain_text('Продолжить ' + ORDER['number'], timeout=15000)
-    expect(page.get_by_text('Новое оформление недоступно', exact=True)).to_be_visible()
+    expect(page.get_by_text('Новое оформление недоступно', exact=True)).to_have_count(0)
     page.get_by_test_id('test-checkout-create').click()
     expect(page.get_by_test_id('screen-M14').get_by_test_id('connected-order-number')).to_have_text(ORDER['number'])
     page.goto(URL + '/screen/M11')
@@ -103,7 +104,7 @@ with sync_playwright() as p:
 
 print(json.dumps({'success': True, 'fixture_only': True, 'real_orders_created': 0,
                   'checks': ['saved unknown order survives unavailable catalog',
-                             'failed cold read stays unknown; manual retry restores the same order',
+                             'failed cold read stays quiet; automatic retry restores the same order',
                              'checkout resumes saved unknown order without a new request',
                              'availability retry does not falsely report a closed restaurant',
                              'older API watch404 falls back to read-only snapshots without mutations']}, ensure_ascii=False))

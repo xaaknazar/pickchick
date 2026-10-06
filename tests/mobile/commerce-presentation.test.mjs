@@ -121,13 +121,26 @@ test('commercial status reuses chef scenes without fabricating TEST authority', 
   assert.throws(() => commerceStatus({ ...base, phase: 'checking' }), /PAYMENT_NOT_CONFIRMED/);
 });
 
-test('checkout availability is not presented as a broken connection or an invalid cart', () => {
-  assert.match(checkoutError(new Error('FORBIDDEN')), /не открыта для вашего аккаунта/);
-  assert.match(checkoutError(new Error('NOT_READY')), /Ресторан пока не готов/);
-  for (const code of ['FORBIDDEN', 'NOT_READY']) {
-    assert.match(checkoutError(new Error(code)), /Корзина сохранена/);
-    assert.doesNotMatch(checkoutError(new Error(code)), /Связь прервалась|этого заказа/);
-  }
+test('transient order failures stay silent while actionable checkout decisions remain visible', () => {
+  for (const code of ['NETWORK_UNAVAILABLE', 'NOT_READY', 'AVAILABILITY_STALE', 'INTERNAL_ERROR'])
+    assert.equal(checkoutError(new Error(code)), '');
+  assert.equal(checkoutError(new TypeError('Network request failed')), '');
+  for (const code of [
+    'UNAUTHORIZED',
+    'FORBIDDEN',
+    'CONFLICT',
+    'QUOTE_EXPIRED',
+    'ITEM_STOPPED',
+    'CHECKOUT_STORAGE',
+    'CATALOG_UPGRADE_REQUIRED',
+    'COMMENT_UNAVAILABLE',
+  ])
+    assert.ok(checkoutError(new Error(code)), code);
+  for (const phase of Object.values(paymentCopy))
+    assert.doesNotMatch(
+      phase.detail,
+      /Связь прервалась|заказ сохранён|повторно|проверить соединение/i,
+    );
 });
 
 test('invoice countdown uses the server deadline and never manufactures a payment outcome', () => {

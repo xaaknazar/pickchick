@@ -1,8 +1,4 @@
-import {
-  recoverCommerceRead,
-  historyOrderNeedsWatch,
-  checkoutReadError,
-} from '../commerce-read-recovery';
+import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
 import { prepareCheckout } from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
@@ -19,7 +15,7 @@ import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { CustomerSessionError } from '../customer-session';
-import { watchCommerceOrder } from '../commerce-watch';
+import { watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
 import {
   commerceRequest,
   CustomerCommerceOrderSchema,
@@ -75,7 +71,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const reviews = useCommerceFeedback(order, props.screenId === 'M19');
   const [loaded, setLoaded] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState<unknown>(null);
   const [connectionPaused, setConnectionPaused] = useState(false);
   const [paymentPaused, setPaymentPaused] = useState(false);
   const preparation = useRef<AbortController | null>(null);
@@ -83,8 +79,6 @@ function KaspiCheckoutSession(props: ScreenProps) {
   useEffect(() => () => preparation.current?.abort(), []);
   const [paidMoment, setPaidMoment] = useState(false);
   const paidSeen = useRef(new Set<string>());
-  const [watchCycle, setWatchCycle] = useState(0);
-  const [watchError, setWatchError] = useState('');
   const [priceNotice, setPriceNotice] = useState('');
   const orderRef = useRef<CustomerCommerceOrder | null>(null);
   const [refresh, setRefresh] = useState(0),
@@ -175,9 +169,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
               accept: (value: unknown) => CustomerCheckoutConfigSchema.parse(value).enabled,
               onPending: () => {
                 if (active && props.screenId === 'M19') {
-                  setError(
-                    'Ресторан пока не готов принимать заказы. Корзина сохранена - проверяем доступность автоматически.',
-                  );
+                  setError(new Error('NOT_READY'));
                   setLoaded(true);
                 }
               },
@@ -192,21 +184,18 @@ function KaspiCheckoutSession(props: ScreenProps) {
         },
         onFailure: (cause) => {
           if (active && props.screenId === 'M19') {
-            setError(checkoutReadError(cause, props.screenId === 'M19'));
+            setError(cause);
             setLoaded(true);
           }
         },
         onRecovered: () => {
-          if (active) setError('');
+          if (active) setError(null);
         },
       });
     setLoaded(false);
-    setError('');
+    setError(null);
     setQuote(null);
     setOrder(null);
-    let recoveringCommand = false;
-    const draftCommandError = (cause: unknown) =>
-      recoveringCommand ? checkoutError(cause) : checkoutReadError(cause, props.screenId === 'M19');
     const run = async () => {
       const raw = await AsyncStorage.getItem(key);
       let draft: Pending | null = null;
@@ -223,9 +212,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       if (!active || controller.signal.aborted || lock.current) return;
       pending.current = draft;
       if (draft) {
-        recoveringCommand = true;
         const existing = CustomerCommerceOrderSchema.parse(await recover(draft));
-        recoveringCommand = false;
         if (!active || controller.signal.aborted || lock.current) return;
         await acceptRef.current(existing);
         if (props.screenId !== 'M19' || existing.phase !== 'failed') return;
@@ -247,8 +234,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     };
     void run()
       .catch((e) => {
-        if (active && !controller.signal.aborted && props.screenId === 'M19')
-          setError(draftCommandError(e));
+        if (active && !controller.signal.aborted && props.screenId === 'M19') setError(e);
       })
       .finally(() => {
         if (active) setLoaded(true);
@@ -279,11 +265,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
       accept: async (next) => {
         await acceptRef.current(next);
       },
-      onError: (cause, reconnecting) => setWatchError(reconnecting ? '' : checkoutError(cause)),
-      onRecovered: () => setWatchError(''),
+      // Connection recovery keeps the last confirmed order on screen without banners.
+      onError: () => {},
+      onRecovered: () => {},
     });
     return () => controller.abort();
-  }, [request, order?.orderId, order?.revision, order?.phase, foreground, watchCycle]);
+  }, [request, order?.orderId, order?.revision, order?.phase, foreground]);
   useEffect(() => {
     if (props.screenId !== 'M19' || order || !foreground) return;
     const controller = new AbortController();
@@ -307,13 +294,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
               items.map((entry) => (entry.orderId === next.orderId ? next : entry)),
             );
         },
-        onError: (_cause, reconnecting) =>
-          setWatchError(
-            reconnecting
-              ? 'Обновляем статусы заказов после восстановления связи.'
-              : 'Не удалось обновить статусы заказов.',
-          ),
-        onRecovered: () => setWatchError(''),
+        onError: () => {},
+        onRecovered: () => {},
       });
     }
     return () => controller.abort();
@@ -333,7 +315,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     setBusy(true);
     setConnectionPaused(false);
-    setError('');
+    setError(null);
     setPriceNotice('');
     const prepared = <T,>(operation: () => Promise<T>) =>
       prepareCheckout(operation, controller.signal);
@@ -369,7 +351,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       });
       setConfig(setup);
       if (!setup.orderCommentEnabled && comment) {
-        setError('Комментарий временно недоступен. Удалите его, чтобы оформить заказ.');
+        setError(new Error('COMMENT_UNAVAILABLE'));
         return;
       }
       const quoteKey = randomUUID();
@@ -413,7 +395,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     } catch (e) {
       // Transport failures stay on the connecting scene; only a final actionable outcome returns.
       if (controller.signal.reason === 'timeout') setConnectionPaused(true);
-      else if (!controller.signal.aborted) setError(checkoutError(e));
+      else if (!controller.signal.aborted) setError(e);
     } finally {
       clearTimeout(deadline);
       if (preparation.current === controller) preparation.current = null;
@@ -427,7 +409,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     lock.current = true;
     setBusy(true);
     setPaymentPaused(false);
-    setError('');
+    setError(null);
     const controller = new AbortController();
     preparation.current = controller;
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
@@ -440,7 +422,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       );
     } catch (e) {
       if (controller.signal.aborted) setPaymentPaused(true);
-      else setError(checkoutError(e));
+      else setError(e);
     } finally {
       clearTimeout(deadline);
       if (preparation.current === controller) preparation.current = null;
@@ -461,13 +443,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
       void pay();
   }, [order?.phase, busy, error, paymentPaused, pay]);
   const retry = () => {
-    setError('');
-    setWatchError('');
-    if (order) setWatchCycle((c) => c + 1);
-    else setRefresh((c) => c + 1);
+    setError(null);
+    setRefresh((c) => c + 1);
   };
   const total = quote ? quote.totalMinor : cartTotal(props.model.cart);
-  const statusError = error || watchError;
+  // Keep the failure itself for payment/recovery guards; transient failures have no UI copy.
+  const visibleError = error ? checkoutError(error) : '';
+  const historyNeedsRefresh = !!error && !visibleError && watchRetryDelay(error, 1) === null;
   const unsupportedComment =
     loaded &&
     !!config &&
@@ -533,25 +515,18 @@ function KaspiCheckoutSession(props: ScreenProps) {
           orderRef.current = null;
           setOrder(null);
           setQuote(null);
-          setError('');
+          setError(null);
           setLoaded(false);
           setRefresh((c) => c + 1);
         }}
         extraAction={
-          order.phase === 'ready_to_pay' && (!pending.current?.sendInvoice || paymentPaused) ? (
+          order.phase === 'ready_to_pay' &&
+          (!pending.current?.sendInvoice || paymentPaused || !!error) ? (
             <Button
               title={`Отправить счёт на ${money(order.totalMinor)}`}
               onPress={() => void pay()}
               disabled={busy}
             />
-          ) : undefined
-        }
-        notice={
-          statusError ? (
-            <View style={s.warning}>
-              <Body>{statusError}</Body>
-              <Button secondary title="Проверить соединение" onPress={retry} />
-            </View>
           ) : undefined
         }
       />
@@ -597,14 +572,6 @@ function KaspiCheckoutSession(props: ScreenProps) {
               <View testID="order-kitchen-comment" style={s.savedComment}>
                 <Caption>Комментарий к заказу</Caption>
                 <Body>{order.kitchenComment}</Body>
-              </View>
-            ) : undefined
-          }
-          notice={
-            statusError ? (
-              <View style={s.warning}>
-                <Body>{statusError}</Body>
-                <Button secondary title="Проверить соединение" onPress={retry} />
               </View>
             ) : undefined
           }
@@ -667,21 +634,24 @@ function KaspiCheckoutSession(props: ScreenProps) {
         )
       }
     >
-      {error && (props.screenId === 'M19' || !busy) ? (
+      {visibleError && (props.screenId === 'M19' || !busy) ? (
         <View style={s.warning} accessibilityLiveRegion="polite">
-          <Body>{error}</Body>
-          <Button secondary title="Проверить соединение" onPress={retry} />
+          <Body>{visibleError}</Body>
+          <Button secondary title="Попробовать снова" onPress={retry} />
         </View>
       ) : null}
-      {!loaded && props.screenId === 'M19' ? (
+      {props.screenId === 'M19' &&
+      (!loaded || (!!error && !visibleError && !historyNeedsRefresh && !history.length)) ? (
         <View style={s.loading}>
           <ActivityIndicator color={colors.accent} />
           <Caption>Проверяем ваш заказ</Caption>
         </View>
       ) : null}
+      {props.screenId === 'M19' && historyNeedsRefresh ? (
+        <Button title="Показать заказы" secondary onPress={retry} />
+      ) : null}
       {props.screenId === 'M19' ? (
         <>
-          {watchError ? <Caption accessibilityLiveRegion="polite">{watchError}</Caption> : null}
           {!history.length && loaded && !error ? (
             <Empty
               title="Заказов пока нет"
