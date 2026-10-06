@@ -3193,9 +3193,11 @@
         "tests/backoffice/browser_operations.py",
         "docs/operations/images/finance-ledger"
       ],
-      "status": "active",
-      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
-      "updatedAt": "2026-10-06T09:29:31.178Z"
+      "status": "available",
+      "head": "d98327e75c10344c3d4b0ded0db514638a66bb59",
+      "updatedAt": "2026-10-06T10:17:25.970Z",
+      "summary": "PR #195, d98327e75c10344c3d4b0ded0db514638a66bb59: ежедневный финансовый журнал, ДДС/ОПиУ, точные суммы, отдельные даты, счета, immutable отмены, закрытие месяца и аудит. 27 адресных тестов локально; CI 37446531780: 8/10 рабочих jobs success, включая POS/backoffice; два failed из-за пяти исторических migration fixtures, общий gate failed. Код не включён в shared и не установлен. Workbook/private credentials не сохранены в Git. Runbook: docs/operations/finance-ledger.md.",
+      "nextAction": "Согласовать передачу test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py из tiptop-historical-fixtures (первые два уже запрошены у владельца); также зарезервировать/исправить test_catalog_storefront_release.py. Сохранить строгие production guards, изолировать исторические fixtures. Пройти CI, интегрировать свежий shared, обновить общие status/handoff/roadmap после farm-gameplay-v2. Для выпуска нужен согласованный порядок миграций 039/040/042, новый release profile, SSH и claim VPS. После установки подтвердить личные права бухгалтера, реальные счета/остатки и день учёта."
     },
     {
       "id": "order-status-quiet",
