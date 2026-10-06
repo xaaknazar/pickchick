@@ -3214,11 +3214,11 @@
         "docs/operations/images/finance-ledger",
         "tests/operations/test_catalog_storefront_release.py"
       ],
-      "status": "active",
-      "head": "2d29df595c9188e7e06a61bf44f99d69cac7c89e",
-      "updatedAt": "2026-10-06T11:26:25.693Z",
-      "summary": "PR #195, 2d29df595c9188e7e06a61bf44f99d69cac7c89e. Реализован durable финансовый журнал, ДДС/ОПиУ, счета, отдельные даты, отмены/аудит/закрытие месяца. Включён свежий shared 7e58f90 без конфликтов. 27 адресных тестов прошли; после объединения повторены 14 finance tests и 7 mobile presentation tests. CI кода d98327e: 37446531780, 8/10 рабочих jobs success, два failed из-за пяти historical migration fixtures; общий gate failed. Новая CI после merge/docs запущена, не заявлена зелёной. В shared не включено, VPS не обновлён. Синтетический preview и локальная тестовая БД остановлены; реальный директорский вход закрыт. Runbook и снимки сохранены в docs/operations/finance-ledger.md.",
-      "nextAction": "Согласовать четыре занятых файла tests/operations/test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py с tiptop-historical-fixtures; первые два запрошены владельцу. Также исправить test_catalog_storefront_release.py через отдельный claim. Сохранить строгие production guards; использовать исторические fixtures. Добиться зелёной CI, включить в свежий shared, обновить общие status/handoff/roadmap после передачи farm-gameplay-v2. Выпуск требует порядка миграций 039/040/042, нового release profile, разрешённого SSH и claim VPS. Затем личные права бухгалтера, подтверждённые счета/остатки и приёмка первого рабочего дня."
+      "status": "available",
+      "head": "8bdb6aeb8661a213b691c01f5023b6461b4849c7",
+      "updatedAt": "2026-10-06T11:29:36.757Z",
+      "summary": "Владелец поручил установить финансы на сайт и выбрал другой Mac с существующим SSH-доступом. Прямой связи с тем Mac у этого чата нет. PR #195, HEAD 8bdb6aeb8661a213b691c01f5023b6461b4849c7. HTTP 200 backoffice, gateway alive; finance endpoint 404, сервер здесь НЕ изменён. Нет локального SSH-ключа/agent identity/host key. test_catalog_storefront_release.py исправлен без ослабления release guards: 14/14; CI 2d29df5 завершилась failed (37448932997), свежая CI не объявлена зелёной. Предыдущие finance14 и BO13 проверок прошли. Владелец явно отказал в передаче четырёх historical fixtures и @vps/api, другой Mac ещё работает; резервы сохранены.",
+      "nextAction": "Принимающий Mac с SSH: после согласования своего текущего TipTop выпуска принять finance-ledger из опубликованной ветки (8bdb6ae), PR195. В своей согласованной области исправить test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py, не ослабляя production guards. Сверить реальные installed API/schema/public указатели и порядок ожидаемых039/040 перед042; зелёная полнаяCI точного source, encrypted backup/rollback, release profile и серверный claim. Выпустить API/schema/grants, gateway и backoffice с сохранением банковских worker/кухни/idrink. Проверить права и пустой журнал без синтетических записей в рабочей точке. Обновить общие status/roadmap после согласования их резерва. Полная инструкция docs/operations/finance-ledger.md."
     },
     {
       "id": "farm-v3-review-report",
