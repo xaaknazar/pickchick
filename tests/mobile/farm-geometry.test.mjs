@@ -5,11 +5,13 @@ import {
   cellAtPoint,
   fitFarm,
   clampCamera,
+  frameWorldRect,
+  screenAtWorld,
+  MEADOW,
+  WORLD_OFFSET_Y,
   MIN_ZOOM,
   MAX_ZOOM,
 } from '../../apps/mobile/src/games/pick-farm/geometry.ts';
-
-const normalizeCamera = (camera) => ({ ...camera, x: camera.x || 0, y: camera.y || 0 });
 test('isometric projection roundtrips every historical cell and new32x32 field edge', () => {
   for (let y = 0; y < 64; y++)
     for (let x = 0; x < 64; x++) {
@@ -27,45 +29,68 @@ test('isometric projection roundtrips every historical cell and new32x32 field e
     assert.deepEqual(cellAtPoint(point.x + 10, point.y + 3), { x, y });
   }
 });
-test('overview fits field diamond within available phone viewport and prevents panning', () => {
+test('overview shows the whole field and house, and the meadow always covers the screen', () => {
   for (const [width, height] of [
     [320, 568],
     [390, 844],
+    [667, 375],
     [844, 390],
+    [932, 430],
     [1024, 768],
   ]) {
     const fit = fitFarm(width, height);
-    assert.ok(3072 * fit <= width - 48 + 1e-9);
-    assert.ok(1960 * fit <= height - 144 + 1e-9);
-    assert.deepEqual(normalizeCamera(clampCamera(10000, -10000, MIN_ZOOM, fit, width, height)), {
-      x: 0,
-      y: 0,
-      zoom: MIN_ZOOM,
-    });
+    // Field diamond plus the house above it fit in landscape phones and tablets.
+    if (width > height) {
+      assert.ok(3072 * fit <= width, `${width}x${height} field width`);
+      assert.ok(1840 * fit <= height, `${width}x${height} field height`);
+    }
+    for (const zoom of [MIN_ZOOM, 2, MAX_ZOOM])
+      for (const [x, y] of [
+        [1e6, 1e6],
+        [-1e6, -1e6],
+        [0, 0],
+      ]) {
+        const camera = clampCamera(x, y, zoom, fit, width, height);
+        const s = fit * camera.zoom;
+        const left = width / 2 + camera.x - (MEADOW.width / 2) * s;
+        const right = width / 2 + camera.x + (MEADOW.width / 2) * s;
+        const top = height / 2 + WORLD_OFFSET_Y + camera.y - (MEADOW.height / 2) * s;
+        const bottom = height / 2 + WORLD_OFFSET_Y + camera.y + (MEADOW.height / 2) * s;
+        const label = JSON.stringify({ width, height, zoom, x, y });
+        assert.ok(left <= 1e-6 && right >= width - 1e-6, label);
+        assert.ok(top <= 1e-6 && bottom >= height - 1e-6, label);
+      }
   }
 });
-test('zoom clamps to overview and maximum; pan remains bounded after zooming in', () => {
+test('zoom clamps between the overview and the close view; the garden frame stays inside', () => {
   const width = 844,
     height = 390,
     fit = fitFarm(width, height);
-  assert.deepEqual(normalizeCamera(clampCamera(123, -321, 0, fit, width, height)), {
-    x: 0,
-    y: 0,
-    zoom: MIN_ZOOM,
-  });
-  const maxX = Math.max(0, (3072 * fit * MAX_ZOOM - (width - 48)) / 2);
-  const maxY = Math.max(0, (1960 * fit * MAX_ZOOM - (height - 144)) / 2);
-  assert.deepEqual(clampCamera(1e6, -1e6, 100, fit, width, height), {
-    x: maxX,
-    y: -maxY,
-    zoom: MAX_ZOOM,
-  });
-  assert.deepEqual(clampCamera(-1e6, 1e6, MAX_ZOOM, fit, width, height), {
-    x: -maxX,
-    y: maxY,
-    zoom: MAX_ZOOM,
-  });
-  assert.deepEqual(clampCamera(0, 0, 2, fit, width, height), { x: 0, y: 0, zoom: 2 });
+  assert.equal(clampCamera(0, 0, 0, fit, width, height).zoom, MIN_ZOOM);
+  assert.equal(clampCamera(0, 0, 100, fit, width, height).zoom, MAX_ZOOM);
+  const a = isoPoint(29, 29),
+    b = isoPoint(33, 31);
+  const rect = { minX: a.x - 200, maxX: b.x + 200, minY: a.y - 100, maxY: b.y + 40 };
+  const camera = frameWorldRect(rect, fit, width, height);
+  assert.ok(camera.zoom > MIN_ZOOM && camera.zoom <= 3.2, String(camera.zoom));
+  const centre = screenAtWorld(
+    { x: (rect.minX + rect.maxX) / 2, y: (rect.minY + rect.maxY) / 2 },
+    camera,
+    fit,
+    width,
+    height,
+  );
+  assert.ok(Math.abs(centre.x - width / 2) < 1, String(centre.x));
+  assert.ok(Math.abs(centre.y - (height / 2 + 16)) < 1, String(centre.y));
+  // A garden at the very edge is framed without revealing the meadow border.
+  const corner = isoPoint(47, 47);
+  const edge = frameWorldRect(
+    { minX: corner.x - 50, maxX: corner.x + 50, minY: corner.y - 90, maxY: corner.y + 30 },
+    fit,
+    width,
+    height,
+  );
+  assert.deepEqual(edge, clampCamera(edge.x, edge.y, edge.zoom, fit, width, height));
 });
 test('screen hit inverse agrees with pan and scaling used by world rendering', () => {
   const width = 844,
@@ -256,4 +281,58 @@ test('pinch preserves held point and culling retains edge sprites', async () => 
   assert.equal((point.y - old.y) / old.zoom, (point.y - next.y) / next.zoom);
   assert.equal(worldPointVisible({ x: 450, y: 300 }, old, 0.125, 844, 390), true);
   assert.equal(worldPointVisible({ x: 9000, y: 9000 }, old, 0.125, 844, 390), false);
+});
+
+test('tutorial carrots use their own timing for the drawn stage and its touch zone', async () => {
+  const { plotAtPoint } = await import('../../apps/mobile/src/games/pick-farm/hit-zones.ts');
+  const now = 1_800_000_000_000;
+  const plot = {
+    id: 3,
+    x: 31,
+    y: 31,
+    kind: 'bed',
+    cropId: 'carrot',
+    plantedAt: now - 30000,
+    harvests: 0,
+    timing: { growSeconds: 45, harvestWindowSeconds: 129600, rewardXp: 5 },
+  };
+  const center = isoPoint(31, 31);
+  // Soil and seeds end 24 world px above the bed centre; the drawn carrot leaves reach higher.
+  const tallHits = (at) => {
+    let hits = 0;
+    for (let y = -45; y < -25; y += 1)
+      for (let x = -30; x <= 30; x += 1)
+        if (plotAtPoint([plot], { x: center.x + x, y: center.y + y }, at)?.id === 3) hits++;
+    return hits;
+  };
+  // 20 s of 45: drawn as a full plant (44%); base carrot time (300 s) would mean seeds.
+  assert.ok(tallHits(now - 10000) > 0, 'the drawn full plant must be the touch target');
+  // At 3 s the same planting is still seeds: only its soil responds.
+  assert.equal(tallHits(now - 27000), 0);
+});
+
+test('status badges and a fingertip margin select the object under them', async () => {
+  const { plotAtPoint, BADGE_OFFSET } =
+    await import('../../apps/mobile/src/games/pick-farm/hit-zones.ts');
+  const now = 1_800_000_000_000;
+  const ready = {
+    id: 4,
+    x: 30,
+    y: 30,
+    kind: 'bed',
+    cropId: 'strawberry',
+    plantedAt: now - 2 * 3600 * 1000,
+    harvests: 0,
+  };
+  const center = isoPoint(30, 30);
+  const badge = { x: center.x + 10, y: center.y + BADGE_OFFSET.bed - 10 };
+  assert.equal(plotAtPoint([ready], badge, now), undefined);
+  assert.equal(plotAtPoint([ready], badge, now, { badgeRadius: 16 })?.id, 4);
+  // Just outside the soil diamond: only a fingertip margin selects the bed.
+  const empty = { ...ready, id: 5, x: 34, cropId: null, plantedAt: null };
+  const edge = isoPoint(34, 30);
+  const outside = { x: edge.x + 52, y: edge.y };
+  assert.equal(plotAtPoint([empty], outside, now), undefined);
+  assert.equal(plotAtPoint([empty], outside, now, { slop: 12 })?.id, 5);
+  assert.equal(plotAtPoint([empty], { x: edge.x + 90, y: edge.y }, now, { slop: 12 }), undefined);
 });

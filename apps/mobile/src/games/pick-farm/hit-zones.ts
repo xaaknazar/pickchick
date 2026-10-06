@@ -1,10 +1,13 @@
-import { CROPS, cropPhase, type FarmState } from '@pickchick/farm-game';
+import { cropPhase, growthProgress, type FarmState } from '@pickchick/farm-game';
 import { isoPoint, groundContains } from './geometry.ts';
 import { spriteHitMasks } from './sprite-hit-masks.ts';
 
 type Plot = FarmState['plots'][number];
 type Point = { x: number; y: number };
 const maskRows = new Map<string, string[]>();
+
+/** Indicator above an object, in world pixels from the object's ground center. */
+export const BADGE_OFFSET = { bed: -84, tree: -128 } as const;
 
 /** Test actual opaque sprite pixels, not the transparent rectangular image box. */
 export function spriteContains(key: string, u: number, v: number) {
@@ -21,41 +24,59 @@ export function spriteContains(key: string, u: number, v: number) {
   return digit !== undefined && (parseInt(digit, 16) & (8 >> (x % 4))) !== 0;
 }
 
+/** Stage drawn for this planting; the same rule as GroundCrop (seeds < 10% < sprouts < 35%). */
+function stageOf(plot: Plot, now: number) {
+  const phase = cropPhase(plot, now);
+  if (plot.kind !== 'bed' || phase !== 'growing') return phase;
+  const progress = growthProgress(plot, now);
+  return progress < 0.1 ? 'seeds' : progress < 0.35 ? 'sprouts' : 'growing';
+}
+
+export type HitOptions = {
+  /** World radius of the status badge drawn above the object (it scales with zoom). */
+  badgeRadius?: number;
+  /** Extra ground tolerance for a fingertip, in world pixels. */
+  slop?: number;
+  /** Plots that show a status badge (ready, needs water, withered). */
+  badged?: (plot: Plot) => boolean;
+};
+
 /** Same order as the painter: frontmost visible plant wins overlaps. */
-export function plotAtPoint(plots: readonly Plot[], point: Point, now: number): Plot | undefined {
+export function plotAtPoint(
+  plots: readonly Plot[],
+  point: Point,
+  now: number,
+  options: HitOptions = {},
+): Plot | undefined {
+  const { badgeRadius = 12, slop = 0 } = options;
+  const badged = options.badged ?? ((plot: Plot) => cropPhase(plot, now) === 'ready');
   const ordered = [...plots].sort((a, b) => a.x + a.y - b.x - b.y);
+  // Badges float above everything, so they are tested first.
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    const plot = ordered[i]!;
+    if (!badged(plot)) continue;
+    const center = isoPoint(plot.x, plot.y);
+    const dy = point.y - (center.y + BADGE_OFFSET[plot.kind]);
+    if ((point.x - center.x) ** 2 + dy ** 2 <= badgeRadius ** 2) return plot;
+  }
   for (let i = ordered.length - 1; i >= 0; i--) {
     const plot = ordered[i]!;
     const center = isoPoint(plot.x, plot.y);
     const x = point.x - center.x,
       y = point.y - center.y;
-    const phase = cropPhase(plot, now);
-    // The ready badge belongs to this plot too, including its visible circular edge.
-    if (phase === 'ready' && (x - 32) ** 2 + (y + 64) ** 2 <= 12 ** 2) return plot;
+    const stage = stageOf(plot, now);
     if (plot.cropId) {
-      const crop = CROPS.find((item) => item.id === plot.cropId)!;
-      const fraction =
-        plot.plantedAt === null ? 0 : (now - plot.plantedAt) / (crop.growSeconds * 1000);
-      const sprouts =
-        plot.kind === 'bed' && phase === 'growing' && fraction >= 0.1 && fraction < 0.35;
-      const seeds = plot.kind === 'bed' && phase === 'growing' && fraction < 0.1;
-      if (!sprouts && !seeds) {
+      if (stage !== 'seeds' && stage !== 'sprouts') {
         // CropArt is square; atlas artwork is centered horizontally within it.
         const size = plot.kind === 'tree' ? 112 : 96 * 0.93;
         const artWidth = (size * 248) / (1024 / 3 - 6);
         const top = plot.kind === 'tree' ? -77 : 27 - 96 * 0.1 - size;
         const left =
           plot.kind === 'tree' ? -artWidth / 2 : -48 + 96 * 0.035 + (size - artWidth) / 2;
-        if (
-          spriteContains(
-            `${plot.cropId}-${phase === 'empty' ? 'growing' : phase}`,
-            (x - left) / artWidth,
-            (y - top) / size,
-          )
-        )
+        const phase = stage === 'empty' ? 'growing' : stage;
+        if (spriteContains(`${plot.cropId}-${phase}`, (x - left) / artWidth, (y - top) / size))
           return plot;
-      }
-      if (sprouts) {
+      } else if (stage === 'sprouts') {
         const size = 96 * 0.38;
         const artWidth = (size * 248) / (1024 / 3 - 6);
         const left = -48 + 96 * 0.31 + (size - artWidth) / 2;
@@ -66,5 +87,14 @@ export function plotAtPoint(plots: readonly Plot[], point: Point, now: number): 
     }
     if (plot.kind === 'bed' && groundContains(x, y)) return plot;
   }
-  return undefined;
+  if (slop <= 0) return undefined;
+  // A fingertip near an object still selects it: nearest ground diamond within tolerance.
+  let best: { plot: Plot; d: number } | undefined;
+  for (const plot of plots) {
+    const center = isoPoint(plot.x, plot.y);
+    const d = Math.abs(point.x - center.x) / 48 + Math.abs(point.y - center.y) / 24;
+    const limit = 1 + slop / 24;
+    if (d <= limit && (!best || d < best.d)) best = { plot, d };
+  }
+  return best?.plot;
 }

@@ -105,3 +105,9 @@ objects. Warm soft daylight from upper left, moderate tonal variation, quiet rea
 organic detail at tiny game scale. Flat slightly moist natural umber with gentle ochre
 highlights, no black trenches, vignette or text. Square 1024x1024. The square is
 projected to an exact 2:1 isometric diamond in native code.
+
+## Watering can - 2026-10-06
+
+`watering-can.png` is original procedural artwork drawn for PICK FARM by
+`src/games/pick-farm/build-watering-can.py` (Pillow vector shapes, cylindrical shading,
+light noise). No third-party image was used. Rebuild with the script if it changes.

@@ -78,6 +78,22 @@ components:
 
 # Design System: Pick Farm
 
+## October 6 v2 interaction layer
+
+Actions are shown at once from an engine-validated prediction (`pipeline.ts`) and
+confirmed in order; coins and XP in the HUD come only from confirmed state. Tap: ripe
+harvests, withered clears, unwatered growing waters, empty bed opens the compact seed bar
+(bottom strip, the bed stays visible). Sweep from an actionable object repeats that action
+along the path, batched into one command. Hold 320 ms (fill ring) lifts an object that
+follows the finger; the field scrolls near screen edges. Two fingers pinch and pan,
+double tap on grass zooms, mouse wheel zooms on web. Status badges keep a readable screen
+size (13-26 px): forest basket for ripe, brown leaf for withered, a small water drop at
+the bed front for "needs water" (hidden at overview). Watered soil is darker. Effects:
+watering can and shower, produce/coins flying to HUD counters, rising +N labels, leaf puff
+on clearing, level-up card with unlocks. One hop when a badge appears; still no perpetual
+sway. The meadow covers the screen at every zoom; the first view frames the garden.
+The watering can is original procedural art (`build-watering-can.py`).
+
 ## October 5 progression extension
 
 No bottom tool dock is rendered. Tap ripe crops to harvest; sweep across ripe crops
