@@ -3052,19 +3052,6 @@
       "updatedAt": "2026-10-05T18:40:54.139Z"
     },
     {
-      "id": "catalog-price-server",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/catalog-price-server",
-      "scopes": [
-        "infra/staging/release-catalog-storefront.py",
-        "tests/operations/test_catalog_storefront_release.py",
-        "docs/operations/deployments/2026-10-06-catalog-storefront.md"
-      ],
-      "status": "active",
-      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
-      "updatedAt": "2026-10-06T07:15:00.031Z"
-    },
-    {
       "id": "catalog-native14",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/catalog-native14",
@@ -3165,6 +3152,19 @@
       "updatedAt": "2026-10-06T08:31:20.550Z",
       "summary": "Source task merged into shared-development 850c6fa; final CI 37433448853 11/11 verified by root. Original clean task branch fast-forwarded and pushed without force to the same green shared source, no new code. Scopes released.",
       "nextAction": "Root catalog-price-integration continues server delivery and Apple acceptance."
+    },
+    {
+      "id": "catalog-price-server",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-server",
+      "scopes": [
+        "infra/staging/release-catalog-storefront.py",
+        "tests/operations/test_catalog_storefront_release.py",
+        "docs/operations/deployments/2026-10-06-catalog-storefront.md"
+      ],
+      "status": "active",
+      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
+      "updatedAt": "2026-10-06T08:31:27.831Z"
     }
   ]
 }
