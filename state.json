@@ -3219,6 +3219,17 @@
       "updatedAt": "2026-10-06T11:26:25.693Z",
       "summary": "PR #195, 2d29df595c9188e7e06a61bf44f99d69cac7c89e. Реализован durable финансовый журнал, ДДС/ОПиУ, счета, отдельные даты, отмены/аудит/закрытие месяца. Включён свежий shared 7e58f90 без конфликтов. 27 адресных тестов прошли; после объединения повторены 14 finance tests и 7 mobile presentation tests. CI кода d98327e: 37446531780, 8/10 рабочих jobs success, два failed из-за пяти historical migration fixtures; общий gate failed. Новая CI после merge/docs запущена, не заявлена зелёной. В shared не включено, VPS не обновлён. Синтетический preview и локальная тестовая БД остановлены; реальный директорский вход закрыт. Runbook и снимки сохранены в docs/operations/finance-ledger.md.",
       "nextAction": "Согласовать четыре занятых файла tests/operations/test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py с tiptop-historical-fixtures; первые два запрошены владельцу. Также исправить test_catalog_storefront_release.py через отдельный claim. Сохранить строгие production guards; использовать исторические fixtures. Добиться зелёной CI, включить в свежий shared, обновить общие status/handoff/roadmap после передачи farm-gameplay-v2. Выпуск требует порядка миграций 039/040/042, нового release profile, разрешённого SSH и claim VPS. Затем личные права бухгалтера, подтверждённые счета/остатки и приёмка первого рабочего дня."
+    },
+    {
+      "id": "farm-v3-review-report",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-v3-review-report",
+      "scopes": [
+        "docs/operations/reviews/farm-v3-pr193.md"
+      ],
+      "status": "active",
+      "head": "7e58f90bd13c2c60c8ff95d529f1513c1a9ab3d1",
+      "updatedAt": "2026-10-06T11:29:30.615Z"
     }
   ]
 }
