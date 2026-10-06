@@ -2913,16 +2913,14 @@
         "services/api/src/customer-checkout-controller.ts",
         "services/api/src/customer-checkout-response.ts",
         "services/api/src/tiptoppay-controller.ts",
-        "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql",
         "services/api/src/tiptoppay-reconcile-worker.ts",
-        "packages/commerce-core/src/tiptoppay-test-checkout.ts",
-        "db/cloud/migrations/040_cloud_tiptoppay_test_checkout.sql"
+        "packages/commerce-core/src/tiptoppay-test-checkout.ts"
       ],
       "status": "available",
       "head": "a0af45a3c1b38e29550f2e3eaae4fa119051ac85",
-      "updatedAt": "2026-10-05T17:35:35.577Z",
+      "updatedAt": "2026-10-06T11:37:07.448Z",
       "summary": "TEST extension published159d756+a0af45a. Isolated table040, TESTsignedCheck/Pay/Fail and hostedwidget, authenticated quoteowner/org/branch/cap; no commercial money/order/outbox/kitchen effects. 17unit/HTTP/PG focused and66Commerce/Kaspi regression passed; build/lint/format/contracts passed. Sharedadvanced239148b onlymobile/docs/farmops, parent notified for explicit integration. No realbankrequest/deploy by child.",
-      "nextAction": "Root integrate refreshedshared and TEST commits, fullCI/runtime grants/gateway/provider callbacks/mobile device acceptance; keep LIVE flags off."
+      "nextAction": "Finance-ledger owns039/040 exact migration integration and @vps/api for finance deployment; TipTop runtime activation remains separate. Reacquire VPS after finance finishes."
     },
     {
       "id": "tiptoppay-mobile",
@@ -2954,14 +2952,14 @@
         "infra/staging/release-tiptoppay-test.py",
         "tests/operations/test_tiptoppay_test_release.py",
         "docs/operations/deployments/2026-10-05-tiptoppay-test.md",
-        "@vps/api",
         "@vps/roadmap",
         "infra/staging/tiptoppay-test-grants.mjs",
         "tests/unit/tiptoppay-test-grants.test.mjs"
       ],
       "status": "active",
       "head": "332136d333af076d57b91b06c839eb46a0f5997b",
-      "updatedAt": "2026-10-05T17:39:10.441Z"
+      "updatedAt": "2026-10-06T11:37:07.448Z",
+      "nextAction": "Finance-ledger owns039/040 exact migration integration and @vps/api for finance deployment; TipTop runtime activation remains separate. Reacquire VPS after finance finishes."
     },
     {
       "id": "tiptoppay-testflight13",
@@ -3225,12 +3223,15 @@
         "tests/backoffice/finance-browser.test.mjs",
         "tests/backoffice/browser_operations.py",
         "docs/operations/images/finance-ledger",
-        "tests/operations/test_catalog_storefront_release.py"
+        "tests/operations/test_catalog_storefront_release.py",
+        "db/cloud/migrations/039_cloud_tiptoppay_checkout.sql",
+        "db/cloud/migrations/040_cloud_tiptoppay_test_checkout.sql",
+        "@vps/api"
       ],
       "status": "active",
       "head": "8bdb6aeb8661a213b691c01f5023b6461b4849c7",
-      "updatedAt": "2026-10-06T11:35:25.601Z",
-      "summary": "Владелец поручил установить финансы на сайт и выбрал другой Mac с существующим SSH-доступом. Прямой связи с тем Mac у этого чата нет. PR #195, HEAD 8bdb6aeb8661a213b691c01f5023b6461b4849c7. HTTP 200 backoffice, gateway alive; finance endpoint 404, сервер здесь НЕ изменён. Нет локального SSH-ключа/agent identity/host key. test_catalog_storefront_release.py исправлен без ослабления release guards: 14/14; CI 2d29df5 завершилась failed (37448932997), свежая CI не объявлена зелёной. Предыдущие finance14 и BO13 проверок прошли. Владелец явно отказал в передаче четырёх historical fixtures и @vps/api, другой Mac ещё работает; резервы сохранены.",
+      "updatedAt": "2026-10-06T11:37:07.448Z",
+      "summary": "Accepted on authorized release Mac. Coordinated with own TipTop tasks: finance release installs exact 039/040 schema prerequisites before042, TipTop runtime remains disabled. VPS/API release temporarily owned by finance-ledger.",
       "nextAction": "Принимающий Mac с SSH: после согласования своего текущего TipTop выпуска принять finance-ledger из опубликованной ветки (8bdb6ae), PR195. В своей согласованной области исправить test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py, не ослабляя production guards. Сверить реальные installed API/schema/public указатели и порядок ожидаемых039/040 перед042; зелёная полнаяCI точного source, encrypted backup/rollback, release profile и серверный claim. Выпустить API/schema/grants, gateway и backoffice с сохранением банковских worker/кухни/idrink. Проверить права и пустой журнал без синтетических записей в рабочей точке. Обновить общие status/roadmap после согласования их резерва. Полная инструкция docs/operations/finance-ledger.md."
     },
     {
