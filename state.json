@@ -3147,9 +3147,11 @@
         "pnpm-workspace.yaml",
         "docs/operations/catalog-price-audit.md"
       ],
-      "status": "active",
-      "head": "178e4ab54b968cd98031d8f263e12eb8522d55c7",
-      "updatedAt": "2026-10-06T07:41:09.866Z"
+      "status": "available",
+      "head": "7bcbd7a2389713a14ed70a58ee749eb5c0e25837",
+      "updatedAt": "2026-10-06T07:42:26.672Z",
+      "summary": "Published verified commit 7bcbd7a2389713a14ed70a58ee749eb5c0e25837 from release candidate 178e4ab. Three fixed transitive patch versions only; official advisories linked in docs/operations/catalog-price-audit.md. Frozen install, unchanged high/critical audit gate, 5 security patch tests, executable source-map/proxy trust/compression abort smoke, format passed. Four moderate remain; no added exclusions.",
+      "nextAction": "Root integrates commit, full CI, release guard review and rearchive build 14. No full CI or native action performed in this subtask."
     }
   ]
 }
