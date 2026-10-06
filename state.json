@@ -3175,11 +3175,17 @@
         "packages/backoffice-core/src/finance.ts",
         "tests/backoffice/finance.test.mjs",
         "db/cloud/migrations/042_cloud_finance.sql",
-        "docs/operations/finance-ledger.md"
+        "docs/operations/finance-ledger.md",
+        "apps/backoffice/src",
+        "packages/backoffice-core/package.json",
+        "services/api/src/finance-controller.ts",
+        "services/api/src/index.ts",
+        "tests/backoffice/finance-browser.py",
+        "tests/backoffice/finance-postgres.test.mjs"
       ],
       "status": "active",
       "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
-      "updatedAt": "2026-10-06T08:52:33.281Z"
+      "updatedAt": "2026-10-06T08:53:46.281Z"
     }
   ]
 }
