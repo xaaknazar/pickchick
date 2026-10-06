@@ -3087,11 +3087,11 @@
         "docs/operations/catalog-price-integration.md",
         "tests/mobile/catalog-price-parity.test.mjs"
       ],
-      "status": "active",
-      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
-      "updatedAt": "2026-10-06T08:27:37.954Z",
-      "summary": "PR192; exact source178e4ab54b968cd98031d8f263e12eb8522d55c7. Published mobile prices and legacy basket migration integrated;93 actual catalog price variants match. Native0.2.0(14) archive/export done, not uploaded. CI37429267604 running. VPS unchanged;0 unsettled bank operations.",
-      "nextAction": "Finish exact-source fullCI, upload14 with catalog-pilot, guarded storefront prepare/apply and verify Apple availability. General status/roadmap still owned farm-gameplay-v2; own evidence docs/operations/catalog-price-integration.md."
+      "status": "done",
+      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
+      "updatedAt": "2026-10-06T08:39:21.161Z",
+      "summary": "Единый каталог: source850c6fa CI37433448853 11/11; 93 состава совпали. API/public rollout прошёл, ABAYv3 PickCombo100₸; TestFlight0.2.0(14) доступен PickChick Internal. Документы4a76cda в shared, PR192 merged.",
+      "nextAction": "На iPhone обновить до14 и явно обновить старую корзину; сверить цену и модификаторы. Новую реальную оплату не проводили. Перенести evidence в общий roadmap после освобождения farm-gameplay-v2."
     },
     {
       "id": "catalog-price-race-test",
