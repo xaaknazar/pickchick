@@ -3137,6 +3137,18 @@
       "updatedAt": "2026-10-06T07:38:19.726Z",
       "summary": "PR #193, 34e3ef3: мгновенные действия (prediction pipeline), полив water/waterMany, harvestMany/plantMany, точность касаний, камера, HUD, FX, полоса семян. 33 engine + 28 mobile, tsc/eslint/prettier, contracts:check, PostgreSQL16, browser_farm_v2 (844/667 + старый API), browser_farm_progression прошли. openapi.json изменён с согласия владельца (резерв farm-progression-api не закрыт). Physical/API/TestFlight не выполнялись.",
       "nextAction": "Проверить CI PR #193, интегрировать в shared-development без force и finish; Mac1 - закрыть farm-progression-api. Затем API с новым движком (без миграций), TestFlight, физический iPhone."
+    },
+    {
+      "id": "catalog-price-audit",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-audit",
+      "scopes": [
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ],
+      "status": "active",
+      "head": "178e4ab54b968cd98031d8f263e12eb8522d55c7",
+      "updatedAt": "2026-10-06T07:40:00.535Z"
     }
   ]
 }
