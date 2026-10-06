@@ -3168,6 +3168,21 @@
       "nextAction": "Владельцу: посмотреть траву и PR #193, слить в shared-development; затем API, TestFlight, физический iPhone."
     },
     {
+      "id": "order-status-quiet",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/order-status-quiet",
+      "scopes": [
+        "apps/mobile/src/commerce-presentation.ts",
+        "apps/mobile/src/screens/ConnectedOrderScreens.tsx",
+        "apps/mobile/src/screens/OrderScreens.tsx",
+        "tests/mobile/commerce-presentation.test.mjs",
+        "docs/operations/order-status-quiet.md"
+      ],
+      "status": "active",
+      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
+      "updatedAt": "2026-10-06T09:25:11.611Z"
+    },
+    {
       "id": "finance-ledger",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/finance-ledger",
@@ -3190,26 +3205,12 @@
         "tests/backoffice/finance-http.test.mjs",
         "infra/public-staging/gateway.Caddyfile",
         "tests/backoffice/finance-browser.test.mjs",
-        "tests/backoffice/browser_operations.py"
+        "tests/backoffice/browser_operations.py",
+        "docs/operations/images/finance-ledger"
       ],
       "status": "active",
       "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
-      "updatedAt": "2026-10-06T09:14:39.072Z"
-    },
-    {
-      "id": "order-status-quiet",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/order-status-quiet",
-      "scopes": [
-        "apps/mobile/src/commerce-presentation.ts",
-        "apps/mobile/src/screens/ConnectedOrderScreens.tsx",
-        "apps/mobile/src/screens/OrderScreens.tsx",
-        "tests/mobile/commerce-presentation.test.mjs",
-        "docs/operations/order-status-quiet.md"
-      ],
-      "status": "active",
-      "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
-      "updatedAt": "2026-10-06T09:25:11.611Z"
+      "updatedAt": "2026-10-06T09:29:31.178Z"
     }
   ]
 }
