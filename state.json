@@ -3205,11 +3205,11 @@
         "tests/mobile/browser_pick_farm.py",
         "docs/design/pick-farm-v3.md"
       ],
-      "status": "active",
-      "head": "928bc68bbf135c22d6aeb33c6887341e6617e18d",
-      "updatedAt": "2026-10-06T11:37:44.639Z",
-      "summary": "PR #193: v3 - земля частями, курятник/коровник, доска заказов, подарок дня, фон, звуки, protocol 3 (API+клиент с откатом на 2). Тесты engine 41, mobile, PG16, browser v2/v3/progression прошли.",
-      "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3 (без миграций), TestFlight, физический iPhone. Mac 1: закрыть farm-progression-api."
+      "status": "available",
+      "head": "e9e8fd77f94eeb01b3d36ff45e8b247fce868278",
+      "updatedAt": "2026-10-06T12:18:08.723Z",
+      "summary": "PR #193: животные на поле (касание/проведение/удержание), прогулки, событие земли, отклик, звук комбо и птицы, стек панелей, ряд HUD. Тесты engine 42, mobile, PG16, browser v2/v3/progression прошли.",
+      "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3, TestFlight (добавить expo-haptics при освобождении apps/mobile/ios), физический iPhone."
     },
     {
       "id": "finance-ledger",
