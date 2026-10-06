@@ -1,3 +1,21 @@
+## 6 октября: PICK FARM v2 (задача farm-gameplay-v2)
+
+Ветка `codex/farm-gameplay-v2` от `239148b`. Изменены `apps/mobile/src/games/pick-farm`,
+`packages/farm-game` (команды `water`, `waterMany`, `harvestMany`, `plantMany`,
+помощники `isWatered`, `canWater`, `growthProgress`, `msUntilReady`), тесты, ассет
+лейки и `packages/contracts/openapi.json` (только добавление команд).
+
+Резерв: `openapi.json` числился за незакрытой задачей `farm-progression-api` (Mac 1,
+статус handoff, её коммиты уже в общей ветке и выкачены вместе с TF12). Владелец
+6 октября разрешил изменить контракт в этой задаче. Инструмент claim не может
+зарезервировать путь, пока та задача открыта: Mac 1 стоит закрыть её `finish`
+после проверки общей ветки.
+
+Выпуск: API с этим движком без миграций, затем TestFlight. До выкладки API клиент
+получает 400 INVALID_REQUEST на новые команды и сам переходит на одиночные; полив
+показывает сообщение. Протокол остаётся 2. Проверки и ограничения:
+`docs/operations/pick-farm.md`, `docs/design/pick-farm-v2.md`.
+
 ## 5 октября: TestFlight 0.2.0 (12) опубликована
 
 Apple обработала сборку и включила её в PickChick Internal (2 тестировщика),
