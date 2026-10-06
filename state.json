@@ -3090,20 +3090,6 @@
       "updatedAt": "2026-10-06T07:15:00.031Z"
     },
     {
-      "id": "catalog-price-mobile",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/catalog-price-mobile",
-      "scopes": [
-        "apps/mobile/src/api.ts",
-        "apps/mobile/src/published-catalog.ts",
-        "tests/mobile/published-catalog.test.mjs",
-        "docs/operations/catalog-price-mobile.md"
-      ],
-      "status": "active",
-      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
-      "updatedAt": "2026-10-06T07:17:28.969Z"
-    },
-    {
       "id": "catalog-native14",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/catalog-native14",
@@ -3127,6 +3113,21 @@
       "status": "active",
       "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
       "updatedAt": "2026-10-06T07:18:51.885Z"
+    },
+    {
+      "id": "catalog-price-mobile",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-mobile",
+      "scopes": [
+        "apps/mobile/src/api.ts",
+        "apps/mobile/src/published-catalog.ts",
+        "tests/mobile/published-catalog.test.mjs",
+        "docs/operations/catalog-price-mobile.md",
+        "tests/mobile/browser_catalog_price_migration.py"
+      ],
+      "status": "active",
+      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
+      "updatedAt": "2026-10-06T07:18:59.649Z"
     }
   ]
 }
