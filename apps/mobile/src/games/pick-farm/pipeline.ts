@@ -24,7 +24,10 @@ type Item = {
   at: number;
   resolve(result: ActionResult): void;
 };
-type Batchable = Extract<FarmCommand, { type: 'harvest' | 'plant' | 'water' }>;
+type Batchable = Extract<
+  FarmCommand,
+  { type: 'harvest' | 'plant' | 'water' | 'feedAnimals' | 'collectAnimals' }
+>;
 const errorCode = (error: unknown) =>
   error && typeof error === 'object' && 'code' in error ? String(error.code) : 'UNKNOWN';
 const httpStatus = (error: unknown) =>
@@ -36,16 +39,25 @@ function batchKey(command: FarmCommand): string | null {
   if (command.type === 'harvest') return `harvest:${command.destination ?? ''}`;
   if (command.type === 'plant') return `plant:${command.cropId}`;
   if (command.type === 'water') return 'water';
+  // Taps on single animals in one yard become one command (a sweep over the yard).
+  if ((command.type === 'feedAnimals' || command.type === 'collectAnimals') && command.animalIds)
+    return `${command.type}:${command.kind}`;
   return null;
 }
 function toBatch(commands: Batchable[]): FarmCommand {
   const first = commands[0]!;
-  const plotIds = commands.map((c) => c.plotId);
+  const plotIds = commands.map((c) => ('plotId' in c ? c.plotId : -1));
   if (first.type === 'harvest')
     return {
       type: 'harvestMany',
       plotIds,
       ...(first.destination ? { destination: first.destination } : {}),
+    };
+  if (first.type === 'feedAnimals' || first.type === 'collectAnimals')
+    return {
+      type: first.type,
+      kind: first.kind,
+      animalIds: commands.flatMap((c) => ('animalIds' in c ? (c.animalIds ?? []) : [])),
     };
   if (first.type === 'plant') return { type: 'plantMany', plotIds, cropId: first.cropId };
   return { type: 'waterMany', plotIds };
@@ -160,7 +172,7 @@ export class FarmPipeline {
     if (key)
       while (
         count < this.queue.length &&
-        count < BATCH_LIMIT &&
+        count < (key.startsWith('feed') || key.startsWith('collect') ? 10 : BATCH_LIMIT) &&
         batchKey(this.queue[count]!.command) === key
       )
         count++;

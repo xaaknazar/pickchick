@@ -1,5 +1,5 @@
-import { memo } from 'react';
-import { Animated, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
+import { memo, useEffect, useRef, type ReactNode } from 'react';
+import { Animated, Easing, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import { LEVEL_XP, levelForXp } from '@pickchick/farm-game';
 import { Icon, type IconName } from '../../components/UI';
 import { font } from '../../theme';
@@ -78,6 +78,54 @@ export function HudButton({
         </View>
       ) : null}
     </Pressable>
+  );
+}
+
+/** Narrow screens: secondary HUD buttons slide out in a row under the HUD. */
+export function HudTray({
+  top,
+  right,
+  reduced,
+  children,
+}: {
+  top: number;
+  right: number;
+  reduced: boolean;
+  children: ReactNode;
+}) {
+  const t = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    const animation = Animated.timing(t, {
+      toValue: 1,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [t, reduced]);
+  return (
+    <Animated.View
+      testID="pick-farm-hud-tray"
+      style={[
+        s.pill,
+        {
+          position: 'absolute',
+          top,
+          right,
+          flexDirection: 'row',
+          gap: 8,
+          padding: 6,
+          zIndex: 20,
+          backgroundColor: '#283E35EE',
+          opacity: t,
+          transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
   );
 }
 

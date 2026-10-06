@@ -105,6 +105,51 @@ test('coop: buy pen and chickens, feed with carrots, collect eggs after 20 minut
   assert.equal(FarmStateSchema.safeParse(s).success, true);
 });
 
+test('a tap or a sweep serves chosen animals only, all or nothing', () => {
+  let s = rich(LEVEL_XP[1]);
+  s = run(s, { type: 'buyPen', pen: 'coop' }, 0);
+  for (let i = 0; i < 4; i++) s = run(s, { type: 'buyAnimal', kind: 'chicken' }, 0);
+  s = { ...s, inventory: { ...s.inventory, carrot: 3 } };
+  s = run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [2] }, 0);
+  assert.equal(s.inventory.carrot, 2);
+  assert.deepEqual(
+    s.progression.animals.map((a) => a.fedAt),
+    [null, null, 0, null],
+  );
+  assert.throws(
+    () => run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [2] }, 0),
+    /ANIMALS_NOT_HUNGRY/,
+  );
+  assert.throws(
+    () => run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [0, 1, 3] }, 0),
+    /INSUFFICIENT_FEED/,
+  );
+  assert.throws(
+    () => run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [9] }, 0),
+    /ANIMAL_NOT_FOUND/,
+  );
+  assert.throws(
+    () => run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [0, 0] }, 0),
+    /INVALID|Duplicate|too/i,
+  );
+  s = run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [0, 1] }, 1000);
+  assert.equal(s.inventory.carrot, 0);
+  assert.throws(
+    () => run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [2, 0] }, 20 * MIN),
+    /ANIMALS_NOT_READY/,
+    'animal 0 was fed a second later',
+  );
+  s = run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [2] }, 20 * MIN);
+  assert.equal(s.progression.goods.egg, 1);
+  s = run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [0, 1] }, 20 * MIN + 1000);
+  assert.equal(s.progression.goods.egg, 3);
+  assert.throws(
+    () => run(s, { type: 'collectAnimals', kind: 'cow', animalIds: [3] }, 30 * MIN),
+    /ANIMAL_NOT_FOUND/,
+    'a chicken is not a cow',
+  );
+});
+
 test('cows give milk; eggs and milk feed kitchen recipes', () => {
   let s = rich();
   s = run(s, { type: 'buyPen', pen: 'barn' }, 0);

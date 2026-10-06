@@ -1,15 +1,17 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Text, View } from 'react-native';
 import {
+  ANIMALS,
   PENS,
   PLANTING_BOUNDS,
-  animalStatus,
   getProgression,
   landBounds,
   levelForXp,
   nextLandExpansion,
   type AnimalKind,
+  type CropId,
   type FarmState,
+  type PenId,
 } from '@pickchick/farm-game';
 import { GROUND_TRANSFORM, TILE_WIDTH, isoPoint } from './geometry';
 import { Badge } from './FieldObjects';
@@ -18,13 +20,28 @@ import {
   PEN_ART,
   PEN_CORNER,
   SCENERY_SIZE,
-  SPOTS,
+  STROLL,
+  animalPlace,
   at,
   landSigns,
+  revealTiles,
+  yardAnimals,
+  type AnimalMode,
   type SceneryKind,
 } from './ranch-layout';
+import { CropArt } from './visuals';
 
-export { penAt, penCenter, landSignAt, sceneryBack, sceneryFront } from './ranch-layout';
+export {
+  animalAt,
+  animalPlace,
+  penAt,
+  penCenter,
+  landSignAt,
+  sceneryBack,
+  sceneryFront,
+  yardAnimals,
+  ANIMAL_BODY,
+} from './ranch-layout';
 
 export const ANIMAL_ART = {
   chicken: {
@@ -60,23 +77,40 @@ function Sign({
   title,
   detail,
   testID,
+  drop = null,
 }: {
   cell: Point;
   title: string;
   detail: string;
   testID?: string;
+  /** Delay before the sign falls into place (a new land edge); null - already standing. */
+  drop?: number | null;
 }) {
   const p = isoPoint(cell.x, cell.y);
   const width = 92;
   const height = (126 / 122) * width;
+  const fall = useRef(new Animated.Value(drop === null ? 1 : 0)).current;
+  useEffect(() => {
+    if (drop === null) return;
+    const animation = Animated.sequence([
+      Animated.delay(drop),
+      Animated.spring(fall, { toValue: 1, damping: 9, stiffness: 180, useNativeDriver: true }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [drop, fall]);
   return (
-    <View
+    <Animated.View
       testID={testID}
       pointerEvents="none"
       style={{
         position: 'absolute',
         left: p.x - (61 / 122) * width,
         top: p.y - (116 / 126) * height,
+        opacity: fall.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
+        transform: [
+          { translateY: fall.interpolate({ inputRange: [0, 1], outputRange: [-90, 0] }) },
+        ],
       }}
     >
       <Image source={SIGN} style={{ width, height }} accessible={false} />
@@ -103,7 +137,7 @@ function Sign({
           {detail}
         </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -111,12 +145,25 @@ function Sign({
 export const LandOverlay = memo(function LandOverlay({
   state,
   showSigns,
+  reduced = false,
 }: {
   state: FarmState;
   showSigns: boolean;
+  reduced?: boolean;
 }) {
   const b = landBounds(state);
-  if (b.land >= 5 && !showSigns) return null;
+  // A purchase plays once: the old dark ring fades in a wave, new signs fall into place.
+  const shown = useRef(b.land);
+  const [reveal, setReveal] = useState<{ from: number; to: number } | null>(null);
+  useEffect(() => {
+    if (b.land > shown.current) {
+      setReveal({ from: shown.current, to: b.land });
+      const timer = setTimeout(() => setReveal(null), 2200);
+      shown.current = b.land;
+      return () => clearTimeout(timer);
+    }
+    shown.current = b.land;
+  }, [b.land]);
   const { minX, minY, maxX, maxY } = PLANTING_BOUNDS;
   const cells = maxX - minX + 1;
   const side = cells * TILE_WIDTH;
@@ -178,11 +225,13 @@ export const LandOverlay = memo(function LandOverlay({
           />
         </View>
       )}
+      {reveal && <LandReveal from={reveal.from} to={reveal.to} reduced={reduced} key={reveal.to} />}
       {showSigns &&
         next &&
         landSigns(state).map((cell, i) => (
           <Sign
-            key={i}
+            key={`${b.land}-${i}`}
+            drop={reveal && !reduced ? 1100 + i * 140 : null}
             cell={cell}
             testID={i === 0 ? 'pick-farm-land-sign' : undefined}
             title="Новая земля"
@@ -193,48 +242,166 @@ export const LandOverlay = memo(function LandOverlay({
   );
 });
 
-/** One animal with a short idle move now and then (pecking, a nod); still when reduced. */
+/** The newly bought ring, still dark, fading tile by tile around the square. */
+function LandReveal({ from, to, reduced }: { from: number; to: number; reduced: boolean }) {
+  const { minX, minY, maxX, maxY } = PLANTING_BOUNDS;
+  const cells = maxX - minX + 1;
+  const side = cells * TILE_WIDTH;
+  const center = isoPoint((minX + maxX) / 2, (minY + maxY) / 2);
+  const tiles = useMemo(() => revealTiles(from, to), [from, to]);
+  const t = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const animation = Animated.timing(t, {
+      toValue: 1,
+      duration: reduced ? 1 : 1600,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [t, reduced]);
+  return (
+    <View
+      pointerEvents="none"
+      testID="pick-farm-land-reveal"
+      style={{
+        position: 'absolute',
+        left: center.x - side / 2,
+        top: center.y - side / 2,
+        width: side,
+        height: side,
+        transform: GROUND_TRANSFORM,
+      }}
+    >
+      {tiles.map((tile) => {
+        // Each tile holds, flashes light for a moment, then is gone: a wave along the ring.
+        const start = (300 + tile.delay) / 1600;
+        const end = Math.min(1, start + 0.22);
+        const mid = (start + end) / 2;
+        const box = {
+          position: 'absolute' as const,
+          left: (tile.x - minX) * TILE_WIDTH,
+          top: (tile.y - minY) * TILE_WIDTH,
+          width: 2 * TILE_WIDTH,
+          height: 2 * TILE_WIDTH,
+        };
+        return (
+          <View key={`${tile.x},${tile.y}`}>
+            <Animated.View
+              style={{
+                ...box,
+                backgroundColor: '#2E4A1A',
+                opacity: t.interpolate({
+                  inputRange: [0, start, mid, 1],
+                  outputRange: [0.34, 0.34, 0, 0],
+                }),
+              }}
+            />
+            <Animated.View
+              style={{
+                ...box,
+                backgroundColor: '#FFF4C8',
+                opacity: t.interpolate({
+                  inputRange: [0, start, mid, end, 1],
+                  outputRange: [0, 0, 0.55, 0, 0],
+                }),
+              }}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/** One animal. Busy ones stroll around the yard, hungry ones sit with a feed bubble, ready
+ * ones wait with an egg or milk at their feet. Idle pecks are short and rare. */
 const Animal = memo(function Animal({
+  pen,
   kind,
-  left,
-  top,
-  flip,
+  id,
+  index,
+  mode,
+  condition,
   moving,
-  seed,
-  good,
+  feed,
 }: {
+  pen: PenId;
   kind: AnimalKind;
-  left: number;
-  top: number;
-  flip: boolean;
+  id: number;
+  index: number;
+  mode: AnimalMode;
+  condition: 'ready' | 'hungry' | 'busy';
   moving: boolean;
-  seed: number;
-  good: boolean;
+  feed: CropId;
 }) {
   const a = ANIMAL_ART[kind];
   const height = a.width * a.ratio;
-  const t = useRef(new Animated.Value(0)).current;
+  const [seg, setSeg] = useState(() => animalPlace(pen, id, index, mode, Date.now()));
+  const progress = useRef(new Animated.Value(1)).current;
+  const peck = useRef(new Animated.Value(0)).current;
+  const walking = useRef(false);
+  // Stroll: follow the shared schedule (the same one taps use) one walk at a time.
   useEffect(() => {
-    if (!moving) {
-      t.setValue(0);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let alive = true;
+    const step = () => {
+      if (!alive) return;
+      const now = Date.now();
+      const place = animalPlace(pen, id, index, mode, now);
+      setSeg(place);
+      if (mode !== 'stroll') {
+        progress.setValue(1);
+        walking.current = false;
+        return;
+      }
+      const elapsed = now - place.start;
+      if (place.walking) {
+        walking.current = true;
+        progress.setValue(Math.min(1, elapsed / STROLL.walk));
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: Math.max(60, STROLL.walk - elapsed),
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (finished) walking.current = false;
+        });
+      } else {
+        walking.current = false;
+        progress.setValue(1);
+      }
+      timer = setTimeout(step, Math.max(50, place.start + STROLL.period - now + 5));
+    };
+    step();
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      progress.stopAnimation();
+    };
+  }, [pen, id, index, mode, progress]);
+  // Idle pecks while standing (not when hungry: a hungry animal sits and waits).
+  useEffect(() => {
+    if (!moving || condition === 'hungry') {
+      peck.setValue(0);
       return;
     }
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let animation: Animated.CompositeAnimation | null = null;
     const next = (n: number) => {
-      // A different rhythm per animal, so the yard never moves in unison.
       timer = setTimeout(
         () => {
           if (!alive) return;
+          if (walking.current) return next(n + 1);
           animation = Animated.sequence([
-            Animated.timing(t, {
+            Animated.timing(peck, {
               toValue: 1,
               duration: 160,
               easing: Easing.out(Easing.quad),
               useNativeDriver: true,
             }),
-            Animated.timing(t, {
+            Animated.timing(peck, {
               toValue: 0,
               duration: 220,
               easing: Easing.inOut(Easing.quad),
@@ -243,7 +410,7 @@ const Animal = memo(function Animal({
           ]);
           animation.start(() => next(n + 1));
         },
-        2200 + ((seed * 1373 + n * 811) % 4200),
+        2200 + (((id + 1) * 1373 + n * 811) % 4200),
       );
     };
     next(0);
@@ -252,14 +419,42 @@ const Animal = memo(function Animal({
       if (timer) clearTimeout(timer);
       animation?.stop();
     };
-  }, [moving, seed, t]);
+  }, [moving, condition, id, peck]);
+  const from = at(pen, seg.from.x, seg.from.y);
+  const to = at(pen, seg.to.x, seg.to.y);
+  const flip = seg.facing < 0;
+  const sitting = condition === 'hungry';
   const tilt = kind === 'chicken' ? 18 : 5;
+  // Little hops along the way.
+  const hops = 6;
+  const hopInput = Array.from({ length: hops * 2 + 1 }, (_, i) => i / (hops * 2));
+  const hopOutput = hopInput.map((_, i) => (i % 2 ? -3 : 0));
   return (
-    <View
+    <Animated.View
       pointerEvents="none"
-      style={{ position: 'absolute', left: left - a.width / 2, top: top - height }}
+      testID={`pick-farm-animal-${id}`}
+      style={{
+        position: 'absolute',
+        left: from.x - a.width / 2,
+        top: from.y - height,
+        transform: [
+          {
+            translateX: progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, to.x - from.x],
+            }),
+          },
+          {
+            translateY: progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, to.y - from.y],
+            }),
+          },
+          { translateY: progress.interpolate({ inputRange: hopInput, outputRange: hopOutput }) },
+        ],
+      }}
     >
-      {good && (
+      {condition === 'ready' && (
         <Image
           source={GOOD_ART[kind === 'chicken' ? 'egg' : 'milk']}
           accessible={false}
@@ -280,14 +475,50 @@ const Animal = memo(function Animal({
           height,
           transform: [
             { scaleX: flip ? -1 : 1 },
-            // Pivot near the feet: shift, rotate, shift back.
+            // Pivot near the feet: shift, rotate or squash, shift back.
             { translateY: height * 0.4 },
-            { rotate: t.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${tilt}deg`] }) },
+            {
+              rotate: peck.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${tilt}deg`] }),
+            },
+            { scaleY: sitting ? 0.8 : 1 },
             { translateY: -height * 0.4 },
           ],
         }}
       />
-    </View>
+      {sitting && (
+        <View
+          testID={`pick-farm-hungry-${id}`}
+          style={{
+            position: 'absolute',
+            left: a.width / 2 - 13 + (flip ? -8 : 8),
+            top: -18 + height * 0.18,
+            width: 26,
+            height: 26,
+            borderRadius: 13,
+            backgroundColor: '#FFFDF6',
+            borderWidth: 1.5,
+            borderColor: '#E3D6B8',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CropArt cropId={feed} size={20} />
+          <View
+            style={{
+              position: 'absolute',
+              bottom: -6,
+              left: flip ? 15 : 5,
+              width: 7,
+              height: 7,
+              borderRadius: 4,
+              backgroundColor: '#FFFDF6',
+              borderWidth: 1,
+              borderColor: '#E3D6B8',
+            }}
+          />
+        </View>
+      )}
+    </Animated.View>
   );
 });
 
@@ -325,8 +556,11 @@ export const Pens = memo(function Pens({
             />
           );
         const kind = pen.animal;
-        const status = animalStatus(state, kind, now);
-        const readyIds = new Set(status.ready.map((v) => v.id));
+        const feed = Object.keys(ANIMALS.find((v) => v.id === kind)!.feed)[0] as CropId;
+        const animals = yardAnimals(state, kind, now, moving);
+        const ready = animals.some((v) => v.condition === 'ready');
+        const hungry = animals.some((v) => v.condition === 'hungry');
+        const busy = animals.some((v) => v.condition === 'busy');
         const roof = at(pen.id, pen.id === 'coop' ? 0.9 : 1.2, pen.id === 'coop' ? 0.65 : 0.85);
         return (
           <View key={pen.id} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0 }}>
@@ -342,23 +576,20 @@ export const Pens = memo(function Pens({
                 height: a.height * ART_SCALE,
               }}
             />
-            {status.list.map((animal, i) => {
-              const spot = SPOTS[pen.id][i % SPOTS[pen.id].length]!;
-              const p = at(pen.id, spot.x, spot.y);
-              return (
-                <Animal
-                  key={animal.id}
-                  kind={kind}
-                  left={p.x}
-                  top={p.y}
-                  flip={i % 2 === 1}
-                  moving={moving}
-                  seed={animal.id + 1}
-                  good={readyIds.has(animal.id)}
-                />
-              );
-            })}
-            {(status.ready.length > 0 || (status.hungry.length > 0 && !status.busy.length)) && (
+            {animals.map((v) => (
+              <Animal
+                key={v.id}
+                pen={pen.id}
+                kind={kind}
+                id={v.id}
+                index={v.index}
+                mode={v.mode}
+                condition={v.condition}
+                moving={moving}
+                feed={feed}
+              />
+            ))}
+            {(ready || (hungry && !busy)) && (
               <View
                 style={{
                   position: 'absolute',
@@ -367,7 +598,7 @@ export const Pens = memo(function Pens({
                 }}
               >
                 <Badge
-                  kind={status.ready.length ? 'ready' : 'feed'}
+                  kind={ready ? 'ready' : 'feed'}
                   scale={badgeScale}
                   bob={moving}
                   testID={`pick-farm-pen-badge-${pen.id}`}

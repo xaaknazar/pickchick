@@ -377,3 +377,16 @@ test('the larger apple tree is selectable across its whole drawn canopy', async 
   assert.ok(top < -95, String(top));
   assert.ok(TREE_ART > 112);
 });
+
+test('framing keeps the object below the HUD rows', () => {
+  const fit = fitFarm(844, 390);
+  const rect = { minX: 600, maxX: 900, minY: -500, maxY: -300 };
+  for (const hudTop of [32, 74, 120]) {
+    const cam = frameWorldRect(rect, fit, 844, 390, 0.62, 3.2, hudTop);
+    const top = screenAtWorld({ x: 750, y: rect.minY }, cam, fit, 844, 390);
+    const bottom = screenAtWorld({ x: 750, y: rect.maxY }, cam, fit, 844, 390);
+    assert.ok(top.y >= hudTop - 1, `hud ${hudTop}: top ${top.y}`);
+    assert.ok(bottom.y <= 390 + 1);
+    assert.ok(Math.abs((top.y + bottom.y) / 2 - (hudTop + (390 - hudTop) / 2)) < 2);
+  }
+});

@@ -143,6 +143,9 @@ with sync_playwright() as p:
             saved['now'] += 1000
             reload()
             command(lambda: tap(bed['x'], bed['y']), 'harvest')
+            # Narrow screens keep tasks in the HUD tray.
+            if not page.get_by_role('button', name='Задания Алекса', exact=True).count():
+                page.get_by_test_id('pick-farm-hud-more').click()
             page.get_by_role('button', name='Задания Алекса', exact=True).click()
             command(lambda: page.get_by_test_id('pick-farm-quest-first-harvest').click(), 'claimQuest')
             expect(page.get_by_test_id('pick-farm-quest-first-harvest')).to_have_count(0)

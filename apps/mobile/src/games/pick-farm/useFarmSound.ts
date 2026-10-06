@@ -5,6 +5,13 @@ import { useVideoPlayer, type VideoPlayer } from 'expo-video';
 /** Locally synthesised effects (build-sounds.py), played through the app's media runtime. */
 export type FarmSound = 'harvest' | 'water' | 'plant' | 'coin' | 'level' | 'cluck' | 'moo' | 'tap';
 const SOUND_KEY = 'pickchick.farm.sound.v1';
+const BIRDS_KEY = 'pickchick.farm.birds.v1';
+/** Effects that rise in pitch when repeated quickly (a sweep along a row). */
+const COMBO = new Set<FarmSound>(['harvest', 'water', 'plant', 'cluck', 'coin']);
+/** Pitch of the n-th quick repeat: a whole-tone ladder, capped at a fifth above. */
+export function comboRate(streak: number) {
+  return Math.min(1.5, 2 ** ((2 * Math.min(streak, 7)) / 12));
+}
 
 function useEffectPlayer(source: number, volume: number) {
   return useVideoPlayer(source, (p) => {
@@ -44,7 +51,39 @@ export function useFarmSounds(active: boolean) {
     moo: useEffectPlayer(require('../../../assets/games/pick-farm/moo.wav'), 0.4),
     tap: useEffectPlayer(require('../../../assets/games/pick-farm/tap.wav'), 0.3),
   };
-  const live = useRef({ players, enabled, active, last: {} as Partial<Record<FarmSound, number>> });
+  const birdsPlayer = useVideoPlayer(require('../../../assets/games/pick-farm/birds.wav'), (p) => {
+    p.loop = true;
+    p.volume = 0.18;
+    p.audioMixingMode = 'mixWithOthers';
+  });
+  const [birds, setBirdsState] = useState(true);
+  useEffect(() => {
+    void AsyncStorage.getItem(BIRDS_KEY)
+      .then((v) => {
+        if (v !== null) setBirdsState(v === '1');
+      })
+      .catch(() => undefined);
+  }, []);
+  const setBirds = useCallback((value: boolean) => {
+    setBirdsState(value);
+    void AsyncStorage.setItem(BIRDS_KEY, value ? '1' : '0').catch(() => undefined);
+  }, []);
+  // A quiet meadow loop under the effects: only with sound on and the app in front.
+  useEffect(() => {
+    try {
+      if (enabled && birds && active) birdsPlayer.play();
+      else birdsPlayer.pause();
+    } catch {
+      // Optional ambience.
+    }
+  }, [enabled, birds, active, birdsPlayer]);
+  const live = useRef({
+    players,
+    enabled,
+    active,
+    last: {} as Partial<Record<FarmSound, number>>,
+    streak: {} as Partial<Record<FarmSound, number>>,
+  });
   live.current.players = players;
   live.current.enabled = enabled;
   live.current.active = active;
@@ -52,20 +91,28 @@ export function useFarmSounds(active: boolean) {
     if (enabled && active) return;
     for (const p of Object.values(live.current.players)) p.pause();
   }, [enabled, active]);
-  /** Play one effect; a sweep that triggers many in a row plays at most one per 70 ms. */
+  /**
+   * Play one effect. Repeats within a sweep rise in pitch like a combo (up to +50%), and a
+   * sweep plays at most one per 70 ms.
+   */
   const play = useCallback((name: FarmSound) => {
     const L = live.current;
     if (!L.enabled || !L.active) return;
     const now = Date.now();
-    if (now - (L.last[name] ?? 0) < 70) return;
+    const gap = now - (L.last[name] ?? 0);
+    if (gap < 70) return;
     L.last[name] = now;
+    const streak = COMBO.has(name) && gap < 900 ? (L.streak[name] ?? 0) + 1 : 0;
+    L.streak[name] = streak;
     const player = L.players[name];
     try {
+      player.preservesPitch = false;
+      player.playbackRate = comboRate(streak);
       player.currentTime = 0;
       player.play();
     } catch {
       // Media can be unavailable (silent mode on web before a gesture); effects are optional.
     }
   }, []);
-  return { enabled, setEnabled, play };
+  return { enabled, setEnabled, play, birds, setBirds };
 }

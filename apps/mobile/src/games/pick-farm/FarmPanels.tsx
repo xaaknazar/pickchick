@@ -71,6 +71,7 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         s.button,
+        !primary && s.secondary,
         primary && s.primary,
         active && s.activeTool,
         disabled && s.disabled,
@@ -165,6 +166,9 @@ export type FarmPanelProps = {
   choosePlacement(kind: 'bed' | 'tree'): void;
   chooseSeed(cropId: CropId): void;
   setSound(value: boolean): void;
+  /** Quiet meadow ambience under the effects. */
+  birds: boolean;
+  setBirds(value: boolean): void;
   setDestination(value: 'sell' | 'storage'): void;
   zoomIn(): void;
   overview(): void;
@@ -559,6 +563,14 @@ export function FarmPanel(props: FarmPanelProps) {
             icon={props.sound ? 'volume-high-outline' : 'volume-mute-outline'}
             onPress={() => props.setSound(!props.sound)}
           />
+          {props.sound && (
+            <Button
+              label={props.birds ? 'Птицы: включены' : 'Птицы: выключены'}
+              icon={props.birds ? 'musical-notes-outline' : 'musical-note-outline'}
+              testID="pick-farm-birds"
+              onPress={() => props.setBirds(!props.birds)}
+            />
+          )}
           <Button label="Приблизить" icon="add" onPress={props.zoomIn} />
           <Button label="Весь участок" icon="scan-outline" onPress={props.overview} />
         </View>
@@ -598,6 +610,14 @@ export function FarmPanel(props: FarmPanelProps) {
           рост на {Math.round(WATER_SPEEDUP * 100)}% и даёт опыт. Корзинка - урожай готов: коснитесь
           или проведите пальцем по всем спелым грядкам. Увядшую посадку очищает одно касание.
         </Text>
+        {props.v3 && (
+          <Text style={s.text}>
+            Животные: коснитесь курицы с яйцом или коровы с молоком - товар уйдёт на склад. Голодное
+            животное сидит с облачком корма: касание кормит его морковью или томатами со склада.
+            Проведите пальцем по двору - соберёте или накормите всех подряд. Касание загона собирает
+            всё готовое, удержание открывает карточку загона.
+          </Text>
+        )}
         <Text style={s.text}>
           Удерживайте грядку, дерево или украшение, пока не появится кольцо, и перетащите пальцем. У
           края экрана поле само сдвинется. Двумя пальцами двигайте и приближайте поле, двойное

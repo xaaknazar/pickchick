@@ -283,6 +283,12 @@ export const BOARD_CUSTOMERS = [
   'Жанна',
 ] as const;
 const goodSchema = z.enum(GOODS.map((g) => g.id));
+/** Chosen animals for a tap or a sweep over the yard; without it the whole pen is served. */
+const animalIds = z
+  .array(z.number().int().nonnegative().max(1_000_000))
+  .min(1)
+  .max(10)
+  .refine((ids) => new Set(ids).size === ids.length, 'Duplicate animal');
 const penSchema = z.enum(PENS.map((v) => v.id));
 const animalSchema = z.enum(ANIMALS.map((v) => v.id));
 
@@ -447,8 +453,16 @@ const ProgressionCommands = [
   z.object({ type: z.literal('expandLand') }).strict(),
   z.object({ type: z.literal('buyPen'), pen: penSchema }).strict(),
   z.object({ type: z.literal('buyAnimal'), kind: animalSchema }).strict(),
-  z.object({ type: z.literal('feedAnimals'), kind: animalSchema }).strict(),
-  z.object({ type: z.literal('collectAnimals'), kind: animalSchema }).strict(),
+  z
+    .object({ type: z.literal('feedAnimals'), kind: animalSchema, animalIds: animalIds.optional() })
+    .strict(),
+  z
+    .object({
+      type: z.literal('collectAnimals'),
+      kind: animalSchema,
+      animalIds: animalIds.optional(),
+    })
+    .strict(),
   z.object({ type: z.literal('sellGood'), good: goodSchema, quantity: bounded.min(1) }).strict(),
   z.object({ type: z.literal('fulfillBoard'), slot: integer.max(BOARD_SLOTS - 1) }).strict(),
   z.object({ type: z.literal('skipBoard'), slot: integer.max(BOARD_SLOTS - 1) }).strict(),
@@ -1348,9 +1362,18 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     p.nextAnimalId = id + 1;
   } else if (c.type === 'feedAnimals') {
     const animal = ANIMALS.find((v) => v.id === c.kind)!;
-    const hungry = (p.animals ?? []).filter((v) => v.kind === animal.id && v.fedAt === null);
+    const chosen = chooseAnimals(p.animals ?? [], animal.id, c.animalIds);
+    const hungry = chosen.filter((v) => v.fedAt === null);
     requireRule(hungry.length > 0, 'ANIMALS_NOT_HUNGRY');
     const feed = Object.entries(animal.feed) as [CropId, number][];
+    if (c.animalIds) {
+      // Chosen animals are all-or-nothing: every one hungry and enough feed for all.
+      requireRule(hungry.length === chosen.length, 'ANIMALS_NOT_HUNGRY');
+      requireRule(
+        feed.every(([id, n]) => state.inventory[id] >= n * chosen.length),
+        'INSUFFICIENT_FEED',
+      );
+    }
     let fed = 0;
     for (const v of hungry) {
       if (!feed.every(([id, n]) => state.inventory[id] >= n)) break;
@@ -1361,10 +1384,10 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     requireRule(fed > 0, 'INSUFFICIENT_FEED');
   } else if (c.type === 'collectAnimals') {
     const animal = ANIMALS.find((v) => v.id === c.kind)!;
-    const ready = (p.animals ?? []).filter(
-      (v) => v.kind === animal.id && v.fedAt !== null && now >= v.fedAt + animal.seconds * 1000,
-    );
+    const chosen = chooseAnimals(p.animals ?? [], animal.id, c.animalIds);
+    const ready = chosen.filter((v) => v.fedAt !== null && now >= v.fedAt + animal.seconds * 1000);
     requireRule(ready.length > 0, 'ANIMALS_NOT_READY');
+    if (c.animalIds) requireRule(ready.length === chosen.length, 'ANIMALS_NOT_READY');
     const goods = p.goods ?? { egg: 0, milk: 0 };
     for (const v of ready) {
       v.fedAt = null;
@@ -1532,6 +1555,20 @@ function requireUnlocked(state: FarmState, x: number, y: number) {
 export function nextLandExpansion(state: FarmState) {
   const land = landBounds(state).land;
   return land < LAND_MAX ? { ...LAND_EXPANSIONS[land]!, size: 16 + 4 * land } : null;
+}
+function chooseAnimals<T extends { id: number; kind: string }>(
+  animals: T[],
+  kind: AnimalKind,
+  ids: number[] | undefined,
+): T[] {
+  const own = animals.filter((v) => v.kind === kind);
+  if (!ids) return own;
+  const chosen = ids.map((id) => own.find((v) => v.id === id));
+  requireRule(
+    chosen.every((v) => v !== undefined),
+    'ANIMAL_NOT_FOUND',
+  );
+  return chosen as T[];
 }
 export function animalCost(state: FarmState, kind: AnimalKind): number {
   const animal = ANIMALS.find((v) => v.id === kind)!;

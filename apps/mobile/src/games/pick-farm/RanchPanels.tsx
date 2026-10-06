@@ -285,13 +285,20 @@ export function BoardCards({ state, now, act }: { state: FarmState; now: number;
               </Text>
             </View>
             {needs.map(([id, n]) => (
-              <View key={id} style={[s.row, { gap: 6 }]}>
+              <View key={id} style={[s.row, { gap: 6, alignItems: 'flex-start' }]}>
                 <ItemIcon id={id} size={22} />
+                {/* Full names wrap onto a second line instead of being cut. */}
                 <Text
-                  style={[s.text, { flex: 1 }, itemCount(state, id) >= n && { color: p.green }]}
-                  numberOfLines={1}
+                  style={[
+                    s.text,
+                    { flex: 1, fontSize: 13, lineHeight: 17 },
+                    itemCount(state, id) >= n && { color: p.green },
+                  ]}
                 >
-                  {itemInfo(id).name} {Math.min(itemCount(state, id), n)}/{n}
+                  {itemInfo(id).name}{' '}
+                  <Text style={s.choiceName}>
+                    {Math.min(itemCount(state, id), n)}/{n}
+                  </Text>
                 </Text>
               </View>
             ))}
@@ -315,6 +322,7 @@ export function BoardCards({ state, now, act }: { state: FarmState; now: number;
                 onPress={() => act({ type: 'skipBoard', slot })}
                 style={({ pressed }) => [
                   s.button,
+                  s.secondary,
                   { width: 48, paddingHorizontal: 0, justifyContent: 'center' },
                   pressed && s.pressed,
                 ]}

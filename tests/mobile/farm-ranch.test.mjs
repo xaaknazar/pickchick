@@ -102,3 +102,80 @@ test('land sale signs stand on locked field ground at every stage, none when all
   s = { ...s, progression: { ...s.progression, land: LAND_MAX } };
   assert.deepEqual(landSigns(s), []);
 });
+
+test('strolling animals follow one pure schedule: drawing and taps agree, ready ones stay put', async () => {
+  const { animalPlace, animalAt, STROLL, WALK, yardAnimals } =
+    await import('../../apps/mobile/src/games/pick-farm/ranch-layout.ts');
+  const t0 = 1_770_000_000_000;
+  for (const pen of PENS)
+    for (let id = 0; id < 6; id++)
+      for (let t = t0; t < t0 + 3 * STROLL.period; t += 450) {
+        const p = animalPlace(pen, id, id, 'stroll', t);
+        const yard = PEN_ART[pen].yard;
+        assert.ok(
+          p.x >= 0.2 && p.x <= yard.x - 0.2 + 1e-9 && p.y >= 0.2 && p.y <= yard.y - 0.2 + 1e-9,
+          `${pen} ${id}`,
+        );
+        assert.ok(WALK[pen].some((w) => w.x === p.to.x && w.y === p.to.y));
+      }
+  // Ready and hungry animals stand on their own spot at any time.
+  assert.deepEqual(
+    {
+      x: animalPlace('coop', 3, 1, 'home', t0).x,
+      y: animalPlace('coop', 3, 1, 'home', t0 + 5e6).y,
+    },
+    { x: SPOTS.coop[1].x, y: SPOTS.coop[1].y },
+  );
+  // A tap on the drawn body finds the animal, wherever it has walked.
+  const list = [
+    { id: 4, index: 0, mode: 'stroll' },
+    { id: 5, index: 1, mode: 'home' },
+  ];
+  for (const t of [t0, t0 + 1300, t0 + 7000]) {
+    const place = animalPlace('coop', 4, 0, 'stroll', t);
+    const c = PEN_CORNER.coop;
+    const feet = isoPoint(c.x + place.x, c.y + place.y);
+    const hit = animalAt({ x: feet.x, y: feet.y - 22 }, 'coop', 'chicken', list, t);
+    assert.ok(hit === 4 || hit === 5, `t=${t}`);
+  }
+  assert.equal(animalAt(penCenter('barn'), 'coop', 'chicken', list, t0), null);
+  // Only busy animals stroll, and only with motion on.
+  let s = { ...createFarm(0), coins: 5000, xp: 200 };
+  const { applyFarmCommand } = await import('../../packages/farm-game/dist/index.js');
+  s = applyFarmCommand(s, { type: 'buyPen', pen: 'coop' }, 0);
+  s = applyFarmCommand(s, { type: 'buyAnimal', kind: 'chicken' }, 0);
+  s = applyFarmCommand(s, { type: 'buyAnimal', kind: 'chicken' }, 0);
+  s = { ...s, inventory: { ...s.inventory, carrot: 1 } };
+  s = applyFarmCommand(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [1] }, 0);
+  assert.deepEqual(
+    yardAnimals(s, 'chicken', 1000, true).map((a) => [a.id, a.condition, a.mode]),
+    [
+      [0, 'hungry', 'home'],
+      [1, 'busy', 'stroll'],
+    ],
+  );
+  assert.equal(yardAnimals(s, 'chicken', 1000, false)[1].mode, 'home', 'reduced motion: still');
+  assert.equal(yardAnimals(s, 'chicken', 20 * 60000, true)[1].condition, 'ready');
+});
+
+test('a land purchase reveals exactly the new ring, sweeping from the front corner', async () => {
+  const { revealTiles } = await import('../../apps/mobile/src/games/pick-farm/ranch-layout.ts');
+  for (let land = 0; land < LAND_MAX; land++) {
+    const tiles = revealTiles(land, land + 1);
+    const cells = new Set();
+    for (const t of tiles)
+      for (const [dx, dy] of [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [1, 1],
+      ])
+        cells.add(`${t.x + dx},${t.y + dy}`);
+    const before = 12 + 4 * land,
+      after = before + 4;
+    assert.equal(cells.size, after * after - before * before, `land ${land}`);
+    const front = tiles.find((t) => t.x + t.y === Math.max(...tiles.map((v) => v.x + v.y)));
+    assert.equal(front.delay, Math.min(...tiles.map((t) => t.delay)));
+    assert.ok(Math.max(...tiles.map((t) => t.delay)) <= 900);
+  }
+});

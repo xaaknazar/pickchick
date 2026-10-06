@@ -10756,6 +10756,16 @@
                   "chicken",
                   "cow"
                 ]
+              },
+              "animalIds": {
+                "minItems": 1,
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
               }
             },
             "required": [
@@ -10777,6 +10787,16 @@
                   "chicken",
                   "cow"
                 ]
+              },
+              "animalIds": {
+                "minItems": 1,
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
               }
             },
             "required": [
@@ -11715,6 +11735,16 @@
                       "chicken",
                       "cow"
                     ]
+                  },
+                  "animalIds": {
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000
+                    }
                   }
                 },
                 "required": [
@@ -11736,6 +11766,16 @@
                       "chicken",
                       "cow"
                     ]
+                  },
+                  "animalIds": {
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000
+                    }
                   }
                 },
                 "required": [

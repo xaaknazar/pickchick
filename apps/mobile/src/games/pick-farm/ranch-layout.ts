@@ -1,4 +1,11 @@
-import { landBounds, nextLandExpansion, type FarmState, type PenId } from '@pickchick/farm-game';
+import {
+  animalStatus,
+  landBounds,
+  nextLandExpansion,
+  type AnimalKind,
+  type FarmState,
+  type PenId,
+} from '@pickchick/farm-game';
 import { isoPoint } from './geometry.ts';
 
 /**
@@ -45,6 +52,145 @@ export const SPOTS: Record<PenId, Point[]> = {
     { x: 3.05, y: 1.95 },
   ],
 };
+/** Open yard ground where busy animals stroll (clear of buildings, troughs and fences). */
+export const WALK: Record<PenId, Point[]> = {
+  coop: [
+    { x: 2.4, y: 0.7 },
+    { x: 2.7, y: 1.15 },
+    { x: 2.35, y: 1.5 },
+    { x: 1.65, y: 1.4 },
+    { x: 0.5, y: 1.5 },
+    { x: 0.6, y: 2.05 },
+    { x: 1.25, y: 2.15 },
+    { x: 1.85, y: 2.2 },
+    { x: 2.6, y: 2.2 },
+  ],
+  barn: [
+    { x: 2.7, y: 1.2 },
+    { x: 3.2, y: 1.55 },
+    { x: 2.6, y: 1.85 },
+    { x: 1.8, y: 2.0 },
+    { x: 0.8, y: 2.2 },
+    { x: 0.6, y: 2.65 },
+    { x: 1.6, y: 2.7 },
+    { x: 2.3, y: 2.7 },
+    { x: 3.25, y: 2.0 },
+  ],
+};
+/** One stroll: stand, then walk to the next point. Rhythm differs per animal. */
+export const STROLL = { period: 9000, walk: 2600 } as const;
+export type AnimalMode = 'home' | 'stroll';
+function hash(a: number, b: number) {
+  let h = Math.imul(a + 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  return (h ^ (h >>> 12)) >>> 0;
+}
+const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+/** Stroll target of one animal in one cycle: a walk point, never the same twice in a row. */
+export function strollPoint(pen: PenId, id: number, cycle: number): Point {
+  const points = WALK[pen];
+  const i = hash(id, cycle) % points.length;
+  const before = hash(id, cycle - 1) % points.length;
+  return points[i === before ? (i + 1) % points.length : i]!;
+}
+/**
+ * Where an animal is at time t (yard units, feet). Ready and hungry animals stay on their
+ * home spot so a tap finds them; busy ones stroll. Pure, so drawing and taps agree.
+ */
+export function animalPlace(pen: PenId, id: number, index: number, mode: AnimalMode, t: number) {
+  if (mode === 'home') {
+    const spot = SPOTS[pen][index % SPOTS[pen].length]!;
+    return { ...spot, facing: index % 2 ? -1 : 1, walking: false, from: spot, to: spot, start: 0 };
+  }
+  const offset = (id * 2311) % STROLL.period;
+  const cycle = Math.floor((t + offset) / STROLL.period);
+  const phase = (t + offset) % STROLL.period;
+  const from = strollPoint(pen, id, cycle - 1),
+    to = strollPoint(pen, id, cycle);
+  const k = phase < STROLL.walk ? ease(phase / STROLL.walk) : 1;
+  // Screen x grows with x - y: face the way the animal walks.
+  const facing = to.x - to.y - (from.x - from.y) >= 0 ? 1 : -1;
+  return {
+    x: from.x + (to.x - from.x) * k,
+    y: from.y + (to.y - from.y) * k,
+    facing,
+    walking: phase < STROLL.walk,
+    from,
+    to,
+    start: t - phase,
+  };
+}
+/** World radius of an animal for taps (fingertip slop included). */
+export const ANIMAL_TAP = { chicken: 34, cow: 52 } as const;
+/** Visual body center above the feet, in world px. */
+export const ANIMAL_BODY = { chicken: 22, cow: 32 } as const;
+/** The animal under a world point: the nearest body within reach. */
+export function animalAt(
+  world: Point,
+  pen: PenId,
+  kind: 'chicken' | 'cow',
+  animals: { id: number; index: number; mode: AnimalMode }[],
+  t: number,
+  slop = 0,
+) {
+  let best: { id: number; d: number } | null = null;
+  for (const a of animals) {
+    const place = animalPlace(pen, a.id, a.index, a.mode, t);
+    const p = at(pen, place.x, place.y);
+    const d = Math.hypot(world.x - p.x, world.y - (p.y - ANIMAL_BODY[kind]));
+    if (d <= ANIMAL_TAP[kind] + slop && (!best || d < best.d)) best = { id: a.id, d };
+  }
+  return best?.id ?? null;
+}
+export type YardAnimal = {
+  id: number;
+  index: number;
+  mode: AnimalMode;
+  condition: 'ready' | 'hungry' | 'busy';
+};
+/** Animals of one pen with their condition; only busy ones stroll, and only with motion. */
+export function yardAnimals(
+  state: FarmState,
+  kind: AnimalKind,
+  now: number,
+  moving: boolean,
+): YardAnimal[] {
+  const status = animalStatus(state, kind, now);
+  const ready = new Set(status.ready.map((v) => v.id));
+  const hungry = new Set(status.hungry.map((v) => v.id));
+  return status.list.map((v, index) => {
+    const condition = ready.has(v.id) ? 'ready' : hungry.has(v.id) ? 'hungry' : 'busy';
+    return {
+      id: v.id,
+      index,
+      condition,
+      mode: moving && condition === 'busy' ? 'stroll' : 'home',
+    };
+  });
+}
+/** Locked-land tiles revealed by an expansion, with a delay sweeping from the front corner. */
+export function revealTiles(from: number, to: number) {
+  const b = (land: number) => {
+    const half = 6 + 2 * land;
+    return { min: 32 - half, max: 31 + half };
+  };
+  const a = b(from),
+    n = b(to);
+  const tiles: { x: number; y: number; delay: number }[] = [];
+  for (let y = n.min; y <= n.max; y += 2)
+    for (let x = n.min; x <= n.max; x += 2) {
+      const inside = x >= a.min && x + 1 <= a.max && y >= a.min && y + 1 <= a.max;
+      if (inside) continue;
+      const vx = x + 1 - 32,
+        vy = y + 1 - 32;
+      const angle = Math.acos(
+        Math.max(-1, Math.min(1, (vx + vy) / Math.SQRT2 / Math.hypot(vx, vy))),
+      );
+      tiles.push({ x, y, delay: Math.round((angle / Math.PI) * 900) });
+    }
+  return tiles;
+}
 export const at = (pen: PenId, dx: number, dy: number) =>
   isoPoint(PEN_CORNER[pen].x + dx, PEN_CORNER[pen].y + dy);
 

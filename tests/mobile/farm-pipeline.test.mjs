@@ -178,3 +178,31 @@ test('a server answer that moves the clock back never invalidates queued plantin
   assert.equal((await first).ok, true);
   assert.equal((await second).ok, true);
 });
+
+test('taps on single animals in one yard become one command; a full yard needs no ids', async () => {
+  let state = { ...createFarm(0), coins: 5000, xp: 200 };
+  state = applyFarmCommand(state, { type: 'buyPen', pen: 'coop' }, 0);
+  for (let i = 0; i < 3; i++)
+    state = applyFarmCommand(state, { type: 'buyAnimal', kind: 'chicken' }, 0);
+  state = { ...state, inventory: { ...state.inventory, carrot: 5 } };
+  const lane = server(state);
+  const pipeline = await ready(lane);
+  // The first tap is sent at once; the next two wait behind it and travel together.
+  for (const id of [0, 1, 2])
+    assert.equal(
+      pipeline.submit({ type: 'feedAnimals', kind: 'chicken', animalIds: [id] }).accepted,
+      true,
+    );
+  assert.equal(
+    pipeline.submit({ type: 'feedAnimals', kind: 'chicken', animalIds: [0] }).accepted,
+    false,
+    'an animal fed a moment ago is refused locally',
+  );
+  await lane.flush();
+  await lane.flush();
+  assert.deepEqual(lane.sent, [
+    { type: 'feedAnimals', kind: 'chicken', animalIds: [0] },
+    { type: 'feedAnimals', kind: 'chicken', animalIds: [1, 2] },
+  ]);
+  assert.equal(pipeline.confirmed.state.inventory.carrot, 2);
+});

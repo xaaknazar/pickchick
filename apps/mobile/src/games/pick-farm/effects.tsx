@@ -21,7 +21,11 @@ export type FarmFx =
   | { id: number; kind: 'water'; at: Point; size: number }
   | { id: number; kind: 'pop'; at: Point; text: string; tone: 'coin' | 'xp' | 'info' }
   | { id: number; kind: 'puff'; at: Point; size: number }
-  | { id: number; kind: 'pluck'; base: Point; size: number; cropId: CropId };
+  | { id: number; kind: 'pluck'; base: Point; size: number; cropId: CropId }
+  /** Medium feedback: a short warm flash where something good happened. */
+  | { id: number; kind: 'flash'; at: Point; size: number }
+  /** Large feedback: a confetti burst with gravity. */
+  | { id: number; kind: 'confetti'; at: Point; spread: number };
 /** An effect before it receives its id (distributes over the union). */
 export type FarmFxInput = FarmFx extends infer T
   ? T extends unknown
@@ -358,11 +362,122 @@ export const FxLayer = memo(function FxLayer({
         if (fx.kind === 'water') return <Water key={fx.id} fx={fx} onDone={onDone} />;
         if (fx.kind === 'puff') return <Puff key={fx.id} fx={fx} onDone={onDone} />;
         if (fx.kind === 'pluck') return <Pluck key={fx.id} fx={fx} onDone={onDone} />;
+        if (fx.kind === 'flash') return <Flash key={fx.id} fx={fx} onDone={onDone} />;
+        if (fx.kind === 'confetti') return <Confetti key={fx.id} fx={fx} onDone={onDone} />;
         return <Pop key={fx.id} fx={fx} onDone={onDone} />;
       })}
     </View>
   );
 });
+function Flash({
+  fx,
+  onDone,
+}: {
+  fx: Extract<FarmFx, { kind: 'flash' }>;
+  onDone(id: number): void;
+}) {
+  const t = useRef(new Animated.Value(0)).current;
+  const finish = useLatest(() => onDone(fx.id));
+  useEffect(() => {
+    const animation = Animated.timing(t, {
+      toValue: 1,
+      duration: 380,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => finished && finish.current());
+    return () => animation.stop();
+  }, [t, finish]);
+  const r = fx.size / 2;
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', left: fx.at.x - r, top: fx.at.y - r }}
+    >
+      {[1, 0.62].map((k, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: r - r * k,
+            top: r - r * k,
+            width: 2 * r * k,
+            height: 2 * r * k,
+            borderRadius: r * k,
+            backgroundColor: i ? '#FFFFFF' : '#FFE7A3',
+            opacity: t.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 0.75, 0] }),
+            transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.15] }) }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+const CONFETTI = ['#F4AE57', '#7CC57A', '#F06B5B', '#8FD3F2', '#F2D45C', '#C59AF0'];
+function Confetti({
+  fx,
+  onDone,
+}: {
+  fx: Extract<FarmFx, { kind: 'confetti' }>;
+  onDone(id: number): void;
+}) {
+  const t = useRef(new Animated.Value(0)).current;
+  const finish = useLatest(() => onDone(fx.id));
+  useEffect(() => {
+    const animation = Animated.timing(t, {
+      toValue: 1,
+      duration: 1300,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => finished && finish.current());
+    return () => animation.stop();
+  }, [t, finish]);
+  const pieces = Array.from({ length: 28 }, (_, i) => {
+    const a = -Math.PI / 2 + ((i % 14) / 13 - 0.5) * Math.PI * 1.1;
+    const v = fx.spread * (0.55 + ((i * 37) % 10) / 22);
+    return { a, v, color: CONFETTI[i % CONFETTI.length]!, spin: ((i * 53) % 360) + 180 };
+  });
+  // A thrown arc: x drifts out, y rises then falls (sampled parabola).
+  const steps = [0, 0.25, 0.5, 0.75, 1];
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: fx.at.x, top: fx.at.y }}>
+      {pieces.map((c, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            width: 9,
+            height: 5,
+            borderRadius: 1.5,
+            backgroundColor: c.color,
+            opacity: t.interpolate({ inputRange: [0, 0.05, 0.8, 1], outputRange: [0, 1, 1, 0] }),
+            transform: [
+              {
+                translateX: t.interpolate({
+                  inputRange: steps,
+                  outputRange: steps.map((k) => Math.cos(c.a) * c.v * k),
+                }),
+              },
+              {
+                translateY: t.interpolate({
+                  inputRange: steps,
+                  outputRange: steps.map((k) => Math.sin(c.a) * c.v * k + 260 * k * k),
+                }),
+              },
+              {
+                rotate: t.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', `${c.spin}deg`],
+                }),
+              },
+            ],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
 function Done({ id, onDone }: { id: number; onDone(id: number): void }) {
   useEffect(() => {
     const timer = setTimeout(() => onDone(id), 0);

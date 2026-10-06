@@ -111,3 +111,28 @@ save('moo.wav', voice, 0.4)
 # Tap: a tiny wooden click for opening and buying.
 x = t(0.07)
 save('tap.wav', np.sin(2 * np.pi * 900 * x) * np.exp(-90 * x) + lowpass(rng.normal(0, 1, len(x)), 0.5) * np.exp(-120 * x) * 0.3, 0.25)
+
+# Birds: a quiet 12-second meadow loop - soft wind and a few chirps, seamless at the seam.
+LOOP = 12.0
+n = int(RATE * LOOP)
+wind = lowpass(rng.normal(0, 1, n), 0.02)
+wind = wind / np.abs(wind).max() * 0.12
+x = np.arange(n) / RATE
+wind *= 0.75 + 0.25 * np.sin(2 * np.pi * x / LOOP)
+birds = np.zeros(n)
+for k in range(14):
+    start = rng.uniform(0.2, LOOP - 1.0)
+    base = rng.uniform(2600, 4200)
+    for j in range(rng.integers(2, 5)):
+        d = rng.uniform(0.05, 0.11)
+        tt = t(d)
+        f = base * (1 + 0.35 * np.sin(np.pi * tt / d)) + rng.uniform(-200, 200)
+        chirp = np.sin(2 * np.pi * np.cumsum(f) / RATE) * np.sin(np.pi * tt / d) ** 2
+        i0 = int(RATE * (start + j * rng.uniform(0.09, 0.16)))
+        birds[i0:i0 + len(chirp)] += chirp[: max(0, n - i0)] * rng.uniform(0.15, 0.35)
+loop = wind + birds
+fade = int(RATE * 0.3)
+# Crossfade the ends so the loop has no click.
+loop[:fade] = loop[:fade] * np.linspace(0, 1, fade) + loop[-fade:] * np.linspace(1, 0, fade)
+loop = loop[:-fade]
+save('birds.wav', loop, 0.22)

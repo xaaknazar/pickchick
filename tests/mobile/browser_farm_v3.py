@@ -150,6 +150,21 @@ def journey(browser, width, height, legacy):
             page.wait_for_timeout(120)
         page.wait_for_timeout(400)
 
+    def wait_for(check, timeout=10):
+        deadline = time.monotonic() + timeout
+        while not check() and time.monotonic() < deadline:
+            page.wait_for_timeout(50)
+        assert check(), [c['type'] for c in calls]
+
+    def open_hud(label):
+        # Narrow screens keep gift, tasks and storage in a sliding tray.
+        button = page.get_by_role('button', name=label, exact=True)
+        if not button.count() and page.get_by_test_id('pick-farm-hud-more').count():
+            page.get_by_test_id('pick-farm-hud-more').click()
+            expect(page.get_by_test_id('pick-farm-hud-tray')).to_be_visible()
+            shot('hud-tray')
+        page.get_by_role('button', name=label, exact=True).click()
+
     def close_panel():
         page.get_by_role('button', name='Закрыть панель').first.click()
         page.wait_for_timeout(250)
@@ -197,18 +212,26 @@ def journey(browser, width, height, legacy):
     zoom_out()
     shot('02-overview')
 
-    # 3. A tap on locked land opens the expansion; buying it widens the open square.
+    # 3. A tap on locked land opens the expansion. Buying it is an event: the camera steps
+    # back, the dark ring fades in a wave, new signs fall onto the new edge, confetti.
     tap(40, 31)
     expect(page.get_by_test_id('pick-farm-panel-land')).to_be_visible()
     shot('03-land-panel')
     page.get_by_test_id('pick-farm-expand-land').click()
+    expect(page.get_by_test_id('pick-farm-land-reveal')).to_have_count(1, timeout=2000)
+    page.wait_for_timeout(900)
+    shot('04-land-wave')
     settle('expandLand')
     assert saved['state']['progression']['land'] == 1
-    page.wait_for_timeout(500)
+    expect(page.get_by_test_id('pick-farm-land-reveal')).to_have_count(0, timeout=4000)
     shot('04-land-open')
 
-    # 4. The shop leads to the coop and frames it; build it, buy chickens, feed them carrots.
+    # 4. Panels stack: shop -> coop -> Back returns to the shop.
     page.get_by_test_id('pick-farm-shop').click()
+    page.get_by_test_id('pick-farm-shop-coop').click()
+    expect(page.get_by_test_id('pick-farm-panel-coop')).to_be_visible()
+    page.get_by_test_id('pick-farm-panel-back').click()
+    expect(page.get_by_test_id('pick-farm-panel-shop')).to_be_visible()
     page.get_by_test_id('pick-farm-shop-coop').click()
     expect(page.get_by_test_id('pick-farm-panel-coop')).to_be_visible()
     page.wait_for_timeout(500)
@@ -218,48 +241,82 @@ def journey(browser, width, height, legacy):
     for _ in range(3):
         page.get_by_test_id('pick-farm-buy-animal-coop').click()
         page.wait_for_timeout(120)
-    page.get_by_test_id('pick-farm-feed-coop').click()
-    settle('feedAnimals')
-    deadline = time.monotonic() + 8
-    while len(saved['state']['progression'].get('animals', [])) < 5 and time.monotonic() < deadline:
-        page.wait_for_timeout(100)
-    chickens = [a for a in saved['state']['progression']['animals'] if a['kind'] == 'chicken']
-    assert len(chickens) == 3 and all(a['fedAt'] is not None for a in chickens), chickens
-    page.wait_for_timeout(400)
-    shot('06-coop')
+    wait_for(lambda: len([a for a in saved['state']['progression'].get('animals', []) if a['kind'] == 'chicken']) == 3)
     close_panel()
+    chickens = [a['id'] for a in saved['state']['progression']['animals'] if a['kind'] == 'chicken']
+    # Hungry chickens sit on their spots with a carrot bubble.
+    for cid in chickens:
+        expect(page.get_by_test_id(f'pick-farm-hungry-{cid}')).to_have_count(1)
+    page.wait_for_timeout(300)
+    shot('06-hungry')
 
-    # 5. The barn's cows were fed two hours ago: collect the milk, it flies to storage.
+    # 5. Tap a hungry chicken: it is fed alone. A sweep over the other two feeds them.
+    spots = [(2.4, 1.0), (0.5, 1.6), (1.6, 1.45)]
+    yard = lambda i: (19.5 + spots[i][0], 10.5 + spots[i][1])
+    before = len(calls)
+    tap(*yard(0), 22)
+    wait_for(lambda: any(c['type'] == 'feedAnimals' for c in calls[before:]))
+    feeds = [c for c in calls[before:] if c['type'] == 'feedAnimals']
+    assert feeds[0] == {'type': 'feedAnimals', 'kind': 'chicken', 'animalIds': [chickens[0]]}, feeds
+    page.wait_for_timeout(200)
+    before = len(calls)
+    a, b = screen(*yard(2), 22), screen(*yard(1), 22)
+    page.mouse.move(*a)
+    page.mouse.down()
+    for i in range(1, 13):
+        page.mouse.move(a[0] + (b[0] - a[0]) * i / 12, a[1] + (b[1] - a[1]) * i / 12)
+        page.wait_for_timeout(16)
+    page.mouse.up()
+    wait_for(lambda: all(x['fedAt'] is not None for x in saved['state']['progression']['animals'] if x['kind'] == 'chicken'))
+    swept = sorted(i for c in calls[before:] if c['type'] == 'feedAnimals' for i in c['animalIds'])
+    assert swept == sorted(chickens[1:]), calls[before:]
+    page.wait_for_timeout(2600)
+    shot('07-chickens-stroll')
+
+    # 6. Cows were fed two hours ago: a tap on one cow takes its milk; a tap on the barn
+    # building takes the rest; holding the barn opens its card.
+    cows = [x['id'] for x in saved['state']['progression']['animals'] if x['kind'] == 'cow']
     milk = saved['state']['progression']['goods']['milk']
     expect(page.get_by_test_id('pick-farm-pen-badge-barn')).to_have_count(1)
-    # The barn stands next to the framed coop: a tap on the field opens it.
-    x, y = screen(26.3, 10.9, 20)
-    assert 0 < x < width * 0.55 and 60 < y < height, (x, y)
-    page.mouse.click(x, y)
+    before = len(calls)
+    cx, cy = screen(24.5 + 2.75, 9.4 + 1.35, 32)
+    assert 0 < cx < width and 60 < cy < height, (cx, cy)
+    page.mouse.click(cx, cy)
+    page.wait_for_timeout(200)
+    shot('08-milk-tap')
+    wait_for(lambda: any(c['type'] == 'collectAnimals' for c in calls[before:]))
+    assert [c for c in calls[before:] if c['type'] == 'collectAnimals'][0] == {
+        'type': 'collectAnimals', 'kind': 'cow', 'animalIds': [cows[0]]}
+    before = len(calls)
+    tap(24.5 + 1.2, 9.4 + 0.9, 45)
+    wait_for(lambda: saved['state']['progression']['goods']['milk'] == milk + 2)
+    assert {'type': 'collectAnimals', 'kind': 'cow'} in calls[before:], calls[before:]
+    hx, hy = screen(24.5 + 1.2, 9.4 + 0.9, 45)
+    page.mouse.move(hx, hy)
+    page.mouse.down()
+    page.wait_for_timeout(500)
+    page.mouse.up()
     expect(page.get_by_test_id('pick-farm-panel-barn')).to_be_visible()
-    page.get_by_test_id('pick-farm-collect-barn').click()
-    page.wait_for_timeout(250)
-    shot('07-milk')
-    settle('collectAnimals')
-    assert saved['state']['progression']['goods']['milk'] == milk + 2
+    shot('09-barn-hold')
     close_panel()
 
-    # 6. Order board: deliver one order, the slot waits for the next customer.
-    page.get_by_role('button', name='Заказы фермы').click()
+    # 7. Order board: an order is a medium event (flash and coins); the slot waits.
+    open_hud('Заказы фермы')
     expect(page.get_by_test_id('pick-farm-board-0')).to_be_visible()
-    shot('08-board')
+    shot('10-board')
     page.get_by_test_id('pick-farm-board-fulfill-0').click()
+    page.wait_for_timeout(250)
+    shot('11-board-coins')
     settle('fulfillBoard')
     expect(page.get_by_test_id('pick-farm-board-0')).to_contain_text('Новый заказ через', timeout=4000)
     page.get_by_test_id('pick-farm-board-skip-1').click()
     settle('skipBoard')
-    shot('09-board-after')
     close_panel()
 
-    # 7. Eggs and milk wait in storage next to the harvest.
-    page.get_by_test_id('pick-farm-storage').click()
+    # 8. Eggs and milk wait in storage next to the harvest (in the tray on narrow screens).
+    open_hud('Склад урожая')
     expect(page.get_by_test_id('pick-farm-sell-good-egg')).to_be_visible()
-    shot('10-storage')
+    shot('12-storage')
     page.get_by_test_id('pick-farm-sell-good-egg').click()
     settle('sellGood')
     close_panel()

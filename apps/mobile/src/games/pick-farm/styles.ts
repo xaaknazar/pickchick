@@ -91,6 +91,12 @@ export const farmStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  /** Secondary panel button: visible on the cream panel (a filled, outlined chip). */
+  secondary: {
+    backgroundColor: '#EADCBB',
+    borderWidth: 1.5,
+    borderColor: '#C9B48B',
+  },
   activeTool: { borderWidth: 2, borderColor: farmPalette.orange, backgroundColor: '#FFE5CF' },
   primary: { backgroundColor: farmPalette.blue },
   buttonText: { fontFamily: font.bold, fontSize: 14, color: farmPalette.ink },

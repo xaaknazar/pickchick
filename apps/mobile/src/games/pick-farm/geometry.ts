@@ -78,21 +78,24 @@ export function frameWorldRect(
   height: number,
   fill = 0.62,
   maxZoom = 3.2,
+  /** Screen rows covered by the HUD: the rectangle is framed in the area below them. */
+  hudTop = 32,
 ) {
   const w = Math.max(96, rect.maxX - rect.minX),
     h = Math.max(48, rect.maxY - rect.minY);
+  const free = Math.max(80, height - hudTop);
   const zoom = clamp(
-    Math.min((width * fill) / (w * fit), (height * fill) / (h * fit)),
+    Math.min((width * fill) / (w * fit), (free * fill) / (h * fit)),
     MIN_ZOOM,
     maxZoom,
   );
   const s = fit * zoom;
   const cx = (rect.minX + rect.maxX) / 2,
     cy = (rect.minY + rect.maxY) / 2;
-  // Center slightly below the screen middle: the HUD occupies the top rows.
+  // The rectangle's center lands in the middle of the free area below the HUD.
   return clampCamera(
     -(cx - WORLD_CENTER.x) * s,
-    16 - WORLD_OFFSET_Y - (cy - WORLD_CENTER.y) * s,
+    hudTop / 2 - WORLD_OFFSET_Y - (cy - WORLD_CENTER.y) * s,
     zoom,
     fit,
     width,
