@@ -3207,11 +3207,13 @@
         "apps/mobile/src/screens/OrderScreens.tsx",
         "tests/mobile/commerce-presentation.test.mjs",
         "docs/operations/order-status-quiet.md",
-        "tests/mobile/browser_published_catalog.py"
+        "tests/mobile/browser_published_catalog.py",
+        "tests/mobile/browser_catalog_recovery.py",
+        "tests/mobile/browser_complete_catalog.py"
       ],
       "status": "active",
-      "head": "1a6218d78f3c5c2633bbdfdcdc190d0a05129468",
-      "updatedAt": "2026-10-06T09:38:48.478Z"
+      "head": "562bf3ebe81409e9a715a89703cd85cbc4b0ffbf",
+      "updatedAt": "2026-10-06T09:49:46.431Z"
     }
   ]
 }
