@@ -50,17 +50,6 @@ function FlowNotice({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
   return (
     <>
-      {!flow.available && props.screenId === 'M12' ? (
-        <Notice warning title="Новое оформление недоступно">
-          Пока не удалось загрузить меню и проверить возможность заказа. Сохранённый сеанс и его
-          незавершённые запросы остаются на устройстве; их статус проверяется отдельно.
-        </Notice>
-      ) : null}
-      {flow.error ? (
-        <Notice warning title="Не удалось обновить">
-          {flow.error}
-        </Notice>
-      ) : null}
       <ContinueSession props={props} />
       {flow.recoveryAvailable ? (
         <Button
@@ -278,26 +267,13 @@ export function ConnectedHistory(props: ScreenProps) {
   return (
     <Page props={props} title="Мои заказы" noBack>
       <FlowNotice props={props} />
-      {!flow.restored ? (
+      {!flow.restored || (!flow.orders.length && !!flow.error) ? (
         <Loading title="Загружаем заказы" />
       ) : !flow.orders.length ? (
         <Empty
-          title={
-            flow.error || flow.recoveryAvailable
-              ? 'Не удалось загрузить заказы'
-              : 'Здесь будут ваши заказы'
-          }
-          detail={
-            flow.error || flow.recoveryAvailable
-              ? 'Обновите страницу, когда появится связь. Сохранённые заказы остаются в системе.'
-              : 'Выбирайте любимые блюда. Здесь можно следить за приготовлением и смотреть историю.'
-          }
-          action={
-            <Button
-              title={flow.error ? 'Повторить' : 'Открыть меню'}
-              onPress={flow.error ? flow.refresh : () => props.navigate('M06')}
-            />
-          }
+          title="Здесь будут ваши заказы"
+          detail="Выбирайте любимые блюда. Здесь можно следить за приготовлением и смотреть историю."
+          action={<Button title="Открыть меню" onPress={() => props.navigate('M06')} />}
         />
       ) : (
         groups.map((group) =>
@@ -390,17 +366,15 @@ export function ConnectedOrder(props: ScreenProps) {
     return (
       <Page props={props} title="Заказ">
         <FlowNotice props={props} />
-        {!flow.restored ? <Loading title="Восстанавливаем заказ" /> : null}
-        <Empty
-          title={flow.error ? 'Статус пока не удалось проверить' : 'Выберите заказ'}
-          detail={
-            flow.error
-              ? 'Сохранённый сеанс остаётся на устройстве. Не создавайте замену неизвестному заказу; обновите его статус.'
-              : 'Здесь появится его сохранённый на сервере статус.'
-          }
-          action={<Button title="Мои заказы" onPress={() => props.navigate('M19')} />}
-        />
-        <Button title="Обновить статус" secondary onPress={flow.refresh} />
+        {!flow.restored || flow.error ? (
+          <Loading title="Загружаем заказ" />
+        ) : (
+          <Empty
+            title="Выберите заказ"
+            detail="Здесь появятся статус и состав заказа."
+            action={<Button title="Мои заказы" onPress={() => props.navigate('M19')} />}
+          />
+        )}
       </Page>
     );
   const unknown = order.payment_state === 'simulated_unknown';
@@ -428,15 +402,7 @@ export function ConnectedOrder(props: ScreenProps) {
   const cancel = props.screenId === 'M22';
   if (!receipt && !cancel && !canPay && !unknown)
     return (
-      <OrderStatusScreen
-        props={props}
-        order={order}
-        notice={
-          flow.error || flow.sessionExpired || flow.recoveryAvailable ? (
-            <FlowNotice props={props} />
-          ) : undefined
-        }
-      />
+      <OrderStatusScreen props={props} order={order} notice={<ContinueSession props={props} />} />
     );
   return (
     <Page
@@ -478,7 +444,7 @@ export function ConnectedOrder(props: ScreenProps) {
         </Row>
         <Body style={orderUI.label}>
           {unknown
-            ? 'Результат уточнит сотрудник ресторана. Повторять оплату не нужно.'
+            ? 'Ресторан уточняет результат оплаты.'
             : order.state === 'preparing'
               ? orderStage(order) === 'На сборке'
                 ? 'Всё приготовили. Проверяем состав и собираем ваш заказ.'
