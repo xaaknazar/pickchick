@@ -91,7 +91,7 @@ size (13-26 px): forest basket for ripe, brown leaf for withered, a small water 
 the bed front for "needs water" (hidden at overview). Watered soil is darker. Effects:
 watering can and shower, produce/coins flying to HUD counters, rising +N labels, leaf puff
 on clearing, level-up card with unlocks. One hop when a badge appears; still no perpetual
-sway. The meadow covers the screen at every zoom; the first view frames the garden.
+sway. Grass covers the screen at every zoom; the first view frames the garden.
 The watering can is original procedural art (`build-watering-can.py`).
 
 ## October 5 progression extension
@@ -162,7 +162,7 @@ Soft rectangular controls use the rounded scale, with panels and dock at its lar
 
 Buttons use cream for secondary actions and forest for primary actions. Pressed opacity is 0.75; disabled opacity is 0.48. The bottom dock is removed; actions are contextual. Metrics sit in translucent forest pills. Cream panels expose shop, storage, orders, plot details, removal confirmation and help; choices use a warmer parchment inset. Shop purchase actions lead the panel: the bed button uses forest primary styling, with the tree button beside it. The culture strip follows with a visible scroll cue and compact 52 pixel crop previews; storage uses 64 pixel previews. The shop has no introductory text block. There is no standalone text-input component in this surface.
 
-The imagery sources are meadow-painted-v2.png, props-painted-v2.png and plants-painted-v2.png. The props atlas provides the house; soil-texture-v3.png provides a top-down generated soil texture projected to the exact ground diamond; the plants atlas contains six columns and three phase rows, giving 18 crop sprites. Use clipped source coordinates from visuals.tsx rather than substituting emoji or screenshots. Decorative images remain outside the accessibility tree; actionable plots keep their own labels.
+The ground is one generated grass cell (grass-tile.png) repeated on every cell through grass-block.png; the other imagery sources are props-painted-v2.png and plants-painted-v2.png. The props atlas provides the house; soil-texture-v3.png provides a top-down generated soil texture projected to the exact ground diamond; the plants atlas contains six columns and three phase rows, giving 18 crop sprites. Use clipped source coordinates from visuals.tsx rather than substituting emoji or screenshots. Decorative images remain outside the accessibility tree; actionable plots keep their own labels.
 
 ## Do's and Don'ts
 

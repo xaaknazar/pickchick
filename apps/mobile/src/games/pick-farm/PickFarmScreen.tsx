@@ -46,11 +46,10 @@ import {
 } from './GardenPanels';
 import { useFarm, farmMessage } from './useFarm';
 import { useFarmSound } from './useFarmSound';
-import { CropArt, Landscape, CellOutline, isoPoint, cellAtPoint } from './visuals';
+import { CropArt, GrassGround, Landscape, CellOutline, isoPoint, cellAtPoint } from './visuals';
 import { farmPalette as p, farmStyles as s } from './styles';
 import { GroundCrop, cropStage } from './PlantingVisual';
 import {
-  MEADOW,
   MAX_ZOOM,
   MIN_ZOOM,
   WORLD_CENTER,
@@ -1214,18 +1213,7 @@ export function PickFarmScreen() {
             ],
           }}
         >
-          <NativeImage
-            source={require('../../../assets/games/pick-farm/meadow-painted-v2.png')}
-            resizeMode="stretch"
-            accessible={false}
-            style={{
-              position: 'absolute',
-              left: WORLD_CENTER.x - MEADOW.width / 2,
-              top: WORLD_CENTER.y - MEADOW.height / 2,
-              width: MEADOW.width,
-              height: MEADOW.height,
-            }}
-          />
+          <GrassGround />
           <Landscape
             houseStyle={progression.houseStyle}
             grid={panel === 'place' || drag !== null}

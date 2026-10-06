@@ -111,3 +111,11 @@ projected to an exact 2:1 isometric diamond in native code.
 `watering-can.png` is original procedural artwork drawn for PICK FARM by
 `src/games/pick-farm/build-watering-can.py` (Pillow vector shapes, cylindrical shading,
 light noise). No third-party image was used. Rebuild with the script if it changes.
+
+## Grass cell tile - 2026-10-06
+
+By the owner's request the painted meadow was replaced by one generated grass cell repeated
+on every cell. `grass-tile.png` (192x192, one cell, seamless) and `grass-block.png` (the
+same tile 8x8) are original procedural art from `src/games/pick-farm/build-grass-tile.py`
+(seeded NumPy noise and Pillow strokes, deterministic). `meadow-painted-v2.png` is no longer
+used and was removed from the app bundle; it remains in Git history.

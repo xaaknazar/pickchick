@@ -22,8 +22,14 @@ export function cellAtPoint(px: number, py: number) {
   };
 }
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-/** Painted meadow in world pixels, centered on WORLD_CENTER. */
+/**
+ * Ground rectangle the camera may show, in world pixels, centered on WORLD_CENTER.
+ * It lies inside the generated grass plane (GRASS_CELLS per side), so grass always fills
+ * the screen.
+ */
 export const MEADOW = { width: 4400, height: 2800 } as const;
+/** Cells per side of the repeated grass plane centered on cell (31.5, 31.5). */
+export const GRASS_CELLS = 112;
 /** Field diamond plus the house above it, in world pixels. */
 const PROPERTY = { width: 3072, height: 1840 } as const;
 /** Screen rows reserved by the HUD; the world is drawn this far below the screen center. */

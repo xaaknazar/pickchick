@@ -336,3 +336,19 @@ test('status badges and a fingertip margin select the object under them', async 
   assert.equal(plotAtPoint([empty], outside, now, { slop: 12 })?.id, 5);
   assert.equal(plotAtPoint([empty], { x: edge.x + 90, y: edge.y }, now, { slop: 12 }), undefined);
 });
+
+test('the repeated grass plane covers every ground rectangle the camera can show', async () => {
+  const { GRASS_CELLS } = await import('../../apps/mobile/src/games/pick-farm/geometry.ts');
+  assert.equal(GRASS_CELLS % 8, 0, 'grass is drawn in 8x8 cell blocks');
+  // Grass diamond: |dx| / (cells * 48) + |dy| / (cells * 24) <= 1 around cell (31.5, 31.5).
+  const centre = isoPoint(31.5, 31.5);
+  for (const sx of [-1, 1])
+    for (const sy of [-1, 1]) {
+      const dx = (sx * MEADOW.width) / 2 + 450 - centre.x;
+      const dy = (sy * MEADOW.height) / 2 + 300 - centre.y;
+      assert.ok(Math.abs(dx) / (GRASS_CELLS * 48) + Math.abs(dy) / (GRASS_CELLS * 24) < 0.95);
+    }
+  // Grass squares share the cell grid: cell edges fall on whole squares of the plane.
+  const firstCell = 31.5 - GRASS_CELLS / 2;
+  assert.equal(firstCell + 0.5, Math.round(firstCell + 0.5));
+});
