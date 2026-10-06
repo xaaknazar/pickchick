@@ -3160,11 +3160,11 @@
         "pnpm-workspace.yaml",
         "docs/operations/catalog-price-audit.md"
       ],
-      "status": "active",
+      "status": "done",
       "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
-      "updatedAt": "2026-10-06T08:31:14.784Z",
-      "summary": "Published verified commit 7bcbd7a2389713a14ed70a58ee749eb5c0e25837 from release candidate 178e4ab. Three fixed transitive patch versions only; official advisories linked in docs/operations/catalog-price-audit.md. Frozen install, unchanged high/critical audit gate, 5 security patch tests, executable source-map/proxy trust/compression abort smoke, format passed. Four moderate remain; no added exclusions.",
-      "nextAction": "Root integrates commit, full CI, release guard review and rearchive build 14. No full CI or native action performed in this subtask."
+      "updatedAt": "2026-10-06T08:31:20.550Z",
+      "summary": "Source task merged into shared-development 850c6fa; final CI 37433448853 11/11 verified by root. Original clean task branch fast-forwarded and pushed without force to the same green shared source, no new code. Scopes released.",
+      "nextAction": "Root catalog-price-integration continues server delivery and Apple acceptance."
     }
   ]
 }
