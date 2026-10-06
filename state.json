@@ -3138,34 +3138,6 @@
       "nextAction": "Root подтверждает Apple processing и группу PickChick Internal; физическая проверка каталога на iPhone отдельно. Старый tiptoppay Apple claim сохранён."
     },
     {
-      "id": "farm-gameplay-v2",
-      "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
-      "branch": "codex/farm-gameplay-v2",
-      "scopes": [
-        "apps/mobile/src/games/pick-farm",
-        "apps/mobile/assets/games/pick-farm",
-        "packages/farm-game",
-        "tests/mobile/farm-geometry.test.mjs",
-        "tests/mobile/farm-harvest-queue.test.mjs",
-        "tests/mobile/pick-farm-client.test.mjs",
-        "tests/mobile/browser_farm_progression.py",
-        "docs/design/pick-farm-v2.md",
-        "docs/operations/pick-farm.md",
-        "docs/operations/images/farm-v2",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "tests/mobile/farm-pipeline.test.mjs",
-        "tests/mobile/browser_farm_v2.py",
-        "tests/mobile/browser_pick_farm.py"
-      ],
-      "status": "available",
-      "head": "f5676984583e3fdc82539472d7606092aeb7f7f7",
-      "updatedAt": "2026-10-06T09:54:26.452Z",
-      "summary": "PR #193: v3 - земля частями, курятник/коровник, доска заказов, подарок дня, фон, звуки, protocol 3 (API+клиент с откатом на 2). Тесты engine 41, mobile, PG16, browser v2/v3/progression прошли.",
-      "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3 (без миграций), TestFlight, физический iPhone. Mac 1: закрыть farm-progression-api."
-    },
-    {
       "id": "order-status-quiet",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/order-status-quiet",
@@ -3245,6 +3217,35 @@
       "status": "active",
       "head": "8bdb6aeb8661a213b691c01f5023b6461b4849c7",
       "updatedAt": "2026-10-06T11:36:08.321Z"
+    },
+    {
+      "id": "farm-gameplay-v2",
+      "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
+      "branch": "codex/farm-gameplay-v2",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm",
+        "apps/mobile/assets/games/pick-farm",
+        "packages/farm-game",
+        "tests/mobile/farm-geometry.test.mjs",
+        "tests/mobile/farm-harvest-queue.test.mjs",
+        "tests/mobile/pick-farm-client.test.mjs",
+        "tests/mobile/browser_farm_progression.py",
+        "docs/design/pick-farm-v2.md",
+        "docs/operations/pick-farm.md",
+        "docs/operations/images/farm-v2",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "tests/mobile/farm-pipeline.test.mjs",
+        "tests/mobile/browser_farm_v2.py",
+        "tests/mobile/browser_pick_farm.py",
+        "docs/design/pick-farm-v3.md"
+      ],
+      "status": "active",
+      "head": "928bc68bbf135c22d6aeb33c6887341e6617e18d",
+      "updatedAt": "2026-10-06T11:37:44.639Z",
+      "summary": "PR #193: v3 - земля частями, курятник/коровник, доска заказов, подарок дня, фон, звуки, protocol 3 (API+клиент с откатом на 2). Тесты engine 41, mobile, PG16, browser v2/v3/progression прошли.",
+      "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3 (без миграций), TestFlight, физический iPhone. Mac 1: закрыть farm-progression-api."
     }
   ]
 }
