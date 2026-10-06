@@ -3189,11 +3189,12 @@
         "tests/backoffice/helpers.mjs",
         "tests/backoffice/finance-http.test.mjs",
         "infra/public-staging/gateway.Caddyfile",
-        "tests/backoffice/finance-browser.test.mjs"
+        "tests/backoffice/finance-browser.test.mjs",
+        "tests/backoffice/browser_operations.py"
       ],
       "status": "active",
       "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
-      "updatedAt": "2026-10-06T09:09:16.748Z"
+      "updatedAt": "2026-10-06T09:14:39.072Z"
     }
   ]
 }
