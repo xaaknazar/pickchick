@@ -3144,11 +3144,12 @@
       "branch": "codex/catalog-price-audit",
       "scopes": [
         "pnpm-lock.yaml",
-        "pnpm-workspace.yaml"
+        "pnpm-workspace.yaml",
+        "docs/operations/catalog-price-audit.md"
       ],
       "status": "active",
       "head": "178e4ab54b968cd98031d8f263e12eb8522d55c7",
-      "updatedAt": "2026-10-06T07:40:00.535Z"
+      "updatedAt": "2026-10-06T07:41:09.866Z"
     }
   ]
 }
