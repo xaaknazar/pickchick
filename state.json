@@ -3096,11 +3096,12 @@
       "scopes": [
         "apps/mobile/src/api.ts",
         "apps/mobile/src/published-catalog.ts",
-        "tests/mobile/published-catalog.test.mjs"
+        "tests/mobile/published-catalog.test.mjs",
+        "docs/operations/catalog-price-mobile.md"
       ],
       "status": "active",
       "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
-      "updatedAt": "2026-10-06T07:15:06.053Z"
+      "updatedAt": "2026-10-06T07:17:28.969Z"
     }
   ]
 }
