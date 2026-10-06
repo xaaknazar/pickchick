@@ -1366,11 +1366,11 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     const hungry = chosen.filter((v) => v.fedAt === null);
     requireRule(hungry.length > 0, 'ANIMALS_NOT_HUNGRY');
     const feed = Object.entries(animal.feed) as [CropId, number][];
-    if (c.animalIds) {
-      // Chosen animals are all-or-nothing: every one hungry and enough feed for all.
-      requireRule(hungry.length === chosen.length, 'ANIMALS_NOT_HUNGRY');
+    if (c.animalIds?.length === 1) {
+      // A tap on one animal is exact: it must be hungry and its feed must be in storage.
+      requireRule(hungry.length === 1, 'ANIMALS_NOT_HUNGRY');
       requireRule(
-        feed.every(([id, n]) => state.inventory[id] >= n * chosen.length),
+        feed.every(([id, n]) => state.inventory[id] >= n),
         'INSUFFICIENT_FEED',
       );
     }
@@ -1387,7 +1387,7 @@ function applyProgression(state: FarmState, c: ProgressionCommand, now: number) 
     const chosen = chooseAnimals(p.animals ?? [], animal.id, c.animalIds);
     const ready = chosen.filter((v) => v.fedAt !== null && now >= v.fedAt + animal.seconds * 1000);
     requireRule(ready.length > 0, 'ANIMALS_NOT_READY');
-    if (c.animalIds) requireRule(ready.length === chosen.length, 'ANIMALS_NOT_READY');
+    if (c.animalIds?.length === 1) requireRule(ready.length === 1, 'ANIMALS_NOT_READY');
     const goods = p.goods ?? { egg: 0, milk: 0 };
     for (const v of ready) {
       v.fedAt = null;
@@ -1563,12 +1563,10 @@ function chooseAnimals<T extends { id: number; kind: string }>(
 ): T[] {
   const own = animals.filter((v) => v.kind === kind);
   if (!ids) return own;
-  const chosen = ids.map((id) => own.find((v) => v.id === id));
-  requireRule(
-    chosen.every((v) => v !== undefined),
-    'ANIMAL_NOT_FOUND',
-  );
-  return chosen as T[];
+  // One id is exact; a sweep (several ids) serves those still present, like harvestMany.
+  const chosen = own.filter((v) => ids.includes(v.id));
+  requireRule(ids.length > 1 ? chosen.length > 0 : chosen.length === 1, 'ANIMAL_NOT_FOUND');
+  return chosen;
 }
 export function animalCost(state: FarmState, kind: AnimalKind): number {
   const animal = ANIMALS.find((v) => v.id === kind)!;

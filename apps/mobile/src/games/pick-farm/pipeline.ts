@@ -33,6 +33,17 @@ const errorCode = (error: unknown) =>
 const httpStatus = (error: unknown) =>
   error && typeof error === 'object' && 'status' in error ? Number(error.status) : 0;
 const NEW_RULES = new Set(['water', 'waterMany', 'harvestMany', 'plantMany']);
+const ANIMAL_IDS_LIMIT = 10;
+const idCount = (command: FarmCommand) =>
+  'animalIds' in command && command.animalIds ? command.animalIds.length : 0;
+function withoutIds(command: FarmCommand): FarmCommand {
+  if ((command.type === 'feedAnimals' || command.type === 'collectAnimals') && command.animalIds) {
+    const rest = { ...command };
+    delete rest.animalIds;
+    return rest;
+  }
+  return command;
+}
 
 /** Coalescing key: only contiguous actions of one kind and one choice become a batch. */
 function batchKey(command: FarmCommand): string | null {
@@ -57,7 +68,9 @@ function toBatch(commands: Batchable[]): FarmCommand {
     return {
       type: first.type,
       kind: first.kind,
-      animalIds: commands.flatMap((c) => ('animalIds' in c ? (c.animalIds ?? []) : [])),
+      animalIds: [
+        ...new Set(commands.flatMap((c) => ('animalIds' in c ? (c.animalIds ?? []) : []))),
+      ],
     };
   if (first.type === 'plant') return { type: 'plantMany', plotIds, cropId: first.cropId };
   return { type: 'waterMany', plotIds };
@@ -74,6 +87,8 @@ export class FarmPipeline {
   /** Optimistic until the server proves otherwise, then the client falls back silently. */
   batching = true;
   watering = true;
+  /** Animal commands with chosen ids; an API without them serves the whole pen instead. */
+  animalIds = true;
   private queue: Item[] = [];
   private sending: Item[] = [];
   private running = false;
@@ -124,6 +139,7 @@ export class FarmPipeline {
     if (!base) return { accepted: false, code: 'NOT_READY' };
     if (!this.watering && (command.type === 'water' || command.type === 'waterMany'))
       return { accepted: false, code: 'WATER_UNAVAILABLE' };
+    command = this.animalIds ? command : withoutIds(command);
     // Monotonic: a later action never predates an earlier prediction, even when a server
     // answer re-anchors the local clock slightly backwards.
     const at = Math.max(this.now(), this.confirmed!.serverNow, this.lastAt);
@@ -169,13 +185,18 @@ export class FarmPipeline {
     const head = this.queue[0]!;
     const key = this.batching ? batchKey(head.command) : null;
     let count = 1;
+    // Animal batches are capped by the number of ids (the API takes up to 10).
+    let ids = idCount(head.command);
     if (key)
       while (
         count < this.queue.length &&
-        count < (key.startsWith('feed') || key.startsWith('collect') ? 10 : BATCH_LIMIT) &&
-        batchKey(this.queue[count]!.command) === key
-      )
+        count < BATCH_LIMIT &&
+        batchKey(this.queue[count]!.command) === key &&
+        ids + idCount(this.queue[count]!.command) <= ANIMAL_IDS_LIMIT
+      ) {
+        ids += idCount(this.queue[count]!.command);
         count++;
+      }
     return this.queue.splice(0, count);
   }
   private async drain() {
@@ -215,6 +236,35 @@ export class FarmPipeline {
           this.confirmed = this.lane.current() ?? this.confirmed;
           this.cache = null;
           const code = errorCode(error);
+          // A Farm API without chosen animals rejects the ids before any change: serve the
+          // whole pen from now on and retry the same actions that way.
+          if (
+            code === 'INVALID_REQUEST' &&
+            httpStatus(error) === 400 &&
+            (command.type === 'feedAnimals' || command.type === 'collectAnimals') &&
+            command.animalIds
+          ) {
+            this.animalIds = false;
+            const [first] = group;
+            first!.command = withoutIds(first!.command);
+            for (const item of group.slice(1)) item.resolve({ ok: true, before, after: before });
+            this.queue = [
+              first!,
+              ...this.queue.filter((item) => {
+                if (!('animalIds' in item.command) || !item.command.animalIds) return true;
+                // Served by the whole-pen retry of the same kind of action.
+                if (batchKey(item.command) === batchKey(command)) {
+                  item.resolve({ ok: true, before, after: before });
+                  return false;
+                }
+                item.command = withoutIds(item.command);
+                return true;
+              }),
+            ];
+            this.cache = null;
+            this.changed();
+            continue;
+          }
           // Older Farm API: the request was rejected before any change. Retry as before.
           if (
             code === 'INVALID_REQUEST' &&

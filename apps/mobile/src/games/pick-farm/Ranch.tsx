@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Text, View } from 'react-native';
 import {
   ANIMALS,
@@ -158,11 +158,13 @@ export const LandOverlay = memo(function LandOverlay({
   useEffect(() => {
     if (b.land > shown.current) {
       setReveal({ from: shown.current, to: b.land });
-      const timer = setTimeout(() => setReveal(null), 2200);
       shown.current = b.land;
+      const timer = setTimeout(() => setReveal(null), 2200);
       return () => clearTimeout(timer);
     }
+    // A rejected purchase rolls the land back: drop any wave still on screen.
     shown.current = b.land;
+    setReveal(null);
   }, [b.land]);
   const { minX, minY, maxX, maxY } = PLANTING_BOUNDS;
   const cells = maxX - minX + 1;
@@ -314,6 +316,10 @@ function LandReveal({ from, to, reduced }: { from: number; to: number; reduced: 
   );
 }
 
+/** animalPlace's ease (quadratic in-out) sampled for interpolations driven by walk time. */
+const EASE_IN = Array.from({ length: 17 }, (_, i) => i / 16);
+const EASE_OUT = EASE_IN.map((t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2));
+
 /** One animal. Busy ones stroll around the yard, hungry ones sit with a feed bubble, ready
  * ones wait with an egg or milk at their feet. Idle pecks are short and rare. */
 const Animal = memo(function Animal({
@@ -350,36 +356,39 @@ const Animal = memo(function Animal({
       const now = Date.now();
       const place = animalPlace(pen, id, index, mode, now);
       setSeg(place);
-      if (mode !== 'stroll') {
-        progress.setValue(1);
-        walking.current = false;
-        return;
-      }
-      const elapsed = now - place.start;
-      if (place.walking) {
-        walking.current = true;
-        progress.setValue(Math.min(1, elapsed / STROLL.walk));
-        Animated.timing(progress, {
-          toValue: 1,
-          duration: Math.max(60, STROLL.walk - elapsed),
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }).start(({ finished }) => {
-          if (finished) walking.current = false;
-        });
-      } else {
-        walking.current = false;
-        progress.setValue(1);
-      }
-      timer = setTimeout(step, Math.max(50, place.start + STROLL.period - now + 5));
+      if (mode === 'stroll')
+        timer = setTimeout(step, Math.max(50, place.start + STROLL.period - now + 5));
     };
     step();
     return () => {
       alive = false;
       if (timer) clearTimeout(timer);
-      progress.stopAnimation();
     };
-  }, [pen, id, index, mode, progress]);
+  }, [pen, id, index, mode]);
+  // Start the walk in the same commit as the new segment, so the animal never jumps back.
+  // `progress` is walk time (linear); the easing is sampled in the interpolation below, exactly
+  // as animalPlace eases it, so the drawn animal and the tap target stay together.
+  useLayoutEffect(() => {
+    progress.stopAnimation();
+    if (mode !== 'stroll' || !seg.walking) {
+      walking.current = false;
+      progress.setValue(1);
+      return;
+    }
+    const elapsed = Math.max(0, Date.now() - seg.start);
+    walking.current = true;
+    progress.setValue(Math.min(1, elapsed / STROLL.walk));
+    const animation = Animated.timing(progress, {
+      toValue: 1,
+      duration: Math.max(60, STROLL.walk - elapsed),
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished) walking.current = false;
+    });
+    return () => animation.stop();
+  }, [seg, mode, progress]);
   // Idle pecks while standing (not when hungry: a hungry animal sits and waits).
   useEffect(() => {
     if (!moving || condition === 'hungry') {
@@ -440,14 +449,14 @@ const Animal = memo(function Animal({
         transform: [
           {
             translateX: progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, to.x - from.x],
+              inputRange: EASE_IN,
+              outputRange: EASE_OUT.map((k) => k * (to.x - from.x)),
             }),
           },
           {
             translateY: progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, to.y - from.y],
+              inputRange: EASE_IN,
+              outputRange: EASE_OUT.map((k) => k * (to.y - from.y)),
             }),
           },
           { translateY: progress.interpolate({ inputRange: hopInput, outputRange: hopOutput }) },

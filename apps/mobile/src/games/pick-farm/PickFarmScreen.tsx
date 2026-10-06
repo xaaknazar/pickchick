@@ -116,6 +116,7 @@ const TAP_SLOP = 10;
 const EDGE = 56;
 const cropFor = (id: CropId) => CROPS.find((c) => c.id === id)!;
 const PEN_KIND = { coop: 'chicken', barn: 'cow' } as const;
+const ACTIONABLE = ['ready', 'hungry'] as const;
 /** The 32x32 field with the house above it, in world pixels. */
 const PROPERTY_RECT = { minX: -1110, maxX: 2010, minY: -800, maxY: 1070 };
 const STATION_CELLS = [
@@ -344,9 +345,20 @@ export function PickFarmScreen() {
   );
 
   // --- Actions ------------------------------------------------------------------------------
+  /** Why the last action was refused locally, for hints after silent taps and sweeps. */
+  const lastRefusal = useRef('');
+  const eventTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (eventTimer.current) clearTimeout(eventTimer.current);
+      shake.stopAnimation();
+    },
+    [shake],
+  );
   const run = useCallback(
     (command: FarmCommand, options: { silent?: boolean } = {}) => {
       const ticket = farm.submit(command);
+      if (!ticket.accepted) lastRefusal.current = ticket.code;
       if (!ticket.accepted && !options.silent) showHint(farmMessage(ticket.code));
       return ticket.accepted;
     },
@@ -527,7 +539,8 @@ export function PickFarmScreen() {
           700,
         );
         play('level');
-        setTimeout(() => feedback('large'), 650);
+        if (eventTimer.current) clearTimeout(eventTimer.current);
+        eventTimer.current = setTimeout(() => feedback('large'), 650);
       } else if (ok && (command.type === 'fulfill' || command.type === 'fulfillBoard')) {
         const from = { x: width / 2, y: hudTop + (height - hudTop) * 0.45 };
         feedback('medium', from);
@@ -865,13 +878,13 @@ export function PickFarmScreen() {
             x: from.x + ((to.x - from.x) * i) / steps,
             y: from.y + ((to.y - from.y) * i) / steps,
           };
-          const id = animalAt(point, pen, PEN_KIND[pen], list, Date.now(), 6);
+          const id = animalAt(point, pen, PEN_KIND[pen], list, Date.now(), 6, [want]);
           const animal = list.find((v) => v.id === id);
           if (!animal || gesture.swept.has(animal.id) || animal.condition !== want) continue;
           gesture.swept.add(animal.id);
           const ok = actions.current.penAct(pen, gesture.sweep, [animal.id], true);
           if (!ok && gesture.sweep === 'feed')
-            actions.current.showHint(farmMessage('INSUFFICIENT_FEED'), 3600);
+            actions.current.showHint(farmMessage(lastRefusal.current), 3600);
         }
         return;
       }
@@ -1020,14 +1033,17 @@ export function PickFarmScreen() {
     const a = actions.current;
     const kind = PEN_KIND[pen];
     const list = yardAnimals(L.state, kind, L.serverNow, L.moving);
-    const id = animalAt(world, pen, kind, list, Date.now(), 10);
+    // A ready or hungry animal wins over a busy one walking past.
+    const id =
+      animalAt(world, pen, kind, list, Date.now(), 10, ACTIONABLE) ??
+      animalAt(world, pen, kind, list, Date.now(), 10);
     const animal = list.find((v) => v.id === id);
     const info = ANIMALS.find((v) => v.id === kind)!;
     if (animal) {
       if (animal.condition === 'ready') return a.penAct(pen, 'collect', [animal.id]) || true;
       if (animal.condition === 'hungry') {
         if (!a.penAct(pen, 'feed', [animal.id], true))
-          a.showHint(farmMessage('INSUFFICIENT_FEED'), 3600);
+          a.showHint(farmMessage(lastRefusal.current), 3600);
         return true;
       }
       const fed = getProgression(L.state).animals?.find((v) => v.id === animal.id)?.fedAt ?? 0;
@@ -1038,7 +1054,7 @@ export function PickFarmScreen() {
     if (list.some((v) => v.condition === 'ready')) return a.penAct(pen, 'collect') || true;
     if (list.some((v) => v.condition === 'hungry')) {
       if (a.penAct(pen, 'feed', undefined, true)) return true;
-      a.showHint(farmMessage('INSUFFICIENT_FEED'), 3600);
+      a.showHint(farmMessage(lastRefusal.current), 3600);
       return true;
     }
     return false;
@@ -1233,7 +1249,7 @@ export function PickFarmScreen() {
               gesture.pen = pen;
               // A sweep starts on an animal: collect if it is ready, feed if it is hungry.
               const list = yardAnimals(L.state, PEN_KIND[pen], L.serverNow, L.moving);
-              const id = animalAt(world, pen, PEN_KIND[pen], list, Date.now(), 6);
+              const id = animalAt(world, pen, PEN_KIND[pen], list, Date.now(), 6, ACTIONABLE);
               const animal = list.find((v) => v.id === id);
               gesture.sweep =
                 animal?.condition === 'ready'

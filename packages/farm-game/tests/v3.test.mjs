@@ -105,7 +105,7 @@ test('coop: buy pen and chickens, feed with carrots, collect eggs after 20 minut
   assert.equal(FarmStateSchema.safeParse(s).success, true);
 });
 
-test('a tap or a sweep serves chosen animals only, all or nothing', () => {
+test('a tap serves exactly its animal; a sweep serves the chosen ones still waiting', () => {
   let s = rich(LEVEL_XP[1]);
   s = run(s, { type: 'buyPen', pen: 'coop' }, 0);
   for (let i = 0; i < 4; i++) s = run(s, { type: 'buyAnimal', kind: 'chicken' }, 0);
@@ -120,8 +120,17 @@ test('a tap or a sweep serves chosen animals only, all or nothing', () => {
     () => run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [2] }, 0),
     /ANIMALS_NOT_HUNGRY/,
   );
+  // Two carrots for three chosen chickens: a sweep feeds two and leaves the third hungry.
+  const partial = run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [0, 1, 3] }, 0);
+  assert.equal(partial.inventory.carrot, 0);
+  assert.equal(partial.progression.animals.filter((a) => a.fedAt === null).length, 1);
   assert.throws(
-    () => run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [0, 1, 3] }, 0),
+    () =>
+      run(
+        { ...s, inventory: { ...s.inventory, carrot: 0 } },
+        { type: 'feedAnimals', kind: 'chicken', animalIds: [0] },
+        0,
+      ),
     /INSUFFICIENT_FEED/,
   );
   assert.throws(
@@ -135,10 +144,14 @@ test('a tap or a sweep serves chosen animals only, all or nothing', () => {
   s = run(s, { type: 'feedAnimals', kind: 'chicken', animalIds: [0, 1] }, 1000);
   assert.equal(s.inventory.carrot, 0);
   assert.throws(
-    () => run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [2, 0] }, 20 * MIN),
+    () => run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [0] }, 20 * MIN),
     /ANIMALS_NOT_READY/,
     'animal 0 was fed a second later',
   );
+  // A sweep over a ready and a not yet ready chicken collects only the ready egg.
+  const swept = run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [2, 0] }, 20 * MIN);
+  assert.equal(swept.progression.goods.egg, 1);
+  assert.equal(swept.progression.animals.find((a) => a.id === 0).fedAt, 1000);
   s = run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [2] }, 20 * MIN);
   assert.equal(s.progression.goods.egg, 1);
   s = run(s, { type: 'collectAnimals', kind: 'chicken', animalIds: [0, 1] }, 20 * MIN + 1000);

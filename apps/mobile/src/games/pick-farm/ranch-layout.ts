@@ -130,12 +130,15 @@ export function animalAt(
   world: Point,
   pen: PenId,
   kind: 'chicken' | 'cow',
-  animals: { id: number; index: number; mode: AnimalMode }[],
+  animals: { id: number; index: number; mode: AnimalMode; condition?: string }[],
   t: number,
   slop = 0,
+  /** Only these conditions count (a sweep feeds hungry ones; a busy passer-by is skipped). */
+  only?: readonly string[],
 ) {
   let best: { id: number; d: number } | null = null;
   for (const a of animals) {
+    if (only && !only.includes(a.condition ?? '')) continue;
     const place = animalPlace(pen, a.id, a.index, a.mode, t);
     const p = at(pen, place.x, place.y);
     const d = Math.hypot(world.x - p.x, world.y - (p.y - ANIMAL_BODY[kind]));

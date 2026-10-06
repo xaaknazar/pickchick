@@ -206,3 +206,28 @@ test('taps on single animals in one yard become one command; a full yard needs n
   ]);
   assert.equal(pipeline.confirmed.state.inventory.carrot, 2);
 });
+
+test('an API without chosen animals: the pen is served whole and later taps drop their ids', async () => {
+  let state = { ...createFarm(0), coins: 5000, xp: 200 };
+  state = applyFarmCommand(state, { type: 'buyPen', pen: 'coop' }, 0);
+  for (let i = 0; i < 2; i++)
+    state = applyFarmCommand(state, { type: 'buyAnimal', kind: 'chicken' }, 0);
+  state = { ...state, inventory: { ...state.inventory, carrot: 5 } };
+  const lane = server(state);
+  const send = lane.send;
+  lane.send = (command) =>
+    'animalIds' in command
+      ? Promise.reject(
+          Object.assign(new Error('INVALID_REQUEST'), { code: 'INVALID_REQUEST', status: 400 }),
+        )
+      : send(command);
+  const pipeline = await ready(lane);
+  const first = pipeline.submit({ type: 'feedAnimals', kind: 'chicken', animalIds: [0] });
+  assert.equal(first.accepted, true);
+  await new Promise((r) => setTimeout(r, 0));
+  await lane.flush();
+  assert.equal((await first.done).ok, true);
+  assert.deepEqual(lane.sent, [{ type: 'feedAnimals', kind: 'chicken' }]);
+  assert.equal(pipeline.animalIds, false);
+  assert.equal(pipeline.confirmed.state.inventory.carrot, 3, 'both chickens fed');
+});
