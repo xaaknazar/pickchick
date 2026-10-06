@@ -48,3 +48,40 @@ tiptoppay-testflight13 (app.json), tiptoppay-test-rollout (@vps/api).
 На подготовительном checkpoint сервер не переключён, новая сборка ещё не
 отправлена в Apple. Полная CI точного SHA, применение и доступность TestFlight
 подтверждаются отдельно после завершения соответствующих шагов.
+
+## Подтверждённая поставка 6 октября 2026
+
+Исходный SHA `850c6fa5a39296f78e29ff56e2a8b8c78a7137cc`:
+[полная CI37433448853](https://github.com/xaaknazar/pickchick/actions/runs/37433448853)
+успешна, все 11 jobs. Этот SHA включён fast-forward в общий срез
+`codex/shared-development`; удалённый SHA подтверждён. Подготовительные состояния
+в связанных runbook выше относятся к моменту подготовки, актуальные факты ниже.
+
+Серверный guarded prepare/apply завершён: API и public pointer указывают на
+850c6fa, phase complete, deployment lock снят. Публичный GET каталога возвращает
+HTTP200, ABAY-PLAZA version3, Pick Combo price_minor10000 (100 ₸), без mobile
+price override. Зашифрованная backup и восстановление в изолированную БД прошли.
+Повторная read-only проверка финансовых и остальных data fingerprints,
+38 миграций, app/worker ACL, runtime flags, worker и публичных assets прошла.
+Цены, заказы и счета этой установкой не создавались и не менялись; банк не вызывался.
+
+Native archive/export из чистого 850c6fa: 0.2.0 (14), catalog-pilot,
+label catalog-price-20261006-14-850c6fa. IPA SHA-256:
+44730ff32336fe068489c8b20f2a1d3594e67f04d0a2e9846b66bc17d6afe5ca.
+Apple upload и доступность подтверждаются следующим фактом после завершения.
+
+Apple upload завершён 6 октября 2026 в 08:33:32 UTC: Upload succeeded,
+Uploaded PickChick, EXPORT SUCCEEDED; deliveryStatus submitted. В App Store
+Connect сборка 0.2.0 (14), ID e3faad96-fd2f-4be4-ab66-84e5d00820bc,
+обработана и добавлена в существующую PickChick Internal (2 тестировщика).
+Сведения «Что тестировать» сохранены. Внешняя Testing не расширялась:
+Apple ожидает beta review прежней сборки12 и пока не принимает вторую сборку
+той же версии на внешнюю проверку. Предупреждения dSYM восьми сторонних
+framework не помешали upload; символика этих framework остаётся ограничением.
+
+Следующий шаг приёмки: обновить iPhone до14, явно обновить сохранённую старую
+корзину, сверить опубликованную цену и модификаторы до оплаты. Физическая
+приёмка этой сборки и новый реальный платёж этим выпуском не подтверждены.
+Общий online roadmap не обновлён: его файлы по-прежнему принадлежат активной
+задаче farm-gameplay-v2 второго Mac. Факты поставки опубликованы в данном runbook
+и PR192; переносить их в roadmap после согласованного освобождения области.
