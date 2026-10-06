@@ -3188,8 +3188,21 @@
       "nextAction": "Owner updates iPhone to15 and checks order stages. Copy release evidence to shared status/roadmap when farm-gameplay-v2 releases reserved docs. Preserve quiet recovery when merging TipTop."
     },
     {
+      "id": "farm-v3-review-report",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/farm-v3-review-report",
+      "scopes": [
+        "docs/operations/reviews/farm-v3-pr193.md"
+      ],
+      "status": "available",
+      "head": "cbd685232d4b717f5718d22774738aef9a92e8f1",
+      "updatedAt": "2026-10-06T11:31:08.399Z",
+      "summary": "Read-only PR193 review f567698. Report cbd6852 published; 41 engine tests passed. Two exact pipeline/real-engine reproductions confirm queued-action cancellation on leave and watering remaining disabled after protocol2to3. Reduce Motion static issue. No merge/deploy.",
+      "nextAction": "Fix three findings; integrate current shared preserving build15/order status fix; publish compatible new client before API3. See docs/operations/reviews/farm-v3-pr193.md."
+    },
+    {
       "id": "finance-ledger",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/finance-ledger",
       "scopes": [
         "packages/backoffice-core/src/finance.ts",
@@ -3214,24 +3227,11 @@
         "docs/operations/images/finance-ledger",
         "tests/operations/test_catalog_storefront_release.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "8bdb6aeb8661a213b691c01f5023b6461b4849c7",
-      "updatedAt": "2026-10-06T11:29:36.757Z",
+      "updatedAt": "2026-10-06T11:35:25.601Z",
       "summary": "Владелец поручил установить финансы на сайт и выбрал другой Mac с существующим SSH-доступом. Прямой связи с тем Mac у этого чата нет. PR #195, HEAD 8bdb6aeb8661a213b691c01f5023b6461b4849c7. HTTP 200 backoffice, gateway alive; finance endpoint 404, сервер здесь НЕ изменён. Нет локального SSH-ключа/agent identity/host key. test_catalog_storefront_release.py исправлен без ослабления release guards: 14/14; CI 2d29df5 завершилась failed (37448932997), свежая CI не объявлена зелёной. Предыдущие finance14 и BO13 проверок прошли. Владелец явно отказал в передаче четырёх historical fixtures и @vps/api, другой Mac ещё работает; резервы сохранены.",
       "nextAction": "Принимающий Mac с SSH: после согласования своего текущего TipTop выпуска принять finance-ledger из опубликованной ветки (8bdb6ae), PR195. В своей согласованной области исправить test_server_pilot_release.py, test_auth_four_digit_release.py, test_farm_release.py, test_farm_update.py, не ослабляя production guards. Сверить реальные installed API/schema/public указатели и порядок ожидаемых039/040 перед042; зелёная полнаяCI точного source, encrypted backup/rollback, release profile и серверный claim. Выпустить API/schema/grants, gateway и backoffice с сохранением банковских worker/кухни/idrink. Проверить права и пустой журнал без синтетических записей в рабочей точке. Обновить общие status/roadmap после согласования их резерва. Полная инструкция docs/operations/finance-ledger.md."
-    },
-    {
-      "id": "farm-v3-review-report",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/farm-v3-review-report",
-      "scopes": [
-        "docs/operations/reviews/farm-v3-pr193.md"
-      ],
-      "status": "available",
-      "head": "cbd685232d4b717f5718d22774738aef9a92e8f1",
-      "updatedAt": "2026-10-06T11:31:08.399Z",
-      "summary": "Read-only PR193 review f567698. Report cbd6852 published; 41 engine tests passed. Two exact pipeline/real-engine reproductions confirm queued-action cancellation on leave and watering remaining disabled after protocol2to3. Reduce Motion static issue. No merge/deploy.",
-      "nextAction": "Fix three findings; integrate current shared preserving build15/order status fix; publish compatible new client before API3. See docs/operations/reviews/farm-v3-pr193.md."
     }
   ]
 }
