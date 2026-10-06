@@ -24,6 +24,14 @@ Prettier, contracts:check, web export; PostgreSQL 16 - интеграция farm
 этих изменений: две конкурирующие посадки (морковь/томат) выигрывают случайно, а тест
 ожидает 45 с моркови; 1 из 5 запусков падает и на базовой версии `239148b`.
 
+GitHub CI 37430727748 (PR #193, `34e3ef3`): `pnpm check` (build, typecheck, lint,
+format, unit, contracts, design), farm-game, PostgreSQL farm-persistence/HTTP и 291
+mobile-теста прошли. Полная CI не зелёная по причинам вне фермы: `audit:release`
+блокирует новые advisories source-map-js GHSA-68fv-2mgg-jv7q, proxy-addr
+GHSA-jqcg-44mw-7w3h, compression GHSA-vc2v-76pw-4v95 (зависимости не менялись), и
+прежние browser-проверки POS (`browser_staff_display`/`browser_service_shift`,
+TargetClosedError). Онлайн-пульт roadmap не обновлён: нет SSH, `@vps/roadmap` занят.
+
 Не выполнено: выкладка API с новым движком, TestFlight, физический iPhone/Android,
 планшет, FPS большого поля. До выкладки API клиент сам переходит на одиночные
 команды, а полив сообщает, что заработает после обновления сервера.
