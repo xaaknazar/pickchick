@@ -344,3 +344,22 @@ result.json и доказательства находятся в приватн
 Новая команда removeCrop не требует изменения схемы БД.
 
 Данный checkpoint только готовит обновление; установленный API остаётся2a6d5cb.
+
+## PICK FARM v3 и protocol 3 - 6 октября
+
+Правила, интерфейс и проверки: `docs/design/pick-farm-v3.md`; снимки
+`docs/operations/images/farm-v3/`.
+
+- API: `GET/POST /v1/customer-farm?protocol=3`. Любой другой протокол - 503
+  `FARM_UNAVAILABLE`, `minimumProtocol: 3`, до чтения и создания сохранения.
+- Клиент: начинает с 3; ответ 503 с `minimumProtocol` 2 переводит запрос на 2 (legacy,
+  функции v3 скрыты), каждое чтение снова пробует 3.
+- Миграций БД нет: новые поля `progression` необязательные. Сохранения без `land`
+  открывают всё поле.
+- Локальные проверки: `pnpm --filter @pickchick/farm-game build`, затем
+  `node --test packages/farm-game/tests/*.test.mjs`, `node --test tests/mobile/*.test.mjs`,
+  `FARM_TEST_DATABASE_URL=postgres://...localhost.../farmtest node --test --test-concurrency=1
+packages/farm-persistence/tests/postgres.test.mjs packages/farm-persistence/tests/http.test.mjs`,
+  web export (`EXPO_PUBLIC_PICK_FARM=1 EXPO_PUBLIC_CUSTOMER_AUTH=server`) и
+  `FARM_UI_URL=http://127.0.0.1:4196 python3 tests/mobile/browser_farm_v3.py`
+  (а также `browser_farm_v2.py`, `browser_farm_progression.py`).

@@ -206,3 +206,15 @@ surface. Planting animation affects only seeds/plants, never the bed footprint.
 Seeds follow two projected rows. Early sprouts reuse the crop-specific art at a small
 size over the same soil, avoiding a second mismatched soil sprite. Empty soil hit testing
 uses that same diamond, while foliage retains alpha hit masks. No economy or API change.
+
+## Farm v3 world - 6 October 2026
+
+- Locked land: darker wild grass in the ground plane, a light edge around the open square,
+  wooden sale signs. Never hide locked cells: the player should see what can be bought.
+- Coop and barn live behind the field (`ranch-layout.ts`), art from `build-v3-art.py`
+  in the 2:1 projection at 52 px per unit (scaled 48/52 in the game). Animals stand on
+  fixed yard spots, idle moves are short and rare and stop with reduced motion.
+- Buildings and land open a side sheet; the camera moves the object into the free part.
+- Scenery only outside the field, pens and workshops (unit-tested).
+- Sounds are off by default and short; one effect per action, a sweep plays at most one
+  per 70 ms.
