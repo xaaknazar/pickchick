@@ -3160,11 +3160,11 @@
       "scopes": [
         "docs/operations/catalog-price-race-test.md"
       ],
-      "status": "active",
+      "status": "done",
       "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
-      "updatedAt": "2026-10-06T08:29:55.336Z",
-      "summary": "Published verified 850c6fa5a39296f78e29ff56e2a8b8c78a7137cc from e192f05. Test-only race expectations follow actual fulfilled crop; deterministic independent PostgreSQL clients verify both carrot and tomato outcomes and durable state. Real local PostgreSQL18 integration passed plus frozen install/build/lint/format. Explicit overlap delegated by root; runtime/gameplay untouched.",
-      "nextAction": "Root integrates and runs final CI on new SHA, then resumes build 14. Old CI not rerun; local temporary PostgreSQL stopped. Evidence docs/operations/catalog-price-race-test.md."
+      "updatedAt": "2026-10-06T08:30:00.772Z",
+      "summary": "Merged ancestry confirmed in shared-development 850c6fa; root verified final CI 37433448853 11/11. Published task commit and prior targeted checks recorded in delivery docs. Completed source scopes released.",
+      "nextAction": "Root catalog-price-integration continues server delivery and Apple acceptance separately."
     }
   ]
 }
