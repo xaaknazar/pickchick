@@ -166,6 +166,9 @@ test('daily reward: once per server day, streak continues, a missed day restarts
   assert.equal(dailyStatus(s, 7 * DAY).reward, DAILY_REWARDS[0], 'the ladder repeats after 7');
   s = run(s, { type: 'claimDaily' }, 9 * DAY);
   assert.equal(s.progression.daily.streak, 1);
+  // A server clock that steps back a day never opens a second gift.
+  assert.throws(() => run(s, { type: 'claimDaily' }, 8 * DAY), /REWARD_CLAIMED/);
+  assert.equal(dailyStatus(s, 8 * DAY).available, false);
 });
 
 test('a version 2 save gains the board and every recipe on its first command', () => {

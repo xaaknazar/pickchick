@@ -1593,7 +1593,8 @@ export function boardOrder(slot: number, entry: { gen: number; level: number }) 
 export function dailyStatus(state: FarmState, now: number) {
   const day = Math.floor(now / 86400000);
   const last = getProgression(state).daily;
-  const available = last?.day !== day;
+  // Only a later server day opens a new gift: a clock that steps back never re-opens one.
+  const available = !last || day > last.day;
   const streak = !available ? last!.streak : last && last.day === day - 1 ? last.streak + 1 : 1;
   return {
     available,

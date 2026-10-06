@@ -20,12 +20,17 @@ function useEffectPlayer(source: number, volume: number) {
  */
 export function useFarmSounds(active: boolean) {
   const [enabled, setEnabledState] = useState(false);
+  // A switch flipped before the saved value loads wins over that value.
+  const touched = useRef(false);
   useEffect(() => {
     void AsyncStorage.getItem(SOUND_KEY)
-      .then((v) => setEnabledState(v === '1'))
+      .then((v) => {
+        if (!touched.current) setEnabledState(v === '1');
+      })
       .catch(() => undefined);
   }, []);
   const setEnabled = useCallback((value: boolean) => {
+    touched.current = true;
     setEnabledState(value);
     void AsyncStorage.setItem(SOUND_KEY, value ? '1' : '0').catch(() => undefined);
   }, []);

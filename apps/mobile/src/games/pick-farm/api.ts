@@ -55,20 +55,26 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
     base.pathname !== '/'
   )
     throw new FarmClientError('INVALID_API_URL');
-  // The newest protocol first. An API that still runs protocol 2 rejects it before reading or
-  // mutating the save (503 + minimumProtocol 2); the client then stays on 2 for this session.
+  // The API rejects an unsupported protocol before reading or mutating the save (503 with the
+  // protocol it runs). The client then speaks that protocol, if it knows it, and retries once.
+  // Every read starts again from the newest protocol, so an API upgraded while the app stays
+  // open (or a rolling deploy) is picked up on the next refresh.
   let protocol: number = FARM_PROTOCOL;
   const send = async (token: string, intent?: FarmIntent): Promise<FarmSnapshot> => {
+    if (!intent) protocol = FARM_PROTOCOL;
     try {
       return await once(token, intent, protocol);
     } catch (error) {
+      const wanted = error instanceof FarmClientError ? error.minimumProtocol : null;
       if (
-        protocol > 2 &&
         error instanceof FarmClientError &&
         error.status === 503 &&
-        error.minimumProtocol === 2
+        wanted !== null &&
+        wanted !== protocol &&
+        wanted >= 2 &&
+        wanted <= FARM_PROTOCOL
       ) {
-        protocol = 2;
+        protocol = wanted;
         return once(token, intent, protocol);
       }
       throw error;

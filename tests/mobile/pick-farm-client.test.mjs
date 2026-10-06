@@ -231,6 +231,24 @@ test('an API still on protocol 2 is used in legacy mode without touching the sav
     'https://example.test/v1/customer-farm/commands?protocol=2',
   ]);
   assert.equal(f.sent.filter((x) => x.commandId === intent.commandId).length, 1);
+  // The API is upgraded while the app stays open: the next read speaks protocol 3 again.
+  let upgraded = false;
+  const seen = [];
+  const rolling = farmRequest('https://example.test', async (url) => {
+    seen.push(url.split('protocol=')[1]);
+    const want = upgraded ? '3' : '2';
+    if (!url.endsWith('protocol=' + want))
+      return new Response(
+        JSON.stringify({ code: 'FARM_UNAVAILABLE', minimumProtocol: Number(want) }),
+        { status: 503, headers: { 'content-type': 'application/json' } },
+      );
+    return Response.json({ state: f.state, serverNow: 1000 });
+  });
+  assert.equal((await rolling('token')).protocol, 2);
+  upgraded = true;
+  assert.equal((await rolling('token', intent)).protocol, 3, 'a command steps up after a 503');
+  assert.equal((await rolling('token')).protocol, 3);
+  assert.deepEqual(seen, ['3', '2', '2', '3', '3']);
   // A current API answers on protocol 3 directly.
   const current = farmRequest('https://example.test', async () =>
     Response.json({ state: f.state, serverNow: 1000 }),

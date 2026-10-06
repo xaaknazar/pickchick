@@ -450,7 +450,14 @@ export function PickFarmScreen() {
       ...now.decorations
         .filter((d) => !was.decorations.includes(d))
         .map((d) => `Украшение «${d.name}»`),
-      ...now.recipes.filter((r) => !was.recipes.includes(r)).map((r) => `Рецепт «${r.name}»`),
+      ...now.recipes
+        // Recipes with eggs or milk exist only on protocol 3.
+        .filter(
+          (r) =>
+            !was.recipes.includes(r) &&
+            (v3 || !Object.keys(r.requires).some((k) => k === 'egg' || k === 'milk')),
+        )
+        .map((r) => `Рецепт «${r.name}»`),
       ...now.stations
         .filter((v) => !was.stations.includes(v))
         .map((v) => (v === 'kitchen' ? 'Садовая кухня' : 'Цветочная мастерская')),
@@ -458,7 +465,7 @@ export function PickFarmScreen() {
     ];
     setLevelUp({ level, unlocks });
     play('level');
-  }, [confirmed, play]);
+  }, [confirmed, play, v3]);
 
   // --- Camera: restore, frame the garden, save --------------------------------------------
   const cameraKey = customerId ? `pickchick.farm.camera.v2.${customerId}` : null;
