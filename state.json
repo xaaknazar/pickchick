@@ -3132,9 +3132,11 @@
         "tests/mobile/browser_farm_v2.py",
         "tests/mobile/browser_pick_farm.py"
       ],
-      "status": "active",
-      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
-      "updatedAt": "2026-10-06T07:28:43.765Z"
+      "status": "available",
+      "head": "34e3ef3ff0933acf4355739ab8ad520e4f06bd8e",
+      "updatedAt": "2026-10-06T07:38:19.726Z",
+      "summary": "PR #193, 34e3ef3: мгновенные действия (prediction pipeline), полив water/waterMany, harvestMany/plantMany, точность касаний, камера, HUD, FX, полоса семян. 33 engine + 28 mobile, tsc/eslint/prettier, contracts:check, PostgreSQL16, browser_farm_v2 (844/667 + старый API), browser_farm_progression прошли. openapi.json изменён с согласия владельца (резерв farm-progression-api не закрыт). Physical/API/TestFlight не выполнялись.",
+      "nextAction": "Проверить CI PR #193, интегрировать в shared-development без force и finish; Mac1 - закрыть farm-progression-api. Затем API с новым движком (без миграций), TestFlight, физический iPhone."
     }
   ]
 }
