@@ -3115,6 +3115,18 @@
       "status": "active",
       "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
       "updatedAt": "2026-10-06T07:18:20.189Z"
+    },
+    {
+      "id": "catalog-price-integration",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/catalog-price-integration",
+      "scopes": [
+        "docs/operations/catalog-price-integration.md",
+        "tests/mobile/catalog-price-parity.test.mjs"
+      ],
+      "status": "active",
+      "head": "239148bf3329f6ec8e467b9425bcdff6189dd414",
+      "updatedAt": "2026-10-06T07:18:51.885Z"
     }
   ]
 }
