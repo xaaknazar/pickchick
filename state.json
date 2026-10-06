@@ -3051,34 +3051,6 @@
       "updatedAt": "2026-10-05T18:40:54.139Z"
     },
     {
-      "id": "farm-gameplay-v2",
-      "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
-      "branch": "codex/farm-gameplay-v2",
-      "scopes": [
-        "apps/mobile/src/games/pick-farm",
-        "apps/mobile/assets/games/pick-farm",
-        "packages/farm-game",
-        "tests/mobile/farm-geometry.test.mjs",
-        "tests/mobile/farm-harvest-queue.test.mjs",
-        "tests/mobile/pick-farm-client.test.mjs",
-        "tests/mobile/browser_farm_progression.py",
-        "docs/design/pick-farm-v2.md",
-        "docs/operations/pick-farm.md",
-        "docs/operations/images/farm-v2",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "tests/mobile/farm-pipeline.test.mjs",
-        "tests/mobile/browser_farm_v2.py",
-        "tests/mobile/browser_pick_farm.py"
-      ],
-      "status": "available",
-      "head": "d21fd870962ce055a3e6841b3dfcd0bbcea0adaf",
-      "updatedAt": "2026-10-06T08:12:13.839Z",
-      "summary": "PR #193: v2 + земля из одной сгенерированной клетки травы (112x112 клеток, блоки 8x8), луг удалён. Тесты 29 mobile, browser_farm_v2 прошли.",
-      "nextAction": "Владельцу: посмотреть траву и PR #193, слить в shared-development; затем API, TestFlight, физический iPhone."
-    },
-    {
       "id": "catalog-price-integration",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/catalog-price-integration",
@@ -3190,6 +3162,34 @@
       "status": "active",
       "head": "4a76cda5d5270578fcfcdca61cea3103c5ab8ccb",
       "updatedAt": "2026-10-06T08:58:11.029Z"
+    },
+    {
+      "id": "farm-gameplay-v2",
+      "owner": "1ef64f7c-fe5a-4980-abd5-83542f561a3f",
+      "branch": "codex/farm-gameplay-v2",
+      "scopes": [
+        "apps/mobile/src/games/pick-farm",
+        "apps/mobile/assets/games/pick-farm",
+        "packages/farm-game",
+        "tests/mobile/farm-geometry.test.mjs",
+        "tests/mobile/farm-harvest-queue.test.mjs",
+        "tests/mobile/pick-farm-client.test.mjs",
+        "tests/mobile/browser_farm_progression.py",
+        "docs/design/pick-farm-v2.md",
+        "docs/operations/pick-farm.md",
+        "docs/operations/images/farm-v2",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "tests/mobile/farm-pipeline.test.mjs",
+        "tests/mobile/browser_farm_v2.py",
+        "tests/mobile/browser_pick_farm.py"
+      ],
+      "status": "active",
+      "head": "8eef4c48eb8d7bf4bf3972169d2df8fd78bfba2f",
+      "updatedAt": "2026-10-06T09:07:10.563Z",
+      "summary": "PR #193: v2 + земля из одной сгенерированной клетки травы (112x112 клеток, блоки 8x8), луг удалён. Тесты 29 mobile, browser_farm_v2 прошли.",
+      "nextAction": "Владельцу: посмотреть траву и PR #193, слить в shared-development; затем API, TestFlight, физический iPhone."
     }
   ]
 }
