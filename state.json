@@ -3160,9 +3160,11 @@
       "scopes": [
         "docs/operations/catalog-price-race-test.md"
       ],
-      "status": "active",
-      "head": "e192f051f9ead17b45340158a51dfbf83007e403",
-      "updatedAt": "2026-10-06T08:00:13.196Z"
+      "status": "available",
+      "head": "850c6fa5a39296f78e29ff56e2a8b8c78a7137cc",
+      "updatedAt": "2026-10-06T08:02:07.753Z",
+      "summary": "Published verified 850c6fa5a39296f78e29ff56e2a8b8c78a7137cc from e192f05. Test-only race expectations follow actual fulfilled crop; deterministic independent PostgreSQL clients verify both carrot and tomato outcomes and durable state. Real local PostgreSQL18 integration passed plus frozen install/build/lint/format. Explicit overlap delegated by root; runtime/gameplay untouched.",
+      "nextAction": "Root integrates and runs final CI on new SHA, then resumes build 14. Old CI not rerun; local temporary PostgreSQL stopped. Evidence docs/operations/catalog-price-race-test.md."
     }
   ]
 }
