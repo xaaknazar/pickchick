@@ -3161,11 +3161,11 @@
         "tests/mobile/browser_farm_v2.py",
         "tests/mobile/browser_pick_farm.py"
       ],
-      "status": "active",
-      "head": "8eef4c48eb8d7bf4bf3972169d2df8fd78bfba2f",
-      "updatedAt": "2026-10-06T09:07:10.563Z",
-      "summary": "PR #193: v2 + земля из одной сгенерированной клетки травы (112x112 клеток, блоки 8x8), луг удалён. Тесты 29 mobile, browser_farm_v2 прошли.",
-      "nextAction": "Владельцу: посмотреть траву и PR #193, слить в shared-development; затем API, TestFlight, физический iPhone."
+      "status": "available",
+      "head": "f5676984583e3fdc82539472d7606092aeb7f7f7",
+      "updatedAt": "2026-10-06T09:54:26.452Z",
+      "summary": "PR #193: v3 - земля частями, курятник/коровник, доска заказов, подарок дня, фон, звуки, protocol 3 (API+клиент с откатом на 2). Тесты engine 41, mobile, PG16, browser v2/v3/progression прошли.",
+      "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3 (без миграций), TestFlight, физический iPhone. Mac 1: закрыть farm-progression-api."
     },
     {
       "id": "finance-ledger",
