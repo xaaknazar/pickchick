@@ -87,6 +87,9 @@ class Stories(unittest.TestCase):
                     page.goto(url + '/iframe.html?id=' + story['id'] + '&viewMode=story')
                     page.wait_for_function("document.body.classList.contains('sb-show-main')")
                     expect(page.locator('.sb-errordisplay')).not_to_be_visible()
+                    # Fonts load asynchronously inside the real provider. A
+                    # Storybook shell alone must not pass as a rendered story.
+                    expect(page.get_by_test_id('kiosk-story-content')).to_be_visible()
                     page.evaluate('document.fonts.ready')
                     self.assertEqual(errors, [])
                     page.add_script_tag(content=axe_source)

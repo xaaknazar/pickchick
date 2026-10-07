@@ -8,7 +8,7 @@ const preview: Preview = {
     (Story) => (
       <SafeAreaProvider>
         <KioskFonts>
-          <ScreenSurface>
+          <ScreenSurface testID="kiosk-story-content">
             <Story />
           </ScreenSurface>
         </KioskFonts>
