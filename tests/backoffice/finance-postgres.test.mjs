@@ -305,6 +305,43 @@ test('finance runtime has append-only rights, aggregates all pages and rolls bac
         pool.query('UPDATE bo_finance_accounts SET name=name'),
         /permission denied/,
       );
+      const toEdit = afterVoid.journal.find((r) => !r.void_reason);
+      await c.cloud.pool.query(`REVOKE INSERT ON bo_audit FROM ${role}`);
+      const replacement = req({
+        type: 'replace',
+        id: toEdit.id,
+        entry: { ...toEdit.payload, id: randomUUID(), amount_minor: '202' },
+      });
+      await assert.rejects(f.command(manager.token, c.branch, replacement), /permission denied/);
+      assert.equal(
+        (await c.cloud.pool.query('SELECT 1 FROM bo_finance_voids WHERE entry_id=$1', [toEdit.id]))
+          .rowCount,
+        0,
+      );
+      assert.equal(
+        (
+          await c.cloud.pool.query('SELECT 1 FROM bo_finance_entries WHERE id=$1', [
+            replacement.command.entry.id,
+          ])
+        ).rowCount,
+        0,
+      );
+      assert.equal(
+        (
+          await c.cloud.pool.query('SELECT 1 FROM bo_finance_commands WHERE request_id=$1', [
+            replacement.request_id,
+          ])
+        ).rowCount,
+        0,
+      );
+      await c.cloud.pool.query(`GRANT INSERT ON bo_audit TO ${role}`);
+      await f.command(manager.token, c.branch, replacement);
+      const historyPage = await f.read(manager.token, c.branch, { ...query, search: 'Synthetic' });
+      assert.equal(
+        historyPage.journal.find((r) => r.id === replacement.command.entry.id).history.length,
+        2,
+      );
+      assert.equal(historyPage.unassigned.in_minor, '10605');
       await c.cloud.pool.query(`REVOKE INSERT ON bo_audit FROM ${role}`);
       const failed = req({ type: 'entry', entry: entry() });
       await assert.rejects(f.command(manager.token, c.branch, failed), /permission denied/);
@@ -328,4 +365,165 @@ test('finance runtime has append-only rights, aggregates all pages and rolls bac
       await pool.end();
       await c.cloud.pool.query(`DROP OWNED BY ${role};DROP ROLE ${role}`);
     }
+  }));
+
+test('corrections are atomic revisions with complete cross-period history and stale-write protection', () =>
+  withSyncDatabases(async (c) => {
+    const manager = await provisionCatalogManager(c.cloud.pool, {
+      organization_id: c.org,
+      name: 'Synthetic editor',
+      branch_ids: [c.branch],
+    });
+    const reviewer = await provisionCatalogManager(c.cloud.pool, {
+      organization_id: c.org,
+      name: 'Synthetic reviewer',
+      branch_ids: [c.branch],
+    });
+    await grantBackoffice(c.cloud.pool, manager.actor_id, c.branch, 'manager');
+    await grantBackoffice(c.cloud.pool, reviewer.actor_id, c.branch, 'manager');
+    const f = new Finance(c.cloud.pool, true);
+    const req = (command, reason = 'Synthetic correction') => ({
+      request_id: randomUUID(),
+      reason,
+      command,
+    });
+    const post = (r, token = manager.token) => f.command(token, c.branch, r);
+    const original = {
+      id: randomUUID(),
+      kind: 'expense',
+      amount_minor: '50025',
+      cash_date: '2026-10-06',
+      recognition_date: '2026-09-30',
+      account_id: null,
+      to_account_id: null,
+      category_id: 'rent',
+      center: 'restaurant',
+      counterparty: 'Synthetic supplier',
+      reference: 'Original document',
+      note: '',
+    };
+    await post(req({ type: 'entry', entry: original }, 'Initial input'));
+    const revised = {
+      ...original,
+      id: randomUUID(),
+      amount_minor: '60025',
+      reference: 'Corrected document',
+      cash_date: '2026-11-01',
+      recognition_date: '2026-11-01',
+      center: 'workshop',
+    };
+    // Closing either an old or a new date prevents moving money across the boundary.
+    for (const month of ['2026-09-01', '2026-11-01']) {
+      await post(req({ type: 'period', month, closed: true, expected_revision: 0 }));
+      await assert.rejects(
+        post(req({ type: 'replace', id: original.id, entry: revised })),
+        /CONFLICT/,
+      );
+      await post(req({ type: 'period', month, closed: false, expected_revision: 1 }));
+    }
+    await assert.rejects(
+      post(req({ type: 'replace', id: randomUUID(), entry: revised })),
+      /NOT_FOUND/,
+    );
+    await assert.rejects(
+      post(req({ type: 'replace', id: original.id, entry: original })),
+      /CONFLICT/,
+    );
+    const invalidAccount = { ...revised, account_id: randomUUID() };
+    await assert.rejects(
+      post(req({ type: 'replace', id: original.id, entry: invalidAccount })),
+      /INVALID_REQUEST/,
+    );
+    assert.equal((await f.read(manager.token, c.branch, query)).summaries[0].cash_minor, '50025');
+    const correction = req(
+      { type: 'replace', id: original.id, entry: revised },
+      'Invoice amount and date corrected',
+    );
+    const results = await Promise.all([
+      post(correction, reviewer.token),
+      post(correction, reviewer.token),
+    ]);
+    assert.deepEqual(results[0], { id: revised.id, replaced_id: original.id });
+    assert.deepEqual(results[0], results[1]);
+    await assert.rejects(
+      post(req({ type: 'replace', id: original.id, entry: { ...revised, id: randomUUID() } })),
+      /CONFLICT/,
+    );
+    await assert.rejects(post(req({ type: 'void', id: original.id })), /CONFLICT/);
+    let d = await f.read(manager.token, c.branch, query);
+    assert.deepEqual(d.summaries, []);
+    assert.equal(d.journal[0].replaced_by, revised.id);
+    const history = d.journal[0].history;
+    assert.deepEqual(
+      history.map((e) => e.action),
+      ['finance.entry', 'finance.replace'],
+    );
+    assert.deepEqual(history[1].before, original);
+    assert.deepEqual(history[1].after, revised);
+    assert.equal(history[1].author, 'Synthetic reviewer');
+    assert.equal(history[1].actor_id, reviewer.actor_id);
+    const november = {
+      start_date: '2026-11-01',
+      end_date: '2026-11-30',
+      search: 'Corrected',
+      center: 'workshop',
+    };
+    d = await f.read(manager.token, c.branch, november);
+    assert.equal(d.summaries[0].cash_minor, '60025');
+    assert.deepEqual(d.journal[0].history, history);
+    // Two editors cannot silently overwrite each other; one replacement wins.
+    const candidates = [1, 2].map((n) => ({
+      ...revised,
+      id: randomUUID(),
+      amount_minor: String(70000 + n),
+    }));
+    const race = await Promise.allSettled(
+      candidates.map((entry) => post(req({ type: 'replace', id: revised.id, entry }))),
+    );
+    assert.equal(race.filter((r) => r.status === 'fulfilled').length, 1);
+    assert.match(race.find((r) => r.status === 'rejected').reason.message, /CONFLICT/);
+    const winner = candidates[race.findIndex((r) => r.status === 'fulfilled')];
+    const removal = req({ type: 'void', id: winner.id }, 'Duplicate invoice removed');
+    await post(removal, reviewer.token);
+    await post(removal, reviewer.token);
+    d = await f.read(manager.token, c.branch, query);
+    assert.deepEqual(
+      d.journal[0].history.map((e) => e.action),
+      ['finance.entry', 'finance.replace', 'finance.replace', 'finance.void'],
+    );
+    assert.equal(d.journal[0].history[3].reason, 'Duplicate invoice removed');
+    assert.deepEqual(d.journal[0].history[3].before, winner);
+    assert.equal(d.journal[0].history[3].after, null);
+    assert.equal(d.journal[0].history[3].actor_id, reviewer.actor_id);
+    assert.deepEqual((await f.read(manager.token, c.branch, november)).summaries, []);
+    // Another branch cannot edit or see these revisions even with a valid manager.
+    const other = randomUUID();
+    await c.cloud.pool.query(
+      "INSERT INTO branches(id,organization_id,legal_entity_id,code,name) VALUES($1,$2,$3,'OTHER','Synthetic other')",
+      [other, c.org, c.legal],
+    );
+    const outsider = await provisionCatalogManager(c.cloud.pool, {
+      organization_id: c.org,
+      name: 'Synthetic other',
+      branch_ids: [other],
+    });
+    await grantBackoffice(c.cloud.pool, outsider.actor_id, other, 'manager');
+    await assert.rejects(
+      f.command(
+        outsider.token,
+        other,
+        req({ type: 'replace', id: original.id, entry: { ...revised, id: randomUUID() } }),
+      ),
+      /NOT_FOUND/,
+    );
+    assert.deepEqual((await f.read(outsider.token, other, query)).journal, []);
+    await grantBackoffice(c.cloud.pool, reviewer.actor_id, c.branch, 'analyst');
+    assert.equal((await f.read(reviewer.token, c.branch, query)).journal[0].history.length, 4);
+    await assert.rejects(
+      post(
+        req({ type: 'replace', id: winner.id, entry: { ...revised, id: randomUUID() } }),
+        reviewer.token,
+      ),
+      /FORBIDDEN/,
+    );
   }));

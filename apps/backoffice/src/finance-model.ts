@@ -34,6 +34,16 @@ export type Account = {
   out_minor: string;
   after_minor: string;
 };
+export type FinanceHistoryEvent = {
+  id: string;
+  action: 'finance.entry' | 'finance.replace' | 'finance.void';
+  actor_id: string;
+  author: string;
+  created_at: string;
+  reason: string;
+  before: FinanceEntry | null;
+  after: FinanceEntry | null;
+};
 export type JournalRow = {
   id: string;
   payload: FinanceEntry;
@@ -42,9 +52,12 @@ export type JournalRow = {
   void_reason: string | null;
   void_author: string | null;
   voided_at: string | null;
+  replaced_by?: string | null;
+  history?: FinanceHistoryEvent[];
 };
 export type FinanceSnapshot = {
   schema_version: 1;
+  capabilities?: { replace: boolean; history: boolean };
   branch_id: string;
   role: string;
   as_of: string;
@@ -273,9 +286,14 @@ export class FinanceModel {
       if (generation !== this.generation) return false;
       this.storage.removeItem(this.key());
       this.pending = null;
-      if (p.body.command['type'] === 'entry' && 'id' in result)
+      if (['entry', 'replace'].includes(String(p.body.command['type'])) && 'id' in result)
         this.lastEntryId = String(result.id);
-      this.notice = 'Операция сохранена на сервере.';
+      this.notice =
+        p.body.command['type'] === 'void'
+          ? 'Операция удалена из отчётов. История сохранена.'
+          : p.body.command['type'] === 'replace'
+            ? 'Изменения сохранены. Отчёты учитывают новую версию операции.'
+            : 'Операция сохранена на сервере.';
       ok = true;
     } catch (e) {
       if (generation === this.generation) {

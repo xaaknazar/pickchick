@@ -147,6 +147,7 @@ export const FinanceRequest = z.strictObject({
   reason: z.string().trim().min(3).max(500),
   command: z.discriminatedUnion('type', [
     z.strictObject({ type: z.literal('entry'), entry: FinanceEntry }),
+    z.strictObject({ type: z.literal('replace'), id: z.uuid(), entry: FinanceEntry }),
     z.strictObject({
       type: z.literal('account'),
       id: z.uuid(),
@@ -222,6 +223,32 @@ export class Finance {
         fail('CONFLICT');
     }
   }
+  // Corrections and deletions use the same immutable reversal. The caller holds
+  // the branch lock and commits the replacement, audit and receipt atomically.
+  private async voidEntry(
+    db: DatabaseClient,
+    branch: string,
+    actor: string,
+    id: string,
+    reason: string,
+  ) {
+    const entry = (
+      await db.query('SELECT payload FROM bo_finance_entries WHERE branch_id=$1 AND id=$2', [
+        branch,
+        id,
+      ])
+    ).rows[0];
+    if (!entry) return fail('NOT_FOUND');
+    const e = parse(FinanceEntry, entry.payload);
+    await this.unlocked(db, branch, [e.cash_date, e.recognition_date]);
+    if ((await db.query('SELECT 1 FROM bo_finance_voids WHERE entry_id=$1', [id])).rows.length)
+      fail('CONFLICT');
+    await db.query(
+      'INSERT INTO bo_finance_voids(entry_id,branch_id,actor_id,reason) VALUES($1,$2,$3,$4)',
+      [id, branch, actor, reason],
+    );
+    return e;
+  }
   async command(token: string, branch: string, input: unknown) {
     const r = parse(FinanceRequest, input),
       hash = digest({ branch, request: r });
@@ -263,7 +290,10 @@ export class Finance {
           [c.id, branch, c.name, c.kind, c.opening_date, c.opening_minor, actor.id],
         );
         result = { id: c.id };
-      } else if (c.type === 'entry') {
+      } else if (c.type === 'entry' || c.type === 'replace') {
+        if (c.type === 'replace') {
+          before = await this.voidEntry(db, branch, actor.id, c.id, r.reason);
+        }
         const e = c.entry;
         await this.unlocked(db, branch, [e.cash_date, e.recognition_date]);
         if ((await db.query('SELECT 1 FROM bo_finance_entries WHERE id=$1', [e.id])).rows.length)
@@ -282,26 +312,9 @@ export class Finance {
           'INSERT INTO bo_finance_entries(id,branch_id,actor_id,cash_date,recognition_date,payload) VALUES($1,$2,$3,$4,$5,$6)',
           [e.id, branch, actor.id, e.cash_date, e.recognition_date, JSON.stringify(e)],
         );
-        result = { id: e.id };
+        result = { id: e.id, ...(c.type === 'replace' ? { replaced_id: c.id } : {}) };
       } else if (c.type === 'void') {
-        const entry = (
-          await db.query('SELECT payload FROM bo_finance_entries WHERE branch_id=$1 AND id=$2', [
-            branch,
-            c.id,
-          ])
-        ).rows[0];
-        if (!entry) fail('NOT_FOUND');
-        const e = parse(FinanceEntry, entry!.payload);
-        await this.unlocked(db, branch, [e.cash_date, e.recognition_date]);
-        if (
-          (await db.query('SELECT 1 FROM bo_finance_voids WHERE entry_id=$1', [c.id])).rows.length
-        )
-          fail('CONFLICT');
-        await db.query(
-          'INSERT INTO bo_finance_voids(entry_id,branch_id,actor_id,reason) VALUES($1,$2,$3,$4)',
-          [c.id, branch, actor.id, r.reason],
-        );
-        before = e;
+        before = await this.voidEntry(db, branch, actor.id, c.id, r.reason);
         result = { id: c.id, voided: true };
       } else {
         const current = (
@@ -421,6 +434,48 @@ export class Finance {
         `SELECT e.id,e.payload,e.created_at,m.name author,v.reason void_reason,vm.name void_author,v.created_at voided_at FROM bo_finance_entries e JOIN catalog_managers m ON m.id=e.actor_id LEFT JOIN bo_finance_voids v ON v.entry_id=e.id LEFT JOIN catalog_managers vm ON vm.id=v.actor_id WHERE ${where} ORDER BY coalesce(e.cash_date,e.recognition_date) DESC,e.created_at DESC,e.id DESC LIMIT 100 OFFSET $8`,
         [...args, q.page * 100],
       );
+      // A journal page may contain any revision. Follow immutable audit links in
+      // both directions, without the report's date/search/page filters. UNION
+      // deduplicates visited revisions, including when pages contain both ends.
+      const history = journal.length
+        ? await rows(
+            `WITH RECURSIVE links AS MATERIALIZED (
+          SELECT before_value->>'id' old_id,entity_id::text new_id
+          FROM bo_audit WHERE branch_id=$1 AND action='finance.replace'
+        ), chain(root_id,entry_id) AS (
+          SELECT id,id FROM unnest($2::text[]) id
+          UNION
+          SELECT c.root_id,CASE WHEN l.old_id=c.entry_id THEN l.new_id ELSE l.old_id END
+          FROM chain c JOIN links l ON l.old_id=c.entry_id OR l.new_id=c.entry_id
+        )
+        SELECT c.root_id,a.id,a.action,a.actor_id,m.name author,a.created_at,a.reason,
+          a.before_value before,a.after_value->'entry' after
+        FROM chain c JOIN bo_audit a ON a.branch_id=$1 AND a.entity_id::text=c.entry_id
+          AND a.action IN ('finance.entry','finance.replace','finance.void')
+        JOIN catalog_managers m ON m.id=a.actor_id
+        ORDER BY a.created_at,a.id`,
+            [branch, journal.map((r) => r.id)],
+          )
+        : [];
+      for (const row of journal) {
+        row.history = history
+          .filter((event) => event.root_id === row.id)
+          .map((event) => ({
+            id: event.id,
+            action: event.action,
+            actor_id: event.actor_id,
+            author: event.author,
+            created_at: event.created_at,
+            reason: event.reason,
+            before: event.before,
+            after: event.after ?? null,
+          }));
+        row.replaced_by =
+          row.history.find(
+            (event: { action: string; before: Entry | null }) =>
+              event.action === 'finance.replace' && event.before?.id === row.id,
+          )?.after?.id ?? null;
+      }
       const count = (
         await rows(`SELECT count(*)::int total FROM bo_finance_entries e WHERE ${where}`, args)
       )[0]!.total;
@@ -430,6 +485,7 @@ export class Finance {
       );
       return {
         schema_version: 1,
+        capabilities: { replace: true, history: true },
         branch_id: branch,
         role: actor.role,
         as_of: new Date().toISOString(),

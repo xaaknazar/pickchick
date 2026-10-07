@@ -93,7 +93,10 @@ test('lost reply persists exact request, reload and retry do not create a new co
   const model = new FinanceModel(api, storage, () => {});
   await model.scope(actor, branch);
   const e = { id: randomUUID() };
-  assert.equal(await model.send({ type: 'entry', entry: e }, 'Synthetic'), false);
+  assert.equal(
+    await model.send({ type: 'replace', id: randomUUID(), entry: e }, 'Synthetic'),
+    false,
+  );
   assert.ok(model.pending);
   const reloaded = new FinanceModel(api, storage, () => {});
   await reloaded.scope(actor, branch);
@@ -103,6 +106,8 @@ test('lost reply persists exact request, reload and retry do not create a new co
   assert.equal(await reloaded.recover(), true);
   assert.deepEqual(requests[0], requests[1]);
   assert.equal(reloaded.pending, null);
+  assert.equal(reloaded.lastEntryId, e.id);
+  assert.match(reloaded.notice, /новую версию/);
 });
 test('expired access after a lost reply preserves the original command through reauthentication', async () => {
   const actor = randomUUID(),

@@ -40,11 +40,11 @@ test('accountant browser workflow uses real finance HTTP and durable PostgreSQL'
         assert.equal(exit, 0);
         assert.equal(
           (await c.cloud.pool.query('SELECT count(*)::int n FROM bo_finance_entries')).rows[0].n,
-          1,
+          2,
         );
         assert.equal(
           (await c.cloud.pool.query('SELECT count(*)::int n FROM bo_finance_voids')).rows[0].n,
-          1,
+          2,
         );
         assert.equal(
           (await c.cloud.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
