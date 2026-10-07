@@ -3306,11 +3306,12 @@
         "tests/backoffice/finance-http.test.mjs",
         "tests/backoffice/finance-browser.py",
         "docs/operations/finance-dashboard.md",
-        "docs/operations/images/finance-dashboard"
+        "docs/operations/images/finance-dashboard",
+        "apps/backoffice/server.mjs"
       ],
       "status": "active",
       "head": "2f00491bf41e44bbbe10852b57dd16a9a58bcee8",
-      "updatedAt": "2026-10-07T05:54:06.766Z"
+      "updatedAt": "2026-10-07T06:07:14.918Z"
     }
   ]
 }
