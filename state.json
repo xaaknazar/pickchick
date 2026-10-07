@@ -3451,6 +3451,19 @@
       "head": "a44f74ef6c2b9be5615e091ea2c5053bc4fb80ce",
       "updatedAt": "2026-10-07T12:27:21.235Z",
       "nextAction": "Владелец в текущем чате 07.10.2026 явно поручил: «Да установи на айпаде». Резерв физического iPad временно передан ipad-mobbin-install только для обновления UI из проверенного a44f74e поверх существующего kz.pickchick.kiosk, с сохранением SecureStore. Сервер, платёжные области и TestFlight не переданы; после установки резерв возвращается kiosk-kaspi-qr. В ходе порученной владельцем установки на iPad подтверждён существующий блокер: сохранённая гостевая сессия истекла (на сервере 0 active, 1 expired), повтор меню использует старый токен. Для законченной установки переданы client controller, его regression tests и buildNumber: только безопасное обновление истёкшей сессии без intent/order с сохранением корзины и device enrollment. Сервер/платёжный контракт не меняются. Области возвращаются после установки."
+    },
+    {
+      "id": "finance-layout",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-layout",
+      "scopes": [
+        "apps/backoffice/src/finance.ts",
+        "apps/backoffice/src/styles.css",
+        "docs/operations/finance-layout.md"
+      ],
+      "status": "active",
+      "head": "a44f74ef6c2b9be5615e091ea2c5053bc4fb80ce",
+      "updatedAt": "2026-10-07T12:32:47.360Z"
     }
   ]
 }
