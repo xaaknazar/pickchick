@@ -1,0 +1,22 @@
+{
+  "source": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+  "bundleIdentifier": "kz.pickchick.kiosk",
+  "version": "0.1.0",
+  "build": "6",
+  "configuration": "Release",
+  "commercial": true,
+  "jsEngine": "Hermes",
+  "bundleSha256": "5029ba3cd3f2457e9bd5938943f0ab7d0eaa16d23b30e0e922dd80d003668d59",
+  "executableSha256": "8e646f4da162cecf264a458017b0c4989d3e0b5ecb100dc7eb58f24d0ea6d0d9",
+  "codeSignatureVerified": true,
+  "keychainIdentityMatchesInstalledBuild5": true,
+  "profileAllowsTargetDevice": true,
+  "profileExpiresAt": "2027-10-07T05:35:23Z",
+  "buildMetadata": "Tracked app.json buildNumber and native CURRENT_PROJECT_VERSION=6",
+  "installed": false,
+  "acceptancePending": [
+    "Complete Foundation CI or explicit owner exception for native installation",
+    "Physical menu smoke after installation",
+    "Native QR/invoice flows after server activation"
+  ]
+}

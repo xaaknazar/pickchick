@@ -1,0 +1,115 @@
+{
+  "source": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+  "completeGreenCI": false,
+  "blockingAnnotation": "The job was not started because an Actions budget is preventing further use.",
+  "runs": [
+    {
+      "id": 37632614040,
+      "name": "Kiosk UI library",
+      "event": "pull_request",
+      "head": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Storybook, accessibility and iPad motion",
+          "id": 112830505044,
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 37632608069,
+      "name": "Foundation CI",
+      "event": "push",
+      "head": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+      "status": "completed",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "name": "Foundation static checks and transaction invariants",
+          "id": 112842512566,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation POS and backoffice integration",
+          "id": 112842512854,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build, contracts and PostgreSQL integration",
+          "id": 112842513572,
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Cloud-edge fulfillment transport and recovery",
+          "id": 112842514641,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Private staging image and restricted database role",
+          "id": 112842557113,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation server account and Kaspi fixtures",
+          "id": 112842558269,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Local kitchen UI and recovery",
+          "id": 112842561933,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation mobile bundles and checkout recovery",
+          "id": 112842566205,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "iPad kiosk state, bundles and browser recovery",
+          "id": 112842566896,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Design screens and interaction smoke",
+          "id": 112842568318,
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation simulator browser regressions",
+          "id": 112842579348,
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 37632608017,
+      "name": "Kiosk UI library",
+      "event": "push",
+      "head": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Storybook, accessibility and iPad motion",
+          "id": 112830481401,
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
