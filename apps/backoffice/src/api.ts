@@ -76,22 +76,48 @@ function allowedPath(path: string): boolean {
     new RegExp(`^operations/branches/${UUID}/(?:commands|orders/${UUID})$`).test(pathname)
   );
 }
+export async function staffAuth(action: 'session' | 'login' | 'logout', body?: unknown) {
+  const response = await fetch(`/backoffice/auth/${action}`, {
+    method: action === 'session' ? 'GET' : 'POST',
+    credentials: 'same-origin',
+    redirect: 'error',
+    cache: 'no-store',
+    signal: AbortSignal.timeout(15000),
+    ...(body === undefined
+      ? {}
+      : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  });
+  if (response.status === 404 && action === 'session')
+    return { enabled: false, authenticated: false };
+  if (!response.ok)
+    throw new ApiError(
+      response.status === 429
+        ? 'RATE_LIMITED'
+        : response.status === 401
+          ? 'LOGIN_FAILED'
+          : 'SERVICE_UNAVAILABLE',
+      response.status,
+    );
+  return (await response.json()) as { enabled?: boolean; authenticated?: boolean; ok?: boolean };
+}
 export const transport: Transport = async (path, token, options = {}) => {
-  if (!allowedPath(path) || !/^[a-f0-9]{64}$/.test(token)) throw new ApiError('INVALID_REQUEST');
+  if (!allowedPath(path) || (token !== 'session' && !/^[a-f0-9]{64}$/.test(token)))
+    throw new ApiError('INVALID_REQUEST');
   let response: Response;
   try {
     response = await fetch(
-      path.startsWith('operations/')
-        ? `/v1/admin/backoffice/${path.slice(11)}`
-        : `/v1/admin/catalog/${path}`,
+      (token === 'session' ? '/backoffice/api' : '') +
+        (path.startsWith('operations/')
+          ? `/v1/admin/backoffice/${path.slice(11)}`
+          : `/v1/admin/catalog/${path}`),
       {
         method: options.method ?? 'GET',
         redirect: 'error',
-        credentials: 'omit',
+        credentials: token === 'session' ? 'same-origin' : 'omit',
         cache: 'no-store',
         signal: AbortSignal.timeout(15000),
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token === 'session' ? {} : { Authorization: `Bearer ${token}` }),
           ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
@@ -170,7 +196,9 @@ export const message = (error: unknown): string => {
   return (
     (
       {
-        UNAUTHORIZED: 'Доступ отозван или недействителен. Загрузите файл сессии управляющего.',
+        UNAUTHORIZED: 'Сессия закончилась. Войдите снова, чтобы продолжить работу.',
+        LOGIN_FAILED: 'Не удалось войти. Проверьте логин и пароль.',
+        RATE_LIMITED: 'Слишком много попыток входа. Попробуйте через 15 минут.',
         FORBIDDEN: 'У вас нет доступа к этой точке.',
         CONFLICT:
           'Черновик изменил другой управляющий. Ваши правки сохранены отдельно и не перезапишут серверную версию.',

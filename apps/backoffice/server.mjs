@@ -1,3 +1,4 @@
+import { createStaffAccess, staffError } from './staff-auth.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, URLSearchParams } from 'node:url';
@@ -127,127 +128,155 @@ const security = {
 /** Local operator UI. Only the configured loopback API and catalog routes are reachable. */
 export function createBackofficeServer({
   apiPort = 3100,
+  apiHost = '127.0.0.1',
+  staffAccess = null,
   assetDir = new URL('dist/', import.meta.url),
   timeoutMs = 12000,
   staticPrefix = '',
 } = {}) {
   if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535)
     throw new Error('Invalid API port');
+  if (!['127.0.0.1', 'pickchick-staging-api-1'].includes(apiHost))
+    throw new Error('Invalid API host');
   if (!['', '/backoffice'].includes(staticPrefix)) throw new Error('Invalid static prefix');
-  return createServer(async (req, res) => {
-    const send = (status, payload) => {
-      res.writeHead(status, { ...security, 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(payload));
-    };
-    const expected = `127.0.0.1:${req.socket.localPort}`;
-    if (
-      req.headers.host !== expected ||
-      (req.headers.origin && req.headers.origin !== `http://${expected}`) ||
-      req.headers['sec-fetch-site'] === 'cross-site'
-    ) {
-      send(403, { code: 'FORBIDDEN' });
-      return;
-    }
-    const path = req.url ?? '';
-    if (path.startsWith('/v1/')) {
-      if (!allowed(req.method, path)) {
-        send(404, { code: 'NOT_FOUND' });
-        return;
-      }
-      const auth = req.headers.authorization;
-      if (typeof auth !== 'string' || !/^Bearer [a-f0-9]{64}$/.test(auth)) {
-        send(401, { code: 'UNAUTHORIZED' });
-        return;
-      }
-      let body;
-      const headers = { Authorization: auth };
-      if (req.method !== 'GET') {
-        if (req.headers['content-type'] !== 'application/json') {
-          send(415, { code: 'INVALID_REQUEST' });
+  return createServer(
+    { requestTimeout: 15000, headersTimeout: 10000, maxHeaderSize: 16384 },
+    async (req, res) => {
+      const send = (status, payload) => {
+        res.writeHead(status, { ...security, 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(staffAccess ? staffError(payload, status) : payload));
+      };
+      let access;
+      if (staffAccess) {
+        try {
+          access = await staffAccess(req, res, send);
+        } catch {
+          if (!res.headersSent) send(503, { code: 'SERVICE_UNAVAILABLE' });
+          else res.destroy();
           return;
         }
-        const chunks = [];
-        let size = 0;
+        if (access === false) return;
+      }
+      const expected = `127.0.0.1:${req.socket.localPort}`;
+      if (
+        !staffAccess &&
+        (req.headers.host !== expected ||
+          (req.headers.origin && req.headers.origin !== `http://${expected}`) ||
+          req.headers['sec-fetch-site'] === 'cross-site')
+      ) {
+        send(403, { code: 'FORBIDDEN' });
+        return;
+      }
+      const path = access?.path ?? req.url ?? '';
+      if (path.startsWith('/v1/')) {
+        if (!allowed(req.method, path)) {
+          send(404, { code: 'NOT_FOUND' });
+          return;
+        }
+        const auth = staffAccess ? access?.authorization : req.headers.authorization;
+        if (typeof auth !== 'string' || !/^Bearer [a-f0-9]{64}$/.test(auth)) {
+          send(401, { code: 'UNAUTHORIZED' });
+          return;
+        }
+        let body;
+        const headers = { Authorization: auth };
+        if (req.method !== 'GET') {
+          if (req.headers['content-type'] !== 'application/json') {
+            send(415, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          const chunks = [];
+          let size = 0;
+          try {
+            for await (const chunk of req) {
+              size += chunk.length;
+              if (size > 300 * 1024) {
+                send(413, { code: 'INVALID_REQUEST' });
+                return;
+              }
+              chunks.push(chunk);
+            }
+            body = Buffer.concat(chunks).toString('utf8');
+            JSON.parse(body);
+          } catch {
+            if (!res.destroyed) send(400, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          headers['Content-Type'] = 'application/json';
+        }
         try {
-          for await (const chunk of req) {
+          const response = await fetch(`http://${apiHost}:${apiPort}${path}`, {
+            method: req.method,
+            headers,
+            redirect: 'error',
+            signal: AbortSignal.timeout(timeoutMs),
+            ...(body === undefined ? {} : { body }),
+          });
+          const chunks = [];
+          let size = 0;
+          for await (const chunk of response.body ?? []) {
             size += chunk.length;
-            if (size > 300 * 1024) {
-              send(413, { code: 'INVALID_REQUEST' });
+            if (size > 1024 * 1024) {
+              send(502, { code: 'INVALID_RESPONSE' });
               return;
             }
             chunks.push(chunk);
           }
-          body = Buffer.concat(chunks).toString('utf8');
-          JSON.parse(body);
+          res.writeHead(response.status, {
+            ...security,
+            'Content-Type': 'application/json; charset=utf-8',
+          });
+          res.end(Buffer.concat(chunks));
         } catch {
-          if (!res.destroyed) send(400, { code: 'INVALID_REQUEST' });
-          return;
+          send(504, { code: 'NETWORK' });
         }
-        headers['Content-Type'] = 'application/json';
+        return;
+      }
+      if (req.method !== 'GET') {
+        send(405, { code: 'INVALID_REQUEST' });
+        return;
+      }
+      if (staticPrefix && path === staticPrefix) {
+        res.writeHead(308, { ...security, Location: staticPrefix + '/' });
+        res.end();
+        return;
+      }
+      const assetPath = staticPrefix
+        ? path.startsWith(staticPrefix + '/')
+          ? path.slice(staticPrefix.length)
+          : ''
+        : path;
+      const asset = assets.get(assetPath);
+      if (!asset) {
+        send(404, { code: 'NOT_FOUND' });
+        return;
       }
       try {
-        const response = await fetch(`http://127.0.0.1:${apiPort}${path}`, {
-          method: req.method,
-          headers,
-          redirect: 'error',
-          signal: AbortSignal.timeout(timeoutMs),
-          ...(body === undefined ? {} : { body }),
-        });
-        const chunks = [];
-        let size = 0;
-        for await (const chunk of response.body ?? []) {
-          size += chunk.length;
-          if (size > 1024 * 1024) {
-            send(502, { code: 'INVALID_RESPONSE' });
-            return;
-          }
-          chunks.push(chunk);
-        }
-        res.writeHead(response.status, {
-          ...security,
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(Buffer.concat(chunks));
+        const data = await readFile(new URL(asset[0], assetDir));
+        res.writeHead(200, { ...security, 'Content-Type': asset[1] });
+        res.end(data);
       } catch {
-        send(504, { code: 'NETWORK' });
+        if (!res.headersSent) send(503, { code: 'ASSETS_NOT_BUILT' });
+        else res.destroy();
       }
-      return;
-    }
-    if (req.method !== 'GET') {
-      send(405, { code: 'INVALID_REQUEST' });
-      return;
-    }
-    if (staticPrefix && path === staticPrefix) {
-      res.writeHead(308, { ...security, Location: staticPrefix + '/' });
-      res.end();
-      return;
-    }
-    const assetPath = staticPrefix
-      ? path.startsWith(staticPrefix + '/')
-        ? path.slice(staticPrefix.length)
-        : ''
-      : path;
-    const asset = assets.get(assetPath);
-    if (!asset) {
-      send(404, { code: 'NOT_FOUND' });
-      return;
-    }
-    try {
-      const data = await readFile(new URL(asset[0], assetDir));
-      res.writeHead(200, { ...security, 'Content-Type': asset[1] });
-      res.end(data);
-    } catch {
-      if (!res.headersSent) send(503, { code: 'ASSETS_NOT_BUILT' });
-      else res.destroy();
-    }
-  });
+    },
+  );
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const port = Number(process.env.BACKOFFICE_PORT ?? 4177),
     apiPort = Number(process.env.BACKOFFICE_API_PORT ?? process.env.API_PORT ?? 3100);
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('Invalid backoffice port');
-  createBackofficeServer({ apiPort }).listen(port, '127.0.0.1', () =>
+  const privateFile = process.env.BACKOFFICE_STAFF_FILE;
+  const staffAccess = privateFile
+    ? createStaffAccess(JSON.parse(await readFile(privateFile, 'utf8')))
+    : null;
+  createBackofficeServer({
+    apiPort,
+    staffAccess,
+    apiHost: staffAccess ? 'pickchick-staging-api-1' : '127.0.0.1',
+    staticPrefix: staffAccess ? '/backoffice' : '',
+  }).listen(port, staffAccess ? '0.0.0.0' : '127.0.0.1', () =>
     console.log(`PickChick Backoffice: http://127.0.0.1:${port}`),
   );
 }

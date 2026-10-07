@@ -1,0 +1,50 @@
+# Added after the unchanged existing shared ingress. No idrink route is edited.
+# One canonical staff origin; original nip.io access remains available.
+(pickchick_alias) {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+	@payment_callback path /v1/integrations/tiptoppay/*
+	handle @payment_callback {
+		respond "PAYMENT_INTEGRATION_PENDING" 503
+	}
+	@staff path /roadmap /roadmap/* /kitchen /kitchen/* /kitchen-live /kitchen-live/* /display /display/*
+	handle @staff {
+		redir https://pickchick.185.129.51.103.nip.io{uri} 308
+	}
+	handle {
+		reverse_proxy pickchick-public-gateway:8080 {
+			header_up Host pickchick.185.129.51.103.nip.io
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
+}
+pickchick.kz {
+	@office path /backoffice /backoffice/*
+	handle @office {
+		request_body {
+			max_size 300KB
+		}
+		reverse_proxy pickchick-staff-login:4177 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 20s
+			}
+		}
+	}
+	import pickchick_alias
+}
+api.pickchick.kz {
+	@office path /backoffice /backoffice/*
+	handle @office {
+		redir https://pickchick.kz{uri} 308
+	}
+	import pickchick_alias
+}
+www.pickchick.kz {
+	redir https://pickchick.kz{uri} permanent
+}

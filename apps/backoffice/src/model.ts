@@ -127,7 +127,11 @@ export class CatalogModel {
       try {
         if (raw.length > 20000) throw new Error();
         const data = JSON.parse(raw);
-        if (typeof data.token !== 'string' || !/^[a-f0-9]{64}$/.test(data.token)) throw new Error();
+        if (
+          typeof data.token !== 'string' ||
+          (data.token !== 'session' && !/^[a-f0-9]{64}$/.test(data.token))
+        )
+          throw new Error();
         token = data.token;
       } catch {
         throw new Error('INVALID_CREDENTIAL');

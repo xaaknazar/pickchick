@@ -2038,3 +2038,44 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.login-form {
+  display: grid;
+  gap: 18px;
+}
+.login-form .field {
+  min-width: 0;
+  margin: 0;
+}
+.login-form input {
+  width: 100%;
+  min-height: 48px;
+}
+.login-reveal {
+  justify-self: start;
+  padding: 4px 0;
+  min-height: 32px;
+  border: 0;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.login-form [hidden] {
+  display: none;
+}
+@media (max-width: 540px) {
+  .login-page {
+    padding: 16px;
+  }
+  .login-card {
+    padding: 24px;
+    border-radius: 16px;
+  }
+  .login-card h1 {
+    font-size: 26px;
+  }
+}

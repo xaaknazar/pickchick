@@ -3,7 +3,7 @@ import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
 import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
-import { transport, message } from './api.js';
+import { transport, message, staffAuth } from './api.js';
 import { money, copy } from './domain.js';
 import { element as el, button, field, select, check, image } from './dom.js';
 import { openEditor, emptyProduct } from './editor.js';
@@ -70,6 +70,8 @@ function notice(text: string, kind = 'notice') {
   n.setAttribute('role', kind.includes('error') ? 'alert' : 'status');
   return n;
 }
+let staffMode: boolean | null = null;
+let loginBusy = false;
 function login() {
   const page = el('main', 'login-page'),
     card = el('section', 'login-card');
@@ -79,9 +81,89 @@ function login() {
     el(
       'p',
       'muted',
-      'Вход по личному файлу доступа управляющего. Список доступных точек проверяет сервер.',
+      staffMode
+        ? 'Войдите в свой аккаунт, чтобы работать с финансами и управлять рестораном.'
+        : 'Вход по личному файлу доступа управляющего. Список доступных точек проверяет сервер.',
     ),
   );
+  if (staffMode === null) {
+    card.append(notice(localError || 'Проверяем подключение…'));
+    if (localError) card.append(button('Повторить', () => void bootAccess(), 'button primary'));
+    page.append(card);
+    root.replaceChildren(page);
+    return;
+  }
+  if (staffMode) {
+    const form = el('form', 'login-form');
+    const username = el('input');
+    username.name = 'username';
+    username.autocomplete = 'username';
+    username.required = true;
+    username.autocapitalize = 'none';
+    username.spellcheck = false;
+    username.maxLength = 80;
+    const password = el('input');
+    password.name = 'password';
+    password.type = 'password';
+    password.autocomplete = 'current-password';
+    password.required = true;
+    password.maxLength = 256;
+    const userLabel = el('label', 'field');
+    userLabel.append(el('span', 'field-label', 'Логин'), username);
+    const passLabel = el('label', 'field');
+    passLabel.append(el('span', 'field-label', 'Пароль'), password);
+    const show = button(
+      'Показать пароль',
+      () => {
+        password.type = password.type === 'password' ? 'text' : 'password';
+        show.textContent = password.type === 'password' ? 'Показать пароль' : 'Скрыть пароль';
+        show.setAttribute('aria-pressed', String(password.type === 'text'));
+      },
+      'login-reveal',
+    );
+    show.setAttribute('aria-pressed', 'false');
+    const submit = el('button', 'button primary', loginBusy ? 'Входим…' : 'Войти');
+    submit.type = 'submit';
+    submit.disabled = loginBusy;
+    form.append(userLabel, passLabel, show, submit);
+    const errorBox = notice('', 'notice error');
+    errorBox.hidden = true;
+    form.append(errorBox);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (loginBusy) return;
+      loginBusy = true;
+      submit.disabled = true;
+      submit.textContent = 'Входим…';
+      errorBox.hidden = true;
+      try {
+        await staffAuth('login', { username: username.value.trim(), password: password.value });
+        password.value = '';
+        await model.login(JSON.stringify({ token: 'session' }));
+      } catch (error) {
+        errorBox.textContent = message(error);
+        errorBox.hidden = false;
+        password.focus();
+      } finally {
+        loginBusy = false;
+        submit.disabled = false;
+        submit.textContent = 'Войти';
+        if (!model.actor && !form.isConnected) render();
+      }
+    });
+    card.append(
+      form,
+      el(
+        'p',
+        'muted',
+        'Доступ только для сотрудников PickChick. После работы на общем устройстве нажмите «Выйти».',
+      ),
+    );
+    if (model.error) card.append(notice(message(model.error), 'notice error'));
+    page.append(card);
+    root.replaceChildren(page);
+    return;
+  }
   const label = el('label', 'field');
   label.append(el('span', 'field-label', 'Файл доступа (.json)'));
   const input = el('input');
@@ -183,9 +265,15 @@ function render() {
     el('span', 'muted', 'Управление рестораном'),
     button(
       'Выйти',
-      () => {
+      async () => {
         if (financeView.dirty && !window.confirm('Отменить несохранённый ввод и выйти?')) return;
-        model.logout();
+        try {
+          if (staffMode) await staffAuth('logout');
+          model.logout();
+        } catch (error) {
+          localError = message(error);
+          render();
+        }
       },
       'button subtle',
       'logout',
@@ -770,8 +858,23 @@ window.addEventListener('beforeunload', (event) => {
     event.returnValue = '';
   }
 });
+async function bootAccess() {
+  localError = '';
+  render();
+  try {
+    const session = await staffAuth('session');
+    staffMode = session.enabled === true;
+    if (staffMode) {
+      if (session.authenticated) await model.login(JSON.stringify({ token: 'session' }));
+    } else await model.boot();
+    render();
+  } catch {
+    localError = 'Не удалось подключиться. Проверьте интернет и попробуйте снова.';
+    render();
+  }
+}
 render();
-void model.boot();
+void bootAccess();
 
 setInterval(() => {
   if (
