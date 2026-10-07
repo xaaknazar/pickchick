@@ -57,7 +57,21 @@ ESLint, Prettier и diff-check успешны. Браузерный сценар
 Снимки: [форма](images/finance-dashboard/entry-1440.png),
 [ОПиУ](images/finance-dashboard/pnl-1440.png),
 [телефон](images/finance-dashboard/pnl-393.png).
-Полную CI точного коммита выпуска проверить в PR до установки.
+Полная [CI 37580384222](https://github.com/xaaknazar/pickchick/actions/runs/37580384222)
+для `7c49cb3` завершилась с ошибкой финального `pnpm audit:release`:
+`shell-quote@1.10.0`, GHSA-pqg4-j6r4-53mv. Девять остальных jobs успешны;
+внутри foundation до audit прошли сборка, статические и функциональные проверки.
+Итоговый aggregate job закономерно failed. Это не зелёная CI и не кандидат
+для установки до исправления и повторной проверки точного source.
+
+Исправление зависимости уже опубликовано другим Mac в `89d7959`
+(`codex/kiosk-kaspi-qr`, [CI 37580398576](https://github.com/xaaknazar/pickchick/actions/runs/37580398576)
+успешна). По [advisory](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)
+исправленная версия - 1.11.0. Изолированный diff этого коммита для
+`pnpm-lock.yaml` и `pnpm-workspace.yaml` проходит `git apply --check` поверх
+финансовой ветки; остальные изменения киоска/POS не требуются для этой поправки.
+Оба файла пока зарезервированы `kiosk-kaspi-qr`: перенос только после
+согласования или через опубликованное обновление общего среза. Audit не обходить.
 
 ## Выпуск и совместная работа
 
