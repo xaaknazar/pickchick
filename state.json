@@ -3318,6 +3318,19 @@
       "updatedAt": "2026-10-07T06:15:18.050Z",
       "summary": "PR196 source89d7959. Native kiosk0.1.0(1) development build installed on iPad Air13M3; launched after Wi-Fi, enrollment screen verified. Device not enrolled, no VPS rollout or bank QR. 52client+27PG+2bridge+19release checks; POS recovery race fixed with deterministic browser regression; shell-quote1.11.0 audit passes. Full exact-source CI37580398576 running. Finance source d6cd144 retained.",
       "nextAction": "After exact CI green run guarded enrollment preflight/prepare/apply with backup/restore. Provision existing private durable device profile idempotently. Guest menu/payment routes and QRworker stilloff; real QR needs controlled test approval and verified bank status/coordinates. Sharedstatus/roadmap foreignowned; facts in runbook/PR."
+    },
+    {
+      "id": "finance-ownership",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-ownership",
+      "scopes": [
+        "docs/collaboration/README.md",
+        "docs/collaboration/finance-ownership.md",
+        "@coordination/finance-ownership"
+      ],
+      "status": "active",
+      "head": "2f00491bf41e44bbbe10852b57dd16a9a58bcee8",
+      "updatedAt": "2026-10-07T06:46:00.020Z"
     }
   ]
 }
