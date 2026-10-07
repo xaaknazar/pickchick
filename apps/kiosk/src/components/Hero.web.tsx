@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { assets } from '../assets';
 import { HeroShade } from './HeroBackdrop';
 /** Own the browser play() promise: expo-video's web adapter discards AbortError. */
-export function Hero({ video = true, product = false }: { video?: boolean; product?: boolean }) {
+export function Hero({ video = true }: { video?: boolean }) {
   const element = useRef<HTMLVideoElement>(null);
   const [reduced, setReduced] = useState(true);
   const [visible, setVisible] = useState(false);
@@ -81,7 +81,7 @@ export function Hero({ video = true, product = false }: { video?: boolean; produ
         />
       ) : null}
       {!firstFrame || failed ? poster : null}
-      <HeroShade product={product} />
+      <HeroShade />
     </View>
   );
 }

@@ -1,44 +1,48 @@
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { productImage } from '../assets';
 import { colors, useMetrics } from '../theme';
-import { Icon } from './UI';
-/** Two catalog drinks have no supplied photograph; a neutral icon does not substitute another SKU. */
+import { Icon } from './Icon';
 export function ProductArtwork({
   imageId,
-  crop = false,
-  style,
+  variant = 'tile',
 }: {
   imageId: string;
-  crop?: boolean;
-  style?: StyleProp<ViewStyle>;
+  variant?: 'tile' | 'feature' | 'recommendation' | 'thumbnail' | 'rail';
 }) {
   const { px } = useMetrics();
+  const small = variant === 'thumbnail' || variant === 'rail';
+  const dim = px(variant === 'rail' ? 72 : 124);
   return (
     <View
-      style={[{ overflow: 'hidden', backgroundColor: colors.light }, style]}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
+      style={{
+        overflow: 'hidden',
+        backgroundColor: colors.light,
+        borderRadius: variant === 'rail' ? 12 : 16,
+        width: small ? dim : '100%',
+        height: small ? dim : undefined,
+        aspectRatio: small
+          ? undefined
+          : variant === 'recommendation'
+            ? 1.8
+            : variant === 'feature'
+              ? 1.6
+              : 1.35,
+        flexShrink: 0,
+      }}
     >
       {imageId === 'generic-drink' ? (
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { justifyContent: 'center', alignItems: 'center', backgroundColor: '#E6EDF8' },
-          ]}
-        >
-          <Icon name="water-outline" size={px(80)} color={colors.blue} />
+        <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+          <Icon name="water-outline" size={small ? 'regular' : 'hero'} tone="brand" />
         </View>
       ) : (
         <Image
           source={productImage(imageId)}
           contentFit="cover"
-          style={
-            crop
-              ? { width: '128%', height: '128%', marginLeft: '-14%', marginTop: '-14%' }
-              : StyleSheet.absoluteFill
-          }
+          style={{ width: '128%', height: '128%', marginLeft: '-14%', marginTop: '-14%' }}
         />
       )}
     </View>

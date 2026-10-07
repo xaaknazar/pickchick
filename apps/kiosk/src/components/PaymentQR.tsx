@@ -1,16 +1,11 @@
 import { useMemo } from 'react';
 import { Image } from 'expo-image';
 import { paymentQrSvg } from '../qr';
+import { useMetrics } from '../theme';
 
-export function PaymentQR({
-  payload,
-  size,
-  label,
-}: {
-  payload: string;
-  size: number;
-  label: string;
-}) {
+export function PaymentQR({ payload, label }: { payload: string; label: string }) {
+  const { px } = useMetrics();
+  const size = px(320);
   const svg = useMemo(() => paymentQrSvg(payload), [payload]);
   if (!svg) return null;
   return (

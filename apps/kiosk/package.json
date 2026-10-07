@@ -10,7 +10,10 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "export": "expo export --platform ios --platform web",
-    "prebuild:ios": "expo prebuild --platform ios --no-install"
+    "prebuild:ios": "expo prebuild --platform ios --no-install",
+    "storybook": "storybook dev -p 6006 --host 127.0.0.1 --no-open",
+    "storybook:build": "storybook build -o ../../.local/ipad-design/storybook",
+    "ui:check": "node --test ../../tests/kiosk/ui-architecture.test.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/golos-text": "0.4.2",
@@ -41,7 +44,12 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "10.6.1",
+    "@storybook/addon-docs": "10.6.1",
+    "@storybook/react-native-web-vite": "10.6.1",
     "@types/react": "19.2.4",
-    "typescript": "6.0.3"
+    "storybook": "10.6.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.3"
   }
 }

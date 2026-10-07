@@ -31,9 +31,6 @@ class KioskPaymentSuccess(ui.KioskUI):
         expect(ui.element(page, 'kiosk-payment-method-card')).to_have_attribute('aria-checked', 'false')
         ui.assert_bounded(page, 'kiosk-review-create', width, height)
         ui.assert_no_overflow(page, width)
-        # S8 mounts a light pattern, header pattern and brand mark asynchronously.
-        page.wait_for_function('''() => document.querySelector(
-            '[data-testid="kiosk-screen-loyalty"]')?.querySelectorAll('img').length >= 3''')
         ui.capture(page, 'web-review-1024.png')
 
         ui.element(page, 'kiosk-review-create').click()
@@ -55,33 +52,22 @@ class KioskPaymentSuccess(ui.KioskUI):
         self.assertEqual(fixture.orders[order['order_id']]['payment_state'], 'simulated_approved')
         self.assertEqual(fixture.orders[order['order_id']]['state'], 'preparing')
 
-        # Require the full-screen pattern image to have mounted before capture:
-        # checking only existing images would vacuously pass during Expo Image
-        # mounting, producing a misleading solid-blue success frame.
-        page.wait_for_function('''() => {
-            const root = document.querySelector('[data-testid="kiosk-screen-order"]');
-            return root && [...root.querySelectorAll('img')].some(image => {
-                const rect = image.getBoundingClientRect();
-                return rect.width >= innerWidth - 1 && rect.height >= innerHeight - 1 &&
-                    image.complete && image.naturalWidth > 0;
-            });
-        }''')
-        gradients = ui.element(page, 'kiosk-screen-order').locator('div').evaluate_all('''elements =>
-            elements.map(element => ({
-                background: getComputedStyle(element).backgroundImage,
-                width: element.getBoundingClientRect().width,
-                height: element.getBoundingClientRect().height,
-            })).filter(layer => layer.background.includes('linear-gradient') &&
-                layer.width >= innerWidth - 1 && layer.height >= innerHeight - 1)
-        ''')
-        self.assertTrue(any('rgba(0, 40, 110, 0.74)' in layer['background'] and
-                            'rgba(0, 26, 80, 0.92)' in layer['background']
-                            for layer in gradients), gradients)
+        # The new ticket uses an opaque surface so number readability does not
+        # depend on decorative imagery, gradient loading or reduced motion.
+        ticket_surface = ui.element(page, 'kiosk-order-number').evaluate('''number => ({
+            text: getComputedStyle(number).color,
+            surface: getComputedStyle(number.parentElement).backgroundColor,
+            screen: getComputedStyle(number.closest('[data-testid="kiosk-screen-order"]')).backgroundColor,
+            fontSize: parseFloat(getComputedStyle(number).fontSize),
+        })''')
+        self.assertEqual(ticket_surface['surface'], 'rgb(255, 255, 255)')
+        self.assertEqual(ticket_surface['screen'], 'rgb(0, 71, 187)')
+        self.assertGreaterEqual(ticket_surface['fontSize'], 100)
         number_rect = ui.assert_bounded(page, 'kiosk-order-number', width, height)
-        expect(ui.element(page, 'kiosk-order-number')).to_have_css('color', 'rgb(255, 103, 31)')
+        expect(ui.element(page, 'kiosk-order-number')).to_have_css('color', 'rgb(0, 71, 187)')
         ui.assert_bounded(page, 'kiosk-next-guest', width, height)
         ui.assert_no_overflow(page, width)
-        ui.capture(page, 'web-order-darkened-1024.png')
+        ui.capture(page, 'web-order-ticket-1024.png')
         self.assertEqual(len(fixture.orders), 1)
         creates = [r for r in fixture.requests
                    if r['method'] == 'POST' and r['path'] == '/v1/test/orders']
@@ -98,7 +84,7 @@ class KioskPaymentSuccess(ui.KioskUI):
             'order_creates': len(creates),
             'simulated_payment_commands': len(payments),
             'order_number_rect': number_rect,
-            'full_screen_gradients': gradients,
+            'ticket_surface': ticket_surface,
             'entrypoints': sorted(fixture.entrypoints),
             'unexpected_requests': fixture.unexpected,
             'network': 'Every API request fulfilled/aborted by local fixture; no VPS requests.',

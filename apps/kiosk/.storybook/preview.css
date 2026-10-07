@@ -1,0 +1,19 @@
+html,
+body,
+#storybook-root {
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+}
+#storybook-root {
+  display: flex;
+  flex-direction: column;
+}
+:focus-visible {
+  outline: 3px solid #0047bb;
+  outline-offset: 4px;
+}
+::selection {
+  background: #0047bb;
+  color: white;
+}

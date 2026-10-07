@@ -5,7 +5,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { assets } from '../assets';
 import { HeroShade } from './HeroBackdrop';
 /** The native player owns its lifetime; no imperative native call occurs in cleanup. */
-export function Hero({ video = true, product = false }: { video?: boolean; product?: boolean }) {
+export function Hero({ video = true }: { video?: boolean }) {
   const [reduced, setReduced] = useState(true);
   const [active, setActive] = useState(AppState.currentState === 'active');
   const [failed, setFailed] = useState(false);
@@ -92,7 +92,7 @@ export function Hero({ video = true, product = false }: { video?: boolean; produ
         />
       ) : null}
       {!firstFrame || failed ? poster : null}
-      <HeroShade product={product} />
+      <HeroShade />
     </View>
   );
 }

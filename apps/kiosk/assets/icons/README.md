@@ -1,0 +1,1 @@
+Selected Stroke SVGs from https://icons.layero.app/, retrieved 2026-10-07. Original files retained; Icon maps semantic names and applies the PickChick palette at render time. Catalog revision: catalog-20261002-tabbar. No runtime network requests.

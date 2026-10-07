@@ -1,112 +1,14 @@
-import { useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BluePattern, LightBackground } from '../components/PatternBackground';
-import { assets } from '../assets';
-import { ProductArtwork } from '../components/ProductArtwork';
-import { defaultSelections, money, validSelections } from '../cart';
-import type { KioskModel, KioskProduct } from '../model';
-import { copy, displayCopy } from '../i18n';
-import { colors, fonts, useMetrics } from '../theme';
-import {
-  Body,
-  Button,
-  Footer,
-  Header,
-  Heading,
-  IconButton,
-  layout,
-  type ScreenContext,
-} from '../components/UI';
-const categoryKeys = ['combo', 'duo', 'sets', 'extras'] as const;
-type Category = (typeof categoryKeys)[number];
-export interface MenuMemory {
-  category: Category;
-  offsets: Partial<Record<Category, number>>;
-}
-const inCategory = (product: KioskProduct, category: Category) =>
-  category === 'combo'
-    ? product.category === 'Комбо'
-    : category === 'duo'
-      ? product.category === 'На двоих'
-      : category === 'sets'
-        ? product.category === 'На компанию'
-        : !['Комбо', 'На двоих', 'На компанию'].includes(product.category);
-export function ProductCard({
-  product,
-  onOpen,
-  onAdd,
-  prefix = 'kiosk-product',
-  busy = false,
-}: {
-  product: KioskProduct;
-  onOpen: () => void;
-  onAdd: () => void;
-  prefix?: string;
-  busy?: boolean;
-}) {
-  const { px } = useMetrics();
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: colors.white,
-        borderRadius: px(26),
-        padding: px(14),
-        boxShadow: '0 5px 20px rgba(14,21,36,.05)',
-        gap: px(14),
-      }}
-    >
-      <Pressable
-        testID={`${prefix}-${product.id}`}
-        accessibilityRole="button"
-        accessibilityLabel={product.name}
-        onPress={onOpen}
-        style={{ gap: px(18) }}
-      >
-        <View
-          style={{
-            height: px(280),
-            borderRadius: px(20),
-            overflow: 'hidden',
-            backgroundColor: colors.light,
-          }}
-        >
-          <ProductArtwork imageId={product.image_id} crop style={StyleSheet.absoluteFill} />
-        </View>
-        <View style={{ paddingHorizontal: px(6), gap: px(10) }}>
-          <Heading size={29} style={{ fontFamily: fonts.heading }}>
-            {product.name}
-          </Heading>
-          <Body
-            style={{
-              fontSize: Math.max(16, px(18)),
-              lineHeight: Math.max(22, px(25)),
-              color: colors.muted,
-            }}
-          >
-            {displayCopy(product.description)}
-          </Body>
-        </View>
-      </Pressable>
-      <View style={[layout.spread, { marginTop: 'auto', paddingLeft: px(6), gap: px(8) }]}>
-        <Heading size={34} color={colors.blue} style={{ flexShrink: 1 }}>
-          {money(product.price_minor)}
-        </Heading>
-        <IconButton
-          name="add"
-          label={`+ ${product.name}`}
-          onPress={onAdd}
-          testID={`${prefix}-plus-${product.id}`}
-          size={80}
-          orange
-          disabled={busy || product.available === false}
-        />
-      </View>
-    </View>
-  );
-}
+import { useEffect, useRef, useState } from 'react';
+import type { KioskModel } from '../model';
+import { copy } from '../i18n';
+import { defaultSelections, validSelections } from '../cart';
+import { Header, ScreenSurface, Wrapper, type ScreenContext } from '../components/UI';
+import { OrderProgress } from '../components/OrderProgress';
+import { CategoryRail } from '../components/CategoryRail';
+import { MenuGrid } from '../components/MenuGrid';
+import { CartBar } from '../components/CartBar';
+import { inCategory, type Category, type MenuMemory } from '../components/categories';
+export type { MenuMemory } from '../components/categories';
 export function MenuScreen({
   model,
   context,
@@ -116,227 +18,58 @@ export function MenuScreen({
   context: ScreenContext;
   memory: MenuMemory;
 }) {
-  const { px, columns, width } = useMetrics();
-  const cardWidth = (width - px(24) * 2 - px(22) * (columns - 1)) / columns;
   const t = copy(context.locale);
   const [category, setCategory] = useState<Category>(memory.category);
-  const list = useRef<FlatList<KioskProduct>>(null);
-  // Seed the native scroll view once per category. Server polling must not feed
-  // a JS offset back into an in-progress native gesture.
-  const initialOffset = useMemo(
-    () => ({ x: 0, y: memory.offsets[category] ?? 0 }),
-    [category, columns, memory],
-  );
-  const restoration = useMemo(
-    () => ({ done: initialOffset.y === 0, viewport: 0, content: 0 }),
-    [initialOffset],
-  );
-  const restoreOffset = () => {
-    if (restoration.done || !restoration.viewport || !restoration.content) return;
-    const offset = Math.min(
-      initialOffset.y,
-      Math.max(0, restoration.content - restoration.viewport),
-    );
-    restoration.done = true;
-    list.current?.scrollToOffset({ offset, animated: false });
-  };
-  const products = model.catalog?.products.filter((product) => inCategory(product, category)) ?? [];
-  const promo = model.catalog?.products.find((p) => p.id === 'master-combo');
-  const quickAdd = (product: KioskProduct) => {
-    const selected = defaultSelections(product);
-    if (product.modifier_groups.length || !validSelections(product, selected))
-      model.openProduct(product.id);
-    else void model.addToCart(product.id, selected);
-  };
+  const [revision, setRevision] = useState(0);
+  const products = model.catalog?.products ?? [];
+  const quantity = model.cart.reduce((sum, line) => sum + line.quantity, 0);
+  const previousQuantity = useRef(memory.cartQuantity ?? quantity);
+  useEffect(() => {
+    memory.cartQuantity = quantity;
+  }, [memory, quantity]);
   return (
-    <View testID="kiosk-screen-menu" style={layout.screen}>
-      <LightBackground />
-      <View style={{ backgroundColor: '#0B4FC4' }}>
-        <BluePattern />
-        <Header
-          {...context}
-          transparent
-          back={model.goMode}
-          mode={model.mode === 'dine_in' ? t.here : t.togo}
+    <ScreenSurface testID="kiosk-screen-menu">
+      <Header {...context} back={model.goMode} mode={model.mode === 'dine_in' ? t.here : t.togo} />
+      <OrderProgress step="menu" locale={context.locale} />
+      <Wrapper dir="row" flex={1}>
+        <CategoryRail
+          category={category}
+          products={products}
+          locale={context.locale}
+          onSelect={(key) => {
+            model.touch();
+            memory.category = key;
+            memory.offsets[key] = 0;
+            setCategory(key);
+            setRevision((v) => v + 1);
+          }}
         />
-        <View style={{ paddingBottom: px(24), paddingTop: px(6) }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: px(24), gap: px(12) }}
-          >
-            {categoryKeys.map((key) => (
-              <Pressable
-                key={key}
-                testID={`kiosk-category-${key}`}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: category === key }}
-                aria-selected={category === key}
-                onPress={() => {
-                  model.touch();
-                  memory.category = key;
-                  memory.offsets[key] = 0;
-                  if (category === key)
-                    list.current?.scrollToOffset({ offset: 0, animated: false });
-                  else setCategory(key);
-                }}
-                style={({ pressed }) => ({
-                  minHeight: Math.max(56, px(76)),
-                  paddingHorizontal: px(28),
-                  paddingVertical: px(20),
-                  borderRadius: px(38),
-                  justifyContent: 'center',
-                  backgroundColor: category === key ? colors.white : 'rgba(255,255,255,.13)',
-                  opacity: pressed ? 0.75 : 1,
-                })}
-              >
-                <Heading
-                  size={24}
-                  color={category === key ? colors.blue : colors.white}
-                  style={{ fontFamily: fonts.heading }}
-                >
-                  {t[key]}
-                </Heading>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-      <FlatList
-        ref={list}
-        key={`${columns}-${category}`}
-        testID="kiosk-menu-scroll"
-        style={layout.grow}
-        data={products}
-        numColumns={columns}
-        initialNumToRender={products.length}
-        keyExtractor={(p) => p.id}
-        showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={model.touch}
-        contentOffset={initialOffset}
-        onLayout={(event) => {
-          restoration.viewport = event.nativeEvent.layout.height;
-          restoreOffset();
-        }}
-        onContentSizeChange={(_width, height) => {
-          restoration.content = height;
-          restoreOffset();
-        }}
-        scrollEventThrottle={64}
-        onScroll={(event) => {
-          if (restoration.done)
-            memory.offsets[category] = Math.max(0, event.nativeEvent.contentOffset.y);
-        }}
-        columnWrapperStyle={{ gap: px(22) }}
-        contentContainerStyle={{ padding: px(24), gap: px(22), paddingBottom: px(30) }}
-        ListHeaderComponent={
-          category === 'combo' && promo ? (
-            <View
-              style={{
-                backgroundColor: colors.blue,
-                overflow: 'hidden',
-                borderRadius: px(26),
-                padding: px(28),
-                marginBottom: px(4),
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: px(18),
-              }}
-            >
-              <View
-                pointerEvents="none"
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: '#0B4FC4',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                  },
-                ]}
-              >
-                <Image
-                  source={assets.promo}
-                  contentFit="cover"
-                  style={{ width: px(640), height: (px(640) * 848) / 1100 }}
-                />
-              </View>
-              <LinearGradient
-                colors={['rgba(11,79,196,.5)', 'rgba(11,79,196,.82)']}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={{ flex: 1, gap: px(12) }}>
-                <View
-                  style={{
-                    backgroundColor: colors.orange,
-                    borderRadius: px(12),
-                    paddingHorizontal: px(12),
-                    paddingVertical: px(8),
-                    alignSelf: 'flex-start',
-                  }}
-                >
-                  <Heading size={17} color={colors.white}>
-                    {t.promo}
-                  </Heading>
-                </View>
-                <Heading size={42} color={colors.white}>
-                  {promo.name}
-                </Heading>
-                <Body style={{ color: colors.white, fontSize: px(20) }}>
-                  {displayCopy(promo.description)}
-                </Body>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: px(18), maxWidth: '42%' }}>
-                <Heading size={42} color={colors.orange}>
-                  {money(promo.price_minor)}
-                </Heading>
-                <Button
-                  compact
-                  label={promo.available === false ? t.soldOut : t.pick}
-                  onPress={() => model.openProduct(promo.id)}
-                />
-              </View>
-            </View>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <View style={{ width: cardWidth }}>
-            <ProductCard
-              product={item}
-              busy={model.busy}
-              onOpen={() => model.openProduct(item.id)}
-              onAdd={() => quickAdd(item)}
-            />
-          </View>
-        )}
+        <MenuGrid
+          key={category + '-' + revision}
+          products={products.filter((p) => inCategory(p, category))}
+          category={category}
+          memory={memory}
+          locale={context.locale}
+          busy={model.busy}
+          onInteraction={model.touch}
+          onOpen={(p) => model.openProduct(p.id)}
+          onAdd={(p) => {
+            const selected = defaultSelections(p);
+            if (p.modifier_groups.length || !validSelections(p, selected)) model.openProduct(p.id);
+            else void model.addToCart(p.id, selected);
+          }}
+        />
+      </Wrapper>
+      <CartBar
+        previousQuantity={previousQuantity.current}
+        quantity={model.cart.reduce((s, l) => s + l.quantity, 0)}
+        total={model.cartTotalMinor}
+        valid={model.cartValid}
+        empty={!model.cart.length && !model.unavailableCartLines.length}
+        busy={model.busy}
+        locale={context.locale}
+        onCheckout={model.cartValid ? model.openUpsell : model.openCart}
       />
-      {
-        <Footer blue testID="kiosk-cart-bar">
-          <View style={[layout.spread, { gap: px(24) }]}>
-            <View style={{ flex: 1, minWidth: 0, gap: px(4) }}>
-              <Body style={{ color: 'rgba(255,255,255,.72)', fontSize: px(19) }}>
-                {t.cart}: {model.cart.reduce((sum, line) => sum + line.quantity, 0)}
-              </Body>
-              <Heading size={44} color={colors.white}>
-                {model.cartValid
-                  ? money(model.cartTotalMinor)
-                  : context.locale === 'ru'
-                    ? 'Проверьте корзину'
-                    : 'Себетті тексеріңіз'}
-              </Heading>
-            </View>
-            <Button
-              label={t.checkout}
-              icon="arrow-forward"
-              onPress={model.cartValid ? model.openUpsell : model.openCart}
-              testID="kiosk-menu-checkout"
-              disabled={!model.cart.length && !model.unavailableCartLines.length}
-              busy={model.busy}
-              style={{ maxWidth: '65%', paddingHorizontal: px(42) }}
-            />
-          </View>
-        </Footer>
-      }
-    </View>
+    </ScreenSurface>
   );
 }

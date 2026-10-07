@@ -1,27 +1,24 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, View, Text } from 'react-native';
 import type { KioskModifierGroup, KioskSelection } from '../model';
 import { money } from '../cart';
 import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
-import { Body, Heading, Icon, layout } from './UI';
+import { Body, Heading, Icon, IconButton, Wrapper } from './UI';
 export function ModifierOptions({
   group,
   selections,
   setSelections,
   locale,
-  dark = false,
   limit,
 }: {
   group: KioskModifierGroup;
   selections: KioskSelection[];
-  setSelections: (selections: KioskSelection[]) => void;
+  setSelections: (s: KioskSelection[]) => void;
   locale: Locale;
-  dark?: boolean;
   limit?: number;
 }) {
   const { px } = useMetrics();
   const t = copy(locale);
-  const ink = dark ? colors.white : colors.ink;
   const total = selections
     .filter((s) => s.group_id === group.id)
     .reduce((n, s) => n + s.quantity, 0);
@@ -34,29 +31,19 @@ export function ModifierOptions({
     );
   };
   return (
-    <View style={{ gap: px(16) }}>
-      <View style={[layout.spread, { gap: px(16) }]}>
-        <Body style={{ color: ink, fontFamily: fonts.medium, flex: 1, letterSpacing: 0.6 }}>
-          {group.title.toLocaleUpperCase('ru')}
-        </Body>
-        <Body
-          style={{
-            color: ink,
-            fontSize: Math.max(16, px(18)),
-            backgroundColor: dark ? 'rgba(255,255,255,.1)' : colors.light,
-            borderRadius: px(14),
-            paddingVertical: px(8),
-            paddingHorizontal: px(12),
-          }}
-        >
+    <Wrapper gap={14}>
+      <Wrapper dir="row" align="center" justify="space-between" gap={16}>
+        <Wrapper flex={1}>
+          <Heading size="card">{group.title}</Heading>
+        </Wrapper>
+        <Body variant="caption" tone="muted">
           {group.min > 0 ? `${t.chosen} ${total} / ${group.max}` : t.optional}
         </Body>
-      </View>
+      </Wrapper>
       <View
         style={{
           flexDirection: group.max === 1 ? 'row' : 'column',
           flexWrap: group.max === 1 ? 'wrap' : 'nowrap',
-          alignItems: 'stretch',
           gap: px(12),
         }}
       >
@@ -65,168 +52,113 @@ export function ModifierOptions({
             selections.find((s) => s.group_id === group.id && s.option_id === option.id)
               ?.quantity ?? 0;
           const selected = quantity > 0;
-          const minusDisabled = quantity <= 0;
-          const plusDisabled =
-            !option.available || quantity >= option.max_quantity || total >= group.max;
-          const optionStyle = {
-            minHeight: Math.max(64, px(82)),
-            borderRadius: px(22),
-            paddingVertical: px(15),
+          const delta =
+            BigInt(option.price_delta_minor) > 0n ? '+ ' + money(option.price_delta_minor) : '';
+          const appearance = {
+            minHeight: Math.max(64, px(86)),
+            borderRadius: 16,
+            paddingVertical: px(16),
             paddingHorizontal: px(18),
             borderWidth: 2,
-            borderColor: selected
-              ? group.max === 1
-                ? colors.white
-                : colors.orange
-              : dark
-                ? 'rgba(255,255,255,.15)'
-                : colors.border,
-            backgroundColor: selected
-              ? group.max === 1
-                ? colors.white
-                : dark
-                  ? 'rgba(255,103,31,.18)'
-                  : '#FFF2EA'
-              : dark
-                ? 'rgba(255,255,255,.07)'
-                : colors.white,
-            opacity: option.available ? 1 : 0.4,
+            borderColor: selected ? colors.blue : colors.border,
+            backgroundColor: selected ? '#EEF4FF' : colors.white,
+            opacity: option.available ? 1 : 0.45,
           };
-          const delta =
-            BigInt(option.price_delta_minor) > 0n ? `+ ${money(option.price_delta_minor)}` : '';
           return group.max === 1 ? (
             <Pressable
               key={option.id}
               testID={`kiosk-modifier-${group.id}-${option.id}`}
               accessibilityRole="radio"
-              accessibilityLabel={`${option.label}${delta ? `, ${delta}` : ''}`}
+              accessibilityLabel={option.label + (delta ? ', ' + delta : '')}
               accessibilityState={{ checked: selected, disabled: !option.available }}
               aria-checked={selected}
               disabled={!option.available}
               onPress={() => update(option.id, selected && group.min === 0 ? 0 : 1)}
               style={[
-                optionStyle,
-                { width: '48.6%', flexDirection: 'row', alignItems: 'center', gap: px(12) },
+                appearance,
+                {
+                  flexBasis: '47%',
+                  flexGrow: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: px(12),
+                },
               ]}
             >
               <View
                 style={{
-                  width: px(28),
-                  height: px(28),
-                  borderRadius: px(14),
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
                   borderWidth: 2,
-                  borderColor: selected ? colors.blue : dark ? '#CCD0DA' : '#8791A4',
+                  borderColor: selected ? colors.blue : colors.muted,
                   alignItems: 'center',
                   justifyContent: 'center',
+                  backgroundColor: selected ? colors.blue : 'transparent',
                 }}
               >
-                {selected ? (
-                  <View
-                    style={{
-                      width: px(14),
-                      height: px(14),
-                      borderRadius: 9,
-                      backgroundColor: colors.blue,
-                    }}
-                  />
-                ) : null}
+                {selected ? <Icon name="checkmark" size="small" tone="inverse" /> : null}
               </View>
-              <View style={{ flex: 1, gap: px(6) }}>
-                <Body
-                  style={{
-                    color: selected ? colors.blue : ink,
-                    fontFamily: selected ? fonts.medium : fonts.body,
-                  }}
-                >
+              <Wrapper flex={1} gap={4}>
+                <Body variant={selected ? 'label' : 'body'} tone={selected ? 'brand' : 'default'}>
                   {option.label}
                 </Body>
                 {delta ? (
-                  <Body
-                    style={{
-                      color: selected ? colors.blue : dark ? '#BEC5D4' : colors.muted,
-                      fontSize: Math.max(16, px(17)),
-                    }}
-                  >
+                  <Body variant="caption" tone="muted">
                     {delta}
                   </Body>
                 ) : null}
-              </View>
+              </Wrapper>
             </Pressable>
           ) : (
             <View
               key={option.id}
               testID={`kiosk-modifier-${group.id}-${option.id}`}
-              style={[optionStyle, layout.spread, { width: '100%', gap: px(20) }]}
+              style={appearance}
             >
-              <View style={{ flex: 1, gap: px(6) }}>
-                <Body style={{ color: ink }}>{option.label}</Body>
-                {delta ? (
-                  <Body
-                    style={{
-                      color: dark ? '#BEC5D4' : colors.muted,
-                      fontSize: Math.max(16, px(17)),
-                    }}
-                  >
-                    {delta}
-                  </Body>
-                ) : null}
-              </View>
-              <View style={[layout.row, { gap: px(12) }]}>
-                <Pressable
+              <Wrapper dir="row" align="center" gap={12}>
+                <Wrapper flex={1} gap={4}>
+                  <Body variant="label">{option.label}</Body>
+                  {delta ? (
+                    <Body variant="caption" tone="muted">
+                      {delta}
+                    </Body>
+                  ) : null}
+                </Wrapper>
+                <IconButton
+                  name="remove"
+                  label={'- ' + option.label}
                   testID={`kiosk-modifier-minus-${group.id}-${option.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`− ${option.label}`}
-                  disabled={minusDisabled}
-                  accessibilityState={{ disabled: minusDisabled }}
+                  disabled={quantity <= 0}
                   onPress={() => update(option.id, quantity - 1)}
-                  style={{
-                    width: Math.max(48, px(62)),
-                    height: Math.max(48, px(62)),
-                    borderRadius: px(17),
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: dark ? 'rgba(255,255,255,.12)' : colors.light,
-                    opacity: minusDisabled ? 0.3 : 1,
-                  }}
-                >
-                  <Icon name="remove" color={ink} size={px(28)} />
-                </Pressable>
-                <Heading
+                />
+                <Text
                   testID={`kiosk-modifier-quantity-${group.id}-${option.id}`}
-                  size={26}
-                  color={ink}
-                  style={{ minWidth: px(35), textAlign: 'center' }}
+                  style={{
+                    fontFamily: fonts.medium,
+                    fontSize: px(26),
+                    minWidth: 28,
+                    textAlign: 'center',
+                    color: colors.ink,
+                  }}
                 >
                   {quantity}
-                </Heading>
-                <Pressable
+                </Text>
+                <IconButton
+                  name="add"
+                  label={'+ ' + option.label}
+                  tone={selected ? 'accent' : 'neutral'}
                   testID={`kiosk-modifier-plus-${group.id}-${option.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`+ ${option.label}`}
-                  disabled={plusDisabled}
-                  accessibilityState={{ disabled: plusDisabled }}
+                  disabled={
+                    !option.available || quantity >= option.max_quantity || total >= group.max
+                  }
                   onPress={() => update(option.id, quantity + 1)}
-                  style={{
-                    width: Math.max(48, px(62)),
-                    height: Math.max(48, px(62)),
-                    borderRadius: px(17),
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: selected
-                      ? colors.orange
-                      : dark
-                        ? 'rgba(255,255,255,.12)'
-                        : colors.light,
-                    opacity: plusDisabled ? 0.3 : 1,
-                  }}
-                >
-                  <Icon name="add" color={selected ? colors.white : ink} size={px(28)} />
-                </Pressable>
-              </View>
+                />
+              </Wrapper>
             </View>
           );
         })}
       </View>
-    </View>
+    </Wrapper>
   );
 }
