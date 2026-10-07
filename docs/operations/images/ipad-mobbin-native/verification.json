@@ -1,0 +1,88 @@
+{
+  "source": "287d4e443f29e4f81c4053c185833e70c8fa324e",
+  "bundleIdentifier": "kz.pickchick.kiosk",
+  "version": "0.1.0",
+  "build": "5",
+  "configuration": "Release",
+  "commercial": true,
+  "jsEngine": "Hermes",
+  "bundleSha256": "383f617ddcfe7784e81379f729a2fe064a5ab7771a2011605cfcb8fed6eda19b",
+  "executableSha256": "6982ee0f89cf94b278f45b8ddcbbca5a1c16f8cc197f08b831dd4047ba99259a",
+  "codeSignatureVerified": true,
+  "keychainIdentityMatchesBuild3": true,
+  "profileAllowsConnectedDevice": true,
+  "profileExpiresAt": "2027-10-07T05:35:23Z",
+  "buildMetadata": "Tracked app.json buildNumber and native CURRENT_PROJECT_VERSION=5",
+  "installed": true,
+  "launched": true,
+  "deviceModel": "iPad Air 13-inch (M3)",
+  "iPadOS": "18.7.8",
+  "nativeTests": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "name": "InstalledUITests/testInstalledMenuAndProduct",
+    "finishTime": 1791377694.208
+  },
+  "checks": [
+    "Menu loaded through saved device enrollment",
+    "Portrait geometry and bounded fixed actions",
+    "Real menu product opened and returned to menu"
+  ],
+  "boundaries": [
+    "Browse-only native check; no cart edits, order creation or payment",
+    "Direct Apple Development installation; no TestFlight upload",
+    "Server configuration and enrollment credentials unchanged"
+  ],
+  "ci": [
+    {
+      "id": 37621500652,
+      "name": "Foundation CI",
+      "event": "push",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/37621500652",
+      "source": "287d4e443f29e4f81c4053c185833e70c8fa324e",
+      "conclusion": "success",
+      "jobsPassed": 11
+    },
+    {
+      "id": 37621500638,
+      "name": "Kiosk UI library",
+      "event": "push",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/37621500638",
+      "source": "287d4e443f29e4f81c4053c185833e70c8fa324e",
+      "conclusion": "success",
+      "jobsPassed": 1
+    },
+    {
+      "id": 37621669230,
+      "name": "Kiosk UI library",
+      "event": "pull_request",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/37621669230",
+      "source": "287d4e443f29e4f81c4053c185833e70c8fa324e",
+      "conclusion": "success",
+      "jobsPassed": 1
+    }
+  ],
+  "screenshots": {
+    "native-menu-after-product.png": {
+      "sha256": "edc735a527c8a40b4bf9fa4be3562b5e88d34adbfb18a33cd3174d741ea971ff",
+      "width": 2048,
+      "height": 2732
+    },
+    "native-product.png": {
+      "sha256": "d2ef85b1511e9abdce133552b15cd5beebbba86fc07db1b37f510e7a03cbaf1a",
+      "width": 2048,
+      "height": 2732
+    },
+    "native-menu.png": {
+      "sha256": "edc735a527c8a40b4bf9fa4be3562b5e88d34adbfb18a33cd3174d741ea971ff",
+      "width": 2048,
+      "height": 2732
+    },
+    "native-welcome.png": {
+      "sha256": "4ead3a284e06f5ae628fec0ccf7455f455cb36ae3f467d3db3eee63c21226b47",
+      "width": 2048,
+      "height": 2732
+    }
+  }
+}

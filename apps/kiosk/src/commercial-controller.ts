@@ -481,7 +481,20 @@ export class CommercialKioskController {
       if (!this.guest.branchId) return this.resumeSession(this.guest);
       if (this.guest.sessionId !== this.current.guestId)
         throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
-      return this.guest;
+      if (
+        this.guest.expiresAt &&
+        Date.parse(this.guest.expiresAt) <= this.io.now() &&
+        !this.unsafe() &&
+        !this.current.order
+      ) {
+        const ended = await this.io.request('/sessions/end', this.guest.token, {});
+        if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+        // Detach before removing the credential: a crash can retry the old end,
+        // or allocate the next session, without losing the unsubmitted draft.
+        await this.save({ ...this.current, guestId: null });
+        await this.io.removeSession();
+        this.guest = null;
+      } else return this.guest;
     }
     if (this.current.guestId || this.current.intent || this.current.order)
       throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
