@@ -3354,6 +3354,20 @@
       "updatedAt": "2026-10-07T09:39:48.388Z",
       "summary": "Функциональный этап включён в shared00a0239 и PR197: без счёта, короткая форма, сводка, ДДС/ОПиУ с таблицами и графиками. Источник f5977ed сохраняет установленную базу39336a7. Полная CI37600364935 зелёная11/11, 14 локальных финансовых тестов passed, build/audit passed. SSH с этого Mac работает. На сайт НЕ установлено: владелец подтвердил продолжающуюся работу другого Mac и не передал VPS-резервы.",
       "nextAction": "Следующая отдельная задача выпуска финансов остаётся на Mac3dd9e23b. После освобождения VPS занять ресурсы, сверить текущие pointers/schema, при необходимости интегрировать более свежую установленную версию и повторить CI, подготовить проверенный профиль API+backoffice с резервной копией/restore/откатом. Старый finance-ledger profile не использовать без адаптации. Статус/roadmap обновить после согласования их чужих резервов. До этого live не менять."
+    },
+    {
+      "id": "finance-rollout",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-rollout",
+      "scopes": [
+        "infra/staging/release-finance-dashboard.py",
+        "tests/operations/test_finance_dashboard_release.py",
+        "docs/operations/finance-dashboard.md",
+        "docs/operations/deployments/2026-10-07-finance-dashboard.md"
+      ],
+      "status": "active",
+      "head": "00a023948cc9c15fd162b04bb57b1860d1b785d6",
+      "updatedAt": "2026-10-07T09:44:32.119Z"
     }
   ]
 }
