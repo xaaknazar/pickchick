@@ -179,6 +179,149 @@ test('phone accepts Kazakhstan mobile only', () => {
   assert.equal(invoicePhone('+7 701 1234567'), '+77011234567');
   assert.equal(invoicePhone('+7 495 1234567'), null);
 });
+for (const failedPath of ['/sessions', '/config', '/catalog', '/availability'])
+  test(`startup ${failedPath} outage retries without a payment warning or new guest identity`, async () => {
+    const h = fixture(),
+      c = new CommercialKioskController(h.io);
+    h.before = async (path) => {
+      if (path === failedPath) throw new KioskError('NETWORK_UNCERTAIN');
+    };
+    assert.equal(await c.restore(), false);
+    assert.equal(c.getSnapshot().order, null);
+    assert.equal(c.getSnapshot().recoveryRequired, false);
+    assert.equal(c.getSnapshot().checkoutReady, false);
+    assert.doesNotMatch(c.getSnapshot().error, /не оплачивайте повторно|проверить результат/);
+    assert.match(c.getSnapshot().error, /загрузить меню/);
+    const savedSession = JSON.parse(h.rawSession);
+    h.before = async () => {};
+    assert.equal(await c.recover(), true);
+    assert.equal(c.getSnapshot().error, null);
+    assert(c.getSnapshot().catalog);
+    assert.equal(c.getSnapshot().step, 'start');
+    assert.equal(JSON.parse(h.rawSession).sessionId, savedSession.sessionId);
+    assert.equal(JSON.parse(h.rawSession).token, savedSession.token);
+    assert.equal(
+      h.calls.some(
+        (r) => r.path === '/quotes' || r.path === '/orders' || r.path.endsWith('/payment'),
+      ),
+      false,
+    );
+  });
+
+test('catalog retry after restart restores the shopping draft without payment recovery', async () => {
+  const h = fixture(),
+    original = await cart(h);
+  const savedCart = JSON.parse(h.rawFlow).cart;
+  h.before = async (path) => {
+    if (path === '/catalog') throw new KioskError('FORBIDDEN', 403);
+  };
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), false);
+  assert.equal(c.getSnapshot().recoveryRequired, false);
+  assert.doesNotMatch(c.getSnapshot().error, /не оплачивайте повторно/);
+  h.before = async () => {};
+  assert.equal(await c.recover(), true);
+  assert.equal(c.getSnapshot().step, 'menu');
+  assert.deepEqual(JSON.parse(h.rawFlow).cart, savedCart);
+  assert.equal(c.getSnapshot().cart.length, original.getSnapshot().cart.length);
+});
+
+test('disabled checkout still loads the menu and draft, but rechecks before any payment intent', async () => {
+  const h = fixture(),
+    request = h.io.request;
+  let enabled = false;
+  h.io.request = async (...args) =>
+    args[0] === '/config'
+      ? { enabled, branchId, restaurant: 'PickChick', paymentMethod: 'kaspi_qr' }
+      : request(...args);
+  const c = await cart(h);
+  assert(c.getSnapshot().catalog);
+  assert.equal(c.getSnapshot().checkoutReady, false);
+  assert.equal(c.getSnapshot().recoveryRequired, false);
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(JSON.parse(h.rawFlow).intent, null);
+  assert.equal(JSON.parse(h.rawFlow).cart.length, 1);
+  assert.equal(
+    h.calls.some((r) => r.path === '/quotes' || r.path === '/orders'),
+    false,
+  );
+  enabled = true;
+  assert.equal(await c.recover(), true);
+  assert.equal(c.getSnapshot().checkoutReady, true);
+  enabled = false;
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(c.getSnapshot().checkoutReady, false);
+  assert.equal(JSON.parse(h.rawFlow).intent, null);
+  assert.equal(
+    h.calls.some((r) => r.path === '/quotes' || r.path === '/orders'),
+    false,
+  );
+  enabled = true;
+  assert.equal(await c.beginPayment(), true);
+  assert(c.getSnapshot().order);
+});
+
+test('invalid checkout enabled value cannot publish a catalog or permit checkout', async () => {
+  const h = fixture(),
+    request = h.io.request;
+  h.io.request = async (...args) =>
+    args[0] === '/config'
+      ? { enabled: 'false', branchId, paymentMethod: 'kaspi_qr' }
+      : request(...args);
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), false);
+  assert.equal(c.getSnapshot().catalog, null);
+  assert.equal(c.getSnapshot().checkoutReady, false);
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(
+    h.calls.some((r) => r.path === '/quotes' || r.path === '/orders'),
+    false,
+  );
+});
+
+test('checkout disabled between intent persistence and quote never submits an order', async () => {
+  const h = fixture(),
+    c = await cart(h),
+    request = h.io.request;
+  let configCalls = 0;
+  h.io.request = async (...args) =>
+    args[0] === '/config'
+      ? { enabled: ++configCalls === 1, branchId, paymentMethod: 'kaspi_qr' }
+      : request(...args);
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(configCalls, 2);
+  assert.equal(JSON.parse(h.rawFlow).intent, null);
+  assert.equal(c.getSnapshot().recoveryRequired, false);
+  assert.equal(
+    h.calls.some((r) => r.path === '/quotes' || r.path === '/orders'),
+    false,
+  );
+});
+
+test('unresolved payment keeps its warning and recovers independently of catalog availability', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  assert.equal(await c.beginPayment(), true);
+  const savedOrder = c.getSnapshot().order.order_id;
+  h.before = async (path) => {
+    if (path === '/catalog' || path === `/orders/${savedOrder}`)
+      throw new KioskError('NETWORK_UNCERTAIN');
+  };
+  const recovered = new CommercialKioskController(h.io);
+  assert.equal(await recovered.restore(), false);
+  assert.equal(recovered.getSnapshot().step, 'recovery');
+  assert.match(recovered.getSnapshot().error, /не оплачивайте повторно/);
+  assert.equal(await recovered.newGuest(), false);
+  const paymentRequests = h.calls.filter((r) => r.path.endsWith('/payment')).length;
+  h.before = async (path) => {
+    if (path === '/catalog') throw new KioskError('NETWORK_UNCERTAIN');
+  };
+  h.order = { ...h.order, phase: 'paid' };
+  assert.equal(await recovered.recover(), true);
+  assert.equal(recovered.getSnapshot().order.payment_state, 'paid');
+  assert.equal(recovered.getSnapshot().step, 'order');
+  assert.equal(h.calls.filter((r) => r.path.endsWith('/payment')).length, paymentRequests);
+});
 test('real waiting cannot simulate payment or free guest; authoritative paid permits clean reset', async () => {
   const h = fixture(),
     c = await cart(h);
@@ -206,6 +349,8 @@ for (const path of ['/quotes', '/orders', 'payment'])
     assert.equal(await c.beginPayment(), false);
     const intent = JSON.parse(h.rawFlow).intent;
     assert(intent);
+    assert.equal(c.getSnapshot().recoveryRequired, true);
+    assert.match(c.getSnapshot().error, /не оплачивайте повторно/);
     assert.equal(await c.newGuest(), false);
     const restored = new CommercialKioskController(h.io);
     assert.equal(await restored.restore(), true);
