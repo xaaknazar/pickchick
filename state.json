@@ -3515,6 +3515,21 @@
       "updatedAt": "2026-10-07T14:42:32.534Z",
       "summary": "PR205, checkpoint a9a5d4d249f97748a88fa73b014dff488b7232a7 published and fast-forwarded into shared. Native 0.1.0 (6), exact source 2d825d6, installed/launched over build5 on iPad Air13 M3/iPadOS18.7.8 with saved enrollment. Physical XCTest1/1 menu/product/geometry passed; screenshots and hashes in docs/operations/images/kiosk-payment-options/native-build6. Local pnpm check148, kiosk85, PG33, Storybook102/Axe0, browser2methods/3sizes passed. CI37632608069: 10 substantive jobs success, final aggregate failure because Actions budget prevented runner; UI library push+PR success. Owner explicitly approved only this native installation exception. VPS/bank unchanged; no real QR/invoice/order/payment created. Runtime VPS scopes released unused; code/device scopes retained for continuation. Shared status/roadmap and online roadmap remain reserved by other tasks.",
       "nextAction": "Read docs/operations/kiosk-payment-options.md and claim this task from the published checkpoint. Installed build6; no reinstall/enrollment reset needed. Bank activation still pending: restore complete release CI after Actions budget is resolved, freshly claim needed VPS scopes, build and test release profile against actual finance API/public778a718/schema044 with backup/restore/lock, deliver exact immutable catalogv3 and obtain real edge ACK (old menuv1 items differ; no synthetic SQL ACK), configure QR account/worker/bridge and invoice worker PII support. Windows trusted SSH timed out before authentication; portal edgeConnected alone is insufficient. Prepare concrete control QR100KZT, obtain explicit owner authorization before bank creation, owner pays himself; then native phone keyboard/QR/recovery/kitchen acceptance. Preserve fiscal pilot cap and all mobile accounts/session/keys. Copy installation facts separately into shared status/roadmap when their owners release them; online roadmap not updated. No exception granted for server deployment/main/bank/billing."
+    },
+    {
+      "id": "ceo-login",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/ceo-login",
+      "scopes": [
+        "apps/backoffice",
+        "tests/backoffice/staff-login.test.mjs",
+        "tests/backoffice/browser_staff_login.py",
+        "infra/backoffice-login",
+        "docs/operations/ceo-login.md"
+      ],
+      "status": "active",
+      "head": "a9a5d4d249f97748a88fa73b014dff488b7232a7",
+      "updatedAt": "2026-10-07T14:48:57.249Z"
     }
   ]
 }
