@@ -3295,11 +3295,7 @@
         "infra/staging/release-kiosk-qr.py",
         "tests/operations/test_kiosk_qr_release.py",
         "infra/staging/kiosk-qr-gateway.mjs",
-        "@vps/api",
-        "@vps/gateway",
-        "@vps/db",
         "@vps/secrets/kiosk-enrollment",
-        "@vps/public",
         "apps/pos/src/v2/app.js",
         "tests/pos/browser_ui.py",
         "pnpm-workspace.yaml",
@@ -3312,9 +3308,9 @@
       ],
       "status": "active",
       "head": "54f84f39ffc72e85fa7de9bf02c483a7291f8568",
-      "updatedAt": "2026-10-07T09:37:32.204Z",
+      "updatedAt": "2026-10-07T09:45:11.727Z",
       "summary": "Menu startup fixed and deployed API/gateway41d2a61; CI37598227901 11/11. Native0.1.0(3) installed/launched iPad, one active guest session. Live sessions/config/catalog/availability/end200; 24products,v3,fresh=true; wrongkey/ended403. Encryptedbackuprestorepassed, schema43files/last044 unchanged; finance/mobile/assets preserved. QR worker+financialroutes OFF. Docs54f84f3 published; shared117327c docs-only integrated. 68kiosktests,31guardtests,actualPGleastprivilege,CUAsyntheticvisual passed. Status/roadmapclaim blockedfarm; onlinepult not updated.",
-      "nextAction": "Owner confirms physical iPad menu. QR next: pending-order session end guard, real QR response fixture with approved one100KZT test, existingv3 actualedge ACK, account/worker/grants/kitchen acceptance. Shortalias consumed, internalcredentials retained; do not replay enrollment activation. Nextdeploymentbaseline41d2a61/schema044. No bankcalls/orders in menu rollout."
+      "nextAction": "Owner confirms physical iPad menu. QR next: pending-order session end guard, real QR response fixture with approved one100KZT test, existingv3 actualedge ACK, account/worker/grants/kitchen acceptance. Shortalias consumed, internalcredentials retained; do not replay enrollment activation. Nextdeploymentbaseline41d2a61/schema044. No bankcalls/orders in menu rollout. Владелец 07.10.2026 подтвердил остановку серверной работы и передачу @vps/api,gateway,db,public задаче finance-rollout; не продолжать серверный выпуск до освобождения."
     },
     {
       "id": "finance-ssh-access",
@@ -3363,11 +3359,16 @@
         "infra/staging/release-finance-dashboard.py",
         "tests/operations/test_finance_dashboard_release.py",
         "docs/operations/finance-dashboard.md",
-        "docs/operations/deployments/2026-10-07-finance-dashboard.md"
+        "docs/operations/deployments/2026-10-07-finance-dashboard.md",
+        "@vps/api",
+        "@vps/gateway",
+        "@vps/db",
+        "@vps/public"
       ],
       "status": "active",
-      "head": "00a023948cc9c15fd162b04bb57b1860d1b785d6",
-      "updatedAt": "2026-10-07T09:44:32.119Z"
+      "head": "583584fbacfa2b9f6f30d7ebcb1193f6aaa7e84d",
+      "updatedAt": "2026-10-07T09:45:11.739Z",
+      "summary": "Владелец 07.10.2026 явно разрешил временную передачу серверных ресурсов с остановленного другого Mac для установки финансов."
     }
   ]
 }
