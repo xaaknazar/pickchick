@@ -3330,11 +3330,13 @@
         "packages/commerce-core/src/kiosk-enrollment.ts",
         "packages/commerce-core/tests/kiosk-enrollment.postgres.test.mjs",
         "db/cloud/migrations/044_cloud_kiosk_enrollment.sql",
-        "scripts/provision-kiosk-enrollment.mjs"
+        "scripts/provision-kiosk-enrollment.mjs",
+        "infra/staging/release-kiosk-menu.py",
+        "tests/operations/test_kiosk_menu_release.py"
       ],
       "status": "active",
       "head": "92c08c7787842c71436a9cf6d9d4cef9f2666835",
-      "updatedAt": "2026-10-07T08:35:05.950Z",
+      "updatedAt": "2026-10-07T09:00:35.950Z",
       "summary": "Source39336a7 installed via guarded enrollment-only rollout; all11CI37591650169 passed. Backup/isolatedrestore passed; retained043+applied044; publicassets/financepreserved. One kioskdevice + user shortoperatoralias provisioned. Liveephemeralalias checks: wrong403,correct200,no-store,samenoncereplay200,differentnonce403,devicebranchcheck200; probealiasdeleted,useraliasunused. Kiosk0.1.0(2)installed+launched on iPad; visualcheckblockedMaclocked,useracceptancepending. Docs92c08c7 published. No bankQRcalls; worker/guestpublicroutesoff.",
       "nextAction": "Owner tryshortID/key within24h fromprovision; appstoresinternalcredentialsaftercheck. Continueguestmenu readiness/deliveryACK then separateapproved100KZTQR stage. Do notcallthisfullkioskpaymentreadiness. Preserveprivate393proofand89predecessorproof; futuredeploymentguardbaseline393+schema044. Sharedstatus/roadmapblockedfarmclaim, factsrunbookPR196."
     }
