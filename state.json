@@ -3264,9 +3264,11 @@
         "apps/backoffice/server.mjs",
         "docs/operations/finance-ledger.md"
       ],
-      "status": "active",
-      "head": "2f00491bf41e44bbbe10852b57dd16a9a58bcee8",
-      "updatedAt": "2026-10-07T06:11:39.817Z"
+      "status": "available",
+      "head": "9da01134841d3be19623ea74407e80c7ced0f741",
+      "updatedAt": "2026-10-07T06:40:53.051Z",
+      "summary": "PR197, code7c49cb3 + docs9da0113 published. Accountless entry, simplified form, expandable P&L, cash/P&L dashboards and responsive charts. 14 local unit/model/HTTP/PG/browser tests and builds/lint/format pass. CI37580384222: 9 jobs success; final audit fails shell-quote1.10.0, aggregate failed. Upstream fix89d7959 from kiosk owner has green CI37580398576; no bypass. Not deployed.",
+      "nextAction": "Agree transfer or integrate published shell-quote1.11.0 diff from89d7959 (only pnpm-lock.yaml and pnpm-workspace.yaml; apply --check passes), rerun exact-source CI, integrate shared. Other Mac owns dependencies/VPS and has SSH; refresh release profile for current pointers/schema, backup/restore checks, deploy compatible API and backoffice together. Keep compatible API on UI rollback. Update reserved project-status/roadmap when coordinated. See docs/operations/finance-dashboard.md."
     },
     {
       "id": "kiosk-kaspi-qr",
