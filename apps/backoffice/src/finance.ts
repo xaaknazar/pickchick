@@ -121,7 +121,9 @@ export class FinanceView {
     if (this.editing && m.lastEntryId === this.draft.id) this.clear();
     const area = el('div', 'finance-workspace');
     target.append(area);
-    const toolbar = el('form', 'finance-toolbar');
+    const filterPanel = el('section', 'finance-filters');
+    filterPanel.setAttribute('aria-label', 'Период и подразделение');
+    const toolbar = el('form', 'finance-toolbar finance-period-filter');
     const start = field('С даты', m.start, () => {}, {
         type: 'date',
         required: true,
@@ -155,7 +157,7 @@ export class FinanceView {
       e.preventDefault();
       apply.click();
     });
-    area.append(toolbar);
+    filterPanel.append(toolbar);
     const quick = el('div', 'finance-quick-periods');
     const current = today();
     const previousEnd = new Date(Date.parse(current.slice(0, 7) + '-01T00:00:00Z') - 86400000)
@@ -174,12 +176,14 @@ export class FinanceView {
           m.page = 0;
           void m.load();
         },
-        'finance-link',
+        'finance-period-shortcut',
       );
+      shortcut.setAttribute('aria-pressed', String(m.start === from && m.end === to));
       shortcut.disabled = m.busy || !!m.pending || this.editing;
       quick.append(shortcut);
     }
-    area.append(quick);
+    filterPanel.append(quick);
+    area.append(filterPanel);
     const tabs = el('nav', 'finance-tabs');
     tabs.setAttribute('aria-label', 'Финансовые отчёты');
     for (const [id, label] of [
@@ -278,12 +282,12 @@ export class FinanceView {
       ),
     );
     area.append(top);
-    const filters = el('form', 'finance-toolbar');
+    const filters = el('form', 'finance-toolbar finance-journal-filter');
     const search = field('Найти в журнале', m.search, () => {}, {
       max: 80,
-      hint: 'Документ, контрагент или примечание',
       id: 'finance-search',
     });
+    search.querySelector('input')!.setAttribute('aria-describedby', 'finance-search-hint');
     const article = select(
       'Статья журнала',
       m.category,
@@ -314,7 +318,11 @@ export class FinanceView {
       e.preventDefault();
       find.click();
     });
-    area.append(filters);
+    const hint = el('p', 'finance-filter-hint', 'Поиск по документу, контрагенту или примечанию.');
+    hint.id = 'finance-search-hint';
+    const filterGroup = el('div', 'finance-journal-filters');
+    filterGroup.append(filters, hint);
+    area.append(filterGroup);
     const rows = d.journal.map((r) => {
       const e = r.payload;
       const name = el('div');
@@ -340,12 +348,12 @@ export class FinanceView {
         r.void_reason ? 'Отменена' : 'Проведена',
       ];
     });
-    area.append(
-      table(
-        ['Дата', 'Документ / контрагент', 'Операция', 'Статья', 'Подразделение', 'Сумма', 'Статус'],
-        rows,
-      ),
+    const journalTable = table(
+      ['Дата', 'Документ / контрагент', 'Операция', 'Статья', 'Подразделение', 'Сумма', 'Статус'],
+      rows,
     );
+    journalTable.classList.add('finance-journal-table');
+    area.append(journalTable);
     const pages = el('div', 'finance-pagination');
     const back = button('Назад', () => {
         m.page--;

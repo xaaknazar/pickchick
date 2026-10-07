@@ -1,5 +1,6 @@
 @import url('./fonts.css');
 .finance-workspace {
+  container: finance / inline-size;
   display: grid;
   gap: 20px;
   min-width: 0;
@@ -1697,15 +1698,54 @@ textarea {
   margin: 0;
 }
 .finance-workspace select {
-  appearance: auto;
-  min-height: 44px;
-  padding: 10px 12px;
+  appearance: none;
+  min-height: 48px;
+  padding: 11px 40px 11px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--card);
   color: var(--text);
   font: inherit;
   width: 100%;
+}
+.finance-workspace .field:has(> select) {
+  position: relative;
+}
+.finance-workspace .field:has(> select)::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  right: 18px;
+  bottom: 21px;
+  width: 7px;
+  height: 7px;
+  border-bottom: 1.5px solid var(--muted);
+  border-right: 1.5px solid var(--muted);
+  transform: rotate(45deg);
+}
+.finance-journal-table table {
+  min-width: 920px;
+}
+.finance-journal-table td,
+.finance-journal-table th {
+  padding: 12px;
+}
+.finance-journal-table td:first-child,
+.finance-journal-table td:last-child {
+  width: auto;
+  white-space: nowrap;
+}
+.finance-journal-table td:nth-child(2) {
+  width: 26%;
+  min-width: 210px;
+}
+.finance-journal-table td:nth-child(4) {
+  width: 20%;
+}
+.finance-journal-table td:nth-child(6),
+.finance-journal-table th:nth-child(6) {
+  text-align: right;
+  white-space: nowrap;
 }
 .finance-account-settings {
   border-top: 1px solid var(--border);
@@ -1759,10 +1799,123 @@ textarea {
 .finance-quick-periods {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
-  margin-top: -12px;
+  gap: 8px;
+  margin-top: 12px;
 }
-.finance-quick-periods .finance-link {
+.finance-period-shortcut {
   min-height: 44px;
   font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+}
+.finance-period-shortcut:hover:not(:disabled) {
+  background: var(--hi);
+  color: var(--text);
+}
+.finance-period-shortcut[aria-pressed='true'] {
+  color: #0047bb;
+  background: #edf4ff;
+  border-color: #c5d7f4;
+}
+.finance-filters {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.finance-period-filter,
+.finance-journal-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 12px;
+  align-items: end;
+}
+.finance-period-filter .field,
+.finance-journal-filter .field {
+  min-width: 0;
+}
+.finance-workspace .field-label {
+  line-height: 20px;
+}
+.finance-workspace input:not([type='checkbox']),
+.finance-workspace select {
+  min-width: 0;
+  min-height: 48px;
+  height: 48px;
+  font-size: 15px;
+  line-height: 24px;
+}
+.finance-period-filter > .button,
+.finance-journal-filter > .button {
+  min-height: 48px;
+  padding: 11px 20px;
+}
+.finance-filter-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.finance-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-bottom: 16px;
+}
+.finance-tabs .button {
+  min-height: 52px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 18px;
+  border-color: transparent;
+  background: transparent;
+  white-space: normal;
+}
+.finance-tabs .button:hover:not(:disabled) {
+  background: var(--hi);
+}
+.finance-tabs .button.selected,
+.finance-tabs .button.selected:hover:not(:disabled) {
+  background: var(--text);
+  color: var(--card);
+}
+@container finance (min-width: 760px) {
+  .finance-period-filter {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) auto;
+  }
+  .finance-journal-filter {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  }
+  .finance-tabs {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@container finance (max-width: 479px) {
+  .finance-period-filter > :nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
+  .finance-journal-filter {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .finance-filters {
+    padding: 12px;
+  }
+  .finance-quick-periods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .finance-period-shortcut:last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (forced-colors: active) {
+  .finance-workspace select {
+    appearance: auto;
+    background-image: none;
+  }
+  .finance-workspace .field:has(> select)::after {
+    display: none;
+  }
 }
