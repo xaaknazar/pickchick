@@ -66,7 +66,7 @@ function fixture() {
           sessionId: body.sessionId,
           branchId,
           organizationId: randomUUID(),
-          expiresAt: '2026-10-05T00:00:00Z',
+          expiresAt: new Date(h.clock + 86400000).toISOString(),
         };
       }
       assert.equal(token, JSON.parse(h.rawSession).token);
@@ -225,6 +225,106 @@ test('catalog retry after restart restores the shopping draft without payment re
   assert.deepEqual(JSON.parse(h.rawFlow).cart, savedCart);
   assert.equal(c.getSnapshot().cart.length, original.getSnapshot().cart.length);
 });
+
+test('expired guest is ended and renewed while restoring the same unsubmitted draft', async () => {
+  const h = fixture();
+  await cart(h);
+  const previousSession = JSON.parse(h.rawSession);
+  const previousFlow = JSON.parse(h.rawFlow);
+  h.clock = Date.parse(previousSession.expiresAt);
+  h.calls = [];
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), true);
+  const nextSession = JSON.parse(h.rawSession);
+  const nextFlow = JSON.parse(h.rawFlow);
+  assert.notEqual(nextSession.sessionId, previousSession.sessionId);
+  assert.notEqual(nextSession.token, previousSession.token);
+  assert.equal(nextFlow.guestId, nextSession.sessionId);
+  assert.deepEqual(nextFlow.cart, previousFlow.cart);
+  assert.equal(nextFlow.mode, previousFlow.mode);
+  assert.equal(nextFlow.lastActivityAt, previousFlow.lastActivityAt);
+  assert.deepEqual(
+    h.calls.map((call) => call.path),
+    ['/sessions/end', '/sessions', '/config', '/catalog', '/availability'],
+  );
+  assert.equal(h.calls[0].token, previousSession.token);
+  assert.equal(c.getSnapshot().step, 'menu');
+  assert.equal(c.getSnapshot().cartTotalMinor, '419000');
+});
+
+for (const interruption of ['end', 'detach', 'remove', 'allocate']) {
+  test(`expired guest renewal survives ${interruption} failure without losing the draft`, async () => {
+    const h = fixture();
+    await cart(h);
+    const previousSession = JSON.parse(h.rawSession);
+    const draft = JSON.parse(h.rawFlow).cart;
+    h.clock = Date.parse(previousSession.expiresAt);
+    const originalWrite = h.io.writeFlow;
+    const originalRemove = h.io.removeSession;
+    h.endFail = interruption === 'end';
+    h.io.writeFlow = async (raw) => {
+      const value = JSON.parse(raw);
+      if (
+        (interruption === 'detach' && value.guestId === null) ||
+        (interruption === 'allocate' && value.guestId !== null)
+      )
+        throw Error('storage unavailable');
+      return originalWrite(raw);
+    };
+    h.io.removeSession = async () => {
+      if (interruption === 'remove') throw Error('storage unavailable');
+      return originalRemove();
+    };
+    const interrupted = new CommercialKioskController(h.io);
+    assert.equal(await interrupted.restore(), false);
+    assert.deepEqual(JSON.parse(h.rawFlow).cart, draft);
+    if (interruption === 'end' || interruption === 'detach') {
+      assert.equal(JSON.parse(h.rawSession).sessionId, previousSession.sessionId);
+      assert.equal(JSON.parse(h.rawFlow).guestId, previousSession.sessionId);
+    }
+    h.endFail = false;
+    h.io.writeFlow = originalWrite;
+    h.io.removeSession = originalRemove;
+    const restored = new CommercialKioskController(h.io);
+    assert.equal(await restored.restore(), true);
+    assert.deepEqual(JSON.parse(h.rawFlow).cart, draft);
+    assert.equal(JSON.parse(h.rawFlow).guestId, JSON.parse(h.rawSession).sessionId);
+    assert.notEqual(JSON.parse(h.rawSession).sessionId, previousSession.sessionId);
+    assert.equal(
+      h.calls.some(
+        (call) => ['/quotes', '/orders'].includes(call.path) || call.path.endsWith('/payment'),
+      ),
+      false,
+    );
+  });
+}
+
+for (const uncertain of [false, true]) {
+  test(`expired guest keeps its ${uncertain ? 'uncertain intent' : 'pending order'} identity`, async () => {
+    const h = fixture();
+    const c = await cart(h);
+    if (uncertain) h.failPath = '/orders';
+    assert.equal(await c.beginPayment(), !uncertain);
+    const previousSession = h.rawSession;
+    const previousFlow = JSON.parse(h.rawFlow);
+    h.clock = Date.parse(JSON.parse(previousSession).expiresAt);
+    h.calls = [];
+    h.before = async () => {
+      throw new KioskError('FORBIDDEN', 403);
+    };
+    const restored = new CommercialKioskController(h.io);
+    assert.equal(await restored.restore(), false);
+    assert.equal(h.rawSession, previousSession);
+    assert.equal(JSON.parse(h.rawFlow).guestId, previousFlow.guestId);
+    assert.deepEqual(JSON.parse(h.rawFlow).intent, previousFlow.intent);
+    assert.deepEqual(JSON.parse(h.rawFlow).order, previousFlow.order);
+    assert.equal(
+      h.calls.some((call) => call.path === '/sessions/end' || call.path === '/sessions'),
+      false,
+    );
+    assert.equal(await restored.newGuest(), false);
+  });
+}
 
 test('disabled checkout still loads the menu and draft, but rechecks before any payment intent', async () => {
   const h = fixture(),
