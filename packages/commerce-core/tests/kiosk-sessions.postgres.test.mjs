@@ -473,3 +473,80 @@ test('runtime starts and updates sessions with device lock-anchor column privile
       await f.pool.query(`DROP ROLE ${role}`);
     }
   }));
+
+test('menu release exact session grants support start replay, authenticate and end without PII or money writes', () =>
+  fixture(async (f) => {
+    const role = 'kiosk_menu_' + randomUUID().replaceAll('-', '');
+    await f.pool.query(`CREATE ROLE ${role} NOLOGIN`);
+    let runtime;
+    try {
+      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      // The installed enrollment release already permits the device read/lock.
+      await f.pool.query(`GRANT SELECT,UPDATE(lock_anchor) ON kiosk_devices TO ${role}`);
+      const url = new URL(f.connection);
+      url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 1);
+      const sessions = new KioskSessions(runtime, { piiKey: f.key });
+      const input = { sessionId: randomUUID(), token: secret() };
+      assert.equal((await sessions.validateDevice(f.device, f.token)).deviceId, f.device);
+      await assert.rejects(sessions.start(f.device, f.token, input), (e) => e.code === '42501');
+      // Exercise the actual reviewed release delta, so its SQL cannot silently
+      // drift from the permissions used by this PostgreSQL regression test.
+      const helper = fileURLToPath(
+        new URL('../../../infra/staging/release-kiosk-menu.py', import.meta.url),
+      );
+      const program = `import importlib.util,sys
+spec=importlib.util.spec_from_file_location('menu_grants_test',sys.argv[1])
+module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
+print(module.GRANTS.replace('pickchick_app',sys.argv[2]))`;
+      const { stdout } = await promisify(execFile)('python3', ['-c', program, helper, role]);
+      await f.pool.query(stdout);
+      const started = await sessions.start(f.device, f.token, input);
+      assert.deepEqual(await sessions.start(f.device, f.token, input), started);
+      assert.deepEqual(await sessions.authenticate(f.device, f.token, input.token), {
+        sessionId: input.sessionId,
+        organizationId: f.org,
+        branchId: f.branch,
+        deviceId: f.device,
+      });
+      for (const statement of [
+        'UPDATE kiosk_devices SET active=false',
+        "UPDATE kiosk_devices SET token_hash=repeat('0',64)",
+        'UPDATE kiosk_sessions SET expires_at=expires_at',
+        "UPDATE kiosk_sessions SET token_hash=repeat('0',64)",
+        'UPDATE commerce_orders SET total_minor=total_minor',
+        'INSERT INTO commerce_payment_attempts DEFAULT VALUES',
+        'INSERT INTO commerce_captures DEFAULT VALUES',
+      ])
+        await assert.rejects(runtime.query(statement), (e) => e.code === '42501');
+      await assert.rejects(
+        sessions.setPhone(input.sessionId, '+77000000000'),
+        (e) => e.code === '42501',
+      );
+      await sessions.end(input.sessionId);
+      await sessions.end(input.sessionId);
+      await assert.rejects(sessions.authenticate(f.device, f.token, input.token), denied);
+      assert.equal(
+        (await sessions.authenticate(f.device, f.token, input.token, { allowEnded: true }))
+          .sessionId,
+        input.sessionId,
+      );
+      const row = (
+        await f.pool.query('SELECT * FROM kiosk_sessions WHERE id=$1', [input.sessionId])
+      ).rows[0];
+      assert.ok(row.ended_at);
+      assert.equal(row.phone_ciphertext, null);
+      assert.equal(
+        (await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n,
+        0,
+      );
+      assert.equal(
+        (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+        0,
+      );
+    } finally {
+      if (runtime) await runtime.end();
+      await f.pool.query(`DROP OWNED BY ${role}`);
+      await f.pool.query(`DROP ROLE ${role}`);
+    }
+  }));
