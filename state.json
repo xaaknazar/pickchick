@@ -3428,11 +3428,12 @@
         "apps/kiosk/STORYBOOK.md",
         "docs/design/ipad-ui-refactoring.md",
         "tests/kiosk/ui-architecture.test.mjs",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
       ],
       "status": "active",
       "head": "efe91170a050c59bf9904e91070b51c2176c1c42",
-      "updatedAt": "2026-10-07T10:37:10.953Z"
+      "updatedAt": "2026-10-07T10:49:50.722Z"
     }
   ]
 }
