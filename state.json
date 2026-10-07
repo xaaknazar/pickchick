@@ -3525,11 +3525,15 @@
         "tests/backoffice/staff-login.test.mjs",
         "tests/backoffice/browser_staff_login.py",
         "infra/backoffice-login",
-        "docs/operations/ceo-login.md"
+        "docs/operations/ceo-login.md",
+        "infra/domains",
+        "@vps/public-https",
+        "@vps/gateway",
+        "@vps/backoffice-login"
       ],
       "status": "active",
       "head": "a9a5d4d249f97748a88fa73b014dff488b7232a7",
-      "updatedAt": "2026-10-07T14:48:57.249Z"
+      "updatedAt": "2026-10-07T14:50:07.192Z"
     }
   ]
 }
