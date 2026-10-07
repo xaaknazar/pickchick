@@ -3328,11 +3328,11 @@
         "apps/backoffice/server.mjs",
         "docs/operations/finance-ledger.md"
       ],
-      "status": "active",
+      "status": "available",
       "head": "2ecbbe5d08730122e99251eef75a2a8d13ad1e75",
-      "updatedAt": "2026-10-07T06:47:55.843Z",
-      "summary": "PR197, code7c49cb3 + docs9da0113 published. Accountless entry, simplified form, expandable P&L, cash/P&L dashboards and responsive charts. 14 local unit/model/HTTP/PG/browser tests and builds/lint/format pass. CI37580384222: 9 jobs success; final audit fails shell-quote1.10.0, aggregate failed. Upstream fix89d7959 from kiosk owner has green CI37580398576; no bypass. Not deployed.",
-      "nextAction": "Agree transfer or integrate published shell-quote1.11.0 diff from89d7959 (only pnpm-lock.yaml and pnpm-workspace.yaml; apply --check passes), rerun exact-source CI, integrate shared. Other Mac owns dependencies/VPS and has SSH; refresh release profile for current pointers/schema, backup/restore checks, deploy compatible API and backoffice together. Keep compatible API on UI rollback. Update reserved project-status/roadmap when coordinated. See docs/operations/finance-dashboard.md."
+      "updatedAt": "2026-10-07T06:48:14.470Z",
+      "summary": "Владелец 07.10.2026 закрепил финансы за ЭТИМ Mac3dd9e23b, постоянное правило уже в shared2f56144 и docs/collaboration/finance-ownership.md (PR198). PR197 code7c49cb3 сохранён, docs merge2ecbbe5. 14 локальных проверок passed; CI37580384222: 9jobs passed, final audit shell-quote1.10.0 failed. Не установлено.",
+      "nextAction": "Продолжать finance-dashboard на этом Mac. Согласовать перенос опубликованного исправления89d7959 из занятых файлов зависимостей, повторить CI точного SHA. Для самостоятельного выпуска настроить отдельный SSH-доступ и согласовать временные серверные резервы. Пока доступа нет, установка только по согласованной передаче проверенного выпуска; сама разработка финансов остаётся здесь."
     }
   ]
 }
