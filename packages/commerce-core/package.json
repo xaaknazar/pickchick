@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs tests/restaurant-hours.test.mjs ../../tests/payments/tiptoppay.test.mjs ../../tests/payments/kaspi-remote.test.mjs ../../tests/operations/kaspi-qr-bridge.test.mjs",
-    "test:integration": "node --test --test-concurrency=1 tests/postgres.test.mjs tests/kaspi-remote.postgres.test.mjs tests/kiosk-sessions.postgres.test.mjs tests/kiosk-checkout.postgres.test.mjs tests/kiosk-kaspi-qr.postgres.test.mjs"
+    "test:integration": "node --test --test-concurrency=1 tests/postgres.test.mjs tests/kaspi-remote.postgres.test.mjs tests/kiosk-sessions.postgres.test.mjs tests/kiosk-checkout.postgres.test.mjs tests/kiosk-kaspi-qr.postgres.test.mjs tests/kiosk-enrollment.postgres.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",

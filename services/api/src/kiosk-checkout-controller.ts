@@ -17,6 +17,8 @@ import {
   CommerceError,
   KioskCheckout,
   KioskSessions,
+  KioskEnrollment,
+  kioskEnrollmentKey,
   kioskCheckoutOptions,
   kioskPiiKey,
 } from '@pickchick/commerce-core';
@@ -24,12 +26,22 @@ import type { KioskGuest } from '@pickchick/commerce-core';
 
 @Controller('v1/kiosk-checkout')
 export class KioskCheckoutController {
+  private readonly enrollment: KioskEnrollment | null;
   private readonly sessions: KioskSessions | null;
   private readonly checkout: KioskCheckout | null;
   constructor(@Inject(RESOURCE) resources: Resources) {
     const options = kioskCheckoutOptions(process.env),
       key = kioskPiiKey(process.env);
     if (options && !key) throw new Error('KIOSK_CHECKOUT_PII_KEY required');
+    const enrollmentKey = kioskEnrollmentKey(process.env);
+    this.enrollment =
+      options && enrollmentKey
+        ? new KioskEnrollment(resources.pool, {
+            encryptionKey: enrollmentKey,
+            organizationId: options.organizationId,
+            branchId: options.branchId,
+          })
+        : null;
     this.sessions = options && key ? new KioskSessions(resources.pool, { piiKey: key }) : null;
     this.checkout = this.sessions
       ? new KioskCheckout(resources.pool, options, this.sessions)
@@ -66,6 +78,15 @@ export class KioskCheckoutController {
       key ?? '',
       authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
     );
+  }
+  @Post('enrollment/exchange') @HttpCode(200) enrollmentExchange(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Body() body: unknown,
+  ) {
+    return this.execute(res, async () => {
+      if (!this.enrollment) throw new CommerceError('FORBIDDEN');
+      return this.enrollment.exchange(body);
+    });
   }
   @Post('enrollment/check') @HttpCode(200) enrollmentCheck(
     @Res({ passthrough: true }) res: ServerResponse,

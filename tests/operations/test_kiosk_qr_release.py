@@ -27,7 +27,7 @@ class KioskEnrollmentRelease(unittest.TestCase):
     def test_profile_exact_baseline_and_authorized_deferred_pilot(self):
         self.assertEqual(r.BASELINE,'d6cd144cc7cba9943b614e2a33552111f3f1f44d')
         self.assertEqual(r.PUBLIC_BASELINE,r.BASELINE)
-        self.assertEqual(list(r.MIGRATION_HASHES),['043_cloud_kiosk_kaspi_qr.sql'])
+        self.assertEqual(list(r.MIGRATION_HASHES),['043_cloud_kiosk_kaspi_qr.sql','044_cloud_kiosk_enrollment.sql'])
         for name,checksum in r.MIGRATION_HASHES.items():self.assertEqual(r.digest((ROOT/'db/cloud/migrations'/name).read_bytes()),checksum)
         with tempfile.TemporaryDirectory() as folder:
             folder=Path(folder).resolve();env=folder/'env.json';env.write_text(json.dumps(environment()));env.chmod(0o600)
@@ -107,18 +107,82 @@ class KioskEnrollmentRelease(unittest.TestCase):
         r.base.verify_availability(old,new)
         with self.assertRaises(r.market.GuardFailure):r.base.verify_availability(old,[{**new[0],'stopped_ids':['changed']}])
 
-    def test_environment_preserves_bank_finance_and_existing_flags(self):
-        obj=object.__new__(r.Release);obj.enrollment_environment=environment();obj.sha='a'*40
-        before={'BANK_SECRET':'unchanged','FARM_ENABLED':'unchanged','WEBKASSA_ENABLED':'unchanged'}
-        obj.runtime_environment=lambda:before
-        obj.verify_environment(before)
-        expected={key:r.digest(value.encode()) for key,value in environment().items()}
-        obj.runtime_environment=lambda:{**before,**expected,'RELEASE_SHA':r.digest(obj.sha.encode())}
-        obj.verify_environment(before)
-        obj.runtime_environment=lambda:{**before,**expected,'RELEASE_SHA':r.digest(obj.sha.encode()),'BANK_SECRET':'changed'}
-        with self.assertRaises(r.market.GuardFailure):obj.verify_environment(before)
-        obj.runtime_environment=lambda:{**before,'RELEASE_SHA':r.digest(obj.sha.encode())}
-        with self.assertRaises(r.market.GuardFailure):obj.verify_environment(before)
+    def test_environment_uses_immutable_image_without_release_sha(self):
+        with tempfile.TemporaryDirectory() as folder:
+            obj=object.__new__(r.Release);obj.private=Path(folder);obj.enrollment_environment=environment();obj.sha='a'*40
+            (obj.private/'prepared.json').write_text(json.dumps({'image_id':'candidate','artifacts':{'rollback_image_id':'baseline'}}))
+            before={'BANK_SECRET':'unchanged','FARM_ENABLED':'unchanged','WEBKASSA_ENABLED':'unchanged'}
+            state={'image':'baseline','env':before}
+            obj.remote=lambda command:state['image']
+            obj.runtime_environment=lambda:state['env']
+            obj.verify_environment(before)
+            expected={key:r.digest(value.encode()) for key,value in environment().items()}
+            state.update(image='candidate',env={**before,**expected})
+            obj.verify_environment(before)
+            for change in [{'BANK_SECRET':'changed'},{'RELEASE_SHA':'unexpected'}]:
+                state['env']={**before,**expected,**change}
+                with self.assertRaises(r.market.GuardFailure):obj.verify_environment(before)
+            state['env']=before
+            with self.assertRaises(r.market.GuardFailure):obj.verify_environment(before)
+            state.update(image='unknown',env={**before,**expected})
+            with self.assertRaises(r.market.GuardFailure):obj.verify_environment(before)
+            state.update(image='baseline',env={**before,**expected})
+            with self.assertRaises(r.market.GuardFailure):obj.verify_environment(before)
+
+    def test_retained_retry_requires_original_proofs_and_exact_restored_state(self):
+        with tempfile.TemporaryDirectory() as folder:
+            obj=object.__new__(r.Release);obj.private=Path(folder).resolve();obj.sha='a'*40
+            old=[{'version':'042.sql','scope':'cloud','checksum':'old'}]
+            retained=old+[{'version':n,'scope':'cloud','checksum':h} for n,h in r.MIGRATION_HASHES.items() if n.startswith('043_')]
+            proofs={'prepared.json':{'sha':obj.sha,'old_api':r.BASELINE,'old_web':r.PUBLIC_BASELINE,'baseline_schema':41,'baseline_environment':{},'artifacts':{'rollback_image_id':'oldimage'}},
+                'before.json':{'ledger':old,'acl':[],'worker_acl':[],'neighbors':{}},
+                'rollback.json':{'migration_files_retained':42,'last_migration_retained':next(iter(r.MIGRATION_HASHES)),'acl_restored':True,'live_dump_restored':False,'finance_data_erased':False,'qr_worker_enabled':False},
+                'backup.json':{'restore':'passed','path':'encrypted-backup','sha256':'b'*64}}
+            def write():
+                for name,value in proofs.items():
+                    path=obj.private/name;path.write_text(json.dumps(value));path.chmod(0o600)
+            write()
+            obj.ledger=lambda:retained;obj.acl=lambda:[];obj.worker_acl=lambda:[];obj.fingerprint=lambda:{}
+            obj.runtime_environment=lambda:{}
+            image={'Id':'oldimage','Config':{'Labels':{'org.opencontainers.image.revision':r.BASELINE}}}
+            obj.remote=lambda command:json.dumps(image) if 'docker image inspect' in command else 'oldimage'
+            checked=[];obj.retained_rollback_snapshot=lambda before:checked.append(before)
+            obj.verify_retained_retry(old);self.assertEqual(len(checked),1)
+            image['Id']='different-image'
+            with self.assertRaises(r.market.GuardFailure):obj.verify_retained_retry(old)
+            image['Id']='oldimage';image['Config']['Labels']['org.opencontainers.image.revision']='other'
+            with self.assertRaises(r.market.GuardFailure):obj.verify_retained_retry(old)
+            image['Config']['Labels']['org.opencontainers.image.revision']=r.BASELINE
+            originals={name:(obj.private/name).read_bytes() for name in proofs}
+            obj.verify_retained_retry(old)
+            self.assertEqual(originals,{name:(obj.private/name).read_bytes() for name in proofs})
+            for name,field,value in [('rollback.json','acl_restored',False),('backup.json','restore','failed'),('prepared.json','old_api','other'),('before.json','ledger',[])]:
+                saved=copy.deepcopy(proofs[name]);proofs[name][field]=value;write()
+                with self.subTest(name=name),self.assertRaises(r.market.GuardFailure):obj.verify_retained_retry(old)
+                proofs[name]=saved;write()
+            obj.ledger=lambda:old
+            with self.assertRaises(r.market.GuardFailure):obj.verify_retained_retry(old)
+
+            obj.ledger=lambda:retained
+            original_sha=obj.sha;obj.sha='c'*40
+            proofs['prepared.json'].update(gateway_sha256='d'*64,image_id='original-candidate')
+            proofs['prepared.json']['artifacts'].update(image_id='original-candidate',revision=original_sha)
+            write()
+            obj.verify_retained_retry(old,obj.private)
+            self.assertEqual(obj.previous_attempt_evidence['sha'],original_sha)
+            self.assertEqual(set(obj.previous_attempt_evidence['files']),set(proofs))
+            proofs['prepared.json']['artifacts']['revision']=obj.sha;write()
+            with self.assertRaises(r.market.GuardFailure):obj.verify_retained_retry(old,obj.private)
+
+    def test_compare_runtime_allows_only_missing_migration_tables(self):
+        obj=object.__new__(r.Release)
+        before={'availability':[],'runtime_data':{'tables':{'commerce_kiosk_kaspi_qr':{'rows':0,'sha256':'empty'}},'sequences':[]}}
+        current=copy.deepcopy(before['runtime_data'])
+        current['tables']['kiosk_enrollment_aliases']={'rows':0,'sha256':'empty'}
+        obj.availability_rows=lambda:[];obj.runtime_snapshot=lambda:current
+        obj.compare_runtime(before)
+        current['tables']['commerce_kiosk_kaspi_qr']['rows']=1
+        with self.assertRaises(r.market.GuardFailure):obj.compare_runtime(before)
 
     def test_owner_migration_has_only043_and_select_acl_no_seed_or_worker(self):
         program=r.owner_migration_program()
@@ -127,6 +191,9 @@ class KioskEnrollmentRelease(unittest.TestCase):
         self.assertNotIn('INSERT INTO',program);self.assertNotIn('provision.mjs',program)
         self.assertNotIn('REVOKE',r.API_GRANTS);self.assertNotIn('kaspi_worker',r.API_GRANTS)
         self.assertNotIn('commerce_captures',r.API_GRANTS)
+        self.assertIn('GRANT UPDATE(lock_anchor) ON kiosk_devices TO pickchick_app;',r.API_GRANTS)
+        self.assertEqual(r.API_UPDATE_COLUMNS['kiosk_devices'],{'lock_anchor'})
+        self.assertNotIn('GRANT UPDATE ON',r.API_GRANTS)
 
     def test_prepare_does_not_rebuild_public_or_use_secret_cli_values(self):
         source=inspect.getsource(r.Release.prepare)
@@ -157,54 +224,56 @@ class KioskEnrollmentRelease(unittest.TestCase):
             self.assertNotEqual(run().returncode,0)
 
     def test_offline_apply_simulation_runs_backup_then_migration_compatibility_and_cas(self):
-        with tempfile.TemporaryDirectory() as folder:
-            obj=object.__new__(r.Release);obj.private=Path(folder).resolve();obj.sha='a'*40
-            obj.environment_bytes=b'synthetic';obj.baseline_schema=41;obj.lock_owner={'id':'synthetic'}
-            identity=obj.private/'identity';identity.write_text('synthetic');identity.chmod(0o600)
-            obj.args=SimpleNamespace(backup_identity=identity)
-            artifact={'rollback_image_id':'oldimage'};manifest={'files':{}}
-            proof={'sha':obj.sha,'old_api':r.BASELINE,'old_web':r.BASELINE,'baseline_schema':41,
-                'public_manifest':manifest,'artifacts':artifact,'rollback_files':{},'baseline_environment':{},
-                'enrollment_environment_sha256':r.digest(obj.environment_bytes),'image_id':'newimage','gateway_sha256':'b'*64}
-            (obj.private/'prepared.json').write_text(json.dumps(proof))
-            calls=[];state={'image':'oldimage'}
-            for name in ['source_checks','ci','runtime_old','quiescent']:
-                setattr(obj,name,lambda name=name:calls.append(name))
-            obj.prepared_artifacts=lambda manifest:artifact;obj.rollback_artifacts=lambda:{}
-            obj.runtime_environment=lambda:{};obj.cleanup=lambda action:calls.append('cleanup:'+action)
-            obj.http=lambda *args,**kwargs:(503,b'')
-            obj.http_json=lambda *args,**kwargs:{'ready':True}
-            obj.snapshot=lambda:{'tables':{},'sequences':[]};obj.runtime_snapshot=obj.snapshot
-            obj.availability_rows=lambda:[];obj.acl=lambda:[];obj.worker_acl=lambda:[];obj.fingerprint=lambda:{};obj.audit_rows=lambda:[]
-            names=['001_synthetic.sql'];obj.baseline_migrations=lambda:names
-            with patch.object(r,'digest',r.digest):
-                # Immutable ledger checksum computed from a real existing source file.
-                names[0]=sorted((ROOT/'db/cloud/migrations').glob('*.sql'))[0].name
-            obj.ledger=lambda:[{'version':names[0],'scope':'cloud','checksum':r.digest((ROOT/'db/cloud/migrations'/names[0]).read_bytes())}]
-            obj.psql=lambda *args:'0';obj.save=lambda name,value:calls.append('save:'+name)
-            obj.backup_restore=lambda before:calls.append('backup_restore') or {'restore':'passed'}
-            obj.verify_data=lambda before:calls.append('verify_data');obj.verify_environment=lambda before:calls.append('verify_environment')
-            obj.verify_capabilities=lambda caps:calls.append('verify_capabilities');obj.verify_public=lambda:calls.append('verify_public')
-            obj.switch=lambda *args:calls.append('pointer_cas')
-            def remote(command,**kwargs):
-                if 'owner_migration_program' in command:raise AssertionError('Unexpanded program')
-                if "await migrate(pool" in command:calls.append('migrate')
-                if ' up -d ' in command and ' api' in command:
-                    state['image']='newimage' if obj.sha in command else 'oldimage';calls.append('api:'+state['image'])
-                if "{{.Image}}" in command:return state['image']
-                if '{{json .Mounts}}' in command:
-                    web=f'{r.REMOTE}/public-https/releases/{obj.sha}/infra/public-staging'
-                    return json.dumps([{'Destination':'/etc/caddy/Caddyfile','Source':web+'/gateway.Caddyfile'},{'Destination':'/srv/public','Source':web+'/public-web'}])
-                if 'sha256sum /etc/caddy/Caddyfile' in command:return 'b'*64+' file'
-                return ''
-            obj.remote=remote
-            obj.apply()
-            self.assertLess(calls.index('backup_restore'),calls.index('migrate'))
-            self.assertLess(calls.index('migrate'),calls.index('api:oldimage'))
-            self.assertLess(calls.index('api:oldimage'),calls.index('api:newimage'))
-            self.assertLess(calls.index('api:newimage'),calls.index('pointer_cas'))
-            self.assertIn('verify_public',calls);self.assertIn('cleanup:release',calls)
-            self.assertEqual(obj.phase,'complete')
+        for retained43 in [False,True]:
+            with tempfile.TemporaryDirectory() as folder:
+                obj=object.__new__(r.Release);obj.private=Path(folder).resolve();obj.sha='a'*40
+                obj.environment_bytes=b'synthetic';obj.baseline_schema=41;obj.lock_owner={'id':'synthetic'}
+                identity=obj.private/'identity';identity.write_text('synthetic');identity.chmod(0o600)
+                obj.args=SimpleNamespace(backup_identity=identity,previous_attempt_proof_dir=Path(folder)/"previous" if retained43 else None)
+                artifact={'rollback_image_id':'oldimage'};manifest={'files':{}}
+                proof={'sha':obj.sha,'old_api':r.BASELINE,'old_web':r.BASELINE,'baseline_schema':41,
+                    'public_manifest':manifest,'artifacts':artifact,'rollback_files':{},'baseline_environment':{},
+                    'enrollment_environment_sha256':r.digest(obj.environment_bytes),'image_id':'newimage','gateway_sha256':'b'*64}
+                (obj.private/'prepared.json').write_text(json.dumps(proof))
+                calls=[];state={'image':'oldimage'}
+                for name in ['source_checks','ci','runtime_old','quiescent']:
+                    setattr(obj,name,lambda name=name:calls.append(name))
+                obj.prepared_artifacts=lambda manifest:artifact;obj.rollback_artifacts=lambda:{}
+                obj.runtime_environment=lambda:{};obj.cleanup=lambda action:calls.append('cleanup:'+action)
+                obj.http=lambda *args,**kwargs:(503,b'')
+                obj.http_json=lambda *args,**kwargs:{'ready':True}
+                obj.snapshot=lambda:{'tables':{},'sequences':[]};obj.runtime_snapshot=obj.snapshot
+                obj.availability_rows=lambda:[];obj.acl=lambda:[];obj.worker_acl=lambda:[];obj.fingerprint=lambda:{};obj.audit_rows=lambda:[]
+                names=['001_synthetic.sql'];obj.baseline_migrations=lambda:names
+                with patch.object(r,'digest',r.digest):
+                    # Immutable ledger checksum computed from a real existing source file.
+                    names[0]=sorted((ROOT/'db/cloud/migrations').glob('*.sql'))[0].name
+                obj.ledger=lambda:[{'version':names[0],'scope':'cloud','checksum':r.digest((ROOT/'db/cloud/migrations'/names[0]).read_bytes())}]+([{'version':n,'scope':'cloud','checksum':h} for n,h in r.MIGRATION_HASHES.items() if n.startswith('043_')] if retained43 else [])
+                obj.psql=lambda *args:'0';obj.save=lambda name,value:calls.append('save:'+name)
+                obj.backup_restore=lambda before:calls.append('backup_restore') or {'restore':'passed'}
+                obj.verify_data=lambda before:calls.append('verify_data');obj.verify_environment=lambda before:calls.append('verify_environment')
+                obj.verify_capabilities=lambda caps:calls.append('verify_capabilities');obj.verify_public=lambda:calls.append('verify_public')
+                obj.switch=lambda *args:calls.append('pointer_cas')
+                def remote(command,**kwargs):
+                    if 'owner_migration_program' in command:raise AssertionError('Unexpanded program')
+                    if "await migrate(pool" in command:calls.append('migrate')
+                    if ' up -d ' in command and ' api' in command:
+                        state['image']='newimage' if obj.sha in command else 'oldimage';calls.append('api:'+state['image'])
+                    if "{{.Image}}" in command:return state['image']
+                    if '{{json .Mounts}}' in command:
+                        web=f'{r.REMOTE}/public-https/releases/{obj.sha}/infra/public-staging'
+                        return json.dumps([{'Destination':'/etc/caddy/Caddyfile','Source':web+'/gateway.Caddyfile'},{'Destination':'/srv/public','Source':web+'/public-web'}])
+                    if 'sha256sum /etc/caddy/Caddyfile' in command:return 'b'*64+' file'
+                    return ''
+                obj.remote=remote
+                obj.apply()
+                self.assertLess(calls.index('backup_restore'),calls.index('migrate'))
+                self.assertLess(calls.index('migrate'),calls.index('api:oldimage'))
+                self.assertLess(calls.index('api:oldimage'),calls.index('api:newimage'))
+                self.assertLess(calls.index('api:newimage'),calls.index('pointer_cas'))
+                self.assertIn('verify_public',calls);self.assertIn('cleanup:release',calls)
+                self.assertEqual(obj.phase,'complete')
+
 
     def test_auth_probes_use_valid_finance_query_and_command_body(self):
         source=inspect.getsource(r.Release.verify_public)
@@ -240,7 +309,7 @@ class KioskEnrollmentRelease(unittest.TestCase):
         old={'version':'042_cloud_finance.sql','scope':'cloud','checksum':'old'}
         ledger=[old]+[{'version':n,'scope':'cloud','checksum':h} for n,h in r.MIGRATION_HASHES.items()]
         before={'ledger':[old],'runtime_data':{'tables':{'bo_finance_entries':{'rows':1,'sha256':'old'},'bo_audit':{'rows':0,'sha256':'old'}},'sequences':[]},'audit_rows':[],'availability':[]}
-        current=copy.deepcopy(before['runtime_data']);current['tables']['commerce_kiosk_kaspi_qr']={'rows':0,'sha256':'empty'}
+        current=copy.deepcopy(before['runtime_data']);current['tables'].update({name:{'rows':0,'sha256':'empty'} for name in r.NEW_TABLES})
         obj.ledger=lambda:ledger;obj.runtime_snapshot=lambda:current;obj.availability_rows=lambda:[];obj.audit_rows=lambda installed:[]
         self.assertEqual(obj.retained_rollback_snapshot(before)[0],ledger)
         current['tables']['bo_finance_entries']={'rows':2,'sha256':'new'}
@@ -248,10 +317,51 @@ class KioskEnrollmentRelease(unittest.TestCase):
             obj.retained_rollback_snapshot(before)
         self.assertEqual(current['tables']['bo_finance_entries']['rows'],2)
 
+    def test_rollback_after044_with043_already_in_original_before(self):
+        obj=object.__new__(r.Release)
+        baseline={'version':'042_cloud_finance.sql','scope':'cloud','checksum':'old'}
+        rows=[{'version':n,'scope':'cloud','checksum':h} for n,h in r.MIGRATION_HASHES.items()]
+        before={'ledger':[baseline,rows[0]],'runtime_data':{'tables':{
+            'bo_finance_entries':{'rows':1,'sha256':'money'},
+            'commerce_kiosk_kaspi_qr':{'rows':0,'sha256':'empty'}},'sequences':[]},'availability':[]}
+        current=copy.deepcopy(before['runtime_data'])
+        obj.ledger=lambda:before['ledger'];obj.runtime_snapshot=lambda:current;obj.availability_rows=lambda:[]
+        self.assertEqual(obj.retained_rollback_snapshot(before)[0],before['ledger'])
+        ledger=before['ledger']+[rows[1]]
+        obj.ledger=lambda:ledger
+        current['tables']['kiosk_enrollment_aliases']={'rows':0,'sha256':'empty'}
+        self.assertEqual(obj.retained_rollback_snapshot(before)[0],ledger)
+        current['tables']['kiosk_enrollment_aliases']['rows']=1
+        with self.assertRaises(r.market.GuardFailure):obj.retained_rollback_snapshot(before)
+        current['tables']['kiosk_enrollment_aliases']['rows']=0
+        obj.ledger=lambda:before['ledger']+[rows[0]]
+        with self.assertRaises(r.market.GuardFailure):obj.retained_rollback_snapshot(before)
+        obj.ledger=lambda:ledger
+        current['tables']['bo_finance_entries']['sha256']='changed'
+        with self.assertRaises(r.market.GuardFailure):obj.retained_rollback_snapshot(before)
+
     def test_worker_acl_is_required_unchanged_and_qr_table_empty(self):
         source=inspect.getsource(r.Release.verify_data)
         self.assertIn("self.worker_acl()==before['worker_acl']",source)
-        self.assertIn('SELECT count(*) FROM commerce_kiosk_kaspi_qr',source)
-        self.assertIn('Only enrollment SELECT permission delta allowed',source)
+        self.assertIn('for table in sorted(NEW_TABLES)',source)
+        self.assertIn('Only enrollment SELECT and bounded UPDATE permission delta allowed',source)
+
+    def test_retry_verification_does_not_duplicate_retained043(self):
+        obj=object.__new__(r.Release)
+        ledger=[{'version':'042.sql','scope':'cloud','checksum':'old'}]+[
+            {'version':n,'scope':'cloud','checksum':h} for n,h in r.MIGRATION_HASHES.items()]
+        before={'ledger':ledger,'acl':[],'worker_acl':[]}
+        obj.ledger=lambda:ledger;obj.compare_runtime=lambda before:None
+        obj.acl=lambda:[{'name':name,'kind':'r','column':None,'privilege':'SELECT','grantable':False} for name in r.API_SELECT_TABLES]+[{'name':name,'kind':'r','column':column,'privilege':'UPDATE','grantable':False} for name,columns in r.API_UPDATE_COLUMNS.items() for column in columns]
+        obj.worker_acl=lambda:[];obj.psql=lambda *args:'0'
+        obj.verify_data(before)
+        expected_acl=obj.acl()
+        obj.acl=lambda:[row for row in expected_acl if not (row['name']=='kiosk_devices' and row['column']=='lock_anchor')]
+        with self.assertRaises(r.market.GuardFailure):obj.verify_data(before)
+        obj.acl=lambda:expected_acl+[{'name':'kiosk_devices','kind':'r','column':'token_hash','privilege':'UPDATE','grantable':False}]
+        with self.assertRaises(r.market.GuardFailure):obj.verify_data(before)
+        obj.acl=lambda:expected_acl
+        obj.psql=lambda *args:'1'
+        with self.assertRaisesRegex(r.market.GuardFailure,'QR worker must remain inactive'):obj.verify_data(before)
 
 if __name__=='__main__':unittest.main()

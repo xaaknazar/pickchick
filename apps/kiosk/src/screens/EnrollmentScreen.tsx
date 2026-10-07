@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { provisionCommercialKiosk } from '../storage';
+import { enrollmentCredentialsValid } from '../enrollment';
 import { Body, Button, Heading, Language, layout } from '../components/UI';
 import { colors, useMetrics } from '../theme';
 import type { Locale } from '../i18n';
@@ -15,15 +16,13 @@ export function EnrollmentScreen({ onComplete }: { onComplete(): void }) {
   const ru = locale === 'ru';
   const { px } = useMetrics();
   const safe = useSafeAreaInsets();
-  const valid =
-    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(deviceId.trim()) &&
-    /^[a-f0-9]{64}$/.test(key.trim());
+  const valid = enrollmentCredentialsValid(deviceId.trim(), key);
   const enroll = async () => {
     if (busy || !valid) return;
     setBusy(true);
     setError(false);
     try {
-      await provisionCommercialKiosk(deviceId.trim(), key.trim());
+      await provisionCommercialKiosk(deviceId.trim(), key);
       setDeviceId('');
       setKey('');
       onComplete();
@@ -84,7 +83,7 @@ export function EnrollmentScreen({ onComplete }: { onComplete(): void }) {
               autoCorrect={false}
               autoComplete="off"
               textContentType="none"
-              maxLength={name === 'key' ? 64 : 36}
+              maxLength={name === 'key' ? 128 : 64}
               style={{
                 minHeight: 56,
                 padding: px(18),

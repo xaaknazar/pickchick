@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guarded enrollment-only kiosk API schema042 ->043; QR worker stays off.
+"""Guarded enrollment-only kiosk API schema042 ->043+044; QR worker stays off.
 
 Requires Python 3.12, exact green CI, owned maintenance, encrypted backup/restore,
 immutable artifacts, enrollment SELECT grants and pointer CAS. No live charge,
@@ -9,8 +9,10 @@ Requires --environment private0600 JSON with explicit kiosk options (the already
 authorized deferred_pilot is supported), and --finance-proof original installed
 finance prepared.json. The expected gateway hash must match that proof; no hash
 is inferred from an arbitrary current gateway. Public assets stay byte-identical.
+For a new candidate after a completed043 rollback, --previous-attempt-proof-dir
+must identify the original private prepared/before/backup/rollback evidence.
 prepare constructs inactive artifacts; apply requires owned maintenance and backup.
-rollback retains043 and all data, and fails closed if money changed meanwhile.
+rollback retains043+044 and all data, and fails closed if money changed meanwhile.
 """
 import argparse
 import importlib.util
@@ -32,14 +34,22 @@ gateway_validation_command = base.gateway_validation_command
 BASELINE = 'd6cd144cc7cba9943b614e2a33552111f3f1f44d'
 PUBLIC_BASELINE = 'd6cd144cc7cba9943b614e2a33552111f3f1f44d'
 COMPOSE_BASELINE = '15f7d29229f5e119250f7893479a08e128778b16c905a523492223b08e3c2071'
-MIGRATION_HASHES = {'043_cloud_kiosk_kaspi_qr.sql':'afab40793e930a1c7a647fe2ad7e28e8b94922f7c95bcace4f14fb7e3e08f5e2'}
-NEW_TABLES = {'commerce_kiosk_kaspi_qr'}
+MIGRATION_HASHES = {'043_cloud_kiosk_kaspi_qr.sql':'afab40793e930a1c7a647fe2ad7e28e8b94922f7c95bcace4f14fb7e3e08f5e2',
+    '044_cloud_kiosk_enrollment.sql':'ea55253db1ef9daf1ec6544204f7a33b3fb33a944c4dbdb36d6bb83563e143a5'}
+MIGRATION_TABLES = {'043_cloud_kiosk_kaspi_qr.sql':{'commerce_kiosk_kaspi_qr'},
+    '044_cloud_kiosk_enrollment.sql':{'kiosk_enrollment_aliases'}}
+NEW_TABLES = set().union(*MIGRATION_TABLES.values())
 # Enrollment checks the branch and its catalog ACK even when ordering is disabled.
 # Existing SELECTs are deduplicated during exact ACL verification; no write authority.
 API_SELECT_TABLES = {'kiosk_devices','commerce_kiosk_kaspi_qr','branches','catalog_branch_heads',
     'commerce_provider_accounts','catalog_menu_deliveries','menu_releases','devices',
     'fulfillment_transport_bindings','branch_menu_activations','outbox_events','inbox_messages'}
+API_SELECT_TABLES.add('kiosk_enrollment_aliases')
+API_UPDATE_COLUMNS = {'kiosk_enrollment_aliases':{'request_id','failed_attempts','locked_until'},
+    'kiosk_devices':{'lock_anchor'}}
 API_GRANTS = 'GRANT SELECT ON '+','.join(sorted(API_SELECT_TABLES))+' TO pickchick_app;'
+API_GRANTS += 'GRANT UPDATE(request_id,failed_attempts,locked_until) ON kiosk_enrollment_aliases TO pickchick_app;'
+API_GRANTS += 'GRANT UPDATE(lock_anchor) ON kiosk_devices TO pickchick_app;'
 
 
 def verify_manifest(before,after,sha=None):
@@ -70,13 +80,14 @@ def validate_environment(value):
         'KIOSK_CHECKOUT_APPROVAL_REFERENCE','KIOSK_CHECKOUT_TAX_CODE','KIOSK_CHECKOUT_MAX_MINOR',
         'KIOSK_CHECKOUT_PII_KEY','KIOSK_KASPI_QR_ENABLED'}
     require(isinstance(value,dict) and keys <= value.keys() and
-            value.keys() <= keys|{'KIOSK_CHECKOUT_FISCAL_ACCOUNT_ID'}, 'Exact enrollment environment required')
+            value.keys() <= keys|{'KIOSK_CHECKOUT_FISCAL_ACCOUNT_ID','KIOSK_ENROLLMENT_KEY'}, 'Exact enrollment environment required')
     require(all(isinstance(v,str) and '\n' not in v and '\r' not in v for v in value.values()), 'Invalid environment value')
     require(value['KIOSK_CHECKOUT_ENABLED']=='true' and value['KIOSK_CHECKOUT_PAYMENT_METHOD']=='kaspi_qr'
             and value['KIOSK_KASPI_QR_ENABLED']=='false', 'Enrollment only; QR worker must remain disabled')
     for name in ['KIOSK_CHECKOUT_ORGANIZATION_ID','KIOSK_CHECKOUT_BRANCH_ID','KIOSK_KASPI_QR_ACCOUNT_ID']:
         require(re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',value[name]),'Invalid enrollment UUID')
     require(re.fullmatch('[a-f0-9]{64}',value['KIOSK_CHECKOUT_PII_KEY']), 'Invalid private PII key')
+    require('KIOSK_ENROLLMENT_KEY' not in value or re.fullmatch('[a-f0-9]{64}',value['KIOSK_ENROLLMENT_KEY']), 'Invalid enrollment key')
     require(re.fullmatch('[1-9][0-9]{0,8}',value['KIOSK_CHECKOUT_MAX_MINOR']), 'Invalid kiosk limit')
     require(3<=len(value['KIOSK_CHECKOUT_APPROVAL_REFERENCE'].strip())<=250 and
             1<=len(value['KIOSK_CHECKOUT_TAX_CODE'].strip())<=32, 'Explicit fiscal binding required')
@@ -96,7 +107,7 @@ def gateway_candidate(raw, expected_hash):
     block = '''\t# Enrollment only: no guest checkout or payment routes are exposed.
 \t@kiosk_enrollment_check {
 \t\tmethod POST
-\t\tpath /v1/kiosk-checkout/enrollment/check
+\t\tpath /v1/kiosk-checkout/enrollment/check /v1/kiosk-checkout/enrollment/exchange
 \t}
 \thandle @kiosk_enrollment_check {
 \t\theader X-PickChick-Data kiosk
@@ -135,7 +146,7 @@ const url=new URL(process.env.CLOUD_DATABASE_URL);
 if(url.username!=='pickchick_owner'||url.pathname!=='/pickchick_cloud')throw new Error('Owner database required');
 const pool=createPool(url.href);
 try{await migrate(pool,'/app/db/cloud/migrations','cloud');await transaction(pool,c=>c.query("""+json.dumps(API_GRANTS)+"""));
-console.log(JSON.stringify({migrationFiles:42,lastMigration:43,qrWorkerEnabled:false}));}finally{await pool.end();}"""
+console.log(JSON.stringify({migrationFiles:43,lastMigration:44,qrWorkerEnabled:false}));}finally{await pool.end();}"""
 
 def enrollment_env_append_program():
     return "from pathlib import Path;import json,sys;p=Path(sys.argv[1]);values=json.load(sys.stdin);raw=p.read_text();assert not any(line.split('=',1)[0] in values for line in raw.splitlines());p.write_text(raw+''.join(k+'='+v+chr(10) for k,v in sorted(values.items())));p.chmod(0o600)"
@@ -162,7 +173,7 @@ class Release(base.Release):
         self.environment_bytes=private_read(args.environment)
         self.enrollment_environment=validate_environment(json.loads(self.environment_bytes))
         self.baseline_schema=41
-        profile=market.ReleaseProfile('kiosk-enrollment-schema043',BASELINE,PUBLIC_BASELINE,41,
+        profile=market.ReleaseProfile('kiosk-enrollment-schema044',BASELINE,PUBLIC_BASELINE,41,
             tuple(MIGRATION_HASHES),base.CI_JOBS,frozenset(),'kiosk-enrollment-release',(),exact_ci_jobs=True)
         market.Release.__init__(self,args,profile)
 
@@ -174,7 +185,7 @@ class Release(base.Release):
     def preflight(self):
         self.source_checks();self.ci();self.runtime_old()
         self.save('preflight.json',{'source_sha':self.sha,'baseline_api':BASELINE,
-            'baseline_public':PUBLIC_BASELINE,'baseline_migrations':41,'candidate_migrations':42,
+            'baseline_public':PUBLIC_BASELINE,'baseline_migrations':41,'candidate_migrations':43,
             'qr_worker_enabled':False,'enrollment_only':True,'deployed':False,
             'environment_sha256':digest(self.environment_bytes)})
         print('Read-only kiosk enrollment preflight passed; active services unchanged',flush=True)
@@ -186,10 +197,16 @@ class Release(base.Release):
         require(self.remote('docker exec '+market.GATEWAY+' sha256sum /etc/caddy/Caddyfile').split()[0] == self.args.expected_gateway_sha256, 'Gateway changed')
         require(self.file_hashes([REMOTE+'/releases/'+BASELINE+'/infra/staging/compose.yaml']) ==
             {REMOTE+'/releases/'+BASELINE+'/infra/staging/compose.yaml':COMPOSE_BASELINE}, 'API compose changed')
-        require(self.ledger() == [{'version':n,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/n).read_bytes())} for n in self.baseline_migrations()], 'Baseline schema changed')
+        expected = [{'version':n,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/n).read_bytes())} for n in self.baseline_migrations()]
+        if getattr(self.args,'previous_attempt_proof_dir',None):
+            self.verify_retained_retry(expected,self.args.previous_attempt_proof_dir)
+        elif getattr(self.args,'retry_retained_043',False):
+            self.verify_retained_retry(expected)
+        else:
+            require(self.ledger() == expected, 'Baseline schema changed')
         require(not any(k.startswith('TIPTOPPAY_') for k in self.runtime_environment()), 'TipTopPay already configured')
         require(self.psql(market.DB,"SELECT count(*) FROM commerce_provider_accounts WHERE provider='kaspi-qr' AND enabled")== '0','QR account must remain disabled')
-        require(not any(k.startswith(('KIOSK_CHECKOUT_','KIOSK_KASPI_QR_')) for k in self.runtime_environment()),'Kiosk already configured')
+        require(not any(k.startswith(('KIOSK_CHECKOUT_','KIOSK_KASPI_QR_','KIOSK_ENROLLMENT_')) for k in self.runtime_environment()),'Kiosk already configured')
 
     def runtime_snapshot(self):
         original=self.additions
@@ -199,19 +216,24 @@ class Release(base.Release):
 
     def compare_runtime(self,before):
         base.verify_availability(before['availability'],self.availability_rows())
-        market.compare_existing(before['runtime_data'],self.runtime_snapshot(),additions=True,new_tables=NEW_TABLES)
+        market.compare_existing(before['runtime_data'],self.runtime_snapshot(),additions=True,new_tables=NEW_TABLES-set(before['runtime_data']['tables']))
 
     def verify_data(self,before):
-        require(self.ledger()==before['ledger']+[{'version':n,'scope':'cloud','checksum':h} for n,h in MIGRATION_HASHES.items()],'Migration ledger differs')
+        require(self.ledger()==before['ledger']+[{'version':n,'scope':'cloud','checksum':h} for n,h in MIGRATION_HASHES.items() if n not in {row['version'] for row in before['ledger']}],'Migration ledger differs')
         self.compare_runtime(before)
         wanted=list(before['acl'])
         for name in API_SELECT_TABLES:
             row={'name':name,'kind':'r','column':None,'privilege':'SELECT','grantable':False}
             if row not in wanted:wanted.append(row)
+        for name,columns in API_UPDATE_COLUMNS.items():
+            for column in columns:
+                row={'name':name,'kind':'r','column':column,'privilege':'UPDATE','grantable':False}
+                if row not in wanted:wanted.append(row)
         key=lambda row:(row['name'],row['kind'],row['column'] or '',row['privilege'],row['grantable'])
-        require(sorted(map(key,self.acl()))==sorted(map(key,wanted)),'Only enrollment SELECT permission delta allowed')
+        require(sorted(map(key,self.acl()))==sorted(map(key,wanted)),'Only enrollment SELECT and bounded UPDATE permission delta allowed')
         require(self.worker_acl()==before['worker_acl'],'Kaspi worker permissions changed')
-        require(self.psql(market.DB,'SELECT count(*) FROM commerce_kiosk_kaspi_qr')=='0','QR worker must remain inactive')
+        for table in sorted(NEW_TABLES):
+            require(self.psql(market.DB,'SELECT count(*) FROM '+table)=='0','QR worker must remain inactive')
 
     def audit_rows(self,finance_installed=False):
         projection = "encode(sha256(convert_to(row_to_json(a)::text,'UTF8')),'hex')"
@@ -232,12 +254,13 @@ class Release(base.Release):
 
     def retained_rollback_snapshot(self,before):
         ledger = self.ledger()
-        additions = [{'version':n,'scope':'cloud','checksum':h} for n,h in MIGRATION_HASHES.items()]
+        additions = [{'version':n,'scope':'cloud','checksum':h} for n,h in MIGRATION_HASHES.items()
+                     if n not in {row['version'] for row in before['ledger']}]
         require(len(before['ledger']) <= len(ledger) <= len(before['ledger'])+len(additions) and
                 ledger == before['ledger']+additions[:len(ledger)-len(before['ledger'])],
                 'Rollback ledger is not an exact reviewed migration prefix')
         applied = {row['version'] for row in ledger[len(before['ledger']):]}
-        expected_new=NEW_TABLES if '043_cloud_kiosk_kaspi_qr.sql' in applied else set()
+        expected_new={table for name,tables in MIGRATION_TABLES.items() if name in applied for table in tables}
         current=self.runtime_snapshot()
         require(set(current['tables'])-set(before['runtime_data']['tables'])==expected_new,'Rollback schema differs')
         require(all(current['tables'][n]['rows']==0 for n in expected_new),'Enrollment-only QR rail acquired data')
@@ -255,11 +278,47 @@ class Release(base.Release):
 
     def verify_environment(self,before):
         after=self.runtime_environment()
-        candidate=after.get('RELEASE_SHA')==digest(self.sha.encode())
+        proof=json.loads((self.private/'prepared.json').read_text())
+        image=self.remote('docker inspect --format '+quote('{{.Image}}')+' '+market.API_CONTAINER)
+        require(image in [proof['image_id'],proof['artifacts']['rollback_image_id']], 'Unreviewed running API image')
+        candidate=image==proof['image_id']
         wanted={key:digest(value.encode()) for key,value in self.enrollment_environment.items()} if candidate else {}
         require(all(after.get(key)==value for key,value in wanted.items()),'Enrollment settings differ')
-        exclude=set(wanted)|{'RELEASE_SHA'}
+        exclude=set(wanted)
         require({k:v for k,v in after.items() if k not in exclude}=={k:v for k,v in before.items() if k not in exclude},'Existing API environment changed')
+
+    def verify_retained_retry(self,expected,previous=None):
+        folder=Path(previous).absolute() if previous else self.private
+        proof=json.loads(private_read(folder/'prepared.json'))
+        before=json.loads(private_read(folder/'before.json'))
+        rollback=json.loads(private_read(folder/'rollback.json'))
+        backup=json.loads(private_read(folder/'backup.json'))
+        require(re.fullmatch('[a-f0-9]{40}',proof['sha']) and
+                (proof['old_api'],proof['old_web'],proof['baseline_schema']) ==
+                (BASELINE,PUBLIC_BASELINE,41), 'Retry requires original preparation')
+        require(proof['sha'] != self.sha if previous else proof['sha'] == self.sha, 'Previous attempt candidate identity differs')
+        require(before['ledger']==expected, 'Retry original baseline ledger differs')
+        retained=expected+[{'version':n,'scope':'cloud','checksum':h} for n,h in MIGRATION_HASHES.items() if n.startswith('043_')]
+        require(self.ledger()==retained and rollback=={'migration_files_retained':42,
+            'last_migration_retained':next(iter(MIGRATION_HASHES)), 'acl_restored':True,
+            'live_dump_restored':False,'finance_data_erased':False,'qr_worker_enabled':False}, 'Retry requires completed retained043 rollback')
+        require(backup.get('restore')=='passed' and backup.get('path') and
+                re.fullmatch('[a-f0-9]{64}',backup.get('sha256','')), 'Original restored backup proof required')
+        require(self.acl()==before['acl'] and self.worker_acl()==before['worker_acl'] and
+                self.fingerprint()==before['neighbors'], 'Retry rollback runtime differs')
+        require(self.runtime_environment()==proof['baseline_environment'], 'Retry baseline environment changed')
+        require(self.remote('docker inspect --format '+quote('{{.Image}}')+' '+market.API_CONTAINER)==
+                proof['artifacts']['rollback_image_id'], 'Retry baseline image differs')
+        baseline_image=json.loads(self.remote('docker image inspect --format '+quote('{{json .}}')+' pickchick-api:'+BASELINE))
+        require(baseline_image['Id']==proof['artifacts']['rollback_image_id'] and
+                baseline_image['Config']['Labels']['org.opencontainers.image.revision']==BASELINE,
+                'Original rollback image is not immutable finance baseline')
+        self.retained_rollback_snapshot(before)
+        if previous:
+            require(proof.get('gateway_sha256') and proof.get('image_id')==proof.get('artifacts',{}).get('image_id') and
+                    proof['artifacts'].get('revision')==proof['sha'], 'Previous immutable candidate proof differs')
+            captured={name:digest(private_read(folder/name)) for name in ['prepared.json','before.json','rollback.json','backup.json']}
+            self.previous_attempt_evidence={'sha':proof['sha'],'files':captured,'rollback_image_id':proof['artifacts']['rollback_image_id']}
 
     def prepared_artifacts(self,manifest):
         result = base.Release.prepared_artifacts(self,manifest)
@@ -332,6 +391,7 @@ class Release(base.Release):
         prepared = {'sha':self.sha,'old_web':PUBLIC_BASELINE,'old_api':BASELINE,'image_id':image,'public_manifest':manifest,
             'gateway_sha256':digest(gateway.encode()),'rollback_files':rollback,
             'baseline_capabilities':self.http_json('/v1/capabilities',public=False),'baseline_auth':self.http_json('/v1/auth/config'),
+            'previous_attempt':getattr(self,'previous_attempt_evidence',None),
             'baseline_schema':self.baseline_schema, 'kitchen_sha':self.kitchen_before['sourceSha'],
             'baseline_catalog':self.http_json('/v1/customer-checkout/catalog'),
             'baseline_hours':self.http_json('/v1/customer-checkout/availability').get('hours'), 'baseline_environment':self.runtime_environment(),'enrollment_environment_sha256':digest(self.environment_bytes)}
@@ -348,6 +408,7 @@ class Release(base.Release):
         require(self.prepared_artifacts(proof['public_manifest']) == proof['artifacts'] and
                 self.rollback_artifacts() == proof['rollback_files'], 'Prepared or rollback artifacts changed')
         require(proof.get('enrollment_environment_sha256')==digest(self.environment_bytes),'Prepared private environment changed')
+        require(proof.get('previous_attempt')==getattr(self,'previous_attempt_evidence',None),'Previous attempt evidence changed')
         key = self.args.backup_identity
         require(key and key.is_file() and not key.is_symlink() and key.stat().st_mode & 0o077 == 0, 'Protected backup identity required')
         require(self.runtime_environment() == proof['baseline_environment'], 'Baseline running environment changed')
@@ -363,16 +424,19 @@ class Release(base.Release):
         self.quiescent()
         before = {'data':self.snapshot(),'runtime_data':self.runtime_snapshot(),'availability':self.availability_rows(),'ledger':self.ledger(),'acl':self.acl(),'worker_acl':self.worker_acl(),'neighbors':self.fingerprint(),'audit_rows':self.audit_rows()}
         expected = [{'version':name,'scope':'cloud','checksum':digest((market.REPO/'db/cloud/migrations'/name).read_bytes())} for name in self.baseline_migrations()]
-        require(before['ledger'] == expected, 'Baseline migration ledger differs')
-        self.save('before.json',before)
-        backup = self.backup_restore(before['data']); self.save('backup.json',backup)
+        retry=getattr(self.args,'retry_retained_043',False)
+        retained=retry or getattr(self.args,'previous_attempt_proof_dir',None)
+        require(before['ledger'] == expected+([{'version':n,'scope':'cloud','checksum':h} for n,h in MIGRATION_HASHES.items() if n.startswith('043_')] if retained else []), 'Baseline migration ledger differs')
+        suffix='retry-'+self.lock_owner['id']+'-' if retry else ''
+        self.save(suffix+'before.json',before)
+        backup = self.backup_restore(before['data']); self.save(suffix+'backup.json',backup)
         for _ in range(2):
             self.cleanup('status'); self.quiescent()
             self.remote(market.api_compose(self.sha)+' run --rm --no-deps --entrypoint node provision --input-type=module -e '+quote(owner_migration_program()),timeout=180)
             self.verify_data(before)
-        # Retain schema043 (42 files) on rollback; run old API only, never old provision.
+        # Retain schema043+044 (43 files) on rollback; run old API only, never old provision.
         self.remote(market.api_compose(BASELINE)+' up -d --no-deps --wait --wait-timeout 120 api',timeout=180)
-        require(self.http_json('/health/ready',public=False)['ready'], 'Old image incompatible with retained schema043 (42 files)')
+        require(self.http_json('/health/ready',public=False)['ready'], 'Old image incompatible with retained schema043+044 (43 files)')
         require(self.remote('docker inspect --format '+quote('{{.Image}}')+' '+market.API_CONTAINER) == proof['artifacts']['rollback_image_id'], 'Old compatibility image differs')
         self.verify_environment(proof['baseline_environment'])
         self.verify_capabilities(self.http_json('/v1/capabilities',public=False))
@@ -401,7 +465,7 @@ class Release(base.Release):
         self.cleanup('release')
         self.phase = 'complete'
         self.save('phase.json',{'phase':self.phase,'ingress':'open'})
-        self.save('result.json',{'source_sha':self.sha,'migration_files':42,'last_migration':43,'qr_worker_enabled':False,'enrollment_only':True,'backoffice_updated':False,'non_backoffice_assets_preserved':True,'runtime_acl_verified':True,'worker_preserved':True,'old_image_compatible':True,'backup':backup})
+        self.save('result.json',{'source_sha':self.sha,'migration_files':43,'last_migration':44,'qr_worker_enabled':False,'enrollment_only':True,'backoffice_updated':False,'non_backoffice_assets_preserved':True,'runtime_acl_verified':True,'worker_preserved':True,'old_image_compatible':True,'backup':backup})
         print('Published enrollment-only kiosk API/gateway; QR worker off and all public assets preserved',flush=True)
 
     def retain_failure(self, error):
@@ -471,7 +535,7 @@ os.unlink(path+'/owner.json');os.rmdir(path)
         self.psql(market.DB,market.acl_restore_sql(before['acl'],self.acl()))
         require(self.acl() == before['acl'], 'Old ACL not restored exactly')
         self.remote(market.api_compose(BASELINE)+' up -d --no-deps --wait --wait-timeout 120 api',timeout=180)
-        require(self.http_json('/health/ready',public=False)['ready'], 'Old API incompatible with retained schema043 (42 files)')
+        require(self.http_json('/health/ready',public=False)['ready'], 'Old API incompatible with retained schema043+044 (43 files)')
         require(self.remote('docker inspect --format '+quote('{{.Image}}')+' '+market.API_CONTAINER) == proof['artifacts']['rollback_image_id'], 'Rollback image changed')
         self.verify_capabilities(self.http_json('/v1/capabilities',public=False))
         self.verify_environment(proof['baseline_environment'])
@@ -501,7 +565,11 @@ def main():
         parser.add_argument('--'+name,type=Path,required=name in ['ssh-key','environment','finance-proof'])
     parser.add_argument('--ci-run')
     parser.add_argument('--owner-id')
+    parser.add_argument('--previous-attempt-proof-dir',type=Path,help='Original private completed retained043 rollback evidence for a new candidate')
+    parser.add_argument('--retry-retained-043',action='store_true',help='Apply again using original completed rollback proofs; retain043 and baseline')
     args = parser.parse_args(); release = Release(args)
+    require(not args.retry_retained_043 or args.action=='apply','Retained043 retry is apply-only')
+    require(not (args.retry_retained_043 and args.previous_attempt_proof_dir),'Choose original retry or new candidate predecessor')
     try:
         if args.action == 'preflight':
             require(args.owner_id is None,'Owner UUID is rollback-only')

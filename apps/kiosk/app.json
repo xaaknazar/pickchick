@@ -11,7 +11,7 @@
       "isTabletOnly": true,
       "requireFullScreen": true,
       "bundleIdentifier": "kz.pickchick.kiosk",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -21,7 +21,10 @@
         "UIViewControllerBasedStatusBarAppearance": false
       }
     },
-    "web": { "bundler": "metro", "output": "single" },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "plugins": [
       "expo-font",
       "expo-secure-store",
@@ -33,7 +36,13 @@
           "imageWidth": 180
         }
       ],
-      ["expo-video", { "supportsBackgroundPlayback": false, "supportsPictureInPicture": false }]
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ]
     ],
     "extra": {
       "environment": "staging",
