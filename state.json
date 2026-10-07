@@ -3211,33 +3211,6 @@
       "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3, TestFlight (добавить expo-haptics при освобождении apps/mobile/ios), физический iPhone."
     },
     {
-      "id": "kiosk-kaspi-qr",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-kaspi-qr",
-      "scopes": [
-        "apps/kiosk",
-        "tests/kiosk",
-        "packages/commerce-core/src/kiosk-checkout.ts",
-        "packages/commerce-core/src/kiosk-kaspi-qr.ts",
-        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
-        "packages/commerce-core/tests/kiosk-kaspi-qr.postgres.test.mjs",
-        "services/api/src/kiosk-checkout-controller.ts",
-        "docs/operations/kiosk-kaspi-qr.md",
-        "services/api/src/kiosk-kaspi-qr-worker.ts",
-        "infra/payments/kaspi-bridge/pickchick-qr.patch",
-        "infra/payments/kaspi-bridge/qr-routes.mjs",
-        "tests/operations/kaspi-qr-bridge.test.mjs",
-        "db/cloud/migrations/043_cloud_kiosk_kaspi_qr.sql",
-        "packages/commerce-core/src/index.ts",
-        "pnpm-lock.yaml",
-        "infra/payments/kaspi-bridge/install-overlays.mjs",
-        "infra/payments/kaspi-bridge/prepare-container.mjs"
-      ],
-      "status": "active",
-      "head": "7e58f90bd13c2c60c8ff95d529f1513c1a9ab3d1",
-      "updatedAt": "2026-10-07T05:07:22.493Z"
-    },
-    {
       "id": "finance-ledger",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/finance-ledger",
@@ -3273,6 +3246,35 @@
       "updatedAt": "2026-10-07T05:10:21.697Z",
       "summary": "Source d6cd144 published in PR195. Finance13 + browser + historical39 + releaseguard14 + realPG audit rollback passed. Live baseline850c6fa/schema038; no deployment/migrations/newbackup. CI37458393708 has9success; POS recovery5s timeout then retry blocked beforestart by confirmed GitHub Actions budget60/60. Owner asked to restorebudget.",
       "nextAction": "After user fixesActionsbudget, rerun failedjobs on sameSHA once; obtain11greenjobproof. Then finance release prepare/apply with encrypted backup/restore and rollback, browserlogin/reports. Own TipTop coordinated:039/040 exactschema precede042, runtimeTipTop staysoff. API reservation remains finance untilcompleted."
+    },
+    {
+      "id": "kiosk-kaspi-qr",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-kaspi-qr",
+      "scopes": [
+        "apps/kiosk",
+        "tests/kiosk",
+        "packages/commerce-core/src/kiosk-checkout.ts",
+        "packages/commerce-core/src/kiosk-kaspi-qr.ts",
+        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
+        "packages/commerce-core/tests/kiosk-kaspi-qr.postgres.test.mjs",
+        "services/api/src/kiosk-checkout-controller.ts",
+        "docs/operations/kiosk-kaspi-qr.md",
+        "services/api/src/kiosk-kaspi-qr-worker.ts",
+        "infra/payments/kaspi-bridge/pickchick-qr.patch",
+        "infra/payments/kaspi-bridge/qr-routes.mjs",
+        "tests/operations/kaspi-qr-bridge.test.mjs",
+        "db/cloud/migrations/043_cloud_kiosk_kaspi_qr.sql",
+        "packages/commerce-core/src/index.ts",
+        "pnpm-lock.yaml",
+        "infra/payments/kaspi-bridge/install-overlays.mjs",
+        "infra/payments/kaspi-bridge/prepare-container.mjs",
+        "packages/commerce-core/src/kiosk-sessions.ts",
+        "packages/commerce-core/package.json"
+      ],
+      "status": "active",
+      "head": "7e58f90bd13c2c60c8ff95d529f1513c1a9ab3d1",
+      "updatedAt": "2026-10-07T05:13:18.681Z"
     }
   ]
 }
