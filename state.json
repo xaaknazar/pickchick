@@ -3349,11 +3349,11 @@
         "docs/operations/finance-ledger.md",
         "docs/collaboration/finance-ownership.md"
       ],
-      "status": "active",
-      "head": "81bbb8677e3a33876ed8d599e58bfacd9242b72a",
-      "updatedAt": "2026-10-07T09:15:58.557Z",
-      "summary": "Владелец 07.10.2026 закрепил финансы за ЭТИМ Mac3dd9e23b, постоянное правило уже в shared2f56144 и docs/collaboration/finance-ownership.md (PR198). PR197 code7c49cb3 сохранён, docs merge2ecbbe5. 14 локальных проверок passed; CI37580384222: 9jobs passed, final audit shell-quote1.10.0 failed. Не установлено.",
-      "nextAction": "Продолжать finance-dashboard на этом Mac. Согласовать перенос опубликованного исправления89d7959 из занятых файлов зависимостей, повторить CI точного SHA. Для самостоятельного выпуска настроить отдельный SSH-доступ и согласовать временные серверные резервы. Пока доступа нет, установка только по согласованной передаче проверенного выпуска; сама разработка финансов остаётся здесь."
+      "status": "available",
+      "head": "12c6bfae03d2592e2c015f211e9c9d8636c6c581",
+      "updatedAt": "2026-10-07T09:16:36.671Z",
+      "summary": "Финансы закреплены за Mac3dd9e23b. SSH 07.10.2026 реально проверен с этого Mac: BatchMode/IdentitiesOnly/StrictHostKeyChecking, pickchick-ops, cloud-002, корень существует; секреты не опубликованы. Docs12c6bfa и исходный UI7c49cb3 в PR197. 14 локальных проверок passed; CI37580384222 блокируется shell-quote1.10.0. На сайт новый UI не установлен.",
+      "nextAction": "Продолжить на этом Mac: согласовать перенос готового исправления89d7959 из занятых файлов зависимостей, зелёная CI точного SHA. Теперь SSH доступен напрямую; согласовать VPS-резервы kiosk-kaspi-qr, обновить профиль выпуска по фактическим pointers/schema, backup/restore, совместимый API+backoffice. Активные чужие резервы не снимать."
     }
   ]
 }
