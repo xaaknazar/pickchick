@@ -3,7 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { kioskRequest } from './api';
-import { commercialKioskRequest } from './commercial-api';
+import { commercialKioskRequest, exchangeKioskEnrollment } from './commercial-api';
+import { enrollDevice, KIOSK_ENROLLMENT_REQUEST_KEY } from './enrollment';
 import {
   COMMERCIAL_FLOW_KEY,
   COMMERCIAL_SESSION_KEY,
@@ -75,20 +76,28 @@ export function createCommercialKioskIO(): CommercialKioskIO {
 }
 
 /** Trusted native enrollment: call from the operator setup flow, never from guest UI. */
-export async function provisionCommercialKiosk(deviceId: string, key: string): Promise<void> {
-  if (
-    Platform.OS === 'web' ||
-    !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(deviceId) ||
-    !/^[a-f0-9]{64}$/.test(key)
-  )
-    throw new Error('Invalid native device enrollment');
-  if (
-    (await SecureStore.getItemAsync(KIOSK_DEVICE_KEY)) ||
-    (await SecureStore.getItemAsync(COMMERCIAL_SESSION_KEY)) ||
-    (await SecureStore.getItemAsync(COMMERCIAL_FLOW_KEY))
-  )
-    throw new Error('Existing kiosk enrollment must be reviewed before replacement');
-  await SecureStore.setItemAsync(KIOSK_DEVICE_KEY, JSON.stringify({ deviceId, key }), {
-    keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+export async function commercialKioskEnrollmentPresent(): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
+  return !!(await SecureStore.getItemAsync(KIOSK_DEVICE_KEY));
+}
+
+export async function provisionCommercialKiosk(login: string, password: string): Promise<void> {
+  if (Platform.OS === 'web') throw new Error('Native enrollment required');
+  const options = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
+  await enrollDevice(login, password, {
+    occupied: async () =>
+      !!(
+        (await SecureStore.getItemAsync(KIOSK_DEVICE_KEY)) ||
+        (await SecureStore.getItemAsync(COMMERCIAL_SESSION_KEY)) ||
+        (await SecureStore.getItemAsync(COMMERCIAL_FLOW_KEY))
+      ),
+    readRequest: () => SecureStore.getItemAsync(KIOSK_ENROLLMENT_REQUEST_KEY),
+    writeRequest: (value) => SecureStore.setItemAsync(KIOSK_ENROLLMENT_REQUEST_KEY, value, options),
+    removeRequest: () => SecureStore.deleteItemAsync(KIOSK_ENROLLMENT_REQUEST_KEY),
+    uuid: () => Crypto.randomUUID(),
+    exchange: exchangeKioskEnrollment,
+    check: (device) =>
+      commercialKioskRequest('/enrollment/check', undefined, {}, undefined, fetch, device),
+    save: (device) => SecureStore.setItemAsync(KIOSK_DEVICE_KEY, JSON.stringify(device), options),
   });
 }

@@ -10,6 +10,7 @@ import {
 import { CommerceRepository } from './repository.js';
 import { CommerceError, parse, UUIDSchema, type CommerceScope } from './model.js';
 import { KioskSessions } from './kiosk-sessions.js';
+import { readKioskQrPayment } from './kiosk-kaspi-qr.js';
 import { readCheckoutOrder } from './order-view.js';
 import { localSelectionIds } from '@pickchick/menu-sync';
 import {
@@ -28,6 +29,7 @@ const Options = z
     organizationId: z.uuid(),
     branchId: z.uuid(),
     paymentAccountId: z.uuid(),
+    paymentMethod: z.enum(['kaspi_invoice', 'kaspi_qr']).optional(),
     fiscalAccountId: z.uuid().optional(),
     fiscalPolicy: z.enum(['required', 'deferred_pilot']),
     approvalReference: z.string().trim().min(3).max(250),
@@ -43,7 +45,11 @@ export function kioskCheckoutOptions(env: NodeJS.ProcessEnv): KioskCheckoutOptio
   return parse(Options, {
     organizationId: env.KIOSK_CHECKOUT_ORGANIZATION_ID,
     branchId: env.KIOSK_CHECKOUT_BRANCH_ID,
-    paymentAccountId: env.KASPI_REMOTE_ACCOUNT_ID,
+    paymentAccountId:
+      env.KIOSK_CHECKOUT_PAYMENT_METHOD === 'kaspi_qr'
+        ? env.KIOSK_KASPI_QR_ACCOUNT_ID
+        : env.KASPI_REMOTE_ACCOUNT_ID,
+    paymentMethod: env.KIOSK_CHECKOUT_PAYMENT_METHOD ?? 'kaspi_invoice',
     fiscalAccountId: env.KIOSK_CHECKOUT_FISCAL_ACCOUNT_ID,
     fiscalPolicy: env.KIOSK_CHECKOUT_FISCAL_POLICY ?? 'required',
     approvalReference: env.KIOSK_CHECKOUT_APPROVAL_REFERENCE,
@@ -194,12 +200,18 @@ export class KioskCheckout {
         `SELECT b.name,h.published_version version,(b.ordering_enabled AND
        EXISTS(SELECT 1 FROM commerce_provider_accounts a WHERE a.id=$3 AND a.branch_id=b.id
        AND a.organization_id=b.organization_id AND a.legal_entity_id=b.legal_entity_id
-       AND a.kind='payment' AND a.provider='kaspi-remote' AND a.enabled) AND
+       AND a.kind='payment' AND a.provider=$5 AND a.enabled) AND
        ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM commerce_provider_accounts f WHERE f.id=$4 AND f.branch_id=b.id
        AND f.organization_id=b.organization_id AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))) ready
        FROM branches b LEFT JOIN catalog_branch_heads h ON h.branch_id=b.id AND h.organization_id=b.organization_id
        WHERE b.id=$1 AND b.organization_id=$2`,
-        [scope.branchId, scope.organizationId, opt.paymentAccountId, opt.fiscalAccountId ?? null],
+        [
+          scope.branchId,
+          scope.organizationId,
+          opt.paymentAccountId,
+          opt.fiscalAccountId ?? null,
+          opt.paymentMethod === 'kaspi_qr' ? 'kaspi-qr' : 'kaspi-remote',
+        ],
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
@@ -210,6 +222,7 @@ export class KioskCheckout {
       enabled: row.ready && delivery?.status === 'applied',
       branchId: scope.branchId,
       restaurant: row.name,
+      paymentMethod: opt.paymentMethod ?? 'kaspi_invoice',
     };
   }
   async quote(guest: KioskGuest, input: unknown) {
@@ -317,13 +330,16 @@ export class KioskCheckout {
     return this.read(guest, order.orderId);
   }
   async pay(guest: KioskGuest, orderId: string, input: unknown) {
-    const scope = this.scope(guest),
-      req = parse(z.strictObject({ phone: z.string().regex(/^\+77\d{9}$/) }), input);
+    const scope = this.scope(guest);
+    const qr = this.options!.paymentMethod === 'kaspi_qr';
+    const req = qr
+      ? parse(z.strictObject({ method: z.literal('kaspi_qr') }), input)
+      : parse(z.strictObject({ phone: z.string().regex(/^\+77\d{9}$/) }), input);
     parse(UUIDSchema, orderId);
     await this.assertKioskOrder(scope, orderId);
     const order = await this.repository.readOrder(scope, orderId);
     // Lock phone before enqueueing. A racing retry can never redirect the existing invoice.
-    await this.sessions.setPhone(guest.sessionId, req.phone);
+    if ('phone' in req) await this.sessions.setPhone(guest.sessionId, req.phone);
     if (order.attempts.length || BigInt(order.money.captured) > 0n)
       return this.read(guest, orderId);
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
@@ -349,6 +365,16 @@ export class KioskCheckout {
   }
   async read(guest: KioskGuest, orderId: string) {
     await this.assertKioskOrder(this.scope(guest), orderId);
-    return readCheckoutOrder(this.pool, this.repository, this.scope(guest), orderId);
+    const order = await readCheckoutOrder(this.pool, this.repository, this.scope(guest), orderId);
+    if (this.options!.paymentMethod !== 'kaspi_qr') return order;
+    const payment = await readKioskQrPayment(this.pool, orderId);
+    // QR presentation is kiosk-only; shared mobile invoice projection stays intact.
+    const phase =
+      order.phase === 'sending' && payment?.state === 'pending'
+        ? 'awaiting_payment'
+        : order.phase === 'sending' && payment?.state === 'checking'
+          ? 'checking'
+          : order.phase;
+    return { ...order, phase, payment };
   }
 }

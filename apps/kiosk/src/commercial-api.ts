@@ -1,4 +1,5 @@
 import { KIOSK_API_URL, KioskError } from './api.ts';
+import { operatorCredentialsValid } from './enrollment.ts';
 
 export const commercialKioskEnabled = process.env.EXPO_PUBLIC_KIOSK_COMMERCIAL === '1';
 /** A provisioned device/guest token, never a customer identity token. */
@@ -11,14 +12,46 @@ export async function commercialKioskRequest(
   device?: { deviceId: string; key: string },
 ): Promise<unknown> {
   if (
-    !/^\/(?:config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
+    !/^\/(?:enrollment\/check|config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
       path,
     )
   )
     throw new KioskError('INVALID_PATH');
   if (!device || !/^[a-f0-9-]{36}$/.test(device.deviceId) || !/^[a-f0-9]{64}$/.test(device.key))
     throw new KioskError('DEVICE_NOT_PROVISIONED');
-  if (path !== '/sessions' && !token) throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
+  if (path !== '/sessions' && path !== '/enrollment/check' && !token)
+    throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
+  return sendKioskRequest(
+    path,
+    body,
+    {
+      'X-Kiosk-Device': device.deviceId,
+      'X-Kiosk-Key': device.key,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(key ? { 'Idempotency-Key': key } : {}),
+    },
+    fetcher,
+  );
+}
+
+export async function exchangeKioskEnrollment(
+  input: { login: string; password: string; requestId: string },
+  fetcher: typeof fetch = fetch,
+): Promise<unknown> {
+  if (
+    !operatorCredentialsValid(input.login, input.password) ||
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(input.requestId)
+  )
+    throw new KioskError('INVALID_ENROLLMENT');
+  return sendKioskRequest('/enrollment/exchange', input, {}, fetcher);
+}
+
+async function sendKioskRequest(
+  path: string,
+  body: unknown,
+  authentication: Record<string, string>,
+  fetcher: typeof fetch,
+): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
@@ -29,11 +62,8 @@ export async function commercialKioskRequest(
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
-        'X-Kiosk-Device': device.deviceId,
-        'X-Kiosk-Key': device.key,
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...authentication,
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(key ? { 'Idempotency-Key': key } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });

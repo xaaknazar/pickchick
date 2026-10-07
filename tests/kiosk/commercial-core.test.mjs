@@ -70,7 +70,8 @@ function fixture() {
         };
       }
       assert.equal(token, JSON.parse(h.rawSession).token);
-      if (path === '/config') return { enabled: true, branchId, restaurant: 'PickChick' };
+      if (path === '/config')
+        return { enabled: true, branchId, restaurant: 'PickChick', paymentMethod: 'kaspi_qr' };
       if (path === '/catalog') return storefront;
       if (path === '/availability')
         return {
@@ -129,7 +130,8 @@ function fixture() {
       }
       if (path.endsWith('/payment')) {
         const intent = JSON.parse(h.rawFlow).intent;
-        assert.equal(body.phone, '+77011234567');
+        assert.deepEqual(body, { method: 'kaspi_qr' });
+        assert.equal('phone' in intent, false);
         assert.equal(key, intent.paymentKey);
         h.order = { ...h.order, phase: 'awaiting_payment' };
         if (h.failPath === 'payment') {
@@ -181,7 +183,7 @@ test('real waiting cannot simulate payment or free guest; authoritative paid per
   const h = fixture(),
     c = await cart(h);
   assert.equal(await c.beginPayment(), true);
-  assert.equal(c.getSnapshot().invoicePhone, '');
+  assert.equal(c.getSnapshot().invoicePhone, undefined);
   assert.equal(c.getSnapshot().order.payment_state, 'pending');
   assert.equal(await c.pay('approved'), false);
   assert.equal(await c.newGuest(), false);
@@ -208,7 +210,7 @@ for (const path of ['/quotes', '/orders', 'payment'])
     const restored = new CommercialKioskController(h.io);
     assert.equal(await restored.restore(), true);
     assert.equal(JSON.parse(h.rawFlow).intent, null);
-    assert.equal(restored.getSnapshot().invoicePhone, '');
+    assert.equal(restored.getSnapshot().invoicePhone, undefined);
     const requests = h.calls.filter((r) =>
       path === 'payment' ? r.path.endsWith('/payment') : r.path === path,
     );
@@ -233,7 +235,7 @@ test('idle clears draft phone but preserves unresolved order; end network failur
     c = await cart(h);
   h.clock += 105001;
   await c.tick();
-  assert.equal(c.getSnapshot().invoicePhone, '');
+  assert.equal(c.getSnapshot().invoicePhone, undefined);
   assert.equal(c.getSnapshot().step, 'start');
   const c2 = await cart(h);
   await c2.beginPayment();
@@ -436,4 +438,95 @@ test('stale availability closes local quote and retains shopping draft for retry
     false,
   );
   assert.equal(c.getSnapshot().recoveryRequired, false);
+});
+
+test('unsupported invoice config blocks new QR checkout', async () => {
+  const h = fixture();
+  const request = h.io.request;
+  h.io.request = async (...args) =>
+    args[0] === '/config' ? { enabled: true, branchId, restaurant: 'PickChick' } : request(...args);
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), false);
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(
+    h.calls.some((r) => r.path === '/orders' || r.path.endsWith('/payment')),
+    false,
+  );
+});
+
+test('QR payload survives restart but payment projection alone cannot confirm payment', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  await c.beginPayment();
+  h.order = {
+    ...h.order,
+    payment: {
+      kind: 'kaspi_qr',
+      state: 'pending',
+      qrPayload: 'https://qr.kaspi.kz/fixture',
+      expiresAt: '2026-10-04T00:02:00Z',
+    },
+  };
+  await c.refresh();
+  const recovered = new CommercialKioskController(h.io);
+  assert.equal(await recovered.restore(), true);
+  assert.equal(recovered.getSnapshot().qrPayment.qrPayload, h.order.payment.qrPayload);
+  h.order = { ...h.order, payment: { ...h.order.payment, state: 'paid', qrPayload: null } };
+  await recovered.refresh();
+  assert.equal(recovered.getSnapshot().order.payment_state, 'pending');
+  assert.equal(await recovered.newGuest(), false);
+  h.order.phase = 'paid';
+  await recovered.refresh();
+  assert.equal(await recovered.newGuest(), true);
+});
+
+test('legacy phone intent recovers existing order without submitting another invoice', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  h.failPath = 'payment';
+  await c.beginPayment();
+  const flow = JSON.parse(h.rawFlow);
+  delete flow.intent.method;
+  flow.intent.phone = '+77011234567';
+  h.rawFlow = JSON.stringify(flow);
+  h.calls = [];
+  const recovered = new CommercialKioskController(h.io);
+  assert.equal(await recovered.restore(), true);
+  assert.equal(
+    h.calls.some((r) => r.path.endsWith('/payment')),
+    false,
+  );
+  assert.equal(JSON.parse(h.rawFlow).intent, null);
+});
+
+test('enrollment preflight accepts device authentication without guest and keeps other routes protected', async () => {
+  const device = { deviceId: randomUUID(), key: 'a'.repeat(64) };
+  let call;
+  const fetcher = async (url, options) => {
+    call = { url, options };
+    return new Response(JSON.stringify({ valid: true, branchId, restaurant: 'PickChick' }), {
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  const response = await commercialKioskRequest(
+    '/enrollment/check',
+    undefined,
+    {},
+    undefined,
+    fetcher,
+    device,
+  );
+  assert.equal(response.valid, true);
+  assert.equal(call.options.headers['X-Kiosk-Device'], device.deviceId);
+  assert.equal(call.options.headers['X-Kiosk-Key'], device.key);
+  assert.equal('Authorization' in call.options.headers, false);
+  assert.equal(call.options.method, 'POST');
+  await assert.rejects(
+    commercialKioskRequest('/config', undefined, undefined, undefined, fetcher, device),
+    { code: 'GUEST_IDENTITY_UNAVAILABLE' },
+  );
+  await assert.rejects(
+    commercialKioskRequest('/enrollment/check', undefined, {}, undefined, fetcher),
+    { code: 'DEVICE_NOT_PROVISIONED' },
+  );
 });

@@ -31,7 +31,7 @@ final class SmokeTests: XCTestCase {
         let number = element("kiosk-order-number", in: app)
         XCTAssertTrue(number.waitForExistence(timeout: 15))
         let saved = number.label
-        XCTAssertTrue(saved.range(of: "^T-[0-9]{6,}$", options: .regularExpression) != nil,
+        XCTAssertTrue(saved.range(of: "^№T-[0-9]{6,}$", options: .regularExpression) != nil,
                       "Only an explicit synthetic order number is acceptable")
         let identity = XCTAttachment(string: saved)
         identity.name = "Kiosk-owned-synthetic-order-number"

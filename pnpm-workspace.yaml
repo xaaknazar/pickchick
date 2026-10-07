@@ -10,6 +10,8 @@ saveExact: true
 blockExoticSubdeps: true
 
 overrides:
+  # GHSA-pqg4-j6r4-53mv: reject line terminators after shell comment tokens.
+  'shell-quote@<1.11.0': 1.11.0
   # Nest's upload dependency: upstream security fixes, without changing its API.
   'multer@2.2.0': 2.3.0
   # GHSA-qhr7-859c-m2p7 / GHSA-6j4f-fj2g-mc7p: bounded brace nesting.

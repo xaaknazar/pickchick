@@ -10,7 +10,39 @@ import { MenuScreen, type MenuMemory } from './screens/MenuScreen';
 import { ProductScreen } from './screens/ProductScreen';
 import { CartScreen, ReviewScreen, UpsellScreen } from './screens/CartScreens';
 import { OrderScreen, PaymentScreen, RecoveryScreen } from './screens/PaymentOrderScreens';
+import { EnrollmentScreen } from './screens/EnrollmentScreen';
+import { commercialKioskEnabled } from './commercial-api';
+import { commercialKioskEnrollmentPresent } from './storage';
 export function KioskApp() {
+  const [enrolled, setEnrolled] = useState<boolean | null>(commercialKioskEnabled ? null : true);
+  const [failed, setFailed] = useState(false);
+  const check = useCallback(async () => {
+    setFailed(false);
+    try {
+      setEnrolled(await commercialKioskEnrollmentPresent());
+    } catch {
+      setFailed(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (commercialKioskEnabled) void check();
+  }, [check]);
+  if (enrolled === false) return <EnrollmentScreen onComplete={() => setEnrolled(true)} />;
+  if (enrolled === null)
+    return (
+      <View style={[layout.screen, { justifyContent: 'center', padding: 40, gap: 24 }]}>
+        <ActivityIndicator size="large" color={colors.blue} />
+        {failed ? (
+          <>
+            <Body>Не удалось прочитать настройку устройства. Пригласите сотрудника.</Body>
+            <Button label="Повторить" onPress={() => void check()} />
+          </>
+        ) : null}
+      </View>
+    );
+  return <GuestKioskApp />;
+}
+function GuestKioskApp() {
   const liveModel = useKioskController();
   const { px } = useMetrics();
   const [locale, setLocale] = useState<Locale>('ru');

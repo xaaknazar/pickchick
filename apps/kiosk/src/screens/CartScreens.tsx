@@ -1,4 +1,4 @@
-import { FlatList, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, View } from 'react-native';
 import type { KioskCartLine, KioskModel } from '../model';
 import { defaultSelections, money, validSelections } from '../cart';
 import { ProductArtwork } from '../components/ProductArtwork';
@@ -538,8 +538,8 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
                   <Body style={{ fontSize: Math.max(16, px(19)), color: colors.muted }}>
                     {model.commercial
                       ? context.locale === 'ru'
-                        ? 'Счёт в приложении Kaspi.kz'
-                        : 'Kaspi.kz қолданбасындағы шот'
+                        ? 'QR в приложении Kaspi.kz'
+                        : 'Kaspi.kz қосымшасындағы QR'
                       : context.locale === 'ru'
                         ? method === 'kaspi'
                           ? 'Тестовый сценарий Kaspi - без QR и списания денег.'
@@ -577,43 +577,11 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           )}
         </View>
         {model.commercial ? (
-          <View style={{ gap: px(12) }}>
-            <Body>
-              {context.locale === 'ru'
-                ? 'Телефон для счёта Kaspi'
-                : 'Kaspi шотына арналған телефон'}
-            </Body>
-            <TextInput
-              testID="kiosk-invoice-phone"
-              accessibilityLabel={
-                context.locale === 'ru'
-                  ? 'Телефон для счёта Kaspi'
-                  : 'Kaspi шотына арналған телефон'
-              }
-              value={model.invoicePhone ?? ''}
-              onChangeText={model.setInvoicePhone}
-              keyboardType="phone-pad"
-              autoComplete="off"
-              textContentType="none"
-              maxLength={20}
-              editable={!model.busy}
-              style={{
-                color: colors.ink,
-                backgroundColor: colors.white,
-                borderColor: colors.border,
-                borderWidth: 2,
-                borderRadius: px(16),
-                padding: px(22),
-                fontSize: Math.max(20, px(28)),
-                minHeight: 56,
-              }}
-            />
-            <Body style={{ color: colors.muted }}>
-              {context.locale === 'ru'
-                ? 'Номер используется только для счёта. Аккаунт и бонусы не создаются.'
-                : 'Нөмір тек шот үшін қолданылады. Аккаунт пен бонустар жасалмайды.'}
-            </Body>
-          </View>
+          <Body style={{ color: colors.muted }}>
+            {context.locale === 'ru'
+              ? 'На следующем экране появится QR для оплаты в Kaspi.kz. Телефон вводить не нужно.'
+              : 'Келесі экранда Kaspi.kz арқылы төлеуге арналған QR көрсетіледі. Телефон нөмірін енгізудің қажеті жоқ.'}
+          </Body>
         ) : (
           <Body style={{ color: colors.muted }}>{t.testPayment}</Body>
         )}
@@ -629,9 +597,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           label={t.createPayment}
           icon="arrow-forward"
           testID="kiosk-review-create"
-          disabled={
-            !model.cartValid || !model.cart.length || (model.commercial && !model.phoneValid)
-          }
+          disabled={!model.cartValid || !model.cart.length}
           busy={model.busy}
           onPress={() => void model.beginPayment(model.paymentMethod)}
           style={{ minHeight: px(126) }}

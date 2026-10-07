@@ -42,6 +42,12 @@ export type KioskCatalog = Omit<
 > & { catalog_version: string; branch_id: string; products: KioskProduct[] };
 export interface KioskState {
   commercial?: boolean;
+  qrPayment?: {
+    kind: 'kaspi_qr';
+    state: 'preparing' | 'pending' | 'checking' | 'paid' | 'failed';
+    qrPayload: string | null;
+    expiresAt: string | null;
+  } | null;
   invoicePhone?: string;
   phoneValid?: boolean;
   paymentPhase?: string;
