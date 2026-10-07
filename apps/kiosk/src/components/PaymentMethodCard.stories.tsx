@@ -25,4 +25,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+export const PhoneInvoice: Story = { args: { method: 'kaspi_invoice' } };
+export const PhoneInvoiceKk: Story = {
+  args: { method: 'kaspi_invoice', locale: 'kk', selected: false },
+};
 export const TestCard = { args: { method: 'card', commercial: false, selected: false } };

@@ -1,0 +1,29 @@
+{
+  "synthetic": true,
+  "checks": [
+    {
+      "width": 768,
+      "height": 1024,
+      "invoice": true,
+      "qr": true,
+      "errors": [],
+      "external_requests": []
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "invoice": true,
+      "qr": true,
+      "errors": [],
+      "external_requests": []
+    },
+    {
+      "width": 1024,
+      "height": 1366,
+      "invoice": true,
+      "qr": true,
+      "errors": [],
+      "external_requests": []
+    }
+  ]
+}

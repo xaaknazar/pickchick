@@ -34,6 +34,7 @@ function fixture() {
     failWrite: false,
     endFail: false,
     order: null,
+    paymentMethods: ['kaspi_qr'],
     orders: new Map(),
     before: async () => {},
   };
@@ -71,7 +72,13 @@ function fixture() {
       }
       assert.equal(token, JSON.parse(h.rawSession).token);
       if (path === '/config')
-        return { enabled: true, branchId, restaurant: 'PickChick', paymentMethod: 'kaspi_qr' };
+        return {
+          enabled: true,
+          branchId,
+          restaurant: 'PickChick',
+          paymentMethod: 'kaspi_qr',
+          paymentMethods: h.paymentMethods,
+        };
       if (path === '/catalog') return storefront;
       if (path === '/availability')
         return {
@@ -130,10 +137,14 @@ function fixture() {
       }
       if (path.endsWith('/payment')) {
         const intent = JSON.parse(h.rawFlow).intent;
-        assert.deepEqual(body, { method: 'kaspi_qr' });
-        assert.equal('phone' in intent, false);
+        if (intent.method === 'kaspi_invoice') {
+          assert.deepEqual(body, { method: 'kaspi_invoice', phone: '+77011234567' });
+        } else {
+          assert.deepEqual(body, { method: 'kaspi_qr' });
+          assert.equal('phone' in intent, false);
+        }
         assert.equal(key, intent.paymentKey);
-        h.order = { ...h.order, phase: 'awaiting_payment' };
+        h.order = { ...h.order, phase: 'awaiting_payment', paymentMethod: body.method };
         if (h.failPath === 'payment') {
           h.failPath = null;
           throw new KioskError('NETWORK_UNCERTAIN');
@@ -173,6 +184,74 @@ test('commercial catalog retains authored content and kiosk price, SKU and stops
   assert.equal(menu.products[0].available, false);
   assert.equal(menu.products[0].name, data.payload.products[0].name.ru);
   assert.equal('synthetic' in menu, false);
+});
+test('only server-enabled methods can be selected; switching clears the phone', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  c.setPaymentMethod('kaspi_invoice');
+  assert.equal(c.getSnapshot().paymentMethod, 'kaspi');
+  h.paymentMethods = ['kaspi_qr', 'kaspi_invoice'];
+  await c.refresh();
+  c.setPaymentMethod('kaspi_invoice');
+  c.setInvoicePhone('8 (701) 123-45-67');
+  assert.equal(c.getSnapshot().phoneValid, true);
+  c.setPaymentMethod('kaspi');
+  assert.equal(c.getSnapshot().invoicePhone, '');
+});
+test('invalid invoice phone cannot allocate a quote, order or payment intent', async () => {
+  const h = fixture();
+  h.paymentMethods = ['kaspi_qr', 'kaspi_invoice'];
+  const c = await cart(h);
+  c.setPaymentMethod('kaspi_invoice');
+  c.setInvoicePhone('+7 123');
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(JSON.parse(h.rawFlow).intent, null);
+  assert.equal(
+    h.calls.some(
+      (x) => x.path === '/quotes' || x.path === '/orders' || x.path.endsWith('/payment'),
+    ),
+    false,
+  );
+});
+for (const failure of ['/quotes', '/orders', 'payment'])
+  test(`invoice survives ${failure} lost response with the same method, number and keys`, async () => {
+    const h = fixture();
+    h.paymentMethods = ['kaspi_qr', 'kaspi_invoice'];
+    const c = await cart(h);
+    c.setPaymentMethod('kaspi_invoice');
+    c.setInvoicePhone('8 (701) 123-45-67');
+    h.failPath = failure;
+    assert.equal(await c.beginPayment(), false);
+    const intent = JSON.parse(h.rawFlow).intent;
+    c.setPaymentMethod('kaspi');
+    c.setInvoicePhone('+77000000000');
+    assert.equal(c.getSnapshot().paymentMethod, 'kaspi_invoice');
+    const restored = new CommercialKioskController(h.io);
+    assert.equal(await restored.restore(), true);
+    assert.equal(restored.getSnapshot().paymentMethod, 'kaspi_invoice');
+    assert.equal(restored.getSnapshot().invoicePhone, '');
+    assert.equal(JSON.parse(h.rawFlow).intent, null);
+    const requests = h.calls.filter((x) => x.path.endsWith('/payment'));
+    assert.ok(requests.length);
+    for (const request of requests) {
+      assert.equal(request.key, intent.paymentKey);
+      assert.deepEqual(request.body, { method: 'kaspi_invoice', phone: '+77011234567' });
+    }
+    assert.equal(h.rawFlow.includes('+77011234567'), false);
+    assert.equal(await restored.newGuest(), false);
+  });
+test('removing the selected method during final refresh never silently submits the other method', async () => {
+  const h = fixture();
+  h.paymentMethods = ['kaspi_qr', 'kaspi_invoice'];
+  const c = await cart(h);
+  c.setPaymentMethod('kaspi_invoice');
+  c.setInvoicePhone('+77011234567');
+  h.paymentMethods = ['kaspi_qr'];
+  assert.equal(await c.beginPayment(), false);
+  assert.equal(
+    h.calls.some((x) => x.path === '/quotes'),
+    false,
+  );
 });
 test('phone accepts Kazakhstan mobile only', () => {
   assert.equal(invoicePhone('8 (701) 123-45-67'), '+77011234567');
@@ -426,7 +505,7 @@ test('real waiting cannot simulate payment or free guest; authoritative paid per
   const h = fixture(),
     c = await cart(h);
   assert.equal(await c.beginPayment(), true);
-  assert.equal(c.getSnapshot().invoicePhone, undefined);
+  assert.equal(c.getSnapshot().invoicePhone, '');
   assert.equal(c.getSnapshot().order.payment_state, 'pending');
   assert.equal(await c.pay('approved'), false);
   assert.equal(await c.newGuest(), false);
@@ -455,7 +534,7 @@ for (const path of ['/quotes', '/orders', 'payment'])
     const restored = new CommercialKioskController(h.io);
     assert.equal(await restored.restore(), true);
     assert.equal(JSON.parse(h.rawFlow).intent, null);
-    assert.equal(restored.getSnapshot().invoicePhone, undefined);
+    assert.equal(restored.getSnapshot().invoicePhone, '');
     const requests = h.calls.filter((r) =>
       path === 'payment' ? r.path.endsWith('/payment') : r.path === path,
     );
@@ -480,7 +559,7 @@ test('idle clears draft phone but preserves unresolved order; end network failur
     c = await cart(h);
   h.clock += 105001;
   await c.tick();
-  assert.equal(c.getSnapshot().invoicePhone, undefined);
+  assert.equal(c.getSnapshot().invoicePhone, '');
   assert.equal(c.getSnapshot().step, 'start');
   const c2 = await cart(h);
   await c2.beginPayment();

@@ -23,12 +23,13 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
     model.order?.payment_state === 'simulated_unknown' ||
     model.order?.payment_state === 'unknown' ||
     model.recoveryRequired;
-  const declined = model.order?.payment_state === 'simulated_declined';
+  const declined = ['simulated_declined', 'declined'].includes(model.order?.payment_state ?? '');
   const total = model.order?.snapshot.total_minor ?? model.cartTotalMinor;
   const qr = model.qrPayment;
   const qrExpired = !!qr?.expiresAt && Date.parse(qr.expiresAt) <= Date.now();
   const qrPayload = visiblePaymentQr(qr, unknown, Date.now());
   const showQr = !!qrPayload;
+  const invoice = model.paymentMethod === 'kaspi_invoice';
 
   const title = unknown
     ? t.unknownTitle
@@ -42,15 +43,27 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
   const message = unknown
     ? t.unknownBody
     : model.commercial
-      ? showQr
-        ? qrScanInstructions(context.locale)
-        : context.locale === 'ru'
-          ? qrExpired
-            ? 'Время действия QR истекло. Проверяем результат оплаты. Не оплачивайте повторно.'
-            : 'Готовим QR или проверяем результат оплаты. Не оплачивайте повторно.'
-          : qrExpired
-            ? 'QR мерзімі аяқталды. Төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
-            : 'QR дайындалуда немесе төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
+      ? invoice
+        ? context.locale === 'ru'
+          ? model.paymentPhase === 'awaiting_payment'
+            ? 'Счёт отправлен. Откройте Kaspi.kz на своём телефоне и подтвердите оплату. Этот экран обновится автоматически.'
+            : model.paymentPhase === 'awaiting_restaurant'
+              ? 'Ресторан подтверждает заказ. После подтверждения отправим счёт в Kaspi.kz.'
+              : 'Отправляем счёт или проверяем результат оплаты в Kaspi.kz. Не оплачивайте повторно.'
+          : model.paymentPhase === 'awaiting_payment'
+            ? 'Шот жіберілді. Телефоныңызда Kaspi.kz ашып, төлемді растаңыз. Бұл экран автоматты түрде жаңарады.'
+            : model.paymentPhase === 'awaiting_restaurant'
+              ? 'Мейрамхана тапсырысты растауда. Расталғаннан кейін Kaspi.kz шотын жібереміз.'
+              : 'Шот жіберілуде немесе Kaspi.kz төлемі тексерілуде. Қайта төлемеңіз.'
+        : showQr
+          ? qrScanInstructions(context.locale)
+          : context.locale === 'ru'
+            ? qrExpired
+              ? 'Время действия QR истекло. Проверяем результат оплаты. Не оплачивайте повторно.'
+              : 'Готовим QR или проверяем результат оплаты. Не оплачивайте повторно.'
+            : qrExpired
+              ? 'QR мерзімі аяқталды. Төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
+              : 'QR дайындалуда немесе төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
       : t.testPayment;
   return (
     <ScreenSurface testID="kiosk-screen-payment">
@@ -64,8 +77,10 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             reference={
               model.order?.number && model.order.number !== '-'
                 ? `${context.locale === 'ru' ? 'Заказ' : 'Тапсырыс'} ${kioskOrderNumber(model.order.number)}`
-                : model.paymentMethod === 'kaspi'
-                  ? 'Kaspi'
+                : model.paymentMethod !== 'card'
+                  ? invoice
+                    ? 'Kaspi - ' + (context.locale === 'ru' ? 'счёт на телефон' : 'телефонға шот')
+                    : 'Kaspi QR'
                   : t.card
             }
             message={message}

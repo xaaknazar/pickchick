@@ -36,6 +36,7 @@ async function fixture(run, paymentMethod = 'kaspi_invoice') {
   await withSyncDatabases(async (f) => {
     const pool = f.cloud.pool,
       payment = randomUUID(),
+      invoicePayment = paymentMethod === 'both' ? randomUUID() : undefined,
       kiosk = randomUUID(),
       deviceKey = randomBytes(32).toString('hex');
     const auth = authFor(await provisionDevice(pool, f.device));
@@ -54,9 +55,14 @@ async function fixture(run, paymentMethod = 'kaspi_invoice') {
         f.org,
         f.branch,
         f.legal,
-        paymentMethod === 'kaspi_qr' ? 'kaspi-qr' : 'kaspi-remote',
+        paymentMethod === 'kaspi_qr' || paymentMethod === 'both' ? 'kaspi-qr' : 'kaspi-remote',
       ],
     );
+    if (invoicePayment)
+      await pool.query(
+        "INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,kind,provider,external_reference,enabled,legal_entity_id) VALUES($1::uuid,$2,$3,'payment','kaspi-remote',$1::text,true,$4)",
+        [invoicePayment, f.org, f.branch, f.legal],
+      );
     await pool.query(
       'INSERT INTO kiosk_devices(id,organization_id,branch_id,token_hash) VALUES($1,$2,$3,$4)',
       [kiosk, f.org, f.branch, createHash('sha256').update(deviceKey).digest('hex')],
@@ -86,7 +92,8 @@ async function fixture(run, paymentMethod = 'kaspi_invoice') {
       organizationId: f.org,
       branchId: f.branch,
       paymentAccountId: payment,
-      paymentMethod,
+      paymentMethod: paymentMethod === 'both' ? 'kaspi_qr' : paymentMethod,
+      invoicePaymentAccountId: invoicePayment,
       fiscalPolicy: 'deferred_pilot',
       approvalReference: 'Synthetic kiosk test only',
       taxCode: 'PENDING_PILOT',
@@ -137,6 +144,7 @@ async function fixture(run, paymentMethod = 'kaspi_invoice') {
       ...f,
       pool,
       payment,
+      invoicePayment,
       sessions,
       who,
       guest,
@@ -211,7 +219,7 @@ test('server enforces price, version, stop-list, branch ownership and one order 
   });
 });
 
-test('guest invoice persists and reconciles bank payment after end without logging in as a customer', async () => {
+test('guest invoice prevents end until bank confirmation without logging in as a customer', async () => {
   await fixture(async (f) => {
     await f.ack();
     const q = await f.checkout.quote(f.who, f.cart()),
@@ -261,7 +269,7 @@ test('guest invoice persists and reconciles bank payment after end without loggi
       undefined,
       (id) => f.sessions.readOrderPhone(id),
     );
-    await f.sessions.end(f.who.sessionId);
+    await assert.rejects(f.sessions.end(f.who.sessionId), { code: 'CONFLICT' });
     await processor.tick();
     assert.equal(calls, 1);
     assert.equal((await f.checkout.read(f.who, order.orderId)).phase, 'awaiting_payment');
@@ -275,6 +283,18 @@ test('guest invoice persists and reconciles bank payment after end without loggi
     assert.equal(view.money.captured, '11000');
     assert.equal(view.fiscalPolicy, 'deferred_pilot');
     assert.ok(view.kitchenEffectId);
+    await f.pool.query(
+      "UPDATE kiosk_sessions SET phone_expires_at=clock_timestamp()-interval '1 day'",
+    );
+    assert.equal(await f.sessions.purgeExpiredPhones(), 1);
+    assert.equal(await f.sessions.readOrderPhone(order.orderId), null);
+    assert.equal((await f.checkout.pay(f.who, order.orderId, paidBody)).orderId, order.orderId);
+    assert.equal(await f.sessions.readOrderPhone(order.orderId), null);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      1,
+    );
+    await f.sessions.end(f.who.sessionId);
     await processor.tick();
     assert.equal(calls, 1);
   });
@@ -360,6 +380,126 @@ test('mobile APIs never adopt guest quotes, orders, payment or feedback on a pri
   });
 });
 
+test('both methods use separate accounts and cannot switch an existing attempt', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    assert.deepEqual((await f.checkout.config(f.who)).paymentMethods, [
+      'kaspi_qr',
+      'kaspi_invoice',
+    ]);
+    const q = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    await f.admission(order);
+    const req = { method: 'kaspi_invoice', phone: '+77011234567' };
+    await Promise.all([
+      f.checkout.pay(f.who, order.orderId, req),
+      f.checkout.pay(f.who, order.orderId, req),
+    ]);
+    assert.equal((await f.checkout.read(f.who, order.orderId)).paymentMethod, 'kaspi_invoice');
+    const attempts = (await f.pool.query('SELECT account_id FROM commerce_payment_attempts')).rows;
+    assert.deepEqual(
+      attempts.map((a) => a.account_id),
+      [f.invoicePayment],
+    );
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }), {
+      code: 'CONFLICT',
+    });
+    await assert.rejects(f.sessions.end(f.who.sessionId), { code: 'CONFLICT' });
+    // Recovery is pinned to the existing account even after config disable or guest expiry.
+    await f.pool.query('UPDATE commerce_provider_accounts SET enabled=false');
+    await f.pool.query(
+      "UPDATE kiosk_sessions SET created_at=clock_timestamp()-interval '2 hours',expires_at=clock_timestamp()-interval '1 hour'",
+    );
+    assert.equal((await f.checkout.pay(f.who, order.orderId, req)).orderId, order.orderId);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      1,
+    );
+  }, 'both');
+});
+test('racing QR and phone selection creates only one provider attempt', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    const q = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    await f.admission(order);
+    const results = await Promise.allSettled([
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_invoice', phone: '+77011234567' }),
+      f.sessions.end(f.who.sessionId),
+    ]);
+    assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      1,
+    );
+    assert.equal(
+      (await f.pool.query('SELECT ended_at FROM kiosk_sessions WHERE id=$1', [f.who.sessionId]))
+        .rows[0].ended_at,
+      null,
+    );
+  }, 'both');
+});
+test('ended or expired guests cannot create a new order or payment', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    const q = await f.checkout.quote(f.who, f.cart());
+    await f.sessions.end(f.who.sessionId);
+    await assert.rejects(f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId }), {
+      code: 'FORBIDDEN',
+    });
+  });
+  await fixture(async (f) => {
+    await f.ack();
+    const q = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    await f.admission(order);
+    await f.pool.query(
+      "UPDATE kiosk_sessions SET created_at=clock_timestamp()-interval '2 hours',expires_at=clock_timestamp()-interval '1 hour'",
+    );
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { phone: '+77011234567' }), {
+      code: 'FORBIDDEN',
+    });
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      0,
+    );
+  });
+});
+test('independent API instances serialize ending a guest against order creation', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    const other = new KioskSessions(f.pool, { piiKey: randomBytes(32) });
+    const quote = await f.checkout.quote(f.who, f.cart());
+    const results = await Promise.allSettled([
+      f.checkout.create(f.who, { key: randomUUID(), quoteId: quote.quoteId }),
+      other.end(f.who.sessionId),
+    ]);
+    assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+    const ended = (
+      await f.pool.query('SELECT ended_at FROM kiosk_sessions WHERE id=$1', [f.who.sessionId])
+    ).rows[0].ended_at;
+    const orders = (await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n;
+    assert.equal(orders, ended ? 0 : 1);
+  });
+});
+test('unavailable QR account still permits explicitly configured invoice; wrong provider is rejected', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    await f.pool.query('UPDATE commerce_provider_accounts SET enabled=false WHERE id=$1', [
+      f.payment,
+    ]);
+    assert.equal((await f.checkout.config(f.who)).enabled, true);
+    assert.deepEqual((await f.checkout.config(f.who)).paymentMethods, ['kaspi_invoice']);
+    const wrong = new KioskCheckout(
+      f.pool,
+      { ...f.options, invoicePaymentAccountId: f.payment },
+      f.sessions,
+    );
+    assert.equal((await wrong.config(f.who)).enabled, false);
+    assert.deepEqual((await wrong.config(f.who)).paymentMethods, []);
+  }, 'both');
+});
 test('QR checkout owns its server price and payment without recording guest phone', async () => {
   await fixture(async (f) => {
     await f.ack();
@@ -368,7 +508,7 @@ test('QR checkout owns its server price and payment without recording guest phon
     const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: quote.quoteId });
     await f.admission(order);
     await assert.rejects(f.checkout.pay(f.who, order.orderId, { phone: '+77011234567' }), {
-      code: 'INVALID',
+      code: 'NOT_READY',
     });
     await Promise.all([
       f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),

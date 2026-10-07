@@ -8,7 +8,7 @@ export type KioskProduct = Omit<TestCompleteCatalog['products'][number], 'nutrit
 export type KioskSelection = TestSelection;
 export type KioskModifierGroup = KioskProduct['modifier_groups'][number];
 export type KioskMode = 'takeaway' | 'dine_in';
-export type KioskPaymentMethod = 'kaspi' | 'card';
+export type KioskPaymentMethod = 'kaspi' | 'kaspi_invoice' | 'card';
 export type KioskStep =
   | 'start'
   | 'mode'
@@ -43,6 +43,7 @@ export type KioskCatalog = Omit<
 export interface KioskState {
   commercial?: boolean;
   checkoutReady?: boolean;
+  commercialPaymentMethods?: ('kaspi' | 'kaspi_invoice')[];
   qrPayment?: {
     kind: 'kaspi_qr';
     state: 'preparing' | 'pending' | 'checking' | 'paid' | 'failed';

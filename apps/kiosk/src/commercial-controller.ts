@@ -4,6 +4,7 @@ import {
 } from '@pickchick/contracts';
 import { z } from 'zod';
 const CustomerCommerceOrderSchema = BaseOrderSchema.extend({
+  paymentMethod: z.enum(['kaspi_qr', 'kaspi_invoice']).nullable().optional(),
   payment: z
     .strictObject({
       kind: z.literal('kaspi_qr'),
@@ -19,7 +20,14 @@ import { CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { KioskError } from './api.ts';
 import { selectedPriceMinor, validSelections, testLineId } from './cart.ts';
 import { KIOSK_IDLE_MS, KIOSK_IDLE_GRACE_MS, type KioskIO } from './controller.ts';
-import type { KioskCatalog, KioskMode, KioskSelection, KioskState, KioskStep } from './model';
+import type {
+  KioskCatalog,
+  KioskMode,
+  KioskSelection,
+  KioskState,
+  KioskStep,
+  KioskPaymentMethod,
+} from './model';
 
 export const COMMERCIAL_SESSION_KEY = 'pickchick.kiosk.commercial-session.v1';
 export const COMMERCIAL_FLOW_KEY = 'pickchick.kiosk.commercial-flow.v1';
@@ -41,7 +49,7 @@ type Intent = {
   paymentKey: string;
   quoteId: string | null;
   orderId: string | null;
-  method?: 'kaspi_qr';
+  method?: 'kaspi_qr' | 'kaspi_invoice';
   phone?: string;
   expectedTotalMinor: string;
   payload: {
@@ -200,7 +208,11 @@ function flow(value: unknown): Flow {
         'paymentKey',
         'quoteId',
         'orderId',
-        ...(p.method === 'kaspi_qr' ? ['method'] : ['phone']),
+        ...(p.method === 'kaspi_qr'
+          ? ['method']
+          : p.method === 'kaspi_invoice'
+            ? ['method', 'phone']
+            : ['phone']),
         'expectedTotalMinor',
         'payload',
       ]) ||
@@ -211,7 +223,12 @@ function flow(value: unknown): Flow {
       !id(p.paymentKey) ||
       !(p.quoteId === null || id(p.quoteId)) ||
       !(p.orderId === null || id(p.orderId)) ||
-      !(p.method === 'kaspi_qr' || (typeof p.phone === 'string' && invoicePhone(p.phone))) ||
+      !(
+        p.method === 'kaspi_qr' ||
+        ((p.method === undefined || p.method === 'kaspi_invoice') &&
+          typeof p.phone === 'string' &&
+          invoicePhone(p.phone))
+      ) ||
       typeof p.expectedTotalMinor !== 'string' ||
       !/^(0|[1-9][0-9]{0,15})$/.test(p.expectedTotalMinor) ||
       !isObject(p.payload) ||
@@ -250,6 +267,8 @@ export class CommercialKioskController {
   private guest: Session | null = null;
   private menu: KioskCatalog | null = null;
   private checkoutReady = false;
+  private paymentMethods: ('kaspi' | 'kaspi_invoice')[] = [];
+  private selectedMethod: 'kaspi' | 'kaspi_invoice' = 'kaspi';
   private ready = false;
   private busy = false;
   private blocked = false;
@@ -321,6 +340,9 @@ export class CommercialKioskController {
       error: this.error,
       commercial: true,
       checkoutReady: this.checkoutReady,
+      commercialPaymentMethods: this.paymentMethods,
+      invoicePhone: this.phone,
+      phoneValid: !!invoicePhone(this.phone),
       qrPayment: order?.payment?.kind === 'kaspi_qr' ? order.payment : null,
       paymentPhase: order?.phase,
       receiptState: order?.receipt,
@@ -332,7 +354,12 @@ export class CommercialKioskController {
       cartValid: !!this.menu && !unavailableCartLines.length,
       cartTotalMinor: cart.reduce((sum, line) => sum + BigInt(line.lineTotalMinor), 0n).toString(),
       selectedProduct: this.menu?.products.find((p) => p.id === this.selectedId) ?? null,
-      paymentMethod: 'kaspi',
+      paymentMethod:
+        order?.paymentMethod === 'kaspi_invoice' || this.current.intent?.method === 'kaspi_invoice'
+          ? 'kaspi_invoice'
+          : order?.payment?.kind === 'kaspi_qr' || this.current.intent?.method === 'kaspi_qr'
+            ? 'kaspi'
+            : this.selectedMethod,
       order: order
         ? {
             order_id: order.orderId,
@@ -419,10 +446,27 @@ export class CommercialKioskController {
     if (
       !isObject(config) ||
       typeof config.enabled !== 'boolean' ||
-      config.paymentMethod !== 'kaspi_qr' ||
+      !['kaspi_qr', 'kaspi_invoice'].includes(String(config.paymentMethod)) ||
       !id(config.branchId)
     )
       throw new KioskError('CHECKOUT_DISABLED');
+    const methods = config.paymentMethods ?? [config.paymentMethod];
+    if (
+      !Array.isArray(methods) ||
+      methods.length > 2 ||
+      new Set(methods).size !== methods.length ||
+      methods.some((m) => !['kaspi_qr', 'kaspi_invoice'].includes(m))
+    )
+      throw new KioskError('INVALID_RESPONSE');
+    this.paymentMethods = methods.map((m) => (m === 'kaspi_qr' ? 'kaspi' : 'kaspi_invoice'));
+    if (
+      !this.current.intent &&
+      !this.current.order &&
+      !this.paymentMethods.includes(this.selectedMethod)
+    ) {
+      this.selectedMethod = this.paymentMethods[0] ?? 'kaspi';
+      this.phone = '';
+    }
     const next = publishedKioskCatalog(await this.io.request('/catalog', guest.token));
     if (
       next.branch_id !== config.branchId ||
@@ -605,7 +649,20 @@ export class CommercialKioskController {
     this.selectedId = productId;
     this.navigate('product');
   };
-  setPaymentMethod = () => {};
+  setPaymentMethod = (method: KioskPaymentMethod) => {
+    if (
+      this.busy ||
+      this.unsafe() ||
+      this.current.order ||
+      method === 'card' ||
+      !this.paymentMethods.includes(method)
+    )
+      return;
+    if (method !== this.selectedMethod) this.phone = '';
+    this.selectedMethod = method;
+    this.touch();
+    this.emit();
+  };
   setInvoicePhone = (value: string) => {
     if (this.busy || this.unsafe() || this.current.order) return;
     this.phone = value.replace(/[^+\d ()-]/g, '').slice(0, 20);
@@ -672,8 +729,12 @@ export class CommercialKioskController {
     this.run(async () => {
       this.editable();
       const displayedTotalMinor = this.snapshot().cartTotalMinor;
+      const selected = this.selectedMethod;
       await this.loadMenu();
-      if (!this.checkoutReady) throw new KioskError('CHECKOUT_DISABLED');
+      if (!this.checkoutReady || !this.paymentMethods.includes(selected))
+        throw new KioskError('CHECKOUT_DISABLED');
+      const phone = selected === 'kaspi_invoice' ? invoicePhone(this.phone) : null;
+      if (selected === 'kaspi_invoice' && !phone) throw new KioskError('INVALID_PHONE');
       const state = this.snapshot();
       if (!state.cartValid || !state.cart.length || !this.current.mode)
         throw new KioskError('INVALID_CART');
@@ -685,7 +746,9 @@ export class CommercialKioskController {
         paymentKey: this.io.uuid(),
         quoteId: null,
         orderId: null,
-        method: 'kaspi_qr',
+        ...(selected === 'kaspi_invoice'
+          ? { method: 'kaspi_invoice' as const, phone: phone! }
+          : { method: 'kaspi_qr' as const }),
         expectedTotalMinor: displayedTotalMinor,
         payload: {
           items: this.current.cart.map((p) => ({
@@ -708,7 +771,7 @@ export class CommercialKioskController {
       throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
     // A previous phone invoice is recovered by reading its order only.
     // Never create another invoice or reinterpret an existing operation as QR.
-    if (intent.method !== 'kaspi_qr') {
+    if (!intent.method) {
       if (intent.orderId && this.current.order) {
         await this.readOrder();
         await this.save({ ...this.current, intent: null });
@@ -780,7 +843,9 @@ export class CommercialKioskController {
       await this.io.request(
         `/orders/${intent.orderId}/payment`,
         this.guest.token,
-        { method: 'kaspi_qr' },
+        intent.method === 'kaspi_invoice'
+          ? { method: 'kaspi_invoice', phone: intent.phone }
+          : { method: 'kaspi_qr' },
         intent.paymentKey,
       ),
     );
@@ -842,6 +907,7 @@ export class CommercialKioskController {
     this.guest = null;
     await this.save(this.empty());
     this.phone = '';
+    this.selectedMethod = 'kaspi';
     this.warning = null;
     this.step = 'start';
   }

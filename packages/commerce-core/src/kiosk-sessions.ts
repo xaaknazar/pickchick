@@ -5,7 +5,7 @@ import {
   randomBytes,
   timingSafeEqual,
 } from 'node:crypto';
-import { transaction, type DatabasePool } from '@pickchick/database';
+import { transaction, type DatabasePool, type DatabaseClient } from '@pickchick/database';
 import { CommerceError, UUIDSchema, parse } from './model.js';
 import { z } from 'zod';
 const StartSchema = z.strictObject({
@@ -49,6 +49,7 @@ type Session = {
 export class KioskSessions {
   private readonly key: Buffer;
   private readonly ttl: number;
+  private sessionOperations: Promise<unknown> = Promise.resolve();
   constructor(
     private readonly pool: DatabasePool,
     options: { piiKey: Buffer; sessionTtlSeconds?: number },
@@ -133,7 +134,7 @@ export class KioskSessions {
     deviceId: string,
     deviceToken: string,
     sessionToken: string,
-    options: { allowEnded?: boolean } = {},
+    options: { allowEnded?: boolean; allowExpired?: boolean } = {},
   ) {
     uuid(deviceId);
     if (!validToken(deviceToken) || !validToken(sessionToken)) return forbidden();
@@ -141,8 +142,14 @@ export class KioskSessions {
       await this.pool.query<Session>(
         `SELECT s.* FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
    WHERE d.id=$1 AND d.active AND d.token_hash=$2 AND s.token_hash=$3
-    AND ($4::boolean OR (s.ended_at IS NULL AND s.expires_at>clock_timestamp()))`,
-        [deviceId, tokenHash(deviceToken), tokenHash(sessionToken), options.allowEnded === true],
+    AND ($4::boolean OR (s.ended_at IS NULL AND ($5::boolean OR s.expires_at>clock_timestamp())))`,
+        [
+          deviceId,
+          tokenHash(deviceToken),
+          tokenHash(sessionToken),
+          options.allowEnded === true,
+          options.allowExpired === true,
+        ],
       )
     ).rows[0];
     if (!session) return forbidden();
@@ -214,10 +221,53 @@ export class KioskSessions {
   }
   async end(sessionId: string): Promise<void> {
     uuid(sessionId);
-    await this.pool.query(
-      'UPDATE kiosk_sessions SET ended_at=COALESCE(ended_at,clock_timestamp()) WHERE id=$1',
+    await this.withLock(sessionId, async (client) => {
+      const unresolved = await client.query(
+        `SELECT 1 FROM commerce_orders o WHERE o.principal_id=$1 AND o.customer_id IS NULL
+         AND o.snapshot->>'channel'='kiosk' AND (
+          o.attention_required OR
+          EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id AND a.state IN ('pending','unknown')) OR
+          EXISTS(SELECT 1 FROM commerce_kaspi_invoices i WHERE i.order_id=o.id AND i.state IN ('issuing','issued','unknown')) OR
+          EXISTS(SELECT 1 FROM commerce_refunds r WHERE r.order_id=o.id AND r.state!='failed') OR
+          EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id AND p.state IN ('cancel_requested','cancelled','released')) OR
+          NOT (
+           (SELECT COALESCE(sum(c.amount_minor),0) FROM commerce_captures c WHERE c.order_id=o.id)=o.total_minor OR
+           (NOT EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id) AND
+            EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id AND a.state='failed'))
+          )) LIMIT 1`,
+        [sessionId],
+      );
+      if (unresolved.rowCount) throw new CommerceError('CONFLICT');
+      await client.query(
+        'UPDATE kiosk_sessions SET ended_at=COALESCE(ended_at,clock_timestamp()) WHERE id=$1',
+        [sessionId],
+      );
+    });
+  }
+  /** Serializes kiosk order/payment creation with guest termination across API processes. */
+  async withLock<T>(sessionId: string, run: (client: DatabaseClient) => Promise<T>): Promise<T> {
+    uuid(sessionId);
+    // One lock holder/waiter per API instance leaves pool connections for repository TXs.
+    const operation = this.sessionOperations.then(() =>
+      transaction(this.pool, async (client) => {
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended('kiosk-session:' || $1::text, 0))",
+          [sessionId],
+        );
+        return run(client);
+      }),
+    );
+    this.sessionOperations = operation.catch(() => {});
+    return operation;
+  }
+  async assertActive(sessionId: string): Promise<void> {
+    uuid(sessionId);
+    const result = await this.pool.query(
+      `SELECT 1 FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
+       WHERE s.id=$1 AND s.ended_at IS NULL AND s.expires_at>clock_timestamp() AND d.active`,
       [sessionId],
     );
+    if (!result.rowCount) return forbidden();
   }
   /** Retention cleanup is independent of guest expiry and never deletes orders. */
   async purgeExpiredPhones(): Promise<number> {

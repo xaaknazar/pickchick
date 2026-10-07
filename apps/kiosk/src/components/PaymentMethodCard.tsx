@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import { colors, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Body, Heading, Icon, Wrapper } from './UI';
+import type { KioskPaymentMethod } from '../model';
 export function PaymentMethodCard({
   method,
   selected,
@@ -10,7 +11,7 @@ export function PaymentMethodCard({
   locale,
   onSelect,
 }: {
-  method: 'kaspi' | 'card';
+  method: KioskPaymentMethod;
   selected: boolean;
   busy: boolean;
   commercial: boolean;
@@ -19,10 +20,24 @@ export function PaymentMethodCard({
 }) {
   const { px } = useMetrics();
   const t = copy(locale);
+  const invoice = method === 'kaspi_invoice';
+  const title = invoice
+    ? locale === 'ru'
+      ? 'Счёт на телефон'
+      : 'Телефонға шот'
+    : method === 'kaspi'
+      ? commercial
+        ? 'Kaspi QR'
+        : 'Kaspi'
+      : t.card;
   const description = commercial
     ? locale === 'ru'
-      ? 'QR в приложении Kaspi.kz'
-      : 'Kaspi.kz қосымшасындағы QR'
+      ? invoice
+        ? 'Получите счёт в Kaspi.kz по номеру телефона'
+        : 'Отсканируйте QR в приложении Kaspi.kz'
+      : invoice
+        ? 'Телефон нөмірі бойынша Kaspi.kz шотын алыңыз'
+        : 'Kaspi.kz қосымшасында QR сканерлеңіз'
     : locale === 'ru'
       ? method === 'kaspi'
         ? 'Тестовый сценарий Kaspi - без QR и списания денег.'
@@ -53,15 +68,24 @@ export function PaymentMethodCard({
             width: px(72),
             height: px(72),
             borderRadius: 16,
-            backgroundColor: method === 'kaspi' ? '#E52A2E' : colors.blue,
+            backgroundColor: method !== 'card' ? '#E52A2E' : colors.blue,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name={method === 'kaspi' ? 'qr-code-outline' : 'card-outline'} tone="inverse" />
+          <Icon
+            name={
+              invoice
+                ? 'phone-portrait-outline'
+                : method === 'kaspi'
+                  ? 'qr-code-outline'
+                  : 'card-outline'
+            }
+            tone="inverse"
+          />
         </View>
         <Wrapper flex={1} gap={6}>
-          <Heading size="card">{method === 'kaspi' ? 'Kaspi' : t.card}</Heading>
+          <Heading size="card">{title}</Heading>
           <Body variant="caption" tone="muted">
             {description}
           </Body>

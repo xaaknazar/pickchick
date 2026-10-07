@@ -30,6 +30,7 @@ const Options = z
     branchId: z.uuid(),
     paymentAccountId: z.uuid(),
     paymentMethod: z.enum(['kaspi_invoice', 'kaspi_qr']).optional(),
+    invoicePaymentAccountId: z.uuid().optional(),
     fiscalAccountId: z.uuid().optional(),
     fiscalPolicy: z.enum(['required', 'deferred_pilot']),
     approvalReference: z.string().trim().min(3).max(250),
@@ -50,6 +51,7 @@ export function kioskCheckoutOptions(env: NodeJS.ProcessEnv): KioskCheckoutOptio
         ? env.KIOSK_KASPI_QR_ACCOUNT_ID
         : env.KASPI_REMOTE_ACCOUNT_ID,
     paymentMethod: env.KIOSK_CHECKOUT_PAYMENT_METHOD ?? 'kaspi_invoice',
+    invoicePaymentAccountId: env.KIOSK_KASPI_INVOICE_ACCOUNT_ID,
     fiscalAccountId: env.KIOSK_CHECKOUT_FISCAL_ACCOUNT_ID,
     fiscalPolicy: env.KIOSK_CHECKOUT_FISCAL_POLICY ?? 'required',
     approvalReference: env.KIOSK_CHECKOUT_APPROVAL_REFERENCE,
@@ -218,11 +220,33 @@ export class KioskCheckout {
     const delivery = row.version
       ? await readCatalogMenuDelivery(this.pool, scope.branchId, row.version)
       : null;
+    const primary = opt.paymentMethod ?? 'kaspi_invoice';
+    const paymentMethods: ('kaspi_qr' | 'kaspi_invoice')[] = [];
+    if (row.ready) paymentMethods.push(primary);
+    if (primary === 'kaspi_qr' && opt.invoicePaymentAccountId) {
+      const invoice = await this.pool.query(
+        `SELECT 1 FROM commerce_provider_accounts a JOIN branches b ON b.id=a.branch_id
+         WHERE a.id=$1 AND a.organization_id=$2 AND a.branch_id=$3
+          AND a.legal_entity_id=b.legal_entity_id AND a.kind='payment'
+          AND a.provider='kaspi-remote' AND a.enabled AND b.ordering_enabled
+          AND ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM commerce_provider_accounts f
+           WHERE f.id=$4 AND f.branch_id=b.id AND f.organization_id=b.organization_id
+            AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))`,
+        [
+          opt.invoicePaymentAccountId,
+          scope.organizationId,
+          scope.branchId,
+          opt.fiscalAccountId ?? null,
+        ],
+      );
+      if (invoice.rowCount) paymentMethods.push('kaspi_invoice');
+    }
     return {
-      enabled: row.ready && delivery?.status === 'applied',
+      enabled: paymentMethods.length > 0 && delivery?.status === 'applied',
       branchId: scope.branchId,
       restaurant: row.name,
-      paymentMethod: opt.paymentMethod ?? 'kaspi_invoice',
+      paymentMethod: primary,
+      paymentMethods,
     };
   }
   async quote(guest: KioskGuest, input: unknown) {
@@ -292,6 +316,9 @@ export class KioskCheckout {
     };
   }
   async create(guest: KioskGuest, input: unknown) {
+    return this.sessions.withLock(guest.sessionId, () => this.createLocked(guest, input));
+  }
+  private async createLocked(guest: KioskGuest, input: unknown) {
     const scope = this.scope(guest),
       req = parse(z.strictObject({ key: z.uuid(), quoteId: z.uuid() }), input),
       opt = this.options!;
@@ -305,6 +332,7 @@ export class KioskCheckout {
       if (prior.quote_id !== req.quoteId) throw new CommerceError('CONFLICT');
       return this.read(guest, prior.id);
     }
+    await this.sessions.assertActive(guest.sessionId);
     assertRestaurantOrderingOpen(opt.hours, this.now());
     if (!(await this.config(guest)).enabled) throw new CommerceError('NOT_READY');
     const quote = await this.pool.query(
@@ -330,30 +358,67 @@ export class KioskCheckout {
     return this.read(guest, order.orderId);
   }
   async pay(guest: KioskGuest, orderId: string, input: unknown) {
+    return this.sessions.withLock(guest.sessionId, () => this.payLocked(guest, orderId, input));
+  }
+  private async payLocked(guest: KioskGuest, orderId: string, input: unknown) {
     const scope = this.scope(guest);
-    const qr = this.options!.paymentMethod === 'kaspi_qr';
-    const req = qr
-      ? parse(z.strictObject({ method: z.literal('kaspi_qr') }), input)
-      : parse(z.strictObject({ phone: z.string().regex(/^\+77\d{9}$/) }), input);
+    const req = parse(
+      z.union([
+        z.strictObject({ method: z.literal('kaspi_qr') }),
+        z.strictObject({
+          method: z.literal('kaspi_invoice').optional(),
+          phone: z.string().regex(/^\+77\d{9}$/),
+        }),
+      ]),
+      input,
+    );
+    const method = 'phone' in req ? 'kaspi_invoice' : 'kaspi_qr';
     parse(UUIDSchema, orderId);
     await this.assertKioskOrder(scope, orderId);
     const order = await this.repository.readOrder(scope, orderId);
-    // Lock phone before enqueueing. A racing retry can never redirect the existing invoice.
-    if ('phone' in req) await this.sessions.setPhone(guest.sessionId, req.phone);
-    if (order.attempts.length || BigInt(order.money.captured) > 0n)
+    if (order.attempts.length || BigInt(order.money.captured) > 0n) {
+      if ((await this.orderPaymentMethod(orderId)) !== method) throw new CommerceError('CONFLICT');
+      if ('phone' in req) {
+        const phone = await this.sessions.readOrderPhone(orderId);
+        if (phone !== null && phone !== req.phone) throw new CommerceError('CONFLICT');
+        // Retention may have removed a terminal invoice's phone. This path only
+        // reads the existing result; it never stores a phone or sends another invoice.
+      }
       return this.read(guest, orderId);
+    }
+    await this.sessions.assertActive(guest.sessionId);
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
-    if (!(await this.config(guest)).enabled) throw new CommerceError('NOT_READY');
+    const config = await this.config(guest);
+    if (!config.enabled || !config.paymentMethods.includes(method))
+      throw new CommerceError('NOT_READY');
     await assertBranchItemsAvailable(
       this.pool,
       scope.branchId,
       snapshotAvailabilityItems(order.snapshot),
     );
+    if ('phone' in req) await this.sessions.setPhone(guest.sessionId, req.phone);
     await this.repository.startPaymentAttempt(scope, paymentKey(orderId), {
       orderId,
-      providerAccountId: this.options!.paymentAccountId,
+      providerAccountId:
+        method === 'kaspi_invoice' && this.options!.paymentMethod === 'kaspi_qr'
+          ? this.options!.invoicePaymentAccountId!
+          : this.options!.paymentAccountId,
     });
     return this.read(guest, orderId);
+  }
+  private async orderPaymentMethod(orderId: string) {
+    const row = (
+      await this.pool.query<{ provider: string }>(
+        `SELECT a.provider FROM commerce_payment_attempts p JOIN commerce_provider_accounts a
+       ON a.id=p.account_id WHERE p.order_id=$1 ORDER BY p.created_at,p.id LIMIT 1`,
+        [orderId],
+      )
+    ).rows[0];
+    return row?.provider === 'kaspi-qr'
+      ? 'kaspi_qr'
+      : row?.provider === 'kaspi-remote'
+        ? 'kaspi_invoice'
+        : null;
   }
   private async assertKioskOrder(scope: CommerceScope, orderId: string) {
     parse(UUIDSchema, orderId);
@@ -366,7 +431,9 @@ export class KioskCheckout {
   async read(guest: KioskGuest, orderId: string) {
     await this.assertKioskOrder(this.scope(guest), orderId);
     const order = await readCheckoutOrder(this.pool, this.repository, this.scope(guest), orderId);
-    if (this.options!.paymentMethod !== 'kaspi_qr') return order;
+    const paymentMethod = await this.orderPaymentMethod(orderId);
+    if (paymentMethod !== 'kaspi_qr')
+      return paymentMethod === 'kaspi_invoice' ? { ...order, paymentMethod } : order;
     const payment = await readKioskQrPayment(this.pool, orderId);
     // QR presentation is kiosk-only; shared mobile invoice projection stays intact.
     const phase =
@@ -375,6 +442,7 @@ export class KioskCheckout {
         : order.phase === 'sending' && payment?.state === 'checking'
           ? 'checking'
           : order.phase;
+    // Existing QR-only native builds use a strict response schema. Keep their shape.
     return { ...order, phase, payment };
   }
 }

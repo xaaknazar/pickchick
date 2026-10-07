@@ -1,6 +1,7 @@
 import type { KioskModel } from '../model';
 import { defaultSelections, validSelections } from '../cart';
 import { copy } from '../i18n';
+import { InvoicePhoneField } from '../components/InvoicePhoneField';
 import {
   Body,
   Button,
@@ -140,26 +141,39 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           />
           <Wrapper gap={16}>
             <Heading size="card">{t.payChoose}</Heading>
-            {(model.commercial ? (['kaspi'] as const) : (['kaspi', 'card'] as const)).map(
-              (method) => (
-                <PaymentMethodCard
-                  key={method}
-                  method={method}
-                  selected={model.paymentMethod === method}
-                  busy={model.busy}
-                  commercial={!!model.commercial}
-                  locale={context.locale}
-                  onSelect={() => model.setPaymentMethod(method)}
-                />
-              ),
-            )}
+            {(model.commercial
+              ? (model.commercialPaymentMethods ?? (['kaspi'] as const))
+              : (['kaspi', 'card'] as const)
+            ).map((method) => (
+              <PaymentMethodCard
+                key={method}
+                method={method}
+                selected={model.paymentMethod === method}
+                busy={model.busy}
+                commercial={!!model.commercial}
+                locale={context.locale}
+                onSelect={() => model.setPaymentMethod(method)}
+              />
+            ))}
           </Wrapper>
+          {model.commercial && model.paymentMethod === 'kaspi_invoice' ? (
+            <InvoicePhoneField
+              value={model.invoicePhone ?? ''}
+              onChange={(value) => model.setInvoicePhone?.(value)}
+              busy={model.busy}
+              locale={context.locale}
+            />
+          ) : null}
           <Body tone="muted">
             {model.commercial
               ? model.checkoutReady
-                ? context.locale === 'ru'
-                  ? 'На следующем экране появится QR для оплаты в Kaspi.kz. Телефон вводить не нужно.'
-                  : 'Келесі экранда Kaspi.kz арқылы төлеуге арналған QR көрсетіледі. Телефон нөмірін енгізудің қажеті жоқ.'
+                ? model.paymentMethod === 'kaspi_invoice'
+                  ? context.locale === 'ru'
+                    ? 'После подтверждения заказа мы отправим счёт в Kaspi.kz.'
+                    : 'Тапсырыс расталғаннан кейін Kaspi.kz шотын жібереміз.'
+                  : context.locale === 'ru'
+                    ? 'На следующем экране появится QR для оплаты в Kaspi.kz. Телефон вводить не нужно.'
+                    : 'Келесі экранда Kaspi.kz арқылы төлеуге арналған QR көрсетіледі. Телефон нөмірін енгізудің қажеті жоқ.'
                 : context.locale === 'ru'
                   ? 'Оплата на киоске пока недоступна. Заказ можно оформить у кассира.'
                   : 'Киоскте төлем әзірге қолжетімсіз. Тапсырысты кассирден беруге болады.'
@@ -170,11 +184,21 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
       <Footer>
         <CartTotal total={model.cartTotalMinor} valid={model.cartValid} locale={context.locale} />
         <Button
-          label={t.createPayment}
+          label={
+            model.commercial && model.paymentMethod === 'kaspi_invoice'
+              ? context.locale === 'ru'
+                ? 'Выставить счёт'
+                : 'Шот жіберу'
+              : t.createPayment
+          }
           icon="arrow-forward"
           testID="kiosk-review-create"
           disabled={
-            !model.cartValid || !model.cart.length || (model.commercial && !model.checkoutReady)
+            !model.cartValid ||
+            !model.cart.length ||
+            (model.commercial &&
+              (!model.checkoutReady ||
+                (model.paymentMethod === 'kaspi_invoice' && !model.phoneValid)))
           }
           busy={model.busy}
           onPress={() => void model.beginPayment(model.paymentMethod)}

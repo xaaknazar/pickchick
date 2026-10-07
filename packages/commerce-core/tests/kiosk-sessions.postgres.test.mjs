@@ -257,9 +257,17 @@ test('expired and ended sessions cannot authenticate or be restarted', () =>
       [b.sessionId],
     );
     await assert.rejects(f.sessions.authenticate(f.device, f.token, b.token), denied);
+    assert.equal(
+      (await f.sessions.authenticate(f.device, f.token, b.token, { allowExpired: true })).sessionId,
+      b.sessionId,
+    );
+    await assert.rejects(
+      f.sessions.authenticate(f.device, f.token, a.token, { allowExpired: true }),
+      denied,
+    );
     await assert.rejects(f.sessions.setPhone(b.sessionId, '+77000000000'), denied);
   }));
-test('phone is encrypted, immutable and idempotent; order recovery survives end', () =>
+test('phone is encrypted, immutable and idempotent; unresolved order refuses end', () =>
   fixture(async (f) => {
     const a = await f.start(),
       phone = '+77000000000';
@@ -284,7 +292,7 @@ test('phone is encrypted, immutable and idempotent; order recovery survives end'
     );
     const order = await f.order(a.sessionId);
     assert.equal(await f.sessions.readOrderPhone(order.orderId), phone);
-    await f.sessions.end(a.sessionId);
+    await assert.rejects(f.sessions.end(a.sessionId), { code: 'CONFLICT' });
     assert.equal(await f.sessions.readOrderPhone(order.orderId), phone);
     assert.equal(await f.sessions.readOrderPhone(randomUUID()), null);
     await assert.rejects(
@@ -311,7 +319,7 @@ test('retention purge preserves unresolved bank recovery, removes terminal phone
       "UPDATE kiosk_sessions SET phone_expires_at=clock_timestamp()-interval '1 day' WHERE id=$1",
       [a.sessionId],
     );
-    await f.sessions.end(a.sessionId);
+    await assert.rejects(f.sessions.end(a.sessionId), { code: 'CONFLICT' });
     assert.equal(await f.sessions.purgeExpiredPhones(), 0);
     assert.equal(await f.sessions.readOrderPhone(order.orderId), phone);
     await f.pool.query(
@@ -451,6 +459,9 @@ test('runtime starts and updates sessions with device lock-anchor column privile
     let runtime;
     try {
       await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      await f.pool.query(
+        `GRANT SELECT ON commerce_orders,commerce_payment_attempts,commerce_kaspi_invoices,commerce_refunds,commerce_captures,cloud_fulfillment_projection TO ${role}`,
+      );
       await f.pool.query(`GRANT SELECT,UPDATE(lock_anchor) ON kiosk_devices TO ${role}`);
       await f.pool.query(
         `GRANT SELECT,INSERT,UPDATE(ended_at,phone_ciphertext,phone_nonce,phone_tag,phone_expires_at) ON kiosk_sessions TO ${role}`,
@@ -481,6 +492,9 @@ test('menu release exact session grants support start replay, authenticate and e
     let runtime;
     try {
       await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      await f.pool.query(
+        `GRANT SELECT ON commerce_orders,commerce_payment_attempts,commerce_kaspi_invoices,commerce_refunds,commerce_captures,cloud_fulfillment_projection TO ${role}`,
+      );
       // The installed enrollment release already permits the device read/lock.
       await f.pool.query(`GRANT SELECT,UPDATE(lock_anchor) ON kiosk_devices TO ${role}`);
       const url = new URL(f.connection);

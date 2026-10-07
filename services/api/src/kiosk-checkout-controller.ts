@@ -72,11 +72,17 @@ export class KioskCheckoutController {
       throw error;
     }
   }
-  private async guest(device?: string, key?: string, authorization?: string): Promise<KioskGuest> {
+  private async guest(
+    device?: string,
+    key?: string,
+    authorization?: string,
+    allowExpired = false,
+  ): Promise<KioskGuest> {
     return this.sessions!.authenticate(
       device ?? '',
       key ?? '',
       authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
+      { allowExpired },
     );
   }
   @Post('enrollment/exchange') @HttpCode(200) enrollmentExchange(
@@ -180,7 +186,7 @@ export class KioskCheckoutController {
     @Headers('authorization') auth?: string,
   ) {
     return this.execute(res, async () =>
-      this.checkout!.create(await this.guest(device, key, auth), body),
+      this.checkout!.create(await this.guest(device, key, auth, true), body),
     );
   }
   @Post('orders/:id/payment') @HttpCode(200) pay(
@@ -192,7 +198,7 @@ export class KioskCheckoutController {
     @Headers('authorization') auth?: string,
   ) {
     return this.execute(res, async () =>
-      this.checkout!.pay(await this.guest(device, key, auth), id, body),
+      this.checkout!.pay(await this.guest(device, key, auth, true), id, body),
     );
   }
   @Get('orders/:id') read(
@@ -203,7 +209,7 @@ export class KioskCheckoutController {
     @Headers('authorization') auth?: string,
   ) {
     return this.execute(res, async () =>
-      this.checkout!.read(await this.guest(device, key, auth), id),
+      this.checkout!.read(await this.guest(device, key, auth, true), id),
     );
   }
 }
