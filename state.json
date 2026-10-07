@@ -3321,13 +3321,17 @@
         "tests/kiosk/verification/2026-10-07/README.md",
         "tests/kiosk/verification/2026-10-07/enroll-820x1180.png",
         "tests/kiosk/verification/2026-10-07/payment-820x1180.png",
-        "tests/kiosk/verification/2026-10-07/review-820x1180.png"
+        "tests/kiosk/verification/2026-10-07/review-820x1180.png",
+        "@apple/devices/kiosk",
+        "apps/kiosk/src/commercial-controller.ts",
+        "tests/kiosk/commercial-core.test.mjs",
+        "apps/kiosk/app.json"
       ],
       "status": "active",
       "head": "54f84f39ffc72e85fa7de9bf02c483a7291f8568",
-      "updatedAt": "2026-10-07T12:27:21.235Z",
+      "updatedAt": "2026-10-07T13:00:47.666Z",
       "summary": "Menu startup fixed and deployed API/gateway41d2a61; CI37598227901 11/11. Native0.1.0(3) installed/launched iPad, one active guest session. Live sessions/config/catalog/availability/end200; 24products,v3,fresh=true; wrongkey/ended403. Encryptedbackuprestorepassed, schema43files/last044 unchanged; finance/mobile/assets preserved. QR worker+financialroutes OFF. Docs54f84f3 published; shared117327c docs-only integrated. 68kiosktests,31guardtests,actualPGleastprivilege,CUAsyntheticvisual passed. Status/roadmapclaim blockedfarm; onlinepult not updated.",
-      "nextAction": "Owner confirms physical iPad menu. QR next: pending-order session end guard, real QR response fixture with approved one100KZT test, existingv3 actualedge ACK, account/worker/grants/kitchen acceptance. Shortalias consumed, internalcredentials retained; do not replay enrollment activation. Nextdeploymentbaseline41d2a61/schema044. No bankcalls/orders in menu rollout. Владелец 07.10.2026 подтвердил остановку серверной работы и передачу @vps/api,gateway,db,public задаче finance-rollout; не продолжать серверный выпуск до освобождения. Владелец в текущем чате явно согласовал выделение экранов/визуальных компонентов/темы для ipad-mobbin-design; UI-файлы переданы, payment/enrollment/model/controllers и серверные области сохранены. Владелец поручил системный UI-рефакторинг и Storybook: дополнительные UI/entry/enrollment-view и package/tsconfig переданы ipad-mobbin-design; сервер/хранилище/контроллеры не переданы. Владелец поручил системный UI-рефакторинг и Storybook: дополнительные UI/entry/enrollment-view и tooling scopes переданы ipad-mobbin-design; сервер/хранилище/контроллеры сохранены. Владелец в текущем чате 07.10.2026 явно поручил: «Да установи на айпаде». Резерв физического iPad временно передан ipad-mobbin-install только для обновления UI из проверенного a44f74e поверх существующего kz.pickchick.kiosk, с сохранением SecureStore. Сервер, платёжные области и TestFlight не переданы; после установки резерв возвращается kiosk-kaspi-qr. В ходе порученной владельцем установки на iPad подтверждён существующий блокер: сохранённая гостевая сессия истекла (на сервере 0 active, 1 expired), повтор меню использует старый токен. Для законченной установки переданы client controller, его regression tests и buildNumber: только безопасное обновление истёкшей сессии без intent/order с сохранением корзины и device enrollment. Сервер/платёжный контракт не меняются. Области возвращаются после установки."
+      "nextAction": "Owner confirms physical iPad menu. QR next: pending-order session end guard, real QR response fixture with approved one100KZT test, existingv3 actualedge ACK, account/worker/grants/kitchen acceptance. Shortalias consumed, internalcredentials retained; do not replay enrollment activation. Nextdeploymentbaseline41d2a61/schema044. No bankcalls/orders in menu rollout. Владелец 07.10.2026 подтвердил остановку серверной работы и передачу @vps/api,gateway,db,public задаче finance-rollout; не продолжать серверный выпуск до освобождения. Владелец в текущем чате явно согласовал выделение экранов/визуальных компонентов/темы для ipad-mobbin-design; UI-файлы переданы, payment/enrollment/model/controllers и серверные области сохранены. Владелец поручил системный UI-рефакторинг и Storybook: дополнительные UI/entry/enrollment-view и package/tsconfig переданы ipad-mobbin-design; сервер/хранилище/контроллеры не переданы. Владелец поручил системный UI-рефакторинг и Storybook: дополнительные UI/entry/enrollment-view и tooling scopes переданы ipad-mobbin-design; сервер/хранилище/контроллеры сохранены. Владелец в текущем чате 07.10.2026 явно поручил: «Да установи на айпаде». Резерв физического iPad временно передан ipad-mobbin-install только для обновления UI из проверенного a44f74e поверх существующего kz.pickchick.kiosk, с сохранением SecureStore. Сервер, платёжные области и TestFlight не переданы; после установки резерв возвращается kiosk-kaspi-qr. В ходе порученной владельцем установки на iPad подтверждён существующий блокер: сохранённая гостевая сессия истекла (на сервере 0 active, 1 expired), повтор меню использует старый токен. Для законченной установки переданы client controller, его regression tests и buildNumber: только безопасное обновление истёкшей сессии без intent/order с сохранением корзины и device enrollment. Сервер/платёжный контракт не меняются. Области возвращаются после установки. Установка UI завершена: native 0.1.0 (5), source287d4e443f29e4f81c4053c185833e70c8fa324e, CI37621500652 11/11 и UI library success, реальный XCTest1/1 menu/product, enrollment сохранён. Исправлено безопасное восстановление истёкшей гостевой сессии без order/intent. PR202 и shared0235069c73bf647d4164da0ad9171031bc454c64; протокол docs/operations/ipad-mobbin-install.md. Перед продолжением получить новый shared; buildNumber теперь5. Устройство/controller/tests/app.json возвращены kiosk-kaspi-qr, сервер и банк не менялись; повторная активация не нужна."
     },
     {
       "id": "finance-ssh-access",
@@ -3458,15 +3462,11 @@
         "apps/kiosk/ios",
         "docs/operations/ipad-mobbin-install.md",
         "docs/operations/images/ipad-mobbin-native",
-        "@apple/devices/kiosk",
-        "apps/kiosk/src/commercial-controller.ts",
-        "tests/kiosk/commercial-core.test.mjs",
-        "apps/kiosk/app.json",
         "docs/design/ipad-mobbin.md"
       ],
       "status": "active",
       "head": "287d4e443f29e4f81c4053c185833e70c8fa324e",
-      "updatedAt": "2026-10-07T12:39:30.394Z",
+      "updatedAt": "2026-10-07T13:00:47.666Z",
       "nextAction": "Владелец в текущем чате 07.10.2026 явно поручил: «Да установи на айпаде». Резерв физического iPad временно передан ipad-mobbin-install только для обновления UI из проверенного a44f74e поверх существующего kz.pickchick.kiosk, с сохранением SecureStore. Сервер, платёжные области и TestFlight не переданы; после установки резерв возвращается kiosk-kaspi-qr. В ходе порученной владельцем установки на iPad подтверждён существующий блокер: сохранённая гостевая сессия истекла (на сервере 0 active, 1 expired), повтор меню использует старый токен. Для законченной установки переданы client controller, его regression tests и buildNumber: только безопасное обновление истёкшей сессии без intent/order с сохранением корзины и device enrollment. Сервер/платёжный контракт не меняются. Области возвращаются после установки."
     }
   ]
