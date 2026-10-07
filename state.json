@@ -3339,6 +3339,18 @@
       "updatedAt": "2026-10-07T09:00:35.950Z",
       "summary": "Source39336a7 installed via guarded enrollment-only rollout; all11CI37591650169 passed. Backup/isolatedrestore passed; retained043+applied044; publicassets/financepreserved. One kioskdevice + user shortoperatoralias provisioned. Liveephemeralalias checks: wrong403,correct200,no-store,samenoncereplay200,differentnonce403,devicebranchcheck200; probealiasdeleted,useraliasunused. Kiosk0.1.0(2)installed+launched on iPad; visualcheckblockedMaclocked,useracceptancepending. Docs92c08c7 published. No bankQRcalls; worker/guestpublicroutesoff.",
       "nextAction": "Owner tryshortID/key within24h fromprovision; appstoresinternalcredentialsaftercheck. Continueguestmenu readiness/deliveryACK then separateapproved100KZTQR stage. Do notcallthisfullkioskpaymentreadiness. Preserveprivate393proofand89predecessorproof; futuredeploymentguardbaseline393+schema044. Sharedstatus/roadmapblockedfarmclaim, factsrunbookPR196."
+    },
+    {
+      "id": "finance-ssh-access",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/finance-ssh-access",
+      "scopes": [
+        "@vps/ssh/pickchick-ops",
+        "docs/operations/finance-mac-ssh-access.md"
+      ],
+      "status": "active",
+      "head": "2f561449a368f8014eb6b5ae38cf67c90d9f9af9",
+      "updatedAt": "2026-10-07T09:06:46.413Z"
     }
   ]
 }
