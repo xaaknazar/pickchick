@@ -3262,30 +3262,6 @@
       "nextAction": "Новые финансовые задачи вести на Mac3dd9e23b с отдельными claims; finance-dashboard PR197 продолжить здесь. Общие зависимости/VPS согласовывать; отдельный SSH-доступ пока не настроен."
     },
     {
-      "id": "finance-dashboard",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/finance-dashboard",
-      "scopes": [
-        "apps/backoffice/src",
-        "packages/backoffice-core/src/finance.ts",
-        "services/api/src/finance-controller.ts",
-        "tests/backoffice/finance.test.mjs",
-        "tests/backoffice/finance-model.test.mjs",
-        "tests/backoffice/finance-postgres.test.mjs",
-        "tests/backoffice/finance-http.test.mjs",
-        "tests/backoffice/finance-browser.py",
-        "docs/operations/finance-dashboard.md",
-        "docs/operations/images/finance-dashboard",
-        "apps/backoffice/server.mjs",
-        "docs/operations/finance-ledger.md"
-      ],
-      "status": "active",
-      "head": "2ecbbe5d08730122e99251eef75a2a8d13ad1e75",
-      "updatedAt": "2026-10-07T06:48:19.875Z",
-      "summary": "Владелец 07.10.2026 закрепил финансы за ЭТИМ Mac3dd9e23b, постоянное правило уже в shared2f56144 и docs/collaboration/finance-ownership.md (PR198). PR197 code7c49cb3 сохранён, docs merge2ecbbe5. 14 локальных проверок passed; CI37580384222: 9jobs passed, final audit shell-quote1.10.0 failed. Не установлено.",
-      "nextAction": "Продолжать finance-dashboard на этом Mac. Согласовать перенос опубликованного исправления89d7959 из занятых файлов зависимостей, повторить CI точного SHA. Для самостоятельного выпуска настроить отдельный SSH-доступ и согласовать временные серверные резервы. Пока доступа нет, установка только по согласованной передаче проверенного выпуска; сама разработка финансов остаётся здесь."
-    },
-    {
       "id": "kiosk-kaspi-qr",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-kaspi-qr",
@@ -3353,6 +3329,31 @@
       "updatedAt": "2026-10-07T09:08:56.518Z",
       "summary": "Публичный ключ pickchick-finance-mac добавлен отдельной строкой в authorized_keys pickchick-ops@185.129.51.103. Fingerprint SHA256:qpaC/6pxreJJEtE2E03L0+CKnwZ+RwSR/CAIg6udhEk; одно совпадение, исходные байты сохранены, права700/600 и владелец подтверждены повторным доверенным SSH. Host ED25519 fingerprint прежний Bt3HkaktjLmWe4tB1pOK9b8gOnHuxp+tvp1hhEDtxp8. Конфигурация/приложения/БД не менялись, приватные ключи не копировались. Протокол docs/operations/finance-mac-ssh-access.md, commit117327c, PR199, включено в shared.",
       "nextAction": "На финансовом Mac проверить первое SSH-подключение собственным приватным ключом со сверкой предоставленного ED25519 host key. Выпуск не выполнялся и здесь не запрашивался; серверные резервы других задач сохранены."
+    },
+    {
+      "id": "finance-dashboard",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-dashboard",
+      "scopes": [
+        "apps/backoffice/src",
+        "packages/backoffice-core/src/finance.ts",
+        "services/api/src/finance-controller.ts",
+        "tests/backoffice/finance.test.mjs",
+        "tests/backoffice/finance-model.test.mjs",
+        "tests/backoffice/finance-postgres.test.mjs",
+        "tests/backoffice/finance-http.test.mjs",
+        "tests/backoffice/finance-browser.py",
+        "docs/operations/finance-dashboard.md",
+        "docs/operations/images/finance-dashboard",
+        "apps/backoffice/server.mjs",
+        "docs/operations/finance-ledger.md",
+        "docs/collaboration/finance-ownership.md"
+      ],
+      "status": "active",
+      "head": "81bbb8677e3a33876ed8d599e58bfacd9242b72a",
+      "updatedAt": "2026-10-07T09:15:58.557Z",
+      "summary": "Владелец 07.10.2026 закрепил финансы за ЭТИМ Mac3dd9e23b, постоянное правило уже в shared2f56144 и docs/collaboration/finance-ownership.md (PR198). PR197 code7c49cb3 сохранён, docs merge2ecbbe5. 14 локальных проверок passed; CI37580384222: 9jobs passed, final audit shell-quote1.10.0 failed. Не установлено.",
+      "nextAction": "Продолжать finance-dashboard на этом Mac. Согласовать перенос опубликованного исправления89d7959 из занятых файлов зависимостей, повторить CI точного SHA. Для самостоятельного выпуска настроить отдельный SSH-доступ и согласовать временные серверные резервы. Пока доступа нет, установка только по согласованной передаче проверенного выпуска; сама разработка финансов остаётся здесь."
     }
   ]
 }
