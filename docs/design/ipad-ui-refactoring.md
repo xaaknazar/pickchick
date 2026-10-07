@@ -77,6 +77,8 @@ ProductCard now has a semantic `variant: catalog | recommendation`; ProductArtwo
 - `tests/kiosk/browser_mobbin.py` renders every built story and checks language, resize, modal bounds and Reduced Motion. Domain scenarios remain in the existing browser and unit suites.
 - `useMotionPreference.ts` and `.web.ts` follow system preferences and background state. Web uses independent media-query subscriptions so one unmount cannot remove another component's listener in React Native Web. Button cancels an active press animation immediately when the preference changes; CartBar keeps informational confirmation independent of motion.
 - `tests/kiosk/browser_payment_success.py` keeps order/payment assertions and now verifies an opaque white number ticket with blue text, instead of requiring the superseded decorative pattern and gradient.
+- ProductCard and DiningModeCard derive accessible names from visible content. Language includes its visible KZ/RU label; loading indicators have names, CategoryRail owns the tablist role, and decorative Expo images have empty alt text. Entrance opacity keeps text contrast above the threshold throughout the movement. All 92 stories are checked with Axe WCAG 2.1 A/AA rules.
+- `.github/workflows/kiosk-ui-library.yml` runs the Storybook/accessibility/motion acceptance on GitHub independently of the reserved shared CI workflow.
 
 ## Behavior kept separate
 

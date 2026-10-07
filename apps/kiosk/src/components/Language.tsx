@@ -26,7 +26,7 @@ export function Language({
           key={value}
           testID={'kiosk-language-' + value}
           accessibilityRole="button"
-          accessibilityLabel={value === 'kk' ? 'Қазақша' : 'Русский'}
+          accessibilityLabel={value === 'kk' ? 'KZ - Қазақша' : 'RU - Русский'}
           accessibilityState={{ selected: value === locale }}
           aria-pressed={value === locale}
           onPress={() => onChange(value)}

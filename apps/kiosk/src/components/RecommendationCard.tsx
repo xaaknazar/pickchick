@@ -25,7 +25,7 @@ export function RecommendationCard({
     <Animated.View
       testID={'kiosk-recommendation-' + product.id}
       style={{
-        opacity: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }),
+        opacity: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }),
         transform: [
           { translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
         ],

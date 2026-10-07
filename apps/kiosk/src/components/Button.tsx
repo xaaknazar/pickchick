@@ -86,7 +86,7 @@ export function Button({
           gap: px(12),
         })}
       >
-        {busy ? <ActivityIndicator color={color} /> : null}
+        {busy ? <ActivityIndicator accessibilityLabel={label} color={color} /> : null}
         <Text
           style={{
             fontFamily: fonts.medium,

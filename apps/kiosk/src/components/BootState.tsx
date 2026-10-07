@@ -19,7 +19,13 @@ export function BootState({
   return (
     <ScreenSurface>
       <Wrapper flex={1} padding={40} gap={24} align="center" justify="center">
-        {loading ? <ActivityIndicator size="large" color={colors.blue} /> : null}
+        {loading ? (
+          <ActivityIndicator
+            accessibilityLabel={title ?? 'Загрузка'}
+            size="large"
+            color={colors.blue}
+          />
+        ) : null}
         {title ? (
           <Heading size="section" align="center">
             {title}

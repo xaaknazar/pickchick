@@ -21,7 +21,6 @@ export function DiningModeCard({
     <Pressable
       testID={'kiosk-mode-' + (here ? 'dine-in' : 'takeaway')}
       accessibilityRole="button"
-      accessibilityLabel={`${here ? t.here : t.togo}, ${here ? t.hereSub : t.togoSub}`}
       accessibilityState={{ disabled: busy }}
       disabled={busy}
       onPress={onSelect}
@@ -48,6 +47,8 @@ export function DiningModeCard({
           }}
         >
           <Image
+            accessible={false}
+            accessibilityLabel=""
             source={here ? require('./dine.svg') : require('./takeaway.svg')}
             contentFit="contain"
             style={{ width: px(86), height: px(86) }}

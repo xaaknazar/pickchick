@@ -74,6 +74,8 @@ class Stories(unittest.TestCase):
             entries = json.load(response)['entries']
         stories = [e for e in entries.values() if e['type'] == 'story']
         report = []
+        axe_source = next(Path('node_modules/.pnpm').glob('axe-core@*/node_modules/axe-core/axe.min.js')).read_text()
+        accessibility = []
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={'width': 820, 'height': 1180}, reduced_motion='reduce')
@@ -87,12 +89,20 @@ class Stories(unittest.TestCase):
                     expect(page.locator('.sb-errordisplay')).not_to_be_visible()
                     page.evaluate('document.fonts.ready')
                     self.assertEqual(errors, [])
+                    page.add_script_tag(content=axe_source)
+                    violations = page.evaluate('''async () => (await axe.run(document.getElementById('storybook-root'), {
+                        runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}
+                    })).violations.map(v => ({id:v.id, impact:v.impact, nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))''')
+                    if violations:
+                        accessibility.append({'story':story['id'],'violations':violations})
                     report.append(story['id'])
             page.goto(url + '/iframe.html?id=kiosk-productcard--default&viewMode=story')
             expect(page.get_by_role('button', name='+ Pick Combo')).to_be_visible()
             base.capture(page, 'storybook-product-card.png')
             browser.close()
         (base.OUTPUT / 'storybook-verified.json').write_text(json.dumps(report, indent=2) + '\n')
+        (base.OUTPUT / 'storybook-accessibility.json').write_text(json.dumps(accessibility, indent=2) + '\n')
+        self.assertEqual(accessibility, [], 'See storybook-accessibility.json for actionable violations')
 
 if __name__ == '__main__':
     # Existing scenario suite runs separately; do not silently repeat inherited cases.

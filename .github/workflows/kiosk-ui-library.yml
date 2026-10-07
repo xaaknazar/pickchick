@@ -1,0 +1,67 @@
+name: Kiosk UI library
+
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'apps/kiosk/**'
+      - 'tests/kiosk/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/kiosk-ui-library.yml'
+  pull_request:
+    branches: [main, 'codex/shared-development']
+    paths:
+      - 'apps/kiosk/**'
+      - 'tests/kiosk/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/kiosk-ui-library.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kiosk-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  library:
+    name: Storybook, accessibility and iPad motion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install locked dependencies
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile
+      - name: Build real components and isolated application
+        run: |
+          pnpm --filter @pickchick/kiosk... build
+          pnpm --filter @pickchick/kiosk ui:check
+          pnpm --filter @pickchick/kiosk export
+          pnpm --filter @pickchick/kiosk storybook:build
+      - name: Install browser tools
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+      - name: Verify every story, accessible states and reduced motion
+        run: |
+          python3 -m http.server 4184 --bind 127.0.0.1 --directory apps/kiosk/dist > .local/kiosk-library-preview.log 2>&1 &
+          kiosk_pid=$!
+          python3 -m http.server 6007 --bind 127.0.0.1 --directory .local/ipad-design/storybook > .local/kiosk-storybook-preview.log 2>&1 &
+          storybook_pid=$!
+          trap 'kill "$kiosk_pid" "$storybook_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4184/ > /dev/null && curl --fail --silent http://127.0.0.1:6007/index.json > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/design-venv/bin/python tests/kiosk/browser_mobbin.py

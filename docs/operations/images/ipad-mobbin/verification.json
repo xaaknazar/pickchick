@@ -23,8 +23,8 @@
     "storybook-product-card.png": "516b7b6f5a1eccca1d619f896ac2b12ddc071e52e4afc984ab38baea56927ec7"
   },
   "runtime": {
-    "ios/index-a263ebb03c9bcf7a72686686e3ea2e74.hbc": "d4f29623ec9e4abafad45144e4c3e9c4e3cf79636f8b98b6ece3535b94966b5b",
-    "web/index-3cd97027ebb57631e78ddebe01959af2.js": "9018669ed490ebd9cf42a3f8d279313acc1fae5e7275ff62d5dfe1881b26a5f8"
+    "ios/index-ed6305ffffa0d778e2807d734b97c531.hbc": "ec0fc67dca16ab5d139816bda681b3e2c5bb63879dbb11615701f60816744559",
+    "web/index-dea9e9762dd405cb8ad1dd80331731c0.js": "2686c911faabd9bb2c7ac9f0179f9c74775169dfb6efa529d1d0fdb18b86056e"
   },
   "storyIds": [
     "kiosk-bluepattern--default",
@@ -143,8 +143,13 @@
       "screen": "rgb(0, 71, 187)",
       "fontSize": 133
     },
-    "entrypoints": ["/_expo/static/js/web/index-3cd97027ebb57631e78ddebe01959af2.js"],
+    "entrypoints": ["/_expo/static/js/web/index-dea9e9762dd405cb8ad1dd80331731c0.js"],
     "unexpected_requests": [],
     "network": "Every API request fulfilled/aborted by local fixture; no VPS requests."
+  },
+  "accessibility": {
+    "rules": "Axe WCAG 2.1 A/AA",
+    "stories": 92,
+    "violations": 0
   }
 }

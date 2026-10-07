@@ -36,7 +36,6 @@ export function ProductCard({
       <Pressable
         testID={prefix + '-' + product.id}
         accessibilityRole="button"
-        accessibilityLabel={product.name}
         onPress={onOpen}
         style={({ pressed }) => ({ gap: px(16), opacity: pressed ? 0.75 : 1 })}
       >

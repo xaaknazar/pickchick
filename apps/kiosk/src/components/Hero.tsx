@@ -67,6 +67,8 @@ export function Hero({ video = true }: { video?: boolean }) {
   }, [active, video, reduced, failed, player]);
   const poster = (
     <Image
+      accessible={false}
+      accessibilityLabel=""
       source={assets.poster}
       style={StyleSheet.absoluteFill}
       contentFit="cover"

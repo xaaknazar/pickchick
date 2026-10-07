@@ -40,6 +40,8 @@ export function ProductArtwork({
         </View>
       ) : (
         <Image
+          accessible={false}
+          accessibilityLabel=""
           source={productImage(imageId)}
           contentFit="cover"
           style={{ width: '128%', height: '128%', marginLeft: '-14%', marginTop: '-14%' }}

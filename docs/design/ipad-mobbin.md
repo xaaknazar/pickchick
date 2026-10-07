@@ -66,11 +66,11 @@ Global `docs/project-status.md`, roadmap and collaboration handoff are reserved 
 - `pnpm test:kiosk`: 72/72 passed, including four AST architecture guards.
 - `browser_ui.py`: 6/6 passed against the final web bundle; three portrait iPad sizes, basket totals, modifier choices, replay/recovery and unknown payment preservation.
 - `browser_payment_success.py`: 1/1 passed; exactly one synthetic order and payment command, payment-method accessibility state, bounded actions and high-contrast order ticket.
-- `browser_mobbin.py`: 3/3 passed; Kazakh/landscape fallback, live Reduce Motion during a held press, recommendation motion settling, and all 92 stories rendered without JavaScript errors.
+- `browser_mobbin.py`: 3/3 passed; Kazakh/landscape fallback, live Reduce Motion during a held press, recommendation motion settling, and all 92 stories rendered without JavaScript errors. Axe's WCAG 2.1 A/AA rules reported zero violations across those states; this is automated browser evidence, not native VoiceOver acceptance.
 - 46 visual components have Storybook entries. Native and web Hero implementations share one platform-resolved entry.
 - Expo iOS Hermes and web exports and static Storybook build passed. Final TypeScript/ESLint checks were repeated after motion changes.
 - Impeccable detection returned no findings. `pnpm audit:release` passed its high/critical gate; four moderate advisories remain reported by the audit, not suppressed by this task.
 
 The browser preview initially served an older output directory during an additional motion regression. It was corrected to serve `apps/kiosk/dist`, and all three browser suites above were rerun against that exact final export. Screenshots and SHA256 records are in `docs/operations/images/ipad-mobbin/`.
 
-The shared CI workflow is reserved by `tiptoppay-checkout`, so it was not edited. Existing CI runs the architecture guards via `test:kiosk` and the existing browser/payment suites. The new Storybook/render and motion suite is reproducible with `apps/kiosk/STORYBOOK.md`; wiring that additional suite into CI requires the workflow owner's next checkpoint.
+The shared CI workflow is reserved by `tiptoppay-checkout`, so it was not edited. Existing CI runs the architecture guards via `test:kiosk` and the existing browser/payment suites. A separately claimed `.github/workflows/kiosk-ui-library.yml` now builds the real Storybook and Expo exports and runs the additional render/accessibility/motion suite on kiosk changes. Its local command is documented in `apps/kiosk/STORYBOOK.md`.

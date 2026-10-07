@@ -33,6 +33,7 @@ export function Icon({
       contentFit="contain"
       style={{ width: dim, height: dim }}
       accessible={false}
+      accessibilityLabel=""
     />
   ) : (
     <Ionicons name={name} size={dim} color={tones[tone]} accessible={false} />

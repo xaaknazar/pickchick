@@ -27,6 +27,8 @@ export function CategoryRail({
       }}
     >
       <ScrollView
+        accessibilityRole="tablist"
+        accessibilityLabel={locale === 'ru' ? 'Категории меню' : 'Мәзір санаттары'}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: px(12), gap: px(12) }}
       >
