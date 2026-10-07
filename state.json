@@ -3365,10 +3365,11 @@
         "@vps/db",
         "@vps/public"
       ],
-      "status": "active",
-      "head": "583584fbacfa2b9f6f30d7ebcb1193f6aaa7e84d",
-      "updatedAt": "2026-10-07T09:45:11.739Z",
-      "summary": "Владелец 07.10.2026 явно разрешил временную передачу серверных ресурсов с остановленного другого Mac для установки финансов."
+      "status": "done",
+      "head": "16adcea43cc21922f54ba722f3ec906ff9ab3f12",
+      "updatedAt": "2026-10-07T10:28:52.159Z",
+      "summary": "Установлены API/public368c4e8 с финансового Mac; CI37603979233 11/11. Форма без счёта, сводка, ДДС/ОПиУ с графиками. Backup00452ea1, isolated restore passed. Schema044/43files без миграций; данные/ACL/env/соседи/assets сохранены, QR/TipTop off. Live summary/form и authorized GET200 проверены; повторный browser DDS/PnL ограничен CDP timeout, локально/CI прошли. PR200 merged; протокол16adcea включён в shared, SHA сверены. Locks освобождены.",
+      "nextAction": "Приёмка бухгалтером первого реального дня и сверка отчётов. Следующий baseline API/public368c4e8/schema044. Не откатывать старый API после записей без счёта. Общие status/roadmap/handoff ещё в чужом резерве: перенести из docs/operations/deployments/2026-10-07-finance-dashboard.md implemented/verified/deployed true, accepted false; онлайн-пульт не обновлялся. Четыре серверных резерва освобождены, следующий выпуск только с новым claim."
     }
   ]
 }
