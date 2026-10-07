@@ -3274,11 +3274,11 @@
         "docs/operations/deployments/2026-10-06-finance-ledger.md",
         "docs/operations/deployments/2026-10-07-finance-ledger-result.json"
       ],
-      "status": "active",
-      "head": "d6cd144cc7cba9943b614e2a33552111f3f1f44d",
-      "updatedAt": "2026-10-07T05:20:32.067Z",
-      "summary": "Source d6cd144 published in PR195. Finance13 + browser + historical39 + releaseguard14 + realPG audit rollback passed. Live baseline850c6fa/schema038; no deployment/migrations/newbackup. CI37458393708 has9success; POS recovery5s timeout then retry blocked beforestart by confirmed GitHub Actions budget60/60. Owner asked to restorebudget.",
-      "nextAction": "After user fixesActionsbudget, rerun failedjobs on sameSHA once; obtain11greenjobproof. Then finance release prepare/apply with encrypted backup/restore and rollback, browserlogin/reports. Own TipTop coordinated:039/040 exactschema precede042, runtimeTipTop staysoff. API reservation remains finance untilcompleted."
+      "status": "done",
+      "head": "2f00491bf41e44bbbe10852b57dd16a9a58bcee8",
+      "updatedAt": "2026-10-07T05:21:35.621Z",
+      "summary": "Установлен API/backoffice d6cd144 на VPS 7 октября. CI37458393708 11/11. Encrypted backup 702f62b7, isolated restore passed, schema039/040/042=41 files, old API compatible. Контролируемое продолжение под original lock: подтверждён только monotonic availability heartbeat; исправлены auth probes с обязательными query/body, anonymous GET/POST401. Browser journal/DDS/PnL1440/393 passed, JS errors0, finance tables empty, TipTop off, worker/neighbors/assets preserved. Result commit2f00491 published and included shared; PR195. Full evidence docs/operations/deployments/2026-10-06-finance-ledger.md and 2026-10-07-finance-ledger-result.json. Maintenance/deploy/cleanup locks released.",
+      "nextAction": "Согласованно обновить project-status/roadmap/handoff: claim отклонён из-за farm-gameplay-v2; @vps/roadmap занят tiptoppay-test-rollout. Checks finance implemented/verified/deployed true, accepted false. Перед следующим apply/rollback адресно исправить runtime_snapshot normalization и malformed anonymous probes в release-finance-ledger.py с regression/CI; эти дефекты и точное operator recovery сохранены в протоколе. Следом личные права бухгалтера, реальные счета/остатки и приёмка первого дня; август Excel не импортирован."
     }
   ]
 }
