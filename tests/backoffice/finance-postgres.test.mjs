@@ -123,6 +123,10 @@ test('durable financial records, exact cash/P&L, branch isolation, retry and per
     assert.equal(d.summaries.find((s) => s.category_id === 'rent').cash_minor, '10000');
     assert.equal(d.summaries.find((s) => s.category_id === 'cogs').cash_minor, '0');
     assert.equal(d.summaries.find((s) => s.category_id === 'cogs').pnl_minor, '9000');
+    assert.deepEqual(d.timeline, [
+      { date: '2026-10-06', basis: 'cash', in_minor: '50000', out_minor: '25000' },
+      { date: '2026-10-06', basis: 'pnl', in_minor: '50000', out_minor: '9000' },
+    ]);
     assert.equal(
       d.summaries.some((s) => s.category_id === null),
       false,
@@ -130,6 +134,9 @@ test('durable financial records, exact cash/P&L, branch isolation, retry and per
     const center = await f.read(token, c.branch, { ...query, center: 'workshop' });
     assert.equal(center.summaries.length, 1);
     assert.equal(center.total, 1);
+    assert.deepEqual(center.timeline, [
+      { date: '2026-10-06', basis: 'pnl', in_minor: '0', out_minor: '9000' },
+    ]);
     assert.equal(center.accounts.find((a) => a.id === cash).after_minor, '105000');
     const filtered = await f.read(token, c.branch, {
       ...query,
@@ -140,6 +147,7 @@ test('durable financial records, exact cash/P&L, branch isolation, retry and per
     assert.equal(filtered.total, 1);
     assert.equal(filtered.journal[0].id, rent.command.entry.id);
     assert.deepEqual(filtered.summaries, d.summaries);
+    assert.deepEqual(filtered.timeline, d.timeline);
     assert.equal(
       (
         await f.read(token, c.branch, {
@@ -187,6 +195,7 @@ test('durable financial records, exact cash/P&L, branch isolation, retry and per
     assert.equal(d.total, 5);
     assert.equal(d.journal.filter((r) => r.void_reason).length, 1);
     assert.equal(d.accounts.find((a) => a.id === cash).after_minor, '115000');
+    assert.equal(d.timeline.find((p) => p.basis === 'cash').out_minor, '15000');
     assert.equal(
       d.summaries.some((s) => s.category_id === 'rent'),
       false,
@@ -264,7 +273,7 @@ test('finance runtime has append-only rights, aggregates all pages and rolls bac
         amount_minor: '101',
         cash_date: '2026-10-06',
         recognition_date: '2026-10-06',
-        account_id: account,
+        account_id: null,
         to_account_id: null,
         category_id: 'sales',
         center: 'restaurant',
@@ -280,7 +289,17 @@ test('finance runtime has append-only rights, aggregates all pages and rolls bac
       assert.equal(b.journal.length, 5);
       assert.equal(a.total, 105);
       assert.equal(a.summaries[0].pnl_minor, '10605');
-      assert.equal(a.accounts[0].after_minor, '10605');
+      assert.equal(a.accounts[0].after_minor, '0');
+      assert.deepEqual(a.unassigned, { entries: 105, in_minor: '10605', out_minor: '0' });
+      assert.deepEqual(a.timeline, b.timeline);
+      assert.equal(a.timeline.find((p) => p.basis === 'cash').in_minor, '10605');
+      const last = b.journal[0].id;
+      const cancellation = req({ type: 'void', id: last });
+      await f.command(manager.token, c.branch, cancellation);
+      await f.command(manager.token, c.branch, cancellation);
+      const afterVoid = await f.read(manager.token, c.branch, query);
+      assert.equal(afterVoid.unassigned.in_minor, '10504');
+      assert.equal(afterVoid.timeline.find((p) => p.basis === 'pnl').in_minor, '10504');
       await assert.rejects(pool.query('DELETE FROM bo_finance_entries'), /permission denied/);
       await assert.rejects(
         pool.query('UPDATE bo_finance_accounts SET name=name'),

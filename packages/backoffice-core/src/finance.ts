@@ -117,13 +117,12 @@ export const FinanceEntry = z
     const reject = () => ctx.addIssue({ code: 'custom', message: 'Invalid accounting effects' });
     const accrual = e.kind.startsWith('accrual');
     if (
-      accrual
-        ? e.cash_date !== null || e.account_id !== null || !e.recognition_date
-        : !e.cash_date || !e.account_id
+      accrual ? e.cash_date !== null || e.account_id !== null || !e.recognition_date : !e.cash_date
     )
       reject();
     if (e.kind === 'transfer') {
       if (
+        !e.account_id ||
         !e.to_account_id ||
         e.to_account_id === e.account_id ||
         e.category_id !== null ||
@@ -391,6 +390,31 @@ export class Finance {
     GROUP BY payload->>'category_id',payload->>'center'`,
         [branch, q.start_date, q.end_date, q.center],
       );
+      // Aggregate the complete period, independently of journal pagination/search.
+      // Cash and recognition dates belong to separate series; transfers affect neither.
+      const timeline = await rows(
+        `WITH dated AS (
+          SELECT cash_date date,'cash' basis,payload ${active}
+          AND cash_date BETWEEN $2::date AND $3::date
+          UNION ALL
+          SELECT recognition_date,'pnl',payload ${active}
+          AND recognition_date BETWEEN $2::date AND $3::date)
+        SELECT date::text,basis,
+          coalesce(sum((payload->>'amount_minor')::numeric) FILTER(WHERE payload->>'kind' IN ('income','accrual_income')),0)::text in_minor,
+          coalesce(sum((payload->>'amount_minor')::numeric) FILTER(WHERE payload->>'kind' IN ('expense','accrual_expense')),0)::text out_minor
+        FROM dated WHERE payload->>'kind'<>'transfer' AND ($4='all' OR payload->>'center'=$4)
+        GROUP BY date,basis ORDER BY date,basis`,
+        [branch, q.start_date, q.end_date, q.center],
+      );
+      const unassigned = (
+        await rows(
+          `SELECT count(*)::int entries,
+          coalesce(sum((payload->>'amount_minor')::numeric) FILTER(WHERE payload->>'kind'='income'),0)::text in_minor,
+          coalesce(sum((payload->>'amount_minor')::numeric) FILTER(WHERE payload->>'kind'='expense'),0)::text out_minor
+        ${active} AND cash_date BETWEEN $2::date AND $3::date AND payload->>'account_id' IS NULL`,
+          [branch, q.start_date, q.end_date],
+        )
+      )[0];
       const where = `e.branch_id=$1 AND (($6<>'pnl' AND e.cash_date BETWEEN $2::date AND $3::date) OR ($6<>'cash' AND e.recognition_date BETWEEN $2::date AND $3::date)) AND ($4='all' OR e.payload->>'center'=$4) AND ($5='' OR e.payload->>'category_id'=$5) AND ($7='' OR strpos(lower(concat_ws(' ',e.payload->>'reference',e.payload->>'counterparty',e.payload->>'note')),lower($7))>0)`;
       const args = [branch, q.start_date, q.end_date, q.center, q.category, q.basis, q.search];
       const journal = await rows(
@@ -415,6 +439,8 @@ export class Finance {
         groups,
         accounts: balances,
         summaries,
+        timeline,
+        unassigned,
         journal,
         total: count,
         periods,

@@ -1,5 +1,6 @@
 """Synthetic accounting acceptance against real HTTP/PostgreSQL, never the restaurant."""
 import json
+import re
 import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
@@ -27,17 +28,18 @@ with sync_playwright() as pw:
         page.get_by_test_id('finance-end').fill(end)
         b('Показать').click()
         expect(b('Показать')).to_be_enabled()
-    expect(b('Счета и периоды')).to_be_enabled()
+    expect(b('Настройки')).to_be_enabled()
     period('2026-10-01', '2026-10-31')
-    tab('Счета и периоды')
-    page.get_by_text('Добавить денежный счёт', exact=True).click()
-    page.get_by_label('Название счёта', exact=True).fill('Тестовая касса')
-    page.get_by_label('Начало учёта', exact=True).fill('2026-09-01')
-    page.get_by_label('Начальный остаток, ₸', exact=False).fill('10000')
-    b('Добавить счёт').click()
-    expect(page.locator('.content')).to_contain_text('10\u00a0000,00 ₸')
-    tab('Журнал операций')
+    expect(page.get_by_role('heading', name='Финансы за период')).to_be_visible()
     b('Добавить операцию').click()
+    expect(page.get_by_test_id('finance-account')).to_have_count(0)
+    expect(page.get_by_test_id('finance-to-account')).to_have_count(0)
+    for width, height in [(1440, 960), (393, 852)]:
+        page.set_viewport_size({'width': width, 'height': height})
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
+        page.screenshot(path=str(out / f'finance-entry-{width}.png'), full_page=True)
+    page.set_viewport_size({'width': 1440, 'height': 960})
+    page.get_by_text('Дополнительно: ОПиУ, контрагент, примечание', exact=True).click()
     page.get_by_test_id('finance-amount').fill('500,25')
     page.get_by_test_id('finance-cash-date').fill('2026-10-06')
     page.get_by_test_id('finance-recognition-date').fill('2026-09-30')
@@ -65,15 +67,21 @@ with sync_playwright() as pw:
     b('Проверить результат').click()
     expect(b('Проверить результат')).to_have_count(0)
     assert recovered[0] == requests[0]
+    assert requests[0]['command']['entry']['account_id'] is None
+    tab('Журнал операций')
     expect(b('Синтетические коммунальные услуги')).to_have_count(1)
     tab('ДДС')
     expect(page.locator('.finance-totals')).to_contain_text('500,25 ₸')
+    page.get_by_text('Точные значения по датам', exact=True).click()
+    expect(page.locator('.finance-chart-data')).to_contain_text('500,25 ₸')
+    expect(page.locator('.finance-ranking')).to_contain_text('100,0%')
     tab('ОПиУ')
     expect(page.locator('.finance-totals')).not_to_contain_text('500,25')
     period('2026-09-01', '2026-09-30')
     expect(page.locator('.finance-totals')).to_contain_text('-500,25 ₸')
-    page.get_by_text('Коммунальные услуги', exact=True).click()
-    b('Показать операции').click()
+    page.get_by_text('Аренда и коммунальные услуги', exact=True).click()
+    page.locator('.finance-sheet summary').filter(has_text=re.compile(r'^Коммунальные услуги$')).click()
+    page.locator('details[open] > .finance-link').filter(has_text='Показать операции').click()
     expect(page.get_by_test_id('finance-filter-basis')).to_have_value('pnl')
     expect(b('Синтетические коммунальные услуги')).to_be_visible()
     b('Синтетические коммунальные услуги').click()
@@ -96,7 +104,7 @@ with sync_playwright() as pw:
     page.get_by_test_id('finance-search').fill('поставщик')
     b('Найти').click()
     expect(b('Синтетические коммунальные услуги')).to_be_visible()
-    tab('Счета и периоды')
+    tab('Настройки')
     page.get_by_test_id('finance-period-month').fill('2026-09')
     page.get_by_label('Причина закрытия / открытия', exact=True).fill('Синтетическая проверка месяца')
     b('Закрыть месяц').click()
@@ -109,7 +117,7 @@ with sync_playwright() as pw:
     expect(page.locator('[role=alert]')).to_contain_text('месяц закрыт')
     expect(page.get_by_label('Причина отмены', exact=True)).to_have_value('Синтетическая ошибочная запись')
     b('К журналу').click()
-    tab('Счета и периоды')
+    tab('Настройки')
     page.get_by_label('Причина закрытия / открытия', exact=True).fill('Синтетическое исправление')
     b('Открыть для исправлений').click()
     expect(page.locator('.content')).to_contain_text('Статус 2026-09: открыт')

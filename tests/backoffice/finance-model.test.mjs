@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { FinanceModel, minor, money, csv } from '../../apps/backoffice/dist/finance-model.js';
 import { ApiError } from '../../apps/backoffice/dist/api.js';
+import {
+  reportData,
+  timeSeries,
+  percent,
+  chartWidth,
+} from '../../apps/backoffice/dist/finance-report.js';
 const store = () => {
   const m = new Map();
   return {
@@ -24,6 +30,45 @@ const snapshot = (branch) => ({
   journal: [],
   total: 0,
   periods: [],
+});
+test('report totals, shares and dated series stay exact and do not use paginated journal', () => {
+  const d = {
+    ...snapshot(randomUUID()),
+    categories: [
+      { id: 'sales', group: 'revenue', direction: 'in', cashflow: 'operating' },
+      { id: 'rent', group: 'rent', direction: 'out', cashflow: 'operating' },
+      { id: 'equipment', group: 'none', direction: 'out', cashflow: 'investing' },
+    ],
+    summaries: [
+      {
+        category_id: 'sales',
+        center: 'restaurant',
+        cash_minor: '900719925474099301',
+        pnl_minor: '900719925474099301',
+      },
+      { category_id: 'rent', center: 'restaurant', cash_minor: '201', pnl_minor: '100' },
+      { category_id: 'equipment', center: 'restaurant', cash_minor: '500', pnl_minor: '0' },
+    ],
+    timeline: [
+      { date: '2026-09-30', basis: 'pnl', in_minor: '0', out_minor: '100' },
+      { date: '2026-10-01', basis: 'cash', in_minor: '900719925474099301', out_minor: '201' },
+      { date: '2026-10-02', basis: 'cash', in_minor: '0', out_minor: '500' },
+    ],
+  };
+  assert.equal(reportData(d, 'cash').net, 900719925474098600n);
+  assert.equal(reportData(d, 'pnl').net, 900719925474099201n);
+  assert.equal(percent(1n, 0n), '-');
+  assert.equal(percent(-1n, 8n), '-12,5%');
+  assert.equal(percent(900719925474099301n, 900719925474099301n), '100,0%');
+  assert.equal(chartWidth(1n, 2n), 50);
+  const daily = timeSeries(d, 'cash', '2026-10-01', '2026-10-03');
+  assert.equal(daily.points.length, 3);
+  assert.equal(daily.points[2].incoming, 0n);
+  const monthly = timeSeries(d, 'cash', '2026-09-01', '2026-10-31');
+  assert.equal(monthly.monthly, true);
+  assert.equal(monthly.points[1].outgoing, 701n);
+  assert.equal(timeSeries(d, 'pnl', '2026-09-01', '2026-09-30').points[29].outgoing, 100n);
+  assert.equal(timeSeries(snapshot('x'), 'cash', '2026-10-01', '2026-10-03'), null);
 });
 test('exact KZT input and formula-safe CSV', () => {
   assert.equal(minor('1 234,56'), '123456');

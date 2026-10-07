@@ -59,6 +59,8 @@ export type FinanceSnapshot = {
     pnl_minor: string;
     entries: number;
   }[];
+  timeline?: { date: string; basis: 'cash' | 'pnl'; in_minor: string; out_minor: string }[];
+  unassigned?: { entries: number; in_minor: string; out_minor: string };
   journal: JournalRow[];
   total: number;
   periods: { month: string; closed: boolean; revision: number }[];

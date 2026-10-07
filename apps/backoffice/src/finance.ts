@@ -8,6 +8,8 @@ import {
   type FinanceEntry,
   type JournalRow,
 } from './finance-model.js';
+import { reportData, percent, type Basis } from './finance-report.js';
+import { expenseChart, trendChart } from './finance-charts.js';
 
 const kinds: Record<string, string> = {
   expense: 'Расход',
@@ -71,7 +73,8 @@ const fresh = (): FinanceEntry => ({
 });
 
 export class FinanceView {
-  private tab = 'journal';
+  private tab = 'overview';
+  private extraOpen = false;
   private editing = false;
   private draft = fresh();
   private amount = '';
@@ -93,6 +96,7 @@ export class FinanceView {
   }
   clear() {
     this.editing = false;
+    this.extraOpen = false;
     this.draft = fresh();
     this.amount = '';
     this.formError = '';
@@ -152,13 +156,38 @@ export class FinanceView {
       apply.click();
     });
     area.append(toolbar);
+    const quick = el('div', 'finance-quick-periods');
+    const current = today();
+    const previousEnd = new Date(Date.parse(current.slice(0, 7) + '-01T00:00:00Z') - 86400000)
+      .toISOString()
+      .slice(0, 10);
+    for (const [label, from, to] of [
+      ['Этот месяц', current.slice(0, 7) + '-01', current],
+      ['Прошлый месяц', previousEnd.slice(0, 7) + '-01', previousEnd],
+      ['С начала года', current.slice(0, 4) + '-01-01', current],
+    ]) {
+      const shortcut = button(
+        label!,
+        () => {
+          m.start = from!;
+          m.end = to!;
+          m.page = 0;
+          void m.load();
+        },
+        'finance-link',
+      );
+      shortcut.disabled = m.busy || !!m.pending || this.editing;
+      quick.append(shortcut);
+    }
+    area.append(quick);
     const tabs = el('nav', 'finance-tabs');
     tabs.setAttribute('aria-label', 'Финансовые отчёты');
     for (const [id, label] of [
+      ['overview', 'Сводка'],
       ['journal', 'Журнал операций'],
       ['cash', 'ДДС'],
       ['pnl', 'ОПиУ'],
-      ['accounts', 'Счета и периоды'],
+      ['accounts', 'Настройки'],
     ]) {
       const b = button(
         label!,
@@ -198,7 +227,7 @@ export class FinanceView {
       n.append(b);
       area.append(n);
     }
-    if (!d) {
+    if (!d || m.busy) {
       area.append(
         el(
           'p',
@@ -214,7 +243,7 @@ export class FinanceView {
       el(
         'p',
         'finance-source',
-        'Управленческий учёт по внесённым операциям. Оплаты приложения, iiko и банковские выписки автоматически сюда не добавляются.',
+        'По внесённым операциям. Продажи и банковские выписки автоматически не загружаются.',
       ),
     );
     if (this.editing) {
@@ -226,6 +255,7 @@ export class FinanceView {
       return;
     }
     if (this.tab === 'journal') this.journal(area);
+    if (this.tab === 'overview') this.overview(area);
     if (this.tab === 'cash' || this.tab === 'pnl') this.report(area, this.tab);
     if (this.tab === 'accounts') this.accounts(area);
   }
@@ -239,7 +269,6 @@ export class FinanceView {
         'Добавить операцию',
         () => {
           this.draft = fresh();
-          this.draft.account_id = d.accounts[0]?.id ?? null;
           this.amount = '';
           this.recognize = true;
           this.editing = true;
@@ -286,14 +315,6 @@ export class FinanceView {
       find.click();
     });
     area.append(filters);
-    if (!d.accounts.length)
-      area.append(
-        el(
-          'p',
-          'notice',
-          'Начните со вкладки «Счета и периоды»: добавьте кассу или банковский счёт и подтверждённый начальный остаток. Начисления без оплаты можно внести сразу.',
-        ),
-      );
     const rows = d.journal.map((r) => {
       const e = r.payload;
       const name = el('div');
@@ -387,11 +408,7 @@ export class FinanceView {
     const form = el('form', 'panel finance-editor');
     form.append(
       el('h2', '', 'Новая операция'),
-      el(
-        'p',
-        'muted',
-        'Сначала укажите факт движения денег. Для ОПиУ выберите дату, к которой относится доход или расход.',
-      ),
+      el('p', 'muted', 'Укажите сумму, статью и назначение. Отчёты обновятся после сохранения.'),
     );
     const grid = el('div', 'finance-form-grid');
     const redraw = () => {
@@ -402,7 +419,11 @@ export class FinanceView {
       select(
         'Тип операции',
         e.kind,
-        options(kinds),
+        options(
+          Object.fromEntries(
+            Object.entries(kinds).filter(([key]) => key !== 'transfer' || e.kind === 'transfer'),
+          ),
+        ),
         (v) => {
           e.kind = v;
           const incoming = v.endsWith('income');
@@ -410,7 +431,7 @@ export class FinanceView {
           e.category_id = v === 'transfer' ? null : incoming ? 'sales' : 'rent';
           e.to_account_id = null;
           e.cash_date = accrual ? null : today();
-          e.account_id = accrual ? null : (d.accounts[0]?.id ?? null);
+          e.account_id = null;
           this.recognize = v !== 'transfer';
           e.recognition_date = this.recognize ? today() : null;
           redraw();
@@ -432,13 +453,31 @@ export class FinanceView {
       transfer = e.kind === 'transfer';
     if (!accrual) {
       grid.append(
-        field('Дата движения денег', e.cash_date ?? '', (v) => (e.cash_date = v), {
-          type: 'date',
-          required: true,
-          id: 'finance-cash-date',
-        }),
+        field(
+          'Дата движения денег',
+          e.cash_date ?? '',
+          (v) => {
+            if (e.recognition_date === e.cash_date) {
+              e.recognition_date = v;
+              const recognition = form.querySelector<HTMLInputElement>(
+                '[data-testid="finance-recognition-date"]',
+              );
+              if (recognition) recognition.value = v;
+            }
+            e.cash_date = v;
+          },
+          {
+            type: 'date',
+            required: true,
+            id: 'finance-cash-date',
+          },
+        ),
+      );
+    }
+    if (transfer) {
+      grid.append(
         select(
-          transfer ? 'Со счёта' : 'Счёт',
+          'Со счёта',
           e.account_id ?? '',
           [
             { value: '', label: 'Выберите счёт' },
@@ -496,22 +535,37 @@ export class FinanceView {
       ),
     );
     const cat = d.categories.find((c) => c.id === e.category_id);
+    grid.append(
+      field('Назначение', e.reference, (v) => (e.reference = v), {
+        id: 'finance-reference',
+        required: true,
+        max: 200,
+        hint: 'Например: аренда за октябрь',
+      }),
+    );
+    const extra = el('details', 'finance-extra');
+    extra.open = this.extraOpen;
+    extra.addEventListener('toggle', () => {
+      this.extraOpen = extra.open;
+    });
+    extra.append(el('summary', '', 'Дополнительно: ОПиУ, контрагент, примечание'));
+    const extraGrid = el('div', 'finance-form-grid');
     if (!transfer && cat?.recognition !== 'never') {
       if (!accrual)
-        grid.append(
+        extraGrid.append(
           check(
             'Включить в ОПиУ',
             this.recognize,
             (v) => {
               this.recognize = v;
-              e.recognition_date = v ? today() : null;
+              e.recognition_date = v ? (e.cash_date ?? today()) : null;
               redraw();
             },
             'finance-recognize',
           ),
         );
       if (this.recognize)
-        grid.append(
+        extraGrid.append(
           field(
             'Дата дохода / расхода для ОПиУ',
             e.recognition_date ?? '',
@@ -520,17 +574,11 @@ export class FinanceView {
           ),
         );
     }
-    grid.append(
+    extraGrid.append(
       field('Контрагент', e.counterparty, (v) => (e.counterparty = v), {
         id: 'finance-counterparty',
         max: 200,
         hint: 'Поставщик, сотрудник или источник поступления',
-      }),
-      field('Документ / основание', e.reference, (v) => (e.reference = v), {
-        id: 'finance-reference',
-        required: true,
-        max: 200,
-        hint: 'Например: накладная №15, аренда за октябрь',
       }),
       field('Примечание', e.note, (v) => (e.note = v), {
         id: 'finance-note',
@@ -538,7 +586,8 @@ export class FinanceView {
         max: 1000,
       }),
     );
-    form.append(grid);
+    extra.append(extraGrid);
+    form.append(grid, extra);
     const effect = transfer
       ? 'Изменятся остатки двух счетов. Общий денежный поток и прибыль не изменятся.'
       : accrual
@@ -546,7 +595,7 @@ export class FinanceView {
         : this.recognize && cat?.recognition !== 'never'
           ? 'Запись попадёт в ДДС и в ОПиУ по соответствующим датам.'
           : 'Запись попадёт только в ДДС. Для признания расхода или дохода внесите отдельное начисление.';
-    form.append(el('p', 'notice compact', effect));
+    form.append(el('p', 'finance-effect', effect));
     if (this.formError) {
       const n = el('p', 'notice error', this.formError);
       n.setAttribute('role', 'alert');
@@ -558,8 +607,8 @@ export class FinanceView {
         if (!form.reportValidity()) return;
         try {
           e.amount_minor = minor(this.amount);
-          if (!accrual && !e.account_id) throw Error('Выберите денежный счёт.');
-          if (transfer && (!e.to_account_id || e.to_account_id === e.account_id))
+          if (!transfer) e.account_id = null;
+          if (transfer && (!e.account_id || !e.to_account_id || e.to_account_id === e.account_id))
             throw Error('Выберите другой счёт для перевода.');
           this.formError = '';
           void m
@@ -680,6 +729,7 @@ export class FinanceView {
       this.act('Повторить как новую', () => {
         this.draft = {
           ...e,
+          account_id: e.kind === 'transfer' ? e.account_id : null,
           id: crypto.randomUUID(),
           cash_date: e.cash_date ? today() : null,
           recognition_date: e.recognition_date ? today() : null,
@@ -694,26 +744,116 @@ export class FinanceView {
     );
     return p;
   }
+  private openCategory(category: string, basis: Basis) {
+    const m = this.model;
+    m.category = category;
+    m.basis = basis;
+    m.search = '';
+    m.page = 0;
+    this.tab = 'journal';
+    void m.load();
+  }
+  private newEntry() {
+    this.draft = fresh();
+    this.amount = '';
+    this.recognize = true;
+    this.extraOpen = false;
+    this.editing = true;
+    this.changed();
+  }
+  private overview(area: HTMLElement) {
+    const m = this.model,
+      d = m.data!;
+    const head = el('div', 'finance-heading');
+    head.append(
+      el('h2', '', 'Финансы за период'),
+      this.act('Добавить операцию', () => this.newEntry(), true),
+    );
+    area.append(head);
+    const reports = el('div', 'finance-overview');
+    for (const basis of ['cash', 'pnl'] as const) {
+      const r = reportData(d, basis);
+      const block = el('section', 'finance-overview-block');
+      block.append(el('h3', '', basis === 'cash' ? 'Движение денег' : 'Прибыль и убытки'));
+      const list = el('dl', 'finance-key-values');
+      const values: [string, bigint][] = [
+        [basis === 'cash' ? 'Поступления' : 'Выручка', r.incoming],
+        [basis === 'cash' ? 'Выплаты' : 'Расходы', r.outgoing],
+        [basis === 'cash' ? 'Чистый денежный поток' : 'Результат по внесённым данным', r.net],
+      ];
+      for (const [name, value] of values) {
+        const pair = el('div');
+        pair.append(
+          el('dt', '', name),
+          el('dd', value < 0n ? 'finance-negative' : '', money(String(value))),
+        );
+        list.append(pair);
+      }
+      block.append(
+        list,
+        button(
+          basis === 'cash' ? 'Открыть ДДС' : 'Открыть ОПиУ',
+          () => {
+            this.tab = basis;
+            this.changed();
+          },
+          'finance-link',
+        ),
+      );
+      reports.append(block);
+    }
+    area.append(reports);
+    if (!d.summaries.length)
+      area.append(
+        el(
+          'p',
+          'notice',
+          'За период ещё нет внесённых операций. Начните с доходов и расходов дня.',
+        ),
+      );
+    const charts = el('div', 'finance-charts');
+    charts.append(
+      trendChart(d, 'cash', m.start, m.end),
+      expenseChart(d, 'pnl', (id) => this.openCategory(id, 'pnl')),
+    );
+    area.append(charts);
+  }
   private report(area: HTMLElement, kind: string) {
     const m = this.model,
       d = m.data!,
-      pnl = kind === 'pnl';
-    const lines: string[][] = [];
-    const grouped: Record<string, bigint> = {};
-    let incoming = 0n,
-      outgoing = 0n;
+      basis: Basis = kind === 'pnl' ? 'pnl' : 'cash',
+      pnl = basis === 'pnl';
+    const r = reportData(d, basis);
     const heading = el('div', 'finance-heading');
     heading.append(el('h2', '', pnl ? 'Отчёт о прибылях и убытках' : 'Движение денежных средств'));
-    area.append(heading);
     area.append(
+      heading,
       el(
         'p',
         'muted',
         pnl
-          ? 'По дате признания дохода или расхода. Закупки, оборудование, авансы и возврат вложений сами по себе не уменьшают прибыль.'
-          : 'По дате фактического платежа. Переводы между своими счетами исключены из поступлений и выплат.',
+          ? 'Доходы и расходы по дате признания. Доля каждой строки - от выручки.'
+          : 'Поступления и выплаты по дате движения денег. Переводы между своими счетами исключены.',
       ),
     );
+    const total = el('section', 'finance-totals');
+    total.append(
+      table(
+        ['Показатель', 'Сумма'],
+        [
+          [pnl ? 'Выручка' : 'Поступления', money(String(r.incoming))],
+          [pnl ? 'Расходы' : 'Выплаты', money(String(r.outgoing))],
+          [pnl ? 'Результат по внесённым данным' : 'Чистый денежный поток', money(String(r.net))],
+        ],
+      ),
+    );
+    area.append(total);
+    const charts = el('div', 'finance-charts');
+    charts.append(
+      trendChart(d, basis, m.start, m.end),
+      expenseChart(d, basis, (id) => this.openCategory(id, basis)),
+    );
+    area.append(charts);
     const groupNames = pnl
       ? d.groups
       : {
@@ -721,99 +861,85 @@ export class FinanceView {
           investing: 'Инвестиционная деятельность',
           financing: 'Финансовая деятельность',
         };
+    const rows: (string | HTMLElement)[][] = [];
+    const exported: string[][] = [];
+    let running = 0n;
+    const addTotal = (label: string, value: bigint) => {
+      rows.push([
+        el('strong', '', label),
+        el('strong', 'finance-number', money(String(value))),
+        ...(pnl ? [el('strong', '', percent(value, r.incoming))] : []),
+      ]);
+      exported.push([label, '', String(value), ...(pnl ? [percent(value, r.incoming)] : [])]);
+    };
     for (const [key, label] of Object.entries(groupNames)) {
       if (key === 'none') continue;
-      const rows: (string | HTMLElement)[][] = [];
-      let subtotal = 0n;
-      for (const c of d.categories.filter((c) => (pnl ? c.group : c.cashflow) === key)) {
-        const matches = d.summaries.filter((s) => s.category_id === c.id);
-        const sum = matches.reduce((n, s) => n + BigInt(pnl ? s.pnl_minor : s.cash_minor), 0n);
-        if (!sum) continue;
-        const signed = c.direction === 'in' ? sum : -sum;
-        subtotal += signed;
-        if (c.direction === 'in') incoming += sum;
-        else outgoing += sum;
-        const detail = el('details');
-        detail.append(el('summary', '', c.name));
-        for (const s of matches) {
-          const value = pnl ? s.pnl_minor : s.cash_minor;
-          if (value !== '0')
-            detail.append(el('p', 'muted', `${d.centers[s.center]}: ${money(value)}`));
+      const lines = r.lines.filter((c) => (pnl ? c.group : c.cashflow) === key);
+      const value = r.groups[key] ?? 0n;
+      running += value;
+      const details = el('details', 'finance-report-group');
+      details.append(el('summary', '', label));
+      const children: (string | HTMLElement)[][] = [];
+      for (const c of lines) {
+        const article = el('details');
+        article.append(el('summary', '', c.name));
+        for (const match of c.matches) {
+          const v = pnl ? match.pnl_minor : match.cash_minor;
+          if (v !== '0')
+            article.append(el('p', 'muted', `${d.centers[match.center]}: ${money(v)}`));
         }
-        detail.append(
-          button(
-            'Показать операции',
-            () => {
-              m.category = c.id;
-              m.basis = pnl ? 'pnl' : 'cash';
-              m.search = '';
-              m.page = 0;
-              this.tab = 'journal';
-              void m.load();
-            },
-            'finance-link',
-          ),
+        article.append(
+          button('Показать операции', () => this.openCategory(c.id, basis), 'finance-link'),
         );
-        rows.push([
-          detail,
-          c.direction === 'in' ? 'Доход / поступление' : 'Расход / выплата',
-          money(sum.toString()),
+        children.push([
+          article,
+          money(String(c.signed)),
+          ...(pnl ? [percent(c.signed, r.incoming)] : []),
         ]);
-        lines.push([
+        exported.push([
           label,
           c.name,
-          c.direction === 'in' ? 'Поступление' : 'Расход',
-          sum.toString(),
+          String(c.signed),
+          ...(pnl ? [percent(c.signed, r.incoming)] : []),
         ]);
       }
-      grouped[key] = subtotal;
-      if (rows.length) {
-        const section = el('section', 'finance-report-group');
-        const h = el('div', 'finance-heading');
-        h.append(el('h3', '', label), el('strong', 'finance-number', money(subtotal.toString())));
-        section.append(h, table(['Статья', 'Направление', 'Сумма'], rows));
-        area.append(section);
+      details.append(table(['Статья', 'Сумма', ...(pnl ? ['% выручки'] : [])], children));
+      rows.push([details, money(String(value)), ...(pnl ? [percent(value, r.incoming)] : [])]);
+      if (pnl && key === 'cogs') addTotal('Валовая прибыль после комиссий', running);
+      if (pnl && key === 'loss') addTotal('Прибыль после потерь', running);
+      if (pnl && key === 'other') {
+        addTotal(
+          'Итого операционные расходы',
+          Object.entries(r.groups)
+            .filter(
+              ([group]) =>
+                !['revenue', 'commission', 'cogs', 'loss', 'nonoperating'].includes(group),
+            )
+            .reduce((n, [, value]) => n + value, 0n),
+        );
+        addTotal('Операционная прибыль / убыток', running);
       }
     }
-    const total = el('section', 'finance-totals');
-    const profit = (keys: string[]) => keys.reduce((n, k) => n + (grouped[k] ?? 0n), 0n).toString();
-    const totals = pnl
-      ? [
-          ['Выручка', profit(['revenue'])],
-          ['Валовая прибыль после комиссий', profit(['revenue', 'commission', 'cogs'])],
-          ['После потерь', profit(['revenue', 'commission', 'cogs', 'loss'])],
-          [
-            'Операционная прибыль / убыток',
-            profit(Object.keys(grouped).filter((k) => k !== 'nonoperating')),
-          ],
-          ['Результат по внесённым данным', (incoming - outgoing).toString()],
-        ]
-      : [
-          ['Поступления', incoming.toString()],
-          ['Выплаты', outgoing.toString()],
-          ['Чистый денежный поток', (incoming - outgoing).toString()],
-        ];
-    total.append(
-      table(
-        ['Итог', 'Сумма'],
-        totals.map(([label, v]) => [label!, money(v!)]),
-      ),
+    addTotal(pnl ? 'Результат по внесённым данным' : 'Чистый денежный поток', r.net);
+    const sheet = el('section', 'finance-sheet');
+    sheet.append(
+      el('h3', '', 'Сводный отчёт'),
+      el('p', 'muted', 'Раскройте группу, чтобы увидеть статьи и операции.'),
+      table(['Статья', 'Сумма', ...(pnl ? ['% выручки'] : [])], rows),
     );
-    heading.after(total);
+    area.insertBefore(sheet, charts);
     heading.append(
       button('Скачать отчёт CSV', () =>
-        download(`pickchick-${pnl ? 'pnl' : 'cash'}-${m.start}-${m.end}.csv`, [
+        download(`pickchick-${basis}-${m.start}-${m.end}.csv`, [
           ['Отчёт', pnl ? 'ОПиУ' : 'ДДС'],
           ['Период', m.start, m.end],
           ['Подразделение', m.center === 'all' ? 'Все' : d.centers[m.center]!],
-          ['Группа', 'Статья', 'Направление', 'Сумма, тиын'],
-          ...lines,
-          [],
-          ...totals.map(([label, v]) => [label!, v!]),
+          ['Группа', 'Статья', 'Сумма, тиын', ...(pnl ? ['% выручки'] : [])],
+          ...exported,
         ]),
       ),
     );
-    if (!d.summaries.length)
+    if (!r.incoming && !r.outgoing)
       area.append(
         el(
           'p',
@@ -826,22 +952,25 @@ export class FinanceView {
         el(
           'p',
           'finance-source',
-          'Полноту выручки, себестоимости, остатков и начислений проверяет бухгалтер перед закрытием месяца. Автоматического расчёта себестоимости из закупок и норм пока нет.',
+          'Закупки не равны себестоимости продаж. Себестоимость и полноту начислений бухгалтер проверяет перед закрытием месяца.',
         ),
       );
   }
   private accounts(area: HTMLElement) {
     const m = this.model,
       d = m.data!;
-    area.append(
+    const settings = el('details', 'finance-account-settings');
+    settings.append(el('summary', '', 'Учёт по счетам (необязательно)'));
+    area.append(settings);
+    settings.append(
       el('h2', '', 'Денежные счета'),
       el(
         'p',
         'muted',
-        'Остатки по всем подразделениям точки. Начальный остаток вводится на начало выбранного дня и не считается доходом.',
+        'Только операции с указанным счётом, по всем подразделениям точки. Эти остатки не показывают все деньги ресторана. Начальный остаток не считается доходом.',
       ),
     );
-    area.append(
+    settings.append(
       table(
         [
           'Счёт',
@@ -933,7 +1062,24 @@ export class FinanceView {
       save.click();
     });
     add.append(form);
-    area.append(add);
+    settings.append(
+      add,
+      this.act('Перевод между счетами', () => {
+        this.draft = { ...fresh(), kind: 'transfer', category_id: null, recognition_date: null };
+        this.amount = '';
+        this.recognize = false;
+        this.editing = true;
+        this.changed();
+      }),
+    );
+    if (d.unassigned?.entries)
+      settings.append(
+        el(
+          'p',
+          'notice',
+          `${d.unassigned.entries} операций без счёта входят в ДДС, но не в остатки счетов. Поступления: ${money(d.unassigned.in_minor)}. Выплаты: ${money(d.unassigned.out_minor)}.`,
+        ),
+      );
     const period = el('section', 'panel finance-editor');
     if (!this.periodDraft.month) this.periodDraft.month = m.start.slice(0, 7) + '-01';
     const month = this.periodDraft.month;
