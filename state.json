@@ -3348,9 +3348,11 @@
         "@vps/ssh/pickchick-ops",
         "docs/operations/finance-mac-ssh-access.md"
       ],
-      "status": "active",
-      "head": "2f561449a368f8014eb6b5ae38cf67c90d9f9af9",
-      "updatedAt": "2026-10-07T09:06:46.413Z"
+      "status": "done",
+      "head": "117327c27ebc5b213fef82b81593922227ada45f",
+      "updatedAt": "2026-10-07T09:08:56.518Z",
+      "summary": "Публичный ключ pickchick-finance-mac добавлен отдельной строкой в authorized_keys pickchick-ops@185.129.51.103. Fingerprint SHA256:qpaC/6pxreJJEtE2E03L0+CKnwZ+RwSR/CAIg6udhEk; одно совпадение, исходные байты сохранены, права700/600 и владелец подтверждены повторным доверенным SSH. Host ED25519 fingerprint прежний Bt3HkaktjLmWe4tB1pOK9b8gOnHuxp+tvp1hhEDtxp8. Конфигурация/приложения/БД не менялись, приватные ключи не копировались. Протокол docs/operations/finance-mac-ssh-access.md, commit117327c, PR199, включено в shared.",
+      "nextAction": "На финансовом Mac проверить первое SSH-подключение собственным приватным ключом со сверкой предоставленного ED25519 host key. Выпуск не выполнялся и здесь не запрашивался; серверные резервы других задач сохранены."
     }
   ]
 }
