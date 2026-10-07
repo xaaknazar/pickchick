@@ -3459,11 +3459,14 @@
       "scopes": [
         "apps/backoffice/src/finance.ts",
         "apps/backoffice/src/styles.css",
-        "docs/operations/finance-layout.md"
+        "docs/operations/finance-layout.md",
+        "docs/operations/images/finance-layout",
+        "@vps/public",
+        "@vps/gateway"
       ],
       "status": "active",
       "head": "a44f74ef6c2b9be5615e091ea2c5053bc4fb80ce",
-      "updatedAt": "2026-10-07T12:32:47.360Z"
+      "updatedAt": "2026-10-07T12:38:40.075Z"
     }
   ]
 }
