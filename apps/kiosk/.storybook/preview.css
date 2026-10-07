@@ -9,11 +9,3 @@ body,
   display: flex;
   flex-direction: column;
 }
-:focus-visible {
-  outline: 3px solid #0047bb;
-  outline-offset: 4px;
-}
-::selection {
-  background: #0047bb;
-  color: white;
-}

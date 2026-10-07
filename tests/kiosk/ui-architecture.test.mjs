@@ -127,4 +127,10 @@ test('Wrapper cannot change child appearance or expose an untyped escape hatch',
     source,
     /cloneElement|\.\.\.rest|\[key:\s*string\]|background|border|shadow|opacity|transform|fontFamily/,
   );
+  const preview = readFileSync(new URL('../.storybook/preview.css', root), 'utf8');
+  assert.doesNotMatch(
+    preview,
+    /color|background|border|outline|shadow|font|opacity/,
+    'Storybook must not supply component appearance through global CSS',
+  );
 });
