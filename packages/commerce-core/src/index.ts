@@ -8,3 +8,5 @@ export * from './availability.js';
 
 export * from './kiosk-checkout.js';
 export * from './kiosk-sessions.js';
+
+export * from './kiosk-kaspi-qr.js';

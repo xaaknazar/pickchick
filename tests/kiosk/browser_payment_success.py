@@ -50,7 +50,7 @@ class KioskPaymentSuccess(ui.KioskUI):
 
         ui.element(page, 'kiosk-payment-approve').click()
         ui.screen(page, 'order')
-        expect(ui.element(page, 'kiosk-order-number')).to_have_text(order['number'])
+        expect(ui.element(page, 'kiosk-order-number')).to_have_text('№' + order['number'])
         expect(ui.element(page, 'kiosk-order-state')).to_have_text('Готовим ваш заказ')
         self.assertEqual(fixture.orders[order['order_id']]['payment_state'], 'simulated_approved')
         self.assertEqual(fixture.orders[order['order_id']]['state'], 'preparing')

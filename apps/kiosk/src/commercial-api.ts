@@ -11,14 +11,15 @@ export async function commercialKioskRequest(
   device?: { deviceId: string; key: string },
 ): Promise<unknown> {
   if (
-    !/^\/(?:config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
+    !/^\/(?:enrollment\/check|config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
       path,
     )
   )
     throw new KioskError('INVALID_PATH');
   if (!device || !/^[a-f0-9-]{36}$/.test(device.deviceId) || !/^[a-f0-9]{64}$/.test(device.key))
     throw new KioskError('DEVICE_NOT_PROVISIONED');
-  if (path !== '/sessions' && !token) throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
+  if (path !== '/sessions' && path !== '/enrollment/check' && !token)
+    throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {

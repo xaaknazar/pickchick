@@ -1,0 +1,20 @@
+diff --git a/server.js b/server.js
+--- a/server.js
++++ b/server.js
+@@ -1,2 +1,7 @@
+ import express from 'express';
++import { createQrRouter } from './src/qr-routes.mjs';
++import { KASPI_QRPAY_URL } from './src/config.js';
++import { signedQrPayHeaders } from './src/helpers.js';
++import { decryptSecret } from './src/crypto.js';
++
+ import { PORT } from './src/config.js';
+@@ -25,3 +30,8 @@
+ app.use('/api/auth', authRoutes);
+ app.use('/api/invoice', invoiceRoutes);
++if (process.env.BRIDGE_QR === 'on') {
++  app.use('/api/qr', createQrRouter({ Router: express.Router,
++    bankUrl: KASPI_QRPAY_URL, signedHeaders: signedQrPayHeaders, decryptSecret }));
++}
++
+ app.use('/api/history', historyRoutes);

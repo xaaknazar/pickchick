@@ -10,7 +10,7 @@ import { installOverlays } from './install-overlays.mjs';
 
 const UPSTREAM = '28c9167f9c72cd6758a25e254bc92bc610daa485';
 const here = fileURLToPath(new URL('.', import.meta.url));
-export async function prepareContainer(upstream, output) {
+export async function prepareContainer(upstream, output, { qr = false } = {}) {
   const git = (...args) => execFileSync('git', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   if (git('-C', upstream, 'rev-parse', 'HEAD').toString().trim() !== UPSTREAM)
     throw new Error('UPSTREAM_REVISION_MISMATCH');
@@ -20,7 +20,7 @@ export async function prepareContainer(upstream, output) {
     const checkout = join(temporary, 'checkout');
     git('clone', '--no-hardlinks', '--no-checkout', '--quiet', upstream, checkout);
     git('-C', checkout, 'checkout', '--detach', '--quiet', UPSTREAM);
-    await installOverlays(checkout);
+    await installOverlays(checkout, { qr });
     const names = git('-C', checkout, 'ls-tree', '-r', '--name-only', 'HEAD')
       .toString()
       .trim()
@@ -33,6 +33,7 @@ export async function prepareContainer(upstream, output) {
           name.startsWith('src/'),
       );
     names.push('src/entrance-flow.mjs', 'src/bank-time.mjs');
+    if (qr) names.push('src/qr-routes.mjs');
     const hashes = {};
     for (const name of names) {
       const relative = 'upstream/' + name;
@@ -54,7 +55,7 @@ export async function prepareContainer(upstream, output) {
     );
     await writeFile(
       join(output, 'manifest.json'),
-      JSON.stringify({ upstream: UPSTREAM, hashes }, null, 2) + '\n',
+      JSON.stringify({ upstream: UPSTREAM, qr, hashes }, null, 2) + '\n',
     );
     return { upstream: UPSTREAM, fileCount: Object.keys(hashes).length };
   } finally {
@@ -63,9 +64,13 @@ export async function prepareContainer(upstream, output) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  if (process.argv.length !== 4)
-    throw new Error('USAGE: prepare-container.mjs UPSTREAM_CHECKOUT NEW_OUTPUT_DIRECTORY');
+  if (process.argv.length !== 4 && !(process.argv.length === 5 && process.argv[4] === '--qr'))
+    throw new Error('USAGE: prepare-container.mjs UPSTREAM_CHECKOUT NEW_OUTPUT_DIRECTORY [--qr]');
   console.log(
-    JSON.stringify(await prepareContainer(resolve(process.argv[2]), resolve(process.argv[3]))),
+    JSON.stringify(
+      await prepareContainer(resolve(process.argv[2]), resolve(process.argv[3]), {
+        qr: process.argv[4] === '--qr',
+      }),
+    ),
   );
 }

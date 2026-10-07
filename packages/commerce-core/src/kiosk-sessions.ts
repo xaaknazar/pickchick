@@ -60,6 +60,28 @@ export class KioskSessions {
     if (!Number.isInteger(this.ttl) || this.ttl < 1 || this.ttl > 3600)
       throw new CommerceError('INVALID');
   }
+  /** Check enrollment credentials without allocating a guest or retaining the supplied key. */
+  async validateDevice(deviceId: string, deviceToken: string) {
+    uuid(deviceId);
+    if (!validToken(deviceToken)) return forbidden();
+    const device = (
+      await this.pool.query<{
+        id: string;
+        organization_id: string;
+        branch_id: string;
+        token_hash: string;
+      }>(
+        'SELECT id,organization_id,branch_id,token_hash FROM kiosk_devices WHERE id=$1 AND active',
+        [deviceId],
+      )
+    ).rows[0];
+    if (!device || !matches(deviceToken, device.token_hash)) return forbidden();
+    return {
+      deviceId: device.id,
+      organizationId: device.organization_id,
+      branchId: device.branch_id,
+    };
+  }
   async start(deviceId: string, deviceToken: string, value: unknown) {
     uuid(deviceId);
     const input = parse(StartSchema, value);

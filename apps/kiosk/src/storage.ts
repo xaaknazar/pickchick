@@ -75,6 +75,11 @@ export function createCommercialKioskIO(): CommercialKioskIO {
 }
 
 /** Trusted native enrollment: call from the operator setup flow, never from guest UI. */
+export async function commercialKioskEnrollmentPresent(): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
+  return !!(await SecureStore.getItemAsync(KIOSK_DEVICE_KEY));
+}
+
 export async function provisionCommercialKiosk(deviceId: string, key: string): Promise<void> {
   if (
     Platform.OS === 'web' ||
@@ -88,6 +93,21 @@ export async function provisionCommercialKiosk(deviceId: string, key: string): P
     (await SecureStore.getItemAsync(COMMERCIAL_FLOW_KEY))
   )
     throw new Error('Existing kiosk enrollment must be reviewed before replacement');
+  const verified = await commercialKioskRequest(
+    '/enrollment/check',
+    undefined,
+    {},
+    undefined,
+    fetch,
+    { deviceId, key },
+  );
+  if (
+    !verified ||
+    typeof verified !== 'object' ||
+    !('valid' in verified) ||
+    verified.valid !== true
+  )
+    throw new Error('Device enrollment was not verified');
   await SecureStore.setItemAsync(KIOSK_DEVICE_KEY, JSON.stringify({ deviceId, key }), {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });

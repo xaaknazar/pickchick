@@ -6,6 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { KioskModel } from '../model';
 import { money } from '../cart';
 import { assets } from '../assets';
+import { PaymentQR } from '../components/PaymentQR';
+import { visiblePaymentQr } from '../qr';
+import { kioskOrderNumber, qrScanInstructions } from '../presentation';
 import { copy } from '../i18n';
 import { colors, useMetrics } from '../theme';
 import {
@@ -28,6 +31,10 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
     model.recoveryRequired;
   const declined = model.order?.payment_state === 'simulated_declined';
   const total = model.order?.snapshot.total_minor ?? model.cartTotalMinor;
+  const qr = model.qrPayment;
+  const qrExpired = !!qr?.expiresAt && Date.parse(qr.expiresAt) <= Date.now();
+  const qrPayload = visiblePaymentQr(qr, unknown, Date.now());
+  const showQr = !!qrPayload;
   return (
     <View testID="kiosk-screen-payment" style={layout.screen}>
       <Header {...context} title={t.payment} />
@@ -41,22 +48,25 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
         }}
       >
         <View style={{ alignItems: 'center', gap: px(24) }}>
-          <View
-            style={{
-              width: px(120),
-              height: px(120),
-              borderRadius: px(36),
-              backgroundColor: unknown ? '#FFF0E5' : '#E8EFFC',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon
-              name={unknown ? 'time-outline' : declined ? 'close-circle-outline' : 'card-outline'}
-              size={px(68)}
-              color={unknown ? colors.orange : colors.blue}
-            />
-          </View>
+          {showQr ? <PaymentQR payload={qrPayload!} size={px(300)} label="Kaspi QR" /> : null}
+          {!showQr ? (
+            <View
+              style={{
+                width: px(120),
+                height: px(120),
+                borderRadius: px(36),
+                backgroundColor: unknown ? '#FFF0E5' : '#E8EFFC',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon
+                name={unknown ? 'time-outline' : declined ? 'close-circle-outline' : 'card-outline'}
+                size={px(68)}
+                color={unknown ? colors.orange : colors.blue}
+              />
+            </View>
+          ) : null}
           <Heading size={48} style={{ textAlign: 'center' }}>
             {unknown
               ? t.unknownTitle
@@ -72,15 +82,27 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             {money(total)}
           </Heading>
           <Body style={{ textAlign: 'center', color: colors.muted }}>
-            {model.paymentMethod === 'kaspi' ? 'Kaspi' : t.card} · {model.order?.number}
+            {model.order?.number && model.order.number !== '-'
+              ? `${context.locale === 'ru' ? 'Заказ' : 'Тапсырыс'} ${kioskOrderNumber(model.order.number)}`
+              : model.paymentMethod === 'kaspi'
+                ? 'Kaspi'
+                : t.card}
           </Body>
           <Body style={{ textAlign: 'center', color: colors.muted, maxWidth: 700 }}>
             {unknown
               ? t.unknownBody
               : model.commercial
                 ? context.locale === 'ru'
-                  ? 'Оплатите счёт в Kaspi.kz. Результат проверяется автоматически. Не оплачивайте повторно.'
-                  : 'Kaspi.kz шотын төлеңіз. Нәтиже автоматты түрде тексеріледі. Қайта төлемеңіз.'
+                  ? showQr
+                    ? qrScanInstructions(context.locale)
+                    : qrExpired
+                      ? 'Время действия QR истекло. Проверяем результат оплаты. Не оплачивайте повторно.'
+                      : 'Готовим QR или проверяем результат оплаты. Не оплачивайте повторно.'
+                  : showQr
+                    ? qrScanInstructions(context.locale)
+                    : qrExpired
+                      ? 'QR мерзімі аяқталды. Төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
+                      : 'QR дайындалуда немесе төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
                 : t.testPayment}
           </Body>
         </View>
@@ -177,7 +199,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
                   ? 'Оплата подтверждена. Ожидаем ресторан.'
                   : 'Төлем расталды. Мейрамхананы күтеміз.'
                 : t.waiting;
-  const number = order?.number ?? '-';
+  const number = kioskOrderNumber(order?.number);
   const numberSize = Math.min(
     px(340),
     Math.floor((width - px(96)) / Math.max(1, number.length) / 0.72),

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { KioskSessions } from '../dist/kiosk-sessions.js';
+import { KioskCheckout } from '../dist/kiosk-checkout.js';
 import { CommerceRepository } from '../dist/repository.js';
 import { digest } from '../dist/model.js';
 import { publishCatalog } from './catalog-fixture.mjs';
@@ -159,6 +160,36 @@ async function fixture(run) {
     await admin.end();
   }
 }
+test('enrollment validates key and deployment branch without allocating a guest', () =>
+  fixture(async (f) => {
+    assert.deepEqual(await f.sessions.validateDevice(f.device, f.token), {
+      deviceId: f.device,
+      organizationId: f.org,
+      branchId: f.branch,
+    });
+    await assert.rejects(f.sessions.validateDevice(f.device, secret()), denied);
+    await assert.rejects(f.sessions.validateDevice(randomUUID(), f.token), denied);
+    const enrolled = await f.sessions.validateDevice(f.device, f.token);
+    const options = {
+      organizationId: f.org,
+      branchId: f.branch,
+      paymentAccountId: randomUUID(),
+      fiscalPolicy: 'deferred_pilot',
+      approvalReference: 'Synthetic enrollment only',
+      taxCode: 'TEST',
+      maxOrderMinor: '50000',
+      hours: { openingTime: '10:00', closingTime: '00:00', timeZone: 'Asia/Almaty' },
+    };
+    const checkout = new KioskCheckout(f.pool, options, f.sessions);
+    const config = await checkout.config({ ...enrolled, sessionId: f.device });
+    assert.equal(config.enabled, false);
+    assert.equal(config.branchId, f.branch);
+    const other = new KioskCheckout(f.pool, { ...options, branchId: randomUUID() }, f.sessions);
+    await assert.rejects(other.config({ ...enrolled, sessionId: f.device }), denied);
+    assert.equal((await f.pool.query('SELECT count(*)::int n FROM kiosk_sessions')).rows[0].n, 0);
+    await f.pool.query('UPDATE kiosk_devices SET active=false WHERE id=$1', [f.device]);
+    await assert.rejects(f.sessions.validateDevice(f.device, f.token), denied);
+  }));
 test('start replay is stable, concurrent idempotent and credentials stay hash-only', () =>
   fixture(async (f) => {
     const input = { sessionId: randomUUID(), token: secret() };

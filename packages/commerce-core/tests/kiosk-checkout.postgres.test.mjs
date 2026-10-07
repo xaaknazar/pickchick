@@ -32,7 +32,7 @@ process.env.REDIS_URL ??= 'redis://127.0.0.1:56379/0';
 for (const name of ['CLOUD_DATABASE_URL', 'EDGE_DATABASE_URL'])
   assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(new URL(process.env[name]).hostname));
 
-async function fixture(run) {
+async function fixture(run, paymentMethod = 'kaspi_invoice') {
   await withSyncDatabases(async (f) => {
     const pool = f.cloud.pool,
       payment = randomUUID(),
@@ -48,8 +48,14 @@ async function fixture(run) {
       [f.branch, f.device],
     );
     await pool.query(
-      "INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,kind,provider,external_reference,enabled,legal_entity_id) VALUES($1::uuid,$2,$3,'payment','kaspi-remote',$1::text,true,$4)",
-      [payment, f.org, f.branch, f.legal],
+      "INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,kind,provider,external_reference,enabled,legal_entity_id) VALUES($1::uuid,$2,$3,'payment',$5,$1::text,true,$4)",
+      [
+        payment,
+        f.org,
+        f.branch,
+        f.legal,
+        paymentMethod === 'kaspi_qr' ? 'kaspi-qr' : 'kaspi-remote',
+      ],
     );
     await pool.query(
       'INSERT INTO kiosk_devices(id,organization_id,branch_id,token_hash) VALUES($1,$2,$3,$4)',
@@ -80,6 +86,7 @@ async function fixture(run) {
       organizationId: f.org,
       branchId: f.branch,
       paymentAccountId: payment,
+      paymentMethod,
       fiscalPolicy: 'deferred_pilot',
       approvalReference: 'Synthetic kiosk test only',
       taxCode: 'PENDING_PILOT',
@@ -351,4 +358,31 @@ test('mobile APIs never adopt guest quotes, orders, payment or feedback on a pri
     assert.deepEqual(await mobile.list(customer), { orders: [] });
     assert.deepEqual(await mobile.listFeedback(customer), { feedback: [] });
   });
+});
+
+test('QR checkout owns its server price and payment without recording guest phone', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    assert.equal((await f.checkout.config(f.who)).paymentMethod, 'kaspi_qr');
+    const quote = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: quote.quoteId });
+    await f.admission(order);
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { phone: '+77011234567' }), {
+      code: 'INVALID',
+    });
+    await Promise.all([
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),
+    ]);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      1,
+    );
+    assert.equal(await f.sessions.readOrderPhone(order.orderId), null);
+    const view = await f.checkout.read(f.who, order.orderId);
+    assert.equal(view.payment.kind, 'kaspi_qr');
+    assert.equal(view.payment.qrPayload, null);
+    assert.equal(view.totalMinor, quote.totalMinor);
+    await assert.rejects(f.checkout.read(await f.guest(), order.orderId), { code: 'NOT_FOUND' });
+  }, 'kaspi_qr');
 });

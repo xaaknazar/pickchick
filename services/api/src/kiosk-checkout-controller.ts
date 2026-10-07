@@ -67,6 +67,19 @@ export class KioskCheckoutController {
       authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
     );
   }
+  @Post('enrollment/check') @HttpCode(200) enrollmentCheck(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+  ) {
+    return this.execute(res, async () => {
+      const enrolled = await this.sessions!.validateDevice(device ?? '', key ?? '');
+      // Config checks the deployment branch; this read does not allocate a guest session.
+      // Ordering and kitchen readiness do not prevent enrolling an authorized device.
+      const config = await this.checkout!.config({ ...enrolled, sessionId: enrolled.deviceId });
+      return { valid: true, branchId: config.branchId, restaurant: config.restaurant };
+    });
+  }
   @Post('sessions') @HttpCode(200) start(
     @Body() body: unknown,
     @Res({ passthrough: true }) res: ServerResponse,
