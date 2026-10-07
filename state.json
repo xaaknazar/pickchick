@@ -3316,7 +3316,6 @@
         "apps/kiosk/src/qr.ts",
         "apps/kiosk/src/storage.ts",
         "apps/kiosk/src/useKioskController.ts",
-        "tests/kiosk/browser_payment_success.py",
         "tests/kiosk/browser_ui.py",
         "tests/kiosk/commercial-core.test.mjs",
         "tests/kiosk/enrollment.test.mjs",
