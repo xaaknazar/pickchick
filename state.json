@@ -3291,6 +3291,26 @@
       "updatedAt": "2026-10-07T05:43:48.209Z",
       "summary": "PR196 source686e167. Guest QR UI/enrollment and isolated kaspi-qr processor+043, private overlay. Local52client+27PG+2bridge passed, APIbuild/typecheck/lint. Bankstatus shape/Paid-vs-Processed unresolved; allflagsdefaultoff. NoVPS/deviceinstallation. Financesource d6cd144 observedlive readonly, kioskdevices0.",
       "nextAction": "Get owner answer on connected iPad and 100KZT control QR. Finish exact-source CI, integrate current finance/TipTop source and migrations before VPS rollout, own @vps/api only after finance handoff. Verify real bank status and native device; never infer paid or repeat uncertain create. Sharedstatus/roadmap scopes owned farm task; evidence docs/operations/kiosk-kaspi-qr.md."
+    },
+    {
+      "id": "finance-dashboard",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-dashboard",
+      "scopes": [
+        "apps/backoffice/src",
+        "packages/backoffice-core/src/finance.ts",
+        "services/api/src/finance-controller.ts",
+        "tests/backoffice/finance.test.mjs",
+        "tests/backoffice/finance-model.test.mjs",
+        "tests/backoffice/finance-postgres.test.mjs",
+        "tests/backoffice/finance-http.test.mjs",
+        "tests/backoffice/finance-browser.py",
+        "docs/operations/finance-dashboard.md",
+        "docs/operations/images/finance-dashboard"
+      ],
+      "status": "active",
+      "head": "2f00491bf41e44bbbe10852b57dd16a9a58bcee8",
+      "updatedAt": "2026-10-07T05:54:06.766Z"
     }
   ]
 }
