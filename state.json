@@ -3333,10 +3333,10 @@
         "scripts/provision-kiosk-enrollment.mjs"
       ],
       "status": "active",
-      "head": "e29a3028eb4c1f32c3d7d27960b2b50f804077ad",
-      "updatedAt": "2026-10-07T07:56:27.199Z",
-      "summary": "PR196 source89d7959 full Foundation CI37580398576 passed11jobs. Enrollment rollout backed up/restored proof and applied043, then guard failed: RELEASE_SHA absent from runtime env (image label verified89). Explicit rollback succeeded; API d6cd144 running, backoffice200, ACL restored,043 retained42migrations, QRworker off. No bank QR or device enrollment. Native Kiosk installed/runs. Owner authorized filling private device fields via local Xcode UI automation; first attempt failed initializing automation before input. Shared2f56144 finance ownership docs reviewed, no financial edits.",
-      "nextAction": "Complete authorized native form input without sending enrollment until backend ready. Fix release environment identity regression and handle retained043 with reviewed checks/green CI; do not delete migration or weaken guards. Then provision existing durable profile, verify enrollment, catalog readiness and one approved100KZT QR."
+      "head": "39336a77f2f62bfbfe1ae98c65c5d428a9b11202",
+      "updatedAt": "2026-10-07T08:08:51.054Z",
+      "summary": "PR196 source39336a7 published. Short operator enrollment with salted scrypt/AES-GCM, nonce replay,24h initial enrollment, durable attempt limits; UUID/randomdevicekey preserved.59client+7PG(exactruntimegrants)+23release checks passed; native0.1.0(2)built, notyetinstalled. CI37591650169 running. Previous89rollout rolledbacktofinance d6; retained043, noQR/device registration. Releasehelper now accepts original89proofs fornewcandidate043+044 withbackup and exactACL/env checks.",
+      "nextAction": "Wait exact greenCI, guardedpreflight/prepare/apply fromretained043 then provision durabledevice+privateoperatoralias. Installbuild2 and verifyshortsetup; aliasexpires24h, devicepersists. NoQR bankcalls. project-status/roadmap claimblockedfarm-gameplay-v2; factsinownrunbook/PR."
     }
   ]
 }
