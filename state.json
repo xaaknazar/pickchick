@@ -2908,7 +2908,6 @@
         "packages/commerce-core/src/tiptoppay.ts",
         "packages/commerce-core/src/customer-checkout.ts",
         "packages/commerce-core/src/order-view.ts",
-        "packages/commerce-core/src/index.ts",
         "packages/contracts/src/customer-commerce.ts",
         "services/api/src/customer-checkout-controller.ts",
         "services/api/src/customer-checkout-response.ts",
@@ -2918,9 +2917,9 @@
       ],
       "status": "available",
       "head": "a0af45a3c1b38e29550f2e3eaae4fa119051ac85",
-      "updatedAt": "2026-10-06T11:37:07.448Z",
+      "updatedAt": "2026-10-07T05:07:16.850Z",
       "summary": "TEST extension published159d756+a0af45a. Isolated table040, TESTsignedCheck/Pay/Fail and hostedwidget, authenticated quoteowner/org/branch/cap; no commercial money/order/outbox/kitchen effects. 17unit/HTTP/PG focused and66Commerce/Kaspi regression passed; build/lint/format/contracts passed. Sharedadvanced239148b onlymobile/docs/farmops, parent notified for explicit integration. No realbankrequest/deploy by child.",
-      "nextAction": "Finance-ledger owns039/040 exact migration integration and @vps/api for finance deployment; TipTop runtime activation remains separate. Reacquire VPS after finance finishes."
+      "nextAction": "Finance-ledger owns039/040 exact migration integration and @vps/api for finance deployment; TipTop runtime activation remains separate. Reacquire VPS after finance finishes. Shared export coordinated by same owner: kiosk adds isolated QR export only; preserve TipTop exports on integration."
     },
     {
       "id": "tiptoppay-mobile",
@@ -3265,11 +3264,12 @@
         "infra/payments/kaspi-bridge/pickchick-qr.patch",
         "infra/payments/kaspi-bridge/qr-routes.mjs",
         "tests/operations/kaspi-qr-bridge.test.mjs",
-        "db/cloud/migrations/043_cloud_kiosk_kaspi_qr.sql"
+        "db/cloud/migrations/043_cloud_kiosk_kaspi_qr.sql",
+        "packages/commerce-core/src/index.ts"
       ],
       "status": "active",
       "head": "7e58f90bd13c2c60c8ff95d529f1513c1a9ab3d1",
-      "updatedAt": "2026-10-07T05:05:45.276Z"
+      "updatedAt": "2026-10-07T05:07:16.850Z"
     }
   ]
 }
