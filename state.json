@@ -3276,11 +3276,14 @@
         "tests/operations/test_farm_release.py",
         "tests/operations/test_farm_update.py",
         "@apple/devices/kiosk",
-        "tests/operations/test_catalog_storefront_release.py"
+        "tests/operations/test_catalog_storefront_release.py",
+        "infra/staging/release-kiosk-qr.py",
+        "tests/operations/test_kiosk_qr_release.py",
+        "infra/staging/kiosk-qr-gateway.mjs"
       ],
       "status": "active",
       "head": "bd69cfa67c6c95ccdcb3ccbf1f491cfa5ddf7832",
-      "updatedAt": "2026-10-07T05:33:07.839Z",
+      "updatedAt": "2026-10-07T05:36:56.043Z",
       "summary": "PR196 source686e167. Guest QR UI/enrollment and isolated kaspi-qr processor+043, private overlay. Local52client+27PG+2bridge passed, APIbuild/typecheck/lint. Bankstatus shape/Paid-vs-Processed unresolved; allflagsdefaultoff. NoVPS/deviceinstallation. Financesource d6cd144 observedlive readonly, kioskdevices0.",
       "nextAction": "Get owner answer on connected iPad and 100KZT control QR. Finish exact-source CI, integrate current finance/TipTop source and migrations before VPS rollout, own @vps/api only after finance handoff. Verify real bank status and native device; never infer paid or repeat uncertain create. Sharedstatus/roadmap scopes owned farm task; evidence docs/operations/kiosk-kaspi-qr.md."
     }
