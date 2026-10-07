@@ -13,10 +13,33 @@
   "profileAllowsTargetDevice": true,
   "profileExpiresAt": "2027-10-07T05:35:23Z",
   "buildMetadata": "Tracked app.json buildNumber and native CURRENT_PROJECT_VERSION=6",
-  "installed": false,
+  "installed": true,
   "acceptancePending": [
-    "Complete Foundation CI or explicit owner exception for native installation",
-    "Physical menu smoke after installation",
-    "Native QR/invoice flows after server activation"
-  ]
+    "Native QR/invoice flows after server activation",
+    "Owner visual acceptance and end-to-end order/payment/kitchen acceptance"
+  ],
+  "launched": true,
+  "deviceModel": "iPad Air 13-inch (M3)",
+  "iPadOS": "18.7.8",
+  "nativeTests": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "name": "InstalledUITests/testInstalledMenuAndProduct",
+    "finishTime": 1791383835.584
+  },
+  "nativeInstallationException": {
+    "approvedBy": "Project owner in the current task",
+    "approvedOn": "2026-10-07",
+    "answer": "Да, установить с этим исключением",
+    "scope": "Install the existing signed native 0.1.0 (6) artifact from 2d825d6 on the connected iPad",
+    "reason": "The job was not started because an Actions budget is preventing further use.",
+    "excluded": [
+      "Server or bank activation",
+      "Real payments",
+      "Changing Actions budgets",
+      "Accepting main as a release"
+    ]
+  },
+  "installationEvidence": "native-build6/verification.json"
 }

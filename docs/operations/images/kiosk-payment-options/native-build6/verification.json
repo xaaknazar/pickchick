@@ -1,0 +1,182 @@
+{
+  "source": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+  "bundleIdentifier": "kz.pickchick.kiosk",
+  "version": "0.1.0",
+  "build": "6",
+  "configuration": "Release",
+  "commercial": true,
+  "jsEngine": "Hermes",
+  "bundleSha256": "5029ba3cd3f2457e9bd5938943f0ab7d0eaa16d23b30e0e922dd80d003668d59",
+  "executableSha256": "8e646f4da162cecf264a458017b0c4989d3e0b5ecb100dc7eb58f24d0ea6d0d9",
+  "codeSignatureVerified": true,
+  "keychainIdentityMatchesInstalledBuild5": true,
+  "profileAllowsTargetDevice": true,
+  "profileExpiresAt": "2027-10-07T05:35:23Z",
+  "buildMetadata": "Tracked app.json buildNumber and native CURRENT_PROJECT_VERSION=6",
+  "installed": true,
+  "launched": true,
+  "deviceModel": "iPad Air 13-inch (M3)",
+  "iPadOS": "18.7.8",
+  "nativeTests": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "name": "InstalledUITests/testInstalledMenuAndProduct",
+    "finishTime": 1791383835.584
+  },
+  "checks": [
+    "Menu loaded through saved device enrollment",
+    "Portrait geometry and bounded fixed actions",
+    "Real menu product opened and returned to menu"
+  ],
+  "boundaries": [
+    "Browse-only native check; QR/invoice bank flows and native phone keyboard acceptance remain pending; no cart edits, order creation or payment",
+    "Direct Apple Development installation; no TestFlight upload",
+    "Server configuration and enrollment credentials unchanged"
+  ],
+  "ci": {
+    "source": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+    "completeGreenCI": false,
+    "blockingAnnotation": "The job was not started because an Actions budget is preventing further use.",
+    "runs": [
+      {
+        "id": 37632614040,
+        "name": "Kiosk UI library",
+        "event": "pull_request",
+        "head": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Storybook, accessibility and iPad motion",
+            "id": 112830505044,
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 37632608069,
+        "name": "Foundation CI",
+        "event": "push",
+        "head": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+        "status": "completed",
+        "conclusion": "failure",
+        "jobs": [
+          {
+            "name": "Foundation static checks and transaction invariants",
+            "id": 112842512566,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Foundation POS and backoffice integration",
+            "id": 112842512854,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build, contracts and PostgreSQL integration",
+            "id": 112842513572,
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Cloud-edge fulfillment transport and recovery",
+            "id": 112842514641,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Private staging image and restricted database role",
+            "id": 112842557113,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Foundation server account and Kaspi fixtures",
+            "id": 112842558269,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Local kitchen UI and recovery",
+            "id": 112842561933,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Foundation mobile bundles and checkout recovery",
+            "id": 112842566205,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "iPad kiosk state, bundles and browser recovery",
+            "id": 112842566896,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Design screens and interaction smoke",
+            "id": 112842568318,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Foundation simulator browser regressions",
+            "id": 112842579348,
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 37632608017,
+        "name": "Kiosk UI library",
+        "event": "push",
+        "head": "2d825d6f0ea27dbfcd7c0d62920cbe746921b5bc",
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Storybook, accessibility and iPad motion",
+            "id": 112830481401,
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ]
+  },
+  "nativeInstallationException": {
+    "approvedBy": "Project owner in the current task",
+    "approvedOn": "2026-10-07",
+    "answer": "Да, установить с этим исключением",
+    "scope": "Install the existing signed native 0.1.0 (6) artifact from 2d825d6 on the connected iPad",
+    "reason": "The job was not started because an Actions budget is preventing further use.",
+    "excluded": [
+      "Server or bank activation",
+      "Real payments",
+      "Changing Actions budgets",
+      "Accepting main as a release"
+    ]
+  },
+  "screenshots": {
+    "native-menu-after-product.png": {
+      "sha256": "25a57ea9f2db14332672cc977a0575f6e699712393706d2fd33db6045736b32a",
+      "width": 2048,
+      "height": 2732
+    },
+    "native-product.png": {
+      "sha256": "118b07d754149e3345f8ba1c765fd80bbc1659ca10c37a6351ef28865d6e60ec",
+      "width": 2048,
+      "height": 2732
+    },
+    "native-menu.png": {
+      "sha256": "25a57ea9f2db14332672cc977a0575f6e699712393706d2fd33db6045736b32a",
+      "width": 2048,
+      "height": 2732
+    }
+  }
+}
