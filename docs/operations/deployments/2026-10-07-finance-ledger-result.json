@@ -1,0 +1,52 @@
+{
+  "backoffice_updated": true,
+  "backup": {
+    "path": "/opt/pickchick-staging/backups/cloud-transport-20261007T051253Z-93c26f70.dump.age",
+    "restore": "passed",
+    "sha256": "702f62b7c1da2306a40a5f815ac41a601f662a241d2b40d4712751b4c0337b4f",
+    "temporary_database_removed": true
+  },
+  "last_migration": 42,
+  "migration_files": 41,
+  "non_backoffice_assets_preserved": true,
+  "old_image_compatible": true,
+  "runtime_acl_verified": true,
+  "source_sha": "d6cd144cc7cba9943b614e2a33552111f3f1f44d",
+  "tiptoppay_enabled": false,
+  "worker_preserved": true,
+  "installed_date": "2026-10-07",
+  "ci": {
+    "run": 37458393708,
+    "jobs_successful": 11,
+    "jobs_total": 11,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/37458393708"
+  },
+  "browser": {
+    "login": "passed",
+    "period": "2026-10-01/2026-10-31",
+    "journal": "passed_empty",
+    "cashflow": "passed",
+    "pnl": "passed",
+    "widths": [1440, 393],
+    "page_errors": 0,
+    "finance_writes": 0
+  },
+  "anonymous_probes": {
+    "anonymous_valid_command": 401,
+    "anonymous_valid_read": 401
+  },
+  "phase": {
+    "ingress": "open",
+    "phase": "complete"
+  },
+  "operator_recovery": {
+    "availability_evidence_hash_verified": true,
+    "only_monotonic_heartbeat_allowed": true,
+    "original_lock_owner_preserved": true,
+    "query_and_body_corrected_for_auth_probes": true,
+    "source_and_artifacts_unchanged": true,
+    "maintenance_reclosed_after_probe_failure": true
+  },
+  "deployment_lock_released": true,
+  "synthetic_live_finance_records_created": 0
+}
