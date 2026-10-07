@@ -578,9 +578,13 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
         </View>
         {model.commercial ? (
           <Body style={{ color: colors.muted }}>
-            {context.locale === 'ru'
-              ? 'На следующем экране появится QR для оплаты в Kaspi.kz. Телефон вводить не нужно.'
-              : 'Келесі экранда Kaspi.kz арқылы төлеуге арналған QR көрсетіледі. Телефон нөмірін енгізудің қажеті жоқ.'}
+            {model.checkoutReady
+              ? context.locale === 'ru'
+                ? 'На следующем экране появится QR для оплаты в Kaspi.kz. Телефон вводить не нужно.'
+                : 'Келесі экранда Kaspi.kz арқылы төлеуге арналған QR көрсетіледі. Телефон нөмірін енгізудің қажеті жоқ.'
+              : context.locale === 'ru'
+                ? 'Оплата на киоске пока недоступна. Заказ можно оформить у кассира.'
+                : 'Киоскте төлем әзірге қолжетімсіз. Тапсырысты кассирден беруге болады.'}
           </Body>
         ) : (
           <Body style={{ color: colors.muted }}>{t.testPayment}</Body>
@@ -597,7 +601,9 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           label={t.createPayment}
           icon="arrow-forward"
           testID="kiosk-review-create"
-          disabled={!model.cartValid || !model.cart.length}
+          disabled={
+            !model.cartValid || !model.cart.length || (model.commercial && !model.checkoutReady)
+          }
           busy={model.busy}
           onPress={() => void model.beginPayment(model.paymentMethod)}
           style={{ minHeight: px(126) }}

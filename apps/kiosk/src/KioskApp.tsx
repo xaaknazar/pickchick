@@ -161,7 +161,7 @@ function GuestKioskApp() {
   return (
     <View style={layout.screen} onTouchStart={model.touch}>
       {screen}
-      {model.ready && model.error ? (
+      {model.ready && model.error && (model.catalog || model.order || model.recoveryRequired) ? (
         <View
           accessibilityRole="alert"
           testID="kiosk-error"

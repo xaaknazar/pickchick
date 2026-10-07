@@ -249,6 +249,7 @@ export class CommercialKioskController {
   private current: Flow;
   private guest: Session | null = null;
   private menu: KioskCatalog | null = null;
+  private checkoutReady = false;
   private ready = false;
   private busy = false;
   private blocked = false;
@@ -319,6 +320,7 @@ export class CommercialKioskController {
       busy: this.busy,
       error: this.error,
       commercial: true,
+      checkoutReady: this.checkoutReady,
       qrPayment: order?.payment?.kind === 'kaspi_qr' ? order.payment : null,
       paymentPhase: order?.phase,
       receiptState: order?.receipt,
@@ -394,7 +396,11 @@ export class CommercialKioskController {
                 ? 'Киоск не настроен. Пригласите сотрудника.'
                 : error instanceof KioskError && error.code === 'INVALID_PHONE'
                   ? 'Введите номер Казахстана для счёта Kaspi.'
-                  : 'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.';
+                  : this.blocked || this.current.intent || this.current.order
+                    ? 'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.'
+                    : !this.menu
+                      ? 'Не удалось загрузить меню. Проверьте подключение и повторите попытку.'
+                      : 'Не удалось выполнить действие. Проверьте подключение и повторите попытку.';
       if (this.unsafe()) this.step = 'recovery';
       return false;
     } finally {
@@ -406,12 +412,13 @@ export class CommercialKioskController {
     if (!(await this.io.readDevice())) throw new KioskError('DEVICE_NOT_PROVISIONED');
   }
   private async loadMenu() {
+    this.checkoutReady = false;
     await this.device();
     const guest = await this.authenticate();
     const config = await this.io.request('/config', guest.token);
     if (
       !isObject(config) ||
-      config.enabled !== true ||
+      typeof config.enabled !== 'boolean' ||
       config.paymentMethod !== 'kaspi_qr' ||
       !id(config.branchId)
     )
@@ -465,6 +472,7 @@ export class CommercialKioskController {
     if (next.products.some((p) => !observed.has(p.id))) throw new KioskError('AVAILABILITY_STALE');
     this.menu = next;
     if (!availability.fresh) throw new KioskError('AVAILABILITY_STALE');
+    this.checkoutReady = config.enabled;
   }
   private async authenticate() {
     if (this.guest) {
@@ -652,6 +660,7 @@ export class CommercialKioskController {
       this.editable();
       const displayedTotalMinor = this.snapshot().cartTotalMinor;
       await this.loadMenu();
+      if (!this.checkoutReady) throw new KioskError('CHECKOUT_DISABLED');
       const state = this.snapshot();
       if (!state.cartValid || !state.cart.length || !this.current.mode)
         throw new KioskError('INVALID_CART');
@@ -697,6 +706,7 @@ export class CommercialKioskController {
     if (!intent.quoteId) {
       try {
         await this.loadMenu();
+        if (!this.checkoutReady) throw new KioskError('CHECKOUT_DISABLED');
         if (!this.snapshot().cartValid) throw new KioskError('ITEM_STOPPED');
         const quote = CustomerQuoteSchema.parse(
           await this.io.request(
@@ -796,7 +806,6 @@ export class CommercialKioskController {
       else if (this.current.order) await this.readOrder();
       else {
         await this.loadMenu();
-        return;
       }
       this.derive();
     });
