@@ -3247,30 +3247,6 @@
       "nextAction": "Согласованно обновить project-status/roadmap/handoff: claim отклонён из-за farm-gameplay-v2; @vps/roadmap занят tiptoppay-test-rollout. Checks finance implemented/verified/deployed true, accepted false. Перед следующим apply/rollback адресно исправить runtime_snapshot normalization и malformed anonymous probes в release-finance-ledger.py с regression/CI; эти дефекты и точное operator recovery сохранены в протоколе. Следом личные права бухгалтера, реальные счета/остатки и приёмка первого дня; август Excel не импортирован."
     },
     {
-      "id": "finance-dashboard",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/finance-dashboard",
-      "scopes": [
-        "apps/backoffice/src",
-        "packages/backoffice-core/src/finance.ts",
-        "services/api/src/finance-controller.ts",
-        "tests/backoffice/finance.test.mjs",
-        "tests/backoffice/finance-model.test.mjs",
-        "tests/backoffice/finance-postgres.test.mjs",
-        "tests/backoffice/finance-http.test.mjs",
-        "tests/backoffice/finance-browser.py",
-        "docs/operations/finance-dashboard.md",
-        "docs/operations/images/finance-dashboard",
-        "apps/backoffice/server.mjs",
-        "docs/operations/finance-ledger.md"
-      ],
-      "status": "available",
-      "head": "9da01134841d3be19623ea74407e80c7ced0f741",
-      "updatedAt": "2026-10-07T06:40:53.051Z",
-      "summary": "PR197, code7c49cb3 + docs9da0113 published. Accountless entry, simplified form, expandable P&L, cash/P&L dashboards and responsive charts. 14 local unit/model/HTTP/PG/browser tests and builds/lint/format pass. CI37580384222: 9 jobs success; final audit fails shell-quote1.10.0, aggregate failed. Upstream fix89d7959 from kiosk owner has green CI37580398576; no bypass. Not deployed.",
-      "nextAction": "Agree transfer or integrate published shell-quote1.11.0 diff from89d7959 (only pnpm-lock.yaml and pnpm-workspace.yaml; apply --check passes), rerun exact-source CI, integrate shared. Other Mac owns dependencies/VPS and has SSH; refresh release profile for current pointers/schema, backup/restore checks, deploy compatible API and backoffice together. Keep compatible API on UI rollback. Update reserved project-status/roadmap when coordinated. See docs/operations/finance-dashboard.md."
-    },
-    {
       "id": "kiosk-kaspi-qr",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-kaspi-qr",
@@ -3333,6 +3309,30 @@
       "updatedAt": "2026-10-07T06:47:29.435Z",
       "summary": "По решению владельца от 07.10.2026 финансы закреплены за Mac3dd9e23b. Документ docs/collaboration/finance-ownership.md включён в shared, PR198. Проверены форматирование и diff; только документация, сервер не менялся.",
       "nextAction": "Новые финансовые задачи вести на Mac3dd9e23b с отдельными claims; finance-dashboard PR197 продолжить здесь. Общие зависимости/VPS согласовывать; отдельный SSH-доступ пока не настроен."
+    },
+    {
+      "id": "finance-dashboard",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-dashboard",
+      "scopes": [
+        "apps/backoffice/src",
+        "packages/backoffice-core/src/finance.ts",
+        "services/api/src/finance-controller.ts",
+        "tests/backoffice/finance.test.mjs",
+        "tests/backoffice/finance-model.test.mjs",
+        "tests/backoffice/finance-postgres.test.mjs",
+        "tests/backoffice/finance-http.test.mjs",
+        "tests/backoffice/finance-browser.py",
+        "docs/operations/finance-dashboard.md",
+        "docs/operations/images/finance-dashboard",
+        "apps/backoffice/server.mjs",
+        "docs/operations/finance-ledger.md"
+      ],
+      "status": "active",
+      "head": "2ecbbe5d08730122e99251eef75a2a8d13ad1e75",
+      "updatedAt": "2026-10-07T06:47:55.843Z",
+      "summary": "PR197, code7c49cb3 + docs9da0113 published. Accountless entry, simplified form, expandable P&L, cash/P&L dashboards and responsive charts. 14 local unit/model/HTTP/PG/browser tests and builds/lint/format pass. CI37580384222: 9 jobs success; final audit fails shell-quote1.10.0, aggregate failed. Upstream fix89d7959 from kiosk owner has green CI37580398576; no bypass. Not deployed.",
+      "nextAction": "Agree transfer or integrate published shell-quote1.11.0 diff from89d7959 (only pnpm-lock.yaml and pnpm-workspace.yaml; apply --check passes), rerun exact-source CI, integrate shared. Other Mac owns dependencies/VPS and has SSH; refresh release profile for current pointers/schema, backup/restore checks, deploy compatible API and backoffice together. Keep compatible API on UI rollback. Update reserved project-status/roadmap when coordinated. See docs/operations/finance-dashboard.md."
     }
   ]
 }
