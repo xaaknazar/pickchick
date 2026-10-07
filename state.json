@@ -3401,31 +3401,6 @@
       "summary": "По поручению владельца установлен и запущен PickChick Kiosk 0.1.0 (5) на физическом iPad Air 13-inch M3/iPadOS18.7.8. Source287d4e443f29e4f81c4053c185833e70c8fa324e: CI37621500652 11/11 и UI library37621500638 success до установки. Native XCTest1/1 подтвердил реальное меню через сохранённый enrollment, портретные границы кнопок, Pick Combo и возврат; скриншоты2048x2732 просмотрены. Исправлен выявленный блокер истёкшей гостевой сессии: сохранение черновика, серверное подтверждение завершения, безопасный порядок хранения, запрет обновления при order/intent;79kiosk tests passed. PR202 merged; итоговый документационный checkpoint0235069c73bf647d4164da0ad9171031bc454c64 сверен с обеими remote branches и включён в shared-development. Его дополнительные файлы только docs/screenshots; исходники установленной сборки287 не изменены. Протокол docs/operations/ipad-mobbin-install.md и verification.json. Подпись/keychain identity проверены, backup build3 сохранён приватно, runner удалён, kiosk открыт. Сервер/оплаты/TestFlight не менялись; device/controller/tests/app.json возвращены kiosk-kaspi-qr."
     },
     {
-      "id": "finance-history",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/finance-history",
-      "scopes": [
-        "packages/backoffice-core/src/finance.ts",
-        "apps/backoffice/src/finance.ts",
-        "apps/backoffice/src/finance-model.ts",
-        "apps/backoffice/src/styles.css",
-        "apps/backoffice/server.mjs",
-        "tests/backoffice/finance-postgres.test.mjs",
-        "tests/backoffice/finance-http.test.mjs",
-        "tests/backoffice/finance-browser.py",
-        "tests/backoffice/finance-browser.test.mjs",
-        "tests/backoffice/finance-model.test.mjs",
-        "tests/backoffice/finance.test.mjs",
-        "docs/operations/finance-history.md",
-        "docs/operations/images/finance-history",
-        "infra/staging/release-finance-history.py",
-        "tests/operations/test_finance_history_release.py"
-      ],
-      "status": "active",
-      "head": "926c75301f4e93ccfa607908db8760dc6dcb6e49",
-      "updatedAt": "2026-10-07T13:20:15.804Z"
-    },
-    {
       "id": "kiosk-kaspi-qr",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-kaspi-qr",
@@ -3503,6 +3478,35 @@
       "updatedAt": "2026-10-07T13:26:00.268Z",
       "summary": "Menu startup fixed and deployed API/gateway41d2a61; CI37598227901 11/11. Native0.1.0(3) installed/launched iPad, one active guest session. Live sessions/config/catalog/availability/end200; 24products,v3,fresh=true; wrongkey/ended403. Encryptedbackuprestorepassed, schema43files/last044 unchanged; finance/mobile/assets preserved. QR worker+financialroutes OFF. Docs54f84f3 published; shared117327c docs-only integrated. 68kiosktests,31guardtests,actualPGleastprivilege,CUAsyntheticvisual passed. Status/roadmapclaim blockedfarm; onlinepult not updated.",
       "nextAction": "Owner confirms physical iPad menu. QR next: pending-order session end guard, real QR response fixture with approved one100KZT test, existingv3 actualedge ACK, account/worker/grants/kitchen acceptance. Shortalias consumed, internalcredentials retained; do not replay enrollment activation. Nextdeploymentbaseline41d2a61/schema044. No bankcalls/orders in menu rollout. Владелец 07.10.2026 подтвердил остановку серверной работы и передачу @vps/api,gateway,db,public задаче finance-rollout; не продолжать серверный выпуск до освобождения. Владелец в текущем чате явно согласовал выделение экранов/визуальных компонентов/темы для ipad-mobbin-design; UI-файлы переданы, payment/enrollment/model/controllers и серверные области сохранены. Владелец поручил системный UI-рефакторинг и Storybook: дополнительные UI/entry/enrollment-view и package/tsconfig переданы ipad-mobbin-design; сервер/хранилище/контроллеры не переданы. Владелец поручил системный UI-рефакторинг и Storybook: дополнительные UI/entry/enrollment-view и tooling scopes переданы ipad-mobbin-design; сервер/хранилище/контроллеры сохранены. Владелец в текущем чате 07.10.2026 явно поручил: «Да установи на айпаде». Резерв физического iPad временно передан ipad-mobbin-install только для обновления UI из проверенного a44f74e поверх существующего kz.pickchick.kiosk, с сохранением SecureStore. Сервер, платёжные области и TestFlight не переданы; после установки резерв возвращается kiosk-kaspi-qr. В ходе порученной владельцем установки на iPad подтверждён существующий блокер: сохранённая гостевая сессия истекла (на сервере 0 active, 1 expired), повтор меню использует старый токен. Для законченной установки переданы client controller, его regression tests и buildNumber: только безопасное обновление истёкшей сессии без intent/order с сохранением корзины и device enrollment. Сервер/платёжный контракт не меняются. Области возвращаются после установки. Установка UI завершена: native 0.1.0 (5), source287d4e443f29e4f81c4053c185833e70c8fa324e, CI37621500652 11/11 и UI library success, реальный XCTest1/1 menu/product, enrollment сохранён. Исправлено безопасное восстановление истёкшей гостевой сессии без order/intent. PR202 и shared0235069c73bf647d4164da0ad9171031bc454c64; протокол docs/operations/ipad-mobbin-install.md. Перед продолжением получить новый shared; buildNumber теперь5. Устройство/controller/tests/app.json возвращены kiosk-kaspi-qr, сервер и банк не менялись; повторная активация не нужна."
+    },
+    {
+      "id": "finance-history",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-history",
+      "scopes": [
+        "packages/backoffice-core/src/finance.ts",
+        "apps/backoffice/src/finance.ts",
+        "apps/backoffice/src/finance-model.ts",
+        "apps/backoffice/src/styles.css",
+        "apps/backoffice/server.mjs",
+        "tests/backoffice/finance-postgres.test.mjs",
+        "tests/backoffice/finance-http.test.mjs",
+        "tests/backoffice/finance-browser.py",
+        "tests/backoffice/finance-browser.test.mjs",
+        "tests/backoffice/finance-model.test.mjs",
+        "tests/backoffice/finance.test.mjs",
+        "docs/operations/finance-history.md",
+        "docs/operations/images/finance-history",
+        "infra/staging/release-finance-history.py",
+        "tests/operations/test_finance_history_release.py",
+        "@vps/api",
+        "@vps/db",
+        "@vps/public",
+        "@vps/gateway"
+      ],
+      "status": "active",
+      "head": "7e877dac41a917a38bcc926d91f351f65cba98ec",
+      "updatedAt": "2026-10-07T13:31:53.247Z"
     }
   ]
 }
