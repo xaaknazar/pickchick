@@ -3270,11 +3270,12 @@
         "infra/payments/kaspi-bridge/install-overlays.mjs",
         "infra/payments/kaspi-bridge/prepare-container.mjs",
         "packages/commerce-core/src/kiosk-sessions.ts",
-        "packages/commerce-core/package.json"
+        "packages/commerce-core/package.json",
+        "packages/commerce-core/tests/kiosk-sessions.postgres.test.mjs"
       ],
       "status": "active",
       "head": "7e58f90bd13c2c60c8ff95d529f1513c1a9ab3d1",
-      "updatedAt": "2026-10-07T05:13:18.681Z"
+      "updatedAt": "2026-10-07T05:14:54.611Z"
     }
   ]
 }
