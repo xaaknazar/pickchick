@@ -3349,9 +3349,9 @@
         "docs/operations/finance-ledger.md",
         "docs/collaboration/finance-ownership.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "12c6bfae03d2592e2c015f211e9c9d8636c6c581",
-      "updatedAt": "2026-10-07T09:16:36.671Z",
+      "updatedAt": "2026-10-07T09:16:42.496Z",
       "summary": "Финансы закреплены за Mac3dd9e23b. SSH 07.10.2026 реально проверен с этого Mac: BatchMode/IdentitiesOnly/StrictHostKeyChecking, pickchick-ops, cloud-002, корень существует; секреты не опубликованы. Docs12c6bfa и исходный UI7c49cb3 в PR197. 14 локальных проверок passed; CI37580384222 блокируется shell-quote1.10.0. На сайт новый UI не установлен.",
       "nextAction": "Продолжить на этом Mac: согласовать перенос готового исправления89d7959 из занятых файлов зависимостей, зелёная CI точного SHA. Теперь SSH доступен напрямую; согласовать VPS-резервы kiosk-kaspi-qr, обновить профиль выпуска по фактическим pointers/schema, backup/restore, совместимый API+backoffice. Активные чужие резервы не снимать."
     }
