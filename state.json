@@ -3464,10 +3464,11 @@
         "docs/operations/images/ipad-mobbin-native",
         "docs/design/ipad-mobbin.md"
       ],
-      "status": "active",
-      "head": "287d4e443f29e4f81c4053c185833e70c8fa324e",
-      "updatedAt": "2026-10-07T13:00:47.666Z",
-      "nextAction": "Владелец в текущем чате 07.10.2026 явно поручил: «Да установи на айпаде». Резерв физического iPad временно передан ipad-mobbin-install только для обновления UI из проверенного a44f74e поверх существующего kz.pickchick.kiosk, с сохранением SecureStore. Сервер, платёжные области и TestFlight не переданы; после установки резерв возвращается kiosk-kaspi-qr. В ходе порученной владельцем установки на iPad подтверждён существующий блокер: сохранённая гостевая сессия истекла (на сервере 0 active, 1 expired), повтор меню использует старый токен. Для законченной установки переданы client controller, его regression tests и buildNumber: только безопасное обновление истёкшей сессии без intent/order с сохранением корзины и device enrollment. Сервер/платёжный контракт не меняются. Области возвращаются после установки."
+      "status": "done",
+      "head": "0235069c73bf647d4164da0ad9171031bc454c64",
+      "updatedAt": "2026-10-07T13:01:52.672Z",
+      "nextAction": "Владелец оценивает удобство нового UI на установленном iPad. Кiosk-kaspi-qr продолжает отдельную приёмку QR/ресторана после получения shared0235069; повторная активация не нужна, buildNumber5. Глобальные status/roadmap/handoff зарезервированы farm-gameplay-v2, онлайн-пульт другим владельцем: перенести подтверждённые факты из installation report и координации. CI установленного source зелёная; повторный CI документационного checkpoint идёт отдельно и не меняет установленный бинарник.",
+      "summary": "По поручению владельца установлен и запущен PickChick Kiosk 0.1.0 (5) на физическом iPad Air 13-inch M3/iPadOS18.7.8. Source287d4e443f29e4f81c4053c185833e70c8fa324e: CI37621500652 11/11 и UI library37621500638 success до установки. Native XCTest1/1 подтвердил реальное меню через сохранённый enrollment, портретные границы кнопок, Pick Combo и возврат; скриншоты2048x2732 просмотрены. Исправлен выявленный блокер истёкшей гостевой сессии: сохранение черновика, серверное подтверждение завершения, безопасный порядок хранения, запрет обновления при order/intent;79kiosk tests passed. PR202 merged; итоговый документационный checkpoint0235069c73bf647d4164da0ad9171031bc454c64 сверен с обеими remote branches и включён в shared-development. Его дополнительные файлы только docs/screenshots; исходники установленной сборки287 не изменены. Протокол docs/operations/ipad-mobbin-install.md и verification.json. Подпись/keychain identity проверены, backup build3 сохранён приватно, runner удалён, kiosk открыт. Сервер/оплаты/TestFlight не менялись; device/controller/tests/app.json возвращены kiosk-kaspi-qr."
     }
   ]
 }
