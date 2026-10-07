@@ -69,3 +69,36 @@ HTTP-сессии/CSRF/expiry/replay/rate-limit/allowlist, настоящая
 
 Общие status/handoff/roadmap остаются зарезервированы `farm-gameplay-v2`;
 этот документ и coordination registry передают факты для их последующего обновления.
+
+## Состояние выпуска: остановлен до установки
+
+Код: `d6687bf936f8b769acc9b5f5d8ad921ad2d777ba`, ветка `codex/ceo-login`,
+[PR #206](https://github.com/xaaknazar/pickchick/pull/206).
+[CI 37642128191](https://github.com/xaaknazar/pickchick/actions/runs/37642128191)
+завершилась failure: все 11 jobs с нулём выполненных шагов. Аннотация GitHub:
+«The job was not started because an Actions budget is preventing further use.»
+Это блокировка запуска, а не подтверждение прохождения CI.
+
+На 7 октября 15:10 UTC GitHub также дважды отклонил fast-forward push в shared
+с `Internal Server Error`; запись handoff/release scopes в coordination и
+обновление PR также не подтвердились. Общая ветка осталась `a9a5d4d`, рабочая
+ветка на GitHub подтверждена `d6687bf`. Не считать области освобождёнными без
+повторной проверки registry. Владелец уведомлён о необходимости восстановить
+бюджет Actions. Публикация и активация аккаунта на сервере НЕ выполнены.
+
+Read-only проверка VPS: прежние API/public `778a718`, финансовая роль директора
+`manager`, Caddy-кандидат валиден; TLS нового домена ещё не включён. DNS A/CNAME
+основного домена, api и www указывают на VPS. Действующий nip.io не менялся.
+
+На финансовом Mac подготовлены `.local/ceo-login/ceo.json` и
+`~/Downloads/PickChick-CEO-access.txt`, оба 0600. Не печатать, не добавлять в Git,
+не генерировать заново при продолжении. Пароль ещё не активен на сайте.
+Архив `.local/ceo-login/portal-d6687bf.tar.gz` построен из чистого опубликованного
+коммита; SHA-256 `713913044f7cebb161521eb36c07125661155fccc278c4b849c811dcdc7734fd`.
+
+Продолжение: свежий sync/check и registry; восстановить запись передачи и
+нужные server claims; включить код в shared без force; повторить полную CI
+точного исходника, получить proof 11/11; перепроверить pointers/hashes;
+передать архив и proof, конфигурацию 0600 отдельно; выполнить read-only preflight
+и apply; проверить TLS, вход/выход CEO и чтение финансов без реальных новых
+операций. Локальная тестовая PostgreSQL остановлена, production не затронут.
