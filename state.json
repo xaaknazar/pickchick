@@ -3417,11 +3417,23 @@
         "apps/kiosk/src/components/OrderProgress.tsx",
         "docs/design/ipad-mobbin.md",
         "docs/operations/images/ipad-mobbin",
-        "tests/kiosk/browser_mobbin.py"
+        "tests/kiosk/browser_mobbin.py",
+        "apps/kiosk/src/components",
+        "apps/kiosk/src/screens",
+        "apps/kiosk/src/KioskApp.tsx",
+        "apps/kiosk/package.json",
+        "apps/kiosk/tsconfig.json",
+        "apps/kiosk/.storybook",
+        "apps/kiosk/src/stories",
+        "apps/kiosk/assets/icons",
+        "apps/kiosk/STORYBOOK.md",
+        "docs/design/ipad-ui-refactoring.md",
+        "tests/kiosk/ui-architecture.test.mjs",
+        "pnpm-lock.yaml"
       ],
       "status": "active",
       "head": "efe91170a050c59bf9904e91070b51c2176c1c42",
-      "updatedAt": "2026-10-07T10:30:23.523Z"
+      "updatedAt": "2026-10-07T10:37:10.953Z"
     }
   ]
 }
