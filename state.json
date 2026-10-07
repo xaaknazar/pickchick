@@ -3311,10 +3311,10 @@
         "tests/operations/test_kiosk_menu_release.py"
       ],
       "status": "active",
-      "head": "92c08c7787842c71436a9cf6d9d4cef9f2666835",
-      "updatedAt": "2026-10-07T09:00:35.950Z",
-      "summary": "Source39336a7 installed via guarded enrollment-only rollout; all11CI37591650169 passed. Backup/isolatedrestore passed; retained043+applied044; publicassets/financepreserved. One kioskdevice + user shortoperatoralias provisioned. Liveephemeralalias checks: wrong403,correct200,no-store,samenoncereplay200,differentnonce403,devicebranchcheck200; probealiasdeleted,useraliasunused. Kiosk0.1.0(2)installed+launched on iPad; visualcheckblockedMaclocked,useracceptancepending. Docs92c08c7 published. No bankQRcalls; worker/guestpublicroutesoff.",
-      "nextAction": "Owner tryshortID/key within24h fromprovision; appstoresinternalcredentialsaftercheck. Continueguestmenu readiness/deliveryACK then separateapproved100KZTQR stage. Do notcallthisfullkioskpaymentreadiness. Preserveprivate393proofand89predecessorproof; futuredeploymentguardbaseline393+schema044. Sharedstatus/roadmapblockedfarmclaim, factsrunbookPR196."
+      "head": "54f84f39ffc72e85fa7de9bf02c483a7291f8568",
+      "updatedAt": "2026-10-07T09:37:32.204Z",
+      "summary": "Menu startup fixed and deployed API/gateway41d2a61; CI37598227901 11/11. Native0.1.0(3) installed/launched iPad, one active guest session. Live sessions/config/catalog/availability/end200; 24products,v3,fresh=true; wrongkey/ended403. Encryptedbackuprestorepassed, schema43files/last044 unchanged; finance/mobile/assets preserved. QR worker+financialroutes OFF. Docs54f84f3 published; shared117327c docs-only integrated. 68kiosktests,31guardtests,actualPGleastprivilege,CUAsyntheticvisual passed. Status/roadmapclaim blockedfarm; onlinepult not updated.",
+      "nextAction": "Owner confirms physical iPad menu. QR next: pending-order session end guard, real QR response fixture with approved one100KZT test, existingv3 actualedge ACK, account/worker/grants/kitchen acceptance. Shortalias consumed, internalcredentials retained; do not replay enrollment activation. Nextdeploymentbaseline41d2a61/schema044. No bankcalls/orders in menu rollout."
     },
     {
       "id": "finance-ssh-access",
