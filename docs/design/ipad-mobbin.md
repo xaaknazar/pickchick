@@ -74,3 +74,7 @@ Global `docs/project-status.md`, roadmap and collaboration handoff are reserved 
 The browser preview initially served an older output directory during an additional motion regression. It was corrected to serve `apps/kiosk/dist`, and all three browser suites above were rerun against that exact final export. Screenshots and SHA256 records are in `docs/operations/images/ipad-mobbin/`.
 
 The shared CI workflow is reserved by `tiptoppay-checkout`, so it was not edited. Existing CI runs the architecture guards via `test:kiosk` and the existing browser/payment suites. A separately claimed `.github/workflows/kiosk-ui-library.yml` now builds the real Storybook and Expo exports and runs the additional render/accessibility/motion suite on kiosk changes. Its local command is documented in `apps/kiosk/STORYBOOK.md`.
+
+## Native installation follow-up
+
+The owner subsequently requested installation. PickChick Kiosk 0.1.0 (5) was installed and launched on the physical iPad Air 13-inch M3. The native menu/product check passed with the existing device enrollment. An expired-guest recovery issue discovered during installation was fixed and verified separately. [Installation, native screenshots and exact source CI](../operations/ipad-mobbin-install.md).
