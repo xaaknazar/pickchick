@@ -3450,9 +3450,11 @@
         "@vps/public",
         "@vps/gateway"
       ],
-      "status": "active",
-      "head": "a44f74ef6c2b9be5615e091ea2c5053bc4fb80ce",
-      "updatedAt": "2026-10-07T12:38:40.075Z"
+      "status": "done",
+      "head": "926c75301f4e93ccfa607908db8760dc6dcb6e49",
+      "updatedAt": "2026-10-07T13:05:43.448Z",
+      "summary": "Установлен public bc21c96: ровные фильтры48px, адаптивная сетка/вкладки, компактный журнал без34% даты. CI37622607603 11/11;7model/browser,build/lint/format;CUA1440/768/375 и live filters. Только finance.js/styles.css;API368c4e8/БД/остальные assets/контейнеры сохранены. PR203 merged, shared926c753 SHA сверены; после merge41kiosk tests passed. Протокол docs/operations/finance-layout.md.",
+      "nextAction": "Приёмка бухгалтером на рабочем экране. Новый public baselinebc21c96, API368c4e8, gateway прежний. При освобождении status/roadmap/handoff перенести факты установки; accepted false. Резервы public/gateway освобождены. Откат только public из сохранённого368c4e8 под новым claim/lock, без API/БД."
     },
     {
       "id": "ipad-mobbin-install",
