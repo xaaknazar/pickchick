@@ -3328,9 +3328,11 @@
         "docs/collaboration/finance-ownership.md",
         "@coordination/finance-ownership"
       ],
-      "status": "active",
-      "head": "2f00491bf41e44bbbe10852b57dd16a9a58bcee8",
-      "updatedAt": "2026-10-07T06:46:00.020Z"
+      "status": "done",
+      "head": "2f561449a368f8014eb6b5ae38cf67c90d9f9af9",
+      "updatedAt": "2026-10-07T06:47:29.435Z",
+      "summary": "По решению владельца от 07.10.2026 финансы закреплены за Mac3dd9e23b. Документ docs/collaboration/finance-ownership.md включён в shared, PR198. Проверены форматирование и diff; только документация, сервер не менялся.",
+      "nextAction": "Новые финансовые задачи вести на Mac3dd9e23b с отдельными claims; finance-dashboard PR197 продолжить здесь. Общие зависимости/VPS согласовывать; отдельный SSH-доступ пока не настроен."
     }
   ]
 }
