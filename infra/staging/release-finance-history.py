@@ -46,6 +46,9 @@ class Release(dashboard.Release):
             base.CI_JOBS, frozenset(), 'finance-history-release', (), exact_ci_jobs=True)
         market.Release.__init__(self, args, profile)
 
+    def web_manifest_source(self):
+        return PUBLIC
+
     def source_checks(self):
         market.Release.source_checks(self)
         self.git('merge-base', '--is-ancestor', DEVELOPMENT, self.sha)

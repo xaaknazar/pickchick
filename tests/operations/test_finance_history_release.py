@@ -26,6 +26,7 @@ class FinanceHistoryRelease(unittest.TestCase):
         self.assertTrue(profile.exact_ci_jobs)
         self.assertEqual(r.finance.BASELINE, r.API)
         self.assertEqual(r.finance.PUBLIC_BASELINE, r.PUBLIC)
+        self.assertEqual(object.__new__(r.Release).web_manifest_source(), r.PUBLIC)
         for name in vars(args):
             bad = copy.copy(args); setattr(bad, name, '0'*len(getattr(bad, name)))
             with self.assertRaises(r.market.GuardFailure): r.Release(bad)
