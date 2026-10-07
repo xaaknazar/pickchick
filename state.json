@@ -3247,6 +3247,45 @@
       "nextAction": "Согласованно обновить project-status/roadmap/handoff: claim отклонён из-за farm-gameplay-v2; @vps/roadmap занят tiptoppay-test-rollout. Checks finance implemented/verified/deployed true, accepted false. Перед следующим apply/rollback адресно исправить runtime_snapshot normalization и malformed anonymous probes в release-finance-ledger.py с regression/CI; эти дефекты и точное operator recovery сохранены в протоколе. Следом личные права бухгалтера, реальные счета/остатки и приёмка первого дня; август Excel не импортирован."
     },
     {
+      "id": "finance-ownership",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-ownership",
+      "scopes": [
+        "docs/collaboration/README.md",
+        "docs/collaboration/finance-ownership.md",
+        "@coordination/finance-ownership"
+      ],
+      "status": "done",
+      "head": "2f561449a368f8014eb6b5ae38cf67c90d9f9af9",
+      "updatedAt": "2026-10-07T06:47:29.435Z",
+      "summary": "По решению владельца от 07.10.2026 финансы закреплены за Mac3dd9e23b. Документ docs/collaboration/finance-ownership.md включён в shared, PR198. Проверены форматирование и diff; только документация, сервер не менялся.",
+      "nextAction": "Новые финансовые задачи вести на Mac3dd9e23b с отдельными claims; finance-dashboard PR197 продолжить здесь. Общие зависимости/VPS согласовывать; отдельный SSH-доступ пока не настроен."
+    },
+    {
+      "id": "finance-dashboard",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-dashboard",
+      "scopes": [
+        "apps/backoffice/src",
+        "packages/backoffice-core/src/finance.ts",
+        "services/api/src/finance-controller.ts",
+        "tests/backoffice/finance.test.mjs",
+        "tests/backoffice/finance-model.test.mjs",
+        "tests/backoffice/finance-postgres.test.mjs",
+        "tests/backoffice/finance-http.test.mjs",
+        "tests/backoffice/finance-browser.py",
+        "docs/operations/finance-dashboard.md",
+        "docs/operations/images/finance-dashboard",
+        "apps/backoffice/server.mjs",
+        "docs/operations/finance-ledger.md"
+      ],
+      "status": "active",
+      "head": "2ecbbe5d08730122e99251eef75a2a8d13ad1e75",
+      "updatedAt": "2026-10-07T06:48:19.875Z",
+      "summary": "Владелец 07.10.2026 закрепил финансы за ЭТИМ Mac3dd9e23b, постоянное правило уже в shared2f56144 и docs/collaboration/finance-ownership.md (PR198). PR197 code7c49cb3 сохранён, docs merge2ecbbe5. 14 локальных проверок passed; CI37580384222: 9jobs passed, final audit shell-quote1.10.0 failed. Не установлено.",
+      "nextAction": "Продолжать finance-dashboard на этом Mac. Согласовать перенос опубликованного исправления89d7959 из занятых файлов зависимостей, повторить CI точного SHA. Для самостоятельного выпуска настроить отдельный SSH-доступ и согласовать временные серверные резервы. Пока доступа нет, установка только по согласованной передаче проверенного выпуска; сама разработка финансов остаётся здесь."
+    },
+    {
       "id": "kiosk-kaspi-qr",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-kaspi-qr",
@@ -3287,52 +3326,17 @@
         "@vps/public",
         "apps/pos/src/v2/app.js",
         "tests/pos/browser_ui.py",
-        "pnpm-workspace.yaml"
+        "pnpm-workspace.yaml",
+        "packages/commerce-core/src/kiosk-enrollment.ts",
+        "packages/commerce-core/tests/kiosk-enrollment.postgres.test.mjs",
+        "db/cloud/migrations/044_cloud_kiosk_enrollment.sql",
+        "scripts/provision-kiosk-enrollment.mjs"
       ],
       "status": "active",
-      "head": "89d79596c6897d8717b371f18f701be60956f124",
-      "updatedAt": "2026-10-07T07:09:07.065Z",
+      "head": "e29a3028eb4c1f32c3d7d27960b2b50f804077ad",
+      "updatedAt": "2026-10-07T07:56:27.199Z",
       "summary": "PR196 source89d7959 full Foundation CI37580398576 passed11jobs. Enrollment rollout backed up/restored proof and applied043, then guard failed: RELEASE_SHA absent from runtime env (image label verified89). Explicit rollback succeeded; API d6cd144 running, backoffice200, ACL restored,043 retained42migrations, QRworker off. No bank QR or device enrollment. Native Kiosk installed/runs. Owner authorized filling private device fields via local Xcode UI automation; first attempt failed initializing automation before input. Shared2f56144 finance ownership docs reviewed, no financial edits.",
       "nextAction": "Complete authorized native form input without sending enrollment until backend ready. Fix release environment identity regression and handle retained043 with reviewed checks/green CI; do not delete migration or weaken guards. Then provision existing durable profile, verify enrollment, catalog readiness and one approved100KZT QR."
-    },
-    {
-      "id": "finance-ownership",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/finance-ownership",
-      "scopes": [
-        "docs/collaboration/README.md",
-        "docs/collaboration/finance-ownership.md",
-        "@coordination/finance-ownership"
-      ],
-      "status": "done",
-      "head": "2f561449a368f8014eb6b5ae38cf67c90d9f9af9",
-      "updatedAt": "2026-10-07T06:47:29.435Z",
-      "summary": "По решению владельца от 07.10.2026 финансы закреплены за Mac3dd9e23b. Документ docs/collaboration/finance-ownership.md включён в shared, PR198. Проверены форматирование и diff; только документация, сервер не менялся.",
-      "nextAction": "Новые финансовые задачи вести на Mac3dd9e23b с отдельными claims; finance-dashboard PR197 продолжить здесь. Общие зависимости/VPS согласовывать; отдельный SSH-доступ пока не настроен."
-    },
-    {
-      "id": "finance-dashboard",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/finance-dashboard",
-      "scopes": [
-        "apps/backoffice/src",
-        "packages/backoffice-core/src/finance.ts",
-        "services/api/src/finance-controller.ts",
-        "tests/backoffice/finance.test.mjs",
-        "tests/backoffice/finance-model.test.mjs",
-        "tests/backoffice/finance-postgres.test.mjs",
-        "tests/backoffice/finance-http.test.mjs",
-        "tests/backoffice/finance-browser.py",
-        "docs/operations/finance-dashboard.md",
-        "docs/operations/images/finance-dashboard",
-        "apps/backoffice/server.mjs",
-        "docs/operations/finance-ledger.md"
-      ],
-      "status": "active",
-      "head": "2ecbbe5d08730122e99251eef75a2a8d13ad1e75",
-      "updatedAt": "2026-10-07T06:48:19.875Z",
-      "summary": "Владелец 07.10.2026 закрепил финансы за ЭТИМ Mac3dd9e23b, постоянное правило уже в shared2f56144 и docs/collaboration/finance-ownership.md (PR198). PR197 code7c49cb3 сохранён, docs merge2ecbbe5. 14 локальных проверок passed; CI37580384222: 9jobs passed, final audit shell-quote1.10.0 failed. Не установлено.",
-      "nextAction": "Продолжать finance-dashboard на этом Mac. Согласовать перенос опубликованного исправления89d7959 из занятых файлов зависимостей, повторить CI точного SHA. Для самостоятельного выпуска настроить отдельный SSH-доступ и согласовать временные серверные резервы. Пока доступа нет, установка только по согласованной передаче проверенного выпуска; сама разработка финансов остаётся здесь."
     }
   ]
 }
