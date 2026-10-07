@@ -127,7 +127,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
 export function ReviewScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   return (
-    <ScreenSurface testID="kiosk-screen-loyalty">
+    <ScreenSurface testID="kiosk-screen-loyalty" keyboardAware>
       <Header {...context} title={t.payTitle} back={model.openCart} />
       <OrderProgress step="payment" locale={context.locale} />
       <ScrollArea onInteraction={model.touch}>

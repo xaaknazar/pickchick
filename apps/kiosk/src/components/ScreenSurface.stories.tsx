@@ -10,4 +10,5 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+export const KeyboardAware: Story = { args: { keyboardAware: true } };
 export const Brand = { args: { tone: 'brand', children: <Body tone="inverse">PICK CHICK</Body> } };
