@@ -7,6 +7,7 @@ import {
   csv,
   type FinanceEntry,
   type JournalRow,
+  type FinanceHistoryEvent,
 } from './finance-model.js';
 import { reportData, percent, type Basis } from './finance-report.js';
 import { expenseChart, trendChart } from './finance-charts.js';
@@ -72,6 +73,10 @@ const fresh = (): FinanceEntry => ({
   note: '',
 });
 
+const entryStatus = (r: JournalRow) =>
+  r.replaced_by ? 'Изменена' : r.void_reason ? 'Удалена' : 'Проведена';
+const timestamp = (v: string) => new Date(v).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' });
+
 export class FinanceView {
   private tab = 'overview';
   private extraOpen = false;
@@ -86,6 +91,9 @@ export class FinanceView {
   private accountOpen = false;
   private periodDraft = { month: '', reason: '' };
   private voidReason = '';
+  private deleteOpen = false;
+  private replacingId = '';
+  private editReason = '';
   constructor(
     private model: FinanceModel,
     private changed: () => void,
@@ -105,6 +113,9 @@ export class FinanceView {
     this.accountOpen = false;
     this.periodDraft = { month: '', reason: '' };
     this.voidReason = '';
+    this.deleteOpen = false;
+    this.replacingId = '';
+    this.editReason = '';
   }
   private act(label: string, fn: () => void, primary = false) {
     const b = button(label, fn, primary ? 'button primary' : 'button');
@@ -198,6 +209,9 @@ export class FinanceView {
         () => {
           m.notice = '';
           this.tab = id!;
+          this.detail = null;
+          this.deleteOpen = false;
+          this.voidReason = '';
           this.changed();
         },
         this.tab === id ? 'button selected' : 'button',
@@ -255,6 +269,27 @@ export class FinanceView {
       return;
     }
     if (this.detail) {
+      const selectedId = this.detail.id;
+      const visible = d.journal.find((r) => r.id === selectedId);
+      if (visible) this.detail = visible;
+      else {
+        // A correction may move the latest version outside the selected period.
+        // Refresh it from the complete chain, including a just-confirmed deletion.
+        const linked = d.journal.find((r) =>
+          r.history?.some((event) => event.after?.id === selectedId),
+        );
+        if (linked?.history) {
+          const removed = linked.history.find((event) => event.before?.id === selectedId);
+          this.detail = {
+            ...this.detail,
+            history: linked.history,
+            replaced_by: removed?.after?.id ?? null,
+            void_reason: removed?.reason ?? null,
+            void_author: removed?.author ?? null,
+            voided_at: removed?.created_at ?? null,
+          };
+        }
+      }
       area.append(this.details(this.detail));
       return;
     }
@@ -345,7 +380,7 @@ export class FinanceView {
         d.categories.find((c) => c.id === e.category_id)?.name ?? 'Перевод',
         d.centers[e.center] ?? e.center,
         value,
-        r.void_reason ? 'Отменена' : 'Проведена',
+        entryStatus(r),
       ];
     });
     const journalTable = table(
@@ -400,7 +435,7 @@ export class FinanceView {
               e.reference,
               e.amount_minor,
               r.author,
-              r.void_reason ? 'Отменена' : 'Проведена',
+              entryStatus(r),
               e.note,
             ];
           }),
@@ -415,8 +450,14 @@ export class FinanceView {
       e = this.draft;
     const form = el('form', 'panel finance-editor');
     form.append(
-      el('h2', '', 'Новая операция'),
-      el('p', 'muted', 'Укажите сумму, статью и назначение. Отчёты обновятся после сохранения.'),
+      el('h2', '', this.replacingId ? 'Изменить операцию' : 'Новая операция'),
+      el(
+        'p',
+        'muted',
+        this.replacingId
+          ? 'Исправьте нужные поля. Прежняя версия останется в истории, а отчёты будут учитывать новую.'
+          : 'Укажите сумму, статью и назначение. Отчёты обновятся после сохранения.',
+      ),
     );
     const grid = el('div', 'finance-form-grid');
     const redraw = () => {
@@ -438,10 +479,12 @@ export class FinanceView {
           const accrual = v.startsWith('accrual');
           e.category_id = v === 'transfer' ? null : incoming ? 'sales' : 'rent';
           e.to_account_id = null;
-          e.cash_date = accrual ? null : today();
+          e.cash_date = accrual ? null : (e.cash_date ?? today());
           e.account_id = null;
           this.recognize = v !== 'transfer';
-          e.recognition_date = this.recognize ? today() : null;
+          e.recognition_date = this.recognize
+            ? (e.recognition_date ?? e.cash_date ?? today())
+            : null;
           redraw();
         },
         'finance-kind',
@@ -596,6 +639,24 @@ export class FinanceView {
     );
     extra.append(extraGrid);
     form.append(grid, extra);
+    if (this.replacingId) {
+      if (e.account_id && !transfer)
+        form.append(
+          el(
+            'p',
+            'muted',
+            `Сохранится привязка к счёту: ${d.accounts.find((a) => a.id === e.account_id)?.name ?? '-'}.`,
+          ),
+        );
+      form.append(
+        field('Причина изменения', this.editReason, (v) => (this.editReason = v), {
+          id: 'finance-edit-reason',
+          required: true,
+          max: 500,
+          hint: 'Что было указано неверно. Причина останется в истории.',
+        }),
+      );
+    }
     const effect = transfer
       ? 'Изменятся остатки двух счетов. Общий денежный поток и прибыль не изменятся.'
       : accrual
@@ -610,17 +671,24 @@ export class FinanceView {
       form.append(n);
     }
     const save = this.act(
-      'Провести операцию',
+      this.replacingId ? 'Сохранить изменения' : 'Провести операцию',
       () => {
         if (!form.reportValidity()) return;
         try {
           e.amount_minor = minor(this.amount);
-          if (!transfer) e.account_id = null;
+          if (!transfer && !this.replacingId) e.account_id = null;
+          if (this.replacingId && this.editReason.trim().length < 3)
+            throw Error('Укажите причину изменения, минимум 3 символа.');
           if (transfer && (!e.account_id || !e.to_account_id || e.to_account_id === e.account_id))
             throw Error('Выберите другой счёт для перевода.');
           this.formError = '';
           void m
-            .send({ type: 'entry', entry: { ...e } }, 'Ввод бухгалтерской операции')
+            .send(
+              this.replacingId
+                ? { type: 'replace', id: this.replacingId, entry: { ...e } }
+                : { type: 'entry', entry: { ...e } },
+              this.replacingId ? this.editReason : 'Ввод бухгалтерской операции',
+            )
             .then((ok) => {
               if (ok) {
                 this.clear();
@@ -655,86 +723,233 @@ export class FinanceView {
       .forEach((i) => (i.disabled = m.busy || !!m.pending));
     return form;
   }
+  private entryFields(e: FinanceEntry): [keyof FinanceEntry, string, string][] {
+    const d = this.model.data!;
+    return [
+      ['reference', 'Назначение', e.reference],
+      ['kind', 'Тип', kinds[e.kind] ?? e.kind],
+      ['amount_minor', 'Сумма', money(e.amount_minor)],
+      ['cash_date', 'Дата движения денег', e.cash_date ?? '-'],
+      ['recognition_date', 'Дата ОПиУ', e.recognition_date ?? '-'],
+      ['account_id', 'Счёт', d.accounts.find((a) => a.id === e.account_id)?.name ?? '-'],
+      ['to_account_id', 'На счёт', d.accounts.find((a) => a.id === e.to_account_id)?.name ?? '-'],
+      ['category_id', 'Статья', d.categories.find((c) => c.id === e.category_id)?.name ?? '-'],
+      ['center', 'Подразделение', d.centers[e.center] ?? e.center],
+      ['counterparty', 'Контрагент', e.counterparty || '-'],
+      ['note', 'Примечание', e.note || '-'],
+    ];
+  }
+  private history(events: FinanceHistoryEvent[]) {
+    const section = el('section', 'finance-history');
+    section.append(
+      el('h3', '', 'История операции'),
+      el('p', 'muted', 'Все версии, включая удалённые. Время Алматы.'),
+    );
+    const list = el('ol', 'finance-history-list');
+    for (const event of events) {
+      const item = el('li');
+      const title =
+        event.action === 'finance.entry'
+          ? 'Операция создана'
+          : event.action === 'finance.replace'
+            ? 'Операция изменена'
+            : 'Операция удалена';
+      const head = el('div', 'finance-history-heading');
+      const time = el('time', 'muted', timestamp(event.created_at));
+      time.dateTime = event.created_at;
+      head.append(el('h4', '', title), time);
+      const author = el('p', 'finance-history-author', event.author);
+      author.title = `ID сотрудника: ${event.actor_id}`;
+      item.append(head, author, el('p', '', `Причина: ${event.reason}`));
+      if (event.before && event.after) {
+        const before = this.entryFields(event.before);
+        const changes = this.entryFields(event.after).filter(
+          ([key]) => event.before![key] !== event.after![key],
+        );
+        if (changes.length)
+          item.append(
+            table(
+              ['Поле', 'Было', 'Стало'],
+              changes.map(([key, label, value]) => [
+                label,
+                before.find(([k]) => k === key)![2],
+                value,
+              ]),
+            ),
+          );
+        else item.append(el('p', 'muted', 'Значения полей не изменились.'));
+      } else {
+        const entry = event.after ?? event.before;
+        if (entry) {
+          item.append(
+            el('p', 'finance-history-amount', `${entry.reference} · ${money(entry.amount_minor)}`),
+          );
+          const values = el('details');
+          values.append(
+            el('summary', '', 'Данные этой версии'),
+            table(
+              ['Поле', 'Значение'],
+              this.entryFields(entry).map(([, label, value]) => [label, value]),
+            ),
+          );
+          item.append(values);
+        }
+      }
+      list.append(item);
+    }
+    section.append(list);
+    return section;
+  }
   private details(r: JournalRow) {
     const m = this.model,
-      d = m.data!,
-      e = r.payload,
-      p = el('section', 'panel finance-editor');
+      e = r.payload;
+    const p = el('section', 'panel finance-editor finance-detail');
+    const head = el('div', 'finance-heading');
+    head.append(el('h2', '', e.reference), el('span', 'finance-entry-status', entryStatus(r)));
     p.append(
-      el('h2', '', e.reference),
-      el(
-        'p',
-        'muted',
-        `Автор: ${r.author}. Внесено: ${new Date(r.created_at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' })}`,
-      ),
+      head,
+      el('p', 'muted', `Автор версии: ${r.author}. Внесено: ${timestamp(r.created_at)}`),
     );
-    p.append(
-      table(
-        ['Поле', 'Значение'],
-        [
-          ['Тип', kinds[e.kind] ?? e.kind],
-          ['Сумма', money(e.amount_minor)],
-          ['Дата движения денег', e.cash_date ?? '-'],
-          ['Дата ОПиУ', e.recognition_date ?? '-'],
-          ['Счёт', d.accounts.find((a) => a.id === e.account_id)?.name ?? '-'],
-          ['На счёт', d.accounts.find((a) => a.id === e.to_account_id)?.name ?? '-'],
-          ['Статья', d.categories.find((c) => c.id === e.category_id)?.name ?? '-'],
-          ['Подразделение', d.centers[e.center] ?? e.center],
-          ['Контрагент', e.counterparty || '-'],
-          ['Примечание', e.note || '-'],
-        ],
-      ),
-    );
+    const actions = el('div', 'finance-actions');
+    if (!r.void_reason) {
+      if (m.data?.capabilities?.replace)
+        actions.append(
+          this.act(
+            'Изменить',
+            () => {
+              this.replacingId = e.id;
+              this.editReason = '';
+              this.draft = { ...e, id: crypto.randomUUID() };
+              const n = BigInt(e.amount_minor);
+              this.amount = `${n / 100n}.${String(n % 100n).padStart(2, '0')}`;
+              this.recognize = !!e.recognition_date;
+              this.extraOpen = true;
+              this.editing = true;
+              this.formError = '';
+              this.changed();
+            },
+            true,
+          ),
+        );
+      const remove = this.act('Удалить', () => {
+        this.deleteOpen = true;
+        this.voidReason = '';
+        this.changed();
+      });
+      remove.classList.add('finance-danger');
+      remove.setAttribute('aria-expanded', String(this.deleteOpen));
+      remove.setAttribute('aria-controls', 'finance-delete-confirm');
+      actions.append(remove);
+    }
+    const back = button('К журналу', () => {
+      this.detail = null;
+      this.deleteOpen = false;
+      this.voidReason = '';
+      this.changed();
+    });
+    back.disabled = m.busy || !!m.pending;
+    actions.append(back);
+    p.append(actions);
+    if (!r.void_reason && this.deleteOpen) {
+      const confirmation = el('form', 'finance-delete-confirm');
+      confirmation.id = 'finance-delete-confirm';
+      confirmation.setAttribute('aria-label', 'Подтверждение удаления');
+      confirmation.append(
+        el('h3', '', 'Удалить эту операцию?'),
+        el(
+          'p',
+          '',
+          `«${e.reference}», ${money(e.amount_minor)}. Сумма будет исключена из отчётов. Запись, автор и причина удаления останутся в истории.`,
+        ),
+        field('Причина удаления', this.voidReason, (v) => (this.voidReason = v), {
+          id: 'finance-delete-reason',
+          required: true,
+          max: 500,
+        }),
+      );
+      const confirm = this.act('Подтвердить удаление', () => {
+        if (!confirmation.reportValidity()) return;
+        if (this.voidReason.trim().length < 3) {
+          m.error = 'Укажите причину удаления, минимум 3 символа.';
+          this.changed();
+          return;
+        }
+        void m.send({ type: 'void', id: e.id }, this.voidReason).then((ok) => {
+          if (ok) {
+            this.deleteOpen = false;
+            this.voidReason = '';
+            this.changed();
+          }
+        });
+      });
+      confirm.classList.add('finance-danger');
+      const cancel = button('Не удалять', () => {
+        this.deleteOpen = false;
+        this.voidReason = '';
+        this.changed();
+      });
+      cancel.disabled = m.busy || !!m.pending;
+      const controls = el('div', 'finance-actions');
+      controls.append(confirm, cancel);
+      confirmation.append(controls);
+      confirmation.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        confirm.click();
+      });
+      p.append(confirmation);
+    }
     if (r.void_reason)
       p.append(
         el(
           'p',
           'notice',
-          `Отменена: ${r.void_reason}. Автор отмены: ${r.void_author}. Исходная запись сохранена.`,
+          r.replaced_by
+            ? 'Это прежняя версия. Отчёты учитывают исправленную операцию, вся цепочка изменений приведена ниже.'
+            : `Удалена: ${r.void_reason}. Удалил(а): ${r.void_author}. Сумма исключена из отчётов.`,
         ),
       );
-    const back = button('К журналу', () => {
-      this.detail = null;
-      this.voidReason = '';
-      this.changed();
-    });
-    back.disabled = m.busy || !!m.pending;
-    p.append(back);
-    if (!r.void_reason) {
-      const correction = el('details', 'finance-correction');
-      correction.open = !!this.voidReason;
-      correction.append(
-        el('summary', '', 'Исправить ошибочную запись'),
-        el(
-          'p',
-          'muted',
-          'Отмена исключит запись из отчётов, сохранив её в истории. После этого внесите новую операцию.',
-        ),
-        field('Причина отмены', this.voidReason, (v) => (this.voidReason = v), {
-          required: true,
-          max: 500,
+    if (r.replaced_by && r.history?.length) {
+      const versions = r.history.filter((v) => v.after);
+      const last = versions[versions.length - 1]!;
+      const deletion = r.history.find(
+        (v) => v.action === 'finance.void' && v.before?.id === last.after!.id,
+      );
+      p.append(
+        button('Открыть последнюю версию', () => {
+          this.detail = {
+            id: last.after!.id,
+            payload: last.after!,
+            created_at: last.created_at,
+            author: last.author,
+            void_reason: deletion?.reason ?? null,
+            void_author: deletion?.author ?? null,
+            voided_at: deletion?.created_at ?? null,
+            replaced_by: null,
+            history: r.history!,
+          };
+          this.deleteOpen = false;
+          this.voidReason = '';
+          this.changed();
         }),
       );
-      correction.append(
-        this.act('Отменить запись', () => {
-          if (this.voidReason.trim().length < 3) {
-            m.error = 'Укажите причину отмены, минимум 3 символа.';
-            this.changed();
-            return;
-          }
-          void m.send({ type: 'void', id: e.id }, this.voidReason).then((ok) => {
-            if (ok) {
-              this.detail = null;
-              this.voidReason = '';
-              this.changed();
-            }
-          });
-        }),
-      );
-      p.append(correction);
     }
+    const values = el('dl', 'finance-detail-values');
+    for (const [key, label, value] of this.entryFields(e)) {
+      if (key === 'reference' || ((key === 'account_id' || key === 'to_account_id') && !e[key]))
+        continue;
+      const pair = el('div');
+      pair.append(el('dt', 'muted', label), el('dd', '', value));
+      values.append(pair);
+    }
+    p.append(values);
+    if (r.history?.length) p.append(this.history(r.history));
+    else
+      p.append(el('p', 'muted', 'Подробная история появится после обновления данных с сервера.'));
     p.append(
       this.act('Повторить как новую', () => {
+        this.replacingId = '';
+        this.editReason = '';
+        this.formError = '';
         this.draft = {
           ...e,
           account_id: e.kind === 'transfer' ? e.account_id : null,

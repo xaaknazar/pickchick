@@ -1919,3 +1919,122 @@ textarea {
     display: none;
   }
 }
+
+/* Finance correction and audit: actions first, a readable immutable trail below. */
+.finance-detail .finance-heading {
+  margin-bottom: 8px;
+}
+.finance-entry-status {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.finance-workspace .button.finance-danger {
+  color: #a42620;
+  border-color: #d7a7a2;
+  background: #fff;
+}
+.finance-workspace .button.finance-danger:hover:not(:disabled) {
+  background: #fff0ed;
+  border-color: #a42620;
+}
+.finance-delete-confirm {
+  padding: 20px;
+  margin: 20px 0;
+  border: 1px solid #d7a7a2;
+  border-radius: 12px;
+  background: #fff8f6;
+}
+.finance-delete-confirm h3 {
+  margin-top: 0;
+}
+.finance-delete-confirm > p {
+  max-width: 70ch;
+}
+.finance-delete-confirm .field {
+  max-width: 680px;
+}
+.finance-detail-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 32px;
+  padding: 24px 0;
+  margin: 0;
+}
+.finance-detail-values dt {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.finance-detail-values dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-weight: 600;
+}
+.finance-history {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 24px;
+}
+.finance-history h3 {
+  margin: 0 0 8px;
+}
+.finance-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0;
+}
+.finance-history-list > li {
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+}
+.finance-history-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 24px;
+}
+.finance-history-heading h4 {
+  margin: 0;
+  font-size: 17px;
+}
+.finance-history-heading time {
+  font-size: 14px;
+}
+.finance-history-author {
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+.finance-history-list p {
+  overflow-wrap: anywhere;
+}
+.finance-history-amount {
+  font-variant-numeric: tabular-nums;
+}
+.finance-history td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 110px;
+}
+.finance-history details > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@container finance (max-width: 480px) {
+  .finance-detail-values {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .finance-delete-confirm {
+    padding: 16px;
+  }
+  .finance-detail > .finance-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
