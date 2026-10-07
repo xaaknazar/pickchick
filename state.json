@@ -3529,11 +3529,12 @@
         "infra/domains",
         "@vps/public-https",
         "@vps/gateway",
-        "@vps/backoffice-login"
+        "@vps/backoffice-login",
+        "tests/backoffice/staff-browser.test.mjs"
       ],
       "status": "active",
       "head": "a9a5d4d249f97748a88fa73b014dff488b7232a7",
-      "updatedAt": "2026-10-07T14:50:07.192Z"
+      "updatedAt": "2026-10-07T14:57:02.346Z"
     }
   ]
 }
