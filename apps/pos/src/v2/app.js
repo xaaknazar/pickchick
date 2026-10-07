@@ -40,6 +40,7 @@ let lastRender = '',
   wizardDrinks = {},
   scheduled = false,
   signing = false,
+  starting = true,
   modifier = null,
   chosen = [],
   portions = 1,
@@ -903,6 +904,8 @@ function draw() {
   const visual = JSON.stringify({
     v,
     busy: m.busy,
+    starting,
+    signing,
     pending: m.pending,
     actor: m.actor?.session_id,
     shift: m.shift?.shift_id,
@@ -933,7 +936,9 @@ function draw() {
     text.textContent = 'Результат запроса неизвестен. Новая отправка заблокирована.';
     const button = document.createElement('button');
     button.textContent = 'Проверить результат';
+    button.disabled = starting || m.busy || signing;
     button.onclick = async () => {
+      if (starting || model.state.busy || signing) return;
       const wasCreate = model.state.pending?.kind === 'create';
       await model.recover();
       if (wasCreate && model.state.order && !model.state.pending) {
@@ -1102,6 +1107,8 @@ if (model.state.actor) {
   if (!model.state.draft && !model.state.pending) model.newDraft();
 }
 if (model.state.actor) reference.setState({ screen: model.state.shift ? 'work' : 'openshift' });
+starting = false;
+schedule();
 setInterval(() => {
   for (const e of root.querySelectorAll('[data-clock]')) e.textContent = time();
   if (reference.state.clock !== time()) schedule();

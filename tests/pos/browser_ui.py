@@ -171,8 +171,38 @@ with sync_playwright() as pw:
         page.route(url+'/edge/v1/orders',lost_ack)
         page.get_by_role('button',name='ПЕРЕДАТЬ БЕЗ ОПЛАТЫ',exact=True).click()
         expect(page.get_by_role('button',name='Проверить результат',exact=True)).to_be_visible()
-        page.reload()
-        page.get_by_role('button',name='Проверить результат',exact=True).click()
+        # Hold the reload's shift read so recovery is visible during unfinished boot.
+        # A click must wait for the complete startup boundary, including refreshStops.
+        boot_reads=[]
+        def hold_boot_shift(route):
+            boot_reads.append(route)
+        page.route(url+'/edge/v1/cash-shifts/current',hold_boot_shift)
+        page.reload(wait_until='domcontentloaded')
+        recovery=page.get_by_role('button',name='Проверить результат',exact=True)
+        expect(recovery).to_be_visible()
+        expect(recovery).to_be_disabled()
+        assert len(creations)==1, 'Startup must not replay an uncertain create'
+        assert boot_reads, 'The fixture must hold the boot read'
+        # Then hold the post-login stop refresh: model.busy is already false,
+        # but the startup code still has its final screen assignment to perform.
+        boot_stops=[]
+        def hold_boot_stops(route):
+            if boot_stops:
+                route.continue_()
+                return
+            boot_stops.append(route)
+            page.evaluate("() => document.body.setAttribute('data-held-boot-stops','true')")
+        page.route(url+'/edge/v1/availability/stops',hold_boot_stops)
+        page.unroute(url+'/edge/v1/cash-shifts/current',hold_boot_shift)
+        for route in boot_reads:route.continue_()
+        expect(page.locator('body')).to_have_attribute('data-held-boot-stops','true')
+        expect(page.locator('#app')).not_to_have_attribute('aria-busy','true')
+        assert boot_stops, 'The fixture must hold the post-login stop refresh'
+        expect(recovery).to_be_disabled()
+        page.unroute(url+'/edge/v1/availability/stops',hold_boot_stops)
+        for route in boot_stops:route.continue_()
+        expect(recovery).to_be_enabled()
+        recovery.click()
         expect(page.get_by_text('Заказ передан на кухню',exact=True)).to_be_visible()
         assert len(creations)==2 and creations[0]==creations[1]
         audit_touch_layout(page,output,'success','.success-modal')
