@@ -22,3 +22,5 @@ KIOSK_UI_URL=http://127.0.0.1:4195 KIOSK_UI_OUTPUT=.local/ipad-design/final pyth
 ```
 
 Requires Python Playwright with Chromium. The suite renders every story and runs Axe WCAG 2.1 A/AA rules using the locally installed Storybook dependency. `.github/workflows/kiosk-ui-library.yml` runs this automatically for kiosk changes. The existing `browser_ui.py` suite covers ordering/recovery separately. Full native iPad acceptance is still required before an installed release.
+
+The browser runner sets [Storybook's `globals.a11y.manual`](https://storybook.js.org/docs/writing-tests/accessibility-testing) only in its test URL, then explicitly awaits one Axe scan per story. This prevents the panel's automatic scan from racing the test on CI. Normal interactive Storybook keeps automatic analysis enabled. The runner also waits for the real story content after font loading, rather than accepting the loading placeholder.

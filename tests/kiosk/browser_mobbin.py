@@ -84,7 +84,10 @@ class Stories(unittest.TestCase):
             for story in stories:
                 with self.subTest(story=story['id']):
                     errors.clear()
-                    page.goto(url + '/iframe.html?id=' + story['id'] + '&viewMode=story')
+                    # This runner owns the scan. Prevent the addon from starting
+                    # a second Axe run concurrently on slower CI machines.
+                    page.goto(url + '/iframe.html?id=' + story['id'] +
+                              '&viewMode=story&globals=a11y.manual:!true')
                     page.wait_for_function("document.body.classList.contains('sb-show-main')")
                     expect(page.locator('.sb-errordisplay')).not_to_be_visible()
                     # Fonts load asynchronously inside the real provider. A
