@@ -2991,14 +2991,12 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-checkout",
       "scopes": [
-        "tests/operations/test_auth_four_digit_release.py",
-        "tests/operations/test_server_pilot_release.py",
-        "tests/operations/test_farm_release.py",
-        "tests/operations/test_farm_update.py"
+        "@coordination/tiptop-historical-fixtures"
       ],
       "status": "active",
       "head": "4b1e40129be0973188588c29175afc8cc364a4f8",
-      "updatedAt": "2026-10-05T17:52:34.542Z"
+      "updatedAt": "2026-10-07T05:33:01.832Z",
+      "nextAction": "Historical fixture files transferred by same owner to kiosk-kaspi-qr for migration043 coverage; retain all prior guard behavior."
     },
     {
       "id": "tiptoppay-checkout",
@@ -3272,11 +3270,15 @@
         "infra/payments/kaspi-bridge/prepare-container.mjs",
         "packages/commerce-core/src/kiosk-sessions.ts",
         "packages/commerce-core/package.json",
-        "packages/commerce-core/tests/kiosk-sessions.postgres.test.mjs"
+        "packages/commerce-core/tests/kiosk-sessions.postgres.test.mjs",
+        "tests/operations/test_auth_four_digit_release.py",
+        "tests/operations/test_server_pilot_release.py",
+        "tests/operations/test_farm_release.py",
+        "tests/operations/test_farm_update.py"
       ],
       "status": "active",
       "head": "bd69cfa67c6c95ccdcb3ccbf1f491cfa5ddf7832",
-      "updatedAt": "2026-10-07T05:31:50.067Z",
+      "updatedAt": "2026-10-07T05:33:01.832Z",
       "summary": "PR196 source686e167. Guest QR UI/enrollment and isolated kaspi-qr processor+043, private overlay. Local52client+27PG+2bridge passed, APIbuild/typecheck/lint. Bankstatus shape/Paid-vs-Processed unresolved; allflagsdefaultoff. NoVPS/deviceinstallation. Financesource d6cd144 observedlive readonly, kioskdevices0.",
       "nextAction": "Get owner answer on connected iPad and 100KZT control QR. Finish exact-source CI, integrate current finance/TipTop source and migrations before VPS rollout, own @vps/api only after finance handoff. Verify real bank status and native device; never infer paid or repeat uncertain create. Sharedstatus/roadmap scopes owned farm task; evidence docs/operations/kiosk-kaspi-qr.md."
     }
