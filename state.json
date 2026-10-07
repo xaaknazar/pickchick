@@ -3333,10 +3333,10 @@
         "scripts/provision-kiosk-enrollment.mjs"
       ],
       "status": "active",
-      "head": "39336a77f2f62bfbfe1ae98c65c5d428a9b11202",
-      "updatedAt": "2026-10-07T08:08:51.054Z",
-      "summary": "PR196 source39336a7 published. Short operator enrollment with salted scrypt/AES-GCM, nonce replay,24h initial enrollment, durable attempt limits; UUID/randomdevicekey preserved.59client+7PG(exactruntimegrants)+23release checks passed; native0.1.0(2)built, notyetinstalled. CI37591650169 running. Previous89rollout rolledbacktofinance d6; retained043, noQR/device registration. Releasehelper now accepts original89proofs fornewcandidate043+044 withbackup and exactACL/env checks.",
-      "nextAction": "Wait exact greenCI, guardedpreflight/prepare/apply fromretained043 then provision durabledevice+privateoperatoralias. Installbuild2 and verifyshortsetup; aliasexpires24h, devicepersists. NoQR bankcalls. project-status/roadmap claimblockedfarm-gameplay-v2; factsinownrunbook/PR."
+      "head": "92c08c7787842c71436a9cf6d9d4cef9f2666835",
+      "updatedAt": "2026-10-07T08:35:05.950Z",
+      "summary": "Source39336a7 installed via guarded enrollment-only rollout; all11CI37591650169 passed. Backup/isolatedrestore passed; retained043+applied044; publicassets/financepreserved. One kioskdevice + user shortoperatoralias provisioned. Liveephemeralalias checks: wrong403,correct200,no-store,samenoncereplay200,differentnonce403,devicebranchcheck200; probealiasdeleted,useraliasunused. Kiosk0.1.0(2)installed+launched on iPad; visualcheckblockedMaclocked,useracceptancepending. Docs92c08c7 published. No bankQRcalls; worker/guestpublicroutesoff.",
+      "nextAction": "Owner tryshortID/key within24h fromprovision; appstoresinternalcredentialsaftercheck. Continueguestmenu readiness/deliveryACK then separateapproved100KZTQR stage. Do notcallthisfullkioskpaymentreadiness. Preserveprivate393proofand89predecessorproof; futuredeploymentguardbaseline393+schema044. Sharedstatus/roadmapblockedfarmclaim, factsrunbookPR196."
     }
   ]
 }
