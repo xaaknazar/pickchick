@@ -3432,9 +3432,11 @@
         "tests/kiosk/browser_payment_success.py",
         ".github/workflows/kiosk-ui-library.yml"
       ],
-      "status": "active",
-      "head": "b3800caec7cbdcb74ec35684babea574670c9e9b",
-      "updatedAt": "2026-10-07T11:33:36.542Z"
+      "status": "done",
+      "head": "a44f74ef6c2b9be5615e091ea2c5053bc4fb80ce",
+      "updatedAt": "2026-10-07T12:06:55.400Z",
+      "summary": "Завершён iPad UI-этап: 19 референсов Mobbin, Layero, 46 визуальных компонентов и 92 Storybook-состояния, стили инкапсулированы, внешний layout через Wrapper, плавные анимации с Reduce Motion. PR https://github.com/xaaknazar/pickchick/pull/201 включён fast-forward в shared-development; SHA a44f74ef6c2b9be5615e091ea2c5053bc4fb80ce сверен с обеими удалёнными ветками. CI 11/11 https://github.com/xaaknazar/pickchick/actions/runs/37616783516 и UI library https://github.com/xaaknazar/pickchick/actions/runs/37616783612 зелёные на этом SHA. Локально: workspace check, 72 kiosk tests, 6 ordering/recovery + 1 payment + 3 design/library browser tests; 92 stories, Axe 0 violations; Expo iOS/web exports, Storybook build. Решения, построчный по файлам разбор и синтетические скриншоты сохранены в docs/design/ipad-mobbin.md, docs/design/ipad-ui-refactoring.md и docs/operations/images/ipad-mobbin. Установки и деплоя не было.",
+      "nextAction": "Следующий этап: визуальная приёмка на физическом iPad и согласованная установка через владельца kiosk-kaspi-qr. Владелец farm-gameplay-v2 должен перенести подтверждённые UI-факты в зарезервированные docs/project-status.md, docs/roadmap/project.json и handoff; онлайн-пульт этой задачей не публиковался. Четыре moderate dependency advisories остаются отмечены, high/critical gate проходит."
     }
   ]
 }
