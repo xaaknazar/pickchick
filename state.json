@@ -3530,11 +3530,12 @@
         "@vps/public-https",
         "@vps/gateway",
         "@vps/backoffice-login",
-        "tests/backoffice/staff-browser.test.mjs"
+        "tests/backoffice/staff-browser.test.mjs",
+        "@vps/secrets/backoffice-ceo"
       ],
       "status": "active",
       "head": "3e4205f9ded04ccdd0ee08dad36ecc0ae49cf950",
-      "updatedAt": "2026-10-07T15:22:58.404Z"
+      "updatedAt": "2026-10-07T15:24:27.911Z"
     }
   ]
 }
