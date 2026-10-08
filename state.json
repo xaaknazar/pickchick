@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "ba6eff5cf77c3b160a729c8c7bddf51ead6301ba",
+      "head": "37dbc1a2c1941fb686206e64de7dca9bcaea125d",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3593,9 +3593,11 @@
         "infra/staging/release-kiosk-independent-qr.py",
         "tests/operations/test_kiosk_independent_qr_release.py",
         "docs/03-offline-and-reliability.md",
-        "tests/operations/test_finance_dashboard_release.py"
+        "tests/operations/test_finance_dashboard_release.py",
+        "infra/windows/update-native-kiosk-qr.ps1",
+        "tests/operations/test_windows_kiosk_upgrade.py"
       ],
-      "updatedAt": "2026-10-08T12:48:12.375Z",
+      "updatedAt": "2026-10-08T13:00:22.027Z",
       "summary": "Installed85f API/QR bridge and iPad7, CI11/11 + backup/restore. One approved100KZT order blocked before bank; zero QR/capture. Owner removed per-order cashier wait. Pushedba6eff5 build8/schema045/worker + paid delivery recovery; PG18 commerce110/110 kiosk86/86 release43/43. CI37778936373 running, new release not installed. Windows edge support requires access;192.168.3.9 unavailable."
     }
   ]
