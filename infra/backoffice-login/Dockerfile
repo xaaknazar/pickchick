@@ -4,6 +4,8 @@ LABEL org.opencontainers.image.revision=$RELEASE_SHA
 WORKDIR /app
 COPY server.mjs staff-auth.mjs staff-health.mjs ./
 COPY dist ./dist
+# Build archives may carry a private umask; public assets must be readable by runtime UID.
+RUN chmod -R a+rX /app/dist
 USER node
 EXPOSE 4177
 CMD ["node", "server.mjs"]

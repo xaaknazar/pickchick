@@ -87,6 +87,7 @@ const allowed = (method, path) => {
   );
 };
 const assets = new Map([
+  ['/workspace.css', ['workspace.css', 'text/css; charset=utf-8']],
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ...['styles', 'fonts'].map((n) => [`/${n}.css`, [`${n}.css`, 'text/css; charset=utf-8']]),
   ...[
