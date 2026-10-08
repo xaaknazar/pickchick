@@ -844,10 +844,18 @@ export class CommerceRepository {
         const guest = await client.query(
           `SELECT 1 FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
            JOIN commerce_provider_accounts a ON a.id=$4
+           JOIN commerce_orders o ON o.id=$5
            WHERE s.id=$1 AND s.organization_id=$2 AND s.branch_id=$3
-            AND s.ended_at IS NULL AND s.expires_at>clock_timestamp() AND d.active
+            AND s.ended_at IS NULL AND s.created_at<=o.created_at
+            AND s.expires_at>o.created_at AND d.active
             AND a.provider='kaspi-qr'`,
-          [row.principal_id, row.organization_id, row.branch_id, request.providerAccountId],
+          [
+            row.principal_id,
+            row.organization_id,
+            row.branch_id,
+            request.providerAccountId,
+            row.id,
+          ],
         );
         if (row.customer_id !== null || row.snapshot.channel !== 'kiosk' || !guest.rowCount)
           throw new CommerceError('FORBIDDEN');

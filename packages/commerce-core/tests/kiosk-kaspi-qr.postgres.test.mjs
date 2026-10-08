@@ -542,3 +542,51 @@ test('generic payment port and database invoice guard still require admission; Q
       0,
     );
   }));
+
+test('expired guest resumes only its existing QR order without renewal, while new orders and ended guests stay blocked', async () =>
+  fixture(async (f) => {
+    const q = await f.checkout.quote(f.who, f.cart());
+    const unusedQuote = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    await f.pool.query('UPDATE kiosk_sessions SET expires_at=clock_timestamp() WHERE id=$1', [
+      f.who.sessionId,
+    ]);
+    const expires = (
+      await f.pool.query('SELECT expires_at FROM kiosk_sessions WHERE id=$1', [f.who.sessionId])
+    ).rows[0].expires_at;
+    await assert.rejects(f.sessions.assertActive(f.who.sessionId), { code: 'FORBIDDEN' });
+    await assert.rejects(
+      f.checkout.create(f.who, { key: randomUUID(), quoteId: unusedQuote.quoteId }),
+      { code: 'CONFLICT' },
+    );
+    const other = await f.guest();
+    await assert.rejects(f.checkout.pay(other, order.orderId, { method: 'kaspi_qr' }), {
+      code: 'NOT_FOUND',
+    });
+    await f.pool.query('UPDATE kiosk_devices SET active=false');
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }));
+    await f.pool.query('UPDATE kiosk_devices SET active=true');
+    await f.pool.query('UPDATE kiosk_sessions SET ended_at=clock_timestamp() WHERE id=$1', [
+      f.who.sessionId,
+    ]);
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }), {
+      code: 'FORBIDDEN',
+    });
+    await f.pool.query('UPDATE kiosk_sessions SET ended_at=NULL WHERE id=$1', [f.who.sessionId]);
+    const result = await Promise.all([
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),
+    ]);
+    assert.ok(result.every((r) => r.orderId === order.orderId));
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      1,
+    );
+    assert.equal((await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n, 1);
+    assert.equal(
+      (
+        await f.pool.query('SELECT expires_at FROM kiosk_sessions WHERE id=$1', [f.who.sessionId])
+      ).rows[0].expires_at.toISOString(),
+      expires.toISOString(),
+    );
+  }));
