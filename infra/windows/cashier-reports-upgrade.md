@@ -18,7 +18,12 @@ active device/binding validation. Payment/refund totals are not replicated.
 
 `cashier-reports-upgrade-db.mjs` is the executable database phase. It requires
 existing separate restricted POS/worker roles and exact migrations001-016 from
-the reviewed candidate. It locks existing tables with a five-second lock timeout,
+the reviewed candidate: each file name and SHA-256 must equal the pinned shared
+ledger `native-edge-backup-ledger.json`, which must sit next to the helper and is
+one of its protected dependency hashes. A newer candidate may also carry later
+migrations (017 and up, numbered without gaps); the helper never reads or applies
+them, and the database ledger must still be exactly 001-015 or 001-016.
+It locks existing tables with a five-second lock timeout,
 checks the single branch and migration checksums, applies016 and grants in one
 transaction, then proves that every pre-existing business row and sequence is
 unchanged. Backfill creates only new outbox rows, retaining original timestamps.
@@ -37,7 +42,7 @@ successful CI run with **all current required jobs**, reviewed windows-x64 runti
 ZIP manifest/file hashes, protected helper/dependency hashes and a verified
 backup/restore rehearsal matching current system identifier, branch and schema015.
 The candidate archive must include the new worker code and unchanged migrations
-001-015. Keep a protected evidence folder outside the immutable runtime.
+001-016 (later reviewed migrations may be present; they are not applied here). Keep a protected evidence folder outside the immutable runtime.
 
 Read the actual Worker XML to obtain its current application root; do not derive
 it from the Edge release. Record original XML/hash, service/PID state, local ready

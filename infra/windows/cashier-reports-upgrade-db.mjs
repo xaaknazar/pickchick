@@ -11,6 +11,77 @@ const ident = (v) => {
   return '"' + v + '"';
 };
 
+export const CASHIER_REPORTS_MIGRATION = '016_edge_cashier_reports.sql';
+/** Ledger length after the cashier-report migration (edge schema016). */
+const CASHIER_REPORTS_LEDGER_LENGTH = 16;
+const migrationName = /^\d{3}_[a-z0-9_]+\.sql$/;
+const ordinal = (index) => String(index + 1).padStart(3, '0') + '_';
+const ledgerText = (rows) =>
+  JSON.stringify(
+    rows.map((row) => ({ scope: row.scope, version: row.version, checksum: row.checksum })),
+  );
+
+/**
+ * The reviewed edge ledger 001-016 this upgrade needs, taken from the pinned shared ledger
+ * (native-edge-backup-ledger.json: migration file name, SHA-256 and scope) after validating
+ * its shape. Pinned entries after 016 are not part of this upgrade.
+ */
+export function reviewedCashierLedger(pinned) {
+  if (
+    !Array.isArray(pinned) ||
+    pinned.length < CASHIER_REPORTS_LEDGER_LENGTH ||
+    pinned.some(
+      (row, index) =>
+        !row ||
+        typeof row !== 'object' ||
+        Object.keys(row).sort().join(',') !== 'checksum,scope,version' ||
+        row.scope !== 'edge' ||
+        typeof row.version !== 'string' ||
+        !migrationName.test(row.version) ||
+        !row.version.startsWith(ordinal(index)) ||
+        typeof row.checksum !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(row.checksum),
+    ) ||
+    pinned[CASHIER_REPORTS_LEDGER_LENGTH - 1].version !== CASHIER_REPORTS_MIGRATION
+  )
+    throw Error('Pinned edge migration ledger is invalid');
+  return pinned
+    .slice(0, CASHIER_REPORTS_LEDGER_LENGTH)
+    .map(({ scope, version, checksum }) => ({ scope, version, checksum }));
+}
+
+/**
+ * Candidate edge migrations 001-016 in ledger form, each equal by file name and SHA-256 to the
+ * pinned reviewed ledger, plus the exact bytes of 016 that apply executes. Later migration files
+ * of a newer candidate (017 and up) may be present: they must be well named and continue the
+ * sequence without gaps, and they are never read or applied by this upgrade.
+ */
+export async function readCashierReportMigrations(appRoot) {
+  const expected = reviewedCashierLedger(
+    JSON.parse(
+      await readFile(new URL('./native-edge-backup-ledger.json', import.meta.url), 'utf8'),
+    ),
+  );
+  const dir = join(appRoot, 'db', 'edge', 'migrations');
+  const names = (await readdir(dir)).filter((n) => n.endsWith('.sql')).sort();
+  if (
+    names.length < CASHIER_REPORTS_LEDGER_LENGTH ||
+    names.some((name, index) => !migrationName.test(name) || !name.startsWith(ordinal(index)))
+  )
+    throw Error('Expected reviewed migrations 001-016');
+  const files = await Promise.all(
+    names.slice(0, CASHIER_REPORTS_LEDGER_LENGTH).map((name) => readFile(join(dir, name))),
+  );
+  const found = files.map((bytes, index) => ({
+    scope: 'edge',
+    version: names[index],
+    checksum: hash(bytes),
+  }));
+  if (ledgerText(found) !== ledgerText(expected))
+    throw Error('Expected reviewed migrations 001-016');
+  return { expected, migrationSql: files[CASHIER_REPORTS_LEDGER_LENGTH - 1].toString('utf8') };
+}
+
 /** Atomic additive migration. No business row restore, no credential or service changes. */
 export async function upgradeCashierReports(
   client,
@@ -29,27 +100,13 @@ export async function upgradeCashierReports(
     pos = ident(posRole);
   ident(workerRole);
   if (posRole === workerRole) throw Error('Separate runtime roles required');
+  const { expected, migrationSql } = await readCashierReportMigrations(appRoot);
   await client.query('BEGIN');
   try {
     await client.query("SET LOCAL lock_timeout='5s'");
     await client.query('SET LOCAL search_path TO ' + ns);
     await client.query(
       "SELECT pg_advisory_xact_lock(hashtextextended('pickchick-cashier-reports-016',0))",
-    );
-    const dir = join(appRoot, 'db/edge/migrations');
-    const names = (await readdir(dir)).filter((n) => n.endsWith('.sql')).sort();
-    if (
-      names.length !== 16 ||
-      names[15] !== '016_edge_cashier_reports.sql' ||
-      names.some((n, i) => !n.startsWith(String(i + 1).padStart(3, '0') + '_'))
-    )
-      throw Error('Expected reviewed migrations 001-016');
-    const expected = await Promise.all(
-      names.map(async (version) => ({
-        scope: 'edge',
-        version,
-        checksum: hash(await readFile(join(dir, version))),
-      })),
     );
     const tables = (
       await client.query('SELECT tablename FROM pg_tables WHERE schemaname=$1 ORDER BY tablename', [
@@ -65,9 +122,11 @@ export async function upgradeCashierReports(
     const ledger = (
       await client.query('SELECT scope,version,checksum FROM schema_migrations ORDER BY version')
     ).rows;
+    // Exactly the reviewed 001-015 or 001-016 prefix; a later candidate migration in the
+    // database ledger means this upgrade is not the reviewed next step.
     if (
-      ![15, 16].includes(ledger.length) ||
-      JSON.stringify(ledger) !== JSON.stringify(expected.slice(0, ledger.length))
+      ![CASHIER_REPORTS_LEDGER_LENGTH - 1, CASHIER_REPORTS_LEDGER_LENGTH].includes(ledger.length) ||
+      ledgerText(ledger) !== ledgerText(expected.slice(0, ledger.length))
     )
       throw Error('Migration ledger differs');
     const branches = (await client.query('SELECT id FROM branch_config')).rows;
@@ -105,13 +164,14 @@ export async function upgradeCashierReports(
       return JSON.stringify(rows);
     };
     const before = await snapshot();
-    const resumed = ledger.length === 16;
+    const resumed = ledger.length === CASHIER_REPORTS_LEDGER_LENGTH;
     if (mode === 'apply') {
       if (!resumed) {
-        await client.query(await readFile(join(dir, names[15]), 'utf8'));
+        // Only 016, from the bytes checked against the pinned ledger; later files never run here.
+        await client.query(migrationSql);
         await client.query(
           'INSERT INTO schema_migrations(scope,version,checksum) VALUES($1,$2,$3)',
-          ['edge', names[15], expected[15].checksum],
+          ['edge', CASHIER_REPORTS_MIGRATION, expected[CASHIER_REPORTS_LEDGER_LENGTH - 1].checksum],
         );
       }
       // Keep these grants on rollback: old POS still executes schema016 invoker triggers.
@@ -132,7 +192,7 @@ export async function upgradeCashierReports(
     const result = {
       mode,
       resumed,
-      migrations: mode === 'apply' ? 16 : ledger.length,
+      migrations: mode === 'apply' ? CASHIER_REPORTS_LEDGER_LENGTH : ledger.length,
       existingDataPreserved: true,
       fingerprint: hash(before),
     };
