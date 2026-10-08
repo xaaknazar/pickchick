@@ -86,7 +86,7 @@ node --env-file=.env scripts/backoffice-setup.mjs --actor UUID --branch UUID --r
 `backofficeGrants` даёт этот минимум независимо от флага; старые отдельные commerce
 runtimes надо обновить вместе с миграцией. Trigger не получает SECURITY DEFINER.
 
-## Удалённый стоп-лист (cloud046, protocol 4)
+## Удалённый стоп-лист (cloud048, protocol 4)
 
 Касса остаётся единственным источником стопов. Бэк-офис только ставит команду в
 `cloud_stop_commands`; транспорт (protocol 4) доставляет её кассе, касса применяет её с
@@ -109,7 +109,7 @@ manual|hour|shift, reason, expected_version}`. Повтор того же `reque
   `CATALOG_ITEM_NOT_FOUND` (404), `STOP_COMMAND_IN_PROGRESS` (409, по позиции уже есть
   открытая команда; она закрывается ответом кассы или через 120 с + 60 с).
 - Включение: `BACKOFFICE_REMOTE_STOPS_ENABLED=true` (по умолчанию false) только после
-  миграции cloud046, кассы на `FULFILLMENT_TRANSPORT_PROTOCOL=4` с
+  миграции cloud048, кассы на `FULFILLMENT_TRANSPORT_PROTOCOL=4` с
   `EDGE_REMOTE_STOPS_ENABLED=true` и публикации меню на кассу. Grants:
   `backofficeStopGrants` из `infra/staging/backoffice-stop-grants.mjs` (provision.mjs
   применяет их после transport/BO grants). В публичном gateway нужно разрешить

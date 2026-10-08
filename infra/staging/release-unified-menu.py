@@ -5,7 +5,7 @@ Owner-run and guarded. Every phase is a separate, explicit invocation; without -
 phase only runs its read-only preflight and prints its plan. Order (each gated on the
 previous one's private evidence AND on the live API environment):
 
-  deploy            (a) candidate API with cloud045-047 and EVERY new flag off; inert gateway
+  deploy            (a) candidate API with cloud047-049 and EVERY new flag off; inert gateway
                         routes (photos, storefront media map, back-office /stops)
   access-roles      CATALOG_ACCESS_ROLES_ENABLED: catalog writes need a manager grant
   verify-edge       (b) read-only: edge_menu_state for the branch, no unacknowledged
@@ -16,7 +16,7 @@ previous one's private evidence AND on the live API environment):
   disable --flag X  rollback of one flag; always allowed after deploy, never reorders data
 
 Preflight: exact-SHA green CI, the reviewed live baseline (API, compose, gateway hashes),
-migrations 045-047 pending or applied with matching checksums, and every unrevoked
+migrations 047-049 pending or applied with matching checksums, and every unrevoked
 catalog-manager branch assignment covered by a bo_access_grants row. deploy takes an
 encrypted backup and proves an isolated restore before touching the schema. The owner step
 (infra/staging/unified-menu-owner.mjs) migrates in one repeatable-read transaction that
@@ -46,7 +46,7 @@ spec.loader.exec_module(market)
 require, digest, quote, GuardFailure = market.require, market.digest, market.quote, market.GuardFailure
 REPO, REMOTE, DB = market.REPO, market.REMOTE, market.DB
 
-MIGRATIONS = ('045_cloud_edge_menu_state.sql', '046_cloud_stop_commands.sql', '047_cloud_catalog_assets.sql')
+MIGRATIONS = ('047_cloud_edge_menu_state.sql', '048_cloud_stop_commands.sql', '049_cloud_catalog_assets.sql')
 NEW_TABLES = frozenset({'edge_menu_state', 'catalog_menu_delivery_results', 'cloud_stop_commands',
                         'catalog_assets', 'catalog_asset_variants', 'catalog_asset_audit'})
 PHASES = ('deploy', 'access-roles', 'verify-edge', 'edge-publication', 'remote-stops', 'media-upload')
@@ -90,13 +90,13 @@ def workflow_jobs(text):
 
 
 def migration_plan(ledger, files, checksums):
-    """Installed ledger must be an exact prefix of the candidate; only 045-047 may be pending."""
-    require(files[-len(MIGRATIONS):] == list(MIGRATIONS), 'Candidate migrations do not end with 045-047')
+    """Installed ledger must be an exact prefix of the candidate; only 047-049 may be pending."""
+    require(files[-len(MIGRATIONS):] == list(MIGRATIONS), 'Candidate migrations do not end with 047-049')
     require(len(ledger) <= len(files) and all(
         row == {'version': files[i], 'scope': 'cloud', 'checksum': checksums[files[i]]}
         for i, row in enumerate(ledger)), 'Installed migration ledger differs from the candidate')
     pending = files[len(ledger):]
-    require(all(name in MIGRATIONS for name in pending), 'Pending migrations are not exactly 045-047')
+    require(all(name in MIGRATIONS for name in pending), 'Pending migrations are not exactly 047-049')
     return pending
 
 
@@ -382,7 +382,7 @@ class Release(market.Release):
     def __init__(self, args):
         args.action = args.phase
         jobs = workflow_jobs((REPO / '.github/workflows/ci.yml').read_text())
-        profile = market.ReleaseProfile('unified-menu-045-047', args.expected_api_sha or '', args.expected_public_sha or '',
+        profile = market.ReleaseProfile('unified-menu-047-049', args.expected_api_sha or '', args.expected_public_sha or '',
                                         0, MIGRATIONS, jobs, frozenset(), 'unified-menu-release', (), exact_ci_jobs=True)
         market.Release.__init__(self, args, profile)
         require(re.fullmatch(UUID_RE, args.branch_id or ''), 'A lower-case catalog branch UUID is required')
@@ -483,7 +483,7 @@ print(json.dumps(result,sort_keys=True))'''
         pushed = self.git('ls-remote', '--exit-code', '--heads', 'origin', 'refs/heads/' + args.branch)
         require(pushed.split()[0] == self.sha, 'Pushed branch differs from the checked SHA')
         files, _ = self.candidate_migrations()
-        require(files[-len(MIGRATIONS):] == list(MIGRATIONS), 'Candidate migrations do not end with 045-047')
+        require(files[-len(MIGRATIONS):] == list(MIGRATIONS), 'Candidate migrations do not end with 047-049')
         installed = sorted(Path(p).name for p in self.git('ls-tree', '-r', '--name-only', args.expected_api_sha, '--',
                                                          'db/cloud/migrations/').splitlines() if p.endswith('.sql'))
         require(installed and files[:len(installed)] == installed, 'Installed migrations are not a prefix of the candidate')
@@ -703,7 +703,7 @@ sha256sum {backup} > {backup}.sha256
         self.routed('/v1/kiosk-checkout/catalog/media?version=1', {400, 401, 403, 404, 503})
 
     def rollback_deploy(self, stage):
-        """Old API and gateway back; schema 045-047 retained (additive, proven compatible)."""
+        """Old API and gateway back; schema 047-049 retained (additive, proven compatible)."""
         a = self.args
         try:
             if stage == 'gateway':
@@ -717,7 +717,7 @@ sha256sum {backup} > {backup}.sha256
             self.ready()
             require(self.running_revision() == a.expected_api_sha, 'Rollback API revision differs')
             self.save('rollback.json', {'stage': stage, 'api': a.expected_api_sha, 'public': a.expected_public_sha,
-                                        'schema': 'retained 045-047'})
+                                        'schema': 'retained 047-049'})
         except Exception:
             raise market.CommandUncertain('Rollback unverified; deployment lock retained') from None
 

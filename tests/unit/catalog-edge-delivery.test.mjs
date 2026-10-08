@@ -103,9 +103,9 @@ test('edge state grants never allow rewriting identity, deleting or rewriting ve
   assert.ok(provision.includes("edgeMenuStateGrants('pickchick_app')"));
 });
 
-test('migration 045 keeps edge verdicts append-only and edge state device-bound', () => {
+test('migration 047 keeps edge verdicts append-only and edge state device-bound', () => {
   const sql = readFileSync(
-    new URL('../../db/cloud/migrations/045_cloud_edge_menu_state.sql', import.meta.url),
+    new URL('../../db/cloud/migrations/047_cloud_edge_menu_state.sql', import.meta.url),
     'utf8',
   );
   assert.match(sql, /FOREIGN KEY\(device_id,branch_id\) REFERENCES devices\(id,branch_id\)/);

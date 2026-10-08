@@ -67,7 +67,7 @@ automatically once migration 018 is in the ledger.
 ## Prerequisites
 
 1. Cloud first: the VPS runs the unified-menu API (WP-A/WP-B, cloud migration
-   045 and `infra/staging/catalog-edge-grants.mjs`). An older cloud treats a
+   047 and `infra/staging/catalog-edge-grants.mjs`). An older cloud treats a
    rejected ACK as applied.
 2. The edge application release that contains this code is installed as an
    immutable runtime (`scripts/build-windows-edge-runtime.py`) with edge

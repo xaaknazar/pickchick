@@ -413,7 +413,10 @@ export class KioskCheckout {
       }
       return this.read(guest, orderId);
     }
-    await this.sessions.assertActive(guest.sessionId);
+    // QR may resume the existing order created during this guest's valid session.
+    // The trusted repository and SQL guard still require its active device and
+    // non-ended owner; quote/create and phone invoices retain live-session expiry.
+    if (method !== 'kaspi_qr') await this.sessions.assertActive(guest.sessionId);
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
     const config = await this.config(guest);
     if (!config.enabled || !config.paymentMethods.includes(method))
@@ -424,7 +427,11 @@ export class KioskCheckout {
       snapshotAvailabilityItems(order.snapshot),
     );
     if ('phone' in req) await this.sessions.setPhone(guest.sessionId, req.phone);
-    await this.repository.startPaymentAttempt(scope, paymentKey(orderId), {
+    const start =
+      method === 'kaspi_qr'
+        ? this.repository.startKioskQrPaymentAttempt.bind(this.repository)
+        : this.repository.startPaymentAttempt.bind(this.repository);
+    await start(scope, paymentKey(orderId), {
       orderId,
       providerAccountId:
         method === 'kaspi_invoice' && this.options!.paymentMethod === 'kaspi_qr'

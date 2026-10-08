@@ -167,11 +167,11 @@ class FakeQr {
     );
   }
 }
-async function ready(f, client = new FakeQr()) {
+async function ready(f, client = new FakeQr(), admitted = true) {
   await f.ack();
   const q = await f.checkout.quote(f.who, f.cart());
   const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
-  await f.admission(order);
+  if (admitted) await f.admission(order);
   await f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' });
   const config = {
     accountId: f.payment,
@@ -353,6 +353,61 @@ test('QR process loss after create leaves durable intent and cannot create again
     assert.equal((await r.row()).state, 'unknown');
   }));
 
+test('QR zero create amount preserves bank identity without showing QR or reissuing', async () =>
+  fixture(async (f) => {
+    const client = new FakeQr();
+    client.createAnswer = {
+      kind: 'ok',
+      data: {
+        QrOperationId: 123,
+        Amount: 0,
+        Status: 'QrTokenCreated',
+        QrToken: 'https://qr.kaspi.kz/synthetic-test',
+      },
+    };
+    client.statusAnswer = { kind: 'ok', data: { Id: 123, Status: 'QrTokenCreated' } };
+    const r = await ready(f, client);
+    assert.equal((await r.processor().tick()).errors, 0);
+    const before = await r.row();
+    assert.equal(before.state, 'unknown');
+    assert.equal(before.operation_id, '123');
+    assert.equal(before.qr_payload, 'https://qr.kaspi.kz/synthetic-test');
+    assert.equal((await readKioskQrPayment(f.pool, r.order.orderId)).qrPayload, null);
+    await f.pool.query(
+      "UPDATE commerce_outbox SET acknowledged_at=NULL,lease_until=NULL WHERE event_type='payment.submit_requested'",
+    );
+    await r.due();
+    assert.equal((await r.processor().tick()).errors, 0);
+    const after = await r.row();
+    assert.equal(client.creates, 1);
+    assert.equal(after.operation_id, before.operation_id);
+    assert.equal(after.qr_payload, before.qr_payload);
+    assert.deepEqual(after.expires_at, before.expires_at);
+    assert.equal(after.state, 'unknown');
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      0,
+    );
+    // Synthetic final response verifies the guard; a real Processed response is not yet observed.
+    client.statusAnswer = { kind: 'ok', data: { Id: 123, Amount: 110, Status: 'Processed' } };
+    await r.due();
+    assert.equal((await r.processor().tick()).errors, 0);
+    assert.equal((await r.row()).state, 'paid');
+    await f.pool.query('UPDATE commerce_kiosk_kaspi_qr SET delivered_at=NULL');
+    await r.due();
+    await r.processor().tick();
+    assert.equal(client.creates, 1);
+    assert.equal(
+      (await f.pool.query('SELECT amount_minor::text amount FROM commerce_captures')).rows[0]
+        .amount,
+      '11000',
+    );
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      1,
+    );
+  }));
+
 test('QR late create reply survives a recovery worker observing unknown', async () =>
   fixture(async (f) => {
     const client = new FakeQr();
@@ -408,6 +463,13 @@ test('QR rejects wrong bank id/amount and missing identity, then can reconcile e
     for (const data of [
       { QrOperationId: 124, Amount: 110, Status: 'Processed' },
       { QrOperationId: 123, Amount: 111, Status: 'Processed' },
+      { Id: 124, Amount: 110, Status: 'Processed' },
+      { Id: 123, Amount: 0, Status: 'Processed' },
+      { Id: 123, Status: 'Processed' },
+      { QrOperationId: 123, Id: 124, Amount: 110, Status: 'Processed' },
+      { QrOperationId: 124, Id: 123, Amount: 110, Status: 'Processed' },
+      { QrOperationId: null, Id: 123, Amount: 110, Status: 'Processed' },
+      { QrOperationId: 123, Id: null, Amount: 110, Status: 'Processed' },
       { Status: 'Processed' },
     ]) {
       r.client.statusAnswer = { kind: 'ok', data };
@@ -455,11 +517,138 @@ test('QR local expiry hides payload, preserves identity/deadline and accepts lat
     assert.equal((await r.row()).expires_at.toISOString(), before.expires_at.toISOString());
     assert.equal((await readKioskQrPayment(f.pool, r.order.orderId)).state, 'paid');
   }));
-test('QR server withholds create without active restaurant admission', async () =>
+test('QR server withholds create without an active restaurant transport', async () =>
   fixture(async (f) => {
     const r = await ready(f);
     await f.pool.query('UPDATE fulfillment_transport_bindings SET active=false');
     await r.processor().tick();
     assert.equal(r.client.creates, 0);
     assert.equal(await r.row(), undefined);
+  }));
+
+test('kiosk QR pays before edge admission, retains delivery and emits kitchen command only after admission', async () =>
+  fixture(async (f) => {
+    const r = await ready(f, new FakeQr(), false);
+    const count = async (event) =>
+      (
+        await f.pool.query('SELECT count(*)::int n FROM commerce_outbox WHERE event_type=$1', [
+          event,
+        ])
+      ).rows[0].n;
+    assert.equal(await count('edge.admission_requested'), 1);
+    await Promise.all([r.processor().tick(), r.processor().tick()]);
+    assert.equal(r.client.creates, 1);
+    assert.equal((await r.row()).state, 'issued');
+    r.client.statusAnswer = {
+      kind: 'ok',
+      data: { QrOperationId: 123, Amount: 110, Status: 'Processed' },
+    };
+    await r.due();
+    await r.processor().tick();
+    const paid = await f.checkout.read(f.who, r.order.orderId);
+    assert.equal(paid.phase, 'paid');
+    assert.equal(paid.displayNumber, null);
+    assert.equal(await count('edge.kitchen_admission_requested'), 0);
+    assert.equal(
+      (
+        await f.pool.query('SELECT admission_reservation_id FROM commerce_orders WHERE id=$1', [
+          r.order.orderId,
+        ])
+      ).rows[0].admission_reservation_id,
+      null,
+    );
+    await f.admission(r.order);
+    await r.processor().tick();
+    assert.equal((await f.checkout.read(f.who, r.order.orderId)).displayNumber, '1');
+    assert.equal(await count('edge.kitchen_admission_requested'), 1);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      1,
+    );
+    assert.equal(r.client.creates, 1);
+  }));
+
+test('generic payment port and database invoice guard still require admission; QR cannot change amount', async () =>
+  fixture(async (f) => {
+    const q = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    const scope = {
+      organizationId: f.org,
+      branchId: f.branch,
+      principalId: f.who.sessionId,
+      role: 'sales',
+    };
+    await assert.rejects(
+      f.checkout.repository.startPaymentAttempt(scope, randomUUID(), {
+        orderId: order.orderId,
+        providerAccountId: f.payment,
+      }),
+      { code: 'NOT_READY' },
+    );
+    const invoice = randomUUID();
+    await f.pool.query(
+      "INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,kind,provider,external_reference,enabled,legal_entity_id) VALUES($1::uuid,$2,$3,'payment','kaspi-remote',$1::text,true,$4)",
+      [invoice, f.org, f.branch, f.legal],
+    );
+    const insert = (account, amount) =>
+      f.pool.query(
+        'INSERT INTO commerce_payment_attempts(id,intent_id,order_id,account_id,intended_minor) SELECT $1,id,order_id,$3,$4 FROM commerce_payment_intents WHERE order_id=$2',
+        [randomUUID(), order.orderId, account, amount],
+      );
+    await assert.rejects(insert(invoice, '11000'), { code: '23514' });
+    await assert.rejects(insert(f.payment, '11001'), { code: '23514' });
+    await f.pool.query('UPDATE kiosk_devices SET active=false');
+    await assert.rejects(insert(f.payment, '11000'), { code: '23514' });
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      0,
+    );
+  }));
+
+test('expired guest resumes only its existing QR order without renewal, while new orders and ended guests stay blocked', async () =>
+  fixture(async (f) => {
+    const q = await f.checkout.quote(f.who, f.cart());
+    const unusedQuote = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    await f.pool.query('UPDATE kiosk_sessions SET expires_at=clock_timestamp() WHERE id=$1', [
+      f.who.sessionId,
+    ]);
+    const expires = (
+      await f.pool.query('SELECT expires_at FROM kiosk_sessions WHERE id=$1', [f.who.sessionId])
+    ).rows[0].expires_at;
+    await assert.rejects(f.sessions.assertActive(f.who.sessionId), { code: 'FORBIDDEN' });
+    await assert.rejects(
+      f.checkout.create(f.who, { key: randomUUID(), quoteId: unusedQuote.quoteId }),
+      { code: 'CONFLICT' },
+    );
+    const other = await f.guest();
+    await assert.rejects(f.checkout.pay(other, order.orderId, { method: 'kaspi_qr' }), {
+      code: 'NOT_FOUND',
+    });
+    await f.pool.query('UPDATE kiosk_devices SET active=false');
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }));
+    await f.pool.query('UPDATE kiosk_devices SET active=true');
+    await f.pool.query('UPDATE kiosk_sessions SET ended_at=clock_timestamp() WHERE id=$1', [
+      f.who.sessionId,
+    ]);
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }), {
+      code: 'FORBIDDEN',
+    });
+    await f.pool.query('UPDATE kiosk_sessions SET ended_at=NULL WHERE id=$1', [f.who.sessionId]);
+    const result = await Promise.all([
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),
+      f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }),
+    ]);
+    assert.ok(result.every((r) => r.orderId === order.orderId));
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      1,
+    );
+    assert.equal((await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n, 1);
+    assert.equal(
+      (
+        await f.pool.query('SELECT expires_at FROM kiosk_sessions WHERE id=$1', [f.who.sessionId])
+      ).rows[0].expires_at.toISOString(),
+      expires.toISOString(),
+    );
   }));

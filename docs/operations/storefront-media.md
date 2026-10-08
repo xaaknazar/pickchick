@@ -41,7 +41,7 @@ reloads the catalog first. A malformed or missing version answers `400`; no publ
 Only products whose uploaded photo belongs to the branch organisation, still has all three stored
 renditions, and whose card hash matches the publication are listed. Every other product keeps its
 bundled photo. With `CATALOG_MEDIA_UPLOAD_ENABLED=false` (the default, and the kill switch) the map
-is always empty, matching the 404 of the public media route. Before cloud migration 047 the map is
+is always empty, matching the 404 of the public media route. Before cloud migration 049 the map is
 empty as well. Responses are `no-store`.
 
 ## Availability signal
@@ -63,7 +63,7 @@ signature at once because it is part of `branchAvailability`.
 ## Release notes
 
 - No migration and no new flag: the media map reuses `CATALOG_MEDIA_UPLOAD_ENABLED` and the
-  asset tables of migration 047; everything else is a read-only change of the API image.
+  asset tables of migration 049; everything else is a read-only change of the API image.
 - The public gateway allowlists for `/v1/customer-checkout/*` and `/v1/kiosk-checkout/*` are
   maintained by the release scripts. The release must add `/v1/customer-checkout/catalog/media`
   and `/v1/kiosk-checkout/catalog/media` (GET, small body) before new clients rely on them; until

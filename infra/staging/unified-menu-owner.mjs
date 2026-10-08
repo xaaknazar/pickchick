@@ -6,7 +6,7 @@
  *   node infra/staging/unified-menu-owner.mjs deploy
  *   node infra/staging/unified-menu-owner.mjs flag <access-roles|remote-stops|media-upload> <true|false>
  *
- * deploy applies cloud migrations 045-047 and only the grants they need with every new flag
+ * deploy applies cloud migrations 047-049 and only the grants they need with every new flag
  * off, in ONE repeatable-read transaction that also proves every pre-existing table kept every
  * row: the before/after fingerprints come from the same snapshot, so live traffic (cashier
  * heartbeats, orders) neither blocks the proof nor makes it flaky. Full provision.mjs is never
@@ -21,9 +21,9 @@ import { catalogAssetGrants } from './catalog-asset-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
 
 export const UNIFIED_MENU_MIGRATIONS = Object.freeze([
-  '045_cloud_edge_menu_state.sql',
-  '046_cloud_stop_commands.sql',
-  '047_cloud_catalog_assets.sql',
+  '047_cloud_edge_menu_state.sql',
+  '048_cloud_stop_commands.sql',
+  '049_cloud_catalog_assets.sql',
 ]);
 export const UNIFIED_MENU_TABLES = Object.freeze([
   'catalog_asset_audit',
@@ -33,7 +33,7 @@ export const UNIFIED_MENU_TABLES = Object.freeze([
   'cloud_stop_commands',
   'edge_menu_state',
 ]);
-/** The only column the release adds to an existing table (cloud046); NULL until protocol 4. */
+/** The only column the release adds to an existing table (cloud048); NULL until protocol 4. */
 export const UNIFIED_MENU_COLUMNS = Object.freeze({ cloud_branch_availability: ['stop_states'] });
 export const UNIFIED_MENU_FLAGS = Object.freeze(['access-roles', 'remote-stops', 'media-upload']);
 const MIGRATION_LOCK = 724001; // Same advisory lock as @pickchick/database migrate().
@@ -104,7 +104,7 @@ async function sequences(client) {
   return rows.map((r) => r.name);
 }
 
-/** Ledger must be an exact prefix of the candidate files; only 045-047 may be pending. */
+/** Ledger must be an exact prefix of the candidate files; only 047-049 may be pending. */
 export async function migrationPlan(client, directory) {
   const dir = directory instanceof URL ? fileURLToPath(directory) : directory;
   const files = (await readdir(dir)).filter((n) => /^\d{3}_[a-z_]+\.sql$/.test(n)).sort();
@@ -137,7 +137,7 @@ export async function migrationPlan(client, directory) {
   return { files, ledger: ledger.map((r) => r.version), pending, sql };
 }
 
-/** Grants for cloud045-047 with every unified-menu flag off (what provision.mjs would grant). */
+/** Grants for cloud047-049 with every unified-menu flag off (what provision.mjs would grant). */
 export function deployGrants(role, { transport }) {
   guard(ROLE.test(role) && typeof transport === 'boolean', 'Invalid grant configuration');
   return [
@@ -203,7 +203,7 @@ export async function deployUnifiedMenu(client, { directory, role }) {
       'A pre-existing column changed: ' + table,
     );
     const added = after[table].slice(columns.length);
-    const allowed = plan.pending.includes('046_cloud_stop_commands.sql')
+    const allowed = plan.pending.includes('048_cloud_stop_commands.sql')
       ? (UNIFIED_MENU_COLUMNS[table] ?? [])
       : [];
     guard(JSON.stringify(added) === JSON.stringify(allowed), 'Unexpected column added to ' + table);
@@ -228,7 +228,7 @@ export async function deployUnifiedMenu(client, { directory, role }) {
       (await client.query(`SELECT count(*)::int AS n FROM ${quoteIdent(table)}`)).rows[0].n === 0,
       'A new table was seeded: ' + table,
     );
-  if (plan.pending.includes('046_cloud_stop_commands.sql'))
+  if (plan.pending.includes('048_cloud_stop_commands.sql'))
     guard(
       (
         await client.query(

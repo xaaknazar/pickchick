@@ -171,20 +171,20 @@ class Pure(unittest.TestCase):
         self.assertEqual(len(jobs), 11)
         self.assertIn('Private staging image and restricted database role', jobs)
 
-    def test_migration_plan_accepts_pending_or_applied_045_047_only(self):
-        files, sums, ledger = files_and_ledger('044_z')
+    def test_migration_plan_accepts_pending_or_applied_047_049_only(self):
+        files, sums, ledger = files_and_ledger('046_z')  # live schema046 (kiosk QR recovery)
         self.assertEqual(r.migration_plan(ledger, files, sums), list(r.MIGRATIONS))
-        _, _, applied = files_and_ledger('047_z')
+        _, _, applied = files_and_ledger('049_z')
         self.assertEqual(r.migration_plan(applied, files, sums), [])
-        _, _, partial = files_and_ledger('045_z')
+        _, _, partial = files_and_ledger('047_z')
         self.assertEqual(r.migration_plan(partial, files, sums), list(r.MIGRATIONS[1:]))
         bad = [dict(row) for row in ledger]
         bad[3]['checksum'] = '0' * 64
-        older = ledger[:-2]  # 043 and 044 pending: not this release's migrations
-        for ledger_case, files_case in [(bad, files), (older, files), (ledger, files + ['048_cloud_extra.sql']),
+        older = ledger[:-2]  # 045 and 046 (kiosk QR) pending: not this release's migrations
+        for ledger_case, files_case in [(bad, files), (older, files), (ledger, files + ['050_cloud_extra.sql']),
                                         (ledger, files[:-1]), (ledger + [{'version': 'x', 'scope': 'cloud', 'checksum': 'y'}], files)]:
             with self.assertRaises(GuardFailure):
-                r.migration_plan(ledger_case, files_case, {**sums, '048_cloud_extra.sql': 'z'})
+                r.migration_plan(ledger_case, files_case, {**sums, '050_cloud_extra.sql': 'z'})
 
     def test_preflight_refuses_missing_access_grants(self):
         r.check_access_coverage(0)
@@ -404,7 +404,7 @@ class Phases(unittest.TestCase):
         release = self.release('deploy', expected_api_sha=OLD, expected_public_sha=PUBLIC,
                                expected_compose_sha256=r.digest(installed_compose().encode()),
                                expected_gateway_sha256=r.digest(GATEWAY.encode()))
-        _, _, ledger = files_and_ledger('044_z')
+        _, _, ledger = files_and_ledger('046_z')
         release.revision = OLD
         release.ledger = lambda database=r.DB: ledger
         release.role_restricted = lambda: None
@@ -590,7 +590,7 @@ class DeployFake(Fake):
         self.mounted_gateway = GATEWAY
         self.files = {}
         self.fail_gateway = False
-        _, _, self.ledger_rows = files_and_ledger('044_z')
+        _, _, self.ledger_rows = files_and_ledger('046_z')
         self.capabilities = {'environment': 'staging'}
 
     def execute(self, command, **kwargs):
@@ -628,9 +628,9 @@ class DeployFake(Fake):
     def owner(self, *argv, sha=None):
         self.calls.append(('owner', argv))
         assert argv == ('deploy',)
-        _, _, self.ledger_rows = files_and_ledger('047_z')
+        _, _, self.ledger_rows = files_and_ledger('049_z')
         self.grants |= r.deploy_acl(True)
-        return {'applied': list(r.MIGRATIONS), 'lastMigration': r.MIGRATIONS[-1], 'migrationFiles': 46,
+        return {'applied': list(r.MIGRATIONS), 'lastMigration': r.MIGRATIONS[-1], 'migrationFiles': 48,
                 'privilegesRemoved': [], 'transportGrants': True, 'createdTables': sorted(r.NEW_TABLES)}
 
     def http_json(self, path, public=True, status=200):
@@ -722,7 +722,7 @@ class Deploy(unittest.TestCase):
         self.assertEqual(rel.pointers[r.REMOTE + '/public-https/current'], f'{r.REMOTE}/public-https/releases/{PUBLIC}')
         self.assertFalse((Path(self.tmp.name) / 'phase-deploy.json').exists())
         rollback = json.loads((Path(self.tmp.name) / 'rollback.json').read_text())
-        self.assertEqual(rollback['schema'], 'retained 045-047')
+        self.assertEqual(rollback['schema'], 'retained 047-049')
 
     def test_resume_after_a_stopped_migration_reuses_identical_artifacts(self):
         original = self.release.owner

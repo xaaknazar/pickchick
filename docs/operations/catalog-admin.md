@@ -266,7 +266,7 @@ immutable`, `ETag` = sha, `nosniff`, `Access-Control-Allow-Origin: *`.
 иначе `409 CONFLICT`, `error.code=ASSET_MISSING`. Без `image` в черновике ничего
 не меняется.
 
-Миграция `047_cloud_catalog_assets.sql`: `catalog_assets`,
+Миграция `049_cloud_catalog_assets.sql`: `catalog_assets`,
 `catalog_asset_variants` (bytea до 1.5 MB, WebP, CHECK хэша) и журнал
 `catalog_asset_audit`; все три неизменяемы (`catalog_reject_mutation`). Байты
 лежат в PostgreSQL, поэтому обычный `pg_dump` бэкап их включает: после

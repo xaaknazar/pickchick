@@ -1,5 +1,5 @@
 /**
- * Back-office remote stops (after cloud046). Apply after fulfillmentTransportGrants and
+ * Back-office remote stops (after cloud048). Apply after fulfillmentTransportGrants and
  * backofficeGrants: the transport owns delivery and verdict columns and revokes the table first.
  * Enabled, the back-office may queue commands (INSERT), read them and the published catalog
  * names, and close its own lapsed command (state/resolved_at, the transport's expiry rule).

@@ -78,7 +78,7 @@ export async function catalogMediaMap(
   try {
     products = await catalogMediaEntries(db, scope.organizationId, payload);
   } catch (error) {
-    // Before cloud migration 047 there is no asset store: every client keeps bundled photos.
+    // Before cloud migration 049 there is no asset store: every client keeps bundled photos.
     if (!undefinedTable(error)) throw error;
   }
   return CatalogMediaMapSchema.parse({ version: head.version, products });

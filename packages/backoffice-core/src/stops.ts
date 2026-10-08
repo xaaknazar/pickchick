@@ -7,7 +7,7 @@ import { BackofficeError, type StopRequestInput } from './model.js';
 
 /**
  * Back-office side of remote stops. The cashier edge stays the single writer of stops: the
- * back-office only queues a command (cloud_stop_commands, cloud046) that the fulfillment
+ * back-office only queues a command (cloud_stop_commands, cloud048) that the fulfillment
  * transport delivers and the edge applies with an expected_version check. Names and ids come
  * from the published catalog, hashed exactly like the POS menu (localCatalogId).
  */

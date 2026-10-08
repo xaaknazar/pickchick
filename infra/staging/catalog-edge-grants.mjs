@@ -4,7 +4,7 @@ const role = (value) => {
   return value;
 };
 /**
- * Always-on menu sync runtime (after cloud045). Pull records the edge-reported active menu,
+ * Always-on menu sync runtime (after cloud047). Pull records the edge-reported active menu,
  * ACK appends the edge verdict. The device and branch of a state row are never rewritable.
  */
 export function edgeMenuStateGrants(name) {

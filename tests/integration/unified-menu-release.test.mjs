@@ -20,7 +20,7 @@ import {
 
 const MIGRATIONS = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
 
-/** A migration directory: the real files, optionally only up to 044 or with an edit. */
+/** A migration directory: the real files, optionally only up to 046 or with an edit. */
 async function directory(t, { upTo, edit } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'um-migrations-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -32,7 +32,10 @@ async function directory(t, { upTo, edit } = {}) {
   return dir;
 }
 
-/** Cloud schema at 044 with synthetic data and a restricted runtime role like production. */
+/**
+ * Cloud schema at 046 (the live kiosk QR schema) with synthetic data and a restricted runtime
+ * role like production.
+ */
 async function baseline(t) {
   const config = loadConfig('api');
   const admin = createPool(config.databaseUrl);
@@ -50,7 +53,7 @@ async function baseline(t) {
     await admin.query(`DROP ROLE ${role}`);
     await admin.end();
   });
-  await migrate(pool, await directory(t, { upTo: '044_' + 'z' }), 'cloud');
+  await migrate(pool, await directory(t, { upTo: '046_' + 'z' }), 'cloud');
   const org = randomUUID(),
     legal = randomUUID(),
     branch = randomUUID(),
@@ -113,13 +116,13 @@ async function inTransaction(pool, run) {
   }
 }
 
-test('deploy applies 045-047 with flags off, proves data kept under a live heartbeat', async (t) => {
+test('deploy applies 047-049 with flags off, proves data kept under a live heartbeat', async (t) => {
   const db = await baseline(t);
   const dir = await directory(t);
   const before = await inTransaction(db.pool, (c) => inspectUnifiedMenu(c, { directory: dir }));
   assert.deepEqual(before, {
     pending: UNIFIED_MENU_MIGRATIONS,
-    migrationFiles: 46,
+    migrationFiles: 48,
     managersWithoutGrant: 1,
   });
   const client = await db.pool.connect();
@@ -137,8 +140,8 @@ test('deploy applies 045-047 with flags off, proves data kept under a live heart
     client.release();
   }
   assert.deepEqual(result.applied, UNIFIED_MENU_MIGRATIONS);
-  assert.equal(result.migrationFiles, 46);
-  assert.equal(result.lastMigration, '047_cloud_catalog_assets.sql');
+  assert.equal(result.migrationFiles, 48);
+  assert.equal(result.lastMigration, '049_cloud_catalog_assets.sql');
   assert.deepEqual(result.createdTables, [...UNIFIED_MENU_TABLES].sort());
   assert.equal(result.transportGrants, true);
   assert.ok(result.preservedTables > 100);
@@ -232,7 +235,7 @@ test('ledger drift, unreviewed migrations and data edits are refused and rolled 
   const ledger = async () =>
     (await db.pool.query('SELECT version FROM schema_migrations ORDER BY version')).rows.length;
   const extra = await directory(t, {
-    edit: (dir) => writeFile(join(dir, '048_cloud_unreviewed.sql'), 'SELECT 1;'),
+    edit: (dir) => writeFile(join(dir, '050_cloud_unreviewed.sql'), 'SELECT 1;'),
   });
   await assert.rejects(
     inTransaction(db.pool, (c) => deployUnifiedMenu(c, { directory: extra, role: db.role })),
@@ -240,7 +243,7 @@ test('ledger drift, unreviewed migrations and data edits are refused and rolled 
   );
   const edited = await directory(t, {
     edit: async (dir) => {
-      const file = join(dir, '047_cloud_catalog_assets.sql');
+      const file = join(dir, '049_cloud_catalog_assets.sql');
       await writeFile(
         file,
         (await readFile(file, 'utf8')) + "\nUPDATE branches SET name = name || ' changed';\n",
@@ -261,7 +264,7 @@ test('ledger drift, unreviewed migrations and data edits are refused and rolled 
     inTransaction(db.pool, (c) => deployUnifiedMenu(c, { directory: changed, role: db.role })),
     /ledger differs/,
   );
-  assert.equal(await ledger(), 43); // 001-044 has 43 files (041 was never used).
+  assert.equal(await ledger(), 45); // 001-046 has 45 files (041 was never used).
   assert.equal(
     (await db.pool.query("SELECT to_regclass('cloud_stop_commands') IS NULL AS absent")).rows[0]
       .absent,

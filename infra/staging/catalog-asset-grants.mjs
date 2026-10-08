@@ -1,5 +1,5 @@
 /**
- * Uploaded catalog photos (cloud047). Reading is always granted: the public and edge media
+ * Uploaded catalog photos (cloud049). Reading is always granted: the public and edge media
  * routes and the storefront media map serve existing renditions. Writing is append-only and
  * only while the catalog editor and CATALOG_MEDIA_UPLOAD_ENABLED are both on; rows are never
  * updated or deleted (catalog_reject_mutation triggers back this up).

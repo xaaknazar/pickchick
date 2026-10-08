@@ -1,4 +1,4 @@
-"""Catalog photo routes on the public gateway (cloud047, CATALOG_MEDIA_UPLOAD_ENABLED).
+"""Catalog photo routes on the public gateway (cloud049, CATALOG_MEDIA_UPLOAD_ENABLED).
 
 The static checks always run. The behavioural checks run the real Caddyfile with a local
 `caddy` binary (CADDY_BIN, or `caddy` on PATH) against a loopback fake upstream, and are

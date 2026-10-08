@@ -31,9 +31,9 @@
 
 Фазы (по порядку):
 
-1. `deploy` — образ API с миграциями cloud045-047, все новые флаги выключены.
+1. `deploy` — образ API с миграциями cloud047-049, все новые флаги выключены.
    - Проверки до изменений: exact-SHA зелёная CI (все 11 заданий из `ci.yml`),
-     запущенный API/compose/gateway совпадают с переданными хешами, миграции 045-047
+     запущенный API/compose/gateway совпадают с переданными хешами, миграции 047-049
      ожидают или уже применены с теми же checksum, у каждой активной привязки
      менеджера каталога к точке есть строка в `bo_access_grants`.
    - Затем: зашифрованный backup и проверка восстановления в изолированную БД.
@@ -48,7 +48,7 @@
    - Gateway получает маршруты, которые ничего не делают, пока флаги выключены:
      фото, карта медиа витрин, `/stops` бэк-офиса. Ожидание long-poll киоска
      поднимается до 30 с.
-   - При ошибке после смены API возвращаются прежние API и gateway. Схема 045-047
+   - При ошибке после смены API возвращаются прежние API и gateway. Схема 047-049
      остаётся: она только добавляет таблицы. Если результат команды неизвестен,
      блокировка выпуска остаётся до ручной проверки.
 2. `access-roles` — повторная проверка покрытия `bo_access_grants`, затем флаг.
@@ -210,7 +210,7 @@ INSERT INTO bo_access_grants(actor_id,branch_id,role) VALUES ('<actor>','<branch
   - `FULFILLMENT_TRANSPORT_PROTOCOL=2`: прежний heartbeat.
 - **API.** Если `deploy` упал после смены API, скрипт сам возвращает прежние API и
   gateway. Ручной возврат — compose прежнего SHA (`up -d api`) и прежний указатель
-  `current`. Схема 045-047 остаётся, старый образ с ней совместим.
+  `current`. Схема 047-049 остаётся, старый образ с ней совместим.
 
 ## Контроль
 
@@ -244,7 +244,7 @@ SELECT active_version, now()-observed_at AS age FROM edge_menu_state;
 - [ ] Касса: backup `schema017`/`schema018`/`schema019` с `restoreVerified:true`;
       `menu-sync-upgrade-db.mjs` и `remote-stops-upgrade-db.mjs` `apply` вернули
       `grantsVerified:true` и `existingDataPreserved:true`, отпечаток совпал с `inspect`.
-- [ ] `deploy`: результат `migrations 045-047`, `flags all off`, `backup_restore passed`;
+- [ ] `deploy`: результат `migrations 047-049`, `flags all off`, `backup_restore passed`;
       киоск и приложение продают как раньше; стоп-лист кассы виден в бэк-офисе.
 - [ ] Вход по двум персональным логинам; запись в `catalog_audit` у каждого своя.
 - [ ] `access-roles`: аналитик видит каталог, но «Опубликовать» отвечает «Нет права».
