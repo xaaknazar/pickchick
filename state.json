@@ -3552,11 +3552,13 @@
         "docs/operations/images/backoffice-mobbin",
         "infra/backoffice-login",
         "@vps/backoffice-login",
-        "docs/design/design-system.md"
+        "docs/design/design-system.md",
+        "tests/backoffice/browser_ui.py",
+        "tests/backoffice/browser_operations.py"
       ],
       "status": "active",
-      "head": "82400c84ccee016917d3f38e9788bb5a0901886c",
-      "updatedAt": "2026-10-08T08:45:11.129Z"
+      "head": "b14ef3c81a633edc83e1ae25e6a0c8200bc06aee",
+      "updatedAt": "2026-10-08T08:58:10.194Z"
     }
   ]
 }
