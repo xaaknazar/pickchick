@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "732db1d71bbfe33249585d76cf5d457d3597fb40",
+      "head": "6ac409f710f96e5247e8423963e2ef511a9e4d4a",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3604,8 +3604,8 @@
         "tests/operations/test_kiosk_qr_recovery_release.py",
         "tests/operations/windows-kiosk-upgrade.test.ps1"
       ],
-      "updatedAt": "2026-10-08T13:33:45.789Z",
-      "summary": "iPad 0.1.0(8) installed preserving the one 100 KZT order; API/schema045/QR worker37dbc active, full11/11 CI and encrypted restore verified. Windows located192.168.3.33 pinned key, Edgee477/workerf837/schema015.732db1d adds bounded expired-order QR recovery046 and guarded Windows016/017;111 commerce+259 Python+3 Windows PG/nativeCI validator pass. Await full CI, then deploy/recover same order; no bank QR/capture yet."
+      "updatedAt": "2026-10-08T14:01:15.712Z",
+      "summary": "6ac409f published; full CI37787035238 in progress (9 substantive jobs passed). API37dbc/schema045 and iPad8 installed; one100 KZT order retained, no QR/capture. Bounded existing-order expiry recovery046 and guarded Windows015-017 prepared. ActualWindows192.168.3.33 pinnedSSH verified, roles edge_runtime/fulfillment_sync; native read-only XML/ACL/DBpreflight passed. Fresh Windows backup+restore cda8861d2938931a65e60eaea46ca3d7f8e0bb94ae1370a3b3ff7d169f6408ef completed2026-10-08T13:57:46Z. Next exact-greenCI, server+Windowsapply, same-orderQR, native number/kitchen proof."
     }
   ]
 }
