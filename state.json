@@ -3539,6 +3539,23 @@
       "updatedAt": "2026-10-08T01:52:56.978Z",
       "summary": "Опубликован https://pickchick.kz/backoffice/#finance, один CEO. Установлен source4696010b9fcd86b05c5466c36d0574c52345b373, CI37712191602 11/11; staff-login healthy. Live CUA: вход, сводка/ДДС/ОПиУ, reload, logout; реальные записи не менялись. TLS/401/www308/API redirect/payment503 проверены. API/public778a718, БД и существующие контейнеры, Kaspi/idrink сохранены. PR206 merged; docs checkpoint82400c8 в общей ветке, только протокол/скриншот [skip ci]. Исправлены health Host и www308; первая попытка штатно откатилась. Пароль в приватном локальном файле, не в Git. Протокол docs/operations/ceo-login.md.",
       "nextAction": "Приёмка CEO и отчётов владельцем; затем по списку отдельные сотрудники/actor/роли. На форме входа косметическая заглушка вместо логотипа. Сессии одного экземпляра в памяти, restart отзывает входы. Новый staff service source4696010; front hash51caa844d296b777732f70300e180cb7220bf8a373f86a1d52785cf4bea9d22a, API/public778a718. Следующие релизы учитывать новый домен и сервис, не применять старые baseline. После освобождения farm-gameplay-v2 перенести подтверждённые факты в project-status/handoff/roadmap; онлайн-пульт остаётся у tiptoppay-test-rollout и этим этапом не обновлялся. Приёмка не заявлена."
+    },
+    {
+      "id": "backoffice-mobbin",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/backoffice-mobbin",
+      "scopes": [
+        "apps/backoffice",
+        "tests/backoffice/design-browser.py",
+        "tests/backoffice/design-browser.test.mjs",
+        "docs/operations/backoffice-mobbin.md",
+        "docs/operations/images/backoffice-mobbin",
+        "infra/backoffice-login",
+        "@vps/backoffice-login"
+      ],
+      "status": "active",
+      "head": "82400c84ccee016917d3f38e9788bb5a0901886c",
+      "updatedAt": "2026-10-08T08:24:25.522Z"
     }
   ]
 }
