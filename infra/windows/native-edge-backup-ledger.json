@@ -68,5 +68,30 @@
     "version": "014_pos_workspace.sql",
     "checksum": "989f6cd9bd40ad74b054cfa0aea63e71d5676c98f5df38a340714a3b01f10b0d",
     "scope": "edge"
+  },
+  {
+    "version": "015_edge_reserved_order_number.sql",
+    "checksum": "7c947122a370bf59e304404a4ef66e84a0e7aa7609621b9a110a3492113bbf8f",
+    "scope": "edge"
+  },
+  {
+    "version": "016_edge_cashier_reports.sql",
+    "checksum": "c9e54fe86a72d2a0fe48952395c74c71613f034cbe67df5b7a83a27a46efa497",
+    "scope": "edge"
+  },
+  {
+    "version": "017_edge_kiosk_prepaid.sql",
+    "checksum": "7ef5ef704702f469dd6807ab2057c5aa1dfd2820164333f0ec5d01f563320fdd",
+    "scope": "edge"
+  },
+  {
+    "version": "018_edge_menu_publication.sql",
+    "checksum": "28939e72f3a8d7f691b305aa6452af280e7d2dc0f110734e20c8034138d97740",
+    "scope": "edge"
+  },
+  {
+    "version": "019_edge_remote_stops.sql",
+    "checksum": "3aa628b93a642f62f50b551510a1c39c14ff278e9c47f7ba288c93ddc409f98d",
+    "scope": "edge"
   }
 ]

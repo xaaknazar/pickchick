@@ -63,6 +63,50 @@ async function readJson(file) {
   return JSON.parse(await readFile(file, 'utf8'));
 }
 
+/**
+ * Reviewed edge schemas a service backup may be taken at. The operator names the schema the
+ * cashier is expected to be at; the ledger must then equal exactly that prefix of the pinned
+ * ledger (native-edge-backup-ledger.json: migration file name, SHA-256 and scope). Omitting
+ * the mode keeps the original schema014 behaviour. Anything else fails closed.
+ */
+export const SERVICE_BACKUP_SCHEMAS = Object.freeze({
+  schema014: 14,
+  schema015: 15,
+  schema016: 16,
+  schema017: 17,
+  schema018: 18,
+  schema019: 19,
+});
+const PINNED_LEDGER_LENGTH = 19;
+
+/** The exact expected ledger for a mode, after validating the shape of the pinned file. */
+export function expectedServiceLedger(pinned, ledgerMode = 'schema014') {
+  if (
+    typeof ledgerMode !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(SERVICE_BACKUP_SCHEMAS, ledgerMode)
+  )
+    throw new Error('Unreviewed edge schema for service backup');
+  if (
+    !Array.isArray(pinned) ||
+    pinned.length !== PINNED_LEDGER_LENGTH ||
+    pinned.some(
+      (row, index) =>
+        !row ||
+        typeof row !== 'object' ||
+        Object.keys(row).join(',') !== 'version,checksum,scope' ||
+        row.scope !== 'edge' ||
+        typeof row.version !== 'string' ||
+        !/^\d{3}_[a-z0-9_]+\.sql$/.test(row.version) ||
+        !row.version.startsWith(String(index + 1).padStart(3, '0') + '_') ||
+        !/^[a-f0-9]{64}$/.test(row.checksum ?? ''),
+    )
+  )
+    throw new Error('Pinned service backup ledger is invalid');
+  return pinned
+    .slice(0, SERVICE_BACKUP_SCHEMAS[ledgerMode])
+    .map(({ version, checksum, scope }) => ({ version, checksum, scope }));
+}
+
 export function verifyServiceSnapshot(branches, ledger, branchId, expectedLedger) {
   if (
     branches.length !== 1 ||
@@ -72,7 +116,9 @@ export function verifyServiceSnapshot(branches, ledger, branchId, expectedLedger
   )
     throw new Error('Unexpected active service branch');
   if (
-    ![14, 15].includes(ledger.length) ||
+    !Array.isArray(ledger) ||
+    !Array.isArray(expectedLedger) ||
+    !Object.values(SERVICE_BACKUP_SCHEMAS).includes(ledger.length) ||
     JSON.stringify(ledger) !== JSON.stringify(expectedLedger)
   )
     throw new Error('Service migration ledger differs');
@@ -81,7 +127,8 @@ export function verifyServiceSnapshot(branches, ledger, branchId, expectedLedger
 async function main() {
   const [toolsRoot, pgBin, runRoot, branchId, ledgerMode, ...extra] = process.argv.slice(2);
   if (
-    (ledgerMode !== undefined && ledgerMode !== 'schema015') ||
+    (ledgerMode !== undefined &&
+      !Object.prototype.hasOwnProperty.call(SERVICE_BACKUP_SCHEMAS, ledgerMode)) ||
     extra.length ||
     !toolsRoot ||
     !pgBin ||
@@ -104,16 +151,12 @@ async function main() {
     throw new Error('Completed matching native foundation required');
   const { Client } = createRequire(join(resolve(toolsRoot), 'package.json'))('pg');
   const pgData = resolve(toolsRoot, '..', '..', 'Postgres', '18', 'data');
-  const expectedLedger = JSON.parse(
-    await readFile(
-      new URL(
-        ledgerMode === 'schema015'
-          ? './native-stop-backup-ledger.json'
-          : './native-service-backup-ledger.json',
-        import.meta.url,
-      ),
-      'utf8',
+  const expectedSchema = ledgerMode ?? 'schema014';
+  const expectedLedger = expectedServiceLedger(
+    JSON.parse(
+      await readFile(new URL('./native-edge-backup-ledger.json', import.meta.url), 'utf8'),
     ),
+    expectedSchema,
   );
   const runId = randomUUID();
   const database = rehearsalName(runId);
@@ -128,6 +171,7 @@ async function main() {
     systemIdentifier: state.systemIdentifier,
     startedAt: new Date().toISOString(),
     sourceDatabase: 'pickchick_edge',
+    expectedSchema,
     rehearsalDatabase: database,
     backupVerified: false,
     restoreVerified: false,

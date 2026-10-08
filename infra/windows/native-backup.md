@@ -31,6 +31,24 @@ fail or connections remain, it preserves the database for operator inspection an
 reports failure. A failure after CREATE with an uncertain result also requires
 inspection of the unique name in the private manifest; it does not guess ownership.
 
+## Service backup at a named edge schema
+
+`backup-native-service.mjs` is the same rehearsal for a running service cashier
+(ordering stays open, `unpaid_service` branch). Its last argument names the edge
+schema the cashier is expected to be at:
+
+```text
+node.exe backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> [schema014|schema015|schema016|schema017|schema018|schema019]
+```
+
+Without it the expected schema is `schema014`. The migration ledger of the dump
+snapshot and of the restored copy must equal exactly that prefix of the pinned
+`native-edge-backup-ledger.json` (file name, SHA-256 and scope of every migration
+001-019). Any other schema name, a ledger one migration behind or ahead, or any
+changed checksum fails closed. The manifest records `expectedSchema`. Guarded
+upgrades (`menu-sync-upgrade-db.mjs`, `remote-stops-upgrade-db.mjs`) accept only a
+manifest at the current ledger, finished less than 6 hours earlier.
+
 The folder retains `pickchick_edge.dump`, `archive-list.txt` and
 `backup-manifest.json`, plus pinned code and bounded process diagnostics. These
 files stay private: the backup can contain staff sessions and operational data.

@@ -23,6 +23,8 @@ ADMIN_FILES = (
     'infra/windows/native-menu-sync-worker.mjs',
     'infra/windows/menu-sync-worker-grants.mjs',
     'infra/windows/menu-sync-upgrade-db.mjs',
+    'infra/windows/remote-stops-upgrade-db.mjs',
+    'infra/windows/remote-stops-upgrade.md',
     'infra/windows/native-menu-sync.md',
     'scripts/edge-migrate.mjs',
     'scripts/edge-runtime-grants.mjs',

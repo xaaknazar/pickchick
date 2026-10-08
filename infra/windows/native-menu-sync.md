@@ -91,7 +91,8 @@ $p=@{ReleaseName='edge-<7hex>';SourceCommit='<40hex>';BranchId='<branch uuid>';D
 ```
 
 1. **Backup.** Run the verified backup and restore rehearsal
-   (`backup-native-service.mjs`, see `native-backup.md`). The database phase
+   (`backup-native-service.mjs ... schema017`, see `native-backup.md`; name the
+   schema the cashier is at, `schema018` on a re-run). The database phase
    accepts only a `pickchick-native-service-backup-v1` manifest that is complete,
    finished less than 6 hours ago and whose ledger equals the current ledger.
    The installer also checks the PostgreSQL system identifier and the dump hash.
@@ -160,9 +161,11 @@ time. Database grants are re-proved by `Inspect` (it needs a fresh backup).
 
 ## Limits
 
-- `backup-native-service.mjs` pins its expected ledgers (schema 014/015 today).
-  Producing the required fresh backup at ledger 017/018 needs its reviewed
-  ledger allowlist extended in the release work first.
+- `backup-native-service.mjs` accepts exactly the reviewed edge schemas 014-019
+  (`native-edge-backup-ledger.json`). A later edge migration needs its own
+  reviewed allowlist entry before a backup at that schema is possible.
+- Edge migration 019 (remote stops) is applied by its own guarded helper after
+  this one: [remote-stops-upgrade.md](remote-stops-upgrade.md).
 - All LocalService services can read each other's env files, as for the other
   native workers; the database role is what limits this worker.
 - One edge per branch: the cloud ignores edge state from another device, so a

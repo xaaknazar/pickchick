@@ -88,9 +88,20 @@ python3 infra/staging/release-unified-menu.py access-roles "$SHA" --branch codex
    API и gateway, базовые хеши берутся после его последнего выпуска.
 2. **Цены.** В бэк-офисе сверить и заново опубликовать утверждённые цены
    (публикация пока доходит только до киоска и приложения).
-3. **Windows-касса** (по [native-menu-sync.md](../../infra/windows/native-menu-sync.md)):
-   - backup;
-   - миграции edge 018/019;
+3. **Windows-касса** (по [native-menu-sync.md](../../infra/windows/native-menu-sync.md)
+   и [remote-stops-upgrade.md](../../infra/windows/remote-stops-upgrade.md)). Касса
+   должна быть на edge schema017 (работы по киоску); иначе стоп.
+   - backup с проверкой восстановления:
+     `backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> schema017`.
+     Скрипт принимает только явно названную схему из списка 014-019 с точными
+     именами и SHA-256 миграций (`native-edge-backup-ledger.json`), иначе отказ;
+   - миграция 018 и роль `pickchick_menu_sync`: `install-native-menu-sync.ps1`
+     `-Mode Inspect`, затем `-Mode Prepare` (`menu-sync-upgrade-db.mjs`) с этим backup;
+   - новый backup `... schema018`;
+   - миграция 019 и права стопов: `remote-stops-upgrade-db.mjs inspect`, остановить
+     Edge и worker'ы, `apply` (одна транзакция; ровно согласованные права для
+     `pickchick_edge_runtime` и `pickchick_fulfillment_sync`), запустить службы;
+     затем backup `... schema019` и повторный `inspect` (`grantsVerified:true`);
    - edge-сервис;
    - fulfillment worker с `FULFILLMENT_TRANSPORT_PROTOCOL=4`;
    - `PickChickMenuSyncWorker` в режиме `report`;
@@ -121,8 +132,6 @@ python3 infra/staging/release-unified-menu.py access-roles "$SHA" --branch codex
 
 Не сделано в коде и остаётся ручным:
 
-- служебный backup кассы (`backup-native-service.mjs`) пока принимает только схему
-  14/15; его allowlist нужно расширить до 017-019 до шага 3 (блокер WP-D);
 - лимит тела 300KB для `/backoffice/*` на общем фронте `pickchick.kz`
   (`infra/backoffice-login/pickchick.Caddyfile`). Браузер сам пережимает каждое фото
   больше 280KB в JPEG не больше 1280px (размер hero) и снижает качество, пока файл не
@@ -227,6 +236,9 @@ SELECT active_version, now()-observed_at AS age FROM edge_menu_state;
 позиции («ТЕСТ — не продавать»). Реальные позиции во время работы не стопятся,
 реальные счета Kaspi не создаются, оплату не трогаем.
 
+- [ ] Касса: backup `schema017`/`schema018`/`schema019` с `restoreVerified:true`;
+      `menu-sync-upgrade-db.mjs` и `remote-stops-upgrade-db.mjs` `apply` вернули
+      `grantsVerified:true` и `existingDataPreserved:true`, отпечаток совпал с `inspect`.
 - [ ] `deploy`: результат `migrations 045-047`, `flags all off`, `backup_restore passed`;
       киоск и приложение продают как раньше; стоп-лист кассы виден в бэк-офисе.
 - [ ] Вход по двум персональным логинам; запись в `catalog_audit` у каждого своя.
