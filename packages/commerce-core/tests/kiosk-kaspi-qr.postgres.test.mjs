@@ -353,6 +353,61 @@ test('QR process loss after create leaves durable intent and cannot create again
     assert.equal((await r.row()).state, 'unknown');
   }));
 
+test('QR zero create amount preserves bank identity without showing QR or reissuing', async () =>
+  fixture(async (f) => {
+    const client = new FakeQr();
+    client.createAnswer = {
+      kind: 'ok',
+      data: {
+        QrOperationId: 123,
+        Amount: 0,
+        Status: 'QrTokenCreated',
+        QrToken: 'https://qr.kaspi.kz/synthetic-test',
+      },
+    };
+    client.statusAnswer = { kind: 'ok', data: { Id: 123, Status: 'QrTokenCreated' } };
+    const r = await ready(f, client);
+    assert.equal((await r.processor().tick()).errors, 0);
+    const before = await r.row();
+    assert.equal(before.state, 'unknown');
+    assert.equal(before.operation_id, '123');
+    assert.equal(before.qr_payload, 'https://qr.kaspi.kz/synthetic-test');
+    assert.equal((await readKioskQrPayment(f.pool, r.order.orderId)).qrPayload, null);
+    await f.pool.query(
+      "UPDATE commerce_outbox SET acknowledged_at=NULL,lease_until=NULL WHERE event_type='payment.submit_requested'",
+    );
+    await r.due();
+    assert.equal((await r.processor().tick()).errors, 0);
+    const after = await r.row();
+    assert.equal(client.creates, 1);
+    assert.equal(after.operation_id, before.operation_id);
+    assert.equal(after.qr_payload, before.qr_payload);
+    assert.deepEqual(after.expires_at, before.expires_at);
+    assert.equal(after.state, 'unknown');
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      0,
+    );
+    // Synthetic final response verifies the guard; a real Processed response is not yet observed.
+    client.statusAnswer = { kind: 'ok', data: { Id: 123, Amount: 110, Status: 'Processed' } };
+    await r.due();
+    assert.equal((await r.processor().tick()).errors, 0);
+    assert.equal((await r.row()).state, 'paid');
+    await f.pool.query('UPDATE commerce_kiosk_kaspi_qr SET delivered_at=NULL');
+    await r.due();
+    await r.processor().tick();
+    assert.equal(client.creates, 1);
+    assert.equal(
+      (await f.pool.query('SELECT amount_minor::text amount FROM commerce_captures')).rows[0]
+        .amount,
+      '11000',
+    );
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      1,
+    );
+  }));
+
 test('QR late create reply survives a recovery worker observing unknown', async () =>
   fixture(async (f) => {
     const client = new FakeQr();
@@ -408,6 +463,13 @@ test('QR rejects wrong bank id/amount and missing identity, then can reconcile e
     for (const data of [
       { QrOperationId: 124, Amount: 110, Status: 'Processed' },
       { QrOperationId: 123, Amount: 111, Status: 'Processed' },
+      { Id: 124, Amount: 110, Status: 'Processed' },
+      { Id: 123, Amount: 0, Status: 'Processed' },
+      { Id: 123, Status: 'Processed' },
+      { QrOperationId: 123, Id: 124, Amount: 110, Status: 'Processed' },
+      { QrOperationId: 124, Id: 123, Amount: 110, Status: 'Processed' },
+      { QrOperationId: null, Id: 123, Amount: 110, Status: 'Processed' },
+      { QrOperationId: 123, Id: null, Amount: 110, Status: 'Processed' },
       { Status: 'Processed' },
     ]) {
       r.client.statusAnswer = { kind: 'ok', data };

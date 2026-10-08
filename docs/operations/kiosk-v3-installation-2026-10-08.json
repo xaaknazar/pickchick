@@ -117,5 +117,33 @@
     "repeatRequiresSeparateApproval": true
   },
   "acceptance": "not_passed",
-  "sharedProjectStatusAndRoadmapUpdated": false
+  "sharedProjectStatusAndRoadmapUpdated": false,
+  "secondDiagnosticRequest": {
+    "separatelyApproved": true,
+    "createdAt": "2026-10-08T18:22:30.326Z",
+    "requestCount": 1,
+    "amountTenge": 100,
+    "paymentApproved": false,
+    "newOrders": 0,
+    "http": 200,
+    "statusCode": 0,
+    "returnedAmount": 0,
+    "returnedQrHost": "qr.kaspi.kz",
+    "pendingStatus": "QrTokenCreated",
+    "statusIdentityField": "Id",
+    "statusIdentityMatches": true,
+    "pendingStatusAmountPresent": false,
+    "originalQrShownImmediately": true,
+    "sameTokenKaspiOnlyLinkShown": true,
+    "ownerScanResult": "QR code not recognized",
+    "exactScanTimeKnown": false,
+    "repeatRequiresSeparateApproval": true
+  },
+  "upstreamAudit": {
+    "deployedPin": "28c9167f9c72cd6758a25e254bc92bc610daa485",
+    "reviewedHead": "175577ee1b34437dba46fb9bb0c8706f57f3b311",
+    "qrImplementationChanged": false,
+    "document": "kiosk-kaspi-qr-upstream-audit-2026-10-08.md",
+    "adapterIdentityFixDeployed": false
+  }
 }
