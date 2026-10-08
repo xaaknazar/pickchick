@@ -3603,9 +3603,10 @@
         "infra/staging/release-kiosk-qr-recovery.py",
         "tests/operations/test_kiosk_qr_recovery_release.py",
         "tests/operations/windows-kiosk-upgrade.test.ps1",
-        "docs/operations/kiosk-v3-installation-2026-10-08.json"
+        "docs/operations/kiosk-v3-installation-2026-10-08.json",
+        "docs/operations/kiosk-kaspi-qr-upstream-audit-2026-10-08.md"
       ],
-      "updatedAt": "2026-10-08T18:22:23.002Z",
+      "updatedAt": "2026-10-08T18:38:34.511Z",
       "summary": "Installed VPS API/QR worker and Windows Edge/transport 6ac409f after CI37787035238 11/11; cloud046/edge017, both backup restores passed. iPad0.1.0(8)37dbc preserved. One100KZT order admitted, reserved number20; QR attempt unknown without operation ID, captures0. Diagnostic QR separately approved no-payment: bank Amount0, pending Id instead of QrOperationId, no Amount. Owner saw QR not recognized; later QrTokenDiscarded. Apple Vision exact payload. Code+sanitized evidence74d4628 integrated shared and primary Mac synced. Payment acceptance NOT passed.",
       "nextAction": "Wait for owner approval before a second diagnostic QR, then show immediately/no payment. Resolve real Kaspi amount/status contract and preserve unknown original attempt; never invent bank failure/capture or create another order. Private diagnostic and native proofs local/VPS; runbook and installation JSON are shared. Global status/roadmap scopes occupied, online pult unchanged."
     }
