@@ -73,36 +73,91 @@ export const MenuModifierGroupSchema = z
     'Invalid modifier group',
   );
 
-export const MenuItemSchema = z.strictObject({
-  product_id: UuidSchema,
-  variant_id: UuidSchema,
-  category_id: UuidSchema,
+/** Catalog slug shared by the back-office, storefronts and the edge (never rehashed). */
+export const MenuSourceIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/);
+export const MenuSha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+/** Optional long text; Kazakh may stay empty until the operator translates it. */
+export const MenuDescriptionSchema = z.strictObject({
+  ru: z.string().max(2000).regex(/\S/),
+  kk: z.string().max(2000),
+});
+/** Content-addressed WebP served by the edge at the exact hash path. */
+export const MenuItemImageSchema = z
+  .strictObject({
+    sha256: MenuSha256Schema,
+    url: z.string().regex(/^\/assets\/menu\/[a-f0-9]{64}\.webp$/),
+  })
+  .refine((image) => image.url === `/assets/menu/${image.sha256}.webp`, 'Image URL/hash mismatch');
+export const MenuKitchenRouteSchema = z.enum(['prep', 'assembly_item']);
+export const MenuItemKitchenSchema = z.strictObject({
+  route: MenuKitchenRouteSchema,
+  unexpanded_combo: z.literal('whole_product').optional(),
+});
+export const MenuItemKindSchema = z.enum(['item', 'combo', 'set']);
+
+export const MenuItemSchema = z
+  .strictObject({
+    product_id: UuidSchema,
+    variant_id: UuidSchema,
+    category_id: UuidSchema,
+    name: LocalizedTextSchema,
+    price_minor: MoneyMinorSchema,
+    currency: z.literal('KZT'),
+    image_url: z
+      .string()
+      .max(2048)
+      .regex(/^(?:https:\/\/[^\s]+|\/(?!\/)[^\s]*)$/)
+      .optional(),
+    modifier_groups: z
+      .array(MenuModifierGroupSchema)
+      .max(20)
+      .refine(
+        (groups) => new Set(groups.map((group) => group.id)).size === groups.length,
+        'Duplicate modifier groups',
+      )
+      .optional(),
+    // Optional unified-menu fields: installed POS/edge parsers ignore or never receive them.
+    source_id: MenuSourceIdSchema.optional(),
+    sku: z
+      .string()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/)
+      .optional(),
+    kind: MenuItemKindSchema.optional(),
+    sort_order: z.number().int().min(0).max(100000).optional(),
+    description: MenuDescriptionSchema.optional(),
+    image: MenuItemImageSchema.optional(),
+    kitchen: MenuItemKitchenSchema.optional(),
+  })
+  .refine(
+    (item) => !item.image || item.image_url === item.image.url,
+    'Published image must be the item image_url',
+  );
+
+export const MenuCategorySchema = z.strictObject({
+  id: UuidSchema,
+  source_id: MenuSourceIdSchema,
   name: LocalizedTextSchema,
-  price_minor: MoneyMinorSchema,
-  currency: z.literal('KZT'),
-  image_url: z
-    .string()
-    .max(2048)
-    .regex(/^(?:https:\/\/[^\s]+|\/(?!\/)[^\s]*)$/)
-    .optional(),
-  modifier_groups: z
-    .array(MenuModifierGroupSchema)
-    .max(20)
-    .refine(
-      (groups) => new Set(groups.map((group) => group.id)).size === groups.length,
-      'Duplicate modifier groups',
-    )
-    .optional(),
+  sort_order: z.number().int().min(0).max(100000),
 });
 
-export const MenuSnapshotSchema = z.strictObject({
-  schema_version: z.literal(1),
-  release_id: UuidSchema,
-  branch_id: UuidSchema,
-  version: z.number().int().positive().max(2147483647),
-  published_at: z.iso.datetime(),
-  items: z.array(MenuItemSchema).max(10000),
-});
+export const MenuSnapshotSchema = z
+  .strictObject({
+    schema_version: z.literal(1),
+    release_id: UuidSchema,
+    branch_id: UuidSchema,
+    version: z.number().int().positive().max(2147483647),
+    published_at: z.iso.datetime(),
+    items: z.array(MenuItemSchema).max(10000),
+    categories: z.array(MenuCategorySchema).max(200).optional(),
+  })
+  .superRefine((menu, ctx) => {
+    if (!menu.categories) return;
+    const ids = new Set(menu.categories.map((category) => category.id));
+    if (ids.size !== menu.categories.length)
+      ctx.addIssue({ code: 'custom', message: 'Duplicate menu categories' });
+    if (menu.items.some((item) => !ids.has(item.category_id)))
+      ctx.addIssue({ code: 'custom', message: 'Item category missing from categories' });
+  });
 
 export const HealthSchema = z.strictObject({
   service: z.enum(['api', 'edge']),
@@ -180,13 +235,47 @@ export const MenuPublishedSchema = EventEnvelopeSchema.extend({
   payload: z.strictObject({ menu: MenuSnapshotSchema, checksum: ChecksumSchema }),
 });
 export const MenuPullSchema = z.strictObject({ event: MenuPublishedSchema.nullable() });
-export const MenuAckSchema = z.strictObject({
-  event_id: UuidSchema,
-  producer_id: UuidSchema,
-  producer_sequence: MoneyMinorSchema.refine((value) => value !== '0', 'Must be positive'),
-  branch_id: UuidSchema,
-  release_id: UuidSchema,
-  checksum: ChecksumSchema,
+export const MenuAckResultSchema = z.enum(['applied', 'rejected']);
+export const MenuRejectReasonSchema = z.enum([
+  'ROUTING_UNRESOLVED',
+  'VERSION_NOT_NEWER',
+  'MEDIA_UNAVAILABLE',
+  'INVALID_MENU',
+]);
+/**
+ * `result` is optional and an absent value means `applied`. It is deliberately not
+ * materialised by a zod default: applied ACKs stay byte-identical to the ACKs that
+ * installed edges and clouds already hash and store (idempotent replay compares hashes).
+ */
+export const MenuAckSchema = z
+  .strictObject({
+    event_id: UuidSchema,
+    producer_id: UuidSchema,
+    producer_sequence: MoneyMinorSchema.refine((value) => value !== '0', 'Must be positive'),
+    branch_id: UuidSchema,
+    release_id: UuidSchema,
+    checksum: ChecksumSchema,
+    result: MenuAckResultSchema.optional(),
+    reason: MenuRejectReasonSchema.optional(),
+  })
+  .refine(
+    (ack) => (ack.result === 'rejected') === (ack.reason !== undefined),
+    'A rejected menu ACK requires a reason; an applied ACK must not carry one',
+  );
+export function menuAckResult(ack: Pick<z.infer<typeof MenuAckSchema>, 'result'>) {
+  return ack.result ?? 'applied';
+}
+/** Active edge menu reported by the menu worker as query params on every pull. */
+const QueryInt = z.union([
+  z.number().int(),
+  z
+    .string()
+    .regex(/^(0|[1-9][0-9]{0,9})$/)
+    .transform(Number),
+]);
+export const EdgeMenuStateQuerySchema = z.strictObject({
+  active_release_id: UuidSchema,
+  active_version: QueryInt.pipe(z.number().int().positive().max(2147483647)),
 });
 export const AckReceiptSchema = z.strictObject({
   event_id: UuidSchema,
@@ -195,6 +284,11 @@ export const AckReceiptSchema = z.strictObject({
 export type DeviceIdentity = z.infer<typeof DeviceIdentitySchema>;
 export type MenuPublished = z.infer<typeof MenuPublishedSchema>;
 export type MenuAck = z.infer<typeof MenuAckSchema>;
+export type MenuAckResult = z.infer<typeof MenuAckResultSchema>;
+export type MenuRejectReason = z.infer<typeof MenuRejectReasonSchema>;
+export type EdgeMenuStateQuery = z.infer<typeof EdgeMenuStateQuerySchema>;
+export type MenuItem = z.infer<typeof MenuItemSchema>;
+export type MenuCategory = z.infer<typeof MenuCategorySchema>;
 
 export const StaffRoleSchema = z.enum(['cashier', 'shift_manager', 'kitchen']);
 export const StaffSetupSchema = z.strictObject({

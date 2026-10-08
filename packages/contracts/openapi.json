@@ -11921,6 +11921,84 @@
                     ],
                     "additionalProperties": false
                   }
+                },
+                "source_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                },
+                "sku": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "item",
+                    "combo",
+                    "set"
+                  ]
+                },
+                "sort_order": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "description": {
+                  "type": "object",
+                  "properties": {
+                    "ru": {
+                      "type": "string",
+                      "maxLength": 2000,
+                      "pattern": "\\S"
+                    },
+                    "kk": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "ru",
+                    "kk"
+                  ],
+                  "additionalProperties": false
+                },
+                "image": {
+                  "type": "object",
+                  "properties": {
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "url": {
+                      "type": "string",
+                      "pattern": "^\\/assets\\/menu\\/[a-f0-9]{64}\\.webp$"
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "url"
+                  ],
+                  "additionalProperties": false
+                },
+                "kitchen": {
+                  "type": "object",
+                  "properties": {
+                    "route": {
+                      "type": "string",
+                      "enum": [
+                        "prep",
+                        "assembly_item"
+                      ]
+                    },
+                    "unexpanded_combo": {
+                      "type": "string",
+                      "const": "whole_product"
+                    }
+                  },
+                  "required": [
+                    "route"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -11930,6 +12008,56 @@
                 "name",
                 "price_minor",
                 "currency"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "categories": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "source_id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                },
+                "name": {
+                  "type": "object",
+                  "properties": {
+                    "ru": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "kk": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  },
+                  "required": [
+                    "ru",
+                    "kk"
+                  ],
+                  "additionalProperties": false
+                },
+                "sort_order": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                }
+              },
+              "required": [
+                "id",
+                "source_id",
+                "name",
+                "sort_order"
               ],
               "additionalProperties": false
             }
@@ -12334,6 +12462,84 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "source_id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                        },
+                        "sku": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "item",
+                            "combo",
+                            "set"
+                          ]
+                        },
+                        "sort_order": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000
+                        },
+                        "description": {
+                          "type": "object",
+                          "properties": {
+                            "ru": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            },
+                            "kk": {
+                              "type": "string",
+                              "maxLength": 2000
+                            }
+                          },
+                          "required": [
+                            "ru",
+                            "kk"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "image": {
+                          "type": "object",
+                          "properties": {
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "url": {
+                              "type": "string",
+                              "pattern": "^\\/assets\\/menu\\/[a-f0-9]{64}\\.webp$"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "kitchen": {
+                          "type": "object",
+                          "properties": {
+                            "route": {
+                              "type": "string",
+                              "enum": [
+                                "prep",
+                                "assembly_item"
+                              ]
+                            },
+                            "unexpanded_combo": {
+                              "type": "string",
+                              "const": "whole_product"
+                            }
+                          },
+                          "required": [
+                            "route"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -12343,6 +12549,56 @@
                         "name",
                         "price_minor",
                         "currency"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "categories": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "source_id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                        },
+                        "name": {
+                          "type": "object",
+                          "properties": {
+                            "ru": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "kk": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "ru",
+                            "kk"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sort_order": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "source_id",
+                        "name",
+                        "sort_order"
                       ],
                       "additionalProperties": false
                     }
@@ -12652,6 +12908,84 @@
                                     ],
                                     "additionalProperties": false
                                   }
+                                },
+                                "source_id": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                },
+                                "sku": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "item",
+                                    "combo",
+                                    "set"
+                                  ]
+                                },
+                                "sort_order": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000
+                                },
+                                "description": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "image": {
+                                  "type": "object",
+                                  "properties": {
+                                    "sha256": {
+                                      "type": "string",
+                                      "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    "url": {
+                                      "type": "string",
+                                      "pattern": "^\\/assets\\/menu\\/[a-f0-9]{64}\\.webp$"
+                                    }
+                                  },
+                                  "required": [
+                                    "sha256",
+                                    "url"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "kitchen": {
+                                  "type": "object",
+                                  "properties": {
+                                    "route": {
+                                      "type": "string",
+                                      "enum": [
+                                        "prep",
+                                        "assembly_item"
+                                      ]
+                                    },
+                                    "unexpanded_combo": {
+                                      "type": "string",
+                                      "const": "whole_product"
+                                    }
+                                  },
+                                  "required": [
+                                    "route"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -12661,6 +12995,56 @@
                                 "name",
                                 "price_minor",
                                 "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "categories": {
+                            "maxItems": 200,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "source_id": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ru": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    },
+                                    "kk": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    }
+                                  },
+                                  "required": [
+                                    "ru",
+                                    "kk"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "sort_order": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "source_id",
+                                "name",
+                                "sort_order"
                               ],
                               "additionalProperties": false
                             }
@@ -12747,6 +13131,22 @@
           "checksum": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "rejected"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "ROUTING_UNRESOLVED",
+              "VERSION_NOT_NEWER",
+              "MEDIA_UNAVAILABLE",
+              "INVALID_MENU"
+            ]
           }
         },
         "required": [
@@ -20806,12 +21206,10 @@
                 "type": "boolean"
               },
               "pos": {
-                "type": "boolean",
-                "const": false
+                "type": "boolean"
               },
               "kiosk": {
-                "type": "boolean",
-                "const": false
+                "type": "boolean"
               }
             },
             "required": [
@@ -20851,11 +21249,45 @@
                     "enum": [
                       "pending",
                       "applied",
+                      "rejected",
                       "unavailable",
                       "superseded"
                     ]
                   },
                   "acknowledged_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reject_reason": {
+                    "type": "string",
+                    "enum": [
+                      "ROUTING_UNRESOLVED",
+                      "VERSION_NOT_NEWER",
+                      "MEDIA_UNAVAILABLE",
+                      "INVALID_MENU"
+                    ]
+                  },
+                  "edge_active_version": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "observed_at": {
                     "anyOf": [
                       {
                         "type": "string",
@@ -21047,6 +21479,39 @@
                             },
                             "image_asset_key": {
                               "type": "string"
+                            },
+                            "image": {
+                              "type": "object",
+                              "properties": {
+                                "asset_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "tile_color": {
+                                  "type": "string",
+                                  "pattern": "^#[0-9A-F]{6}$"
+                                },
+                                "cutout": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "asset_id",
+                                "sha256"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "kitchen_route": {
+                              "type": "string",
+                              "enum": [
+                                "prep",
+                                "assembly_item"
+                              ]
                             },
                             "available": {
                               "type": "boolean"
@@ -21582,6 +22047,39 @@
                             },
                             "image_asset_key": {
                               "type": "string"
+                            },
+                            "image": {
+                              "type": "object",
+                              "properties": {
+                                "asset_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "tile_color": {
+                                  "type": "string",
+                                  "pattern": "^#[0-9A-F]{6}$"
+                                },
+                                "cutout": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "asset_id",
+                                "sha256"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "kitchen_route": {
+                              "type": "string",
+                              "enum": [
+                                "prep",
+                                "assembly_item"
+                              ]
                             },
                             "available": {
                               "type": "boolean"
@@ -22178,6 +22676,39 @@
                     "image_asset_key": {
                       "type": "string"
                     },
+                    "image": {
+                      "type": "object",
+                      "properties": {
+                        "asset_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "tile_color": {
+                          "type": "string",
+                          "pattern": "^#[0-9A-F]{6}$"
+                        },
+                        "cutout": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "asset_id",
+                        "sha256"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "kitchen_route": {
+                      "type": "string",
+                      "enum": [
+                        "prep",
+                        "assembly_item"
+                      ]
+                    },
                     "available": {
                       "type": "boolean"
                     },
@@ -22736,6 +23267,39 @@
                     "image_asset_key": {
                       "type": "string"
                     },
+                    "image": {
+                      "type": "object",
+                      "properties": {
+                        "asset_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "tile_color": {
+                          "type": "string",
+                          "pattern": "^#[0-9A-F]{6}$"
+                        },
+                        "cutout": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "asset_id",
+                        "sha256"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "kitchen_route": {
+                      "type": "string",
+                      "enum": [
+                        "prep",
+                        "assembly_item"
+                      ]
+                    },
                     "available": {
                       "type": "boolean"
                     },
@@ -23259,6 +23823,39 @@
                     },
                     "image_asset_key": {
                       "type": "string"
+                    },
+                    "image": {
+                      "type": "object",
+                      "properties": {
+                        "asset_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "tile_color": {
+                          "type": "string",
+                          "pattern": "^#[0-9A-F]{6}$"
+                        },
+                        "cutout": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "asset_id",
+                        "sha256"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "kitchen_route": {
+                      "type": "string",
+                      "enum": [
+                        "prep",
+                        "assembly_item"
+                      ]
                     },
                     "available": {
                       "type": "boolean"
@@ -24891,6 +25488,10 @@
               {
                 "type": "number",
                 "const": 3
+              },
+              {
+                "type": "number",
+                "const": 4
               }
             ]
           },
@@ -25236,6 +25837,101 @@
               "stoppedIds"
             ],
             "additionalProperties": false
+          },
+          "stopStates": {
+            "maxItems": 5000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "stopped": {
+                  "type": "boolean"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "pos",
+                    "backoffice"
+                  ]
+                },
+                "expiresAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "shiftScoped": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "version",
+                "stopped",
+                "source",
+                "expiresAt",
+                "shiftScoped"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "stopReceipts": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "commandId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "result": {
+                  "type": "string",
+                  "enum": [
+                    "applied",
+                    "conflict",
+                    "not_found",
+                    "no_open_shift",
+                    "expired"
+                  ]
+                },
+                "version": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "commandId",
+                "result",
+                "version"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -26045,6 +26741,67 @@
               "requestHash"
             ],
             "additionalProperties": false
+          },
+          "stopCommands": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "commandId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "variantId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "stopped": {
+                  "type": "boolean"
+                },
+                "duration": {
+                  "type": "string",
+                  "enum": [
+                    "manual",
+                    "hour",
+                    "shift"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "expectedVersion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "actorLabel": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "issuedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "commandId",
+                "variantId",
+                "stopped",
+                "duration",
+                "reason",
+                "expectedVersion",
+                "actorLabel",
+                "issuedAt"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
