@@ -3598,9 +3598,12 @@
         "tests/operations/test_windows_kiosk_upgrade.py",
         "infra/windows/kiosk-prepaid-upgrade-db.mjs",
         "tests/operations/windows-kiosk-upgrade.test.mjs",
-        "tests/operations/windows-reserved-number.test.mjs"
+        "tests/operations/windows-reserved-number.test.mjs",
+        "db/cloud/migrations/046_cloud_kiosk_qr_recovery.sql",
+        "infra/staging/release-kiosk-qr-recovery.py",
+        "tests/operations/test_kiosk_qr_recovery_release.py"
       ],
-      "updatedAt": "2026-10-08T13:18:32.998Z",
+      "updatedAt": "2026-10-08T13:20:56.950Z",
       "summary": "Installed85f API/QR bridge and iPad7, CI11/11 + backup/restore. One approved100KZT order blocked before bank; zero QR/capture. Owner removed per-order cashier wait. Pushedba6eff5 build8/schema045/worker + paid delivery recovery; PG18 commerce110/110 kiosk86/86 release43/43. CI37778936373 running, new release not installed. Windows edge support requires access;192.168.3.9 unavailable."
     }
   ]
