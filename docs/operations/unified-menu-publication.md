@@ -185,6 +185,12 @@ gateway и обновить скрипт, а не обходить провер�
   и `native-edge-backup-ledger.json`;
 - runtime ZIP, его SHA-256 и полный JSON доказательства CI `{run, jobs}`.
 
+Обработчик загружаемых фото и Sharp принадлежат только API: касса получает готовые
+WebP и проверяет их хеши. Общий `catalog-admin` принимает encoder от API и не
+включает нативный декодер в зависимости кассы. Packager собирает все три поставляемых
+корня (Edge, POS sync, fulfillment transport), проверяет их зависимости и сохраняет
+требование `nativeAddons: 0`. Сборка на Mac не должна поставлять Darwin-бинарники.
+
 Не используйте старую копию backup-helper из foundation: она может не знать схемы
 017-019. Новую запускайте из каталога оператора, передавая существующий `toolsRoot`
 (`C:\ProgramData\PickChick\EdgeTools\edge-0186902`), PostgreSQL bin, новый приватный

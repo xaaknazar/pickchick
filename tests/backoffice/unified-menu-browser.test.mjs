@@ -6,9 +6,7 @@ import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { withCatalog } from './helpers.mjs';
 
-const sharp = createRequire(new URL('../../packages/catalog-admin/package.json', import.meta.url))(
-  'sharp',
-);
+const sharp = createRequire(new URL('../../services/api/package.json', import.meta.url))('sharp');
 
 test('unified menu UI: real photo upload and publish, cashier delivery badge, stop toggle pending to applied, analyst view', () =>
   withCatalog(

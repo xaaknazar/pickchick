@@ -54,6 +54,7 @@ import {
   catalogMediaOptions,
 } from '@pickchick/catalog-admin';
 import { CatalogAdminController } from './catalog-admin-controller.js';
+import { encodeCatalogImage } from './catalog-image-encoder.js';
 import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-media-controller.js';
 import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
@@ -237,11 +238,15 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: CATALOG_MEDIA,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new CatalogMedia(resources.pool, {
-            ...catalogAdminOptions(process.env),
-            ...catalogMediaOptions(process.env),
-            enabled: config.catalogAdminEnabled === true,
-          }),
+          new CatalogMedia(
+            resources.pool,
+            {
+              ...catalogAdminOptions(process.env),
+              ...catalogMediaOptions(process.env),
+              enabled: config.catalogAdminEnabled === true,
+            },
+            encodeCatalogImage,
+          ),
       },
       {
         provide: CUSTOMER_IDENTITY,

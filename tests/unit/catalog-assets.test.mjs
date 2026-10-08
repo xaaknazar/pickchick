@@ -1,3 +1,4 @@
+import { encodeCatalogImage } from '../../services/api/dist/catalog-image-encoder.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -14,14 +15,11 @@ import {
   catalogMediaOptions,
   catalogMediaUrl,
   containsActiveContent,
-  encodeCatalogImage,
   sniffCatalogImage,
 } from '../../packages/catalog-admin/dist/index.js';
 import { catalogAssetGrants } from '../../infra/staging/catalog-asset-grants.mjs';
 
-const sharp = createRequire(new URL('../../packages/catalog-admin/package.json', import.meta.url))(
-  'sharp',
-);
+const sharp = createRequire(new URL('../../services/api/package.json', import.meta.url))('sharp');
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const rejects = (reason) => (error) =>
   error instanceof CatalogAdminError && error.code === 'INVALID_REQUEST' && error.reason === reason;

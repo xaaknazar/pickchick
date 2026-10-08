@@ -51,6 +51,17 @@ ADMIN_FILES = (
 )
 
 
+# Build every root shipped by build_package, including packages not reachable from edge.
+BUILD_ROOTS = ('@pickchick/edge', '@pickchick/pos-order-sync', '@pickchick/fulfillment-transport')
+
+
+def build_workspace_roots(source):
+    command = ['pnpm']
+    for name in BUILD_ROOTS:
+        command.extend(['--filter', name + '...'])
+    subprocess.run([*command, 'build'], cwd=source, check=True)
+
+
 def build_package(source, output, commit):
     source = source.resolve()
     output = output.resolve()
@@ -234,5 +245,5 @@ if __name__ == '__main__':
     if status.strip():
         raise SystemExit('Commit source changes before creating a pinned package')
     commit = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
-    subprocess.run(['pnpm', '--filter', '@pickchick/edge...', 'build'], cwd=source, check=True)
+    build_workspace_roots(source)
     print(json.dumps(build_package(source, args.output, commit), indent=2))

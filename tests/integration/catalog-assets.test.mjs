@@ -1,3 +1,4 @@
+import { encodeCatalogImage } from '../../services/api/dist/catalog-image-encoder.js';
 /* global structuredClone */
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -20,9 +21,7 @@ import {
 } from '../../packages/catalog-admin/dist/index.js';
 import { running, withSyncDatabases } from '../helpers/sync.mjs';
 
-const sharp = createRequire(new URL('../../packages/catalog-admin/package.json', import.meta.url))(
-  'sharp',
-);
+const sharp = createRequire(new URL('../../services/api/package.json', import.meta.url))('sharp');
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const immutable = (error) => error.code === '23514';
 const denied = (error) => error.code === '42501';
@@ -430,14 +429,39 @@ test('public media is immutable and credential-free; the edge download needs its
     );
   }));
 
+test('uploads fail closed without a host encoder; existing media and receipt replays still work', async () =>
+  fixture(async (ctx) => {
+    const bytes = await photo('#224466');
+    const key = randomUUID();
+    const missing = new CatalogMedia(ctx.runtime, {
+      enabled: true,
+      mediaEnabled: true,
+      enforceRoles: true,
+    });
+    await assert.rejects(
+      missing.upload(ctx.manager.token, ctx.branch, bytes, key),
+      (error) => error instanceof CatalogAdminError && error.code === 'SERVICE_UNAVAILABLE',
+    );
+    for (const table of ['catalog_assets', 'catalog_asset_variants', 'catalog_asset_audit'])
+      assert.equal(
+        Number((await ctx.cloud.pool.query(`SELECT count(*) FROM ${table}`)).rows[0].count),
+        0,
+      );
+    const response = await ctx.upload(bytes, ctx.manager.token, key);
+    assert.equal(response.status, 200);
+    const asset = CatalogAssetSchema.parse(response.body);
+    assert.deepEqual(await missing.upload(ctx.manager.token, ctx.branch, bytes, key), asset);
+    assert.equal((await ctx.request(asset.variants.card.url)).status, 200);
+  }));
+
 test('every media route fails closed while CATALOG_MEDIA_UPLOAD_ENABLED is off', async () =>
   fixture(
     async (ctx) => {
-      const enabled = new CatalogMedia(ctx.runtime, {
-        enabled: true,
-        mediaEnabled: true,
-        enforceRoles: true,
-      });
+      const enabled = new CatalogMedia(
+        ctx.runtime,
+        { enabled: true, mediaEnabled: true, enforceRoles: true },
+        encodeCatalogImage,
+      );
       const bytes = await photo('#7f8c8d');
       const asset = await enabled.upload(ctx.manager.token, ctx.branch, bytes, randomUUID());
       const off = await ctx.upload(bytes);

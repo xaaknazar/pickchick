@@ -26,8 +26,7 @@
     "@pickchick/test-order-flow": "workspace:*",
     "zod": "4.5.4",
     "@pickchick/menu-sync": "workspace:*",
-    "@pickchick/contracts": "workspace:*",
-    "sharp": "0.35.5"
+    "@pickchick/contracts": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",

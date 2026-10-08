@@ -386,9 +386,6 @@ importers:
       '@pickchick/test-order-flow':
         specifier: workspace:*
         version: link:../test-order-flow
-      sharp:
-        specifier: 0.35.5
-        version: 0.35.5(@types/node@24.13.3)
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -783,6 +780,9 @@ importers:
       '@pickchick/test-order-flow':
         specifier: workspace:*
         version: link:../../packages/test-order-flow
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@24.13.3)
     devDependencies:
       '@types/node':
         specifier: 24.13.3

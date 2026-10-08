@@ -23,6 +23,7 @@ import {
 } from '../../services/api/dist/catalog-media-controller.js';
 import { createHttpApplication, RESOURCE } from '@pickchick/platform';
 import { CatalogAdminController } from '../../services/api/dist/catalog-admin-controller.js';
+import { encodeCatalogImage } from '../../services/api/dist/catalog-image-encoder.js';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 import { createBackofficeServer } from '../../apps/backoffice/server.mjs';
 import { ApiError } from '../../apps/backoffice/dist/api.js';
@@ -67,7 +68,11 @@ export async function withCatalog(run, options = {}) {
           ? [
               {
                 provide: CATALOG_MEDIA,
-                useValue: new CatalogMedia(cloud.pool, { enabled: true, mediaEnabled: true }),
+                useValue: new CatalogMedia(
+                  cloud.pool,
+                  { enabled: true, mediaEnabled: true },
+                  encodeCatalogImage,
+                ),
               },
             ]
           : []),
