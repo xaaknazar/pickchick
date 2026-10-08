@@ -3575,9 +3575,11 @@
         "scripts/prepare-piko-flavors.mjs",
         "tests/unit/piko-flavors.test.mjs"
       ],
-      "status": "active",
-      "head": "10e87841ba95fd8aa3b148999bed9a01dbab35e9",
-      "updatedAt": "2026-10-08T09:34:35.996Z"
+      "status": "done",
+      "head": "2983daa8a4c5ba81f953bce60e9057910e7cb7b0",
+      "updatedAt": "2026-10-08T10:30:09.268Z",
+      "summary": "PR208 merged/shared 2983daa8a4c5ba81f953bce60e9057910e7cb7b0. Nine owner drink photos cropped and masked without synthesis; three unmatched references saved. Piko apple/orange catalog preparation preserves SKU/prices and has no publication side effect. Local catalog3, UI4, TypeScript/lint/format, Storybook, iOS/web export and browser3 iPad sizes passed. Full CI37761528471 success11/11; UI library push37761528422 and PR37761574651 success. Protocol docs/operations/kiosk-drink-photos.md. Physical build6 and server menu unchanged.",
+      "nextAction": "Publish the freshly reviewed prepared catalog through normal delivery with real edge ACK, then build/install the next kiosk release preserving enrollment. Do not assume Piko flavors are live. Peach/multifruit and mango-pineapple photos are reference-only until assortment approval. Transfer facts to global status/handoff/roadmap after farm-gameplay-v2 releases them; online roadmap still owned by tiptoppay-test-rollout. No VPS/device deployment performed in this stage."
     }
   ]
 }
