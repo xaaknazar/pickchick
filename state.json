@@ -3619,6 +3619,27 @@
       "status": "active",
       "head": "01ec5dbbdc33c7d9ffcf0a94f330ca4df735ae61",
       "updatedAt": "2026-10-08T20:42:02.724Z"
+    },
+    {
+      "id": "unified-menu-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/unified-menu",
+      "scopes": [
+        "@vps/api",
+        "@vps/db",
+        "@vps/public",
+        "@vps/gateway",
+        "@vps/backoffice-login",
+        "@windows/cashier",
+        "infra/staging/release-unified-menu.py",
+        "infra/windows/install-native-menu-sync.ps1",
+        "infra/windows/remote-stops-upgrade-db.mjs",
+        "docs/operations/unified-menu-publication.md",
+        "docs/operations/unified-menu-installation-2026-10-09.md"
+      ],
+      "status": "active",
+      "head": "65de28c4d62a031968d37d8c4071ce771dadada2",
+      "updatedAt": "2026-10-08T20:42:07.584Z"
     }
   ]
 }
