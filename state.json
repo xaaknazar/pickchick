@@ -3559,6 +3559,22 @@
       "updatedAt": "2026-10-08T09:24:15.356Z",
       "summary": "Mobbin/YNAB/Midday redesign installed at https://pickchick.kz/backoffice/#finance. Source3f55929 CI37753553083 11/11 success, local backoffice40/40, updater5/5; live CEO login/finance read/assets/logout passed, no financial writes. Staff healthy, API/DB/routes/CEO credentials preserved. PR207; docs checkpoint10e8784 published and included shared. Protocol docs/operations/backoffice-mobbin.md.",
       "nextAction": "Owner acceptance desktop/phone. After other Mac releases shared docs, copy confirmed CEO-login/design facts into project-status/handoff/roadmap and publish roadmap with fresh claim. Next portal baseline3f55929; API/public778a718 unchanged. No further implementation pending in this task."
+    },
+    {
+      "id": "kiosk-drink-photos",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-drink-photos",
+      "scopes": [
+        "apps/kiosk/src/assets.ts",
+        "apps/kiosk/src/components",
+        "apps/kiosk/assets/drinks",
+        "docs/operations/kiosk-drink-photos.md",
+        "docs/operations/images/kiosk-drink-photos",
+        "tests/kiosk/browser_drink_photos.py"
+      ],
+      "status": "active",
+      "head": "10e87841ba95fd8aa3b148999bed9a01dbab35e9",
+      "updatedAt": "2026-10-08T09:27:49.087Z"
     }
   ]
 }
