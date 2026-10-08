@@ -8,8 +8,67 @@ import {
   type CatalogPayload,
   type Product,
   type Group,
+  type PublicationSupport,
 } from './domain.js';
-import { element as el, button, field, select, check, grid, image } from './dom.js';
+import { element as el, button, field, select, check, grid, image, productPhoto } from './dom.js';
+import { ApiError, message, UPLOAD_MAX_BYTES, UPLOAD_TYPES } from './api.js';
+export type EditorContext = {
+  publicationSupport?: PublicationSupport | undefined;
+  /** Same-origin URL of an uploaded card rendition. */
+  mediaUrl?: (sha256: string) => string;
+  /** Raw upload to the branch asset store; resolves to the product.image reference. */
+  upload?: (
+    file: Blob,
+    onProgress: (fraction: number) => void,
+  ) => Promise<{ image: { asset_id: string; sha256: string } }>;
+};
+const heif = (file: File) =>
+  /^image\/hei[cf]$/.test(file.type) || (!file.type && /\.(heic|heif)$/i.test(file.name));
+/** MIME type of a picked photo; some browsers leave HEIC files untyped. */
+export function photoType(file: File): string | null {
+  if (UPLOAD_TYPES.includes(file.type)) return file.type;
+  if (!file.type && /\.(heic|heif)$/i.test(file.name)) return 'image/heic';
+  if (!file.type && /\.jpe?g$/i.test(file.name)) return 'image/jpeg';
+  return null;
+}
+const RECODE_ABOVE_BYTES = 2 * 1024 * 1024,
+  MAX_EDGE = 2048;
+/**
+ * Prepares a picked photo for upload. HEIC (the server cannot decode it) and large photos are
+ * re-encoded to JPEG at most 2048 px on the longest side, so uploads stay small and fast; the
+ * server re-encodes to WebP and strips metadata anyway. Small JPEG/PNG/WebP go as they are.
+ */
+export async function preparePhoto(file: File): Promise<Blob> {
+  const type = photoType(file);
+  if (!type) throw new ApiError('INVALID_REQUEST', 0, 'ASSET_UNSUPPORTED_TYPE');
+  if (file.size > UPLOAD_MAX_BYTES) throw new ApiError('INVALID_REQUEST', 0, 'ASSET_TOO_LARGE');
+  const raw = file.slice(0, file.size, type);
+  if (!heif(file) && file.size <= RECODE_ABOVE_BYTES) return raw;
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    if (heif(file)) throw new ApiError('INVALID_REQUEST', 0, 'HEIC_UNSUPPORTED');
+    return raw;
+  }
+  try {
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const jpeg = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.9),
+    );
+    if (!jpeg) {
+      if (heif(file)) throw new ApiError('INVALID_REQUEST', 0, 'HEIC_UNSUPPORTED');
+      return raw;
+    }
+    return heif(file) || jpeg.size < file.size ? jpeg : raw;
+  } finally {
+    bitmap.close();
+  }
+}
 const kinds = [
   { value: 'item', label: 'Отдельная позиция' },
   { value: 'combo', label: 'Комбо' },
@@ -45,8 +104,16 @@ export function openEditor(
   payload: CatalogPayload,
   onApply: (p: Product) => void,
   isNew = false,
-  publicationSupport: { mobile: boolean } = { mobile: false },
+  context: EditorContext = {},
 ) {
+  const publicationSupport = context.publicationSupport ?? {
+    mobile: false,
+    pos: false,
+    kiosk: false,
+  };
+  let uploading = false,
+    uploadError = '',
+    uploadProgress = 0;
   const p = copy(original),
     dialog = el('dialog', 'editor-dialog'),
     form = el('form', 'editor-form'),
@@ -146,6 +213,171 @@ export function openEditor(
     body.append(s);
     return s;
   }
+  function photoSection() {
+    const photo = section('Фото'),
+      preview = el('div', 'asset-preview');
+    preview.dataset.testid = 'edit-photo-preview';
+    preview.append(productPhoto(p, p.name.ru, context.mediaUrl));
+    photo.append(preview);
+    const status = el('p', 'muted photo-status');
+    status.dataset.testid = 'edit-photo-status';
+    status.setAttribute('role', 'status');
+    status.textContent = uploading
+      ? 'Загружаем фото…'
+      : p.image
+        ? 'Загруженное фото. Попадёт в приложение, киоск и на кассу после сохранения черновика и публикации.'
+        : 'Загруженного фото нет: показывается запасное фото.';
+    const progress = el('progress', 'photo-progress');
+    progress.max = 1;
+    progress.value = uploadProgress;
+    progress.hidden = !uploading;
+    progress.dataset.testid = 'edit-photo-progress';
+    progress.setAttribute('aria-label', 'Загрузка фото');
+    photo.append(status, progress);
+    if (uploadError) {
+      const e = el('p', 'notice error', uploadError);
+      e.setAttribute('role', 'alert');
+      e.dataset.testid = 'edit-photo-error';
+      photo.append(e);
+    }
+    const actions = el('div', 'photo-actions');
+    photo.append(actions);
+    if (context.upload) {
+      const label = el('label', 'field photo-picker'),
+        input = el('input');
+      label.append(el('span', 'field-label', p.image ? 'Заменить фото' : 'Загрузить фото'));
+      input.type = 'file';
+      input.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif';
+      input.dataset.testid = 'edit-photo-file';
+      input.disabled = uploading;
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (file) void uploadPhoto(file);
+      });
+      label.append(
+        input,
+        el(
+          'small',
+          'muted',
+          'JPEG, PNG, WebP или HEIC, до 10 МБ. Сервер удалит из файла геоданные и метаданные.',
+        ),
+      );
+      actions.append(label);
+    }
+    if (p.image) {
+      const ref = p.image;
+      actions.append(
+        button(
+          'Убрать фото',
+          () => {
+            delete p.image;
+            uploadError = '';
+            changed();
+            draw();
+          },
+          'button danger small',
+          'edit-photo-remove',
+        ),
+      );
+      const color = el('input');
+      color.type = 'color';
+      color.value = (ref.tile_color ?? '#FFFFFF').toLowerCase();
+      color.disabled = ref.tile_color === undefined;
+      color.dataset.testid = 'edit-tile-color';
+      color.setAttribute('aria-label', 'Цвет плитки');
+      color.addEventListener('input', () => {
+        ref.tile_color = color.value.toUpperCase();
+        changed();
+      });
+      const tile = el('div', 'tile-color');
+      tile.append(
+        check(
+          'Свой цвет плитки в киоске',
+          ref.tile_color !== undefined,
+          (v) => {
+            if (v) ref.tile_color = color.value.toUpperCase();
+            else delete ref.tile_color;
+            color.disabled = !v;
+            changed();
+          },
+          'edit-tile-color-enabled',
+        ),
+        color,
+      );
+      photo.append(
+        grid(
+          tile,
+          check(
+            'Фото без фона (вырезанное блюдо)',
+            ref.cutout === true,
+            (v) => {
+              if (v) ref.cutout = true;
+              else delete ref.cutout;
+              changed();
+            },
+            'edit-cutout',
+          ),
+        ),
+      );
+    }
+    const fallback = el('div', 'fallback-preview');
+    fallback.append(image(p.image_asset_key, p.name.ru));
+    photo.append(
+      select(
+        'Запасное фото',
+        p.image_asset_key,
+        assetKeys.map((key) => ({
+          value: key,
+          label: key === 'generic-drink' ? 'Без фотографии' : key,
+        })),
+        (v) => {
+          p.image_asset_key = v;
+          changed();
+          fallback.replaceChildren(image(v, p.name.ru));
+          if (!p.image) preview.replaceChildren(productPhoto(p, p.name.ru, context.mediaUrl));
+        },
+        'edit-image',
+      ),
+      fallback,
+      el(
+        'p',
+        'muted',
+        'Запасное фото из материалов бренда показывается в старых версиях приложения и киоска и если загруженное фото недоступно.',
+      ),
+    );
+  }
+  async function uploadPhoto(file: File) {
+    if (!context.upload || uploading) return;
+    uploading = true;
+    uploadError = '';
+    uploadProgress = 0;
+    if (tab === 'general') draw();
+    try {
+      const prepared = await preparePhoto(file);
+      const asset = await context.upload(prepared, (fraction) => {
+        uploadProgress = fraction;
+        const bar = body.querySelector<HTMLProgressElement>('[data-testid="edit-photo-progress"]');
+        if (bar) bar.value = fraction;
+      });
+      const previous = p.image;
+      p.image = {
+        asset_id: asset.image.asset_id,
+        sha256: asset.image.sha256,
+        ...(previous?.tile_color ? { tile_color: previous.tile_color } : {}),
+        ...(previous?.cutout ? { cutout: previous.cutout } : {}),
+      };
+      changed();
+    } catch (e) {
+      uploadError =
+        e instanceof ApiError && e.reason === 'HEIC_UNSUPPORTED'
+          ? 'Этот браузер не открывает HEIC. Сохраните фото как JPEG или загрузите его из Safari. На iPhone: Настройки → Камера → Форматы → «Наиболее совместимые».'
+          : message(e);
+    } finally {
+      uploading = false;
+      uploadProgress = 0;
+      if (dialog.isConnected && tab === 'general') draw();
+    }
+  }
   function draw() {
     body.replaceChildren();
     tabs.replaceChildren();
@@ -231,7 +463,7 @@ export function openEditor(
         ),
         grid(
           check(
-            'Доступна в каталоге',
+            'Показывать в меню',
             p.available,
             (v) => {
               p.available = v;
@@ -244,12 +476,44 @@ export function openEditor(
             p.prep_required,
             (v) => {
               p.prep_required = v;
+              const auto = kitchen.querySelector('option[value=""]');
+              if (auto) auto.textContent = kitchenDefault();
               changed();
             },
             'edit-prep-required',
           ),
         ),
+        el(
+          'p',
+          'muted',
+          'Без отметки «Показывать в меню» позиция исчезнет из меню кассы, приложения и киоска после публикации. Если блюдо временно закончилось, не снимайте отметку — поставьте его на «Стоп» в стоп-листе: стоп действует сразу и без публикации.',
+        ),
       );
+      const kitchenDefault = () =>
+        `По умолчанию: ${p.prep_required ? 'Приготовление' : 'Сборка (без кухни)'}`;
+      const kitchen = select(
+        'Станция кухни на кассе',
+        p.kitchen_route ?? '',
+        [
+          { value: '', label: kitchenDefault() },
+          { value: 'prep', label: 'Приготовление' },
+          { value: 'assembly_item', label: 'Сборка (без кухни)' },
+        ],
+        (v) => {
+          if (v === 'prep' || v === 'assembly_item') p.kitchen_route = v;
+          else delete p.kitchen_route;
+          changed();
+        },
+        'edit-kitchen-route',
+      );
+      kitchen.append(
+        el(
+          'small',
+          'muted',
+          '«Приготовление» отправляет позицию на станцию приготовления, «Сборка» — сразу на сборку. Касса учитывает выбор для новых позиций; станция уже известной кассе позиции автоматически не меняется.',
+        ),
+      );
+      s.append(kitchen);
       const channelSection = section('Цены по каналам');
       channelSection.append(
         el(
@@ -290,36 +554,12 @@ export function openEditor(
         el(
           'p',
           'muted',
-          publicationSupport.mobile
+          publicationSupport.mobile && !publicationSupport.pos
             ? 'Цена приложения публикуется в подключённую мобильную витрину и применяется в расчёте заказа. Отдельные цены кассы и киоска пока доступны только в черновике и блокируют публикацию.'
-            : 'Цены каналов можно сохранить в серверном черновике. Публикация каталога с отдельными ценами пока заблокирована: витрины, киоск и касса должны получать согласованную версию меню. Чтобы опубликовать общую базовую цену сейчас, оставьте все поля каналов пустыми.',
+            : 'Базовая цена действует везде: на кассе, в приложении и киоске. Отдельные цены каналов можно сохранить в черновике, но публикация с ними заблокирована — чтобы опубликовать, оставьте все поля каналов пустыми.',
         ),
       );
-      const photo = section('Изображение из материалов бренда'),
-        preview = el('div', 'asset-preview');
-      preview.append(image(p.image_asset_key, p.name.ru));
-      photo.append(
-        select(
-          'Ресурс изображения',
-          p.image_asset_key,
-          assetKeys.map((key) => ({
-            value: key,
-            label: key === 'generic-drink' ? 'Без фотографии' : key,
-          })),
-          (v) => {
-            p.image_asset_key = v;
-            changed();
-            preview.replaceChildren(image(v, p.name.ru));
-          },
-          'edit-image',
-        ),
-        preview,
-        el(
-          'p',
-          'muted',
-          'Здесь доступны подготовленные ресурсы. Загрузка новых изображений появится отдельным этапом.',
-        ),
-      );
+      photoSection();
     } else if (tab === 'details') {
       const s = section('Порция и состав');
       s.append(
@@ -645,7 +885,7 @@ export function openEditor(
       );
       const card = el('article', 'preview-card');
       card.append(
-        image(p.image_asset_key, p.name.ru),
+        productPhoto(p, p.name.ru, context.mediaUrl),
         el('h2', '', p.name.ru || 'Название не заполнено'),
         el('p', '', p.description.ru),
         el('strong', 'preview-price', money(p.price_minor)),
@@ -677,6 +917,10 @@ export function openEditor(
   const apply = button(
     'Применить в черновик',
     () => {
+      if (uploading) {
+        error.textContent = 'Дождитесь окончания загрузки фото.';
+        return;
+      }
       const issues: string[] = [];
       for (const [key, value] of prices) {
         if (

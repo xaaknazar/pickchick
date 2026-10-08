@@ -4,9 +4,25 @@ export type Product = CatalogPayload['products'][number];
 export type Group = Product['modifier_groups'][number];
 export type Branch = { id: string; code: string; name: string };
 export type Actor = { id: string; name: string };
+export type PublicationSupport = { mobile: boolean; pos: boolean; kiosk: boolean };
+export type MenuRejectReason =
+  'ROUTING_UNRESOLVED' | 'VERSION_NOT_NEWER' | 'MEDIA_UNAVAILABLE' | 'INVALID_MENU';
+/** Cashier (edge) delivery of the latest catalog publication, as the catalog state reports it. */
+export type EdgeDelivery = {
+  catalog_version: number;
+  menu_version: number;
+  release_id: string;
+  device_id: string;
+  status: 'pending' | 'applied' | 'rejected' | 'unavailable' | 'superseded';
+  acknowledged_at: string | null;
+  reject_reason?: MenuRejectReason;
+  edge_active_version?: number | null;
+  observed_at?: string | null;
+};
 export type CatalogState = {
   branch: Branch;
-  publication_support?: { mobile: boolean; pos: false; kiosk: false };
+  publication_support?: PublicationSupport;
+  edge_delivery?: EdgeDelivery | null;
   draft: null | {
     revision: number;
     base_version: number;
@@ -31,6 +47,22 @@ export const assetKeys = [
     (v) => v !== 'i3.jpg' && v !== 'i21.jpg',
   ),
 ];
+export const hexColor = /^#[0-9A-F]{6}$/;
+/** Uploaded photo reference (CatalogImageRefSchema): sha256 is the card rendition hash. */
+export function imageRef(value: unknown): value is NonNullable<Product['image']> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    Object.keys(v).every((k) => ['asset_id', 'sha256', 'tile_color', 'cutout'].includes(k)) &&
+    typeof v['asset_id'] === 'string' &&
+    uuidPattern.test(v['asset_id']) &&
+    typeof v['sha256'] === 'string' &&
+    /^[a-f0-9]{64}$/.test(v['sha256']) &&
+    (v['tile_color'] === undefined ||
+      (typeof v['tile_color'] === 'string' && hexColor.test(v['tile_color']))) &&
+    (v['cutout'] === undefined || typeof v['cutout'] === 'boolean')
+  );
+}
 export function toMinor(input: string): string {
   const value = input
     .trim()
@@ -83,7 +115,11 @@ export function productIssues(p: Product, payload: CatalogPayload): string[] {
   if (!payload.categories.some((c) => c.id === p.category_id))
     errors.push('Выберите существующую категорию.');
   if (!assetKeys.includes(p.image_asset_key))
-    errors.push('Выберите изображение из каталога ресурсов.');
+    errors.push('Выберите запасное фото из каталога ресурсов.');
+  if (p.image !== undefined && !imageRef(p.image))
+    errors.push('Загруженное фото: некорректная ссылка, загрузите фото заново.');
+  if (p.kitchen_route !== undefined && !['prep', 'assembly_item'].includes(p.kitchen_route))
+    errors.push('Выберите станцию кухни.');
   try {
     toMajor(p.price_minor);
   } catch {
@@ -277,6 +313,97 @@ export function parsePayload(value: unknown): CatalogPayload {
     throw new Error('INVALID_RESPONSE');
   }
 }
+const deliveryStatuses = ['pending', 'applied', 'rejected', 'unavailable', 'superseded'];
+const rejectReasons = [
+  'ROUTING_UNRESOLVED',
+  'VERSION_NOT_NEWER',
+  'MEDIA_UNAVAILABLE',
+  'INVALID_MENU',
+];
+const isoTime = (v: unknown) => typeof v === 'string' && Number.isFinite(Date.parse(v));
+export function parseDelivery(value: unknown): EdgeDelivery | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const positive = (n: unknown) => Number.isInteger(n) && (n as number) > 0;
+  if (
+    !positive(v['catalog_version']) ||
+    !positive(v['menu_version']) ||
+    typeof v['release_id'] !== 'string' ||
+    typeof v['device_id'] !== 'string' ||
+    !deliveryStatuses.includes(String(v['status'])) ||
+    (v['acknowledged_at'] !== null && !isoTime(v['acknowledged_at'])) ||
+    (v['reject_reason'] !== undefined && !rejectReasons.includes(String(v['reject_reason']))) ||
+    (v['edge_active_version'] != null && !positive(v['edge_active_version'])) ||
+    (v['observed_at'] != null && !isoTime(v['observed_at']))
+  )
+    return null;
+  return copy(v) as EdgeDelivery;
+}
+const rejectText: Record<MenuRejectReason, string> = {
+  ROUTING_UNRESOLVED: 'не удалось определить станцию кухни для новых позиций',
+  VERSION_NOT_NEWER: 'на кассе уже более новая версия меню',
+  MEDIA_UNAVAILABLE: 'касса не смогла загрузить фото',
+  INVALID_MENU: 'касса не смогла прочитать меню, нужна новая версия кассы',
+};
+export const PENDING_WARNING_MS = 10 * 60 * 1000;
+/** One-line cashier status for the catalog page, plus a warning for a long wait. */
+export function deliveryText(
+  delivery: EdgeDelivery,
+  publishedAt: string | null,
+  now = Date.now(),
+): { text: string; tone: 'good' | 'bad' | 'wait' | 'muted'; warning: string | null } {
+  if (delivery.status === 'applied')
+    return {
+      text: `Касса: применено (версия ${delivery.menu_version})`,
+      tone: 'good',
+      warning: null,
+    };
+  if (delivery.status === 'rejected')
+    return {
+      text: `Касса: отклонено — ${
+        delivery.reject_reason ? rejectText[delivery.reject_reason] : 'причина не указана'
+      }`,
+      tone: 'bad',
+      warning: null,
+    };
+  if (delivery.status === 'unavailable')
+    return { text: 'Касса: не подключена к публикации', tone: 'muted', warning: null };
+  if (delivery.status === 'superseded')
+    return { text: 'Касса: заменено более новой версией меню', tone: 'muted', warning: null };
+  const waited = publishedAt ? now - Date.parse(publishedAt) : 0;
+  return {
+    text: 'Касса: ожидает',
+    tone: 'wait',
+    warning:
+      waited > PENDING_WARNING_MS
+        ? 'Касса не подтверждает публикацию больше 10 минут. Проверьте, что кассовый компьютер включён и на связи. Приложение и киоск уже работают с новой версией.'
+        : null,
+  };
+}
+/** Publish dialog copy: who takes the new version now and who after confirmation. */
+export function publicationCopy(support: PublicationSupport | undefined): string {
+  const now = [support?.mobile && 'мобильное приложение', support?.kiosk && 'киоск'].filter(
+    Boolean,
+  ) as string[];
+  const parts: string[] = [];
+  if (now.length)
+    parts.push(
+      `${now.join(' и ')} ${now.length > 1 ? 'получат' : 'получит'} новые цены, фото и состав сразу после публикации; корзины по старой версии попросят обновить.`,
+    );
+  if (support?.pos)
+    parts.push(
+      'Касса получит меню после подтверждения кассового узла (обычно в течение минуты); статус виден на этой странице.',
+    );
+  const off = [
+    !support?.mobile && 'приложение',
+    !support?.kiosk && 'киоск',
+    !support?.pos && 'касса',
+  ].filter(Boolean) as string[];
+  if (off.length === 3)
+    return 'Связь публикаций с приложением, киоском и кассой ещё не включена. Сохранённая версия станет действующей после подключения каналов.';
+  if (off.length) parts.push(`Не подключены: ${off.join(', ')} — они остаются на своих версиях.`);
+  return parts.join(' ');
+}
 export function parseState(value: unknown): CatalogState {
   try {
     const state = value as CatalogState;
@@ -297,7 +424,18 @@ export function parseState(value: unknown): CatalogState {
         throw new Error();
       parsePayload(state.published.payload);
     }
-    return copy(state);
+    const result = copy(state);
+    const support = state.publication_support as Record<string, unknown> | undefined;
+    if (support !== undefined)
+      result.publication_support = {
+        mobile: support['mobile'] === true,
+        pos: support['pos'] === true,
+        kiosk: support['kiosk'] === true,
+      };
+    // A delivery status this build cannot read is dropped rather than breaking the editor.
+    if (state.edge_delivery !== undefined)
+      result.edge_delivery = parseDelivery(state.edge_delivery);
+    return result;
   } catch {
     throw new Error('INVALID_RESPONSE');
   }

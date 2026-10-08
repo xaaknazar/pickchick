@@ -2079,3 +2079,249 @@ textarea {
     font-size: 26px;
   }
 }
+/* Unified menu: connected channels, cashier delivery, uploaded photos and remote stops. */
+.channel-status {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.channel-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.channel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+}
+.channel-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a6b1c0;
+}
+.channel-badge.on {
+  color: #126747;
+  border-color: #b9dcc9;
+  background: #f1f9f5;
+}
+.channel-badge.on::before {
+  background: var(--green);
+}
+.delivery {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.delivery-good {
+  border-color: #b9dcc9;
+  background: #f1f9f5;
+  color: #126747;
+}
+.delivery-bad {
+  border-color: #e9adb5;
+  background: #fff0f1;
+  color: #92263a;
+}
+.delivery-wait {
+  border-color: #f2c99a;
+  background: #fff7ee;
+  color: #8a4b0f;
+}
+.channel-help,
+.table-help {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.table-help {
+  padding: 0 20px 16px;
+}
+.uploaded-photo {
+  object-fit: cover;
+}
+.asset-preview > .uploaded-photo {
+  object-fit: contain;
+  background: var(--hi);
+}
+.fallback-preview {
+  width: 96px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.fallback-preview > img,
+.fallback-preview > .image-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.photo-progress {
+  width: 100%;
+  max-width: 320px;
+  height: 8px;
+  accent-color: var(--accent);
+}
+.photo-progress[hidden] {
+  display: none;
+}
+.photo-picker input[type='file'] {
+  min-height: 0;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+}
+.tile-color {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tile-color input[type='color'] {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+.stop-freshness {
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.stop-freshness.bad {
+  background: #fff0f1;
+  border-color: #e9adb5;
+  color: #92263a;
+}
+.stop-blocker {
+  margin: 0 20px 14px;
+}
+.stop-filters {
+  padding: 0 20px 14px;
+  margin-top: 16px;
+}
+.stop-table td small {
+  display: block;
+  margin-top: 4px;
+}
+.stop-table .stop-option td:first-child {
+  padding-left: 32px;
+}
+.stop-table .stop-option strong {
+  font-weight: 500;
+}
+.stop-state {
+  font-size: 13px;
+  font-weight: 600;
+}
+.stop-state.good {
+  color: #126747;
+}
+.stop-state.bad {
+  color: #97243a;
+}
+.stop-state.wait {
+  color: #8a4b0f;
+}
+.stop-durations {
+  border: 0;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.stop-durations legend {
+  margin-bottom: 4px;
+}
+.stop-dialog-name {
+  font-weight: 600;
+  margin: 4px 0 12px;
+}
+@media (max-width: 800px) {
+  /* Phones: each stop row becomes a card so the action stays on screen. */
+  .op-table.stop-table,
+  .stop-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .stop-table thead {
+    display: none;
+  }
+  .stop-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name action'
+      'status action'
+      'state state';
+    gap: 8px 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stop-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .stop-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+  .stop-table td:nth-child(1) {
+    grid-area: name;
+  }
+  .stop-table td:nth-child(2) {
+    grid-area: status;
+  }
+  .stop-table td:nth-child(3) {
+    grid-area: state;
+  }
+  .stop-table td:nth-child(4) {
+    grid-area: action;
+    align-self: center;
+  }
+  .stop-table td.op-empty {
+    grid-column: 1 / -1;
+  }
+  .stop-table .stop-none {
+    display: none;
+  }
+  .stop-blocker,
+  .stop-filters {
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .stop-table .stop-option td:first-child {
+    padding-left: 14px;
+  }
+}
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+}
+.photo-actions .photo-picker {
+  flex: 1 1 320px;
+}
+.photo-actions > .button {
+  flex: 0 0 auto;
+  margin-bottom: 26px;
+}
