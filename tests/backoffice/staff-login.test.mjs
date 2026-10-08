@@ -3,10 +3,32 @@ import assert from 'node:assert/strict';
 import { createServer, request } from 'node:http';
 import { createBackofficeServer } from '../../apps/backoffice/server.mjs';
 import { createStaffAccess, passwordHash } from '../../apps/backoffice/staff-auth.mjs';
+import { checkStaffHealth } from '../../apps/backoffice/staff-health.mjs';
 const password = 'Synthetic-fixture-password-2026';
 const hashed = await passwordHash(password);
 const origin = 'https://pickchick.example';
 const config = { version: 1, username: 'ceo', origin, token: 'a'.repeat(64), ...hashed };
+test('container health reaches the protected canonical host with Node HTTP', async (t) => {
+  const server = createBackofficeServer({
+    staffAccess: createStaffAccess({ ...config, origin: 'https://pickchick.kz' }),
+    staticPrefix: '/backoffice',
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  assert.equal(await checkStaffHealth(server.address().port), true);
+});
+test('container health rejects a successful response from an unrelated service', async (t) => {
+  const server = createServer((_req, res) => res.end('{}'));
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  assert.equal(await checkStaffHealth(server.address().port), false);
+});
 function call(port, path, { method = 'GET', body, cookie, headers = {} } = {}) {
   return new Promise((resolve, reject) => {
     const r = request(

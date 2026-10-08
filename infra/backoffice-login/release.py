@@ -93,7 +93,7 @@ def main(args):
              '--memory','512m','--cpus','1','--pids-limit','64', '--user',f'{private.stat().st_uid}:{private.stat().st_gid}',
              '--mount',f'type=bind,src={private},dst=/run/ceo.json,readonly',
              '-e','BACKOFFICE_STAFF_FILE=/run/ceo.json','-e','BACKOFFICE_API_PORT=3100',
-             '--health-cmd', 'node -e "fetch(\'http://127.0.0.1:4177/backoffice/auth/session\',{headers:{Host:\'pickchick.kz\'}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"',
+             '--health-cmd', 'node staff-health.mjs',
              '--health-interval','10s','--health-timeout','5s','--health-retries','3',image])
         created = True
         run(['docker','network','connect','pickchick-staging_ingress','pickchick-staff-login'])
