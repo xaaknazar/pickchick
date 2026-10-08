@@ -1,4 +1,4 @@
-import { createStaffAccess, staffError } from './staff-auth.mjs';
+import { loadStaffAccess, staffError } from './staff-auth.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, URLSearchParams } from 'node:url';
@@ -367,10 +367,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     apiPort = Number(process.env.BACKOFFICE_API_PORT ?? process.env.API_PORT ?? 3100);
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('Invalid backoffice port');
+  // Per-person accounts file (private permissions checked before it is read).
   const privateFile = process.env.BACKOFFICE_STAFF_FILE;
-  const staffAccess = privateFile
-    ? createStaffAccess(JSON.parse(await readFile(privateFile, 'utf8')))
-    : null;
+  const staffAccess = privateFile ? await loadStaffAccess(privateFile) : null;
   createBackofficeServer({
     apiPort,
     staffAccess,
