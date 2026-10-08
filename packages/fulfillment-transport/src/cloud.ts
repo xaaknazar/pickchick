@@ -16,7 +16,7 @@ import {
   EdgeEventSchema,
   ReleaseResultEventSchema,
 } from './model.js';
-import type { TransportScope } from './model.js';
+import type { TransportScope, PullRequest, StopCommandDelivery } from './model.js';
 
 interface Binding {
   organization_id: string;
@@ -81,6 +81,71 @@ export async function provisionFulfillmentTransport(pool: DatabasePool, input: u
   });
 }
 
+/** Re-send a delivered but unanswered command after this pause (lost pull response). */
+const STOP_REDELIVERY_SECONDS = 5;
+/** A delivered command without a verdict is closed this long after its own expiry. */
+const STOP_VERDICT_GRACE_SECONDS = 60;
+
+/** Protocol 4: back-office stop commands. Receipts first, so the availability written in the
+ * same transaction already contains their effect; then expire, then deliver open commands. */
+async function exchangeStopCommands(
+  client: DatabaseClient,
+  b: Binding,
+  receipts: NonNullable<PullRequest['stopReceipts']>,
+): Promise<StopCommandDelivery[]> {
+  for (const receipt of receipts)
+    await client.query(
+      `UPDATE cloud_stop_commands SET state=$3,result_version=$4,resolved_at=clock_timestamp()
+      WHERE id=$1 AND branch_id=$2 AND (state IN ('pending','delivered') OR (state='expired' AND delivered_at IS NOT NULL))`,
+      [
+        receipt.commandId,
+        b.branch_id,
+        receipt.result,
+        ['applied', 'conflict'].includes(receipt.result) ? receipt.version : null,
+      ],
+    );
+  await client.query(
+    `UPDATE cloud_stop_commands SET state='expired',resolved_at=clock_timestamp()
+    WHERE branch_id=$1 AND ((state='pending' AND expires_at<=clock_timestamp())
+      OR (state='delivered' AND expires_at+$2*interval '1 second'<=clock_timestamp()))`,
+    [b.branch_id, STOP_VERDICT_GRACE_SECONDS],
+  );
+  const rows = (
+    await client.query<{
+      id: string;
+      variant_id: string;
+      stopped: boolean;
+      duration: 'manual' | 'hour' | 'shift';
+      reason: string;
+      expected_version: number;
+      actor_label: string;
+      created_at: Date;
+    }>(
+      `WITH selected AS (
+        SELECT id FROM cloud_stop_commands WHERE organization_id=$1 AND branch_id=$2
+        AND expires_at>clock_timestamp()
+        AND (state='pending' OR (state='delivered' AND delivered_at<=clock_timestamp()-$3*interval '1 second'))
+        ORDER BY created_at,id LIMIT 50 FOR UPDATE SKIP LOCKED)
+      UPDATE cloud_stop_commands c SET state='delivered',delivered_at=clock_timestamp()
+      FROM selected s WHERE c.id=s.id
+      RETURNING c.id,c.variant_id,c.stopped,c.duration,c.reason,c.expected_version,c.actor_label,c.created_at`,
+      [b.organization_id, b.branch_id, STOP_REDELIVERY_SECONDS],
+    )
+  ).rows;
+  return rows
+    .sort((x, y) => x.created_at.getTime() - y.created_at.getTime() || x.id.localeCompare(y.id))
+    .map((row) => ({
+      commandId: row.id,
+      variantId: row.variant_id,
+      stopped: row.stopped,
+      duration: row.duration,
+      reason: row.reason,
+      expectedVersion: Number(row.expected_version),
+      actorLabel: row.actor_label,
+      issuedAt: row.created_at.toISOString(),
+    }));
+}
+
 /** One delivery per call. A bank/fiscal worker cannot claim this branch's commands. */
 export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, input: unknown) {
   const request = parse(PullRequestSchema, input),
@@ -88,32 +153,57 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
   return transaction(pool, async (client) => {
     const b = await binding(client, identity),
       token = randomUUID();
+    // Protocol 4 is a superset of 3: cashier reports plus back-office stop commands.
+    const stopProtocol = request.protocolVersion === 4,
+      reportProtocol = request.protocolVersion === 3 || stopProtocol;
     const cashierReportsSupported =
       (await client.query("SELECT 1 WHERE to_regclass('cloud_cashier_orders') IS NOT NULL"))
         .rowCount === 1;
-    if (request.cashierReports && request.protocolVersion !== 3) fail('INVALID_REQUEST');
+    if (request.cashierReports && !reportProtocol) fail('INVALID_REQUEST');
     if (request.cashierReports && !cashierReportsSupported) fail('SERVICE_UNAVAILABLE');
+    if (
+      stopProtocol &&
+      (await client.query("SELECT 1 WHERE to_regclass('cloud_stop_commands') IS NOT NULL"))
+        .rowCount !== 1
+    )
+      fail('SERVICE_UNAVAILABLE');
     const cashierReportReceipt = request.cashierReports
       ? await receiveCashierReports(client, b.branch_id, b.device_id, request.cashierReports)
       : undefined;
+    const stopCommands = stopProtocol
+      ? await exchangeStopCommands(client, b, request.stopReceipts ?? [])
+      : undefined;
     if (request.availability) {
       const ids = [...new Set(request.availability.stoppedIds)].sort();
-      await client.query(
-        `INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids) VALUES($1,$2,$3,$4::uuid[])
+      if (stopProtocol)
+        await client.query(
+          `INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids,stop_states) VALUES($1,$2,$3,$4::uuid[],$5::jsonb)
+          ON CONFLICT(branch_id) DO UPDATE SET revision=EXCLUDED.revision,stopped_ids=EXCLUDED.stopped_ids,stop_states=EXCLUDED.stop_states,observed_at=clock_timestamp()
+          WHERE cloud_branch_availability.device_id=EXCLUDED.device_id AND cloud_branch_availability.revision<EXCLUDED.revision`,
+          [
+            b.branch_id,
+            b.device_id,
+            request.availability.revision,
+            ids,
+            request.stopStates ? JSON.stringify(request.stopStates) : null,
+          ],
+        );
+      else
+        await client.query(
+          `INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids) VALUES($1,$2,$3,$4::uuid[])
         ON CONFLICT(branch_id) DO UPDATE SET revision=EXCLUDED.revision,stopped_ids=EXCLUDED.stopped_ids,observed_at=clock_timestamp()
         WHERE cloud_branch_availability.device_id=EXCLUDED.device_id AND cloud_branch_availability.revision<EXCLUDED.revision`,
-        [b.branch_id, b.device_id, request.availability.revision, ids],
-      );
+          [b.branch_id, b.device_id, request.availability.revision, ids],
+        );
     }
     if (request.availabilityOnly) {
       if (!request.availability) fail('INVALID_REQUEST');
       return parse(PullResponseSchema, {
         scope: scopeOf(b),
         event: null,
-        ...(cashierReportsSupported && request.protocolVersion === 3
-          ? { cashierReportsSupported: true }
-          : {}),
+        ...(cashierReportsSupported && reportProtocol ? { cashierReportsSupported: true } : {}),
         ...(cashierReportReceipt ? { cashierReportReceipt } : {}),
+        ...(stopCommands ? { stopCommands } : {}),
       });
     }
     const result = await client.query<{ id: string; event_type: string; payload: unknown }>(
@@ -155,10 +245,9 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
     const row = result.rows[0];
     return parse(PullResponseSchema, {
       scope: scopeOf(b),
-      ...(cashierReportsSupported && request.protocolVersion === 3
-        ? { cashierReportsSupported: true }
-        : {}),
+      ...(cashierReportsSupported && reportProtocol ? { cashierReportsSupported: true } : {}),
       ...(cashierReportReceipt ? { cashierReportReceipt } : {}),
+      ...(stopCommands ? { stopCommands } : {}),
       event: row
         ? {
             command: { eventId: row.id, type: row.event_type, payload: row.payload },

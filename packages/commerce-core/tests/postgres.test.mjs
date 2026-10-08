@@ -1635,6 +1635,88 @@ test('mobile quote and new payment reject a stopped product using product id rat
     { paymentProvider: 'kaspi-remote' },
   ));
 
+test('pending back-office stop blocks quote at once; a pending unstop never unblocks', () =>
+  fixture(
+    async (f) => {
+      const { localSelectionIds } = await import('@pickchick/menu-sync');
+      const { branchAvailability } = await import('../dist/index.js');
+      await publishCatalog(f);
+      await f.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+      );
+      const service = new CustomerCheckout(f.pool, {
+        ...f.scope,
+        paymentAccountId: f.payment,
+        customerIds: [f.scope.principalId],
+        maxOrderMinor: '1000000',
+        approvalReference: 'Synthetic remote stop verification',
+        repeatOrdersEnabled: true,
+      });
+      const req = () => ({
+        key: randomUUID(),
+        branchId: f.scope.branchId,
+        serviceMode: 'takeaway',
+        items: [{ productId: 'burger', quantity: 1, selections: [] }],
+      });
+      const [variant] = localSelectionIds(f.scope.branchId, 'burger', []);
+      const actor = (await f.pool.query('SELECT id FROM catalog_managers LIMIT 1')).rows[0].id;
+      const command = async (stopped, expected) => {
+        const id = randomUUID();
+        await f.pool.query(
+          `INSERT INTO cloud_stop_commands(id,organization_id,branch_id,variant_id,catalog_ref,stopped,duration,reason,expected_version,actor_id,actor_label)
+          VALUES($1,$2,$3,$4,'burger',$5,'manual','Synthetic',$6,$7,'Synthetic manager')`,
+          [id, f.scope.organizationId, f.scope.branchId, variant, stopped, expected, actor],
+        );
+        return id;
+      };
+      const quote = await service.quote(f.scope.principalId, req());
+      const stop = await command(true, 0);
+      await assert.rejects(
+        service.quote(f.scope.principalId, req()),
+        (e) => e.code === 'ITEM_STOPPED',
+      );
+      assert.equal(
+        (await service.availability()).products.find((p) => p.id === 'burger').available,
+        false,
+      );
+      // The edge applied it: the projection now carries the stop, the command no longer does.
+      await f.pool.query(
+        "UPDATE cloud_stop_commands SET state='applied',result_version=1,resolved_at=clock_timestamp() WHERE id=$1",
+        [stop],
+      );
+      await f.pool.query(
+        'UPDATE cloud_branch_availability SET stopped_ids=$1::uuid[],observed_at=now()',
+        [[variant]],
+      );
+      await command(false, 1);
+      await assert.rejects(
+        service.quote(f.scope.principalId, req()),
+        (e) => e.code === 'ITEM_STOPPED',
+      );
+      assert.deepEqual((await branchAvailability(f.pool, f.scope.branchId)).stoppedIds, [variant]);
+      // ITEM_STOPPED still wins over a stale heartbeat.
+      await f.pool.query(
+        "UPDATE cloud_branch_availability SET stopped_ids='{}',observed_at=now()-interval '1 minute'",
+      );
+      const lapse = () =>
+        f.pool.query(
+          "UPDATE cloud_stop_commands SET state='expired',resolved_at=clock_timestamp() WHERE state='pending'",
+        );
+      await lapse();
+      await command(true, 0);
+      await assert.rejects(
+        service.quote(f.scope.principalId, req()),
+        (e) => e.code === 'ITEM_STOPPED',
+      );
+      // A lapsed command no longer blocks; an unanswered one stops counting after 120 s.
+      await lapse();
+      await f.pool.query('UPDATE cloud_branch_availability SET observed_at=now()');
+      assert.equal((await service.quote(f.scope.principalId, req())).totalMinor, quote.totalMinor);
+    },
+    { paymentProvider: 'kaspi-remote' },
+  ));
+
 test('restaurant hours reject new business operations while closed and preserve existing financial recovery', () =>
   fixture(
     async (f) => {

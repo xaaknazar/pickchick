@@ -34,6 +34,13 @@ export function validateWorkerConfig(config, origin, branchId, deviceId) {
   )
     throw new Error('Windows sync scope or dedicated database role differs');
 }
+/** Protocol 4 adds back-office stop commands. Off (2) unless explicitly configured. */
+export function workerProtocolVersion(env = process.env) {
+  const value = env.FULFILLMENT_TRANSPORT_PROTOCOL ?? '2';
+  if (value === '2') return 2;
+  if (value === '4') return 4;
+  throw new Error('FULFILLMENT_TRANSPORT_PROTOCOL must be 2 or 4');
+}
 export { readWindowsIdentity } from './native-pos-sync-worker.mjs';
 import { readWindowsIdentity } from './native-pos-sync-worker.mjs';
 async function main() {
@@ -58,7 +65,8 @@ async function main() {
     importPackage('@pickchick/fulfillment-transport'),
   ]);
   const config = loadConfig('edge'),
-    origin = process.env.EDGE_FULFILLMENT_CLOUD_ORIGIN;
+    origin = process.env.EDGE_FULFILLMENT_CLOUD_ORIGIN,
+    protocolVersion = workerProtocolVersion();
   validateWorkerConfig(config, origin, branchId, deviceId);
   await promisify(execFile)(
     join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
@@ -79,7 +87,8 @@ async function main() {
     stop = new AbortController(),
     once = extra.includes('--once');
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => stop.abort());
-  let failures = 0;
+  let failures = 0,
+    remoteStops;
   try {
     do {
       let delivered = false;
@@ -95,9 +104,20 @@ async function main() {
           branchId,
           origin,
           identity,
+          ...(protocolVersion === 4 ? { protocolVersion } : {}),
         });
         if (once || !['idle', 'busy', 'disabled'].includes(result.state))
           console.log(JSON.stringify({ event: 'fulfillment_transport', ...result }));
+        else if (result.state === 'idle' && result.remoteStops !== remoteStops)
+          // A degraded stop channel is not an error for the order loop; report changes only.
+          console.log(
+            JSON.stringify({
+              event: 'fulfillment_remote_stops',
+              state: result.remoteStops ?? (protocolVersion === 4 ? 'active' : 'off'),
+            }),
+          );
+        if (['idle', 'acknowledged', 'applied'].includes(result.state))
+          remoteStops = result.remoteStops;
         delivered = ['applied', 'acknowledged'].includes(result.state);
         if (['retry', 'blocked', 'parked'].includes(result.state)) {
           failures = Math.min(6, failures + 1);

@@ -1,7 +1,10 @@
-/** Separate commercial edge transport role. No staff, POS or credential access. */
-export function fulfillmentWorkerGrants(role, schema = 'public') {
+/** Separate commercial edge transport role. No staff, POS or credential access.
+ * remoteStops (edge schema019, transport protocol 4): fill the stop-command inbox, report
+ * verdicts and read per-variant stop versions. It never writes local_stops. */
+export function fulfillmentWorkerGrants(role, schema = 'public', { remoteStops = false } = {}) {
   for (const name of [role, schema])
     if (!/^[a-z][a-z0-9_]{0,62}$/.test(name)) throw new Error('Invalid role/schema');
+  if (typeof remoteStops !== 'boolean') throw new Error('Invalid remote stop grant flag');
   const grant = (privilege, names) =>
     `GRANT ${privilege} ON ${names
       .split(',')
@@ -14,6 +17,20 @@ export function fulfillmentWorkerGrants(role, schema = 'public') {
       'cashier_report_outbox,schema_migrations,branch_config,fulfillment_config,fulfillment_routing,fulfillment_reservations,fulfillment_tasks,fulfillment_inbox,fulfillment_outbox,fulfillment_release_results,fulfillment_transport_state,fulfillment_transport_failures,fulfillment_transport_reverse_failures',
     ),
     grant('SELECT(branch_id,variant_id,stopped,expires_at,expires_shift_id)', 'local_stops'),
+    ...(remoteStops
+      ? [
+          grant('SELECT(version,source,updated_at)', 'local_stops'),
+          grant(
+            'SELECT(command_id,branch_id,state,result_version,applied_at,reported_at)',
+            'remote_stop_commands',
+          ),
+          grant(
+            'INSERT(command_id,branch_id,variant_id,stopped,duration,reason,expected_version,actor_label,issued_at)',
+            'remote_stop_commands',
+          ),
+          grant('UPDATE(reported_at)', 'remote_stop_commands'),
+        ]
+      : []),
     grant('SELECT(id,state)', 'local_cash_shifts'),
     grant(
       'SELECT(id,branch_id,quote_id,cash_shift_id,created_at,total_minor,state,version,execution_mode)',
