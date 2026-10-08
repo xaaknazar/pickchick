@@ -11,7 +11,7 @@
       "isTabletOnly": true,
       "requireFullScreen": true,
       "bundleIdentifier": "kz.pickchick.kiosk",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
