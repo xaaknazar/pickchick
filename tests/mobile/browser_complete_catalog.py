@@ -3,6 +3,10 @@
 Uses the compiled catalog rather than duplicating its 24 products. The real
 mobile recovery core submits a quote payload, but a simulated 503 intentionally
 stops it before order creation. Integration tests own server pricing/payment.
+
+This journey covers the legacy TEST catalog, so export the web app with
+EXPO_PUBLIC_PUBLISHED_CATALOG=0 (the published catalog is the default; see
+browser_published_photos.py for that path).
 """
 import json
 import os

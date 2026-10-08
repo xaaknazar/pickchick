@@ -48,6 +48,9 @@ with sync_playwright() as p:
                                      **{k: False for k in ['payments', 'fiscal', 'checkout', 'loyalty']}}}
             elif path == '/v1/customer-checkout/catalog':
                 data = state['publication']
+            elif path == '/v1/customer-checkout/catalog/media':
+                # No uploaded photos: the bundled photos stay (see browser_published_photos.py).
+                data = {'version': state['publication']['version'], 'products': {}}
             elif path == '/v1/customer-checkout/availability':
                 data = {'enabled': True, 'fresh': True, 'orderingOpen': True, 'signature': 'a'*64,
                         'products': [{'id': x['id'], 'available': True, 'stoppedOptions': []}

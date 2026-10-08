@@ -1,12 +1,11 @@
 import { useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
 import { cartTotal, money, selectionDescription } from '../domain';
 import { mergeCartLines, repeatOrderPlan } from '../cart-actions';
-import { menuPhotos } from '../menu-photo-assets';
+import { ProductPhoto, productPhoto } from './ProductPhoto';
 import { colors } from '../theme';
 import { Body, Button, Caption, CloseButton, Heading, Notice, Row } from './UI';
 import { MotionModal } from './Motion';
@@ -83,8 +82,8 @@ export function RepeatOrder({ order, props }: { order: TestOrder; props: ScreenP
                   ))}
                   {plan.lines.map((line, i) => (
                     <Row key={i} style={{ alignItems: 'flex-start', gap: 12 }}>
-                      <Image
-                        source={menuPhotos[line.product.id] ?? line.product.image}
+                      <ProductPhoto
+                        photo={productPhoto(line.product, 'thumb', 'menu')}
                         contentFit="contain"
                         style={{
                           width: 80,

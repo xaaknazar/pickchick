@@ -27,6 +27,17 @@ test('all current catalog products use the unified photo design', () => {
     new Set(testCompleteCatalog.products.map((p) => p.id)),
   );
   assert.equal(hasPhotoPilot('unknown'), false);
+  // A back-office product with an uploaded photo uses the same photo page.
+  const sha = 'a'.repeat(64);
+  const media = {
+    sha256: sha,
+    card: `/v1/media/catalog/${sha}.card.webp`,
+    hero: `/v1/media/catalog/${sha}.hero.webp`,
+    thumb: `/v1/media/catalog/${sha}.thumb.webp`,
+  };
+  assert.equal(hasPhotoPilot({ id: 'unknown' }), false);
+  assert.equal(hasPhotoPilot({ id: 'unknown', media }), true);
+  assert.equal(hasPhotoPilot({ id: 'burger', media }), true);
 });
 test('each duo slot replaces one drink and preserves sauces, extras and input', () => {
   const initial = [

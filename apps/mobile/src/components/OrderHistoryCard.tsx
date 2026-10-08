@@ -4,6 +4,7 @@ import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { Product } from '../model';
 import { paymentCopy } from '../commerce-presentation';
 import { money } from '../domain';
+import { ProductPhoto, productPhoto } from './ProductPhoto';
 import { menuPhotos } from '../menu-photo-assets';
 import { colors, font } from '../theme';
 import { MotionPressable } from './Motion';
@@ -67,10 +68,13 @@ export function OrderHistoryCard({
           >
             {thumbnails.map((item, index) => {
               const product = products.find((entry) => entry.id === item.productId);
-              const image = menuPhotos[item.productId] ?? product?.image;
+              const photo = product ? productPhoto(product, 'thumb', 'menu') : undefined;
+              const image = photo ? undefined : menuPhotos[item.productId];
               return (
                 <View key={`${item.productId}-${index}`} style={s.thumbnail}>
-                  {image ? (
+                  {photo ? (
+                    <ProductPhoto photo={photo} contentFit="contain" style={s.image} />
+                  ) : image ? (
                     <Image source={image} contentFit="contain" style={s.image} />
                   ) : (
                     <Icon name="restaurant-outline" color={colors.background} size={26} />

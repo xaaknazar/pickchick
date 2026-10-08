@@ -22,7 +22,7 @@ import { OrderActions } from '../components/OrderActions';
 import { RepeatOrder } from '../components/RepeatOrder';
 import { OrderChef } from '../components/OrderChef';
 import { assets } from '../assets';
-import { menuPhotos } from '../menu-photo-assets';
+import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { colors, font } from '../theme';
 import { money } from '../domain';
 import { restaurantLocation } from '../restaurant-location';
@@ -143,8 +143,8 @@ export function OrderStatusView({
         <View style={s.foodMain}>
           <View style={s.foodVisual}>
             {product ? (
-              <Image
-                source={menuPhotos[product.id] ?? product.image}
+              <ProductPhoto
+                photo={productPhoto(product, 'card', 'menu')}
                 contentFit="contain"
                 style={s.foodImage}
                 accessibilityLabel={line.name}

@@ -27,7 +27,14 @@ export const photoProductIds = [
   'water',
   'piko',
 ];
-export const hasPhotoPilot = (id: string) => photoProductIds.includes(id);
+/**
+ * The photo product page is used for every seeded product and for any product the back-office
+ * gave an uploaded photo (media map hero), so new published products get the same design.
+ */
+export const hasPhotoPilot = (product: string | { id: string; media?: { hero?: string } }) =>
+  typeof product === 'string'
+    ? photoProductIds.includes(product)
+    : photoProductIds.includes(product.id) || typeof product.media?.hero === 'string';
 export const isComboProduct = (id: string) =>
   id.endsWith('-combo') || id.endsWith('-duo') || /^fingers-(25|50|75|100)$/.test(id);
 

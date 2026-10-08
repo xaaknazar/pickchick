@@ -1,5 +1,7 @@
 import {
+  CatalogMediaMapSchema,
   CatalogMobileStorefrontSchema,
+  type CatalogMediaMap,
   type CatalogMobileStorefront,
 } from '@pickchick/catalog-admin/contracts';
 import { BranchSchema, MenuSnapshotSchema } from '@pickchick/contracts';
@@ -109,6 +111,34 @@ export async function loadTestCatalog(signal?: AbortSignal) {
   );
 }
 
+/**
+ * The back-office publication is the storefront. Only an explicit `EXPO_PUBLIC_PUBLISHED_CATALOG=0`
+ * build (development and legacy UI fixtures) still reads the old public menu or TEST catalog.
+ */
+export function publishedCatalogEnabled(): boolean {
+  return process.env.EXPO_PUBLIC_PUBLISHED_CATALOG !== '0';
+}
+
+/**
+ * Uploaded photos of exactly this publication version. A missing route, an old or new version
+ * (409), a malformed map or a network failure all yield an empty map: bundled photos stay.
+ */
+export async function loadCatalogMedia(
+  version: number,
+  signal?: AbortSignal,
+): Promise<CatalogMediaMap> {
+  const empty: CatalogMediaMap = { version, products: {} };
+  if (!Number.isSafeInteger(version) || version < 1) return empty;
+  try {
+    const media = CatalogMediaMapSchema.parse(
+      await readCatalogJson(`/v1/customer-checkout/catalog/media?version=${version}`, signal, 5000),
+    );
+    return media.version === version ? media : empty;
+  } catch {
+    return empty;
+  }
+}
+
 export async function loadCatalog(
   branchId: string | null,
   signal?: AbortSignal,
@@ -118,8 +148,9 @@ export async function loadCatalog(
   branch: Branch;
   menu: MenuSnapshot | null;
   publication: CatalogMobileStorefront | null;
+  media: CatalogMediaMap | null;
 }> {
-  if (process.env.EXPO_PUBLIC_PUBLISHED_CATALOG === '1') {
+  if (publishedCatalogEnabled()) {
     const [capabilitiesResult, publicationResult] = await Promise.allSettled([
       readCatalogJson('/v1/capabilities', signal).then(parseCapabilities),
       readCatalogJson('/v1/customer-checkout/catalog', signal).then((value) =>
@@ -131,7 +162,9 @@ export async function loadCatalog(
     const capabilities = capabilitiesResult.value;
     const publication = publicationResult.value;
     const branch = BranchSchema.parse(publication.branch);
-    return { capabilities, publication, branch, branches: [branch], menu: null };
+    const media = await loadCatalogMedia(publication.version, signal);
+    if (signal?.aborted) throw new Error('Aborted');
+    return { capabilities, publication, media, branch, branches: [branch], menu: null };
   }
   // Wait for both bounded reads to settle before permitting a retry. A quick
   // failure of one endpoint must not leave its sibling running in the next attempt.
@@ -163,5 +196,5 @@ export async function loadCatalog(
     await readCatalogJson(`/v1/branches/${branch.id}/menu`, signal),
   );
   if (menu.branch_id !== branch.id) throw new Error('Branch mismatch');
-  return { capabilities, branches, branch, menu, publication: null };
+  return { capabilities, branches, branch, menu, publication: null, media: null };
 }

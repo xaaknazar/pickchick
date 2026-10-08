@@ -53,7 +53,7 @@ export function ConfiguredProduct(
     onSave?(selections: Selection[], quantity: number): void;
   },
 ) {
-  return hasPhotoPilot(props.product.id) ? (
+  return hasPhotoPilot(props.product) ? (
     <PhotoProduct {...props} />
   ) : (
     <LegacyConfiguredProduct {...props} />

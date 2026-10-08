@@ -3,7 +3,7 @@ import {
   restoreLegacyPublishedCart,
   publishedCartStorageRelease,
 } from './published-catalog';
-import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
+import type { CatalogMediaMap, CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,7 +21,12 @@ import {
 } from 'react';
 import type { MenuSnapshot } from '@pickchick/contracts';
 import { isRetryableCatalogError, loadCatalog, loadTestCatalog } from './api';
-import { createCatalogRecovery } from './catalog-recovery';
+import {
+  PUBLISHED_CATALOG_REFRESH_MS,
+  catalogRefreshTarget,
+  createCatalogRecovery,
+} from './catalog-recovery';
+import { prefetchCatalogMedia } from './components/ProductPhoto';
 import {
   DESIGN_RELEASE,
   designProducts,
@@ -81,6 +86,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [catalogUpdateNotice, setCatalogUpdateNotice] = useState<string | null>(null);
   const [publication, setPublication] = useState<CatalogMobileStorefront | null>(null);
+  const [media, setMedia] = useState<CatalogMediaMap | null>(null);
   const [menu, setMenu] = useState<MenuSnapshot | null>(null);
   const [unpaidAvailable, setUnpaidAvailable] = useState(false);
   const [connectedCatalog, setConnectedCatalog] = useState<TestCatalog | null>(null);
@@ -106,6 +112,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   modeRef.current = catalogMode;
   const serverRelease = useRef<string | null>(null);
   const cartPublication = useRef<CatalogMobileStorefront | null>(null);
+  const catalogRecovery = useRef<{ refresh(): void } | null>(null);
+  const requestedCatalogVersion = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -152,8 +160,13 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         return { result, testCatalog };
       },
       isRetryable: isRetryableCatalogError,
-      onLoading: () =>
-        setConnection((previous) => ({ ...previous, status: 'loading', message: null })),
+      // A published menu is re-read every minute in the foreground (and at once when the
+      // availability long-poll reports a newer head). Legacy menus keep the read-once behaviour.
+      successDelay: ({ result }) => (result.publication ? PUBLISHED_CATALOG_REFRESH_MS : null),
+      onLoading: (background) => {
+        if (!background)
+          setConnection((previous) => ({ ...previous, status: 'loading', message: null }));
+      },
       onSuccess: ({ result, testCatalog }) => {
         const nextRelease = result.publication
           ? `published:${result.branch.id}:${result.publication.version}`
@@ -171,6 +184,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         );
         setMenu(result.menu);
         setPublication(result.publication);
+        setMedia(result.media);
+        prefetchCatalogMedia(result.media);
         if (!restoration.current)
           setCart((previous) => {
             if (!previous.length) cartPublication.current = result.publication;
@@ -189,7 +204,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
               : restoreCart(
                   restoration.current,
                   result.publication
-                    ? publishedProducts(restoration.current.publication ?? result.publication, 'ru')
+                    ? publishedProducts(
+                        restoration.current.publication ?? result.publication,
+                        'ru',
+                        result.media,
+                      )
                     : testCatalog
                       ? connectedProducts(testCatalog)
                       : serverProducts(result.menu, 'ru'),
@@ -231,13 +250,17 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           message: null,
         });
       },
-      onFailure: () =>
+      onFailure: (_error, background) => {
+        // A failed background re-read keeps the loaded menu; activation and retries still report.
+        if (background) return;
         setConnection((previous) => ({
           ...previous,
           status: 'offline',
           message: 'Не удалось обновить меню. Проверьте интернет и повторите.',
-        })),
+        }));
+      },
     });
+    catalogRecovery.current = recovery;
     const subscription = AppState.addEventListener('change', (state) =>
       recovery.setActive(state === 'active'),
     );
@@ -247,20 +270,35 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.remove();
       recovery.stop();
+      if (catalogRecovery.current === recovery) catalogRecovery.current = null;
     };
   }, [hydrated, requestedBranchId, refreshIndex]);
 
   const availability = useAvailability(hydrated && catalogMode === 'server', refreshIndex);
+  // A republish (price, photo, items) reaches the long-poll as a newer X-Catalog-Version. Reload
+  // through the same recovery path, which shows 'Меню обновилось' and holds checkout until the
+  // customer accepts the updated basket.
+  const loadedCatalogVersion = publication?.version ?? null;
+  useEffect(() => {
+    const target = catalogRefreshTarget(
+      catalogMode === 'server' ? availability.catalogVersion : null,
+      loadedCatalogVersion,
+      requestedCatalogVersion.current,
+    );
+    if (target === null) return;
+    requestedCatalogVersion.current = target;
+    catalogRecovery.current?.refresh();
+  }, [availability.catalogVersion, loadedCatalogVersion, catalogMode]);
   const baseProducts = useMemo(
     () =>
       catalogMode === 'design'
         ? designProducts
         : publication
-          ? publishedProducts(publication, locale)
+          ? publishedProducts(publication, locale, media)
           : connectedCatalog
             ? connectedProducts(connectedCatalog)
             : serverProducts(menu, locale),
-    [catalogMode, menu, locale, connectedCatalog, publication],
+    [catalogMode, menu, locale, connectedCatalog, publication, media],
   );
   const products = useMemo(
     () => withAvailability(baseProducts, catalogMode === 'server' ? availability.data : null),
@@ -348,6 +386,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setRequestedBranchId(null);
     setMenu(null);
     setPublication(null);
+    setMedia(null);
     cartPublication.current = null;
     setCatalogUpdateNotice(null);
     setConnectedCatalog(null);

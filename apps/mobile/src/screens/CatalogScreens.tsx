@@ -4,7 +4,7 @@ import {
   CheckoutAction,
   checkoutStyle,
 } from '../components/CheckoutPresentation';
-import { menuPhotos } from '../menu-photo-assets';
+import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { MotionPressable as Pressable, MotionModal } from '../components/Motion';
@@ -215,11 +215,10 @@ const ProductMenuCard = memo(function ProductMenuCard({
         testID={`product-photo-${product.id}`}
         style={[s.productPhotoWrap, compact && s.compactPhoto]}
       >
-        <Image
-          source={menuPhotos[product.id] ?? product.image}
+        <ProductPhoto
+          photo={productPhoto(product, 'card', 'menu')}
           style={StyleSheet.absoluteFill}
           contentFit="contain"
-          cachePolicy="memory-disk"
         />
         {hit ? (
           <View style={s.hit}>
@@ -372,7 +371,7 @@ export function Menu(props: ScreenProps) {
   const openProduct = useCallback(
     (product: Product) => {
       props.model.selectProduct(product.id);
-      if (hasPhotoPilot(product.id))
+      if (hasPhotoPilot(product))
         router.push({
           pathname: '/product-photo',
           params: { product: product.id, ...(props.preview ? { preview: '1' } : {}) },
@@ -790,8 +789,8 @@ export function Cart(props: ScreenProps) {
                 accessibilityLabel={`Изменить ${line.product.name}`}
                 testID={`cart-edit-${line.product.id}`}
               >
-                <Image
-                  source={menuPhotos[line.product.id] ?? line.product.image}
+                <ProductPhoto
+                  photo={productPhoto(line.product, 'card', 'menu')}
                   style={s.cartImage}
                   contentFit="contain"
                 />

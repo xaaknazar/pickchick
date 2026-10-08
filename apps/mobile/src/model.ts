@@ -1,4 +1,5 @@
 import type { ImageSourcePropType } from 'react-native';
+import type { CatalogMediaEntry } from '@pickchick/catalog-admin/contracts';
 import type { TestFlowModel } from './useTestOrders';
 
 export type ScreenId = `M${string}`;
@@ -35,6 +36,10 @@ export interface Product {
   category: string;
   priceMinor: string;
   image: ImageSourcePropType;
+  /** Published bundled photo key; absent for design and legacy catalogs. */
+  imageKey?: string;
+  /** Uploaded back-office photo of the loaded publication (media map entry). */
+  media?: CatalogMediaEntry;
   source: CatalogMode;
   catalogVersion?: 'mockup-v0.2' | 'mockup-v0.3' | `published:${string}:${number}`;
   servingLabel?: string;
