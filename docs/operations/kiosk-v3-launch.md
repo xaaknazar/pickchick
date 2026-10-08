@@ -64,11 +64,13 @@ Upstream HEAD `175577e` новее нашего pin `28c9167`: `APP_VERSION` п�
    уведомлением, иначе узнаем от гостей.
 6. **Пересоздание моста роняет мобильные счета** на время рестарта (общий netns с
    `pickchick-kaspi-worker`). Делать вне часов работы, без pending-счетов.
-7. **Меню без ACK = оплата закрыта.** Пока на кассе нет процесса pull/apply/ACK,
-   киоск покажет меню, но кнопки оплаты не будет. Варианты для владельца: (а) сделать
-   edge-процесс на кассе Windows (правильно, дольше); (б) временный, явно разрешённый
-   владельцем обход через env с журналом и сроком (в коде его нет, нужен PR с тестом).
-   ACK SQL-вставкой не делать.
+7. **ACK меню с кассы для оплаты в киоске больше не нужен** (решение владельца
+   8 октября, коммит в этой ветке): меню делается только в бэк-офисе, одна публикация
+   сразу действует для приложения, киоска и кассы. Киоск теперь открывает оплату по тем
+   же условиям, что мобильное приложение: точка принимает заказы, меню опубликовано,
+   платёжный аккаунт включён, кухня на связи (активная `fulfillment_transport_bindings`
+   и активное устройство). Отдельно остаётся задача синхронизации меню бэк-офиса с
+   самой кассой Windows (сейчас касса меню не получает) - на оплату в киоске не влияет.
 8. **Фискальный чек.** `deferred_pilot` = чека Webkassa нет. Для гостей нужен
    `required` и fiscal account - иначе продажи без чека.
 9. **Координаты QR** `43.226626, 76.861489` - сверить, что это Abay Plaza.
@@ -126,7 +128,7 @@ Mac-рабочая копия:
    контрольного платежа это удобно; для гостей нужны утверждённые цены и новый
    лимит (отдельное решение и отдельный выпуск env).
 5. **Публикация меню из бэк-офиса** (см. A4): разрешение опубликовать текущий
-   черновик как новую версию для точки Abay Plaza с доставкой на кассу.
+   черновик как новую версию для точки Abay Plaza.
 6. Подтверждение, что касса Windows (192.168.2.184) включена и доступна, а кухня
    готова принять контрольный заказ в часы работы (`CUSTOMER_KASPI_OPENING_TIME`/`CLOSING_TIME`).
 
@@ -150,14 +152,11 @@ Mac-рабочая копия:
   собирает контекст, но установка/замена `pickchick-kaspi-bridge` не автоматизирована.
   Пересоздание моста затрагивает действующий `pickchick-kaspi-worker`
   (`network_mode: container:pickchick-kaspi-bridge`) мобильных счетов.
-- **ACK меню.** Конфиг киоска разрешает оплату только при `delivery.status='applied'`
-  (`kiosk-checkout.ts`). Для v3 `catalog_menu_deliveries` нет. Строка создаётся
-  только публикацией из бэк-офиса при `CATALOG_EDGE_PUBLICATION_ENABLED=true`, ACK -
-  edge-узел точки через `packages/menu-sync`. Windows-воркеры в `infra/windows`
-  меню не синхронизируют (`native-pos-sync.md`: «does not update ... menu data»),
-  handoff: «Cloud POS sync остаётся выключенным», прямой SSH к кассе 7 октября -
-  timeout. **Какой процесс на кассе применит и подтвердит меню - в репозитории не
-  установлено.** Без этого оплата в киоске останется закрытой.
+- ~~ACK меню~~ - снят: `KioskCheckout.config` больше не требует
+  `catalog_menu_deliveries.status='applied'`, проверяет кухню как мобильный checkout
+  (`packages/commerce-core/src/kiosk-checkout.ts`, тест
+  `kiosk-checkout.postgres.test.mjs`). Синхронизация меню на саму кассу Windows
+  (`native-pos-sync.md`: «does not update ... menu data») - отдельная задача.
 - **Нет инструмента чтения реального QR status.** Worker пишет только счётчики.
   Скрипта, выводящего имена полей ответа `/api/qr/status`, нет (A6/B3).
 - **Ветка `codex/kiosk-v3-design` есть только локально на Mac** (коммиты `dbf7a51`,
@@ -243,8 +242,8 @@ kiosk-заказов 0. Любое расхождение - записать и 
   `kind='payment'`, `provider='kaspi-qr'`, те же organization/branch/legal_entity, что у
   точки (`branches.legal_entity_id`), `external_reference` - согласовать (в репо не
   задан), `enabled=false` на этапе apply; `enabled=true` - отдельным шагом A7;
-- при `CATALOG_EDGE_PUBLICATION_ENABLED` не true - добавить его и
-  `CATALOG_EDGE_PUBLICATION_BRANCH_ID` + `catalogEdgePublicationGrants(...,true)`;
+- `CATALOG_EDGE_PUBLICATION_ENABLED` для оплаты в киоске не нужен (ACK снят); не
+  включать в этом выпуске - это часть будущей синхронизации меню с кассой;
 - сохранить `verify_public()`-проверки (auth, finance 401, мобильный каталог,
   TipTopPay 404, kitchen sourceSha), env API менять только перечисленным дельта-набором;
 - `rollback`: сохранить БД/новые данные, вернуть ACL/pointers/образ; при новых
@@ -300,18 +299,15 @@ APP_ENV=staging   (+ прочие обязательные platform env, как 
 синхронизация = одна публикация в бэк-офисе, если `KIOSK_CHECKOUT_BRANCH_ID` совпадает
 с веткой мобильной витрины (`CUSTOMER_KASPI_BRANCH_ID`) - сверить в A0.
 
-1. После A1 (edge-публикация включена) в бэк-офисе «Каталог» опубликовать текущий
-   проверенный черновик (draft revision 8, hash
-   `43d4580c488326238bca892c8f0ee98f3b1d981224261b187237aa31107ba6b7`) как новую версию.
-   Сервер создаст `menu_releases` + `catalog_menu_deliveries`. Цены не менять без решения владельца.
-2. ACK должен прийти от активного edge-устройства с активной
-   `fulfillment_transport_bindings`. ACK SQL-вставкой не создавать.
-3. **Неизвестно:** какой процесс на кассе выполняет pull/apply/ACK меню (см. блокеры).
-   Требуется обследование `@windows/cashier` и, вероятно, отдельная установка.
-4. Проверка: бэк-офис показывает доставку `applied`; SQL
-   `readCatalogMenuDelivery` -> `status='applied'`, `acknowledged_at` не NULL;
-   `GET /v1/customer-checkout/catalog` и `GET /v1/kiosk-checkout/catalog` (с device-ключом)
-   возвращают одинаковые `version`.
+1. В бэк-офисе «Каталог» опубликовать текущий проверенный черновик (draft revision 8,
+   hash `43d4580c488326238bca892c8f0ee98f3b1d981224261b187237aa31107ba6b7`) как новую
+   версию. Цены не менять без решения владельца (лимит, 100 ₸ у Pick Combo, напитки/соусы).
+2. ACK с кассы для киоска не требуется (см. «Неудобства», п. 7). Проверить, что кухня
+   на связи: активная `fulfillment_transport_bindings` и `devices.status='active'`,
+   kitchen-live `edgeConnected:true`.
+3. Проверка: `GET /v1/customer-checkout/catalog` и `GET /v1/kiosk-checkout/catalog`
+   (с device-ключом) возвращают одинаковые `version`; новая публикация сразу видна в обоих.
+4. Синхронизация меню на кассу Windows - отдельная задача `@windows/cashier`, не блокирует киоск.
 
 ### A5-A6. Запуск и проверки без денег
 
@@ -327,7 +323,7 @@ APP_ENV=staging   (+ прочие обязательные platform env, как 
 
 ### A7. Включение QR account
 
-Только после A2-A6 и ACK меню: `UPDATE commerce_provider_accounts SET enabled=true
+Только после A2-A6 и публикации меню (A4): `UPDATE commerce_provider_accounts SET enabled=true
 WHERE id='<QR account>' AND provider='kaspi-qr' AND kind='payment'` - через профиль
 (шаг с собственным proof), не вручную. Проверка: `GET /config` ->
 `enabled:true`, `paymentMethod:"kaspi_qr"`, `paymentMethods` содержит `kaspi_qr`.
@@ -410,6 +406,6 @@ TestFlight (`scripts/mobile/ios_release.py --app kiosk`) - отдельный в
 
 Сохранять в приватном каталоге выпуска на VPS (`prepared.json`, `before.json`,
 `backup.json`, `result.json`) и обезличенные итоги в этот документ: SHA, CI run,
-backup SHA-256, gateway до/после, состояние account/worker, delivery `applied`,
+backup SHA-256, gateway до/после, состояние account/worker, `version` каталога в приложении и киоске,
 итог контрольного платежа (поля ответа без значений-токенов), build 7 и XCTest.
 Обновить PR и журнал координации; `project-status`/roadmap - если области свободны.

@@ -158,13 +158,11 @@ async function fixture(run, paymentMethod = 'kaspi_invoice') {
   });
 }
 
-test('kiosk is explicitly disabled and refuses menu before the exact restaurant ACK', async () => {
+test('kiosk follows the back-office publication like mobile and needs only an online kitchen', async () => {
   assert.equal(kioskCheckoutOptions({}), null);
   assert.throws(() => kioskCheckoutOptions({ KIOSK_CHECKOUT_ENABLED: 'true' }));
   await fixture(async (f) => {
-    assert.equal((await f.checkout.config(f.who)).enabled, false);
-    await assert.rejects(f.checkout.quote(f.who, f.cart()), { code: 'NOT_READY' });
-    await f.ack();
+    // No per-device menu ACK: the published catalog is the single source for every channel.
     assert.equal((await f.checkout.config(f.who)).enabled, true);
     const quote = await f.checkout.quote(f.who, f.cart());
     assert.equal(quote.totalMinor, '11000');
@@ -181,6 +179,7 @@ test('kiosk is explicitly disabled and refuses menu before the exact restaurant 
       [f.branch],
     );
     assert.equal((await f.checkout.config(f.who)).enabled, false);
+    await assert.rejects(f.checkout.quote(f.who, f.cart()), { code: 'NOT_READY' });
   });
 });
 

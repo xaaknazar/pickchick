@@ -5,7 +5,6 @@ import {
   CatalogPricing,
   CatalogPricingError,
   CatalogKioskStorefrontSchema,
-  readCatalogMenuDelivery,
 } from '@pickchick/catalog-pricing';
 import { CommerceRepository } from './repository.js';
 import { CommerceError, parse, UUIDSchema, type CommerceScope } from './model.js';
@@ -198,13 +197,20 @@ export class KioskCheckout {
     const scope = this.scope(guest),
       opt = this.options!;
     const row = (
-      await this.pool.query<{ name: string; ready: boolean; version: number | null }>(
+      await this.pool.query<{
+        name: string;
+        ready: boolean;
+        kitchen: boolean;
+        version: number | null;
+      }>(
         `SELECT b.name,h.published_version version,(b.ordering_enabled AND
        EXISTS(SELECT 1 FROM commerce_provider_accounts a WHERE a.id=$3 AND a.branch_id=b.id
        AND a.organization_id=b.organization_id AND a.legal_entity_id=b.legal_entity_id
        AND a.kind='payment' AND a.provider=$5 AND a.enabled) AND
        ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM commerce_provider_accounts f WHERE f.id=$4 AND f.branch_id=b.id
-       AND f.organization_id=b.organization_id AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))) ready
+       AND f.organization_id=b.organization_id AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))) ready,
+       EXISTS(SELECT 1 FROM fulfillment_transport_bindings t JOIN devices d ON d.id=t.device_id
+       WHERE t.branch_id=b.id AND t.active AND d.status='active') kitchen
        FROM branches b LEFT JOIN catalog_branch_heads h ON h.branch_id=b.id AND h.organization_id=b.organization_id
        WHERE b.id=$1 AND b.organization_id=$2`,
         [
@@ -217,9 +223,8 @@ export class KioskCheckout {
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
-    const delivery = row.version
-      ? await readCatalogMenuDelivery(this.pool, scope.branchId, row.version)
-      : null;
+    // Same readiness as the mobile app: the back-office publication is the single menu
+    // source for every channel, so no per-device menu ACK is required; the kitchen must be online.
     const primary = opt.paymentMethod ?? 'kaspi_invoice';
     const paymentMethods: ('kaspi_qr' | 'kaspi_invoice')[] = [];
     if (row.ready) paymentMethods.push(primary);
@@ -242,7 +247,7 @@ export class KioskCheckout {
       if (invoice.rowCount) paymentMethods.push('kaspi_invoice');
     }
     return {
-      enabled: paymentMethods.length > 0 && delivery?.status === 'applied',
+      enabled: paymentMethods.length > 0 && row.version !== null && row.kitchen,
       branchId: scope.branchId,
       restaurant: row.name,
       paymentMethod: primary,
