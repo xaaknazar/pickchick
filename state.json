@@ -3657,6 +3657,17 @@
       "status": "active",
       "head": "98c80909e22444f57c81b4e349f77d6d85b9b0d0",
       "updatedAt": "2026-10-08T21:15:21.381Z"
+    },
+    {
+      "id": "kiosk-unified-integration",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-unified-integration",
+      "scopes": [
+        "@integration/kiosk-unified"
+      ],
+      "status": "active",
+      "head": "24c4c360d7bf8998c6e431e65847d12c415d86f1",
+      "updatedAt": "2026-10-08T21:17:16.093Z"
     }
   ]
 }
