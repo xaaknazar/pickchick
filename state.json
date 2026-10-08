@@ -3556,9 +3556,11 @@
         "tests/backoffice/browser_ui.py",
         "tests/backoffice/browser_operations.py"
       ],
-      "status": "active",
-      "head": "b14ef3c81a633edc83e1ae25e6a0c8200bc06aee",
-      "updatedAt": "2026-10-08T08:58:10.194Z"
+      "status": "done",
+      "head": "10e87841ba95fd8aa3b148999bed9a01dbab35e9",
+      "updatedAt": "2026-10-08T09:24:15.356Z",
+      "summary": "Mobbin/YNAB/Midday redesign installed at https://pickchick.kz/backoffice/#finance. Source3f55929 CI37753553083 11/11 success, local backoffice40/40, updater5/5; live CEO login/finance read/assets/logout passed, no financial writes. Staff healthy, API/DB/routes/CEO credentials preserved. PR207; docs checkpoint10e8784 published and included shared. Protocol docs/operations/backoffice-mobbin.md.",
+      "nextAction": "Owner acceptance desktop/phone. After other Mac releases shared docs, copy confirmed CEO-login/design facts into project-status/handoff/roadmap and publish roadmap with fresh claim. Next portal baseline3f55929; API/public778a718 unchanged. No further implementation pending in this task."
     }
   ]
 }
