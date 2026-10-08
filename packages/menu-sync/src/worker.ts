@@ -2,77 +2,65 @@ import {
   AckReceiptSchema,
   DeviceIdentitySchema,
   MenuAckSchema,
+  MenuPublishedSchema,
   MenuPullSchema,
+  menuAckResult,
 } from '@pickchick/contracts';
-import type { DeviceIdentity } from '@pickchick/contracts';
+import type { DeviceIdentity, MenuRejectReason } from '@pickchick/contracts';
 import type { DatabasePool } from '@pickchick/database';
-import { applyMenu } from './edge.js';
+import { applyMenu, readActiveMenuState } from './edge.js';
 import { SyncError } from './common.js';
+import { deviceRequest, localCloudOrigin } from './device-http.js';
+import { fetchMenuMedia, menuImageShas, missingMenuMedia } from './media.js';
 
-export function localCloudOrigin(value: string): string {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new SyncError('INVALID_REQUEST');
-  }
-  if (
-    url.protocol !== 'http:' ||
-    !['127.0.0.1', '[::1]'].includes(url.hostname) ||
-    url.username ||
-    url.password ||
-    url.pathname !== '/' ||
-    url.search ||
-    url.hash
-  )
-    throw new SyncError('INVALID_REQUEST');
-  return url.origin;
+export { localCloudOrigin } from './device-http.js';
+
+/** Download attempts for a publication's photos before it is rejected as MEDIA_UNAVAILABLE. */
+export const MENU_MEDIA_ATTEMPTS = 3;
+
+export interface SyncMenuOptions {
+  /**
+   * Failed photo downloads per menu event, kept across calls by the long-running worker.
+   * Defaults to one map per process. A restart only grants a fresh set of attempts.
+   */
+  mediaAttempts?: Map<string, number>;
 }
+const processMediaAttempts = new Map<string, number>();
 
 // Bounded JSON reads; redirects are forbidden so a token cannot be forwarded elsewhere.
 async function requestJson(origin: string, path: string, identity: DeviceIdentity, body?: unknown) {
-  const response = await fetch(`${origin}${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
-    redirect: 'error',
-    signal: AbortSignal.timeout(5000),
-    headers: {
-      Authorization: `Bearer ${identity.token}`,
-      'X-Device-Id': identity.device_id,
-      'Content-Type': 'application/json',
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new Error(`Sync HTTP ${response.status}`);
-  }
-  if (!response.body) throw new Error('Empty sync response');
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > 3_000_000) throw new Error('Sync response too large');
-      chunks.push(value);
-    }
-  } finally {
-    await reader.cancel();
-  }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+  const bytes = await deviceRequest(origin, path, identity, { body, maxBytes: 3_000_000 });
+  return JSON.parse(bytes.toString('utf8')) as unknown;
 }
+
+/** A pulled event the edge cannot parse is still handed to applyMenu to be ACKed INVALID_MENU. */
+function pulledEvent(body: unknown): unknown {
+  const parsed = MenuPullSchema.safeParse(body);
+  if (parsed.success) return parsed.data.event;
+  if (
+    body === null ||
+    typeof body !== 'object' ||
+    Array.isArray(body) ||
+    Object.keys(body).join(',') !== 'event'
+  )
+    throw new SyncError('INVALID_REQUEST');
+  return (body as { event: unknown }).event;
+}
+
+export type SyncMenuResult =
+  { state: 'idle' | 'acknowledged' | 'applied' } | { state: 'rejected'; reason: MenuRejectReason };
 
 export async function syncMenuOnce(
   pool: DatabasePool,
   branchId: string,
   originInput: string,
   identityInput: unknown,
-) {
+  options: SyncMenuOptions = {},
+): Promise<SyncMenuResult> {
   const origin = localCloudOrigin(originInput);
   const identity = DeviceIdentitySchema.parse(identityInput);
   if (identity.branch_id !== branchId) throw new SyncError('CONFLICT');
+  const attempts = options.mediaAttempts ?? processMediaAttempts;
   // Drain durable ACK before pulling another event. Retries after lost responses are safe.
   async function sendPendingAck() {
     const pending = await pool.query(
@@ -95,12 +83,42 @@ export async function syncMenuOnce(
     ]);
     return true;
   }
-  if (await sendPendingAck()) return { state: 'acknowledged' as const };
-  const response = MenuPullSchema.parse(
-    await requestJson(origin, '/internal/v1/edge/sync/pull', identity),
+  if (await sendPendingAck()) return { state: 'acknowledged' };
+  // Report the active menu so the cloud publishes a strictly newer version (bootstrap).
+  const active = await readActiveMenuState(pool, branchId);
+  const query = active
+    ? `?${new URLSearchParams({
+        active_release_id: active.release_id,
+        active_version: String(active.version),
+      })}`
+    : '';
+  const event = pulledEvent(
+    await requestJson(origin, `/internal/v1/edge/sync/pull${query}`, identity),
   );
-  if (!response.event) return { state: 'idle' as const };
-  await applyMenu(pool, branchId, response.event);
+  if (event === null) return { state: 'idle' };
+  const published = MenuPublishedSchema.safeParse(event);
+  if (published.success) {
+    const missing = await missingMenuMedia(pool, menuImageShas(published.data.payload.menu));
+    const key = published.data.event_id;
+    if (missing.length) {
+      try {
+        await fetchMenuMedia(pool, origin, identity, missing);
+        attempts.delete(key);
+      } catch (error) {
+        const failures = (attempts.get(key) ?? 0) + 1;
+        if (failures < MENU_MEDIA_ATTEMPTS) {
+          if (attempts.size >= 100) attempts.clear();
+          attempts.set(key, failures);
+          throw error;
+        }
+        // Exhausted: applyMenu now records a rejected MEDIA_UNAVAILABLE ACK.
+        attempts.delete(key);
+      }
+    }
+  }
+  const ack = await applyMenu(pool, branchId, event);
   await sendPendingAck();
-  return { state: 'applied' as const };
+  return menuAckResult(ack) === 'rejected' && ack.reason
+    ? { state: 'rejected', reason: ack.reason }
+    : { state: 'applied' };
 }

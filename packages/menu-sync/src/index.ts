@@ -6,3 +6,5 @@ export * from './worker.js';
 export * from './availability.js';
 export * from './catalog-projection.js';
 export * from './catalog-delivery.js';
+export * from './routing.js';
+export * from './media.js';
