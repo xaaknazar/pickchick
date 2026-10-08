@@ -3604,9 +3604,12 @@
         "tests/operations/test_kiosk_qr_recovery_release.py",
         "tests/operations/windows-kiosk-upgrade.test.ps1",
         "docs/operations/kiosk-v3-installation-2026-10-08.json",
-        "docs/operations/kiosk-kaspi-qr-upstream-audit-2026-10-08.md"
+        "docs/operations/kiosk-kaspi-qr-upstream-audit-2026-10-08.md",
+        "packages/contracts/src/index.ts",
+        "tests/unit/checkout-errors.test.mjs",
+        "docs/operations/payment-blockers-2026-10-09.md"
       ],
-      "updatedAt": "2026-10-08T19:26:21.638Z",
+      "updatedAt": "2026-10-08T19:39:00.752Z",
       "summary": "Code06924c3 full CI11/11 success37827315997 and37826774463; identity retention fix not deployed. Docs cbb8758/PR211 included shared: AppleVision decoded both second diagnostic images exactly. Owner5000KZT QR is an external example, not owner merchant; qr.kaspi.kz opaque41hex. Stored firstbanktoken41hex and second40hex prove length difference not diagnosis; secondmatcheslocal exactly. No new bank requests or payment-link opens. VPS/Windows6ac409f and iPad8 preserved; acceptance NOT passed.",
       "nextAction": "Find actual bank QR/amount contract or working dynamic QR from owner point without logging in as server cashier (would risk shared session). Do not pad/rewrite opaque token, weaken amount guard, substitute diagnostic IDs into original unknown order or repeat create. Two diagnostic permissions used. Any future release guarded with exact-source CI and backup/restore. Global status/roadmap occupied; online pult unchanged."
     }
