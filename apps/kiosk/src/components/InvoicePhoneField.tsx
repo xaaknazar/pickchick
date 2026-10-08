@@ -2,25 +2,30 @@ import { Animated, Text, TextInput, View } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
 import type { Locale } from '../i18n';
 import { Icon } from './Icon';
-import { useEnter } from './motion';
+import { useEnter, useTimingTo } from './motion';
 /**
  * v3 phone field for the Kaspi.kz invoice, drawn for the blue review screen:
  * white 26-pt field with an orange ring and big 40-pt digits. Uses the system
- * phone keypad; the value is passed through unchanged.
+ * phone keypad; the value is passed through unchanged. Once `valid`, the ring
+ * crossfades to green over 260 ms (prototype `.phone.full`).
  */
 export function InvoicePhoneField({
   value,
   onChange,
   busy,
   locale,
+  valid = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   busy: boolean;
   locale: Locale;
+  valid?: boolean;
 }) {
   const { v } = useMetrics();
   const enter = useEnter(100);
+  const full = useTimingTo(valid ? 1 : 0, 260, 'css');
+  const radius = v(26);
   const label = locale === 'ru' ? 'Номер телефона Kaspi' : 'Kaspi телефон нөмірі';
   return (
     <Animated.View
@@ -44,11 +49,11 @@ export function InvoicePhoneField({
       <View
         style={{
           minHeight: Math.max(80, v(100)),
-          borderRadius: v(26),
+          borderRadius: radius,
           borderWidth: 3,
           borderColor: colors.orange,
           backgroundColor: colors.white,
-          shadowColor: colors.orange,
+          shadowColor: valid ? colors.ok : colors.orange,
           shadowOpacity: 0.25,
           shadowRadius: 30,
           shadowOffset: { width: 0, height: 12 },
@@ -59,6 +64,20 @@ export function InvoicePhoneField({
           opacity: busy ? 0.7 : 1,
         }}
       >
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -3,
+            left: -3,
+            right: -3,
+            bottom: -3,
+            borderRadius: radius,
+            borderWidth: 3,
+            borderColor: colors.ok,
+            opacity: full,
+          }}
+        />
         <Icon name="phone-portrait-outline" tone="accent" />
         <TextInput
           testID="kiosk-invoice-phone"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
@@ -8,12 +8,14 @@ import { productPhoto, productArtworkId } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { ProductArtwork } from './ProductArtwork';
-import { motion } from './motion';
+import { usePopIn, usePress, useTimingTo } from './motion';
+import { noteProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
 /**
  * v3 menu card: full studio photo on its own tile colour, name, two-line
  * description, big price and a peach "pick" pill (the quick-add path).
- * The card squeezes to 0.96 with an orange ring while pressed.
+ * The card squeezes to 0.96 with an orange ring while pressed, and a blue
+ * badge counts how many are already in the bag.
  */
 export function ProductCard({
   product,
@@ -24,6 +26,8 @@ export function ProductCard({
   variant = 'catalog',
   locale = 'ru',
   tag,
+  inCart = 0,
+  arriving = false,
 }: {
   product: KioskProduct;
   onOpen: () => void;
@@ -33,21 +37,20 @@ export function ProductCard({
   variant?: 'catalog' | 'recommendation';
   locale?: Locale;
   tag?: 'hit' | 'new';
+  /** Units of this product already in the bag (the blue count badge). */
+  inCart?: number;
+  /** Its photo is still flying to the bag: the badge waits for the landing. */
+  arriving?: boolean;
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
   const reduced = useMotionPreference();
   const [pressed, setPressed] = useState(false);
-  const squeeze = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const animation = Animated.timing(squeeze, {
-      toValue: pressed && !reduced ? 1 : 0,
-      duration: reduced ? 0 : motion.press,
-      useNativeDriver: true,
-    });
-    animation.start();
-    return () => animation.stop();
-  }, [pressed, reduced, squeeze]);
+  // Prototype `.card:active`: the card squeezes over 150 ms (CSS ease) with the
+  // orange ring, while the photo zooms to 1.05 over 500 ms on --ease.
+  const squeeze = useTimingTo(pressed && !reduced ? 1 : 0, 150, 'css');
+  const zoom = useTimingTo(pressed && !reduced ? 1 : 0, 500, 'ease');
+  const ring = useTimingTo(pressed ? 1 : 0, 150, 'css');
   const imageId = productArtworkId(product);
   const photo = productPhoto(imageId);
   const tile = photo?.tile ?? colors.cream;
@@ -55,8 +58,16 @@ export function ProductCard({
   const blocked = busy || unavailable;
   const amount = money(product.price_minor).replace(/\s₸$/, '');
   const compact = variant === 'recommendation';
+  const pick = usePress(0.94);
+  // The product page opens as a circle from this card's centre.
+  const card = useRef<View>(null);
+  const hold = () => {
+    setPressed(true);
+    noteProductOrigin(card.current);
+  };
   return (
     <Animated.View
+      ref={card}
       style={{
         flex: 1,
         borderRadius: v(28),
@@ -74,7 +85,7 @@ export function ProductCard({
           testID={prefix + '-' + product.id}
           accessibilityRole="button"
           onPress={onOpen}
-          onPressIn={() => setPressed(true)}
+          onPressIn={hold}
           onPressOut={() => setPressed(false)}
         >
           {photo ? (
@@ -92,7 +103,7 @@ export function ProductCard({
                   flex: 1,
                   transform: [
                     {
-                      scale: squeeze.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
+                      scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
                     },
                   ],
                 }}
@@ -169,7 +180,7 @@ export function ProductCard({
             accessible={false}
             importantForAccessibility="no"
             onPress={onOpen}
-            onPressIn={() => setPressed(true)}
+            onPressIn={hold}
             onPressOut={() => setPressed(false)}
             style={{ flex: 1, minWidth: 0 }}
           >
@@ -203,34 +214,41 @@ export function ProductCard({
               </Text>
             ) : null}
           </Pressable>
-          <Pressable
-            testID={prefix + '-plus-' + product.id}
-            accessibilityRole="button"
-            accessibilityLabel={'+ ' + product.name + ', ' + t.pick}
-            accessibilityState={{ disabled: blocked }}
-            disabled={blocked}
-            onPress={onAdd}
-            style={({ pressed: down }) => ({
-              minHeight: Math.max(44, v(44)),
-              paddingLeft: v(16),
-              paddingRight: v(10),
-              borderRadius: 999,
-              backgroundColor: colors.peach,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: v(2),
-              opacity: blocked ? 0.45 : 1,
-              transform: [{ scale: down ? 0.94 : 1 }],
-            })}
-          >
-            <Text style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.orangeInk }}>
-              {t.pick}
-            </Text>
-            <Icon name="chevron-forward" size="small" tone="deep" />
-          </Pressable>
+          <Animated.View style={{ transform: [{ scale: pick.scale }] }}>
+            <Pressable
+              testID={prefix + '-plus-' + product.id}
+              accessibilityRole="button"
+              accessibilityLabel={'+ ' + product.name + ', ' + t.pick}
+              accessibilityState={{ disabled: blocked }}
+              disabled={blocked}
+              onPress={onAdd}
+              onPressIn={() => {
+                pick.onPressIn();
+                // "Pick" opens the page for products with choices.
+                noteProductOrigin(card.current);
+              }}
+              onPressOut={pick.onPressOut}
+              style={{
+                minHeight: Math.max(44, v(44)),
+                paddingLeft: v(16),
+                paddingRight: v(10),
+                borderRadius: 999,
+                backgroundColor: colors.peach,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: v(2),
+                opacity: blocked ? 0.45 : 1,
+              }}
+            >
+              <Text style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.orangeInk }}>
+                {t.pick}
+              </Text>
+              <Icon name="chevron-forward" size="small" tone="deep" />
+            </Pressable>
+          </Animated.View>
         </View>
       </View>
-      <View
+      <Animated.View
         pointerEvents="none"
         style={{
           position: 'absolute',
@@ -241,9 +259,47 @@ export function ProductCard({
           borderRadius: v(32),
           borderWidth: v(4),
           borderColor: colors.orange,
-          opacity: pressed ? 1 : 0,
+          opacity: ring,
         }}
       />
+      {inCart > 0 ? <InBag count={inCart} hold={arriving} /> : null}
+    </Animated.View>
+  );
+}
+/**
+ * Prototype `.inbag`: blue count badge at the card's top-right that pops (420 ms
+ * --spring, scale .3 -> 1) whenever the count changes. While `hold` it stays
+ * hidden and pops on release. Decorative: the card's name is unchanged.
+ */
+function InBag({ count, hold }: { count: number; hold: boolean }) {
+  const { v } = useMetrics();
+  const pop = usePopIn(hold ? 'hold' : count);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      style={{
+        position: 'absolute',
+        right: v(14),
+        top: v(14),
+        minWidth: v(36),
+        height: v(36),
+        paddingHorizontal: v(10),
+        borderRadius: v(18),
+        backgroundColor: colors.blue,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.blue,
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        opacity: hold ? 0 : pop.opacity,
+        transform: [{ scale: pop.scale }],
+      }}
+    >
+      <Text style={{ fontFamily: fonts.black, fontSize: v(16), color: colors.white }}>{count}</Text>
     </Animated.View>
   );
 }

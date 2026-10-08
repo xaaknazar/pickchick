@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import type { KioskProduct } from '../model';
@@ -6,11 +7,14 @@ import { copy, type Locale } from '../i18n';
 import { productImage, productPhoto, type Photo } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
-import { usePop, useStagger } from './motion';
+import { useEnter, usePress, usePulse, useTimingTo } from './motion';
 /**
  * v3 "С этим часто берут" card: white 26-pt card, 150-pt photo on its own tile,
  * name and orange price. The round orange + on the photo turns green with a check
- * (and pops) once the product is in the cart; the card gains a green ring.
+ * and spins a full turn (prototype `.mg.on .mi i`: 220 ms colour, 300 ms --spring
+ * rotate) once the product is in the cart; the card's green ring fades in (200 ms).
+ * Cards rise after the header (prototype `.more`, 240 ms) and pulse on a tap
+ * (.92 -> 1.04 -> 1, 360 ms ease-out).
  */
 export function RecommendationCard({
   product,
@@ -29,8 +33,25 @@ export function RecommendationCard({
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
-  const rise = useStagger(position);
-  const pop = usePop(added);
+  const rise = useEnter(240 + Math.min(position, 8) * 55, 520);
+  const cardPress = usePress(0.97);
+  const plusPress = usePress(0.9);
+  const pulse = usePulse(0.92, 1.04, 360, 'out');
+  const cardScale = useMemo(
+    () => Animated.multiply(cardPress.scale, pulse.scale),
+    [cardPress.scale, pulse.scale],
+  );
+  const plusScale = useMemo(
+    () => Animated.multiply(plusPress.scale, pulse.scale),
+    [plusPress.scale, pulse.scale],
+  );
+  const turn = useTimingTo(added ? 1 : 0, 300, 'spring');
+  const green = useTimingTo(added ? 1 : 0, 220, 'css');
+  const ring = useTimingTo(added ? 1 : 0, 200, 'css');
+  const add = () => {
+    pulse.play();
+    onAdd();
+  };
   const photo: Photo = productPhoto(product.image_id) ?? {
     source: productImage(product.image_id),
     tile: colors.cream,
@@ -57,80 +78,86 @@ export function RecommendationCard({
         elevation: 6,
       }}
     >
-      <Pressable
-        testID={'kiosk-upsell-' + product.id}
-        accessibilityRole="button"
-        onPress={onAdd}
-        style={({ pressed }) => ({
-          flexGrow: 1,
-          paddingTop: v(10),
-          paddingHorizontal: v(10),
-          paddingBottom: v(14),
-          gap: v(10),
-          transform: [{ scale: pressed ? 0.97 : 1 }],
-        })}
-      >
-        <View
+      <Animated.View style={{ flexGrow: 1, transform: [{ scale: cardScale }] }}>
+        <Pressable
+          testID={'kiosk-upsell-' + product.id}
+          accessibilityRole="button"
+          onPress={add}
+          onPressIn={cardPress.onPressIn}
+          onPressOut={cardPress.onPressOut}
           style={{
-            height: v(150),
-            borderRadius: v(20),
-            backgroundColor: photo.tile,
-            padding: photo.cutout ? v(14) : 0,
-            overflow: 'hidden',
+            flexGrow: 1,
+            paddingTop: v(10),
+            paddingHorizontal: v(10),
+            paddingBottom: v(14),
+            gap: v(10),
           }}
         >
-          <Image
-            accessible={false}
-            accessibilityLabel=""
-            source={photo.source}
-            contentFit="contain"
-            style={{ width: '100%', height: '100%' }}
-          />
-        </View>
-        <View style={{ gap: v(2), paddingHorizontal: v(6) }}>
-          <Text
-            numberOfLines={2}
+          <View
             style={{
-              fontFamily: fonts.medium,
-              fontSize: Math.max(15, v(16)),
-              lineHeight: Math.max(19, v(20)),
-              color: colors.navy,
+              height: v(150),
+              borderRadius: v(20),
+              backgroundColor: photo.tile,
+              padding: photo.cutout ? v(14) : 0,
+              overflow: 'hidden',
             }}
           >
-            {product.name}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: v(10) }}>
-            <Text
-              style={{
-                fontFamily: fonts.heavy,
-                fontSize: Math.max(19, v(18)),
-                color: colors.orangeInk,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {money(product.price_minor)}
-            </Text>
-            <Text
-              accessibilityLiveRegion="polite"
-              numberOfLines={1}
-              style={{
-                flexShrink: 1,
-                fontFamily: fonts.bold,
-                fontSize: Math.max(15, v(15)),
-                color: colors.ok,
-              }}
-            >
-              {added ? t.selected : ' '}
-            </Text>
+            <Image
+              accessible={false}
+              accessibilityLabel=""
+              source={photo.source}
+              contentFit="contain"
+              style={{ width: '100%', height: '100%' }}
+            />
           </View>
-        </View>
-      </Pressable>
+          <View style={{ gap: v(2), paddingHorizontal: v(6) }}>
+            <Text
+              numberOfLines={2}
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: Math.max(15, v(16)),
+                lineHeight: Math.max(19, v(20)),
+                color: colors.navy,
+              }}
+            >
+              {product.name}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: v(10) }}>
+              <Text
+                style={{
+                  fontFamily: fonts.heavy,
+                  fontSize: Math.max(19, v(18)),
+                  color: colors.orangeInk,
+                  fontVariant: ['tabular-nums'],
+                }}
+              >
+                {money(product.price_minor)}
+              </Text>
+              <Text
+                accessibilityLiveRegion="polite"
+                numberOfLines={1}
+                style={{
+                  flexShrink: 1,
+                  fontFamily: fonts.bold,
+                  fontSize: Math.max(15, v(15)),
+                  color: colors.ok,
+                }}
+              >
+                {added ? t.selected : ' '}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      </Animated.View>
       <Animated.View
         style={{
           position: 'absolute',
           right: v(18),
           top: v(10) + v(150) - v(8) - badge,
-          transform: [{ scale: pop }],
+          transform: [
+            { scale: plusScale },
+            { rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },
+          ],
         }}
       >
         <Pressable
@@ -139,12 +166,14 @@ export function RecommendationCard({
           accessibilityLabel={'+ ' + product.name}
           accessibilityState={{ disabled: blocked }}
           disabled={blocked}
-          onPress={onAdd}
-          style={({ pressed }) => ({
+          onPress={add}
+          onPressIn={plusPress.onPressIn}
+          onPressOut={plusPress.onPressOut}
+          style={{
             width: badge,
             height: badge,
             borderRadius: badge / 2,
-            backgroundColor: added ? colors.ok : colors.orange,
+            backgroundColor: colors.orange,
             alignItems: 'center',
             justifyContent: 'center',
             shadowColor: '#04143A',
@@ -153,13 +182,25 @@ export function RecommendationCard({
             shadowOffset: { width: 0, height: 6 },
             elevation: 4,
             opacity: blocked ? 0.6 : 1,
-            transform: [{ scale: pressed ? 0.9 : 1 }],
-          })}
+          }}
         >
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: badge / 2,
+              backgroundColor: colors.ok,
+              opacity: green,
+            }}
+          />
           <Icon name={added ? 'checkmark' : 'add'} tone="inverse" />
         </Pressable>
       </Animated.View>
-      <View
+      <Animated.View
         pointerEvents="none"
         style={{
           position: 'absolute',
@@ -169,7 +210,8 @@ export function RecommendationCard({
           bottom: 0,
           borderRadius: v(26),
           borderWidth: 3,
-          borderColor: added ? colors.ok : 'transparent',
+          borderColor: colors.ok,
+          opacity: ring,
         }}
       />
     </Animated.View>

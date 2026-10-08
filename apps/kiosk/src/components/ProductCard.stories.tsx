@@ -24,3 +24,7 @@ export const New: Story = { args: { tag: 'new', locale: 'kk' } };
 export const Recommendation: Story = { args: { variant: 'recommendation' } };
 export const SoldOut = { args: { product: { ...product, available: false } } };
 export const Loading = { args: { busy: true } };
+/** Blue count badge: two of this product are already in the bag. */
+export const InBag: Story = { args: { inCart: 2 } };
+/** The badge stays hidden while the photo is still flying into the bag. */
+export const Arriving: Story = { args: { inCart: 1, arriving: true } };

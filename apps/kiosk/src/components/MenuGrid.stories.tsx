@@ -32,3 +32,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const WithoutBillboard: Story = { args: { featured: null } };
+export const WithCart: Story = {
+  args: { cartCounts: { 'pick-combo': 2, 'master-combo': 1 }, onPromo: fn() },
+};

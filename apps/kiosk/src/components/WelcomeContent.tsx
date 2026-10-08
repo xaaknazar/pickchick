@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -14,22 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon, Language, Logo } from './UI';
-import { motion, useEnter, useLoop, useSpringTo } from './motion';
+import { motion, useEnter, useLoop } from './motion';
 import { useMotionPreference } from './useMotionPreference';
-/** Spring 0 -> 1 after `delay`; already at rest under reduced motion. */
-function useArrive(delay: number) {
-  const reduced = useMotionPreference();
-  const [on, setOn] = useState(reduced);
-  useEffect(() => {
-    if (reduced) {
-      setOn(true);
-      return;
-    }
-    const timer = setTimeout(() => setOn(true), delay);
-    return () => clearTimeout(timer);
-  }, [delay, reduced]);
-  return useSpringTo(on ? 1 : 0);
-}
 /** v3 attract CTA: one orange pill with an expanding halo and a passing shine. */
 function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPress: () => void }) {
   const { v } = useMetrics();
@@ -180,7 +166,8 @@ export function WelcomeContent({
   const { v } = useMetrics();
   const safe = useSafeAreaInsets();
   const t = copy(locale);
-  const drop = useArrive(0);
+  // Prototype logo `drop` (700 ms, spring curve): -28 pt and .92, overshoot, settle.
+  const drop = useEnter(0, 700, 'spring');
   const language = useEnter(200, 500);
   const foot = useEnter(480, 600);
   const visible = drop.interpolate({

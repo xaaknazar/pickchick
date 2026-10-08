@@ -1,9 +1,67 @@
-import { FlatList, View } from 'react-native';
+import { Animated, FlatList, View } from 'react-native';
 import type { KioskProduct } from '../model';
-import { useMetrics } from '../theme';
+import { colors, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Body, Heading, Wrapper } from './UI';
 import { RecommendationCard } from './RecommendationCard';
+import { PhotoImage } from './PhotoImage';
+import { useEnter, useLoop } from './motion';
+/**
+ * Prototype `.uphd`: a peach tile with a tilted sauce that bobs (3 s, 12 pt),
+ * then the white title; the block rises in 160 ms after the screen (`.upcard`).
+ */
+function UpsellHeader({ locale }: { locale: Locale }) {
+  const { v } = useMetrics();
+  const rise = useEnter(160, 520);
+  const bob = useLoop(3000, 0, true);
+  return (
+    <Animated.View
+      style={{
+        opacity: rise,
+        transform: [
+          { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [v(34), 0] }) },
+          { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+        ],
+      }}
+    >
+      <Wrapper dir="row" align="center" gap={14} paddingY={8}>
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{
+            width: v(64),
+            height: v(64),
+            borderRadius: v(20),
+            backgroundColor: colors.peach,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Animated.View
+            style={{
+              width: v(54),
+              height: v(54),
+              transform: [
+                { translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -v(12)] }) },
+                { rotate: '-8deg' },
+              ],
+            }}
+          >
+            <PhotoImage imageId="sauce" variant="option" />
+          </Animated.View>
+        </View>
+        <Wrapper flex={1} gap={6}>
+          <Heading tone="inverse">{copy(locale).upsellTitle}</Heading>
+          <Body tone="onBlue">
+            {locale === 'ru'
+              ? 'К любимому комбо - ещё немного вкусного'
+              : 'Сүйікті комбоға тағы бір дәмді қосымша'}
+          </Body>
+        </Wrapper>
+      </Wrapper>
+    </Animated.View>
+  );
+}
 /** v3 upsell on the blue surface: white 900 title and a 3-column grid of add cards. */
 export function UpsellGrid({
   products,
@@ -40,16 +98,7 @@ export function UpsellGrid({
         paddingBottom: v(30),
         gap,
       }}
-      ListHeaderComponent={
-        <Wrapper gap={6} paddingY={8}>
-          <Heading tone="inverse">{copy(locale).upsellTitle}</Heading>
-          <Body tone="onBlue">
-            {locale === 'ru'
-              ? 'К любимому комбо - ещё немного вкусного'
-              : 'Сүйікті комбоға тағы бір дәмді қосымша'}
-          </Body>
-        </Wrapper>
-      }
+      ListHeaderComponent={<UpsellHeader locale={locale} />}
       renderItem={({ item, index }) => (
         <View style={{ width: cardWidth }}>
           <RecommendationCard

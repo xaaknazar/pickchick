@@ -40,9 +40,11 @@ function QrStep({ index, label }: { index: number; label: string }) {
         shadowRadius: 18,
         shadowOffset: { width: 0, height: 8 },
         elevation: 6,
+        // Prototype `rise`: translateY 34 and scale .97 to rest.
         opacity: enter,
         transform: [
-          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
+          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
         ],
       }}
     >
@@ -75,9 +77,10 @@ function QrStep({ index, label }: { index: number; label: string }) {
 }
 
 /**
- * v3 payment centre on the blue surface: method tile and title, the amount,
- * the QR card (springs in, scanning line, live expiry pill) and three numbered
- * steps. Without a QR the existing message is shown in a white card instead.
+ * v3 payment centre on the blue surface: method tile and title (drop), the
+ * amount (fade up), the QR card (springs in, scanning line, live expiry pill)
+ * and three numbered steps (rise, 70 ms apart). Without a QR the existing
+ * message is shown in a white card instead.
  */
 export function PaymentStatus({
   state,
@@ -107,7 +110,8 @@ export function PaymentStatus({
   const left = useCountdown(qrPayload ? expiresAt : null);
   const drop = useEnter(0, 520);
   const rise = useEnter(80, 520);
-  const card = useEnter(140, 640);
+  // Prototype `qrIn` runs on the spring curve: the card overshoots, then settles.
+  const card = useEnter(140, 640, 'spring');
   const methodLabel =
     method === 'invoice'
       ? 'Kaspi - ' + (locale === 'ru' ? 'счёт на телефон' : 'телефонға шот')
@@ -134,9 +138,11 @@ export function PaymentStatus({
           alignItems: 'center',
           gap: v(16),
           maxWidth: '100%',
+          // Prototype `drop`: from translateY -28 and scale .92.
           opacity: drop,
           transform: [
-            { translateY: drop.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) },
+            { translateY: drop.interpolate({ inputRange: [0, 1], outputRange: [-28, 0] }) },
+            { scale: drop.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
           ],
         }}
       >
@@ -188,7 +194,7 @@ export function PaymentStatus({
           gap: v(2),
           opacity: rise,
           transform: [
-            { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+            { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) },
           ],
         }}
       >
@@ -240,16 +246,15 @@ export function PaymentStatus({
             shadowRadius: 35,
             shadowOffset: { width: 0, height: 30 },
             elevation: 18,
-            opacity: card.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] }),
+            opacity: card.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
             transform: [
+              { scale: card.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) },
               {
                 translateY: card.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }),
-              },
-              {
-                scale: card.interpolate({
-                  inputRange: [0, 0.7, 0.85, 1],
-                  outputRange: [0.86, 1.025, 0.995, 1],
-                }),
               },
             ],
           }}
@@ -313,7 +318,11 @@ export function PaymentStatus({
             shadowRadius: 18,
             shadowOffset: { width: 0, height: 8 },
             elevation: 6,
-            opacity: card,
+            opacity: card.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
             transform: [
               { translateY: card.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
             ],

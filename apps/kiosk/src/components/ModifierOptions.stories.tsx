@@ -56,6 +56,25 @@ export const Sizes = {
   args: { group: sauceSizes.modifier_groups[0]!, selections: defaultSelections(sauceSizes) },
 };
 export const Kazakh = { args: { locale: 'kk' } };
+/** The guest tapped "to cart" with this choice missing: the options shake. */
+export const Attention = {
+  args: { group: duo.modifier_groups[0]!, selections: [], attention: 1 },
+};
+/** Live picks: tiles pulse, checks pop, rings fade; a pick past the limit shakes. */
+export const Live: Story = {
+  args: { group: pick.modifier_groups[1]! },
+  render: function LiveStory(args) {
+    const [choices, setChoices] = useState(args.selections);
+    return (
+      <ModifierOptions
+        group={args.group}
+        locale={args.locale}
+        selections={choices}
+        setSelections={setChoices}
+      />
+    );
+  },
+};
 
 export const PikoFlavors: Story = {
   args: { group: piko.modifier_groups[0]!, selections: defaultSelections(piko) },

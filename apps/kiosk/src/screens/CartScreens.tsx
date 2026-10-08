@@ -15,7 +15,7 @@ import {
 } from '../components/UI';
 import { OrderProgress } from '../components/OrderProgress';
 import { UpsellGrid } from '../components/UpsellGrid';
-import { CartRow } from '../components/CartRow';
+import { CartLines } from '../components/CartLines';
 import { CartTotal, positionsLabel } from '../components/CartTotal';
 import { EmptyCart } from '../components/EmptyCart';
 import { Notice } from '../components/Notice';
@@ -35,7 +35,7 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
       (p) => model.catalog?.upsell_product_ids.includes(p.id) && p.available !== false,
     ) ?? [];
   return (
-    <ScreenSurface testID="kiosk-screen-upsell" tone="brand" entrance>
+    <ScreenSurface testID="kiosk-screen-upsell" tone="brand" entrance={context.direction}>
       <Header
         {...context}
         back={model.goMenu}
@@ -57,7 +57,7 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
           else model.openProduct(p.id);
         }}
       />
-      <Footer>
+      <Footer entrance>
         <Button
           label={t.next}
           icon="arrow-forward"
@@ -75,7 +75,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
   const count = itemCount(model);
   const qr = !!model.commercial && (model.commercialPaymentMethods ?? ['kaspi']).includes('kaspi');
   return (
-    <ScreenSurface testID="kiosk-screen-cart" tone="brand" entrance>
+    <ScreenSurface testID="kiosk-screen-cart" tone="brand" entrance={context.direction}>
       <Header
         {...context}
         back={model.goMenu}
@@ -90,16 +90,12 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
           {!model.cart.length && !model.unavailableCartLines.length ? (
             <EmptyCart locale={context.locale} />
           ) : null}
-          {model.cart.map((line, index) => (
-            <CartRow
-              key={line.lineId}
-              line={line}
-              position={index}
-              locale={context.locale}
-              busy={model.busy}
-              onQuantity={(q) => void model.updateQuantity(line.lineId, q)}
-            />
-          ))}
+          <CartLines
+            lines={model.cart}
+            locale={context.locale}
+            busy={model.busy}
+            onQuantity={(lineId, q) => void model.updateQuantity(lineId, q)}
+          />
           {model.unavailableCartLines.map((line) => (
             <Wrapper key={line.lineId} gap={14} testID={'kiosk-unavailable-line-' + line.lineId}>
               <Notice
@@ -129,7 +125,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
           ) : null}
         </Wrapper>
       </ScrollArea>
-      <Footer>
+      <Footer entrance>
         <CartTotal
           total={model.cartTotalMinor}
           valid={model.cartValid}
@@ -160,7 +156,12 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
   const t = copy(context.locale);
   const count = itemCount(model);
   return (
-    <ScreenSurface testID="kiosk-screen-loyalty" tone="brand" keyboardAware entrance>
+    <ScreenSurface
+      testID="kiosk-screen-loyalty"
+      tone="brand"
+      keyboardAware
+      entrance={context.direction}
+    >
       <Header
         {...context}
         back={model.openCart}
@@ -203,6 +204,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
               onChange={(value) => model.setInvoicePhone?.(value)}
               busy={model.busy}
               locale={context.locale}
+              valid={!!model.phoneValid}
             />
           ) : null}
           <Body tone="onBlue">

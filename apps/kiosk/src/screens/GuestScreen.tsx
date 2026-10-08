@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useKioskController from '../useKioskController';
-import type { KioskModel } from '../model';
+import type { KioskModel, KioskStep } from '../model';
 import { copy, type Locale } from '../i18n';
 import { Body, Button, Dialog, Heading, ScreenSurface, type ScreenContext } from '../components/UI';
 import { WelcomeScreen, ModeScreen } from '../screens/WelcomeMode';
@@ -10,6 +10,26 @@ import { CartScreen, ReviewScreen, UpsellScreen } from '../screens/CartScreens';
 import { OrderScreen, PaymentScreen, RecoveryScreen } from '../screens/PaymentOrderScreens';
 import { BootState } from '../components/BootState';
 import { Notice } from '../components/Notice';
+import { ScreenTransition } from '../components/ScreenTransition';
+// Prototype flow order: moving to a later step slides in from the right, to an
+// earlier one from the left. A finished order starting over counts as forward.
+const flow: KioskStep[] = [
+  'start',
+  'mode',
+  'menu',
+  'product',
+  'upsell',
+  'cart',
+  'loyalty',
+  'payment',
+  'order',
+];
+const directionOf = (from: KioskStep, to: KioskStep): 'forward' | 'back' =>
+  from === 'order' && to === 'start'
+    ? 'forward'
+    : flow.indexOf(to) >= 0 && flow.indexOf(to) < flow.indexOf(from)
+      ? 'back'
+      : 'forward';
 export function GuestScreen() {
   const liveModel = useKioskController();
   const [locale, setLocale] = useState<Locale>('ru');
@@ -19,6 +39,18 @@ export function GuestScreen() {
   const upsellSeen = useRef(false);
   const menuMemory = useRef<MenuMemory>({ category: 'combo', offsets: {} });
   const previousStep = useRef(liveModel.step);
+  // Where the visible step came from, settled once per step change.
+  const arrival = useRef<{
+    step: KioskStep;
+    from: KioskStep | 'boot';
+    direction: 'forward' | 'back';
+  }>({ step: liveModel.step, from: 'boot', direction: 'forward' });
+  if (arrival.current.step !== liveModel.step)
+    arrival.current = {
+      step: liveModel.step,
+      from: arrival.current.step,
+      direction: directionOf(arrival.current.step, liveModel.step),
+    };
   useEffect(() => {
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
       upsellSeen.current = false;
@@ -45,6 +77,8 @@ export function GuestScreen() {
     },
     onHelp: () => setHelp(true),
     onCancel: () => setCancel(true),
+    direction: arrival.current.direction,
+    from: arrival.current.from,
   };
   const closeCancel = () => setCancel(false);
   const confirmCancel = async () => {
@@ -60,7 +94,9 @@ export function GuestScreen() {
     if (success) setCancel(false);
   };
   let screen;
-  if (!model.ready)
+  let screenKey: string = model.step;
+  if (!model.ready) {
+    screenKey = 'boot';
     screen = (
       <BootState
         title={t.loading}
@@ -70,8 +106,9 @@ export function GuestScreen() {
         retryLabel={t.tryAgain}
       />
     );
-  else if (model.step === 'recovery') screen = <RecoveryScreen model={model} context={context} />;
-  else if (!model.catalog && !model.order)
+  } else if (model.step === 'recovery') screen = <RecoveryScreen model={model} context={context} />;
+  else if (!model.catalog && !model.order) {
+    screenKey = 'unavailable';
     screen = (
       <BootState
         title={t.unavailable}
@@ -81,7 +118,7 @@ export function GuestScreen() {
         retryLabel={t.tryAgain}
       />
     );
-  else
+  } else
     switch (model.step) {
       case 'start':
         screen = <WelcomeScreen model={model} context={context} />;
@@ -93,6 +130,7 @@ export function GuestScreen() {
         screen = <MenuScreen model={model} context={context} memory={menuMemory.current} />;
         break;
       case 'product':
+        screenKey = model.selectedProduct ? 'product-' + model.selectedProduct.id : 'menu';
         screen = model.selectedProduct ? (
           <ProductScreen
             key={model.selectedProduct.id}
@@ -122,7 +160,10 @@ export function GuestScreen() {
     }
   return (
     <ScreenSurface onTouchStart={model.touch}>
-      {screen}
+      {/* The product page opens and closes as a circle over the menu. */}
+      <ScreenTransition screenKey={screenKey} reveal={screenKey.startsWith('product-')}>
+        {screen}
+      </ScreenTransition>
       {model.ready && model.error && (model.catalog || model.order || model.recoveryRequired) ? (
         <Notice testID="kiosk-error" body={model.error} tone="error" />
       ) : null}

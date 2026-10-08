@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 import { View } from 'react-native';
 import { fn } from 'storybook/test';
@@ -28,3 +29,25 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Checkout = { args: { title: 'Как оплатите?' } };
+/** The mode chip pulses (.9 -> 1.05 -> 1) whenever the mode changes. */
+export const ModeChange: Story = {
+  render: function ModeChangeStory(args) {
+    const [here, setHere] = useState(false);
+    return (
+      <Header
+        {...args}
+        mode={here ? 'Здесь' : 'С собой'}
+        onMode={() => setHere((value) => !value)}
+      />
+    );
+  },
+};
+export const Menu = {
+  args: {
+    back: undefined,
+    title: 'Меню',
+    subtitle: 'ТЦ Abay Plaza',
+    dining: 'dine_in',
+    onDining: fn(),
+  },
+};

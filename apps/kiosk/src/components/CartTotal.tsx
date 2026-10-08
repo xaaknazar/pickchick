@@ -3,6 +3,7 @@ import { copy, type Locale } from '../i18n';
 import { money } from '../cart';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
+import { useTween } from './motion';
 /** "3 позиции" / "3 позиция": Russian plural, Kazakh keeps the singular after a number. */
 export const positionsLabel = (n: number, locale: Locale) => {
   if (locale !== 'ru') return n + ' позиция';
@@ -21,7 +22,8 @@ export const positionsLabel = (n: number, locale: Locale) => {
 };
 /**
  * v3 order total. `large` is the footer sheet: "Итого · N позиций", an optional
- * orange QR chip and the 52-pt total. `regular` is the summary-card row.
+ * orange QR chip and the 52-pt total, which counts to each new total (prototype
+ * `tween()`, 380 ms ease-out cubic). `regular` is the summary-card row.
  */
 export function CartTotal({
   total,
@@ -46,6 +48,13 @@ export function CartTotal({
     : locale === 'ru'
       ? 'Проверьте корзину'
       : 'Себетті тексеріңіз';
+  const target = valid ? Number(total) : 0;
+  const counted = useTween(target);
+  // Whole tenge while counting; the spoken label is always the final amount.
+  const shown =
+    large && valid && counted !== target
+      ? money(String(Math.max(0, Math.round(counted / 100) * 100)))
+      : amount;
   const amountSize = valid ? v(large ? 52 : 34) : v(large ? 30 : 24);
   return (
     <View
@@ -107,6 +116,7 @@ export function CartTotal({
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit
+        accessibilityLabel={amount}
         style={{
           flexShrink: 1,
           fontFamily: fonts.black,
@@ -118,7 +128,7 @@ export function CartTotal({
           fontVariant: ['tabular-nums'],
         }}
       >
-        {amount}
+        {shown}
       </Text>
     </View>
   );

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 import { View } from 'react-native';
 import { fn } from 'storybook/test';
@@ -33,3 +34,10 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Added: Story = { args: { added: true } };
 export const Busy: Story = { args: { busy: true } };
+/** Tap to toggle: the card pulses, the + spins a turn into a green check. */
+export const Toggle: Story = {
+  render: function ToggleStory(args) {
+    const [added, setAdded] = useState(false);
+    return <RecommendationCard {...args} added={added} onAdd={() => setAdded((a) => !a)} />;
+  },
+};

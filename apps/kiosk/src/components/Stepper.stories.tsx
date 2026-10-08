@@ -22,6 +22,8 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Empty = { args: { quantity: 0 } };
 export const Maximum = { args: { quantity: 20 } };
+/** + at the maximum calls `onLimit` (the extras row shakes). */
+export const AtLimit = { args: { quantity: 20, onLimit: fn() } };
 export const Busy = { args: { disabled: true } };
 export const CustomIds = {
   args: {

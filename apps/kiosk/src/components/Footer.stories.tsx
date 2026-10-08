@@ -11,3 +11,5 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+/** Cart sheet: slides up from below as the screen opens (520 ms). */
+export const Entrance: Story = { args: { entrance: true } };

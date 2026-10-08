@@ -26,6 +26,8 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const LongModifiers = { args: { line: { ...line, quantity: 20 } } };
 export const Busy = { args: { busy: true } };
+/** A line the cart already dropped: it slides out, untouchable and without ids. */
+export const Leaving = { args: { leaving: true, onLeft: fn() } };
 export const Extra = {
   args: {
     line: {

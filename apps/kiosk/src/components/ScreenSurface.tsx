@@ -1,12 +1,17 @@
 import type { ReactNode } from 'react';
-import { Animated, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../theme';
+import { colors, useMetrics } from '../theme';
 import { motion, useEnter } from './motion';
+/** Which way a newly shown screen arrives: from the right, or back from the left. */
+export type ScreenEntrance = 'forward' | 'back' | 'none';
 /**
  * Full-screen surface. v3 tones: `brand` is the blue working surface, `night`
  * the deep gradient behind the dining choice, `dark` the film backdrop.
- * `entrance` slides a newly mounted screen in (static under reduced motion).
+ * `entrance` plays the prototype screen change on mount: the whole surface fades
+ * in while sliding 60 pt from the right (`forward`) or from the left (`back`),
+ * 380 ms on the v3 ease. It is static under reduced motion, and content is
+ * pressable from the first frame.
  */
 export function ScreenSurface({
   children,
@@ -14,18 +19,21 @@ export function ScreenSurface({
   tone = 'default',
   onTouchStart,
   keyboardAware = false,
-  entrance = false,
+  entrance = 'none',
 }: {
   children?: ReactNode;
   testID?: string;
   tone?: 'default' | 'brand' | 'dark' | 'night';
   onTouchStart?: () => void;
   keyboardAware?: boolean;
-  entrance?: boolean;
+  entrance?: ScreenEntrance;
 }) {
-  const enter = useEnter(0, entrance ? motion.enter : 0);
+  const { v } = useMetrics();
+  const moving = entrance !== 'none';
+  const enter = useEnter(0, moving ? motion.enter : 0);
+  const distance = entrance === 'back' ? -v(60) : v(60);
   const surface = (
-    <View
+    <Animated.View
       testID={testID}
       onTouchStart={onTouchStart}
       style={{
@@ -40,6 +48,10 @@ export function ScreenSurface({
                 ? colors.navy
                 : colors.background,
         overflow: 'hidden',
+        opacity: moving ? enter : 1,
+        transform: moving
+          ? [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] }) }]
+          : [],
       }}
     >
       {tone === 'night' ? (
@@ -52,23 +64,8 @@ export function ScreenSurface({
           pointerEvents="none"
         />
       ) : null}
-      {entrance ? (
-        <Animated.View
-          style={{
-            flex: 1,
-            minHeight: 0,
-            opacity: enter,
-            transform: [
-              { translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [48, 0] }) },
-            ],
-          }}
-        >
-          {children}
-        </Animated.View>
-      ) : (
-        children
-      )}
-    </View>
+      {children}
+    </Animated.View>
   );
   return keyboardAware ? (
     <KeyboardAvoidingView

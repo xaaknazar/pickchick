@@ -19,3 +19,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Disabled = { args: { disabled: true } };
+/** Disabled for assistive tech, but a tap still reaches `onRefused` (feedback). */
+export const Refused = { args: { disabled: true, onRefused: fn() } };

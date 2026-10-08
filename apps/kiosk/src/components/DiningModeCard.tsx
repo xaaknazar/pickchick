@@ -1,26 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { assets } from '../assets';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
-import { motion, useEnter, useLoop, useSpringTo } from './motion';
+import { motion, useEnter, useLoop } from './motion';
+import { armReveal, trackRevealTile } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
-/** Spring 0 -> 1 after `delay`; already at rest under reduced motion. */
-function useArrive(delay: number) {
-  const reduced = useMotionPreference();
-  const [on, setOn] = useState(reduced);
-  useEffect(() => {
-    if (reduced) {
-      setOn(true);
-      return;
-    }
-    const timer = setTimeout(() => setOn(true), delay);
-    return () => clearTimeout(timer);
-  }, [delay, reduced]);
-  return useSpringTo(on ? 1 : 0);
-}
 /** v3 02 question above the dining choice, fading up on arrival. */
 export function DiningModeTitle({ children }: { children?: ReactNode }) {
   const { v } = useMetrics();
@@ -66,17 +53,28 @@ export function DiningModeCard({
   busy: boolean;
   onSelect: () => void;
 }) {
-  const { v } = useMetrics();
+  const { v, width, height } = useMetrics();
   const reduced = useMotionPreference();
   const t = copy(locale);
   const here = mode === 'dine_in';
   const tint = here ? colors.blue : colors.orangeCta;
   const rise = useEnter(here ? 90 : 180, 620);
-  const chef = useArrive(here ? 320 : 420);
-  const bob = useLoop(3400, here ? 1000 : 200, true);
+  // Prototype `chefIn` (700 ms, spring curve): slides in from 120 pt at 8deg, overshoots.
+  const chef = useEnter(here ? 320 : 420, 700, 'spring');
+  // Prototype `bob` 3.4 s: here waits 1 s, to go starts .8 s into its cycle, so
+  // the two chefs alternate.
+  const bob = useLoop(3400, here ? 1000 : 0, true, here ? 0 : 800);
   const glow = useLoop(4000, 0, true);
   const nudge = useLoop(1400, 0, true);
   const scale = useRef(new Animated.Value(1)).current;
+  // The tile's window rectangle seeds the zoom fill that opens the menu.
+  const tile = useRef<View>(null);
+  // Measure once the entrance has settled (and again after a resize), so even a
+  // tap quicker than an asynchronous measurement starts the fill from the tile.
+  useEffect(() => {
+    const timer = setTimeout(() => trackRevealTile(mode, tile.current), 1000);
+    return () => clearTimeout(timer);
+  }, [height, mode, width]);
   // A reduced-motion switch must also release a press that is already held.
   useEffect(() => {
     scale.stopAnimation();
@@ -96,6 +94,7 @@ export function DiningModeCard({
   const go = v(88);
   return (
     <Animated.View
+      ref={tile}
       style={{
         flex: 1,
         minHeight: Math.max(240, v(300)),
@@ -118,8 +117,14 @@ export function DiningModeCard({
         accessibilityRole="button"
         accessibilityState={{ disabled: busy }}
         disabled={busy}
-        onPress={onSelect}
-        onPressIn={() => press(true)}
+        onPress={() => {
+          armReveal(mode, tile.current);
+          onSelect();
+        }}
+        onPressIn={() => {
+          trackRevealTile(mode, tile.current);
+          press(true);
+        }}
         onPressOut={() => press(false)}
         style={{
           flex: 1,

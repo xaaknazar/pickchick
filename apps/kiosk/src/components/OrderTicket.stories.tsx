@@ -25,6 +25,11 @@ const meta = {
 } satisfies Meta<typeof OrderTicket>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+/**
+ * Opens paid: the green "paid" card (fade, disc pop, check draw) holds for 1 s,
+ * then the logo drops, the number stamps in with its orange shadow, food
+ * cut-outs burst from it and the bar fills with a passing shine.
+ */
 export const Default: Story = {};
 export const Pending: Story = {
   args: { confirmed: false, stage: 'accepted', showBoard: false, status: 'Ожидаем подтверждение' },

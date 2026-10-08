@@ -6,7 +6,11 @@ import { WelcomeContent } from '../components/WelcomeContent';
 import { DiningModeCard, DiningModeTitle } from '../components/DiningModeCard';
 export function WelcomeScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   return (
-    <ScreenSurface testID="kiosk-screen-welcome" tone="dark">
+    <ScreenSurface
+      testID="kiosk-screen-welcome"
+      tone="dark"
+      entrance={context.from && context.from !== 'boot' ? context.direction : 'none'}
+    >
       <Hero />
       <WelcomeContent
         locale={context.locale}
@@ -20,7 +24,7 @@ export function WelcomeScreen({ model, context }: { model: KioskModel; context: 
 export function ModeScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   return (
-    <ScreenSurface testID="kiosk-screen-mode" tone="night">
+    <ScreenSurface testID="kiosk-screen-mode" tone="night" entrance={context.direction}>
       <Header
         {...context}
         back={() =>

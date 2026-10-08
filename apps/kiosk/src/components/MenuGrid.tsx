@@ -28,8 +28,10 @@ const positions = (n: number, locale: Locale) => {
   );
 };
 /**
- * v3 menu feed: featured billboard, category title with count and a two-column
- * grid of photo cards that rise in with a stagger whenever a category opens.
+ * v3 menu feed: featured billboard (the Master / 7 + 1 carousel when `onPromo`
+ * is given), category title with count and a two-column grid of photo cards
+ * that rise in with a stagger whenever a category opens; cards already in the
+ * bag carry a count badge.
  */
 export function MenuGrid({
   products,
@@ -38,8 +40,11 @@ export function MenuGrid({
   locale,
   busy,
   featured,
+  cartCounts = {},
+  arriving,
   onOpen,
   onAdd,
+  onPromo,
   onInteraction,
 }: {
   products: KioskProduct[];
@@ -48,8 +53,14 @@ export function MenuGrid({
   locale: Locale;
   busy: boolean;
   featured?: KioskProduct | null;
+  /** Units of each product already in the bag, shown as the card's count badge. */
+  cartCounts?: Record<string, number>;
+  /** Product flying into the bag; its badge pops once the photo lands. */
+  arriving?: string | null;
   onOpen: (p: KioskProduct) => void;
   onAdd: (p: KioskProduct) => void;
+  /** The 7 + 1 billboard slide was tapped. */
+  onPromo?: () => void;
   onInteraction: () => void;
 }) {
   const { v, width, columns } = useMetrics();
@@ -115,7 +126,16 @@ export function MenuGrid({
       ListHeaderComponent={
         <View style={{ gap: v(18), paddingBottom: v(4) }}>
           {featured ? (
-            <Billboard product={featured} locale={locale} onOpen={() => onOpen(featured)} />
+            <Billboard
+              product={featured}
+              locale={locale}
+              slide={memory.billboard}
+              onSlide={(slide) => {
+                memory.billboard = slide;
+              }}
+              onOpen={() => onOpen(featured)}
+              onPromo={onPromo}
+            />
           ) : null}
           <View
             style={{
@@ -156,6 +176,8 @@ export function MenuGrid({
             busy={busy}
             locale={locale}
             tag={tags[item.id]}
+            inCart={cartCounts[item.id]}
+            arriving={arriving === item.id}
             onOpen={() => onOpen(item)}
             onAdd={() => onAdd(item)}
           />

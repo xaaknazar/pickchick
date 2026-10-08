@@ -1,4 +1,5 @@
-import { Animated, Pressable, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PhotoImage } from './PhotoImage';
 import type { KioskModifierGroup, KioskSelection } from '../model';
 import { money } from '../cart';
@@ -7,7 +8,16 @@ import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Icon } from './Icon';
 import { Stepper } from './Stepper';
-import { useEnter, usePop, useSpringTo } from './motion';
+import {
+  useEnter,
+  usePopIn,
+  usePress,
+  usePulse,
+  useShake,
+  useSpringTo,
+  useTimingTo,
+} from './motion';
+import { useScrollTarget } from './scroll';
 type Option = KioskModifierGroup['options'][number];
 const shadow = {
   shadowColor: '#020A28',
@@ -121,9 +131,29 @@ function OptionTile({
 }) {
   const { v } = useMetrics();
   const enter = useEnter(200 + Math.min(index, 10) * 25, 460);
-  const pop = usePop(quantity);
   const selected = quantity > 0;
   const multi = group.max > 1;
+  // Prototype `.opt.sel .ck`: the check (or count) pops in, 380 ms --spring.
+  const check = usePopIn(selected ? quantity : 0, 380);
+  // Prototype `.opt.sel` ring: box-shadow transition 160 ms.
+  const ringIn = useTimingTo(selected ? 1 : 0, 160, 'css');
+  // `.opt:active` squeeze, and the pick pulse .94 -> 1.04 -> 1 (340 ms ease-out).
+  const press = usePress(0.96);
+  const pulse = usePulse(0.94, 1.04, 340, 'out');
+  const scale = useMemo(
+    () => Animated.multiply(press.scale, pulse.scale),
+    [press.scale, pulse.scale],
+  );
+  const counted = useRef(quantity);
+  const play = pulse.play;
+  useEffect(() => {
+    if (quantity > counted.current) play();
+    counted.current = quantity;
+  }, [play, quantity]);
+  // A pick beyond the limit shakes the tile (prototype `shake`, 420 ms).
+  const [refused, setRefused] = useState(0);
+  const shake = useShake(refused);
+  const full = quantity >= option.max_quantity || total >= group.max;
   const delta = BigInt(option.price_delta_minor) > 0n ? '+ ' + money(option.price_delta_minor) : '';
   const photo = optionPhoto(option.id);
   const art = v(drinks ? 112 : 118);
@@ -182,8 +212,8 @@ function OptionTile({
     overflow: 'hidden' as const,
     opacity: option.available ? 1 : 0.55,
   };
-  const ring = selected ? (
-    <View
+  const ring = (
+    <Animated.View
       pointerEvents="none"
       style={{
         position: 'absolute',
@@ -194,9 +224,10 @@ function OptionTile({
         borderRadius: v(24),
         borderWidth: v(4),
         borderColor: colors.orange,
+        opacity: ringIn,
       }}
     />
-  ) : null;
+  );
   const badge = (
     <Animated.View
       pointerEvents="none"
@@ -215,8 +246,8 @@ function OptionTile({
         shadowOpacity: selected ? 0.4 : 0,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
-        opacity: selected ? 1 : 0,
-        transform: [{ scale: pop }],
+        opacity: selected ? check.opacity : 0,
+        transform: [{ scale: check.scale }],
       }}
     >
       {multi ? (
@@ -251,20 +282,33 @@ function OptionTile({
       }}
     >
       {multi ? (
-        <View testID={`kiosk-modifier-${group.id}-${option.id}`} style={{ flex: 1 }}>
+        <Animated.View
+          testID={`kiosk-modifier-${group.id}-${option.id}`}
+          style={{ flex: 1, transform: [{ translateX: shake }, { scale }] }}
+        >
           <Pressable
             testID={`kiosk-modifier-plus-${group.id}-${option.id}`}
             accessibilityRole="button"
             // No override: the name comes from the visible tile text (WCAG 2.5.3).
-            accessibilityState={{
-              disabled: !option.available || quantity >= option.max_quantity || total >= group.max,
-            }}
-            disabled={!option.available || quantity >= option.max_quantity || total >= group.max}
+            accessibilityState={{ disabled: !option.available || full }}
+            disabled={!option.available || full}
             onPress={() => update(option.id, quantity + 1)}
-            style={({ pressed }) => ({ ...surface, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+            onPressIn={press.onPressIn}
+            onPressOut={press.onPressOut}
+            style={surface}
           >
             {card}
           </Pressable>
+          {option.available && full ? (
+            // Silent layer over a tile already at its limit: a tap only shakes it.
+            <Pressable
+              accessible={false}
+              importantForAccessibility="no"
+              tabIndex={-1}
+              onPress={() => setRefused((n) => n + 1)}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null}
           {ring}
           {badge}
           <Pressable
@@ -295,9 +339,9 @@ function OptionTile({
           >
             <Icon name="remove" size="small" tone="navy" />
           </Pressable>
-        </View>
+        </Animated.View>
       ) : (
-        <View style={{ flex: 1 }}>
+        <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
           <Pressable
             testID={`kiosk-modifier-${group.id}-${option.id}`}
             accessibilityRole="radio"
@@ -306,13 +350,15 @@ function OptionTile({
             aria-checked={selected}
             disabled={!option.available}
             onPress={() => update(option.id, selected && group.min === 0 ? 0 : 1)}
-            style={({ pressed }) => ({ ...surface, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+            onPressIn={press.onPressIn}
+            onPressOut={press.onPressOut}
+            style={surface}
           >
             {card}
           </Pressable>
           {ring}
           {badge}
-        </View>
+        </Animated.View>
       )}
     </Animated.View>
   );
@@ -340,6 +386,10 @@ function ExtraRow({
   const enter = useEnter(200 + Math.min(index, 10) * 30, 460);
   const photo = optionPhoto(option.id);
   const selected = quantity > 0;
+  // Prototype `.xrow.on` ring (160 ms) and the shake when + is already at its limit.
+  const ringIn = useTimingTo(selected ? 1 : 0, 160, 'css');
+  const [refused, setRefused] = useState(0);
+  const shake = useShake(refused);
   return (
     <Animated.View
       testID={`kiosk-modifier-${group.id}-${option.id}`}
@@ -357,6 +407,7 @@ function ExtraRow({
         opacity: enter,
         transform: [
           { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
+          { translateX: shake },
         ],
       }}
     >
@@ -407,22 +458,22 @@ function ExtraRow({
         labels={{ minus: '- ' + option.label, plus: '+ ' + option.label }}
         onMinus={() => update(option.id, quantity - 1)}
         onPlus={() => update(option.id, quantity + 1)}
+        onLimit={option.available ? () => setRefused((n) => n + 1) : undefined}
       />
-      {selected ? (
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            right: 0,
-            bottom: 0,
-            borderRadius: v(24),
-            borderWidth: v(3),
-            borderColor: colors.orange,
-          }}
-        />
-      ) : null}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: v(24),
+          borderWidth: v(3),
+          borderColor: colors.orange,
+          opacity: ringIn,
+        }}
+      />
     </Animated.View>
   );
 }
@@ -442,19 +493,27 @@ function GroupChip({
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
-  const pop = usePop(total);
+  // Prototype `.gchip.flash`: pop (scale .3 -> 1, fade in) 360 ms --spring on any
+  // change inside the group.
+  const change = selections
+    .filter((s) => s.group_id === group.id)
+    .map((s) => s.option_id + ':' + s.quantity)
+    .join(',');
+  const pop = usePopIn(change, 360, 0, false);
   if (group.min === 0)
     return (
-      <Text
-        style={{
-          fontFamily: fonts.body,
-          fontSize: Math.max(15, v(16)),
-          color: colors.onBlueMuted,
-        }}
-      >
-        {t.optional}
-        {total ? ` · ${total} ${locale === 'ru' ? 'шт' : 'дана'}` : ''}
-      </Text>
+      <Animated.View style={{ opacity: pop.opacity, transform: [{ scale: pop.scale }] }}>
+        <Text
+          style={{
+            fontFamily: fonts.body,
+            fontSize: Math.max(15, v(16)),
+            color: colors.onBlueMuted,
+          }}
+        >
+          {t.optional}
+          {total ? ` · ${total} ${locale === 'ru' ? 'шт' : 'дана'}` : ''}
+        </Text>
+      </Animated.View>
     );
   const done = total >= group.min && total <= group.max;
   const names = selections
@@ -476,7 +535,8 @@ function GroupChip({
         flexDirection: 'row',
         alignItems: 'center',
         gap: v(6),
-        transform: [{ scale: pop }],
+        opacity: pop.opacity,
+        transform: [{ scale: pop.scale }],
       }}
     >
       {done ? <Icon name="checkmark" size="small" tone="brand" /> : null}
@@ -502,6 +562,9 @@ function GroupChip({
  * v3 modifier group. Photo options become tiles (drinks five across, others four),
  * optional multi-quantity extras become rows with a stepper, and options without
  * artwork (sizes) become large text tiles. Selection logic and limits are unchanged.
+ * Inside a ScrollArea the group is a `focus` target named by its id; a new
+ * `attention` value shakes its options 380 ms later (the guest tried to add the
+ * product while this choice was missing).
  */
 export function ModifierOptions({
   group,
@@ -509,14 +572,25 @@ export function ModifierOptions({
   setSelections,
   locale,
   limit,
+  attention,
 }: {
   group: KioskModifierGroup;
   selections: KioskSelection[];
   setSelections: (s: KioskSelection[]) => void;
   locale: Locale;
   limit?: number;
+  /** Bump to point the guest at this group (scroll first, shake after 380 ms). */
+  attention?: number;
 }) {
   const { v } = useMetrics();
+  const target = useScrollTarget(group.id);
+  const [nudge, setNudge] = useState(0);
+  const shake = useShake(nudge);
+  useEffect(() => {
+    if (!attention) return;
+    const timer = setTimeout(() => setNudge((n) => n + 1), 380);
+    return () => clearTimeout(timer);
+  }, [attention]);
   const total = selections
     .filter((s) => s.group_id === group.id)
     .reduce((n, s) => n + s.quantity, 0);
@@ -536,7 +610,7 @@ export function ModifierOptions({
   const drinks = group.id === 'drink';
   const columns = visual ? (drinks ? 5 : 4) : Math.min(4, Math.max(2, options.length));
   return (
-    <View style={{ gap: v(16) }}>
+    <View ref={target} collapsable={false} style={{ gap: v(16) }}>
       <View
         style={{
           flexDirection: 'row',
@@ -565,7 +639,7 @@ export function ModifierOptions({
         />
       </View>
       {extras ? (
-        <View style={{ gap: v(10) }}>
+        <Animated.View style={{ gap: v(10), transform: [{ translateX: shake }] }}>
           {options.map((option, index) => (
             <ExtraRow
               key={option.id}
@@ -578,9 +652,9 @@ export function ModifierOptions({
               update={update}
             />
           ))}
-        </View>
+        </Animated.View>
       ) : (
-        <View style={{ gap: v(12) }}>
+        <Animated.View style={{ gap: v(12), transform: [{ translateX: shake }] }}>
           {rows(options, columns).map((row, r) => (
             <View key={r} style={{ flexDirection: 'row', gap: v(12) }}>
               {row.map((option, i) => (
@@ -602,7 +676,7 @@ export function ModifierOptions({
               ))}
             </View>
           ))}
-        </View>
+        </Animated.View>
       )}
     </View>
   );

@@ -41,7 +41,8 @@ export function ProductIntro({
   const { v } = useMetrics();
   const t = copy(locale);
   const hit = product.name === 'Pick Combo';
-  const tag = useEnter(380, 500);
+  // Prototype `.ptag`: pop (scale .3 -> 1, fade in) 500 ms after 380 ms, --spring.
+  const tag = useEnter(380, 500, 'spring');
   return (
     <View testID="kiosk-product-intro">
       <View>
@@ -53,7 +54,11 @@ export function ProductIntro({
               position: 'absolute',
               top: v(40),
               right: v(32),
-              opacity: tag,
+              opacity: tag.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+                extrapolate: 'clamp',
+              }),
               transform: [
                 { rotate: '4deg' },
                 { scale: tag.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },

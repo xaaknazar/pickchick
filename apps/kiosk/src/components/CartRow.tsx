@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { PhotoImage } from './PhotoImage';
 import type { KioskCartLine } from '../model';
@@ -7,7 +8,8 @@ import { heroPhoto, productImage, productPhoto, productArtworkId, type Photo } f
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { inCategory } from './categories';
-import { usePop, useStagger } from './motion';
+import { ease, usePopIn, usePress, useStagger } from './motion';
+import { useMotionPreference } from './useMotionPreference';
 /** One line per chosen option, in the same wording as the summary ("Соус × 2"). */
 function selectionLines(line: KioskCartLine) {
   return line.selections
@@ -25,6 +27,10 @@ function selectionLines(line: KioskCartLine) {
  * v3 cart line: white 30-pt card, 140-pt photo tile (blue studio shot for combos,
  * duos and sets), name, chosen options with blue checks, remove capsule, the line
  * total and a soft capsule stepper (white minus, orange plus). Rows rise in stagger.
+ * Removing the line (remove, or minus at 1) slides it out at once (prototype
+ * `.line.gone`: fade, -80 pt, scale .96, 280 ms) while the cart updates; a line
+ * that is still there afterwards slides back. `leaving` keeps a removed line on
+ * screen, untouchable and without ids, until that exit ends (`onLeft`).
  */
 export function CartRow({
   line,
@@ -32,17 +38,117 @@ export function CartRow({
   busy,
   onQuantity,
   position = 0,
+  leaving = false,
+  onLeft,
 }: {
   line: KioskCartLine;
   locale: Locale;
   busy: boolean;
   onQuantity: (quantity: number) => void;
   position?: number;
+  /** Already removed from the cart: finish the exit, then call `onLeft`. */
+  leaving?: boolean;
+  onLeft?: () => void;
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
+  const reduced = useMotionPreference();
   const rise = useStagger(position);
-  const tick = usePop(line.quantity);
+  // Prototype `.stp output.tick`: the count pops (300 ms --spring) on change.
+  const tick = usePopIn(line.quantity, 300, 0, false);
+  const gone = useRef(new Animated.Value(0)).current;
+  const state = useRef({ departing: false, out: false, leaving, busy, onLeft });
+  state.current.leaving = leaving;
+  state.current.busy = busy;
+  state.current.onLeft = onLeft;
+  const left = () => {
+    if (state.current.leaving) state.current.onLeft?.();
+  };
+  const settle = () => {
+    state.current.departing = false;
+    state.current.out = false;
+    gone.stopAnimation();
+    if (reduced) gone.setValue(0);
+    else
+      Animated.spring(gone, {
+        toValue: 0,
+        stiffness: 260,
+        damping: 22,
+        useNativeDriver: true,
+      }).start();
+  };
+  const depart = () => {
+    if (reduced || state.current.departing) return;
+    state.current.departing = true;
+    state.current.out = false;
+    gone.stopAnimation();
+    Animated.timing(gone, { toValue: 1, duration: 280, easing: ease, useNativeDriver: true }).start(
+      ({ finished }) => {
+        if (!finished) return;
+        state.current.out = true;
+        left();
+      },
+    );
+  };
+  // Nothing removed the line for a while (no update ran): slide back.
+  const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (fallback.current) clearTimeout(fallback.current);
+    },
+    [],
+  );
+  const change = (quantity: number) => {
+    if (quantity <= 0 && !reduced) {
+      if (fallback.current) clearTimeout(fallback.current);
+      fallback.current = setTimeout(() => {
+        if (!state.current.leaving && !state.current.busy && state.current.departing) settle();
+      }, 1500);
+    }
+    if (quantity <= 0) depart();
+    onQuantity(quantity);
+  };
+  // Removed from the cart: make sure the exit runs (or has run), then let go.
+  useEffect(() => {
+    if (!leaving) return;
+    if (reduced) {
+      state.current.onLeft?.();
+      return;
+    }
+    if (state.current.out) state.current.onLeft?.();
+    else depart();
+    // Only a change of `leaving` or motion re-runs this; `depart` reads refs.
+  }, [leaving, reduced]);
+  // The update finished but the line is still here (it failed): slide back.
+  useEffect(() => {
+    if (busy || leaving || !state.current.departing) return;
+    const timer = setTimeout(() => {
+      if (!state.current.leaving && !state.current.busy && state.current.departing) settle();
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [busy, leaving]);
+  // Reduced motion mid-exit: rest at once.
+  useEffect(() => {
+    if (!reduced) return;
+    gone.stopAnimation();
+    gone.setValue(0);
+    state.current.departing = false;
+  }, [gone, reduced]);
+  const opacity = useMemo(
+    () => Animated.multiply(rise, gone.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })),
+    [gone, rise],
+  );
+  const scale = useMemo(
+    () =>
+      Animated.multiply(
+        rise.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }),
+        gone.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }),
+      ),
+    [gone, rise],
+  );
+  const removePress = usePress(0.95);
+  const minusPress = usePress(0.9);
+  const plusPress = usePress(0.9);
   const product = line.product;
   const set = !inCategory(product, 'extras');
   const imageId = productArtworkId(product, line.selections);
@@ -53,16 +159,22 @@ export function CartRow({
   };
   const options = selectionLines(line);
   const prefix = 'kiosk-cart-line-' + line.lineId;
+  // A leaving copy keeps no automation ids, so tests only ever see live lines.
+  const id = (suffix: string) => (leaving ? undefined : prefix + suffix);
   const max = 20;
   const step = Math.max(48, v(54));
   return (
     <Animated.View
-      testID={prefix}
+      testID={id('')}
+      pointerEvents={leaving ? 'none' : 'auto'}
+      accessibilityElementsHidden={leaving}
+      importantForAccessibility={leaving ? 'no-hide-descendants' : 'auto'}
       style={{
-        opacity: rise,
+        opacity,
         transform: [
           { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [v(34), 0] }) },
-          { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+          { translateX: gone.interpolate({ inputRange: [0, 1], outputRange: [0, -80] }) },
+          { scale },
         ],
         borderRadius: v(30),
         backgroundColor: colors.white,
@@ -127,39 +239,46 @@ export function CartRow({
             ))}
           </View>
         ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t.remove}
-          accessibilityState={{ disabled: busy }}
-          disabled={busy}
-          onPress={() => onQuantity(0)}
-          style={({ pressed }) => ({
+        <Animated.View
+          style={{
             marginTop: 'auto',
             alignSelf: 'flex-start',
-            minHeight: Math.max(44, v(46)),
-            paddingLeft: v(12),
-            paddingRight: v(16),
-            borderRadius: 999,
-            borderWidth: 2,
-            borderColor: '#E3E9F5',
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: v(8),
-            opacity: busy ? 0.45 : 1,
-            transform: [{ scale: pressed ? 0.95 : 1 }],
-          })}
+            transform: [{ scale: removePress.scale }],
+          }}
         >
-          <Icon name="trash-outline" size="small" tone="accent" />
-          <Text
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.remove}
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() => change(0)}
+            onPressIn={removePress.onPressIn}
+            onPressOut={removePress.onPressOut}
             style={{
-              fontFamily: fonts.bold,
-              fontSize: Math.max(15, v(16)),
-              color: colors.navy,
+              minHeight: Math.max(44, v(46)),
+              paddingLeft: v(12),
+              paddingRight: v(16),
+              borderRadius: 999,
+              borderWidth: 2,
+              borderColor: '#E3E9F5',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: v(8),
+              opacity: busy ? 0.45 : 1,
             }}
           >
-            {t.remove}
-          </Text>
-        </Pressable>
+            <Icon name="trash-outline" size="small" tone="accent" />
+            <Text
+              style={{
+                fontFamily: fonts.bold,
+                fontSize: Math.max(15, v(16)),
+                color: colors.navy,
+              }}
+            >
+              {t.remove}
+            </Text>
+          </Pressable>
+        </Animated.View>
       </View>
       <View
         style={{
@@ -192,28 +311,31 @@ export function CartRow({
             backgroundColor: colors.soft,
           }}
         >
-          <Pressable
-            testID={prefix + '-minus'}
-            accessibilityRole="button"
-            accessibilityLabel={locale === 'ru' ? 'Уменьшить количество' : 'Санын азайту'}
-            accessibilityState={{ disabled: busy }}
-            disabled={busy}
-            onPress={() => onQuantity(line.quantity - 1)}
-            style={({ pressed }) => ({
-              width: step,
-              height: step,
-              borderRadius: step / 2,
-              backgroundColor: colors.white,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: busy ? 0.35 : 1,
-              transform: [{ scale: pressed ? 0.9 : 1 }],
-            })}
-          >
-            <Icon name="remove" tone="navy" />
-          </Pressable>
+          <Animated.View style={{ transform: [{ scale: minusPress.scale }] }}>
+            <Pressable
+              testID={id('-minus')}
+              accessibilityRole="button"
+              accessibilityLabel={locale === 'ru' ? 'Уменьшить количество' : 'Санын азайту'}
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
+              onPress={() => change(line.quantity - 1)}
+              onPressIn={minusPress.onPressIn}
+              onPressOut={minusPress.onPressOut}
+              style={{
+                width: step,
+                height: step,
+                borderRadius: step / 2,
+                backgroundColor: colors.white,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: busy ? 0.35 : 1,
+              }}
+            >
+              <Icon name="remove" tone="navy" />
+            </Pressable>
+          </Animated.View>
           <Animated.Text
-            testID={prefix + '-quantity'}
+            testID={id('-quantity')}
             style={{
               minWidth: v(30),
               textAlign: 'center',
@@ -221,31 +343,35 @@ export function CartRow({
               fontSize: v(23),
               color: colors.navy,
               fontVariant: ['tabular-nums'],
-              transform: [{ scale: tick }],
+              opacity: tick.opacity,
+              transform: [{ scale: tick.scale }],
             }}
           >
             {line.quantity}
           </Animated.Text>
-          <Pressable
-            testID={prefix + '-plus'}
-            accessibilityRole="button"
-            accessibilityLabel={locale === 'ru' ? 'Увеличить количество' : 'Санын көбейту'}
-            accessibilityState={{ disabled: busy || line.quantity >= max }}
-            disabled={busy || line.quantity >= max}
-            onPress={() => onQuantity(line.quantity + 1)}
-            style={({ pressed }) => ({
-              width: step,
-              height: step,
-              borderRadius: step / 2,
-              backgroundColor: colors.orange,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: busy || line.quantity >= max ? 0.35 : 1,
-              transform: [{ scale: pressed ? 0.9 : 1 }],
-            })}
-          >
-            <Icon name="add" tone="inverse" />
-          </Pressable>
+          <Animated.View style={{ transform: [{ scale: plusPress.scale }] }}>
+            <Pressable
+              testID={id('-plus')}
+              accessibilityRole="button"
+              accessibilityLabel={locale === 'ru' ? 'Увеличить количество' : 'Санын көбейту'}
+              accessibilityState={{ disabled: busy || line.quantity >= max }}
+              disabled={busy || line.quantity >= max}
+              onPress={() => change(line.quantity + 1)}
+              onPressIn={plusPress.onPressIn}
+              onPressOut={plusPress.onPressOut}
+              style={{
+                width: step,
+                height: step,
+                borderRadius: step / 2,
+                backgroundColor: colors.orange,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: busy || line.quantity >= max ? 0.35 : 1,
+              }}
+            >
+              <Icon name="add" tone="inverse" />
+            </Pressable>
+          </Animated.View>
         </View>
       </View>
     </Animated.View>

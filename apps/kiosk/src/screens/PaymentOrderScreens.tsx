@@ -67,7 +67,7 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
               : 'QR дайындалуда немесе төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
       : t.testPayment;
   return (
-    <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance>
+    <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance={context.direction}>
       <Header {...context} title={t.payment} />
       <ScrollArea fill>
         <Wrapper flex={1} paddingX={60} paddingY={34} gap={28} align="center" justify="center">
@@ -191,7 +191,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
           : 'accepted';
 
   return (
-    <ScreenSurface testID="kiosk-screen-order" tone="brand" entrance>
+    <ScreenSurface testID="kiosk-screen-order" tone="brand" entrance={context.direction}>
       <ScrollArea fill>
         <Wrapper flex={1} paddingX={60} paddingY={40} justify="center">
           <OrderTicket
@@ -226,6 +226,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
               busy={model.busy}
               onPress={() => void model.newGuest()}
               fullWidth
+              progress={canReset ? (15 - seconds) / 15 : undefined}
             />
           </Wrapper>
           <Button label={t.help} tone="inverse" onPress={context.onHelp} />
@@ -237,7 +238,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
 export function RecoveryScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   return (
-    <ScreenSurface testID="kiosk-screen-recovery" tone="brand" entrance>
+    <ScreenSurface testID="kiosk-screen-recovery" tone="brand" entrance={context.direction}>
       <Header {...context} title={t.restore} />
       <ScrollArea fill>
         <Wrapper flex={1} paddingX={60} paddingY={40} gap={28} align="center" justify="center">

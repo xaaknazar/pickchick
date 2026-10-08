@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
 import { money } from '../cart';
+import type { KioskCartLine } from '../model';
+import { productArtworkId, productImage, productPhoto } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
-import { motion, usePop } from './motion';
+import { measureRect, motion, useBump, useFly, usePop, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 const positions = (n: number, locale: Locale) => {
   if (locale !== 'ru') return n + ' позиция';
@@ -22,35 +25,50 @@ const positions = (n: number, locale: Locale) => {
           : ' позиций')
   );
 };
+const minorOf = (total: string) => (/^[0-9]{1,15}$/.test(total) ? Number(total) : 0);
 /**
  * v3 floating cart pill: blue bag with an orange count badge, item count and
- * total, and the orange checkout pill. The bag bumps when something is added.
+ * total, and the orange checkout pill. When `arrival` was just added on the
+ * product screen its photo arcs from the top of the screen into the bag
+ * (prototype `fly()`, 780 ms) and the bag bumps as it lands; any other addition
+ * bumps the bag at once. The total counts up to its new value (380 ms) and the
+ * checkout pill fades between grey and orange. Counts, total and actions are
+ * always current; the motion never holds them back.
  */
 export function CartBar({
   quantity,
   previousQuantity,
   total,
+  previousTotal,
   valid,
   empty,
   busy,
   locale,
+  arrival,
+  onLanded,
   onCheckout,
 }: {
   quantity: number;
   previousQuantity?: number;
   total: string;
+  /** Total the bar last showed (minor units), so the new total counts up from it. */
+  previousTotal?: string;
   valid: boolean;
   empty: boolean;
   busy: boolean;
   locale: Locale;
+  /** Line just added on the product screen: its photo flies into the bag. */
+  arrival?: Pick<KioskCartLine, 'product' | 'selections'> | null;
+  /** The flying photo reached the bag (at once when nothing flies). */
+  onLanded?: () => void;
   onCheckout: () => void;
 }) {
-  const { v } = useMetrics();
+  const { v, width } = useMetrics();
   const safe = useSafeAreaInsets();
   const t = copy(locale);
-  const previous = useRef(previousQuantity ?? quantity);
+  const start = useRef(previousQuantity ?? quantity);
+  const previous = useRef(start.current);
   const [added, setAdded] = useState(false);
-  const scale = useRef(new Animated.Value(1)).current;
   const press = useRef(new Animated.Value(1)).current;
   const reduced = useMotionPreference();
   // A reduced-motion switch must also release a press that is already held.
@@ -58,13 +76,67 @@ export function CartBar({
     press.stopAnimation();
     press.setValue(1);
   }, [reduced, press]);
-  const [pulse, setPulse] = useState(0);
   const badge = usePop(quantity);
+  // Prototype `.bagc.bump` (520 ms --spring): after the flight lands, or at once.
+  const [bumps, setBumps] = useState(0);
+  const bump = useBump(bumps);
+  const host = useRef<View>(null);
+  const bag = useRef<View>(null);
+  const { flight, launch } = useFly(v(60));
+  const [flyer] = useState(() =>
+    arrival && quantity > start.current
+      ? productArtworkId(arrival.product, arrival.selections)
+      : null,
+  );
+  const landed = useRef(!flyer);
+  const landedCallback = useRef(onLanded);
+  useEffect(() => {
+    landedCallback.current = onLanded;
+  }, [onLanded]);
+  const land = useCallback(() => {
+    if (landed.current) return;
+    landed.current = true;
+    setBumps((value) => value + 1);
+    landedCallback.current?.();
+  }, []);
+  // Prototype start: a 300 pt disc centred 140 pt below the top of the screen.
+  const disc = v(300);
+  const top = v(140);
+  const launched = useRef(false);
+  useEffect(() => {
+    if (landed.current || launched.current) return;
+    let live = true;
+    // Measured after the first frame, in this bar's own coordinates.
+    const frame = requestAnimationFrame(() => {
+      void Promise.all([measureRect(host.current), measureRect(bag.current)]).then(
+        ([box, target]) => {
+          if (!live || launched.current) return;
+          launched.current = true;
+          if (!box || !target || !target.width) {
+            land();
+            return;
+          }
+          const from = {
+            x: width / 2 - disc / 2 - box.x,
+            y: top - box.y,
+            width: disc,
+            height: disc,
+          };
+          const to = { ...target, x: target.x - box.x, y: target.y - box.y };
+          void launch(from, to).then(land);
+        },
+      );
+    });
+    return () => {
+      live = false;
+      cancelAnimationFrame(frame);
+    };
+  }, [disc, land, launch, top, width]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (quantity > previous.current) {
       setAdded(true);
-      setPulse((value) => value + 1);
+      if (landed.current) setBumps((value) => value + 1);
       timer = setTimeout(() => setAdded(false), 1800);
     } else setAdded(false);
     previous.current = quantity;
@@ -72,19 +144,13 @@ export function CartBar({
       if (timer) clearTimeout(timer);
     };
   }, [quantity]);
-  useEffect(() => {
-    scale.stopAnimation();
-    scale.setValue(1);
-    if (pulse && !reduced)
-      Animated.sequence([
-        Animated.timing(scale, { toValue: 1.2, duration: 150, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, damping: 9, stiffness: 260, useNativeDriver: true }),
-      ]).start();
-    return () => {
-      scale.stopAnimation();
-      scale.setValue(1);
-    };
-  }, [pulse, reduced, scale]);
+  // Prototype `tween()`: the total counts to its new value; whole tenge only.
+  const minor = minorOf(total);
+  const shown = useTween(minor, motion.enter, minorOf(previousTotal ?? total));
+  const display = shown === minor ? money(total) : money(String(Math.round(shown / 100) * 100));
+  // Prototype `.cbar .go`: grey while empty, fading 200 ms; dimmed while busy.
+  const grey = useTimingTo(empty ? 1 : 0, 200, 'css');
+  const dim = useTimingTo(busy ? 0.7 : 1, 200, 'css');
   const blocked = empty || busy;
   const squeeze = (down: boolean) => {
     press.stopAnimation();
@@ -94,8 +160,10 @@ export function CartBar({
       useNativeDriver: true,
     }).start();
   };
+  const photo = flyer ? productPhoto(flyer) : null;
   return (
     <View
+      ref={host}
       testID="kiosk-cart-bar"
       style={{
         paddingTop: v(14),
@@ -122,20 +190,10 @@ export function CartBar({
           paddingVertical: v(10),
         }}
       >
-        <Animated.View
-          style={{
-            transform: [
-              { scale },
-              {
-                rotate: scale.interpolate({
-                  inputRange: [0.9, 1, 1.2],
-                  outputRange: ['3deg', '0deg', '-8deg'],
-                }),
-              },
-            ],
-          }}
-        >
+        <Animated.View style={{ transform: [{ scale: bump.scale }, { rotate: bump.rotate }] }}>
           <View
+            ref={bag}
+            collapsable={false}
             style={{
               width: v(76),
               height: v(76),
@@ -185,6 +243,7 @@ export function CartBar({
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
+            accessibilityLabel={valid ? money(total) : undefined}
             style={{
               fontFamily: fonts.black,
               fontSize: valid ? v(32) : v(22),
@@ -192,10 +251,10 @@ export function CartBar({
               fontVariant: ['tabular-nums'],
             }}
           >
-            {valid ? money(total) : locale === 'ru' ? 'Проверьте корзину' : 'Себетті тексеріңіз'}
+            {valid ? display : locale === 'ru' ? 'Проверьте корзину' : 'Себетті тексеріңіз'}
           </Text>
         </View>
-        <Animated.View style={{ transform: [{ scale: press }] }}>
+        <Animated.View style={{ opacity: dim, transform: [{ scale: press }] }}>
           <Pressable
             testID="kiosk-menu-checkout"
             accessibilityRole="button"
@@ -209,18 +268,30 @@ export function CartBar({
               minHeight: Math.max(52, v(80)),
               paddingHorizontal: v(32),
               borderRadius: 999,
-              backgroundColor: empty ? '#C9D2E3' : colors.orangeCta,
+              backgroundColor: colors.orangeCta,
               shadowColor: colors.orange,
               shadowOpacity: empty ? 0 : 0.4,
               shadowRadius: 18,
               shadowOffset: { width: 0, height: 8 },
-              opacity: busy ? 0.7 : 1,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
               gap: v(10),
             }}
           >
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                borderRadius: 999,
+                backgroundColor: '#C9D2E3',
+                opacity: grey,
+              }}
+            />
             {busy ? (
               <ActivityIndicator accessibilityLabel={t.checkout} color={colors.white} />
             ) : null}
@@ -236,6 +307,45 @@ export function CartBar({
           </Pressable>
         </Animated.View>
       </View>
+      {flight && flyer ? (
+        // Prototype `.flyer`: a white-ringed photo disc; decorative, never touchable.
+        <Animated.View
+          key={flight.id}
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          aria-hidden
+          style={{
+            ...flight.style,
+            zIndex: 20,
+            borderRadius: v(150),
+            padding: v(6),
+            backgroundColor: colors.white,
+            shadowColor: '#020A28',
+            shadowOpacity: 0.35,
+            shadowRadius: 36,
+            shadowOffset: { width: 0, height: 18 },
+            elevation: 20,
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              borderRadius: v(150),
+              overflow: 'hidden',
+              backgroundColor: photo?.tile ?? colors.white,
+            }}
+          >
+            <Image
+              accessible={false}
+              accessibilityLabel=""
+              source={photo?.source ?? productImage(flyer)}
+              contentFit="cover"
+              style={{ width: '100%', height: '100%' }}
+            />
+          </View>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

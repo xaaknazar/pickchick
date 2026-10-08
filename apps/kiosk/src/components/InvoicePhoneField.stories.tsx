@@ -25,11 +25,20 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Filled: Story = { args: { value: '+7 (700) 000-00-00' } };
+/** A complete number turns the ring green (260 ms crossfade). */
+export const Valid: Story = { args: { value: '+7 (700) 000-00-00', valid: true } };
 export const Sending: Story = { args: { value: '+7 (700) 000-00-00', busy: true } };
 export const Kazakh: Story = { args: { locale: 'kk' } };
 export const Interactive: Story = {
   render: function Input(args) {
     const [value, setValue] = useState('');
-    return <InvoicePhoneField {...args} value={value} onChange={setValue} />;
+    return (
+      <InvoicePhoneField
+        {...args}
+        value={value}
+        onChange={setValue}
+        valid={value.replace(/\D/g, '').length >= 11}
+      />
+    );
   },
 };

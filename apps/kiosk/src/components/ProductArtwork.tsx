@@ -5,11 +5,14 @@ import { heroPhoto, productImage, productPhoto, type Photo } from '../assets';
 import { colors, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { useEnter } from './motion';
+import { useScrollOffset } from './scroll';
+import { useMotionPreference } from './useMotionPreference';
 import { PhotoImage } from './PhotoImage';
 /**
  * Product photography. `hero` is the v3 product-page stage: the photo sits on its own
- * tile colour (blue studio shot for combos, warm tile for singles) and scales in once.
- * Other variants show the v3 card photo on its tile, or the original mockup shot.
+ * tile colour (blue studio shot for combos, warm tile for singles) and lands once
+ * (scale .7, -6deg, 760 ms with a slight overshoot). Inside a `parallax` ScrollArea
+ * the photo drifts down at .4x the scroll and grows up to 1.23. Other variants show the v3 card photo on its tile, or the original mockup shot.
  */
 export function ProductArtwork({
   imageId,
@@ -20,7 +23,10 @@ export function ProductArtwork({
 }) {
   const { px, v } = useMetrics();
   const hero = variant === 'hero';
-  const enter = useEnter(0, hero ? 760 : 0);
+  const enter = useEnter(0, hero ? 760 : 0, 'settle');
+  const scroll = useScrollOffset();
+  const reduced = useMotionPreference();
+  const drift = hero && scroll && !reduced ? scroll : null;
   const photo: Photo | null = hero ? heroPhoto(imageId) : productPhoto(imageId);
   if (hero) {
     const tile = photo?.tile ?? colors.cream;
@@ -46,42 +52,75 @@ export function ProductArtwork({
           style={{
             width: size,
             height: size,
-            opacity: enter.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
-            transform: [
-              { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) },
-              {
-                rotate: enter.interpolate({ inputRange: [0, 1], outputRange: ['-5deg', '0deg'] }),
-              },
-            ],
+            transform: drift
+              ? [
+                  // Prototype: translateY(y * .4) scale(1 + min(y, 600) / 2600).
+                  {
+                    translateY: drift.interpolate({
+                      inputRange: [0, 1000],
+                      outputRange: [0, 400],
+                      extrapolateLeft: 'clamp',
+                    }),
+                  },
+                  {
+                    scale: drift.interpolate({
+                      inputRange: [0, 600],
+                      outputRange: [1, 1 + 600 / 2600],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                ]
+              : [],
           }}
         >
-          {imageId === 'generic-drink' && !photo ? (
-            <View
-              style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}
-            >
-              <Icon name="water-outline" size="hero" tone="brand" />
-            </View>
-          ) : (
-            <PhotoImage imageId={imageId} variant="hero" />
-          )}
-          {blue ? (
-            <>
-              <LinearGradient
-                pointerEvents="none"
-                colors={[tile, tile + '00']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{ position: 'absolute', left: -1, top: 0, bottom: 0, width: size * 0.08 }}
-              />
-              <LinearGradient
-                pointerEvents="none"
-                colors={[tile + '00', tile]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{ position: 'absolute', right: -1, top: 0, bottom: 0, width: size * 0.08 }}
-              />
-            </>
-          ) : null}
+          <Animated.View
+            style={{
+              width: size,
+              height: size,
+              opacity: enter.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 1],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                {
+                  rotate: enter.interpolate({ inputRange: [0, 1], outputRange: ['-6deg', '0deg'] }),
+                },
+              ],
+            }}
+          >
+            {imageId === 'generic-drink' && !photo ? (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { alignItems: 'center', justifyContent: 'center' },
+                ]}
+              >
+                <Icon name="water-outline" size="hero" tone="brand" />
+              </View>
+            ) : (
+              <PhotoImage imageId={imageId} variant="hero" />
+            )}
+            {blue ? (
+              <>
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={[tile, tile + '00']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ position: 'absolute', left: -1, top: 0, bottom: 0, width: size * 0.08 }}
+                />
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={[tile + '00', tile]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ position: 'absolute', right: -1, top: 0, bottom: 0, width: size * 0.08 }}
+                />
+              </>
+            ) : null}
+          </Animated.View>
         </Animated.View>
         {blue ? (
           // Melt the studio floor into the bright blue body below the stage.

@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Animated, Text, View } from 'react-native';
+import { Animated, Easing, Text, View, type TextStyle } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { assets } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Logo } from './Logo';
+import { OrderBurst } from './OrderBurst';
+import { PaidStamp, paidLead } from './PaidStamp';
 import { useEnter, useLoop, usePop, useSpringTo } from './motion';
+import { useMotionPreference } from './useMotionPreference';
 
 export type OrderStage = 'accepted' | 'preparing' | 'ready';
 const fill: Record<OrderStage, number> = { accepted: 0.18, preparing: 0.52, ready: 1 };
@@ -16,6 +20,47 @@ const labels: Record<Locale, Record<OrderStage, string>> = {
 };
 /** Concentric translucent discs: a soft radial glow without a gradient library. */
 const rings = Array.from({ length: 16 }, (_, index) => 1 - index * 0.055);
+/**
+ * Prototype `kShine` keyframes on a linear 0..1 cycle: 0-55 % sweeps
+ * translateX -140 % -> 620 % with ease-in-out, then it waits off the bar.
+ */
+const sweep = Easing.bezier(0.42, 0, 0.58, 1);
+const shineSteps = Array.from({ length: 12 }, (_, index) => index / 11);
+const shineInput = [...shineSteps.map((k) => k * 0.55), 1];
+const shineOutput = [...shineSteps.map((k) => -1.4 + 7.6 * sweep(k)), 6.2];
+
+/** White highlight sweeping along the bar fill every 2 s, from 2.4 s after the ticket starts. */
+function Shine({ span, after }: { span: number; after: number }) {
+  const loop = useLoop(2000, after + 2400, false, 0, 'linear');
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        width: span,
+        transform: [
+          {
+            translateX: loop.interpolate({
+              inputRange: shineInput,
+              outputRange: shineOutput.map((x) => x * span),
+            }),
+          },
+          { skewX: '-20deg' },
+        ],
+      }}
+    >
+      <LinearGradient
+        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,.45)', 'rgba(255,255,255,0)']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={{ flex: 1 }}
+      />
+    </Animated.View>
+  );
+}
 
 function StageLabel({ label, state }: { label: string; state: 'done' | 'active' | 'next' }) {
   const { v } = useMetrics();
@@ -45,6 +90,8 @@ function StageLabel({ label, state }: { label: string; state: 'done' | 'active' 
 /**
  * v3 order number on the blue surface: logo, chef, the stamped number with a
  * hard orange shadow, status, a three-stage progress bar, board hint, receipt.
+ * When it opens already paid, a green "paid" card plays first and the ticket
+ * choreography follows it; a burst of food cut-outs flies from the number.
  */
 export function OrderTicket({
   number,
@@ -67,14 +114,20 @@ export function OrderTicket({
   const t = copy(locale);
   const tight = height < v(1180);
   const [track, setTrack] = useState(0);
-  const logo = useEnter(0, 600);
-  const chef = useEnter(120, 800);
-  const label = useEnter(300, 500);
-  const stamp = useEnter(380, 760);
+  const reduced = useMotionPreference();
+  // Opening already paid: the paid card holds first, then the ticket arrives.
+  const [lead] = useState(() => (confirmed && !reduced ? paidLead : 0));
+  const logo = useEnter(lead, 600);
+  // Prototype `chefPop` (800 ms, spring curve): scale .5 and -10deg overshoot, then settle.
+  const chef = useEnter(lead + 120, 800, 'spring');
+  const label = useEnter(lead + 300, 500);
+  // Prototype `stamp` (760 ms, spring curve): scale 2.1 -> 1, blur -> sharp,
+  // the hard orange shadow slides from 0 to 10 pt.
+  const stamp = useEnter(lead + 380, 760, 'spring');
   const pop = usePop(confirmed);
-  const rest = useEnter(780, 500);
-  const bar = useEnter(1000, 1400);
-  const hint = useEnter(1000, 500);
+  const rest = useEnter(lead + 780, 500);
+  const bar = useEnter(lead + 1000, 1400);
+  const hint = useEnter(lead + 1000, 500);
   const target = useSpringTo(stage ? fill[stage] : 0);
   const glow = useLoop(4000, 0, true);
   const progress = Animated.multiply(bar, target);
@@ -83,6 +136,20 @@ export function OrderTicket({
   const numberSize = Math.min(
     v(tight ? 200 : 230),
     Math.floor((width - v(120)) / Math.max(1, digits.length + (prefixed ? 0.5 : 0)) / 0.72),
+  );
+  const numberText: TextStyle = {
+    fontFamily: fonts.black,
+    fontVariant: ['tabular-nums'],
+    fontSize: numberSize,
+    lineHeight: numberSize * 0.96 + v(10),
+    letterSpacing: -numberSize * 0.026,
+    textAlign: 'center',
+  };
+  const numberContent = (
+    <>
+      {prefixed ? <Text style={{ fontSize: numberSize * 0.42 }}>№</Text> : null}
+      {digits}
+    </>
   );
   const glowSize = v(760);
   const chefSize = v(tight ? 250 : 340);
@@ -130,7 +197,8 @@ export function OrderTicket({
         style={{
           opacity: logo,
           transform: [
-            { translateY: logo.interpolate({ inputRange: [0, 1], outputRange: [-24, 0] }) },
+            { translateY: logo.interpolate({ inputRange: [0, 1], outputRange: [-28, 0] }) },
+            { scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
           ],
         }}
       >
@@ -141,14 +209,13 @@ export function OrderTicket({
         <Animated.View
           style={{
             marginTop: v(6),
-            opacity: chef.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 1, 1] }),
+            opacity: chef.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
             transform: [
-              {
-                scale: chef.interpolate({
-                  inputRange: [0, 0.7, 0.85, 1],
-                  outputRange: [0.5, 1.04, 0.99, 1],
-                }),
-              },
+              { scale: chef.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) },
               {
                 rotate: chef.interpolate({ inputRange: [0, 1], outputRange: ['-10deg', '0deg'] }),
               },
@@ -179,41 +246,75 @@ export function OrderTicket({
         {t.yourNumber}
       </Animated.Text>
 
-      <Animated.View
-        style={{
-          opacity: stamp.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
-          transform: [
-            {
-              scale: Animated.multiply(
-                stamp.interpolate({
-                  inputRange: [0, 0.6, 0.8, 1],
-                  outputRange: [2.1, 0.95, 1.02, 1],
-                }),
-                pop,
-              ),
-            },
-          ],
-        }}
-      >
-        <Text
-          testID="kiosk-order-number"
+      <View style={{ zIndex: 2, alignItems: 'center' }}>
+        <Animated.View
           style={{
-            fontFamily: fonts.black,
-            fontVariant: ['tabular-nums'],
-            fontSize: numberSize,
-            lineHeight: numberSize * 0.96 + v(10),
-            letterSpacing: -numberSize * 0.026,
-            color: colors.white,
-            textAlign: 'center',
-            textShadowColor: colors.orange,
-            textShadowOffset: { width: 0, height: v(10) },
-            textShadowRadius: 0,
+            opacity: stamp.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
+            transform: [
+              {
+                scale: Animated.multiply(
+                  stamp.interpolate({ inputRange: [0, 1], outputRange: [2.1, 1] }),
+                  pop,
+                ),
+              },
+            ],
           }}
         >
-          {prefixed ? <Text style={{ fontSize: numberSize * 0.42 }}>№</Text> : null}
-          {digits}
-        </Text>
-      </Animated.View>
+          {/* The hard orange shadow is a copy behind the number that slides down. */}
+          <Animated.Text
+            accessible={false}
+            aria-hidden
+            style={{
+              ...numberText,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              color: colors.orange,
+              transform: [
+                { translateY: stamp.interpolate({ inputRange: [0, 1], outputRange: [0, v(10)] }) },
+              ],
+            }}
+          >
+            {numberContent}
+          </Animated.Text>
+          <Text testID="kiosk-order-number" style={{ ...numberText, color: colors.white }}>
+            {numberContent}
+          </Text>
+          {reduced ? null : (
+            // Blur stand-in: a soft, larger ghost that dissolves as the number lands.
+            <Animated.Text
+              accessible={false}
+              aria-hidden
+              style={{
+                ...numberText,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                color: colors.white,
+                opacity: stamp.interpolate({
+                  inputRange: [0, 0.25, 0.7],
+                  outputRange: [0, 0.35, 0],
+                  extrapolate: 'clamp',
+                }),
+                transform: [{ scale: 1.15 }],
+              }}
+            >
+              {numberContent}
+            </Animated.Text>
+          )}
+        </Animated.View>
+        {confirmed && stage ? (
+          <View style={{ position: 'absolute', top: v(26), left: '50%' }}>
+            <OrderBurst after={lead} />
+          </View>
+        ) : null}
+      </View>
 
       <Animated.View style={{ alignItems: 'center', gap: v(6), ...fadeUp(rest) }}>
         <Text
@@ -261,6 +362,7 @@ export function OrderTicket({
                 style={{
                   width: track,
                   height: '100%',
+                  overflow: 'hidden',
                   backgroundColor: colors.orange,
                   transform: [
                     {
@@ -277,7 +379,10 @@ export function OrderTicket({
                     },
                   ],
                 }}
-              />
+              >
+                {/* Child of the scaled fill, so it spans and sweeps the fill's width. */}
+                {reduced ? null : <Shine span={track} after={lead} />}
+              </Animated.View>
             ) : null}
           </View>
           <View
@@ -328,6 +433,7 @@ export function OrderTicket({
       >
         {receipt}
       </Animated.Text>
+      <PaidStamp label={t.paid} active={confirmed} />
     </View>
   );
 }

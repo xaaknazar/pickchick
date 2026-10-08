@@ -1,17 +1,20 @@
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { money } from '../cart';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { Button } from './Button';
 import { Footer } from './Footer';
 import { Heading } from './Heading';
 import { IconButton } from './IconButton';
-import { motion, useEnter, useLoop, usePop } from './motion';
+import { motion, useEnter, useLoop, usePopIn, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 /**
  * v3 product action bar on blue: a glass quantity capsule with white discs and the
- * orange 96-pt "to cart" pill with a slow shine. Waiting states turn the pill pale.
+ * orange 96-pt "to cart" pill with a slow shine. Waiting states fade the pill pale
+ * (220 ms); the price in its label counts to each new total (380 ms). Tapping the
+ * pale pill while a choice is missing calls `onAttention` instead of adding.
  */
 export function ProductActions({
   locale,
@@ -26,9 +29,11 @@ export function ProductActions({
   onMinus,
   onPlus,
   onAdd,
+  onAttention,
 }: {
   locale: Locale;
   quantity: number;
+  /** Line total in minor units, or null while a required choice is missing. */
   price: string | null;
   valid: boolean;
   available: boolean;
@@ -39,13 +44,16 @@ export function ProductActions({
   onMinus: () => void;
   onPlus: () => void;
   onAdd: () => void;
+  /** The guest tapped the pale pill: point them at the missing choice. */
+  onAttention?: () => void;
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
   const reduced = useMotionPreference();
   const rise = useEnter(220, 480);
   const shine = useLoop(3600);
-  const pop = usePop(quantity);
+  // Prototype `.stp output.tick`: the count pops (300 ms --spring) on change.
+  const pop = usePopIn(quantity, 300, 0, false);
   const press = useRef(new Animated.Value(1)).current;
   // A reduced-motion switch must also release a press that is already held.
   useEffect(() => {
@@ -54,7 +62,18 @@ export function ProductActions({
   }, [reduced, press]);
   const disabled = !valid || !available;
   const blocked = disabled || busy;
-  const label = price ? `${t.toCart} · ${price}` : t.required;
+  const label = price ? `${t.toCart} · ${money(price)}` : t.required;
+  // Prototype `tween()` on #pctaSum: counts up from 0 whenever the price appears,
+  // then to each new total; whole tenge while counting.
+  const target = price ? Number(price) : 0;
+  const counted = useTween(target, motion.enter, 0);
+  const shown =
+    !price || counted === target
+      ? label
+      : `${t.toCart} · ${money(String(Math.round(counted / 100) * 100))}`;
+  const wait = useTimingTo(disabled ? 1 : 0, 220, 'css');
+  // Missing choices keep the pill tappable for feedback only; busy and sold-out do not.
+  const attention = !valid && available && !busy && !!onAttention;
   const pressTo = (to: number) => {
     press.stopAnimation();
     Animated.timing(press, {
@@ -107,7 +126,12 @@ export function ProductActions({
                 onPress={onMinus}
               />
               <Animated.View
-                style={{ minWidth: v(44), alignItems: 'center', transform: [{ scale: pop }] }}
+                style={{
+                  minWidth: v(44),
+                  alignItems: 'center',
+                  opacity: pop.opacity,
+                  transform: [{ scale: pop.scale }],
+                }}
               >
                 <Heading testID="kiosk-product-quantity" size="section" tone="inverse">
                   {quantity}
@@ -136,7 +160,7 @@ export function ProductActions({
                 style={{
                   height,
                   borderRadius: height / 2,
-                  backgroundColor: disabled ? '#FFA466' : colors.orangeCta,
+                  backgroundColor: colors.orangeCta,
                   shadowColor: colors.orange,
                   shadowOpacity: disabled ? 0 : 0.35,
                   shadowRadius: 26,
@@ -149,6 +173,19 @@ export function ProductActions({
                   paddingHorizontal: v(24),
                 }}
               >
+                <Animated.View
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    borderRadius: height / 2,
+                    backgroundColor: '#FFA466',
+                    opacity: wait,
+                  }}
+                />
                 {disabled ? null : (
                   <View
                     pointerEvents="none"
@@ -210,9 +247,21 @@ export function ProductActions({
                     textAlign: 'center',
                   }}
                 >
-                  {label}
+                  {shown}
                 </Text>
               </Pressable>
+              {attention ? (
+                // Silent layer over the pale pill: a tap points at the missing choice.
+                <Pressable
+                  accessible={false}
+                  importantForAccessibility="no"
+                  tabIndex={-1}
+                  onPress={onAttention}
+                  onPressIn={() => pressTo(0.98)}
+                  onPressOut={() => pressTo(1)}
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
             </Animated.View>
           </View>
         )}

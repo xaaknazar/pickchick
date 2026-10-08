@@ -21,3 +21,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Kazakh = { args: { locale: 'kk' } };
+/** The prototype carousel: Master Combo and 7 + 1 glide past every 7 s. */
+export const Carousel: Story = { args: { onPromo: fn(), onSlide: fn() } };
+export const PromoSlide: Story = { args: { onPromo: fn(), slide: 1 } };

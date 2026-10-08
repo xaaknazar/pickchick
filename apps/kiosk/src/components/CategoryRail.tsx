@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, View } from 'react-native';
 import { PhotoImage } from './PhotoImage';
 import { copy, type Locale } from '../i18n';
 import { productPhoto } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import type { KioskProduct } from '../model';
 import { ProductArtwork } from './ProductArtwork';
-import { useSpringTo } from './motion';
+import { usePress, useTimingTo } from './motion';
 import { categoryKeys, inCategory, type Category } from './categories';
 /**
  * v3 category rail on the blue menu: white photo tiles; the selected one rides
- * on a spring-sliding orange indicator and its photo tilts.
+ * on a spring-sliding orange indicator, its white card and navy label fade out
+ * (220 ms) and its photo tilts.
  */
 export function CategoryRail({
   category,
@@ -27,7 +28,12 @@ export function CategoryRail({
   const t = copy(locale);
   const [offsets, setOffsets] = useState<Partial<Record<Category, number>>>({});
   const index = categoryKeys.indexOf(category);
-  const indicator = useSpringTo(offsets[category] ?? v(18) + index * (v(142) + v(10)));
+  // Prototype `.ind`: transform transition 440 ms on the --spring curve.
+  const indicator = useTimingTo(
+    offsets[category] ?? v(18) + index * (v(142) + v(10)),
+    440,
+    'spring',
+  );
   return (
     <View style={{ width: v(156), flexShrink: 0 }}>
       <ScrollView
@@ -87,75 +93,115 @@ function Tile({
   onMeasure: (y: number) => void;
 }) {
   const { v } = useMetrics();
-  const tilt = useSpringTo(selected ? 1 : 0);
+  // Prototype `.cat`: background, colour and shadow transition 220 ms; the photo
+  // turns over 440 ms on --spring; `:active` scales to .95.
+  const tilt = useTimingTo(selected ? 1 : 0, 440, 'spring');
+  const card = useTimingTo(selected ? 0 : 1, 220, 'css');
+  const press = usePress(0.95);
   const photo = imageId ? productPhoto(imageId) : null;
+  const text = {
+    fontFamily: fonts.heavy,
+    fontSize: v(14),
+    lineHeight: v(17),
+    textAlign: 'center' as const,
+    paddingHorizontal: v(6),
+  };
+  const stack = {
+    flex: 1,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: v(8),
+  };
   return (
-    <Pressable
-      testID={'kiosk-category-' + category}
-      accessibilityRole="tab"
-      accessibilityState={{ selected }}
-      aria-selected={selected}
-      onPress={() => onSelect(category)}
+    <Animated.View
       onLayout={(e) => onMeasure(e.nativeEvent.layout.y)}
-      style={({ pressed }) => ({
-        zIndex: 1,
-        height: v(142),
-        borderRadius: v(24),
-        backgroundColor: selected ? 'transparent' : colors.white,
-        shadowColor: '#020A28',
-        shadowOpacity: selected ? 0 : 0.2,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 8 },
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: v(8),
-        transform: [{ scale: pressed ? 0.95 : 1 }],
-      })}
+      style={{ zIndex: 1, height: v(142), transform: [{ scale: press.scale }] }}
     >
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          borderRadius: v(24),
+          backgroundColor: colors.white,
+          shadowColor: '#020A28',
+          shadowOpacity: 0.2,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          opacity: card,
+        }}
+      />
+      <Pressable
+        testID={'kiosk-category-' + category}
+        accessibilityRole="tab"
+        accessibilityState={{ selected }}
+        aria-selected={selected}
+        onPress={() => onSelect(category)}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        style={stack}
+      >
+        <View
+          style={{
+            width: v(88),
+            height: v(88),
+            borderRadius: v(20),
+            overflow: 'hidden',
+            backgroundColor: photo?.tile ?? colors.white,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {photo ? (
+            <Animated.View
+              style={{
+                width: '100%',
+                height: '100%',
+                padding: photo.cutout ? v(8) : 0,
+                transform: [
+                  { scale: tilt.interpolate({ inputRange: [0, 1], outputRange: [1.12, 1.22] }) },
+                  {
+                    rotate: tilt.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '-5deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <PhotoImage imageId={imageId!} />
+            </Animated.View>
+          ) : imageId ? (
+            <ProductArtwork imageId={imageId} variant="rail" />
+          ) : null}
+        </View>
+        <Animated.Text numberOfLines={2} style={{ ...text, color: colors.navy, opacity: card }}>
+          {label.toUpperCase()}
+        </Animated.Text>
+      </Pressable>
+      {/* The white label of the selected tile, cross-faded over the navy one. */}
       <View
-        style={{
-          width: v(88),
-          height: v(88),
-          borderRadius: v(20),
-          overflow: 'hidden',
-          backgroundColor: photo?.tile ?? colors.white,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        pointerEvents="none"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        aria-hidden
+        style={{ ...stack, position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
       >
-        {photo ? (
-          <Animated.View
-            style={{
-              width: '100%',
-              height: '100%',
-              padding: photo.cutout ? v(8) : 0,
-              transform: [
-                { scale: tilt.interpolate({ inputRange: [0, 1], outputRange: [1.12, 1.22] }) },
-                {
-                  rotate: tilt.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-5deg'] }),
-                },
-              ],
-            }}
-          >
-            <PhotoImage imageId={imageId!} />
-          </Animated.View>
-        ) : imageId ? (
-          <ProductArtwork imageId={imageId} variant="rail" />
-        ) : null}
+        <View style={{ height: v(88) }} />
+        <Animated.Text
+          numberOfLines={2}
+          style={{
+            ...text,
+            color: colors.white,
+            opacity: card.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          }}
+        >
+          {label.toUpperCase()}
+        </Animated.Text>
       </View>
-      <Text
-        numberOfLines={2}
-        style={{
-          fontFamily: fonts.heavy,
-          fontSize: v(14),
-          lineHeight: v(17),
-          textAlign: 'center',
-          paddingHorizontal: v(6),
-          color: selected ? colors.white : colors.navy,
-        }}
-      >
-        {label.toUpperCase()}
-      </Text>
-    </Pressable>
+    </Animated.View>
   );
 }
