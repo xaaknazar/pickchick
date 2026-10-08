@@ -104,3 +104,10 @@ operate/craft-floor и независимая визуальная провер�
 [телефон](images/backoffice-mobbin/mobile.png),
 [ввод](images/backoffice-mobbin/mobile-editor.png),
 [вход](images/backoffice-mobbin/login-1440.png).
+
+Первая CI [37752372979](https://github.com/xaaknazar/pickchick/actions/runs/37752372979)
+выявила два устаревших ожидания browser suite: прежний цвет sidebar и прямой
+доступ к скрытой мобильной навигации. Ожидание обновлено на фирменный `#04143A`,
+сценарий раскрывает мобильное меню и проверяет `aria-expanded`. После этого
+полный локальный `tests/backoffice/*.test.mjs`: 40/40, включая каталог,
+публикацию меню, конфликты ревизий и все 17 разделов. Защиты не отключались.

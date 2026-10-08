@@ -29,7 +29,7 @@ with sync_playwright() as pw:
     at('nav-items').click()
     at('seed').click()
     expect(at('catalog-products').locator('tr')).to_have_count(24)
-    assert page.locator('.sidebar').evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(9, 16, 32)'
+    assert page.locator('.sidebar').evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(4, 20, 58)'
     capture('catalog-1680.png')
     response = page.request.get(base, headers=headers)
     assert response.status == 200
