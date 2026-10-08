@@ -3559,7 +3559,6 @@
       "head": "24c4c360d7bf8998c6e431e65847d12c415d86f1",
       "status": "active",
       "scopes": [
-        "apps/kiosk",
         "docs/operations/kiosk-v3-launch.md",
         "docs/operations/images/kiosk-v3-launch",
         "docs/operations/kiosk-staff-payments.md",
@@ -3576,17 +3575,10 @@
         "services/api/src/kiosk-kaspi-qr-worker.ts",
         "services/api/src/kiosk-checkout-controller.ts",
         "tests/operations/kaspi-qr-bridge.test.mjs",
-        "@vps/api",
-        "@vps/db",
-        "@vps/public",
-        "@vps/gateway",
         "@vps/kaspi-bridge",
         "@vps/kaspi-workers",
-        "@apple/devices/kiosk",
-        "@release/ios",
         "tests/kiosk/browser_drink_photos.py",
         "tests/kiosk/browser_payment_success.py",
-        "@windows/cashier",
         "packages/commerce-core/src/repository.ts",
         "db/cloud/migrations/045_cloud_kiosk_qr_before_admission.sql",
         "tests/kiosk/paid-delivery.test.mjs",
@@ -3610,9 +3602,9 @@
         "docs/operations/payment-blockers-2026-10-09.md",
         "packages/platform/src/http.ts"
       ],
-      "updatedAt": "2026-10-08T19:44:12.999Z",
+      "updatedAt": "2026-10-08T20:41:57.861Z",
       "summary": "24c4c36/PR212 records verified closed-hours RESTAURANT_CLOSED→CONFLICT HTTP filter bug and original kiosk unknown with lost bank ID. Docs published/shared. Five local HTTP/mobile transport regression checks pass for prepared contract/filter patch, not yet committed/deployed; mobile/OpenAPI scope sharing requested from owner. 24 published products price correctly with stored hash. No new QR/invoice/order/payment. Read-only history empty DailySets is not proof of no payment.",
-      "nextAction": "Await owner scope-sharing reply for mobile checkout error handling and OpenAPI, finish compatible client opt-in and generated contracts, then full CI and native/server release. iPad still unresolved: exact bank reconciliation or audited staff handoff needed; do not reset unknown or substitute diagnostic IDs. Local code patch and new test remain in kiosk worktree."
+      "nextAction": "Owner now authorized kiosk-v3-motion build9 and unified-menu deployment; device/API/db/public/gateway/Windows resources handed to their release tasks. Prior local checkout-error patch preserved; no payment reset."
     }
   ]
 }
