@@ -24,6 +24,11 @@ export interface SyncMenuOptions {
    * Defaults to one map per process. A restart only grants a fresh set of attempts.
    */
   mediaAttempts?: Map<string, number>;
+  /**
+   * false: report the active menu and drain durable ACKs, but hold a delivered publication
+   * without downloading photos or applying it (operator 'report' mode). Defaults to true.
+   */
+  applyEvents?: boolean;
 }
 const processMediaAttempts = new Map<string, number>();
 
@@ -48,7 +53,9 @@ function pulledEvent(body: unknown): unknown {
 }
 
 export type SyncMenuResult =
-  { state: 'idle' | 'acknowledged' | 'applied' } | { state: 'rejected'; reason: MenuRejectReason };
+  | { state: 'idle' | 'acknowledged' | 'applied' }
+  | { state: 'rejected'; reason: MenuRejectReason }
+  | { state: 'held'; release_id: string | null; version: number | null };
 
 export async function syncMenuOnce(
   pool: DatabasePool,
@@ -97,6 +104,12 @@ export async function syncMenuOnce(
   );
   if (event === null) return { state: 'idle' };
   const published = MenuPublishedSchema.safeParse(event);
+  if (options.applyEvents === false)
+    return {
+      state: 'held',
+      release_id: published.success ? published.data.aggregate_id : null,
+      version: published.success ? published.data.aggregate_version : null,
+    };
   if (published.success) {
     const missing = await missingMenuMedia(pool, menuImageShas(published.data.payload.menu));
     const key = published.data.event_id;

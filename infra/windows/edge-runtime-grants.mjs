@@ -38,18 +38,25 @@ function identifier(value) {
   return '"' + value + '"';
 }
 
-/** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports and
- * applied schema019 with remoteStops. */
+/** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports,
+ * applied schema018 with menuMedia and applied schema019 with remoteStops. */
 export function edgeRuntimeGrantSql(
   role,
-  { schema = 'public', fulfillment = false, cashierReports = false, remoteStops = false } = {},
+  {
+    schema = 'public',
+    fulfillment = false,
+    cashierReports = false,
+    remoteStops = false,
+    menuMedia = false,
+  } = {},
 ) {
   const target = identifier(role),
     namespace = identifier(schema);
   if (
     typeof fulfillment !== 'boolean' ||
     typeof cashierReports !== 'boolean' ||
-    typeof remoteStops !== 'boolean'
+    typeof remoteStops !== 'boolean' ||
+    typeof menuMedia !== 'boolean'
   )
     throw new Error('Invalid runtime grant flag');
   const tables = (names) => names.map((name) => `${namespace}.${identifier(name)}`).join(', ');
@@ -64,6 +71,8 @@ export function edgeRuntimeGrantSql(
     grant('UPDATE(window_started_at, attempts)', ['local_staff_login_limits']),
     grant('UPDATE(lock_anchor)', ['local_staff', 'local_terminals', 'staff_sessions']),
     grant('UPDATE(ordering_enabled, ordering_version)', ['branch_config']),
+    // GET edge/v1/media serves photos the menu-sync worker cached; read-only for the runtime.
+    ...(menuMedia ? [grant('SELECT', ['menu_media'])] : []),
     ...(cashierReports
       ? [
           grant('INSERT', ['cashier_report_outbox']),
@@ -175,10 +184,21 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
       throw new Error('Remote stop migration objects differ');
     if (options.remoteStops !== undefined && options.remoteStops !== stops.applied)
       throw new Error('Remote stop grant flag differs from applied schema');
+    const media = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='018_edge_menu_publication.sql') AS applied,
+       to_regclass($1) IS NOT NULL AS cache`,
+        [`${namespace}.menu_media`],
+      )
+    ).rows[0];
+    if (media.applied !== media.cache) throw new Error('Menu publication migration objects differ');
+    if (options.menuMedia !== undefined && options.menuMedia !== media.applied)
+      throw new Error('Menu media grant flag differs from applied schema');
     const sql = edgeRuntimeGrantSql(role, {
       ...options,
       cashierReports: capability.applied,
       remoteStops: stops.applied,
+      menuMedia: media.applied,
     });
 
     // PUBLIC grants cannot be removed from just this role and would defeat the
