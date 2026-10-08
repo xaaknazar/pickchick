@@ -3,6 +3,7 @@ import { createPool, migrate, transaction } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { customerAuthGrants } from './customer-auth-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
+import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
@@ -96,6 +97,13 @@ async function provision() {
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
       await client.query(catalogAccessGrants('pickchick_app', config.catalogAdminEnabled === true));
+      await client.query(
+        backofficeStopGrants(
+          'pickchick_app',
+          config.backofficeEnabled === true &&
+            process.env.BACKOFFICE_REMOTE_STOPS_ENABLED === 'true',
+        ),
+      );
       // Validate the complete owner/branch policy before enabling checkout privileges.
       await client.query(
         customerCheckoutGrants('pickchick_app', customerCheckoutOptions(process.env) !== null),

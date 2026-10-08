@@ -47,7 +47,7 @@ import {
 import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
 import { CATALOG_ADMIN, CatalogAdmin, catalogAdminOptions } from '@pickchick/catalog-admin';
 import { CatalogAdminController } from './catalog-admin-controller.js';
-import { BACKOFFICE, Backoffice } from '@pickchick/backoffice-core';
+import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
@@ -208,7 +208,11 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: BACKOFFICE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Backoffice(resources.pool, config.backofficeEnabled === true),
+          new Backoffice(
+            resources.pool,
+            config.backofficeEnabled === true,
+            backofficeOptions(process.env),
+          ),
       },
       { provide: RESOURCE, useFactory: () => new Resources(config) },
       {
