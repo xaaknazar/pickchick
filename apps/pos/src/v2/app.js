@@ -1,11 +1,11 @@
 import { requestPinCredential } from './pin-login.js';
-import { photos } from './photos.js';
+import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
-import { money, lineKey, linePrice } from '../types.js';
+import { money, lineKey, linePrice, categoryLabels, sortedItems } from '../types.js';
 import { transport, errorMessage } from '../api.js';
-import { kitchenLabel, orderNumber } from '../order-view.js';
+import { kitchenLabel, menuChangeText, orderNumber } from '../order-view.js';
 const root = document.getElementById('app');
 let config, template;
 try {
@@ -50,6 +50,7 @@ let lastRender = '',
   closeReason = 'Тестовая смена без оплаты',
   commentPurpose = 'order',
   errorShown = '',
+  menuNoticeShown = 0,
   filterDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' });
 const blocked = () => model.state.busy || model.state.pending || model.state.storageBlocked;
 function schedule() {
@@ -239,6 +240,17 @@ async function submit() {
     return;
   }
   await model.create(true);
+  if (!model.state.order && model.state.error?.code === 'MENU_CHANGED') {
+    // The edge rejected the quote because a new menu became active. Nothing was created:
+    // recalculate once and let the cashier confirm the new total.
+    await model.calculate();
+    say(
+      model.state.error
+        ? errorMessage(model.state.error)
+        : 'Меню обновлено: сумма пересчитана. Проверьте заказ и подтвердите ещё раз.',
+    );
+    return;
+  }
   if (model.state.order) {
     lastOrder = model.state.order;
     reference.setState({ screen: 'success', doneLeft: 8, done: {}, mod: null });
@@ -275,10 +287,11 @@ function lock() {
   globalThis.pickchickPosJournal?.endSession();
   reference.setState({ screen: 'lock', pin: '', user: null });
 }
-function collectProducts() {
+function collectProducts(labels) {
   const groups = { combo: [], duo: [], party: [], dops: [], drinks: [] };
-  for (const p of model.state.menu?.items ?? []) {
-    const label = config.categories?.[p.category_id] ?? '',
+  const menu = model.state.menu;
+  for (const p of menu ? sortedItems(menu) : []) {
+    const label = labels.get(p.category_id) ?? '',
       key = /двои/i.test(label)
         ? 'duo'
         : /компани/i.test(label)
@@ -293,7 +306,7 @@ function collectProducts() {
       variant: p.variant_id,
       name: p.name.ru,
       price: Number(p.price_minor) / 100,
-      img: photos[p.image_url] ?? p.image_url,
+      img: photoFor(p),
       combo: ['combo', 'duo'].includes(key),
       party: key === 'party',
       product: p,
@@ -305,10 +318,28 @@ function collectProducts() {
   reference.DOPS = groups.dops.concat(groups.drinks);
   return groups;
 }
+function menuChanged(change) {
+  menuNoticeShown = change.id;
+  // An open composition dialog keeps working on the new price list or closes if the
+  // position was withdrawn; selections are validated again before they reach the draft.
+  if (modifier) {
+    const fresh = item(modifier.variant_id);
+    if (fresh) modifier = fresh;
+    else {
+      modifier = null;
+      reference.setState({ mod: null, wiz: null });
+    }
+  }
+  say(menuChangeText(change));
+}
 function draw() {
+  // Before reading the view state: the notice replaces reference.state.
+  const change = model.state.menuChange;
+  if (change && change.id !== menuNoticeShown) menuChanged(change);
   const m = model.state,
     s = reference.state,
-    groups = collectProducts();
+    labels = categoryLabels(m.menu, config.categories),
+    groups = collectProducts(labels);
   s.clock = time();
   s.ready = Boolean(m.menu);
   s.shiftOpen = Boolean(m.shift);
@@ -858,7 +889,7 @@ function draw() {
         on = Boolean(stop?.stopped);
       return {
         name: p.name.ru,
-        cat: p.stopCategory ?? config.categories?.[p.category_id] ?? 'Блюдо',
+        cat: p.stopCategory ?? labels.get(p.category_id) ?? 'Блюдо',
         on,
         fg: on ? 'var(--red)' : 'var(--n900)',
         available: on ? 'false' : 'true',
@@ -1115,7 +1146,9 @@ setInterval(() => {
 }, 1000);
 setInterval(() => {
   if (model.state.actor && !blocked() && !document.hidden)
-    void Promise.all([model.refreshOperations(), model.refreshStops()]);
+    void Promise.all([model.refreshOperations(), model.refreshStops()]).then(() =>
+      blocked() ? null : model.syncMenu(),
+    );
 }, 3000);
 // Physical keyboards are supplementary; the on-screen keypad remains primary.
 document.addEventListener('keydown', (event) => {

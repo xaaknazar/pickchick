@@ -56,3 +56,10 @@ export function orderView(order: LocalOrder, locked: boolean, updated: string) {
 export function confirmationView(quote: Quote, admitted: boolean) {
   return `<form method="dialog"><header><span class="eyebrow">ПРОВЕРКА ЗАКАЗА</span><h2 id="review-title">Всё верно?</h2><p class="muted">${quote.service_mode === 'dine_in' ? 'В зале' : 'С собой'} · Позиций: ${quote.lines.reduce((sum, line) => sum + line.quantity, 0)}</p></header><div class="review-items">${quoteLines(quote)}</div><div class="total-row"><span>Итого</span><strong>${money(quote.total_minor)}</strong></div><p class="service-mode-note">${admitted ? 'Передадим заказ на кухню без оплаты и чека.' : 'Сохраним заказ без оплаты. На кухню он пока не поступит.'}</p><div class="modifier-error" data-quote-error role="status"></div><footer class="dialog-actions"><button type="button" data-dismiss>К заказу</button><button type="submit" class="primary" data-testid="pos-create">${admitted ? 'Передать на кухню' : 'Сохранить заказ'}</button></footer></form>`;
 }
+/** Staff notice after a live menu replacement (Russian copy shown on the cashier screen). */
+export function menuChangeText(change: { version: number; removed: string[] }) {
+  const removed = change.removed;
+  if (removed.length === 1) return `Меню обновлено: позиция ${removed[0]} снята`;
+  if (removed.length > 1) return `Меню обновлено: позиции ${removed.join(', ')} сняты`;
+  return `Меню обновлено (версия ${change.version})`;
+}

@@ -1,3 +1,4 @@
+// Bundled photos for the installed v1/v2 menu keys (/assets/menu/iN.jpg).
 export const photos = {
   '/assets/menu/i7.jpg': '/v2/assets/menu-00.png',
   '/assets/menu/i8.jpg': '/v2/assets/menu-01.png',
@@ -23,3 +24,13 @@ export const photos = {
   '/assets/menu/i22.jpg': '/v2/assets/menu-21.png',
   '/assets/menu/i23.jpg': '/v2/assets/menu-22.png',
 };
+const HASHED = /^\/assets\/menu\/[a-f0-9]{64}\.webp$/;
+/** A published photo is content-addressed and loaded through the local edge
+ *  (/assets/menu/<sha256>.webp, verified by the local server). The bundled PNGs replace
+ *  only the legacy iN.jpg keys; other local paths are served as they are. */
+export function photoFor(item) {
+  if (item.image && HASHED.test(item.image.url)) return item.image.url;
+  if (!item.image_url) return undefined;
+  if (Object.hasOwn(photos, item.image_url)) return photos[item.image_url];
+  return item.image_url;
+}
