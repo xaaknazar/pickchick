@@ -3651,11 +3651,12 @@
         "tests/backoffice/unified-menu-browser.test.mjs",
         "scripts/build-windows-edge-runtime.py",
         "tests/operations/test_windows_runtime.py",
-        "tests/backoffice/helpers.mjs"
+        "tests/backoffice/helpers.mjs",
+        "infra/staging/Dockerfile"
       ],
       "status": "active",
-      "head": "81189403cea9b42999963e5825e7896060b0218a",
-      "updatedAt": "2026-10-08T21:08:11.358Z"
+      "head": "98c80909e22444f57c81b4e349f77d6d85b9b0d0",
+      "updatedAt": "2026-10-08T21:15:21.381Z"
     }
   ]
 }
