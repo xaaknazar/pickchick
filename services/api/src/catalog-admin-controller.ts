@@ -22,10 +22,12 @@ const statuses: Record<CatalogErrorCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  RATE_LIMITED: 429,
   SERVICE_UNAVAILABLE: 503,
 };
+export const catalogStatuses: Readonly<Record<CatalogErrorCode, number>> = statuses;
 /** Carries only the stable reason code; never a message, stack or database detail. */
-class CatalogReasonException extends HttpException {
+export class CatalogReasonException extends HttpException {
   constructor(
     readonly code: CatalogErrorCode,
     readonly reason: CatalogErrorReason,
@@ -35,7 +37,7 @@ class CatalogReasonException extends HttpException {
 }
 /** Standard error envelope plus `error: {code}` with the precise publication reason. */
 @Catch(CatalogReasonException)
-class CatalogReasonFilter implements ExceptionFilter {
+export class CatalogReasonFilter implements ExceptionFilter {
   catch(error: CatalogReasonException, host: ArgumentsHost) {
     const http = host.switchToHttp();
     const request = http.getRequest<{ traceId?: string }>();
@@ -47,7 +49,7 @@ class CatalogReasonFilter implements ExceptionFilter {
         code: error.code,
         message_key: `errors.${error.code.toLowerCase()}`,
         trace_id: request.traceId ?? randomUUID(),
-        retryable: status === 503,
+        retryable: status === 503 || status === 429,
         error: { code: error.reason },
       });
   }

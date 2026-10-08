@@ -27,8 +27,10 @@ import type { CatalogCredential, CatalogPayload, CatalogState } from './contract
 import { authenticateCatalogActor, authorizeCatalog } from './auth.js';
 import type { CatalogActor, CatalogBranch } from './auth.js';
 import { mockupCatalogDraft } from './seed.js';
+import { assertCatalogAssets } from './assets.js';
 export * from './contracts.js';
 export * from './auth.js';
+export * from './assets.js';
 export { readCatalogMenuDelivery } from '@pickchick/menu-sync';
 export const CATALOG_ADMIN = Symbol('CATALOG_ADMIN');
 export const catalogHash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -328,6 +330,7 @@ export class CatalogAdmin {
       } else if (kind === 'save') {
         if (!before || !('payload' in body)) throw failure('CONFLICT');
         payload = body.payload;
+        await assertCatalogAssets(db, branch.organization_id, payload);
       } else {
         if (
           !before ||
@@ -342,6 +345,7 @@ export class CatalogAdmin {
           payload,
           !edgePublication && this.options.mobileStorefrontBranchId === branch.id,
         );
+        await assertCatalogAssets(db, branch.organization_id, payload);
         publication = (head.published_version ?? 0) + 1;
         await db.query(
           'INSERT INTO catalog_publications(branch_id,organization_id,version,source_revision,payload,payload_hash,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
