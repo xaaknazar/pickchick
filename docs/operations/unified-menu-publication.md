@@ -180,6 +180,11 @@ node infra/backoffice-login/accounts.mjs remove staff-v3.json aigerim staff-v4.j
 Прежний образ портала не читает version 2. Для его возврата нужен прежний файл
 (`credentials.before.json` в каталоге выпуска портала).
 
+**Решение владельца 8 октября 2026:** персональные роли выдаются позже. До этого
+единственный действующий вход (`ceo`, тот же `actor_id`, что у директора) получает
+роль `manager` для Abay Plaza, чтобы правка цен, фото и стопов работала сразу после
+включения `CATALOG_ACCESS_ROLES_ENABLED`. Других `manager` не создавать без решения владельца.
+
 Покрытие ролей перед `deploy`/`access-roles` (владелец решает, кому `manager`):
 
 ```sql
