@@ -15,16 +15,58 @@ const sequence = z
   .regex(/^[1-9][0-9]{0,18}$/)
   .refine((v) => /^[1-9][0-9]{0,18}$/.test(v) && BigInt(v) <= 9223372036854775807n);
 export const TransportScopeSchema = CloudScopeSchema;
-export const PullRequestSchema = z.strictObject({
-  workerId: uuid,
-  leaseSeconds: z.int().min(15).max(120),
-  protocolVersion: z.union([z.literal(2), z.literal(3)]).optional(),
-  availabilityOnly: z.literal(true).optional(),
-  cashierReports: CashierReportsSchema.optional(),
-  availability: z
-    .strictObject({ revision: sequence, stoppedIds: z.array(uuid).max(5000) })
-    .optional(),
+/** Per-variant stop state reported by the edge (protocol 4). */
+export const StopStateReportSchema = z.strictObject({
+  id: uuid,
+  version: z.int().positive(),
+  stopped: z.boolean(),
+  source: z.enum(['pos', 'backoffice']),
+  expiresAt: z.iso.datetime().nullable(),
+  shiftScoped: z.boolean(),
 });
+export const StopReceiptResultSchema = z.enum([
+  'applied',
+  'conflict',
+  'not_found',
+  'no_open_shift',
+  'expired',
+]);
+/** Edge outcome of one back-office stop command (protocol 4). */
+export const StopReceiptSchema = z.strictObject({
+  commandId: uuid,
+  result: StopReceiptResultSchema,
+  version: z.int().nonnegative().nullable(),
+});
+/** Back-office stop/unstop command delivered to the edge inbox (protocol 4). */
+export const StopCommandDeliverySchema = z.strictObject({
+  commandId: uuid,
+  variantId: uuid,
+  stopped: z.boolean(),
+  duration: z.enum(['manual', 'hour', 'shift']),
+  reason: z.string().min(1).max(300),
+  expectedVersion: z.int().nonnegative(),
+  actorLabel: z.string().min(1).max(100),
+  issuedAt: z.iso.datetime(),
+});
+export const PullRequestSchema = z
+  .strictObject({
+    workerId: uuid,
+    leaseSeconds: z.int().min(15).max(120),
+    protocolVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+    availabilityOnly: z.literal(true).optional(),
+    cashierReports: CashierReportsSchema.optional(),
+    availability: z
+      .strictObject({ revision: sequence, stoppedIds: z.array(uuid).max(5000) })
+      .optional(),
+    stopStates: z.array(StopStateReportSchema).max(5000).optional(),
+    stopReceipts: z.array(StopReceiptSchema).max(100).optional(),
+  })
+  .refine(
+    (request) =>
+      request.protocolVersion === 4 ||
+      (request.stopStates === undefined && request.stopReceipts === undefined),
+    'Stop states and receipts require protocol 4',
+  );
 export const TransportCommandSchema = z.discriminatedUnion('type', [
   CloudCommandSchema.options[0],
   CloudCommandSchema.options[1],
@@ -36,6 +78,7 @@ export const PullResponseSchema = z.strictObject({
   event: DeliverySchema.nullable(),
   cashierReportsSupported: z.literal(true).optional(),
   cashierReportReceipt: CashierReportReceiptSchema.optional(),
+  stopCommands: z.array(StopCommandDeliverySchema).max(50).optional(),
 });
 export const TransportAckSchema = z.strictObject({
   eventId: uuid,
@@ -138,6 +181,10 @@ export const EdgeEventSchema = z
 export type TransportScope = z.infer<typeof TransportScopeSchema>;
 export type EdgeEvent = z.infer<typeof EdgeEventSchema>;
 export type Delivery = z.infer<typeof DeliverySchema>;
+export type PullRequest = z.infer<typeof PullRequestSchema>;
+export type StopStateReport = z.infer<typeof StopStateReportSchema>;
+export type StopReceipt = z.infer<typeof StopReceiptSchema>;
+export type StopCommandDelivery = z.infer<typeof StopCommandDeliverySchema>;
 
 export const ReleaseResultEventSchema = z
   .strictObject({
