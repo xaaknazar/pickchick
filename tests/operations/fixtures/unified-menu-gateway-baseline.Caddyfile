@@ -1,6 +1,8 @@
 # Synthetic test fixture: director-gateway-schema032 plus the director, catalog storefront,
-# kiosk enrollment and kiosk menu release transforms (the shape of the live gateway before
-# the unified-menu release). Generated from the real release functions; no live data.
+# kiosk enrollment, kiosk menu and kiosk checkout (release-kiosk-checkout.py) release
+# transforms: the shape of the live gateway (a659c242...) that the 85f23d5 checkout release
+# installed and the 37dbc1a/6ac409f kiosk QR releases kept byte for byte, i.e. the gateway
+# before the unified-menu release. Generated from the real release functions; no live data.
 {
 	admin off
 	auto_https off
@@ -48,6 +50,54 @@
 	}
 
 	# Enrollment only: no guest checkout or payment routes are exposed.
+	@kiosk_checkout_create {
+		method POST
+		path /v1/kiosk-checkout/quotes /v1/kiosk-checkout/orders
+	}
+	handle @kiosk_checkout_create {
+		header X-PickChick-Data kiosk
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@kiosk_checkout_payment {
+		method POST
+		path_regexp kiosk_checkout_payment ^/v1/kiosk-checkout/orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/payment$
+	}
+	handle @kiosk_checkout_payment {
+		header X-PickChick-Data kiosk
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@kiosk_checkout_read {
+		method GET
+		path_regexp kiosk_checkout_read ^/v1/kiosk-checkout/orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+	}
+	handle @kiosk_checkout_read {
+		header X-PickChick-Data kiosk
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+
 	@kiosk_menu_read {
 		method GET
 		path /v1/kiosk-checkout/config /v1/kiosk-checkout/catalog /v1/kiosk-checkout/availability

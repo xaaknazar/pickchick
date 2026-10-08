@@ -15,10 +15,14 @@ previous one's private evidence AND on the live API environment):
   media-upload      (e) CATALOG_MEDIA_UPLOAD_ENABLED (+ the asset INSERT grants)
   disable --flag X  rollback of one flag; always allowed after deploy, never reorders data
 
-Preflight: exact-SHA green CI, the reviewed live baseline (API, compose, gateway hashes),
-migrations 047-049 pending or applied with matching checksums, and every unrevoked
-catalog-manager branch assignment covered by a bo_access_grants row. deploy takes an
-encrypted backup and proves an isolated restore before touching the schema. The owner step
+Preflight: exact-SHA green CI, the documented live baseline (API and public pointer at the
+kiosk QR recovery release 6ac409f, its API/QR-worker image, the unchanged checkout gateway
+a659c242..., cloud schema046; see LIVE_* below) plus the reviewed compose hash (not
+documented, so it is an explicit --expected-compose-sha256), migrations 047-049 pending or
+applied with matching checksums, and every unrevoked catalog-manager branch assignment covered
+by a bo_access_grants row. The kiosk QR worker, bank bridge, mobile worker and every other
+neighbour container must be left exactly as found. deploy takes an encrypted backup and
+proves an isolated restore before touching the schema. The owner step
 (infra/staging/unified-menu-owner.mjs) migrates in one repeatable-read transaction that
 proves existing rows unchanged, so cashier heartbeats to cloud_branch_availability during
 the release are tolerated rather than mistaken for data changes (docs/project-status.md,
@@ -47,6 +51,23 @@ require, digest, quote, GuardFailure = market.require, market.digest, market.quo
 REPO, REMOTE, DB = market.REPO, market.REMOTE, market.DB
 
 MIGRATIONS = ('047_cloud_edge_menu_state.sql', '048_cloud_stop_commands.sql', '049_cloud_catalog_assets.sql')
+# Live baseline recorded by the kiosk QR engineer after the 8 October install
+# (docs/operations/kiosk-v3-launch.md "Установлено 8 октября: 6ac409f",
+# docs/operations/kiosk-v3-installation-2026-10-08.json, payment-blockers-2026-10-09.md):
+# release-kiosk-qr-recovery.py moved the API, QR worker and public pointer to 6ac409f and kept
+# the gateway bytes of the 85f23d5 checkout release. A later payment release changes these:
+# update and review them here, never pass other values. The installed compose hash is not
+# recorded for 6ac409f, so deploy takes it only from --expected-compose-sha256.
+LIVE_API_SHA = '6ac409f710f96e5247e8423963e2ef511a9e4d4a'
+LIVE_PUBLIC_SHA = LIVE_API_SHA
+LIVE_GATEWAY_SHA256 = 'a659c2428163b2e51c2f1affd62fda18ab339c6e55cf576cdcf0865b2d1d7d9f'
+LIVE_API_IMAGE = 'sha256:6ef62d34b54cf1f6788358a8e972d72c3c4fc2f7ad5325734812d45f8131185c'
+LIVE_QR_WORKER = 'pickchick-kiosk-kaspi-qr-worker'
+# Cloud schema046: 001-040 and 042-046 (041 was never used), 45 ledger rows; the kiosk QR
+# migrations keep the bytes pinned by release-kiosk-independent-qr.py / -qr-recovery.py.
+LIVE_SCHEMA = tuple(range(1, 41)) + tuple(range(42, 47))
+LIVE_MIGRATIONS = {'045_cloud_kiosk_qr_before_admission.sql': '9e2be1892bbb749d1f7780bc7e4d97803748d0592adff63f383a90873d4a3255',
+                   '046_cloud_kiosk_qr_recovery.sql': '18ab7ff9d594eb04e0c6ea6c4588f2377d1da6ed3317dfa39e8a1c9e7602e767'}
 NEW_TABLES = frozenset({'edge_menu_state', 'catalog_menu_delivery_results', 'cloud_stop_commands',
                         'catalog_assets', 'catalog_asset_variants', 'catalog_asset_audit'})
 PHASES = ('deploy', 'access-roles', 'verify-edge', 'edge-publication', 'remote-stops', 'media-upload')
@@ -89,9 +110,37 @@ def workflow_jobs(text):
     return frozenset(names)
 
 
+def check_live_baseline(args):
+    """deploy: exactly the documented live baseline; the compose hash must be given explicitly."""
+    require((args.expected_api_sha, args.expected_public_sha, args.expected_gateway_sha256) ==
+            (LIVE_API_SHA, LIVE_PUBLIC_SHA, LIVE_GATEWAY_SHA256),
+            'Exact live baseline required: API and public ' + LIVE_API_SHA[:7] + ', gateway ' +
+            LIVE_GATEWAY_SHA256[:8] + ' (docs/operations/kiosk-v3-launch.md); update LIVE_* after review')
+    require(re.fullmatch('[a-f0-9]{64}', args.expected_compose_sha256 or ''),
+            '--expected-compose-sha256 must be the SHA-256 of the live API compose')
+
+
+def check_live_schema(names, checksums):
+    """Migrations of the live API tree: exactly schema046 with the installed kiosk QR bytes."""
+    require(all(re.fullmatch(r'\d{3}_[a-z0-9_]+\.sql', name) for name in names) and
+            [int(name[:3]) for name in names] == list(LIVE_SCHEMA),
+            'Live API tree is not the documented cloud schema046 (001-040, 042-046)')
+    require(all(name in names and checksums.get(name) == value for name, value in LIVE_MIGRATIONS.items()),
+            'Kiosk QR migrations 045/046 differ from the installed bytes')
+
+
+def check_qr_worker(neighbors):
+    """The 6ac409f QR worker runs from the live API image; this release never touches it."""
+    fields = neighbors.get('containers', {}).get(LIVE_QR_WORKER, '').split()
+    require(len(fields) == 5 and fields[1] == LIVE_API_IMAGE and fields[3] == 'running',
+            'Kiosk QR worker is not the documented running 6ac409f container')
+
+
 def migration_plan(ledger, files, checksums):
     """Installed ledger must be an exact prefix of the candidate; only 047-049 may be pending."""
     require(files[-len(MIGRATIONS):] == list(MIGRATIONS), 'Candidate migrations do not end with 047-049')
+    require(all(checksums.get(name) == value for name, value in LIVE_MIGRATIONS.items()),
+            'Candidate kiosk QR migrations 045/046 differ from the installed bytes')
     require(len(ledger) <= len(files) and all(
         row == {'version': files[i], 'scope': 'cloud', 'checksum': checksums[files[i]]}
         for i, row in enumerate(ledger)), 'Installed migration ledger differs from the candidate')
@@ -490,12 +539,27 @@ print(json.dumps(result,sort_keys=True))'''
         for name in installed:
             prior = self.execute(['git', 'show', args.expected_api_sha + ':db/cloud/migrations/' + name])
             require((REPO / 'db/cloud/migrations' / name).read_bytes() == prior, 'An installed migration was edited: ' + name)
+        check_live_schema(installed, {name: digest((REPO / 'db/cloud/migrations' / name).read_bytes()) for name in installed})
+
+    def api_image(self):
+        return self.remote('docker inspect --format ' + quote('{{.Image}}') + ' ' + market.API_CONTAINER)
+
+    def neighbors(self):
+        """Every container except the API and gateway (QR worker, bank bridge, mobile worker,
+        database) and the shared front: deploy must leave them exactly as found."""
+        result = self.fingerprint()
+        check_qr_worker(result)
+        return result
 
     def deploy_baseline(self):
         a = self.args
         for value in [a.expected_api_sha, a.expected_public_sha]:
             require(re.fullmatch('[a-f0-9]{40}', value or ''), 'Expected API and public SHAs are required')
+        check_live_baseline(a)
         require(self.running_revision() == a.expected_api_sha, 'Running API is not the reviewed baseline')
+        require(self.api_image() == LIVE_API_IMAGE, 'Running API image is not the documented live image')
+        require(self.remote('docker image inspect --format ' + quote('{{.Id}}') + ' pickchick-api:' + a.expected_api_sha) ==
+                LIVE_API_IMAGE, 'Rollback image differs from the documented live image')
         require(self.remote('readlink -f ' + REMOTE + '/current') == f'{REMOTE}/releases/{a.expected_api_sha}', 'API pointer changed')
         require(self.remote('readlink -f ' + REMOTE + '/public-https/current') ==
                 f'{REMOTE}/public-https/releases/{a.expected_public_sha}', 'Public pointer changed')
@@ -507,6 +571,7 @@ print(json.dumps(result,sort_keys=True))'''
         files, checksums = self.candidate_migrations()
         pending = migration_plan(self.ledger(), files, checksums)
         check_access_coverage(self.coverage())
+        self.neighbors()
         return {'compose': compose_candidate(compose, a.expected_compose_sha256),
                 'gateway': gateway_candidate(gateway, a.expected_gateway_sha256), 'pending': pending,
                 'environment': self.runtime_environment()}
@@ -642,7 +707,7 @@ sha256sum {backup} > {backup}.sha256
             prepared = self.prepare_artifacts(base)
             self.save('prepared.json', prepared)
         before = {'acl': self.acl(), 'availability': self.availability_rows(), 'environment': base['environment'],
-                  'capabilities': self.http_json('/v1/capabilities', public=False)}
+                  'capabilities': self.http_json('/v1/capabilities', public=False), 'neighbors': self.neighbors()}
         transport = any(acl_key(r) == ('cloud_branch_availability', None, 'UPDATE') for r in before['acl'])
         self.save('before.json', {k: v for k, v in before.items() if k != 'environment'})
         backup = self.backup_restore()
@@ -657,6 +722,7 @@ sha256sum {backup} > {backup}.sha256
             self.ready()
             verify_acl_change(before['acl'], self.acl(), new_tables=NEW_TABLES, exact_new=deploy_acl(transport))
             verify_availability(before['availability'], self.availability_rows())
+            require(self.neighbors() == before['neighbors'], 'Neighbour containers changed (QR worker, bank bridge, database)')
             stage = 'api'
             self.remote(market.api_compose(self.sha) + ' up -d --no-deps --wait --wait-timeout 120 api', timeout=180)
             self.ready()
@@ -674,6 +740,7 @@ sha256sum {backup} > {backup}.sha256
                     prepared['gateway_sha256'], 'Mounted gateway differs from the prepared one')
             self.public_probes(before['capabilities'])
             verify_availability(before['availability'], self.availability_rows())
+            require(self.neighbors() == before['neighbors'], 'Neighbour containers changed (QR worker, bank bridge, database)')
         except market.CommandUncertain:
             raise  # Completion unknown: keep the lock, inspect before any rollback.
         except Exception:
@@ -716,6 +783,7 @@ sha256sum {backup} > {backup}.sha256
             self.remote(market.api_compose(a.expected_api_sha) + ' up -d --no-deps --wait --wait-timeout 120 api', timeout=180)
             self.ready()
             require(self.running_revision() == a.expected_api_sha, 'Rollback API revision differs')
+            require(self.api_image() == LIVE_API_IMAGE, 'Rollback API image differs')
             self.save('rollback.json', {'stage': stage, 'api': a.expected_api_sha, 'public': a.expected_public_sha,
                                         'schema': 'retained 047-049'})
         except Exception:
@@ -847,6 +915,7 @@ def parse(argv=None):
     if args.phase == 'deploy':
         for name in ['expected_api_sha', 'expected_public_sha', 'expected_compose_sha256', 'expected_gateway_sha256']:
             require(getattr(args, name), '--' + name.replace('_', '-') + ' is required for deploy')
+        check_live_baseline(args)
         require(args.ci_run or args.ci_proof, 'CI proof is required for deploy')
     return args
 

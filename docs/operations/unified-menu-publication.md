@@ -33,9 +33,11 @@
 
 1. `deploy` — образ API с миграциями cloud047-049, все новые флаги выключены.
    - Проверки до изменений: exact-SHA зелёная CI (все 11 заданий из `ci.yml`),
-     запущенный API/compose/gateway совпадают с переданными хешами, миграции 047-049
-     ожидают или уже применены с теми же checksum, у каждой активной привязки
-     менеджера каталога к точке есть строка в `bo_access_grants`.
+     запущенный API/compose/gateway совпадают с живой базой (раздел ниже), миграции
+     047-049 ожидают или уже применены с теми же checksum, у каждой активной привязки
+     менеджера каталога к точке есть строка в `bo_access_grants`. QR worker киоска,
+     банковский мост, мобильный worker и БД (все контейнеры, кроме API и gateway)
+     после выпуска должны остаться ровно такими же, иначе откат API и gateway.
    - Затем: зашифрованный backup и проверка восстановления в изолированную БД.
    - Шаг владельца БД (`infra/staging/unified-menu-owner.mjs deploy`) применяет
      миграции и только нужные им права в одной транзакции repeatable read. В той же
@@ -66,31 +68,63 @@
    `deploy`. Сначала выключается окружение, потом снимаются права. Пока ранний флаг
    выключен, более поздние фазы снова включить нельзя.
 
-Пример (значения `--expected-*` берутся из read-only проверки VPS в день выпуска):
+### Живая база (выпуск 6ac409f, 8 октября)
+
+`deploy` принимает только базу, записанную инженером оплаты после установки киоска
+([kiosk-v3-launch.md](kiosk-v3-launch.md), раздел «Установлено 8 октября: `6ac409f`»,
+[kiosk-v3-installation-2026-10-08.json](kiosk-v3-installation-2026-10-08.json),
+[payment-blockers-2026-10-09.md](payment-blockers-2026-10-09.md)). Значения зашиты в
+скрипт (`LIVE_*`) и сверяются с переданными `--expected-*`:
+
+| Что                                          | Значение                                                                  | Источник                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| API (`current`) и QR worker                  | `6ac409f710f96e5247e8423963e2ef511a9e4d4a`                                | installation JSON `releaseSource`                                      |
+| Публичный указатель (`public-https/current`) | тот же `6ac409f…`                                                         | `release-kiosk-qr-recovery.py` переключает оба указателя               |
+| Образ API и QR worker                        | `sha256:6ef62d34b54cf1f6788358a8e972d72c3c4fc2f7ad5325734812d45f8131185c` | installation JSON `vps.image`                                          |
+| Gateway (смонтированный Caddyfile)           | `a659c2428163b2e51c2f1affd62fda18ab339c6e55cf576cdcf0865b2d1d7d9f`        | installation JSON `vps.gatewaySha256` (маршруты checkout от `85f23d5`) |
+| Схема облака                                 | 001-040, 042-046 (45 строк), 045/046 — QR киоска                          | installation JSON `lastMigration`/`migrationFiles`                     |
+| Compose API                                  | **не записан** для `6ac409f`                                              | передаётся только `--expected-compose-sha256`                          |
+
+Хеш compose берётся read-only в день выпуска:
+`sha256sum /opt/pickchick-staging/releases/6ac409f710f96e5247e8423963e2ef511a9e4d4a/infra/staging/compose.yaml`.
+Выпуск QR (`unchanged_compose`) переносил compose без изменений, поэтому ожидается
+`4422715c…` из предыдущих профилей, но скрипт проверяет только фактический файл против
+переданного значения. Если инженер оплаты выпустит новую версию (например, исправление
+`06924c3` для QR worker или профиль ошибок checkout), база меняется: обновить `LIVE_*`,
+fixture gateway и тесты по его записи и пройти ревью, а не передавать другие значения.
+Этот выпуск не трогает QR worker, мост и мобильный worker: они остаются на `6ac409f`.
+
+Пример:
 
 ```sh
 python3 infra/staging/release-unified-menu.py deploy "$SHA" --branch codex/unified-menu \
-  --branch-id "$BRANCH_ID" --expected-api-sha "$API_SHA" --expected-public-sha "$PUBLIC_SHA" \
-  --expected-compose-sha256 "$COMPOSE_HASH" --expected-gateway-sha256 "$GATEWAY_HASH" \
+  --branch-id "$BRANCH_ID" --expected-api-sha 6ac409f710f96e5247e8423963e2ef511a9e4d4a \
+  --expected-public-sha 6ac409f710f96e5247e8423963e2ef511a9e4d4a \
+  --expected-compose-sha256 "$COMPOSE_HASH" \
+  --expected-gateway-sha256 a659c2428163b2e51c2f1affd62fda18ab339c6e55cf576cdcf0865b2d1d7d9f \
   --ci-run "$RUN_ID"            # план; затем то же с --apply
 python3 infra/staging/release-unified-menu.py access-roles "$SHA" --branch codex/unified-menu \
   --branch-id "$BRANCH_ID" --apply
 ```
 
-Скрипт проверяет живой gateway по точным фрагментам текста. Если выпуск киоска или
-оплаты изменил эти фрагменты, `deploy` остановится («Gateway anchor not found»). Тогда
-нужно сверить новый gateway и обновить скрипт, а не обходить проверку.
+Скрипт проверяет живой gateway по точным фрагментам текста. Маршруты checkout киоска
+(`@kiosk_checkout_*`) остаются байт в байт. Если выпуск киоска или оплаты изменил эти
+фрагменты, `deploy` остановится («Gateway anchor not found»). Тогда нужно сверить новый
+gateway и обновить скрипт, а не обходить проверку.
 
 ## Порядок выпуска
 
 1. **VPS, облако.** Сначала персональные входы и роли (раздел ниже). Затем
    `deploy` и `access-roles`. Выпуск согласуется с инженером оплаты: оба меняют
-   API и gateway, базовые хеши берутся после его последнего выпуска.
+   API и gateway, общая блокировка выпуска одна. База — его последний выпуск
+   (раздел «Живая база»); незавершённая QR-попытка контрольного заказа этот выпуск
+   не блокирует, но её строки и QR worker не меняются.
 2. **Цены.** В бэк-офисе сверить и заново опубликовать утверждённые цены
    (публикация пока доходит только до киоска и приложения).
 3. **Windows-касса** (по [native-menu-sync.md](../../infra/windows/native-menu-sync.md)
    и [remote-stops-upgrade.md](../../infra/windows/remote-stops-upgrade.md)). Касса
-   должна быть на edge schema017 (работы по киоску); иначе стоп.
+   должна быть на edge schema017 (работы по киоску; установлено 8 октября из `6ac409f`,
+   `update-native-kiosk-qr.ps1`); иначе стоп.
    - backup с проверкой восстановления:
      `backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> schema017`.
      Скрипт принимает только явно названную схему из списка 014-019 с точными
@@ -126,7 +160,10 @@ python3 infra/staging/release-unified-menu.py access-roles "$SHA" --branch codex
 7. **Фото.** `media-upload --apply`, загрузить фото тестовой позиции и проверить его
    на кассе, в киоске и в приложении.
 8. **Клиенты.**
-   - Киоск: сборка 8 (TestFlight/MDM).
+   - Киоск: на iPad стоит 0.1.0 (8) от `37dbc1a` без фото и long-poll единого меню.
+     Они придут со следующей сборкой поверх 8 с сохранением intent (отдельный выпуск
+     iPad, согласовать с инженером оплаты). Сборке 8 новый API отдаёт каталог в прежнем
+     строгом формате (`stripStorefrontPayload`).
    - Приложение: сборка с опубликованным каталогом (TestFlight, затем App Store) и
      `CATALOG_MOBILE_STOREFRONT_ENABLED=true` отдельным выпуском.
 

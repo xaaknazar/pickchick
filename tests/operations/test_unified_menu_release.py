@@ -17,6 +17,7 @@ import tempfile
 import time
 from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('unified_menu_release', ROOT / 'infra/staging/release-unified-menu.py')
@@ -26,12 +27,28 @@ spec.loader.exec_module(r)
 GuardFailure = r.GuardFailure
 
 SHA = 'a' * 40
-OLD = 'b' * 40
-PUBLIC = 'c' * 40
+# The documented live baseline (6ac409f API and public pointer); the gateway fixture is synthetic,
+# so deploy tests patch LIVE_GATEWAY_SHA256 to its digest (live_gateway below).
+OLD = r.LIVE_API_SHA
+PUBLIC = r.LIVE_PUBLIC_SHA
 BRANCH = '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
 DEVICE = '11111111-2222-4333-8444-555555555555'
 RELEASE = '99999999-8888-4777-8666-555555555555'
 GATEWAY = (ROOT / 'tests/operations/fixtures/unified-menu-gateway-baseline.Caddyfile').read_text()
+OTHER_IMAGE = 'sha256:' + '1' * 64
+# Synthetic neighbour containers in the market fingerprint format: Id Image StartedAt Status RestartCount.
+NEIGHBORS = {'containers': {
+    r.LIVE_QR_WORKER: f'qr0 {r.LIVE_API_IMAGE} 2026-10-08T14:20:00Z running 0',
+    'pickchick-kaspi-bridge': 'bridge0 sha256:' + '2' * 64 + ' 2026-10-08T12:00:00Z running 0',
+    'pickchick-staging-cloud-db-1': 'db0 sha256:' + '3' * 64 + ' 2026-10-01T00:00:00Z running 0'},
+    'idrink_caddy_sha256': 'e' * 64}
+
+
+def live_gateway(test):
+    """Accept the synthetic gateway fixture as the documented live gateway for one test."""
+    patcher = mock.patch.object(r, 'LIVE_GATEWAY_SHA256', r.digest(GATEWAY.encode()))
+    patcher.start()
+    test.addCleanup(patcher.stop)
 
 
 def installed_compose():
@@ -185,6 +202,57 @@ class Pure(unittest.TestCase):
                                         (ledger, files[:-1]), (ledger + [{'version': 'x', 'scope': 'cloud', 'checksum': 'y'}], files)]:
             with self.assertRaises(GuardFailure):
                 r.migration_plan(ledger_case, files_case, {**sums, '050_cloud_extra.sql': 'z'})
+
+    def test_live_baseline_is_the_documented_6ac409f_install(self):
+        record = json.loads((ROOT / 'docs/operations/kiosk-v3-installation-2026-10-08.json').read_text())
+        self.assertEqual(record['releaseSource'], r.LIVE_API_SHA)
+        self.assertEqual(record['vps']['image'], r.LIVE_API_IMAGE)
+        self.assertEqual(record['vps']['gatewaySha256'], r.LIVE_GATEWAY_SHA256)
+        self.assertEqual((record['vps']['migrationFiles'], record['vps']['lastMigration']), (len(r.LIVE_SCHEMA), r.LIVE_SCHEMA[-1]))
+        self.assertEqual(r.LIVE_PUBLIC_SHA, r.LIVE_API_SHA)  # release-kiosk-qr-recovery.py moves both pointers
+        self.assertIn(r.LIVE_API_SHA, (ROOT / 'docs/operations/payment-blockers-2026-10-09.md').read_text())
+        for name, value in r.LIVE_MIGRATIONS.items():
+            self.assertEqual(r.digest((ROOT / 'db/cloud/migrations' / name).read_bytes()), value)
+        live = sorted(p.name for p in (ROOT / 'db/cloud/migrations').glob('*.sql') if int(p.name[:3]) <= 46)
+        self.assertEqual(len(live), 45)
+        r.check_live_schema(live, {n: r.digest((ROOT / 'db/cloud/migrations' / n).read_bytes()) for n in live})
+
+    def test_deploy_requires_the_exact_live_baseline(self):
+        good = SimpleNamespace(expected_api_sha=r.LIVE_API_SHA, expected_public_sha=r.LIVE_PUBLIC_SHA,
+                               expected_gateway_sha256=r.LIVE_GATEWAY_SHA256, expected_compose_sha256='4' * 64)
+        r.check_live_baseline(good)
+        older = {'85f23d582540f89b0df86b7415cc764f7594774a', '37dbc1a2c1941fb686206e64de7dca9bcaea125d'}
+        cases = [dict(expected_api_sha=sha) for sha in older] + [dict(expected_public_sha=sha) for sha in older]
+        cases += [dict(expected_public_sha='778a718ffe916520fc177aaa663546e863a8574a'),
+                  dict(expected_gateway_sha256='0bb039bde008cd3a25aeec3d4e06d15f3ad5e8dc3f6eda2e8373fd004264d3ff'),
+                  dict(expected_compose_sha256=None), dict(expected_compose_sha256='4' * 63)]
+        for change in cases:
+            with self.assertRaises(GuardFailure, msg=change):
+                r.check_live_baseline(SimpleNamespace(**{**vars(good), **change}))
+
+    def test_live_schema_is_exactly_046_with_the_installed_kiosk_bytes(self):
+        files, sums, _ = files_and_ledger('049_z')
+        live = [n for n in files if n <= '046_z']
+        r.check_live_schema(live, sums)
+        for names in [files, [n for n in live if n <= '045_z'], live[:-1] + ['046_other.sql'], live + ['../x.sql']]:
+            with self.assertRaises(GuardFailure):
+                r.check_live_schema(names, sums)
+        with self.assertRaisesRegex(GuardFailure, '045/046'):
+            r.check_live_schema(live, {**sums, '046_cloud_kiosk_qr_recovery.sql': '0' * 64})
+        with self.assertRaisesRegex(GuardFailure, '045/046'):
+            r.migration_plan([], files, {**sums, '045_cloud_kiosk_qr_before_admission.sql': '0' * 64})
+
+    def test_qr_worker_must_be_the_running_live_container(self):
+        r.check_qr_worker(NEIGHBORS)
+        for value in [None, f'qr0 {OTHER_IMAGE} 2026-10-08T14:20:00Z running 0',
+                      f'qr0 {r.LIVE_API_IMAGE} 2026-10-08T14:20:00Z exited 0', 'qr0']:
+            containers = dict(NEIGHBORS['containers'])
+            if value is None:
+                containers.pop(r.LIVE_QR_WORKER)
+            else:
+                containers[r.LIVE_QR_WORKER] = value
+            with self.assertRaisesRegex(GuardFailure, 'QR worker'):
+                r.check_qr_worker({**NEIGHBORS, 'containers': containers})
 
     def test_preflight_refuses_missing_access_grants(self):
         r.check_access_coverage(0)
@@ -345,6 +413,15 @@ class Gateway(unittest.TestCase):
         self.assertEqual(len(removed), 7, removed)  # no-store, surfaces, 3 regexes, kiosk and customer paths
         self.assertEqual(candidate.count('response_header_timeout 5s'), GATEWAY.count('response_header_timeout 5s'))
 
+    def test_live_kiosk_checkout_routes_are_kept_byte_for_byte(self):
+        # a659c242... carries the 85f23d5 checkout routes (release-kiosk-checkout.py).
+        candidate = r.gateway_candidate(GATEWAY, r.digest(GATEWAY.encode()))
+        for name in ['create', 'payment', 'read']:
+            start = GATEWAY.index(f'\t@kiosk_checkout_{name} {{')
+            block = GATEWAY[start:GATEWAY.index('\n\n', GATEWAY.index(f'\thandle @kiosk_checkout_{name} {{')) + 2]
+            self.assertIn('response_header_timeout 5s', block)
+            self.assertEqual(candidate.count(block), 1, name)
+
     def test_candidate_refuses_unreviewed_or_already_patched_text(self):
         candidate = r.gateway_candidate(GATEWAY, r.digest(GATEWAY.encode()))
         with self.assertRaisesRegex(GuardFailure, 'reviewed hash'):
@@ -401,6 +478,7 @@ class Phases(unittest.TestCase):
         return buffer.getvalue()
 
     def test_deploy_preflight_refuses_missing_grants(self):
+        live_gateway(self)
         release = self.release('deploy', expected_api_sha=OLD, expected_public_sha=PUBLIC,
                                expected_compose_sha256=r.digest(installed_compose().encode()),
                                expected_gateway_sha256=r.digest(GATEWAY.encode()))
@@ -411,8 +489,13 @@ class Phases(unittest.TestCase):
         texts = {release.compose_path(OLD): installed_compose(),
                  release.public_dir(PUBLIC) + '/gateway.Caddyfile': GATEWAY}
         release.read_text = lambda path: texts[path]
+        neighbors = json.loads(json.dumps(NEIGHBORS))
+        release.fingerprint = lambda: neighbors
+        image = 'docker inspect --format ' + "'{{.Image}}' " + r.market.API_CONTAINER
         answers = {'readlink -f /opt/pickchick-staging/current': f'{r.REMOTE}/releases/{OLD}',
-                   'readlink -f /opt/pickchick-staging/public-https/current': f'{r.REMOTE}/public-https/releases/{PUBLIC}'}
+                   'readlink -f /opt/pickchick-staging/public-https/current': f'{r.REMOTE}/public-https/releases/{PUBLIC}',
+                   image: r.LIVE_API_IMAGE,
+                   "docker image inspect --format '{{.Id}}' pickchick-api:" + OLD: r.LIVE_API_IMAGE}
         release.remote = lambda command, **kw: answers.get(command, r.digest(GATEWAY.encode()) + '  /etc/caddy/Caddyfile')
         release.coverage_missing = 1
         with self.assertRaisesRegex(GuardFailure, 'bo_access_grants'):
@@ -421,6 +504,19 @@ class Phases(unittest.TestCase):
         base = release.deploy_baseline()
         self.assertEqual(base['pending'], list(r.MIGRATIONS))
         self.assertIn('CATALOG_MEDIA_UPLOAD_ENABLED: "false"', base['compose'])
+        # The QR worker of the live install must be running from the documented image.
+        neighbors['containers'][r.LIVE_QR_WORKER] = f'qr0 {OTHER_IMAGE} 2026-10-08T14:20:00Z running 0'
+        with self.assertRaisesRegex(GuardFailure, 'QR worker'):
+            release.deploy_baseline()
+        neighbors['containers'][r.LIVE_QR_WORKER] = NEIGHBORS['containers'][r.LIVE_QR_WORKER]
+        answers[image] = OTHER_IMAGE  # same revision label, another image
+        with self.assertRaisesRegex(GuardFailure, 'documented live image'):
+            release.deploy_baseline()
+        answers[image] = r.LIVE_API_IMAGE
+        release.args.expected_gateway_sha256 = '0' * 64
+        with self.assertRaisesRegex(GuardFailure, 'Exact live baseline'):
+            release.deploy_baseline()
+        release.args.expected_gateway_sha256 = r.digest(GATEWAY.encode())
         release.revision = SHA  # someone else deployed in between
         with self.assertRaisesRegex(GuardFailure, 'not the reviewed baseline'):
             release.deploy_baseline()
@@ -558,6 +654,13 @@ class Phases(unittest.TestCase):
     def test_cli_requires_reviewed_baseline_for_deploy_and_never_prints_secrets(self):
         with self.assertRaisesRegex(GuardFailure, 'expected-api-sha'):
             r.parse(['deploy', SHA, '--branch', 'x', '--branch-id', BRANCH])
+        baseline = ['--expected-public-sha', r.LIVE_PUBLIC_SHA, '--expected-compose-sha256', '4' * 64,
+                    '--expected-gateway-sha256', r.LIVE_GATEWAY_SHA256, '--ci-run', '1']
+        parsed = r.parse(['deploy', SHA, '--branch', 'x', '--branch-id', BRANCH, '--expected-api-sha', r.LIVE_API_SHA, *baseline])
+        self.assertEqual(parsed.expected_api_sha, r.LIVE_API_SHA)
+        with self.assertRaisesRegex(GuardFailure, 'Exact live baseline'):  # the pre-6ac409f install
+            r.parse(['deploy', SHA, '--branch', 'x', '--branch-id', BRANCH,
+                     '--expected-api-sha', '37dbc1a2c1941fb686206e64de7dca9bcaea125d', *baseline])
         parsed = r.parse(['disable', SHA, '--branch', 'x', '--branch-id', BRANCH, '--flag', 'media-upload'])
         self.assertEqual(parsed.flag, 'media-upload')
         script = ROOT / 'infra/staging/release-unified-menu.py'
@@ -590,6 +693,7 @@ class DeployFake(Fake):
         self.mounted_gateway = GATEWAY
         self.files = {}
         self.fail_gateway = False
+        self.neighbor_state = json.loads(json.dumps(NEIGHBORS))
         _, _, self.ledger_rows = files_and_ledger('046_z')
         self.capabilities = {'environment': 'staging'}
 
@@ -604,6 +708,9 @@ class DeployFake(Fake):
 
     def role_restricted(self):
         pass
+
+    def fingerprint(self):
+        return json.loads(json.dumps(self.neighbor_state))
 
     def availability_rows(self):
         return [{'branch_id': BRANCH, 'device_id': DEVICE, 'revision': 7, 'stopped_ids': [],
@@ -648,9 +755,11 @@ class DeployFake(Fake):
         if 'sha256sum /etc/caddy/Caddyfile' in command:
             return r.digest(self.mounted_gateway.encode()) + '  /etc/caddy/Caddyfile'
         if 'docker build' in command:
-            return 'sha256:' + '1' * 64
-        if '{{.Image}}' in command or '{{.Id}}' in command:
-            return 'sha256:' + '1' * 64
+            return OTHER_IMAGE
+        if '{{.Image}}' in command:
+            return r.LIVE_API_IMAGE if self.revision == OLD else OTHER_IMAGE
+        if '{{.Id}}' in command:
+            return r.LIVE_API_IMAGE if command.endswith('pickchick-api:' + OLD) else OTHER_IMAGE
         if 'config --format json' in command:
             old = self.public_dir(PUBLIC)
             return json.dumps({'services': {'gateway': {'volumes': [
@@ -673,6 +782,7 @@ class DeployFake(Fake):
 
 class Deploy(unittest.TestCase):
     def setUp(self):
+        live_gateway(self)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         identity = Path(self.tmp.name) / 'identity.agekey'
@@ -723,6 +833,35 @@ class Deploy(unittest.TestCase):
         self.assertFalse((Path(self.tmp.name) / 'phase-deploy.json').exists())
         rollback = json.loads((Path(self.tmp.name) / 'rollback.json').read_text())
         self.assertEqual(rollback['schema'], 'retained 047-049')
+
+    def test_changed_neighbour_container_rolls_back_api_and_gateway(self):
+        rel = self.release
+        original = rel.public_probes
+
+        def probes(capabilities):
+            original(capabilities)
+            rel.neighbor_state['containers'][r.LIVE_QR_WORKER] = f'qr0 {r.LIVE_API_IMAGE} 2026-10-08T14:20:00Z running 1'
+        rel.public_probes = probes
+        with self.assertRaisesRegex(GuardFailure, 'Neighbour containers changed'):
+            self.run_deploy()
+        self.assertEqual(rel.revision, OLD)
+        self.assertEqual(rel.pointers[r.REMOTE + '/current'], f'{r.REMOTE}/releases/{OLD}')
+        self.assertEqual(rel.pointers[r.REMOTE + '/public-https/current'], f'{r.REMOTE}/public-https/releases/{PUBLIC}')
+        self.assertEqual(rel.mounted_gateway, GATEWAY)
+        self.assertFalse((Path(self.tmp.name) / 'phase-deploy.json').exists())
+
+    def test_neighbour_change_during_migration_stops_before_the_api_switch(self):
+        original = self.release.owner
+
+        def owner(*argv, sha=None):
+            result = original(*argv)
+            self.release.neighbor_state['containers'].pop('pickchick-kaspi-bridge')
+            return result
+        self.release.owner = owner
+        with self.assertRaisesRegex(GuardFailure, 'Neighbour containers changed'):
+            self.run_deploy()
+        self.assertEqual(self.release.revision, OLD)
+        self.assertFalse(any(c[0] == 'switch' for c in self.release.calls))
 
     def test_resume_after_a_stopped_migration_reuses_identical_artifacts(self):
         original = self.release.owner
