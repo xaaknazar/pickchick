@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
+import { View } from 'react-native';
 import { fn } from 'storybook/test';
 import { Wrapper } from './Wrapper';
 import { InvoicePhoneField } from './InvoicePhoneField';
+import { colors } from '../theme';
 const meta = {
   title: 'Kiosk/InvoicePhoneField',
   component: InvoicePhoneField,
   args: { value: '', onChange: fn(), busy: false, locale: 'ru' },
   decorators: [
     (Story) => (
-      <Wrapper padding={28}>
-        <Story />
-      </Wrapper>
+      // Backdrop only: the phone field is drawn for the blue v3 review screen.
+      <View style={{ flex: 1, backgroundColor: colors.blue }}>
+        <Wrapper padding={28}>
+          <Story />
+        </Wrapper>
+      </View>
     ),
   ],
   tags: ['autodocs'],

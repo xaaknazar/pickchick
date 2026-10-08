@@ -1,32 +1,150 @@
+import { Children, type ReactNode } from 'react';
+import { Animated, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { KioskProduct } from '../model';
-import { Animated } from 'react-native';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { Body, Heading, Wrapper } from './UI';
+import { colors, fonts, useMetrics } from '../theme';
 import { ProductArtwork } from './ProductArtwork';
-import { useEntranceMotion } from './useEntranceMotion';
-export function ProductIntro({ product, locale }: { product: KioskProduct; locale: Locale }) {
-  const t = copy(locale);
-  const entrance = useEntranceMotion('product');
+import { ProductNutrition } from './ProductNutrition';
+import { useEnter } from './motion';
+/** Fade-up for each block of the product body (v3 .pbody > * cascade). */
+function Rise({ index, children }: { index: number; children?: ReactNode }) {
+  const enter = useEnter([0, 80, 140, 200, 250][Math.min(index, 4)], 520);
   return (
     <Animated.View
-      testID="kiosk-product-intro"
       style={{
-        opacity: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }),
+        opacity: enter,
         transform: [
-          { translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) },
         ],
       }}
     >
-      <Wrapper gap={24}>
-        <ProductArtwork imageId={product.image_id} variant="feature" />
-        <Wrapper gap={10}>
-          <Heading size="title">{product.name}</Heading>
-          <Body tone="muted">{displayCopy(product.description)}</Body>
-          <Body variant="caption" tone="muted">
-            {product.serving_label} · {product.nutrition.energy_kcal} {t.kcal}
-          </Body>
-        </Wrapper>
-      </Wrapper>
+      {children}
     </Animated.View>
+  );
+}
+/**
+ * v3 product page body: the photo stage (with the HIT tag for Pick Combo), then the
+ * name, serving, description and KBJU tiles in white on blue. Children (option groups,
+ * details) follow in the same padded column and fade up one after another.
+ */
+export function ProductIntro({
+  product,
+  locale,
+  children,
+}: {
+  product: KioskProduct;
+  locale: Locale;
+  children?: ReactNode;
+}) {
+  const { v } = useMetrics();
+  const t = copy(locale);
+  const hit = product.name === 'Pick Combo';
+  const tag = useEnter(380, 500);
+  return (
+    <View testID="kiosk-product-intro">
+      <View>
+        <ProductArtwork imageId={product.image_id} variant="hero" />
+        {hit ? (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: v(40),
+              right: v(32),
+              opacity: tag,
+              transform: [
+                { rotate: '4deg' },
+                { scale: tag.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+              ],
+              backgroundColor: colors.orange,
+              borderRadius: v(11),
+              paddingVertical: v(9),
+              paddingHorizontal: v(14),
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.black,
+                fontSize: v(16),
+                letterSpacing: 1.2,
+                color: colors.white,
+              }}
+            >
+              {t.hit}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </View>
+      <View
+        style={{
+          paddingTop: v(34),
+          paddingHorizontal: v(36),
+          paddingBottom: v(40),
+          gap: v(34),
+        }}
+      >
+        <LinearGradient
+          pointerEvents="none"
+          colors={[colors.blueBright, colors.blue]}
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: v(160) }}
+        />
+        <Rise index={0}>
+          <View style={{ gap: v(12) }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                gap: v(16),
+              }}
+            >
+              <Text
+                accessibilityRole="header"
+                style={{
+                  flexShrink: 1,
+                  fontFamily: fonts.black,
+                  fontSize: v(48),
+                  lineHeight: v(52),
+                  letterSpacing: -0.8,
+                  color: colors.white,
+                }}
+              >
+                {product.name}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.medium,
+                  fontSize: Math.max(15, v(18)),
+                  color: 'rgba(255,255,255,.72)',
+                }}
+              >
+                {product.serving_label}
+              </Text>
+            </View>
+            {product.description ? (
+              <Text
+                style={{
+                  fontFamily: fonts.body,
+                  fontSize: Math.max(17, v(20)),
+                  lineHeight: Math.max(24, v(28)),
+                  color: 'rgba(255,255,255,.85)',
+                }}
+              >
+                {displayCopy(product.description)}
+              </Text>
+            ) : null}
+            <View style={{ marginTop: v(6) }}>
+              <ProductNutrition product={product} locale={locale} part="facts" />
+            </View>
+          </View>
+        </Rise>
+        {Children.toArray(children).map((child, index) => (
+          <Rise key={(child as { key?: string }).key ?? index} index={index + 1}>
+            {child}
+          </Rise>
+        ))}
+      </View>
+    </View>
   );
 }

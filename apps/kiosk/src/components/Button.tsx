@@ -3,17 +3,19 @@ import { ActivityIndicator, Animated, Pressable, Text } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { useMotionPreference } from './useMotionPreference';
+import { motion } from './motion';
 export interface ButtonProps {
   label: string;
   onPress: () => void;
   testID?: string;
   disabled?: boolean;
   busy?: boolean;
-  tone?: 'accent' | 'primary' | 'secondary' | 'inverse' | 'quiet' | 'danger';
+  tone?: 'accent' | 'primary' | 'secondary' | 'inverse' | 'quiet' | 'danger' | 'outline';
   size?: 'compact' | 'regular' | 'hero';
   icon?: IconName;
   fullWidth?: boolean;
 }
+/** v3 pill button. Accent orange is the one primary action per screen. */
 export function Button({
   label,
   onPress,
@@ -25,7 +27,7 @@ export function Button({
   icon,
   fullWidth = false,
 }: ButtonProps) {
-  const { px } = useMetrics();
+  const { v } = useMetrics();
   const reduced = useMotionPreference();
   const scale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -34,22 +36,25 @@ export function Button({
     return () => scale.stopAnimation();
   }, [reduced, scale]);
   const blocked = disabled || busy;
-  const inverse = tone === 'primary' || tone === 'inverse' || tone === 'danger';
+  const filled = tone === 'accent' || tone === 'primary' || tone === 'danger';
   const color = disabled
-    ? colors.muted
-    : inverse
+    ? filled
+      ? 'rgba(255,255,255,.85)'
+      : colors.muted
+    : filled || tone === 'inverse' || tone === 'outline'
       ? colors.white
       : tone === 'secondary' || tone === 'quiet'
         ? colors.blue
-        : colors.ink;
-  const motion = (pressed: boolean) => {
+        : colors.navy;
+  const press = (pressed: boolean) => {
     scale.stopAnimation();
     Animated.timing(scale, {
-      toValue: pressed && !reduced ? 0.98 : 1,
-      duration: reduced ? 0 : 140,
+      toValue: pressed && !reduced ? 0.97 : 1,
+      duration: reduced ? 0 : motion.press,
       useNativeDriver: true,
     }).start();
   };
+  const height = Math.max(52, v(size === 'hero' ? 112 : size === 'compact' ? 64 : 96));
   return (
     <Animated.View style={{ width: fullWidth ? '100%' : undefined, transform: [{ scale }] }}>
       <Pressable
@@ -59,38 +64,47 @@ export function Button({
         accessibilityState={{ disabled: blocked, busy }}
         disabled={blocked}
         onPress={onPress}
-        onPressIn={() => motion(true)}
-        onPressOut={() => motion(false)}
-        style={({ pressed }) => ({
-          minHeight: Math.max(52, px(size === 'hero' ? 104 : size === 'compact' ? 62 : 84)),
-          paddingVertical: px(size === 'compact' ? 14 : 20),
-          paddingHorizontal: px(24),
-          borderRadius: 16,
+        onPressIn={() => press(true)}
+        onPressOut={() => press(false)}
+        style={{
+          minHeight: height,
+          paddingVertical: v(size === 'compact' ? 12 : 18),
+          paddingHorizontal: v(size === 'compact' ? 22 : 32),
+          borderRadius: 999,
           backgroundColor: disabled
-            ? colors.light
+            ? filled
+              ? 'rgba(201,210,227,.9)'
+              : colors.soft
             : tone === 'accent'
               ? colors.orange
               : tone === 'primary'
                 ? colors.blue
                 : tone === 'inverse'
-                  ? 'rgba(255,255,255,.14)'
+                  ? colors.glass
                   : tone === 'danger'
                     ? colors.error
                     : tone === 'secondary'
-                      ? colors.light
+                      ? colors.soft
                       : 'transparent',
-          opacity: busy ? 0.65 : pressed ? 0.82 : 1,
+          borderWidth: tone === 'outline' ? 2.5 : 0,
+          borderColor: 'rgba(255,255,255,.4)',
+          shadowColor: tone === 'accent' ? colors.orange : '#020A28',
+          shadowOpacity: !disabled && tone === 'accent' ? 0.42 : 0,
+          shadowRadius: 22,
+          shadowOffset: { width: 0, height: 12 },
+          opacity: busy ? 0.7 : 1,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: px(12),
-        })}
+          gap: v(12),
+        }}
       >
         {busy ? <ActivityIndicator accessibilityLabel={label} color={color} /> : null}
         <Text
           style={{
-            fontFamily: fonts.medium,
-            fontSize: Math.max(18, px(size === 'hero' ? 34 : size === 'compact' ? 21 : 26)),
+            fontFamily: fonts.black,
+            fontSize: Math.max(18, v(size === 'hero' ? 34 : size === 'compact' ? 17 : 23)),
+            letterSpacing: size === 'hero' ? 1.2 : 0,
             color,
             flexShrink: 1,
             textAlign: 'center',
@@ -99,7 +113,10 @@ export function Button({
           {label}
         </Text>
         {icon ? (
-          <Icon name={icon} tone={inverse ? 'inverse' : tone === 'accent' ? 'default' : 'brand'} />
+          <Icon
+            name={icon}
+            tone={filled || tone === 'inverse' || tone === 'outline' ? 'inverse' : 'brand'}
+          />
         ) : null}
       </Pressable>
     </Animated.View>

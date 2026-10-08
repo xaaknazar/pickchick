@@ -9,3 +9,5 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+export const Scanning: Story = { args: { scanning: true } };
+export const Compact: Story = { args: { size: 'compact', scanning: true } };

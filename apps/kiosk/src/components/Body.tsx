@@ -21,8 +21,9 @@ export function Body({
   testID,
   accessibilityRole,
 }: BodyProps) {
-  const { px, body } = useMetrics();
-  const size = variant === 'caption' ? Math.max(16, px(18)) : variant === 'price' ? px(28) : body;
+  const { v } = useMetrics();
+  const size =
+    variant === 'caption' ? Math.max(15, v(15)) : variant === 'price' ? v(24) : Math.max(17, v(18));
   return (
     <Text
       accessibilityLiveRegion={announce ? 'polite' : undefined}
@@ -30,7 +31,8 @@ export function Body({
       accessibilityRole={accessibilityRole}
       numberOfLines={lines}
       style={{
-        fontFamily: variant === 'label' || variant === 'price' ? fonts.medium : fonts.body,
+        fontFamily:
+          variant === 'price' ? fonts.black : variant === 'label' ? fonts.medium : fonts.body,
         fontSize: size,
         lineHeight: size * 1.4,
         color: tones[tone],

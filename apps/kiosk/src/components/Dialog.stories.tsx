@@ -22,3 +22,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Sheet = { args: { placement: 'bottom' } };
+export const BrandSheet = {
+  args: {
+    placement: 'bottom',
+    tone: 'brand',
+    children: (
+      <>
+        <Heading tone="inverse">Напиток</Heading>
+        <Body tone="onBlue">Выберите один вариант</Body>
+      </>
+    ),
+  },
+};

@@ -1,9 +1,513 @@
-import { Pressable, View, Text } from 'react-native';
+import { Animated, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import type { KioskModifierGroup, KioskSelection } from '../model';
 import { money } from '../cart';
+import { heinzColor, optionPhoto } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
-import { Body, Heading, Icon, IconButton, Wrapper } from './UI';
+import { Icon } from './Icon';
+import { Stepper } from './Stepper';
+import { useEnter, usePop, useSpringTo } from './motion';
+type Option = KioskModifierGroup['options'][number];
+const shadow = {
+  shadowColor: '#020A28',
+  shadowOpacity: 0.18,
+  shadowRadius: 18,
+  shadowOffset: { width: 0, height: 8 },
+} as const;
+const rows = <T,>(items: T[], size: number): T[][] =>
+  items.reduce<T[][]>((all, item, i) => {
+    if (i % size === 0) all.push([]);
+    all[all.length - 1]!.push(item);
+    return all;
+  }, []);
+/** Supplied artwork, a Heinz colour mark, or a neutral glyph on the option tile. */
+function OptionArt({ id, dim, selected }: { id: string; dim: number; selected: boolean }) {
+  const photo = optionPhoto(id);
+  const heinz = heinzColor(id);
+  const lift = useSpringTo(selected ? 1 : 0);
+  if (photo)
+    return (
+      <Animated.View
+        style={{
+          width: dim,
+          height: dim,
+          padding: photo.cutout ? dim * 0.04 : 0,
+          transform: [
+            { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) },
+            { rotate: lift.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-4deg'] }) },
+          ],
+        }}
+      >
+        <Image
+          accessible={false}
+          accessibilityLabel=""
+          source={photo.source}
+          contentFit="contain"
+          style={{ width: '100%', height: '100%' }}
+        />
+      </Animated.View>
+    );
+  if (heinz)
+    return (
+      <View
+        style={{
+          width: dim * 0.78,
+          height: dim * 0.78,
+          borderRadius: dim,
+          backgroundColor: heinz,
+          borderBottomWidth: dim * 0.05,
+          borderColor: 'rgba(0,0,0,.15)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontFamily: fonts.black, fontSize: dim * 0.16, color: colors.white }}>
+          Heinz
+        </Text>
+      </View>
+    );
+  return <Icon name="fast-food-outline" size="large" tone="brand" />;
+}
+/** Price pill: included (sky), surcharge (peach) or unavailable (grey). */
+function PricePill({ option, locale }: { option: Option; locale: Locale }) {
+  const { v } = useMetrics();
+  const t = copy(locale);
+  const plus = BigInt(option.price_delta_minor) > 0n;
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        height: v(28),
+        paddingHorizontal: v(10),
+        borderRadius: v(14),
+        justifyContent: 'center',
+        backgroundColor: !option.available ? '#F1F2F5' : plus ? colors.peach : colors.sky,
+      }}
+    >
+      <Text
+        numberOfLines={1}
+        style={{
+          fontFamily: fonts.bold,
+          fontSize: Math.max(12, v(14)),
+          fontVariant: ['tabular-nums'],
+          color: !option.available ? colors.muted : plus ? colors.orangeDeep : colors.blue,
+        }}
+      >
+        {!option.available
+          ? t.unavailableShort
+          : plus
+            ? '+' + money(option.price_delta_minor)
+            : t.included}
+      </Text>
+    </View>
+  );
+}
+/** One choice tile: photo on its tile colour, label, price pill, orange ring and badge. */
+function OptionTile({
+  group,
+  option,
+  index,
+  quantity,
+  total,
+  drinks,
+  visual,
+  locale,
+  update,
+}: {
+  group: KioskModifierGroup;
+  option: Option;
+  index: number;
+  quantity: number;
+  total: number;
+  drinks: boolean;
+  visual: boolean;
+  locale: Locale;
+  update: (id: string, quantity: number) => void;
+}) {
+  const { v } = useMetrics();
+  const enter = useEnter(200 + Math.min(index, 10) * 25, 460);
+  const pop = usePop(quantity);
+  const selected = quantity > 0;
+  const multi = group.max > 1;
+  const delta = BigInt(option.price_delta_minor) > 0n ? '+ ' + money(option.price_delta_minor) : '';
+  const photo = optionPhoto(option.id);
+  const art = v(drinks ? 112 : 118);
+  const card = (
+    <>
+      {visual ? (
+        <View
+          style={{
+            height: v(drinks ? 132 : 140),
+            backgroundColor: photo?.tile ?? colors.cream,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: option.available ? 1 : 0.7,
+          }}
+        >
+          <OptionArt id={option.id} dim={art} selected={selected} />
+        </View>
+      ) : null}
+      <View
+        style={{
+          flex: 1,
+          paddingTop: v(visual ? 10 : 18),
+          paddingHorizontal: v(12),
+          paddingBottom: v(visual ? 14 : 18),
+          gap: v(6),
+        }}
+      >
+        <Text
+          numberOfLines={2}
+          style={
+            visual
+              ? {
+                  fontFamily: fonts.medium,
+                  fontSize: Math.max(13, v(drinks ? 15 : 16)),
+                  lineHeight: Math.max(17, v(drinks ? 19 : 20)),
+                  minHeight: Math.max(34, v(drinks ? 38 : 40)),
+                  color: colors.navy,
+                }
+              : {
+                  fontFamily: fonts.black,
+                  fontSize: v(28),
+                  color: colors.navy,
+                }
+          }
+        >
+          {option.label}
+        </Text>
+        <PricePill option={option} locale={locale} />
+      </View>
+    </>
+  );
+  const surface = {
+    flex: 1,
+    borderRadius: v(24),
+    backgroundColor: colors.white,
+    overflow: 'hidden' as const,
+    opacity: option.available ? 1 : 0.55,
+  };
+  const ring = selected ? (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: v(24),
+        borderWidth: v(4),
+        borderColor: colors.orange,
+      }}
+    />
+  ) : null;
+  const badge = (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: v(10),
+        right: v(10),
+        width: v(34),
+        height: v(34),
+        borderRadius: v(17),
+        backgroundColor: colors.orange,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.orange,
+        shadowOpacity: selected ? 0.4 : 0,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        opacity: selected ? 1 : 0,
+        transform: [{ scale: pop }],
+      }}
+    >
+      {multi ? (
+        <Text
+          testID={`kiosk-modifier-quantity-${group.id}-${option.id}`}
+          style={{
+            fontFamily: fonts.black,
+            fontSize: v(16),
+            color: colors.white,
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          {quantity}
+        </Text>
+      ) : (
+        <Icon name="checkmark" size="small" tone="inverse" />
+      )}
+    </Animated.View>
+  );
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        minWidth: 0,
+        borderRadius: v(24),
+        ...shadow,
+        opacity: enter,
+        transform: [
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
+          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+        ],
+      }}
+    >
+      {multi ? (
+        <View testID={`kiosk-modifier-${group.id}-${option.id}`} style={{ flex: 1 }}>
+          <Pressable
+            testID={`kiosk-modifier-plus-${group.id}-${option.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={'+ ' + option.label}
+            accessibilityState={{
+              disabled: !option.available || quantity >= option.max_quantity || total >= group.max,
+            }}
+            disabled={!option.available || quantity >= option.max_quantity || total >= group.max}
+            onPress={() => update(option.id, quantity + 1)}
+            style={({ pressed }) => ({ ...surface, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+          >
+            {card}
+          </Pressable>
+          {ring}
+          {badge}
+          <Pressable
+            testID={`kiosk-modifier-minus-${group.id}-${option.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={'- ' + option.label}
+            accessibilityState={{ disabled: quantity <= 0 }}
+            disabled={quantity <= 0}
+            onPress={() => update(option.id, quantity - 1)}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              position: 'absolute',
+              top: v(10),
+              left: v(10),
+              width: v(34),
+              height: v(34),
+              borderRadius: v(17),
+              backgroundColor: colors.white,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#020A28',
+              shadowOpacity: selected ? 0.25 : 0,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              opacity: selected ? 1 : 0,
+              transform: [{ scale: pressed ? 0.9 : 1 }],
+            })}
+          >
+            <Icon name="remove" size="small" tone="navy" />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
+          <Pressable
+            testID={`kiosk-modifier-${group.id}-${option.id}`}
+            accessibilityRole="radio"
+            accessibilityLabel={option.label + (delta ? ', ' + delta : '')}
+            accessibilityState={{ checked: selected, disabled: !option.available }}
+            aria-checked={selected}
+            disabled={!option.available}
+            onPress={() => update(option.id, selected && group.min === 0 ? 0 : 1)}
+            style={({ pressed }) => ({ ...surface, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+          >
+            {card}
+          </Pressable>
+          {ring}
+          {badge}
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+/** Optional extras as v3 rows: photo, label, surcharge and a stepper. */
+function ExtraRow({
+  group,
+  option,
+  index,
+  quantity,
+  total,
+  locale,
+  update,
+}: {
+  group: KioskModifierGroup;
+  option: Option;
+  index: number;
+  quantity: number;
+  total: number;
+  locale: Locale;
+  update: (id: string, quantity: number) => void;
+}) {
+  const { v } = useMetrics();
+  const t = copy(locale);
+  const enter = useEnter(200 + Math.min(index, 10) * 30, 460);
+  const photo = optionPhoto(option.id);
+  const selected = quantity > 0;
+  return (
+    <Animated.View
+      testID={`kiosk-modifier-${group.id}-${option.id}`}
+      style={{
+        minHeight: v(92),
+        borderRadius: v(24),
+        backgroundColor: colors.white,
+        ...shadow,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: v(16),
+        paddingLeft: v(10),
+        paddingRight: v(12),
+        paddingVertical: v(10),
+        opacity: enter,
+        transform: [
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
+        ],
+      }}
+    >
+      <View
+        style={{
+          width: v(72),
+          height: v(72),
+          borderRadius: v(18),
+          overflow: 'hidden',
+          backgroundColor: photo?.tile ?? '#FFF8EE',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: option.available ? 1 : 0.55,
+        }}
+      >
+        <OptionArt id={option.id} dim={v(72)} selected={false} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: v(2) }}>
+        <Text
+          numberOfLines={2}
+          style={{ fontFamily: fonts.medium, fontSize: Math.max(16, v(19)), color: colors.navy }}
+        >
+          {option.label}
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.bold,
+            fontSize: Math.max(14, v(16)),
+            fontVariant: ['tabular-nums'],
+            color: option.available ? colors.orangeDeep : colors.muted,
+          }}
+        >
+          {option.available ? '+' + money(option.price_delta_minor) : t.unavailableShort}
+        </Text>
+      </View>
+      <Stepper
+        quantity={quantity}
+        locale={locale}
+        min={0}
+        max={
+          option.available ? Math.min(option.max_quantity, quantity + group.max - total) : quantity
+        }
+        ids={{
+          minus: `kiosk-modifier-minus-${group.id}-${option.id}`,
+          quantity: `kiosk-modifier-quantity-${group.id}-${option.id}`,
+          plus: `kiosk-modifier-plus-${group.id}-${option.id}`,
+        }}
+        labels={{ minus: '- ' + option.label, plus: '+ ' + option.label }}
+        onMinus={() => update(option.id, quantity - 1)}
+        onPlus={() => update(option.id, quantity + 1)}
+      />
+      {selected ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            borderRadius: v(24),
+            borderWidth: v(3),
+            borderColor: colors.orange,
+          }}
+        />
+      ) : null}
+    </Animated.View>
+  );
+}
+/** Group status chip: chosen names, "n of m" while incomplete, or "optional". */
+function GroupChip({
+  group,
+  options,
+  selections,
+  total,
+  locale,
+}: {
+  group: KioskModifierGroup;
+  options: Option[];
+  selections: KioskSelection[];
+  total: number;
+  locale: Locale;
+}) {
+  const { v } = useMetrics();
+  const t = copy(locale);
+  const pop = usePop(total);
+  if (group.min === 0)
+    return (
+      <Text
+        style={{
+          fontFamily: fonts.body,
+          fontSize: Math.max(15, v(16)),
+          color: colors.onBlueMuted,
+        }}
+      >
+        {t.optional}
+        {total ? ` · ${total} ${locale === 'ru' ? 'шт' : 'дана'}` : ''}
+      </Text>
+    );
+  const done = total >= group.min && total <= group.max;
+  const names = selections
+    .filter((s) => s.group_id === group.id)
+    .map((s) => {
+      const label = options.find((o) => o.id === s.option_id)?.label ?? '';
+      return s.quantity > 1 ? `${label} × ${s.quantity}` : label;
+    })
+    .join(', ');
+  return (
+    <Animated.View
+      style={{
+        flexShrink: 1,
+        maxWidth: '42%',
+        height: v(38),
+        paddingHorizontal: v(14),
+        borderRadius: 999,
+        backgroundColor: done ? colors.white : colors.peach,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: v(6),
+        transform: [{ scale: pop }],
+      }}
+    >
+      {done ? <Icon name="checkmark" size="small" tone="brand" /> : null}
+      <Text
+        numberOfLines={1}
+        style={{
+          flexShrink: 1,
+          fontFamily: fonts.bold,
+          fontSize: Math.max(13, v(15)),
+          color: done ? colors.blue : colors.orangeDeep,
+        }}
+      >
+        {done
+          ? names
+          : locale === 'ru'
+            ? `${t.chosen} ${total} из ${group.max}`
+            : `${group.max} ішінен ${total} таңдалды`}
+      </Text>
+    </Animated.View>
+  );
+}
+/**
+ * v3 modifier group. Photo options become tiles (drinks five across, others four),
+ * optional multi-quantity extras become rows with a stepper, and options without
+ * artwork (sizes) become large text tiles. Selection logic and limits are unchanged.
+ */
 export function ModifierOptions({
   group,
   selections,
@@ -17,8 +521,7 @@ export function ModifierOptions({
   locale: Locale;
   limit?: number;
 }) {
-  const { px } = useMetrics();
-  const t = copy(locale);
+  const { v } = useMetrics();
   const total = selections
     .filter((s) => s.group_id === group.id)
     .reduce((n, s) => n + s.quantity, 0);
@@ -30,135 +533,82 @@ export function ModifierOptions({
       quantity > 0 ? [...others, { group_id: group.id, option_id: id, quantity }] : others,
     );
   };
+  const options = group.options.slice(0, limit);
+  const quantityOf = (id: string) =>
+    selections.find((s) => s.group_id === group.id && s.option_id === id)?.quantity ?? 0;
+  const extras = group.min === 0 && group.max > 1;
+  const visual = group.options.some((o) => optionPhoto(o.id) || heinzColor(o.id));
+  const drinks = group.id === 'drink';
+  const columns = visual ? (drinks ? 5 : 4) : Math.min(4, Math.max(2, options.length));
   return (
-    <Wrapper gap={14}>
-      <Wrapper dir="row" align="center" justify="space-between" gap={16}>
-        <Wrapper flex={1}>
-          <Heading size="card">{group.title}</Heading>
-        </Wrapper>
-        <Body variant="caption" tone="muted">
-          {group.min > 0 ? `${t.chosen} ${total} / ${group.max}` : t.optional}
-        </Body>
-      </Wrapper>
+    <View style={{ gap: v(16) }}>
       <View
         style={{
-          flexDirection: group.max === 1 ? 'row' : 'column',
-          flexWrap: group.max === 1 ? 'wrap' : 'nowrap',
-          gap: px(12),
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: v(12),
         }}
       >
-        {group.options.slice(0, limit).map((option) => {
-          const quantity =
-            selections.find((s) => s.group_id === group.id && s.option_id === option.id)
-              ?.quantity ?? 0;
-          const selected = quantity > 0;
-          const delta =
-            BigInt(option.price_delta_minor) > 0n ? '+ ' + money(option.price_delta_minor) : '';
-          const appearance = {
-            minHeight: Math.max(64, px(86)),
-            borderRadius: 16,
-            paddingVertical: px(16),
-            paddingHorizontal: px(18),
-            borderWidth: 2,
-            borderColor: selected ? colors.blue : colors.border,
-            backgroundColor: selected ? '#EEF4FF' : colors.white,
-            opacity: option.available ? 1 : 0.45,
-          };
-          return group.max === 1 ? (
-            <Pressable
-              key={option.id}
-              testID={`kiosk-modifier-${group.id}-${option.id}`}
-              accessibilityRole="radio"
-              accessibilityLabel={option.label + (delta ? ', ' + delta : '')}
-              accessibilityState={{ checked: selected, disabled: !option.available }}
-              aria-checked={selected}
-              disabled={!option.available}
-              onPress={() => update(option.id, selected && group.min === 0 ? 0 : 1)}
-              style={[
-                appearance,
-                {
-                  flexBasis: '47%',
-                  flexGrow: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: px(12),
-                },
-              ]}
-            >
-              <View
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: selected ? colors.blue : colors.muted,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: selected ? colors.blue : 'transparent',
-                }}
-              >
-                {selected ? <Icon name="checkmark" size="small" tone="inverse" /> : null}
-              </View>
-              <Wrapper flex={1} gap={4}>
-                <Body variant={selected ? 'label' : 'body'} tone={selected ? 'brand' : 'default'}>
-                  {option.label}
-                </Body>
-                {delta ? (
-                  <Body variant="caption" tone="muted">
-                    {delta}
-                  </Body>
-                ) : null}
-              </Wrapper>
-            </Pressable>
-          ) : (
-            <View
-              key={option.id}
-              testID={`kiosk-modifier-${group.id}-${option.id}`}
-              style={appearance}
-            >
-              <Wrapper dir="row" align="center" gap={12}>
-                <Wrapper flex={1} gap={4}>
-                  <Body variant="label">{option.label}</Body>
-                  {delta ? (
-                    <Body variant="caption" tone="muted">
-                      {delta}
-                    </Body>
-                  ) : null}
-                </Wrapper>
-                <IconButton
-                  name="remove"
-                  label={'- ' + option.label}
-                  testID={`kiosk-modifier-minus-${group.id}-${option.id}`}
-                  disabled={quantity <= 0}
-                  onPress={() => update(option.id, quantity - 1)}
-                />
-                <Text
-                  testID={`kiosk-modifier-quantity-${group.id}-${option.id}`}
-                  style={{
-                    fontFamily: fonts.medium,
-                    fontSize: px(26),
-                    minWidth: 28,
-                    textAlign: 'center',
-                    color: colors.ink,
-                  }}
-                >
-                  {quantity}
-                </Text>
-                <IconButton
-                  name="add"
-                  label={'+ ' + option.label}
-                  tone={selected ? 'accent' : 'neutral'}
-                  testID={`kiosk-modifier-plus-${group.id}-${option.id}`}
-                  disabled={
-                    !option.available || quantity >= option.max_quantity || total >= group.max
-                  }
-                  onPress={() => update(option.id, quantity + 1)}
-                />
-              </Wrapper>
-            </View>
-          );
-        })}
+        <Text
+          accessibilityRole="header"
+          style={{
+            flexShrink: 1,
+            fontFamily: fonts.black,
+            fontSize: v(27),
+            color: colors.white,
+          }}
+        >
+          {group.title}
+        </Text>
+        <GroupChip
+          group={group}
+          options={group.options}
+          selections={selections}
+          total={total}
+          locale={locale}
+        />
       </View>
-    </Wrapper>
+      {extras ? (
+        <View style={{ gap: v(10) }}>
+          {options.map((option, index) => (
+            <ExtraRow
+              key={option.id}
+              group={group}
+              option={option}
+              index={index}
+              quantity={quantityOf(option.id)}
+              total={total}
+              locale={locale}
+              update={update}
+            />
+          ))}
+        </View>
+      ) : (
+        <View style={{ gap: v(12) }}>
+          {rows(options, columns).map((row, r) => (
+            <View key={r} style={{ flexDirection: 'row', gap: v(12) }}>
+              {row.map((option, i) => (
+                <OptionTile
+                  key={option.id}
+                  group={group}
+                  option={option}
+                  index={r * columns + i}
+                  quantity={quantityOf(option.id)}
+                  total={total}
+                  drinks={drinks}
+                  visual={visual}
+                  locale={locale}
+                  update={update}
+                />
+              ))}
+              {Array.from({ length: columns - row.length }, (_, k) => (
+                <View key={'gap' + k} style={{ flex: 1 }} />
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
   );
 }

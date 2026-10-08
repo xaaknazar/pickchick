@@ -7,7 +7,7 @@ const meta = {
   args: {
     locale: 'ru',
     quantity: 1,
-    price: '2 990 ₸',
+    price: '4 190 ₸',
     valid: true,
     available: true,
     busy: false,
@@ -24,3 +24,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Required = { args: { valid: false, price: null } };
+export const Busy = { args: { busy: true } };
+export const SetNext = { args: { next: true } };
+export const SetNextBlocked = { args: { next: true, requiredValid: false } };

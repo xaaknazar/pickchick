@@ -46,7 +46,7 @@ export function EnrollmentForm({
           gap: px(24),
         }}
       >
-        <Language locale={locale} onChange={onLocale} />
+        <Language locale={locale} onChange={onLocale} tone="light" />
         <Heading>{ru ? 'Настройка киоска' : 'Киоскті баптау'}</Heading>
         <Body>
           {ru

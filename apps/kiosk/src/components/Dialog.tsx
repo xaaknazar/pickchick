@@ -10,6 +10,7 @@ export function Dialog({
   testID,
   footer,
   placement = 'center',
+  tone = 'default',
 }: {
   visible: boolean;
   children: ReactNode;
@@ -17,6 +18,8 @@ export function Dialog({
   testID?: string;
   footer?: ReactNode;
   placement?: 'center' | 'bottom';
+  /** `brand` is the v3 blue sheet for content built for the blue product screen. */
+  tone?: 'default' | 'brand';
 }) {
   const { px, height } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -32,7 +35,7 @@ export function Dialog({
       <View
         style={{
           flex: 1,
-          backgroundColor: 'rgba(7,27,69,.58)',
+          backgroundColor: 'rgba(4,20,58,.62)',
           justifyContent: placement === 'bottom' ? 'flex-end' : 'center',
           padding: px(28),
           paddingTop: Math.max(safe.top, px(28)),
@@ -47,8 +50,8 @@ export function Dialog({
             maxWidth: 760,
             maxHeight: height - Math.max(56, safe.top + safe.bottom),
             alignSelf: 'center',
-            borderRadius: 24,
-            backgroundColor: colors.white,
+            borderRadius: placement === 'bottom' ? 40 : 32,
+            backgroundColor: tone === 'brand' ? colors.blue : colors.white,
             overflow: 'hidden',
           }}
         >
@@ -60,7 +63,13 @@ export function Dialog({
             {children}
           </ScrollView>
           {footer ? (
-            <View style={{ padding: px(24), borderTopWidth: 1, borderColor: colors.border }}>
+            <View
+              style={{
+                padding: px(24),
+                borderTopWidth: 1,
+                borderColor: tone === 'brand' ? colors.glassLine : colors.border,
+              }}
+            >
               {footer}
             </View>
           ) : null}

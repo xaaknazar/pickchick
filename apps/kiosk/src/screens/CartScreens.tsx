@@ -16,11 +16,18 @@ import {
 import { OrderProgress } from '../components/OrderProgress';
 import { UpsellGrid } from '../components/UpsellGrid';
 import { CartRow } from '../components/CartRow';
-import { CartTotal } from '../components/CartTotal';
+import { CartTotal, positionsLabel } from '../components/CartTotal';
 import { EmptyCart } from '../components/EmptyCart';
 import { Notice } from '../components/Notice';
 import { CheckoutSummary } from '../components/CheckoutSummary';
 import { PaymentMethodCard } from '../components/PaymentMethodCard';
+const itemCount = (model: KioskModel) => model.cart.reduce((sum, line) => sum + line.quantity, 0);
+const modeLabel = (model: KioskModel, context: ScreenContext) =>
+  model.mode
+    ? model.mode === 'dine_in'
+      ? copy(context.locale).hereChip
+      : copy(context.locale).togo
+    : undefined;
 export function UpsellScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   const products =
@@ -28,8 +35,15 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
       (p) => model.catalog?.upsell_product_ids.includes(p.id) && p.available !== false,
     ) ?? [];
   return (
-    <ScreenSurface testID="kiosk-screen-upsell">
-      <Header {...context} back={model.goMenu} title={t.yourOrder} />
+    <ScreenSurface testID="kiosk-screen-upsell" tone="brand" entrance>
+      <Header
+        {...context}
+        back={model.goMenu}
+        backLabel={t.menu}
+        title={t.yourOrder}
+        subtitle={positionsLabel(itemCount(model), context.locale)}
+        mode={modeLabel(model, context)}
+      />
       <OrderProgress step="cart" locale={context.locale} />
       <UpsellGrid
         products={products}
@@ -46,6 +60,7 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
       <Footer>
         <Button
           label={t.next}
+          icon="arrow-forward"
           testID="kiosk-upsell-continue"
           onPress={model.openCart}
           busy={model.busy}
@@ -57,19 +72,29 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
 }
 export function CartScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
+  const count = itemCount(model);
+  const qr = !!model.commercial && (model.commercialPaymentMethods ?? ['kaspi']).includes('kaspi');
   return (
-    <ScreenSurface testID="kiosk-screen-cart">
-      <Header {...context} title={t.yourOrder} back={model.goMenu} />
+    <ScreenSurface testID="kiosk-screen-cart" tone="brand" entrance>
+      <Header
+        {...context}
+        back={model.goMenu}
+        backLabel={t.menu}
+        title={t.yourOrder}
+        subtitle={positionsLabel(count, context.locale)}
+        mode={modeLabel(model, context)}
+      />
       <OrderProgress step="cart" locale={context.locale} />
       <ScrollArea onInteraction={model.touch}>
-        <Wrapper padding={28} gap={20}>
+        <Wrapper paddingX={24} paddingY={22} gap={14}>
           {!model.cart.length && !model.unavailableCartLines.length ? (
             <EmptyCart locale={context.locale} />
           ) : null}
-          {model.cart.map((line) => (
+          {model.cart.map((line, index) => (
             <CartRow
               key={line.lineId}
               line={line}
+              position={index}
               locale={context.locale}
               busy={model.busy}
               onQuantity={(q) => void model.updateQuantity(line.lineId, q)}
@@ -105,8 +130,15 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
         </Wrapper>
       </ScrollArea>
       <Footer>
-        <CartTotal total={model.cartTotalMinor} valid={model.cartValid} locale={context.locale} />
-        <Wrapper dir="row" gap={20}>
+        <CartTotal
+          total={model.cartTotalMinor}
+          valid={model.cartValid}
+          locale={context.locale}
+          count={count}
+          qr={qr}
+          size="large"
+        />
+        <Wrapper dir="row" gap={14}>
           <Button label={t.addMore} icon="add" tone="secondary" onPress={model.goMenu} />
           <Wrapper flex={1}>
             <Button
@@ -126,12 +158,18 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
 }
 export function ReviewScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
+  const count = itemCount(model);
   return (
-    <ScreenSurface testID="kiosk-screen-loyalty" keyboardAware>
-      <Header {...context} title={t.payTitle} back={model.openCart} />
+    <ScreenSurface testID="kiosk-screen-loyalty" tone="brand" keyboardAware entrance>
+      <Header
+        {...context}
+        back={model.openCart}
+        title={t.payTitle}
+        subtitle={positionsLabel(count, context.locale)}
+      />
       <OrderProgress step="payment" locale={context.locale} />
       <ScrollArea onInteraction={model.touch}>
-        <Wrapper padding={28} gap={28}>
+        <Wrapper paddingX={24} paddingY={22} gap={24}>
           <CheckoutSummary
             lines={model.cart}
             total={model.cartTotalMinor}
@@ -139,15 +177,18 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
             locale={context.locale}
             estimated={model.catalog?.estimated_minutes}
           />
-          <Wrapper gap={16}>
-            <Heading size="card">{t.payChoose}</Heading>
+          <Wrapper gap={14}>
+            <Heading size="section" tone="inverse">
+              {t.payChoose}
+            </Heading>
             {(model.commercial
               ? (model.commercialPaymentMethods ?? (['kaspi'] as const))
               : (['kaspi', 'card'] as const)
-            ).map((method) => (
+            ).map((method, index) => (
               <PaymentMethodCard
                 key={method}
                 method={method}
+                position={index}
                 selected={model.paymentMethod === method}
                 busy={model.busy}
                 commercial={!!model.commercial}
@@ -164,7 +205,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
               locale={context.locale}
             />
           ) : null}
-          <Body tone="muted">
+          <Body tone="onBlue">
             {model.commercial
               ? model.checkoutReady
                 ? model.paymentMethod === 'kaspi_invoice'
@@ -182,7 +223,13 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
         </Wrapper>
       </ScrollArea>
       <Footer>
-        <CartTotal total={model.cartTotalMinor} valid={model.cartValid} locale={context.locale} />
+        <CartTotal
+          total={model.cartTotalMinor}
+          valid={model.cartValid}
+          locale={context.locale}
+          count={count}
+          size="large"
+        />
         <Button
           label={
             model.commercial && model.paymentMethod === 'kaspi_invoice'

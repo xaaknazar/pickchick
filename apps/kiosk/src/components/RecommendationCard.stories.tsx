@@ -1,16 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
+import { View } from 'react-native';
 import { fn } from 'storybook/test';
 import { catalog } from '../stories/fixtures';
 import { Wrapper } from './Wrapper';
 import { RecommendationCard } from './RecommendationCard';
+import { colors } from '../theme';
 const meta = {
   title: 'Kiosk/RecommendationCard',
   component: RecommendationCard,
   decorators: [
     (Story) => (
-      <Wrapper padding={28} maxWidth={420}>
-        <Story />
-      </Wrapper>
+      // Backdrop only: upsell cards sit on the blue v3 surface.
+      <View style={{ flex: 1, backgroundColor: colors.blue }}>
+        <Wrapper padding={28} maxWidth={420}>
+          <Story />
+        </Wrapper>
+      </View>
     ),
   ],
   args: {
@@ -27,3 +32,4 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Added: Story = { args: { added: true } };
+export const Busy: Story = { args: { busy: true } };

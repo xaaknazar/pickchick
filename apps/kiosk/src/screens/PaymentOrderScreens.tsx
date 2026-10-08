@@ -10,6 +10,7 @@ import {
   Header,
   Heading,
   Icon,
+  Logo,
   ScreenSurface,
   ScrollArea,
   Wrapper,
@@ -66,10 +67,10 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
               : 'QR дайындалуда немесе төлем нәтижесі тексерілуде. Қайта төлемеңіз.'
       : t.testPayment;
   return (
-    <ScreenSurface testID="kiosk-screen-payment">
+    <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance>
       <Header {...context} title={t.payment} />
       <ScrollArea fill>
-        <Wrapper flex={1} padding={40} gap={28} justify="center">
+        <Wrapper flex={1} paddingX={60} paddingY={34} gap={28} align="center" justify="center">
           <PaymentStatus
             state={unknown ? 'unknown' : declined ? 'declined' : 'waiting'}
             title={title}
@@ -85,12 +86,15 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             }
             message={message}
             qrPayload={qrPayload}
+            expiresAt={qr?.expiresAt ?? null}
+            method={model.paymentMethod === 'card' ? 'card' : invoice ? 'invoice' : 'qr'}
+            locale={context.locale}
           />
           {!unknown && !model.commercial ? (
-            <Wrapper gap={16}>
+            <Wrapper dir="row" gap={16} wrap justify="center">
               <Button
                 label={t.decline}
-                tone="secondary"
+                tone="inverse"
                 testID="kiosk-payment-decline"
                 size="compact"
                 busy={model.busy}
@@ -98,7 +102,7 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
               />
               <Button
                 label={t.unknown}
-                tone="secondary"
+                tone="inverse"
                 testID="kiosk-payment-unknown"
                 size="compact"
                 busy={model.busy}
@@ -106,11 +110,11 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
               />
             </Wrapper>
           ) : (
-            <Button label={t.help} tone="secondary" onPress={context.onHelp} />
+            <Button label={t.help} tone="outline" size="compact" onPress={context.onHelp} />
           )}
         </Wrapper>
       </ScrollArea>
-      <Footer>
+      <Footer tone="brand">
         <Button
           testID={
             model.commercial || unknown || declined
@@ -177,15 +181,24 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
                   : 'Төлем расталды. Мейрамхананы күтеміз.'
                 : t.waiting;
   const number = kioskOrderNumber(order?.number);
+  const stage =
+    order?.state === 'ready' || order?.state === 'fulfilled'
+      ? 'ready'
+      : order?.state === 'preparing'
+        ? 'preparing'
+        : order?.state === 'failed' || order?.state === 'cancelled'
+          ? null
+          : 'accepted';
 
   return (
-    <ScreenSurface testID="kiosk-screen-order" tone="brand">
+    <ScreenSurface testID="kiosk-screen-order" tone="brand" entrance>
       <ScrollArea fill>
-        <Wrapper flex={1} padding={40} justify="center">
+        <Wrapper flex={1} paddingX={60} paddingY={40} justify="center">
           <OrderTicket
             number={number}
             status={status}
             confirmed={canReset}
+            stage={stage}
             showBoard={order?.state === 'preparing' || order?.state === 'ready'}
             locale={context.locale}
             receipt={
@@ -202,16 +215,21 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
           />
         </Wrapper>
       </ScrollArea>
-      <Footer tone="brand">
-        <Button
-          label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
-          testID="kiosk-next-guest"
-          disabled={!canReset && order?.state !== 'cancelled' && order?.state !== 'failed'}
-          busy={model.busy}
-          onPress={() => void model.newGuest()}
-          fullWidth
-        />
-        <Button size="compact" label={t.help} tone="inverse" onPress={context.onHelp} />
+      <Footer tone="clear">
+        <Wrapper dir="row" gap={18} align="center">
+          <Wrapper flex={1}>
+            <Button
+              label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
+              testID="kiosk-next-guest"
+              tone="secondary"
+              disabled={!canReset && order?.state !== 'cancelled' && order?.state !== 'failed'}
+              busy={model.busy}
+              onPress={() => void model.newGuest()}
+              fullWidth
+            />
+          </Wrapper>
+          <Button label={t.help} tone="inverse" onPress={context.onHelp} />
+        </Wrapper>
       </Footer>
     </ScreenSurface>
   );
@@ -219,19 +237,24 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
 export function RecoveryScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   return (
-    <ScreenSurface testID="kiosk-screen-recovery">
+    <ScreenSurface testID="kiosk-screen-recovery" tone="brand" entrance>
       <Header {...context} title={t.restore} />
       <ScrollArea fill>
-        <Wrapper flex={1} padding={40} gap={28} align="center" justify="center">
-          <Icon name="time-outline" size="hero" tone="brand" />
-          <Heading align="center">{t.restore}</Heading>
-          <Body tone="muted" align="center">
-            {model.order?.payment_state === 'simulated_unknown' ? t.unknownBody : t.restoreBody}
-          </Body>
-          <Button label={t.help} tone="secondary" onPress={context.onHelp} />
+        <Wrapper flex={1} paddingX={60} paddingY={40} gap={28} align="center" justify="center">
+          <Logo size="large" />
+          <Icon name="time-outline" size="hero" tone="inverse" />
+          <Heading align="center" tone="inverse">
+            {t.restore}
+          </Heading>
+          <Wrapper maxWidth={760}>
+            <Body tone="onBlue" align="center">
+              {model.order?.payment_state === 'simulated_unknown' ? t.unknownBody : t.restoreBody}
+            </Body>
+          </Wrapper>
+          <Button label={t.help} tone="outline" size="compact" onPress={context.onHelp} />
         </Wrapper>
       </ScrollArea>
-      <Footer>
+      <Footer tone="brand">
         <Button
           testID="kiosk-payment-retry"
           label={t.refresh}

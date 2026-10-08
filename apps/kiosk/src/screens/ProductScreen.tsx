@@ -6,7 +6,6 @@ import {
   Body,
   Button,
   Dialog,
-  Heading,
   IconButton,
   ScreenSurface,
   ScrollArea,
@@ -18,6 +17,8 @@ import { ProductIntro } from '../components/ProductIntro';
 import { ProductNutrition } from '../components/ProductNutrition';
 import { ProductToolbar } from '../components/ProductToolbar';
 import { ProductActions } from '../components/ProductActions';
+// One v3 row of drinks (five across) stays inline; the full list opens in the sheet.
+const inlineDrinks = 5;
 export function ProductScreen({
   model,
   context,
@@ -64,18 +65,13 @@ export function ProductScreen({
     const count = selections.filter((s) => s.group_id === g.id).reduce((n, s) => n + s.quantity, 0);
     return count >= g.min && count <= g.max;
   });
+  const collapsed = (group: KioskModifierGroup) =>
+    group.id === 'drink' && group.options.length > inlineDrinks;
 
   return (
-    <ScreenSurface testID="kiosk-screen-product">
-      <ProductToolbar
-        locale={context.locale}
-        step={isSet ? wizardStep + 1 : undefined}
-        steps={optionalGroups.length ? 2 : 1}
-        onClose={() => (isSet && wizardStep ? setWizardStep(0) : model.goMenu())}
-      />
+    <ScreenSurface testID="kiosk-screen-product" tone="brand">
       <ScrollArea testID="kiosk-product-scroll" onInteraction={model.touch}>
-        <Wrapper padding={28} gap={32}>
-          <ProductIntro product={product} locale={context.locale} />
+        <ProductIntro product={product} locale={context.locale}>
           {groups.map((group) => (
             <Wrapper key={group.id} gap={14}>
               <ModifierOptions
@@ -83,9 +79,9 @@ export function ProductScreen({
                 selections={selections}
                 setSelections={setSelections}
                 locale={context.locale}
-                limit={group.id === 'drink' && group.options.length > 4 ? 4 : undefined}
+                limit={collapsed(group) ? inlineDrinks : undefined}
               />
-              {group.id === 'drink' && group.options.length > 4 ? (
+              {collapsed(group) ? (
                 <Button
                   size="compact"
                   label={`${t.showAll} (${group.options.length})`}
@@ -96,9 +92,20 @@ export function ProductScreen({
               ) : null}
             </Wrapper>
           ))}
-          <ProductNutrition product={product} locale={context.locale} />
-        </Wrapper>
+          <ProductNutrition
+            key="details"
+            product={product}
+            locale={context.locale}
+            part="details"
+          />
+        </ProductIntro>
       </ScrollArea>
+      <ProductToolbar
+        locale={context.locale}
+        step={isSet ? wizardStep + 1 : undefined}
+        steps={optionalGroups.length ? 2 : 1}
+        onClose={() => (isSet && wizardStep ? setWizardStep(0) : model.goMenu())}
+      />
       <ProductActions
         locale={context.locale}
         quantity={quantity}
@@ -118,6 +125,7 @@ export function ProductScreen({
         onClose={() => setAllGroup(null)}
         testID="kiosk-drinks-sheet"
         placement="bottom"
+        tone="brand"
         footer={
           <Button
             label={t.done}
@@ -127,11 +135,15 @@ export function ProductScreen({
           />
         }
       >
-        <Wrapper dir="row" justify="space-between" align="center">
-          <Heading size="section">{allGroup?.title}</Heading>
-          <IconButton name="close" label={t.close} onPress={() => setAllGroup(null)} />
+        <Wrapper dir="row" justify="space-between" align="center" gap={16}>
+          <Body tone="onBlue">{t.choose}</Body>
+          <IconButton
+            name="close"
+            label={t.close}
+            tone="inverse"
+            onPress={() => setAllGroup(null)}
+          />
         </Wrapper>
-        <Body tone="muted">{t.choose}</Body>
         {allGroup ? (
           <ModifierOptions
             group={allGroup}

@@ -3,12 +3,13 @@ import type { KioskModel } from '../model';
 import { copy } from '../i18n';
 import { defaultSelections, validSelections } from '../cart';
 import { Header, ScreenSurface, Wrapper, type ScreenContext } from '../components/UI';
-import { OrderProgress } from '../components/OrderProgress';
 import { CategoryRail } from '../components/CategoryRail';
 import { MenuGrid } from '../components/MenuGrid';
 import { CartBar } from '../components/CartBar';
 import { inCategory, type Category, type MenuMemory } from '../components/categories';
 export type { MenuMemory } from '../components/categories';
+// Single pilot point; the catalog carries only a branch id, not its display name.
+const branchName = 'ТЦ Abay Plaza';
 export function MenuScreen({
   model,
   context,
@@ -22,15 +23,24 @@ export function MenuScreen({
   const [category, setCategory] = useState<Category>(memory.category);
   const [revision, setRevision] = useState(0);
   const products = model.catalog?.products ?? [];
+  const featured =
+    products.find((p) => p.name === 'Master Combo') ??
+    products.find((p) => inCategory(p, 'combo')) ??
+    null;
   const quantity = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   const previousQuantity = useRef(memory.cartQuantity ?? quantity);
   useEffect(() => {
     memory.cartQuantity = quantity;
   }, [memory, quantity]);
   return (
-    <ScreenSurface testID="kiosk-screen-menu">
-      <Header {...context} back={model.goMode} mode={model.mode === 'dine_in' ? t.here : t.togo} />
-      <OrderProgress step="menu" locale={context.locale} />
+    <ScreenSurface testID="kiosk-screen-menu" tone="brand">
+      <Header
+        {...context}
+        title={t.menu}
+        subtitle={branchName}
+        mode={model.mode === 'dine_in' ? t.hereChip : t.togo}
+        onMode={model.goMode}
+      />
       <Wrapper dir="row" flex={1}>
         <CategoryRail
           category={category}
@@ -51,6 +61,7 @@ export function MenuScreen({
           memory={memory}
           locale={context.locale}
           busy={model.busy}
+          featured={featured}
           onInteraction={model.touch}
           onOpen={(p) => model.openProduct(p.id)}
           onAdd={(p) => {

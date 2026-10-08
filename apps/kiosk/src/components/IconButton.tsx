@@ -1,6 +1,7 @@
 import { Pressable } from 'react-native';
 import { colors, useMetrics } from '../theme';
 import { Icon, type IconName } from './Icon';
+/** Round v3 control: `inverse` glass on blue, `light` white disc, `accent` orange. */
 export function IconButton({
   name,
   label,
@@ -14,12 +15,12 @@ export function IconButton({
   label: string;
   onPress: () => void;
   testID?: string;
-  tone?: 'neutral' | 'inverse' | 'accent';
+  tone?: 'neutral' | 'inverse' | 'accent' | 'light';
   size?: 'regular' | 'large';
   disabled?: boolean;
 }) {
-  const { px } = useMetrics();
-  const dim = Math.max(48, px(size === 'large' ? 72 : 60));
+  const { v } = useMetrics();
+  const dim = Math.max(48, v(size === 'large' ? 72 : 60));
   return (
     <Pressable
       testID={testID}
@@ -31,22 +32,26 @@ export function IconButton({
       style={({ pressed }) => ({
         width: dim,
         height: dim,
-        borderRadius: 16,
+        borderRadius: dim / 2,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor:
           tone === 'accent'
             ? colors.orange
             : tone === 'inverse'
-              ? 'rgba(255,255,255,.14)'
-              : colors.light,
-        opacity: disabled ? 0.35 : pressed ? 0.65 : 1,
+              ? colors.glass
+              : tone === 'light'
+                ? colors.white
+                : colors.soft,
+        shadowColor: '#04143A',
+        shadowOpacity: tone === 'light' ? 0.14 : 0,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        opacity: disabled ? 0.35 : 1,
+        transform: [{ scale: pressed ? 0.92 : 1 }],
       })}
     >
-      <Icon
-        name={name}
-        tone={tone === 'inverse' ? 'inverse' : tone === 'accent' ? 'default' : 'brand'}
-      />
+      <Icon name={name} tone={tone === 'inverse' || tone === 'accent' ? 'inverse' : 'navy'} />
     </Pressable>
   );
 }

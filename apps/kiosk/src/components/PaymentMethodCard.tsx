@@ -1,8 +1,13 @@
-import { Pressable, View } from 'react-native';
-import { colors, useMetrics } from '../theme';
+import { Animated, Pressable, Text, View } from 'react-native';
+import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
-import { Body, Heading, Icon, Wrapper } from './UI';
+import { Icon } from './Icon';
+import { usePop, useStagger } from './motion';
 import type { KioskPaymentMethod } from '../model';
+/**
+ * v3 payment choice: white 28-pt card with a method tile (orange QR, blue phone
+ * invoice, soft card), title and explanation. Selected = orange ring + check pop.
+ */
 export function PaymentMethodCard({
   method,
   selected,
@@ -10,6 +15,7 @@ export function PaymentMethodCard({
   commercial,
   locale,
   onSelect,
+  position = 0,
 }: {
   method: KioskPaymentMethod;
   selected: boolean;
@@ -17,9 +23,12 @@ export function PaymentMethodCard({
   commercial: boolean;
   locale: Locale;
   onSelect: () => void;
+  position?: number;
 }) {
-  const { px } = useMetrics();
+  const { v } = useMetrics();
   const t = copy(locale);
+  const rise = useStagger(position + 2);
+  const pop = usePop(selected);
   const invoice = method === 'kaspi_invoice';
   const title = invoice
     ? locale === 'ru'
@@ -27,7 +36,7 @@ export function PaymentMethodCard({
       : 'Телефонға шот'
     : method === 'kaspi'
       ? commercial
-        ? 'Kaspi QR'
+        ? t.payQR
         : 'Kaspi'
       : t.card;
   const description = commercial
@@ -45,30 +54,49 @@ export function PaymentMethodCard({
       : method === 'kaspi'
         ? 'Kaspi сынағы - QR-кодсыз, ақша алынбайды.'
         : 'Карта сынағы - терминалсыз, ақша алынбайды.';
+  const tile = Math.max(56, v(72));
+  const check = Math.max(30, v(36));
   return (
-    <Pressable
-      testID={'kiosk-payment-method-' + method}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected, disabled: busy }}
-      aria-checked={selected}
-      disabled={busy}
-      onPress={onSelect}
-      style={({ pressed }) => ({
-        backgroundColor: selected ? '#EEF4FF' : colors.white,
-        borderWidth: 2,
-        borderColor: selected ? colors.blue : colors.border,
-        borderRadius: 16,
-        padding: px(24),
-        opacity: pressed ? 0.8 : 1,
-      })}
+    <Animated.View
+      style={{
+        opacity: rise,
+        transform: [
+          { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [v(22), 0] }) },
+        ],
+      }}
     >
-      <Wrapper dir="row" align="center" gap={22}>
+      <Pressable
+        testID={'kiosk-payment-method-' + method}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: selected, disabled: busy }}
+        aria-checked={selected}
+        disabled={busy}
+        onPress={onSelect}
+        style={({ pressed }) => ({
+          borderRadius: v(28),
+          backgroundColor: colors.white,
+          shadowColor: '#020A28',
+          shadowOpacity: selected ? 0.3 : 0.18,
+          shadowRadius: 22,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: 5,
+          paddingVertical: v(18),
+          paddingLeft: v(18),
+          paddingRight: v(22),
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: v(18),
+          opacity: busy ? 0.7 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+        })}
+      >
         <View
           style={{
-            width: px(72),
-            height: px(72),
-            borderRadius: 16,
-            backgroundColor: method !== 'card' ? '#E52A2E' : colors.blue,
+            width: tile,
+            height: tile,
+            borderRadius: v(22),
+            backgroundColor:
+              method === 'kaspi' ? colors.orange : invoice ? colors.blue : colors.soft,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -81,30 +109,62 @@ export function PaymentMethodCard({
                   ? 'qr-code-outline'
                   : 'card-outline'
             }
-            tone="inverse"
+            tone={method === 'card' ? 'brand' : 'inverse'}
           />
         </View>
-        <Wrapper flex={1} gap={6}>
-          <Heading size="card">{title}</Heading>
-          <Body variant="caption" tone="muted">
+        <View style={{ flex: 1, minWidth: 0, gap: v(4) }}>
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontFamily: fonts.black,
+              fontSize: v(24),
+              lineHeight: v(29),
+              letterSpacing: -0.3,
+              color: colors.navy,
+            }}
+          >
+            {title}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.body,
+              fontSize: Math.max(15, v(16)),
+              lineHeight: Math.max(20, v(21)),
+              color: colors.muted,
+            }}
+          >
             {description}
-          </Body>
-        </Wrapper>
-        <View
+          </Text>
+        </View>
+        <Animated.View
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: 14,
-            borderWidth: 2,
-            borderColor: selected ? colors.blue : colors.muted,
-            backgroundColor: selected ? colors.blue : 'transparent',
+            width: check,
+            height: check,
+            borderRadius: check / 2,
+            borderWidth: selected ? 0 : 2.5,
+            borderColor: '#C9D2E3',
+            backgroundColor: selected ? colors.orange : colors.white,
             alignItems: 'center',
             justifyContent: 'center',
+            transform: [{ scale: pop }],
           }}
         >
           {selected ? <Icon name="checkmark" size="small" tone="inverse" /> : null}
-        </View>
-      </Wrapper>
-    </Pressable>
+        </Animated.View>
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            borderRadius: v(28),
+            borderWidth: 4,
+            borderColor: selected ? colors.orange : 'transparent',
+          }}
+        />
+      </Pressable>
+    </Animated.View>
   );
 }

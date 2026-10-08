@@ -1,5 +1,20 @@
 export type Locale = 'ru' | 'kk';
 const ru = {
+  // v3 kiosk design
+  orderNow: 'СДЕЛАТЬ ЗАКАЗ',
+  payQR: 'Оплата по QR',
+  hereTag: 'НА ПОДНОСЕ',
+  togoTag: 'В ПАКЕТЕ',
+  hereChip: 'В зале',
+  menu: 'Меню',
+  included: 'Входит',
+  unavailableShort: 'Нет в наличии',
+  qrValid: 'QR действует',
+  qrStep1: 'Откройте приложение банка',
+  qrStep2: 'Выберите оплату по QR',
+  qrStep3: 'Наведите камеру на код',
+  edit: 'Изменить',
+  hit: 'ХИТ НЕДЕЛИ',
   start: 'Начать заказ',
   attractSub: 'Соберите свой заказ на экране',
   tapAnywhere: 'Коснитесь экрана, чтобы начать',
@@ -100,6 +115,21 @@ const ru = {
 };
 type Strings = { [K in keyof typeof ru]: string };
 const kk: Strings = {
+  // v3 kiosk design
+  orderNow: 'ТАПСЫРЫС БЕРУ',
+  payQR: 'QR арқылы төлем',
+  hereTag: 'ПОДНОСТА',
+  togoTag: 'ПАКЕТТЕ',
+  hereChip: 'Залда',
+  menu: 'Мәзір',
+  included: 'Кіреді',
+  unavailableShort: 'Таусылды',
+  qrValid: 'QR жарамды',
+  qrStep1: 'Банк қосымшасын ашыңыз',
+  qrStep2: 'QR арқылы төлемді таңдаңыз',
+  qrStep3: 'Камераны кодқа бағыттаңыз',
+  edit: 'Өзгерту',
+  hit: 'АПТА ХИТІ',
   start: 'Тапсырысты бастау',
   attractSub: 'Тапсырысыңызды экраннан жинаңыз',
   tapAnywhere: 'Бастау үшін экранды түртіңіз',

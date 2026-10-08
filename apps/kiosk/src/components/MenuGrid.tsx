@@ -1,17 +1,43 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
-import { FlatList, View } from 'react-native';
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Animated, FlatList, Text, View } from 'react-native';
 import type { KioskProduct } from '../model';
 import { copy, type Locale } from '../i18n';
-import { useMetrics } from '../theme';
+import { colors, fonts, useMetrics } from '../theme';
 import { ProductCard } from './ProductCard';
-import { Heading, Body, Wrapper } from './UI';
+import { Billboard } from './Billboard';
+import { useStagger } from './motion';
 import type { Category, MenuMemory } from './categories';
+const tags: Record<string, 'hit' | 'new'> = {
+  'pick-combo': 'hit',
+  'solo-combo': 'new',
+  'sauce-hot': 'new',
+};
+const positions = (n: number, locale: Locale) => {
+  if (locale !== 'ru') return n + ' позиция';
+  const tens = n % 100;
+  const ones = n % 10;
+  return (
+    n +
+    (tens >= 11 && tens <= 14
+      ? ' позиций'
+      : ones === 1
+        ? ' позиция'
+        : ones >= 2 && ones <= 4
+          ? ' позиции'
+          : ' позиций')
+  );
+};
+/**
+ * v3 menu feed: featured billboard, category title with count and a two-column
+ * grid of photo cards that rise in with a stagger whenever a category opens.
+ */
 export function MenuGrid({
   products,
   category,
   memory,
   locale,
   busy,
+  featured,
   onOpen,
   onAdd,
   onInteraction,
@@ -21,11 +47,12 @@ export function MenuGrid({
   memory: MenuMemory;
   locale: Locale;
   busy: boolean;
+  featured?: KioskProduct | null;
   onOpen: (p: KioskProduct) => void;
   onAdd: (p: KioskProduct) => void;
   onInteraction: () => void;
 }) {
-  const { px, width, columns } = useMetrics();
+  const { v, width, columns } = useMetrics();
   const list = useRef<FlatList<KioskProduct>>(null);
   const initialOffset = useMemo(
     () => ({ x: 0, y: memory.offsets[category] ?? 0 }),
@@ -51,7 +78,7 @@ export function MenuGrid({
       animated: false,
     });
   };
-  const cardWidth = (width - px(158) - px(40) - px(18) * (columns - 1)) / columns;
+  const cardWidth = Math.floor((width - v(156) - v(4) - v(20) - v(14) * (columns - 1)) / columns);
   return (
     <FlatList
       ref={list}
@@ -77,26 +104,80 @@ export function MenuGrid({
       onScroll={(e) => {
         if (restoration.done) memory.offsets[category] = Math.max(0, e.nativeEvent.contentOffset.y);
       }}
-      columnWrapperStyle={{ gap: px(18) }}
-      contentContainerStyle={{ padding: px(20), gap: px(18), paddingBottom: px(28) }}
+      columnWrapperStyle={{ gap: v(14) }}
+      contentContainerStyle={{
+        paddingTop: v(18),
+        paddingRight: v(20),
+        paddingBottom: v(28),
+        paddingLeft: v(4),
+        gap: v(14),
+      }}
       ListHeaderComponent={
-        <Wrapper gap={8} paddingY={8}>
-          <Heading size="title">{copy(locale)[category]}</Heading>
-          <Body tone="muted">
-            {locale === 'ru' ? 'Выберите то, что хочется сейчас' : 'Қазір қалағаныңызды таңдаңыз'}
-          </Body>
-        </Wrapper>
+        <View style={{ gap: v(18), paddingBottom: v(4) }}>
+          {featured ? (
+            <Billboard product={featured} locale={locale} onOpen={() => onOpen(featured)} />
+          ) : null}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              paddingHorizontal: v(4),
+              gap: v(12),
+            }}
+          >
+            <Text
+              accessibilityRole="header"
+              style={{
+                fontFamily: fonts.black,
+                fontSize: v(30),
+                color: colors.white,
+                flexShrink: 1,
+              }}
+            >
+              {copy(locale)[category]}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.body,
+                fontSize: Math.max(15, v(16)),
+                color: colors.onBlueMuted,
+              }}
+            >
+              {positions(products.length, locale)}
+            </Text>
+          </View>
+        </View>
       }
-      renderItem={({ item }) => (
-        <View style={{ width: cardWidth }}>
+      renderItem={({ item, index }) => (
+        <Rise index={index} span={cardWidth}>
           <ProductCard
             product={item}
             busy={busy}
+            locale={locale}
+            tag={tags[item.id]}
             onOpen={() => onOpen(item)}
             onAdd={() => onAdd(item)}
           />
-        </View>
+        </Rise>
       )}
     />
+  );
+}
+function Rise({ index, span, children }: { index: number; span: number; children: ReactNode }) {
+  const enter = useStagger(index);
+  return (
+    <Animated.View
+      style={{
+        width: span,
+        opacity: enter,
+        transform: [
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
+          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
   );
 }

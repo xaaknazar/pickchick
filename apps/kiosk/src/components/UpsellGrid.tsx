@@ -4,6 +4,7 @@ import { useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Body, Heading, Wrapper } from './UI';
 import { RecommendationCard } from './RecommendationCard';
+/** v3 upsell on the blue surface: white 900 title and a 3-column grid of add cards. */
 export function UpsellGrid({
   products,
   addedIds,
@@ -19,8 +20,11 @@ export function UpsellGrid({
   onAdd: (p: KioskProduct) => void;
   onInteraction: () => void;
 }) {
-  const { px, width, columns } = useMetrics();
-  const cardWidth = (width - px(56) - px(20) * (columns - 1)) / columns;
+  const { v, width } = useMetrics();
+  const columns = width >= 700 ? 3 : 2;
+  const pad = v(24);
+  const gap = v(14);
+  const cardWidth = Math.floor((width - pad * 2 - gap * (columns - 1)) / columns);
   return (
     <FlatList
       key={columns}
@@ -29,12 +33,17 @@ export function UpsellGrid({
       keyExtractor={(p) => p.id}
       style={{ flex: 1, minHeight: 0 }}
       onScrollBeginDrag={onInteraction}
-      columnWrapperStyle={{ gap: px(20) }}
-      contentContainerStyle={{ padding: px(28), gap: px(20) }}
+      columnWrapperStyle={{ gap }}
+      contentContainerStyle={{
+        paddingHorizontal: pad,
+        paddingTop: v(18),
+        paddingBottom: v(30),
+        gap,
+      }}
       ListHeaderComponent={
-        <Wrapper gap={8} paddingY={12}>
-          <Heading>{copy(locale).upsellTitle}</Heading>
-          <Body tone="muted">
+        <Wrapper gap={6} paddingY={8}>
+          <Heading tone="inverse">{copy(locale).upsellTitle}</Heading>
+          <Body tone="onBlue">
             {locale === 'ru'
               ? 'К любимому комбо - ещё немного вкусного'
               : 'Сүйікті комбоға тағы бір дәмді қосымша'}

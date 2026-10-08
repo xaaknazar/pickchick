@@ -1,17 +1,9 @@
 import type { KioskModel } from '../model';
 import { copy } from '../i18n';
-import {
-  Header,
-  Heading,
-  Body,
-  ScreenSurface,
-  ScrollArea,
-  Wrapper,
-  type ScreenContext,
-} from '../components/UI';
+import { Header, ScreenSurface, ScrollArea, Wrapper, type ScreenContext } from '../components/UI';
 import { Hero } from '../components/Hero';
 import { WelcomeContent } from '../components/WelcomeContent';
-import { DiningModeCard } from '../components/DiningModeCard';
+import { DiningModeCard, DiningModeTitle } from '../components/DiningModeCard';
 export function WelcomeScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   return (
     <ScreenSurface testID="kiosk-screen-welcome" tone="dark">
@@ -28,7 +20,7 @@ export function WelcomeScreen({ model, context }: { model: KioskModel; context: 
 export function ModeScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   return (
-    <ScreenSurface testID="kiosk-screen-mode">
+    <ScreenSurface testID="kiosk-screen-mode" tone="night">
       <Header
         {...context}
         back={() =>
@@ -36,18 +28,12 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
             ? context.onCancel()
             : void model.newGuest()
         }
+        backLabel={t.back}
         minimal
       />
       <ScrollArea fill>
-        <Wrapper flex={1} padding={40} gap={28} justify="center">
-          <Wrapper gap={12}>
-            <Heading size="display">{t.modeTitle}</Heading>
-            <Body tone="muted">
-              {context.locale === 'ru'
-                ? 'Приготовим ваш заказ так, как удобно вам'
-                : 'Тапсырысты өзіңізге ыңғайлы етіп дайындаймыз'}
-            </Body>
-          </Wrapper>
+        <DiningModeTitle>{t.modeTitle}</DiningModeTitle>
+        <Wrapper flex={1} paddingX={60} paddingY={46} gap={30}>
           {(['dine_in', 'takeaway'] as const).map((mode) => (
             <DiningModeCard
               key={mode}

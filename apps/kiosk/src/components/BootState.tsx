@@ -1,6 +1,7 @@
 import { ActivityIndicator } from 'react-native';
 import { colors } from '../theme';
-import { Body, Button, Heading, ScreenSurface, Wrapper } from './UI';
+import { Body, Button, Heading, Logo, ScreenSurface, Wrapper } from './UI';
+/** v3 boot and blocking-error state: the blue surface, logo, white spinner and copy. */
 export function BootState({
   title,
   message,
@@ -17,21 +18,30 @@ export function BootState({
   retryLabel?: string;
 }) {
   return (
-    <ScreenSurface>
-      <Wrapper flex={1} padding={40} gap={24} align="center" justify="center">
+    <ScreenSurface tone="brand">
+      <Wrapper flex={1} padding={48} gap={28} align="center" justify="center">
+        <Logo size="large" />
         {loading ? (
           <ActivityIndicator
             accessibilityLabel={title ?? 'Загрузка'}
             size="large"
-            color={colors.blue}
+            color={colors.white}
           />
         ) : null}
         {title ? (
-          <Heading size="section" align="center">
-            {title}
-          </Heading>
+          <Wrapper maxWidth={760}>
+            <Heading size="section" tone="inverse" align="center">
+              {title}
+            </Heading>
+          </Wrapper>
         ) : null}
-        {message ? <Body align="center">{message}</Body> : null}
+        {message ? (
+          <Wrapper maxWidth={760}>
+            <Body tone="onBlue" align="center">
+              {message}
+            </Body>
+          </Wrapper>
+        ) : null}
         {onRetry ? <Button label={retryLabel} onPress={onRetry} busy={busy} /> : null}
       </Wrapper>
     </ScreenSurface>

@@ -10,6 +10,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+export const Hero: Story = { args: { variant: 'hero' } };
+export const HeroSingle: Story = { args: { variant: 'hero', imageId: 'i0.jpg' } };
+export const HeroCutout: Story = { args: { variant: 'hero', imageId: 'i18.jpg' } };
 export const Recommendation: Story = { args: { variant: 'recommendation' } };
 export const Thumbnail = { args: { variant: 'thumbnail' } };
 export const MissingDrinkPhoto = { args: { imageId: 'generic-drink' } };

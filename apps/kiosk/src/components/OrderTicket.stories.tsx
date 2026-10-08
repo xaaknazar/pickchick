@@ -17,6 +17,7 @@ const meta = {
     status: 'Готовим ваш заказ',
     confirmed: true,
     showBoard: true,
+    stage: 'preparing',
     receipt,
     locale: 'ru',
   },
@@ -25,4 +26,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
-export const Pending = { args: { confirmed: false, status: 'Ожидаем подтверждение' } };
+export const Pending: Story = {
+  args: { confirmed: false, stage: 'accepted', showBoard: false, status: 'Ожидаем подтверждение' },
+};
+export const Ready: Story = { args: { stage: 'ready', status: 'Заказ готов' } };
+export const Kazakh: Story = {
+  args: { locale: 'kk', status: 'Тапсырысыңыз дайындалуда' },
+};
+export const Cancelled: Story = {
+  args: { stage: null, confirmed: false, showBoard: false, status: 'Заказ отменён' },
+};

@@ -8,17 +8,19 @@ const meta = {
   component: ProductCard,
   decorators: [
     (Story) => (
-      <Wrapper padding={28}>
+      <Wrapper padding={28} maxWidth={360}>
         <Story />
       </Wrapper>
     ),
   ],
-  args: { product, onOpen: fn(), onAdd: fn() },
+  args: { product, locale: 'ru', onOpen: fn(), onAdd: fn() },
   tags: ['autodocs'],
 } satisfies Meta<typeof ProductCard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+export const Hit: Story = { args: { tag: 'hit' } };
+export const New: Story = { args: { tag: 'new', locale: 'kk' } };
 export const Recommendation: Story = { args: { variant: 'recommendation' } };
 export const SoldOut = { args: { product: { ...product, available: false } } };
 export const Loading = { args: { busy: true } };

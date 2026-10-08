@@ -1,0 +1,321 @@
+# Киоск v3: включение Kaspi QR и установка на iPad - передача оператору Mac
+
+Документ для Codex на Mac владельца (SSH-ключ VPS, Xcode, подключённый iPad).
+Составлен 8 октября 2026 по состоянию репозитория; **ничего из описанного ещё не
+выполнено**. Цель владельца: (1) одно меню в киоске, мобильном приложении и
+бэк-офисе; (2) включённая на сервере оплата Kaspi QR в киоске; (3) новая сборка
+на iPad. Общие правила: [AGENTS.md](../../AGENTS.md),
+[совместная работа](../collaboration/README.md). Предыстория:
+[kiosk-kaspi-qr.md](kiosk-kaspi-qr.md), [kiosk-payment-options.md](kiosk-payment-options.md).
+
+Порядок строгий: A (сервер, без денег) -> B (один контрольный платёж) -> C (iPad).
+C можно выполнить раньше B, но платёжная приёмка на iPad - только после B.
+Любой непройденный guard = стоп, lock сохраняется, отчёт владельцу; guard не ослаблять.
+
+## Что нужно от владельца
+
+1. **Разрешение на контрольный платёж 100 KZT** (одна попытка, платит сам владелец
+   в Kaspi.kz). Повторный create после неизвестного ответа запрещён; второй QR -
+   только по новому разрешению. Возврата через мост нет (refunds вырезаны патчем):
+   100 KZT остаются выручкой, заказ уйдёт на кухню как настоящий.
+2. **Фискальный режим.** Сейчас на сервере `KIOSK_CHECKOUT_FISCAL_POLICY=deferred_pilot`
+   (без чека Webkassa). Для запуска точки типовой режим `required` и нужен реальный
+   `KIOSK_CHECKOUT_FISCAL_ACCOUNT_ID` (provider kind=`fiscal`), которого в репозитории нет.
+   Решение: контрольный платёж в `deferred_pilot`, гостям - только после `required`?
+3. **Другие банки.** Неизвестно, принимают ли приложения других банков этот QR
+   (оригинальный QrToken Kaspi, без deeplink). Проверка допустима только на
+   контрольном платеже и только сканированием без подтверждения: отмена в чужом
+   приложении может перевести QR в `CancelledByUser`, и тогда нужен второй
+   платёж (пункт 1). Владелец решает: проверять ли и каким приложением.
+4. **Лимит и цены.** `KIOSK_CHECKOUT_MAX_MINOR=10000` (100 KZT на заказ) и, по
+   протоколу build 5, Pick Combo в опубликованном каталоге стоит 100 ₸. Для
+   контрольного платежа это удобно; для гостей нужны утверждённые цены и новый
+   лимит (отдельное решение и отдельный выпуск env).
+5. **Публикация меню из бэк-офиса** (см. A4): разрешение опубликовать текущий
+   черновик как новую версию для точки Abay Plaza с доставкой на кассу.
+6. Подтверждение, что касса Windows (192.168.2.184) включена и доступна, а кухня
+   готова принять контрольный заказ в часы работы (`CUSTOMER_KASPI_OPENING_TIME`/`CLOSING_TIME`).
+
+## Блокеры, найденные в репозитории
+
+- **Нет release-профиля включения оплаты.** `infra/staging/release-kiosk-qr.py`
+  (baseline `d6cd144`) - только enrollment, требует `KIOSK_KASPI_QR_ENABLED=false`
+  и сам проверяет, что QR account выключен. `release-kiosk-menu.py` (baseline `39336a7`)
+  - только меню/сессии. `release-finance-dashboard.py` - baseline `41d2a61`.
+    На VPS API/public = `778a718ffe916520fc177aaa663546e863a8574a`
+    ([ceo-login.md](ceo-login.md), 8 октября); по `kiosk-payment-options.md` старые
+    профили поверх 778 запускать нельзя. Нужен новый профиль (A1).
+- **Нет runtime grants для QR.** `infra/staging/commercial-channel-grants.mjs`
+  (`kioskCheckoutGrants`, `kioskWorkerGrants`) не подключён ни к одному release-скрипту
+  и не содержит прав на `commerce_kiosk_kaspi_qr` для worker-роли. Тесты
+  `kiosk-kaspi-qr.postgres.test.mjs` работают владельцем БД. Права нужно спроектировать
+  и проверить на реальной роли (`pickchick_kaspi_worker` или отдельной).
+- **Нет compose/unit для `kiosk-kaspi-qr-worker`.** Есть только
+  `infra/payments/kaspi-bridge/worker.compose.yaml` для `kaspi-remote-worker.js`.
+- **Нет release-процедуры моста с `--qr`.** `prepare-container.mjs ... --qr`
+  собирает контекст, но установка/замена `pickchick-kaspi-bridge` не автоматизирована.
+  Пересоздание моста затрагивает действующий `pickchick-kaspi-worker`
+  (`network_mode: container:pickchick-kaspi-bridge`) мобильных счетов.
+- **ACK меню.** Конфиг киоска разрешает оплату только при `delivery.status='applied'`
+  (`kiosk-checkout.ts`). Для v3 `catalog_menu_deliveries` нет. Строка создаётся
+  только публикацией из бэк-офиса при `CATALOG_EDGE_PUBLICATION_ENABLED=true`, ACK -
+  edge-узел точки через `packages/menu-sync`. Windows-воркеры в `infra/windows`
+  меню не синхронизируют (`native-pos-sync.md`: «does not update ... menu data»),
+  handoff: «Cloud POS sync остаётся выключенным», прямой SSH к кассе 7 октября -
+  timeout. **Какой процесс на кассе применит и подтвердит меню - в репозитории не
+  установлено.** Без этого оплата в киоске останется закрытой.
+- **Нет инструмента чтения реального QR status.** Worker пишет только счётчики.
+  Скрипта, выводящего имена полей ответа `/api/qr/status`, нет (A6/B3).
+- **Ветка `codex/kiosk-v3-design` не опубликована:** в рабочей копии облака 73
+  изменённых и новые неотслеживаемые файлы (`apps/kiosk/assets/v3/`, `Billboard.tsx`,
+  `motion.ts` ...), на GitHub ветки нет. Mac не сможет собрать v3, пока её не
+  закоммитят, не опубликуют и не прогонят полную CI. `buildNumber` в `app.json` = 6.
+- `InstalledUITests` (нативная проверка build 5/6) в репозитории нет - только на Mac.
+- CI: бюджет Actions восстановлен 8 октября (ceo-login.md), но зелёная CI
+  каждого нового SHA обязательна; исключение владельца для build 6 на сервер не распространяется.
+
+## 0. Подготовка на Mac
+
+```sh
+pnpm project:check && pnpm project:tasks         # свежие refs и журнал
+node scripts/project-sync.mjs claim kiosk-v3-launch @vps @release/ios apps/kiosk infra/staging infra/payments/kaspi-bridge
+```
+
+Если `@vps`, `@vps/api` (финансы, [finance-ownership.md](../collaboration/finance-ownership.md))
+или `@windows/cashier` заняты - согласовать, не перехватывать. Прочитать
+[handoff.md](../collaboration/handoff.md). SSH: `pickchick-ops@185.129.51.103`,
+ключ `~/.ssh/pickchick_staging_ed25519`, `StrictHostKeyChecking=yes`;
+backup identity `.local/vps/backup-identity.agekey` (0600). Lock -
+`/opt/pickchick-staging/.market-release.lock`.
+
+## A. Сервер: включение гостевого checkout с Kaspi QR
+
+### A0. Read-only инвентаризация (без изменений)
+
+```sh
+S='ssh -i ~/.ssh/pickchick_staging_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes pickchick-ops@185.129.51.103'
+$S 'readlink -f /opt/pickchick-staging/current /opt/pickchick-staging/public-https/current; test ! -e /opt/pickchick-staging/.market-release.lock && echo lock-free'
+$S 'docker exec pickchick-public-gateway sha256sum /etc/caddy/Caddyfile'
+$S 'docker inspect --format "{{.Name}} {{.Config.Image}} {{.Image}}" pickchick-staging-api-1 pickchick-kaspi-bridge pickchick-kaspi-worker'
+$S 'docker exec pickchick-staging-api-1 printenv KIOSK_CHECKOUT_ENABLED KIOSK_CHECKOUT_PAYMENT_METHOD KIOSK_CHECKOUT_FISCAL_POLICY KIOSK_CHECKOUT_MAX_MINOR KIOSK_KASPI_QR_ACCOUNT_ID KIOSK_KASPI_QR_ENABLED KIOSK_CHECKOUT_BRANCH_ID CATALOG_EDGE_PUBLICATION_ENABLED'
+```
+
+SQL (через `docker exec -i pickchick-staging-cloud-db-1 psql -X -qAt -U postgres -d pickchick_cloud`):
+
+```sql
+SELECT count(*),max(version) FROM schema_migrations;
+SELECT id,provider,kind,enabled,branch_id,legal_entity_id FROM commerce_provider_accounts;
+SELECT id,branch_id,active FROM kiosk_devices;
+SELECT h.published_version,h.draft_revision FROM catalog_branch_heads h;
+SELECT * FROM catalog_menu_deliveries;
+SELECT b.id,b.ordering_enabled,b.legal_entity_id FROM branches b;
+SELECT count(*) FROM commerce_kiosk_kaspi_qr;
+SELECT count(*) FROM commerce_orders WHERE snapshot->>'channel'='kiosk';
+```
+
+Ожидание по документам: API 778a718, 1 активный `kiosk_devices` Abay Plaza,
+только `kaspi-remote` enabled, `KIOSK_KASPI_QR_ACCOUNT_ID` уже задан UUID без
+строки в `commerce_provider_accounts`, `KIOSK_KASPI_QR_ENABLED=false`, delivery нет,
+kiosk-заказов 0. Любое расхождение - записать и остановиться. Секретные env
+(`*_PII_KEY`, `KIOSK_ENROLLMENT_KEY`, `KASPI_SESSION_*`) не печатать.
+
+### A1. Новый guarded-профиль (создать; в репозитории его нет)
+
+Предлагаемое имя `infra/staging/release-kiosk-checkout.py` - по образцу
+`release-kiosk-menu.py` (наследует `release-kiosk-qr.py` -> `release-farm-pilot.py`
+-> `release-market.py`). Действия `preflight|prepare|apply|rollback`, обязательные
+`--sha --branch --expected-api-sha --expected-public-sha --expected-gateway-sha256
+--ssh-key --environment(0600) --ci-run|--ci-proof --backup-identity`, `rollback` - `--owner-id`.
+Профиль должен:
+
+- закрепить BASELINE = фактический API/public SHA из A0, хеши gateway и compose
+  из A0, полный ledger миграций; новых миграций не добавлять (если нужны - отдельно);
+- требовать `market.verify_ci` с полным набором `CI_JOBS` (11/11) точного SHA,
+  чистое дерево, `HEAD==--sha`, свободный lock и `deployment_lock()`;
+- в `apply`: maintenance (503 на `/v1/test/orders`), остановка API, `quiescent()`,
+  `before`-снимок, `backup_restore()` (зашифрованная копия + восстановление в
+  изолированную БД), проверка старого образа на схеме, CAS-переключение
+  `current`/`public-https/current`, проверка mounts и SHA-256 Caddyfile, `cleanup('release')`;
+- добавить в gateway **только** POST `/v1/kiosk-checkout/quotes`,
+  `/v1/kiosk-checkout/orders`, `/v1/kiosk-checkout/orders/*/payment` и GET
+  `/v1/kiosk-checkout/orders/*` в формате блоков `@kiosk_menu_*` (`header_up -Cookie`,
+  `-X-Device-Id`, таймауты 2s/5s, `max_size 16KB`). Rate limit в gateway в репо
+  нет - ограничения только в API. Мост (порт 3931) не публиковать;
+- выдать `pickchick_app` точные права guest checkout (взять из
+  `kioskCheckoutGrants(...,true)`, проверить ACL как в `verify_data`), а worker-роли -
+  минимальные права на `commerce_kiosk_kaspi_qr`, outbox/attempts/orders/inbox (спроектировать,
+  покрыть тестом на реальной роли PostgreSQL 18);
+- создать строку `commerce_provider_accounts`: `id = KIOSK_KASPI_QR_ACCOUNT_ID` из A0,
+  `kind='payment'`, `provider='kaspi-qr'`, те же organization/branch/legal_entity, что у
+  точки (`branches.legal_entity_id`), `external_reference` - согласовать (в репо не
+  задан), `enabled=false` на этапе apply; `enabled=true` - отдельным шагом A7;
+- при `CATALOG_EDGE_PUBLICATION_ENABLED` не true - добавить его и
+  `CATALOG_EDGE_PUBLICATION_BRANCH_ID` + `catalogEdgePublicationGrants(...,true)`;
+- сохранить `verify_public()`-проверки (auth, finance 401, мобильный каталог,
+  TipTopPay 404, kitchen sourceSha), env API менять только перечисленным дельта-набором;
+- `rollback`: сохранить БД/новые данные, вернуть ACL/pointers/образ; при новых
+  деньгах - fail closed, lock остаётся.
+
+Тесты: расширить `tests/operations/test_kiosk_qr_release.py` или новый
+`tests/operations/test_kiosk_checkout_release.py`; локально `python3 -m unittest`, затем CI.
+
+### A2. Мост с QR (`BRIDGE_QR=on`)
+
+1. Upstream `tapter-dev/kaspi-pos-automation` на `28c9167f9c72cd6758a25e254bc92bc610daa485`.
+2. `node infra/payments/kaspi-bridge/prepare-container.mjs UPSTREAM NEW_DIR --qr` ->
+   `manifest.json` с `"qr": true` и хешами; `tests/operations/kaspi-qr-bridge.test.mjs` зелёный.
+3. Сборка образа `pickchick-kaspi-bridge:<SHA>` на VPS из этого контекста; в
+   приватном `bridge.env` (0600, 1000:1000) добавить `BRIDGE_QR=on`, `BRIDGE_POLLING=off`
+   сохранить. Комплект `session.env/keypair.json/device.json` не менять и не перевыпускать.
+4. Пересоздание моста требует пересоздать `pickchick-kaspi-worker` (общий netns).
+   Перед этим: нет pending submissions/неустановленных счетов (как в
+   `release-kaspi-session-worker.py`). Автоматизации нет - либо отдельный guarded
+   профиль, либо ручная процедура под lock с сохранением старого image для возврата.
+5. Проверки: label SHA, нет published ports, `/health`;
+   `docker exec pickchick-kaspi-bridge node --env-file=/run/kaspi/session.env session-check.mjs`
+   -> `active=true, invoiceAttempted=false`; мобильный worker `--once` без ошибок.
+
+### A3. Worker `kiosk-kaspi-qr`
+
+Compose по образцу `worker.compose.yaml` (создать; имя, например,
+`pickchick-kiosk-qr-worker`): тот же immutable `pickchick-api:<SHA>`,
+`network_mode: container:pickchick-kaspi-bridge`, read_only, cap_drop ALL, команда
+`node --env-file=/run/pickchick/kiosk-qr.env --env-file=/run/pickchick/session.env services/api/dist/kiosk-kaspi-qr-worker.js`.
+Приватный `kiosk-qr.env` (0600):
+
+```text
+KIOSK_KASPI_QR_ENABLED=true
+KIOSK_KASPI_QR_ACCOUNT_ID=<UUID из A0, provider kaspi-qr>
+KIOSK_KASPI_QR_LATITUDE=43.226626
+KIOSK_KASPI_QR_LONGITUDE=76.861489
+KASPI_BRIDGE_URL=http://127.0.0.1:3931
+CLOUD_DATABASE_URL=<роль worker, host cloud-db, /pickchick_cloud>
+APP_ENV=staging   (+ прочие обязательные platform env, как у pickchick-kaspi-worker)
+```
+
+`KASPI_SESSION_TOKEN_SN/VTOKEN_SECRET/PROFILE_ID` - из того же `session.env`.
+`KASPI_REMOTE_ACCOUNT_ID` в этом env не задавать или он должен отличаться
+(иначе `KIOSK_QR_REQUIRES_SEPARATE_ACCOUNT`). Проверка: запуск с `--once` ->
+`{"event":"kiosk_kaspi_qr","submitted":0,"checked":0,"errors":0,"sessionProblem":false,"unknownOverdue":0}`,
+затем постоянный режим; в логах только счётчики. Отключённый worker пишет `state:"disabled"`.
+
+### A4. Меню: одна публикация для бэк-офиса, приложения и киоска
+
+Мобильное приложение и киоск читают **одну и ту же** опубликованную версию
+точки (`catalog_branch_heads.published_version` -> `catalog_publications`), поэтому
+синхронизация = одна публикация в бэк-офисе, если `KIOSK_CHECKOUT_BRANCH_ID` совпадает
+с веткой мобильной витрины (`CUSTOMER_KASPI_BRANCH_ID`) - сверить в A0.
+
+1. После A1 (edge-публикация включена) в бэк-офисе «Каталог» опубликовать текущий
+   проверенный черновик (draft revision 8, hash
+   `43d4580c488326238bca892c8f0ee98f3b1d981224261b187237aa31107ba6b7`) как новую версию.
+   Сервер создаст `menu_releases` + `catalog_menu_deliveries`. Цены не менять без решения владельца.
+2. ACK должен прийти от активного edge-устройства с активной
+   `fulfillment_transport_bindings`. ACK SQL-вставкой не создавать.
+3. **Неизвестно:** какой процесс на кассе выполняет pull/apply/ACK меню (см. блокеры).
+   Требуется обследование `@windows/cashier` и, вероятно, отдельная установка.
+4. Проверка: бэк-офис показывает доставку `applied`; SQL
+   `readCatalogMenuDelivery` -> `status='applied'`, `acknowledged_at` не NULL;
+   `GET /v1/customer-checkout/catalog` и `GET /v1/kiosk-checkout/catalog` (с device-ключом)
+   возвращают одинаковые `version`.
+
+### A5-A6. Запуск и проверки без денег
+
+После apply (QR account ещё `enabled=false`):
+
+- `/health/ready` true, образ API = prepared `image_id`, gateway SHA-256 = prepared;
+- анонимно: `POST /v1/kiosk-checkout/quotes|orders` -> отказ API 4xx (не 404 gateway,
+  не 200; точный код зафиксировать в профиле по контроллеру `kiosk-checkout-controller.ts`);
+  `/v1/customer-checkout/test-payments` и TipTopPay -> 404; finance без входа -> 401;
+- с device-ключом iPad: `GET /config` -> `paymentMethods: []`, `enabled:false`;
+- мобильный каталог и `/v1/auth/config` байт-в-байт как в `prepared.json`;
+- worker `--once` без ошибок; мобильный Kaspi worker и мост healthy, сессия active.
+
+### A7. Включение QR account
+
+Только после A2-A6 и ACK меню: `UPDATE commerce_provider_accounts SET enabled=true
+WHERE id='<QR account>' AND provider='kaspi-qr' AND kind='payment'` - через профиль
+(шаг с собственным proof), не вручную. Проверка: `GET /config` ->
+`enabled:true`, `paymentMethod:"kaspi_qr"`, `paymentMethods` содержит `kaspi_qr`.
+
+## B. Контрольный платёж 100 KZT (только после явного «да» владельца)
+
+1. Окно работы ресторана, кухня предупреждена, мост `active=true`.
+2. На iPad: один Pick Combo (100 ₸), «с собой»/«в зале», оплата QR. Квота и сумма
+   сервера = 10000 minor. Отсканировать QR камерой телефона владельца, оплатить в
+   Kaspi.kz. При необходимости (решение п.3) - сначала только скан в другом банке.
+3. Проверка строгого адаптера (`kiosk-kaspi-qr.ts`): успех = `Status='Processed'`,
+   точные `QrOperationId` и `Amount`. SQL:
+   `SELECT state,operation_id IS NOT NULL,amount_minor,delivered_at FROM commerce_kiosk_kaspi_qr;`
+   Ожидание: `paid`, `10000`, `delivered_at` не NULL; попытка оплаты `captured`.
+   Если деньги списаны, а состояние `issued`/`unknown` - форма ответа иная
+   (например `Paid`). Не создавать второй QR, не править БД: снять обезличенный
+   ответ status (только имена полей/типы, Status, совпадение Amount) отдельным
+   read-only инструментом (в репо отсутствует), доработать адаптер и regression fixture,
+   новый выпуск. QR-токен, ID операции и данные покупателя в Git не сохранять.
+4. Кухня: заказ с номером с экрана iPad появился на кухне/кассе (kitchen-live,
+   `edgeConnected:true`), прошёл приготовление/выдачу по обычной процедуре.
+5. Очистка гостя: экран успеха 15 с -> витрина; старый `kiosk_sessions.ended_at`
+   заполнен, создана новая сессия; заказ остался на сервере и кухне.
+6. Истечение: QR скрывается через 180 с от первого create; worker продолжает
+   проверку (поздняя оплата). Отмены QR нет.
+
+## C. Сборка v3 и установка на iPad
+
+Предусловие: `codex/kiosk-v3-design` закоммичена и опубликована, в коммите
+`apps/kiosk/app.json` `"buildNumber": "7"` (следующий после 6), полная зелёная CI
+точного SHA. Без этого установка - только по новому явному исключению владельца.
+
+```sh
+git switch codex/kiosk-v3-design && git pull --ff-only && git status --short   # пусто
+pnpm install --frozen-lockfile
+pnpm --filter @pickchick/kiosk typecheck && pnpm test:kiosk && pnpm --filter @pickchick/kiosk ui:check
+cd apps/kiosk && EXPO_PUBLIC_KIOSK_COMMERCIAL=1 pnpm prebuild:ios && (cd ios && pod install)
+xcodebuild -workspace ios/PickChickKiosk.xcworkspace -scheme PickChickKiosk \
+  -configuration Release -destination 'id=<UDID iPad>' -allowProvisioningUpdates build
+```
+
+`EXPO_PUBLIC_KIOSK_COMMERCIAL=1` нужно и при сборке JS-бандла Release. Подпись -
+Apple Development, Team `DAJTP6MC3Q`, тот же Bundle ID `kz.pickchick.kiosk` и
+keychain access group, что у build 6 (иначе SecureStore с регистрацией не прочитается).
+`KIOSK_API_URL` в `src/api.ts` = `https://pickchick.185.129.51.103.nip.io` - сверить.
+
+Установка поверх, **без удаления приложения** (сохраняет enrollment):
+
+```sh
+xcrun devicectl list devices
+xcrun devicectl device install app --device <UDID> <DerivedData>/Build/Products/Release-iphoneos/PickChickKiosk.app
+xcrun devicectl device info apps --device <UDID> --bundle-id kz.pickchick.kiosk   # build 7
+xcrun devicectl device process launch --device <UDID> kz.pickchick.kiosk
+```
+
+Подписанный build 6 сохранить локально для возврата. Нативная приёмка:
+`InstalledUITests` (только на Mac) - меню через сохранённую регистрацию, без экрана
+«Настройка киоска»; скриншоты 2048x2732; затем ручной путь: витрина v3 -> меню ->
+товар -> корзина -> review -> QR (после A7) -> номер заказа -> очистка; клавиатура
+телефона (счёт выключен, если `KIOSK_KASPI_INVOICE_ACCOUNT_ID` не задан), перезапуск
+во время ожидания оплаты. Затем [ipad-kiosk-lockdown.md](ipad-kiosk-lockdown.md).
+TestFlight (`scripts/mobile/ios_release.py --app kiosk`) - отдельный выпуск.
+
+## Откат
+
+- **Остановить новые оплаты, сохранив сверку:** `enabled=false` для QR account
+  (новые create не выдаются, worker продолжает status-проверки уже выданных QR).
+  Worker не останавливать, пока есть `commerce_kiosk_kaspi_qr` в
+  `issuing/issued/unknown` или `delivered_at IS NULL`.
+- **API/gateway:** `release-kiosk-checkout.py rollback --owner-id <UUID>` (после
+  создания профиля) - прежние image/pointers/ACL, БД и новые финансовые записи
+  сохраняются; восстановление старого дампа поверх рабочей БД запрещено.
+- **Мост:** вернуть прежний образ без `BRIDGE_QR` только после завершения всех
+  QR-попыток; затем пересоздать мобильный worker и проверить `session-check.mjs`.
+- **Меню:** опубликованную версию не удалять; при ошибке - новая публикация.
+- **iPad:** установить сохранённый build 6 тем же `devicectl device install app`
+  (не удалять приложение). Неизвестная оплата блокирует очистку гостя - разбор сотрудником.
+
+## Доказательства и отчёт
+
+Сохранять в приватном каталоге выпуска на VPS (`prepared.json`, `before.json`,
+`backup.json`, `result.json`) и обезличенные итоги в этот документ: SHA, CI run,
+backup SHA-256, gateway до/после, состояние account/worker, delivery `applied`,
+итог контрольного платежа (поля ответа без значений-токенов), build 7 и XCTest.
+Обновить PR и журнал координации; `project-status`/roadmap - если области свободны.

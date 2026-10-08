@@ -1,15 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
+import { View } from 'react-native';
 import { line } from '../stories/fixtures';
 import { Wrapper } from './Wrapper';
 import { CheckoutSummary } from './CheckoutSummary';
+import { colors } from '../theme';
 const meta = {
   title: 'Kiosk/CheckoutSummary',
   component: CheckoutSummary,
   decorators: [
     (Story) => (
-      <Wrapper padding={28}>
-        <Story />
-      </Wrapper>
+      // Backdrop only: the summary card sits on the blue v3 review screen.
+      <View style={{ flex: 1, backgroundColor: colors.blue }}>
+        <Wrapper padding={28}>
+          <Story />
+        </Wrapper>
+      </View>
     ),
   ],
   args: {
