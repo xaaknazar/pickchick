@@ -3570,11 +3570,14 @@
         "apps/kiosk/assets/drinks",
         "docs/operations/kiosk-drink-photos.md",
         "docs/operations/images/kiosk-drink-photos",
-        "tests/kiosk/browser_drink_photos.py"
+        "tests/kiosk/browser_drink_photos.py",
+        "packages/catalog-admin/src/piko-flavors.ts",
+        "scripts/prepare-piko-flavors.mjs",
+        "tests/unit/piko-flavors.test.mjs"
       ],
       "status": "active",
       "head": "10e87841ba95fd8aa3b148999bed9a01dbab35e9",
-      "updatedAt": "2026-10-08T09:27:49.087Z"
+      "updatedAt": "2026-10-08T09:34:35.996Z"
     }
   ]
 }
