@@ -17,6 +17,7 @@ test('unified menu UI: real photo upload and publish, cashier delivery badge, st
       await mkdir(output, { recursive: true, mode: 0o700 });
       const temp = await mkdtemp(fileURLToPath(new URL('run-', output)));
       const photo = temp + '/fixture.jpg';
+      const bigPhoto = temp + '/big-photo.jpg';
       const fixture = temp + '/fixture.json';
       try {
         // Synthetic fixture photo, larger than the card rendition so re-encoding is visible.
@@ -35,6 +36,22 @@ test('unified menu UI: real photo upload and publish, cashier delivery badge, st
             .jpeg({ quality: 85 })
             .toBuffer(),
         );
+        // A detailed phone-sized photo, far above the 300 KB staff-portal body limit.
+        await writeFile(
+          bigPhoto,
+          await sharp({
+            create: {
+              width: 2400,
+              height: 1800,
+              channels: 3,
+              background: '#7a4b2a',
+              noise: { type: 'gaussian', mean: 128, sigma: 40 },
+            },
+          })
+            .blur(6)
+            .jpeg({ quality: 95 })
+            .toBuffer(),
+        );
         await writeFile(
           fixture,
           JSON.stringify({
@@ -42,6 +59,7 @@ test('unified menu UI: real photo upload and publish, cashier delivery badge, st
             manager: ctx.manager,
             branch: ctx.branch,
             photo,
+            big_photo: bigPhoto,
             output: fileURLToPath(output),
           }),
           { mode: 0o600 },

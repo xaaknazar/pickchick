@@ -31,19 +31,26 @@ export function photoType(file: File): string | null {
   if (!file.type && /\.jpe?g$/i.test(file.name)) return 'image/jpeg';
   return null;
 }
-const RECODE_ABOVE_BYTES = 2 * 1024 * 1024,
-  MAX_EDGE = 2048;
 /**
- * Prepares a picked photo for upload. HEIC (the server cannot decode it) and large photos are
- * re-encoded to JPEG at most 2048 px on the longest side, so uploads stay small and fast; the
- * server re-encodes to WebP and strips metadata anyway. Small JPEG/PNG/WebP go as they are.
+ * The staff portal front (pickchick.kz, infra/backoffice-login/pickchick.Caddyfile) caps every
+ * /backoffice request body at 300 KB, so a photo must fit well under it to be accepted at all.
+ */
+export const PHOTO_UPLOAD_TARGET_BYTES = 280_000;
+/** Longest side of the largest stored rendition (hero); a bigger source only costs bytes. */
+const MAX_EDGE = 1280,
+  QUALITIES = [0.88, 0.8, 0.72, 0.64, 0.56];
+/**
+ * Prepares a picked photo for upload. HEIC (the server cannot decode it) and anything above the
+ * portal body limit are re-encoded to JPEG at most 1280 px on the longest side, lowering the
+ * quality until it fits; the server re-encodes to WebP and strips metadata anyway. Small
+ * JPEG/PNG/WebP go as they are.
  */
 export async function preparePhoto(file: File): Promise<Blob> {
   const type = photoType(file);
   if (!type) throw new ApiError('INVALID_REQUEST', 0, 'ASSET_UNSUPPORTED_TYPE');
   if (file.size > UPLOAD_MAX_BYTES) throw new ApiError('INVALID_REQUEST', 0, 'ASSET_TOO_LARGE');
   const raw = file.slice(0, file.size, type);
-  if (!heif(file) && file.size <= RECODE_ABOVE_BYTES) return raw;
+  if (!heif(file) && file.size <= PHOTO_UPLOAD_TARGET_BYTES) return raw;
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -57,14 +64,19 @@ export async function preparePhoto(file: File): Promise<Blob> {
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const jpeg = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.9),
-    );
-    if (!jpeg) {
+    let best: Blob | null = null;
+    for (const quality of QUALITIES) {
+      const jpeg = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', quality),
+      );
+      if (jpeg && (!best || jpeg.size < best.size)) best = jpeg;
+      if (best && best.size <= PHOTO_UPLOAD_TARGET_BYTES) break;
+    }
+    if (!best) {
       if (heif(file)) throw new ApiError('INVALID_REQUEST', 0, 'HEIC_UNSUPPORTED');
       return raw;
     }
-    return heif(file) || jpeg.size < file.size ? jpeg : raw;
+    return heif(file) || best.size < file.size ? best : raw;
   } finally {
     bitmap.close();
   }

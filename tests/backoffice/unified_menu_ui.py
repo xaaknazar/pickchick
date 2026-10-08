@@ -88,6 +88,24 @@ with sync_playwright() as pw:
     at('edit-photo-file').set_input_files({'name': 'fake.jpg', 'mimeType': 'image/jpeg', 'buffer': b'not a photo at all' * 4})
     expect(at('edit-photo-error')).to_contain_text('JPEG, PNG, WebP или HEIC')
     assert len(uploads) == 1
+    # A large photo is re-encoded in the browser to fit the 300 KB staff-portal body limit
+    # (pickchick.kz front); the server answer is stubbed so nothing is stored.
+    assets_route = re.compile(r'.*/v1/admin/catalog/branches/' + branch + r'/assets$')
+
+    def refuse_upload(route):
+        if route.request.method != 'POST':
+            return route.fallback()
+        route.fulfill(status=413, json={'code': 'PAYLOAD_TOO_LARGE'})
+
+    page.route(assets_route, refuse_upload)
+    big = Path(config['big_photo']).read_bytes()
+    assert len(big) > 280_000, len(big)
+    with page.expect_request(lambda r: r.method == 'POST' and r.url.endswith('/assets')) as sent:
+        at('edit-photo-file').set_input_files(config['big_photo'])
+    assert sent.value.headers['content-type'] == 'image/jpeg', sent.value.headers
+    assert 0 < len(sent.value.post_data_buffer) <= 280_000, len(sent.value.post_data_buffer)
+    expect(at('edit-photo-error')).to_be_visible()
+    page.unroute(assets_route, refuse_upload)
     photo = Path(config['photo']).read_bytes()
     with page.expect_request(lambda r: r.method == 'POST' and r.url.endswith('/assets')) as sent:
         at('edit-photo-file').set_input_files(config['photo'])
