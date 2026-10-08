@@ -42,12 +42,27 @@ const catalog = new CatalogAdmin(pool, catalogAdminOptions(environment));
 ```
 
 `CATALOG_ADMIN_ENABLED=false` по умолчанию. Выключенный редактор возвращает 503
-для административных операций. Уже опубликованные версии остаются доступными
-через публичное чтение; выключение редактора не удаляет публикацию.
+для административных операций и для `GET /v1/catalog/branches/{id}`. Выключение
+редактора не удаляет публикацию; витрины мобильного приложения и киоска читают
+её своими маршрутами.
+
+`CATALOG_ACCESS_ROLES_ENABLED=false` по умолчанию. При `true` каждый вызов
+требует строку `bo_access_grants` для точки: `analyst` только читает, `manager`
+сохраняет, засевает и публикует; без строки — 403. Перед включением выдать роль
+каждому действующему держателю токена каталога (`grantBackoffice`), иначе он
+потеряет доступ. Staging provision выдаёт чтение и `lock_anchor` этой таблицы
+через `catalog-edge-grants.mjs` после back-office grants.
+
+Ошибка публикации 409 дополнительно содержит только код причины
+`error: {code}`: `CHANNEL_PRICES_NOT_SUPPORTED`, `UNAVAILABLE_LINKED_PRODUCT`,
+`EDGE_DEVICE_INACTIVE`, `EDGE_MENU_STATE_UNKNOWN`. При публикации на кассу
+версия меню = max(версии облака, активная версия, о которой сообщила касса) + 1;
+пока касса не сообщила своё меню (`edge_menu_state`), публикация отклоняется.
+`edge_delivery` показывает `rejected` с `reject_reason`, если касса отклонила
+релиз, и `edge_active_version`/`observed_at` из последнего отчёта кассы.
 
 Контроллер/DI и флаг зарегистрированы в основном API. Staging provision выдаёт
-права через `catalog-admin-grants.mjs`, публичное чтение доступно и при выключенном
-редакторе. Миграция 011 добавляет constrained no-op `lock_anchor`: PostgreSQL
+права через `catalog-admin-grants.mjs`. Миграция 011 добавляет constrained no-op `lock_anchor`: PostgreSQL
 требует UPDATE privilege даже для `FOR SHARE`. Runtime получает UPDATE только
 этого всегда-true столбца на credentials/scopes и не может менять token, назначение
 точки или выдавать управляющих. Проверка выполняет полный цикл под такой ролью.

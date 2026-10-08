@@ -206,7 +206,7 @@ export function assertCatalogPublishable(payload: CatalogPayload, mobileEnabled 
       ),
     )
   )
-    throw new CatalogAdminError('CONFLICT');
+    throw new CatalogAdminError('CONFLICT', 'CHANNEL_PRICES_NOT_SUPPORTED');
 }
 export type CatalogProduct = z.infer<typeof CatalogProductSchema>;
 export type CatalogImageRef = z.infer<typeof CatalogImageRefSchema>;
@@ -331,8 +331,19 @@ export type CatalogErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'SERVICE_UNAVAILABLE';
+/** Precise publication failure shown to the editor; the HTTP status still follows `code`. */
+export const CatalogErrorReasonSchema = z.enum([
+  'CHANNEL_PRICES_NOT_SUPPORTED',
+  'UNAVAILABLE_LINKED_PRODUCT',
+  'EDGE_DEVICE_INACTIVE',
+  'EDGE_MENU_STATE_UNKNOWN',
+]);
+export type CatalogErrorReason = z.infer<typeof CatalogErrorReasonSchema>;
 export class CatalogAdminError extends Error {
-  constructor(readonly code: CatalogErrorCode) {
+  constructor(
+    readonly code: CatalogErrorCode,
+    readonly reason?: CatalogErrorReason,
+  ) {
     super(code);
     this.name = 'CatalogAdminError';
   }
