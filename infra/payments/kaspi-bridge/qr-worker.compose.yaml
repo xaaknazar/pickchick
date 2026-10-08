@@ -1,0 +1,28 @@
+# Exact CI-verified API image; private companion to the shared Kaspi bridge.
+name: pickchick-kiosk-kaspi-qr-worker
+services:
+  worker:
+    image: pickchick-api:${API_RELEASE_SHA:?Set verified API SHA}
+    container_name: pickchick-kiosk-kaspi-qr-worker
+    network_mode: container:pickchick-kaspi-bridge
+    user: '1000:1000'
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    command:
+      - node
+      - --env-file=/run/pickchick/qr-worker.env
+      - --env-file=/run/pickchick/session.env
+      - services/api/dist/kiosk-kaspi-qr-worker.js
+    volumes:
+      - ${KASPI_SECRETS_DIR:?Set protected directory}/qr-worker.env:/run/pickchick/qr-worker.env:ro
+      - ${KASPI_SECRETS_DIR:?Set protected directory}/session.env:/run/pickchick/session.env:ro
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }

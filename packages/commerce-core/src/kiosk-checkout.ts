@@ -34,7 +34,8 @@ const Options = z
     fiscalPolicy: z.enum(['required', 'deferred_pilot']),
     approvalReference: z.string().trim().min(3).max(250),
     taxCode: z.string().trim().min(1).max(32),
-    maxOrderMinor: z.string().regex(/^[1-9][0-9]{0,8}$/),
+    // Unlimited disables the operator's business cap, not pricing/bank amount validation.
+    maxOrderMinor: z.union([z.literal('unlimited'), z.string().regex(/^[1-9][0-9]{0,8}$/)]),
     hours: RestaurantHoursSchema,
   })
   .refine((o) => o.fiscalPolicy !== 'required' || !!o.fiscalAccountId);
@@ -293,7 +294,8 @@ export class KioskCheckout {
       throw error;
     }
     if (
-      BigInt(priced.totalMinor) > BigInt(opt.maxOrderMinor) ||
+      (opt.maxOrderMinor !== 'unlimited' &&
+        BigInt(priced.totalMinor) > BigInt(opt.maxOrderMinor)) ||
       BigInt(priced.totalMinor) % 100n !== 0n
     )
       throw new CommerceError('INVALID');

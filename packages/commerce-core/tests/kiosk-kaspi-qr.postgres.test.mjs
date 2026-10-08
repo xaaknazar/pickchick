@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
+import { createPool } from '@pickchick/database';
+import { kaspiWorkerGrants } from '../../../infra/staging/checkout-grants.mjs';
+import { kioskQrWorkerGrants } from '../../../infra/staging/commercial-channel-grants.mjs';
 import { withSyncDatabases, authFor } from '../../../tests/helpers/sync.mjs';
 import {
   publishMenu,
@@ -180,7 +183,7 @@ async function ready(f, client = new FakeQr()) {
     latitude: 43,
     longitude: 76,
   };
-  const processor = () => new KioskKaspiQrProcessor(f.pool, config, client);
+  const processor = (pool = f.pool) => new KioskKaspiQrProcessor(pool, config, client);
   const due = () =>
     f.pool.query(
       "UPDATE commerce_kiosk_kaspi_qr SET next_check_at=clock_timestamp()-interval '1 second'",
@@ -254,6 +257,59 @@ test('QR concurrent submits create once, bind amount and observe bank capture ex
       (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
       1,
     );
+  }));
+
+test('QR restricted worker role creates and reconciles once without money or account rewrite rights', async () =>
+  fixture(async (f) => {
+    const role = 'kiosk_qr_' + randomUUID().replaceAll('-', '');
+    await f.cloud.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.cloud.schema} TO ${role}`);
+      await f.pool.query(kaspiWorkerGrants(role, true));
+      const url = new URL(f.cloud.config.databaseUrl);
+      url.searchParams.set('options', `-c search_path=${f.cloud.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 2);
+      const r = await ready(f);
+      await assert.rejects(r.processor(runtime).tick(), /permission denied/);
+      assert.equal(r.client.creates, 0);
+      await f.pool.query(kioskQrWorkerGrants(role, true));
+      await f.pool.query(kioskQrWorkerGrants(role, true));
+      // The unsuccessful pre-grant tick leased the outbox before reaching the QR table.
+      await f.pool.query(
+        "UPDATE commerce_outbox SET lease_until=clock_timestamp()-interval '1 second'",
+      );
+      assert.equal((await r.processor(runtime).tick()).errors, 0);
+      assert.equal(r.client.creates, 1);
+      r.client.statusAnswer = {
+        kind: 'ok',
+        data: { QrOperationId: 123, Amount: 110, Status: 'Processed' },
+      };
+      await r.due();
+      assert.equal((await r.processor(runtime).tick()).errors, 0);
+      assert.equal((await r.row()).state, 'paid');
+      await r.processor(runtime).tick();
+      assert.equal(
+        (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+        1,
+      );
+      for (const sql of [
+        'UPDATE commerce_kiosk_kaspi_qr SET amount_minor=1',
+        'UPDATE commerce_kiosk_kaspi_qr SET account_id=account_id',
+        'UPDATE commerce_kiosk_kaspi_qr SET issue_started_at=clock_timestamp()',
+        'DELETE FROM commerce_kiosk_kaspi_qr',
+        'UPDATE commerce_captures SET amount_minor=1',
+        'UPDATE commerce_orders SET total_minor=1',
+        'UPDATE commerce_provider_accounts SET enabled=false',
+        'INSERT INTO commerce_orders DEFAULT VALUES',
+        'SELECT * FROM kiosk_sessions',
+      ])
+        await assert.rejects(runtime.query(sql), /permission denied/);
+    } finally {
+      await runtime?.end();
+      await f.pool.query(`DROP OWNED BY ${role}`);
+      await f.cloud.admin.query(`DROP ROLE ${role}`);
+    }
   }));
 test('QR timeout create never reissues after outbox replay or worker restart', async () =>
   fixture(async (f) => {

@@ -52,19 +52,23 @@ class KioskPaymentSuccess(ui.KioskUI):
         self.assertEqual(fixture.orders[order['order_id']]['payment_state'], 'simulated_approved')
         self.assertEqual(fixture.orders[order['order_id']]['state'], 'preparing')
 
-        # The new ticket uses an opaque surface so number readability does not
-        # depend on decorative imagery, gradient loading or reduced motion.
-        ticket_surface = ui.element(page, 'kiosk-order-number').evaluate('''number => ({
+        # v3 puts the white number directly on the blue screen. Animation/layout
+        # wrappers can be transparent; inspect the first opaque ancestor surface.
+        ticket_surface = ui.element(page, 'kiosk-order-number').evaluate('''number => {
+            let surface = number.parentElement;
+            while (surface && getComputedStyle(surface).backgroundColor === 'rgba(0, 0, 0, 0)')
+                surface = surface.parentElement;
+            return {
             text: getComputedStyle(number).color,
-            surface: getComputedStyle(number.parentElement).backgroundColor,
+            surface: surface ? getComputedStyle(surface).backgroundColor : null,
             screen: getComputedStyle(number.closest('[data-testid="kiosk-screen-order"]')).backgroundColor,
             fontSize: parseFloat(getComputedStyle(number).fontSize),
-        })''')
-        self.assertEqual(ticket_surface['surface'], 'rgb(255, 255, 255)')
+        }}''')
+        self.assertEqual(ticket_surface['surface'], 'rgb(0, 71, 187)')
         self.assertEqual(ticket_surface['screen'], 'rgb(0, 71, 187)')
         self.assertGreaterEqual(ticket_surface['fontSize'], 100)
         number_rect = ui.assert_bounded(page, 'kiosk-order-number', width, height)
-        expect(ui.element(page, 'kiosk-order-number')).to_have_css('color', 'rgb(0, 71, 187)')
+        expect(ui.element(page, 'kiosk-order-number')).to_have_css('color', 'rgb(255, 255, 255)')
         ui.assert_bounded(page, 'kiosk-next-guest', width, height)
         ui.assert_no_overflow(page, width)
         ui.capture(page, 'web-order-ticket-1024.png')

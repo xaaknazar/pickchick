@@ -218,6 +218,48 @@ test('server enforces price, version, stop-list, branch ownership and one order 
   });
 });
 
+test('unlimited is explicit, removes only the kiosk business cap, and retains published prices', async () => {
+  await fixture(async (f) => {
+    const env = {
+      KIOSK_CHECKOUT_ENABLED: 'true',
+      KIOSK_CHECKOUT_ORGANIZATION_ID: f.org,
+      KIOSK_CHECKOUT_BRANCH_ID: f.branch,
+      KASPI_REMOTE_ACCOUNT_ID: f.payment,
+      KIOSK_CHECKOUT_FISCAL_POLICY: 'deferred_pilot',
+      KIOSK_CHECKOUT_APPROVAL_REFERENCE: 'Synthetic explicit unlimited policy',
+      KIOSK_CHECKOUT_TAX_CODE: 'PENDING_PILOT',
+      CUSTOMER_KASPI_OPENING_TIME: '10:00',
+      CUSTOMER_KASPI_CLOSING_TIME: '00:00',
+      CUSTOMER_KASPI_TIMEZONE: 'Asia/Almaty',
+    };
+    assert.equal(kioskCheckoutOptions(env).maxOrderMinor, '10000');
+    for (const value of ['', '0', '-1', 'Infinity', 'none', '100.00', '1000000000'])
+      assert.throws(() => kioskCheckoutOptions({ ...env, KIOSK_CHECKOUT_MAX_MINOR: value }));
+    const options = kioskCheckoutOptions({ ...env, KIOSK_CHECKOUT_MAX_MINOR: 'unlimited' });
+    assert.equal(options.maxOrderMinor, 'unlimited');
+    const unlimited = new KioskCheckout(
+      f.pool,
+      options,
+      f.sessions,
+      () => new Date('2026-10-04T10:00:00Z'),
+    );
+    const cart = f.cart();
+    cart.items[0].quantity = 40;
+    await assert.rejects(f.checkout.quote(f.who, cart), { code: 'INVALID' });
+    const quote = await unlimited.quote(f.who, cart);
+    assert.equal(quote.totalMinor, '440000');
+    const order = await unlimited.create(f.who, { key: randomUUID(), quoteId: quote.quoteId });
+    assert.equal(
+      (await f.pool.query('SELECT fiscal_policy FROM commerce_orders WHERE id=$1', [order.orderId]))
+        .rows[0].fiscal_policy,
+      'deferred_pilot',
+    );
+    await assert.rejects(unlimited.quote(f.who, { ...f.cart(), totalMinor: '1' }), {
+      code: 'INVALID',
+    });
+  });
+});
+
 test('guest invoice prevents end until bank confirmation without logging in as a customer', async () => {
   await fixture(async (f) => {
     await f.ack();

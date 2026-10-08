@@ -54,3 +54,15 @@ export function kioskWorkerGrants(role, enabled) {
       : '')
   );
 }
+
+/** Add to the existing bank worker role; QR identity and intended amount are immutable. */
+export function kioskQrWorkerGrants(role, enabled) {
+  check(role, enabled);
+  const mutable =
+    'state,operation_id,qr_payload,state_changed_at,expires_at,next_check_at,lease_token,lease_until,delivered_at';
+  return enabled
+    ? `GRANT SELECT,INSERT ON commerce_kiosk_kaspi_qr TO ${role};
+ GRANT UPDATE(${mutable}) ON commerce_kiosk_kaspi_qr TO ${role};`
+    : `REVOKE ALL ON commerce_kiosk_kaspi_qr FROM ${role};
+ REVOKE UPDATE(${mutable}) ON commerce_kiosk_kaspi_qr FROM ${role};`;
+}

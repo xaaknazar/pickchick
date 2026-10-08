@@ -5,6 +5,7 @@ import {
   catalogEdgePublicationGrants,
   kioskCheckoutGrants,
   kioskWorkerGrants,
+  kioskQrWorkerGrants,
 } from '../../infra/staging/commercial-channel-grants.mjs';
 import { customerCheckoutGrants } from '../../infra/staging/checkout-grants.mjs';
 import { orderRecipeGrants } from '../../infra/staging/backoffice-grants.mjs';
@@ -110,4 +111,18 @@ test('both enabled channel helpers explicitly grant every delivery status join r
     for (const table of required)
       assert.ok(grants.includes(table), `${helper.name} lacks SELECT ${table}`);
   }
+});
+
+test('QR worker can advance its durable state but cannot change amount or account identity', () => {
+  const sql = kioskQrWorkerGrants('worker', true);
+  assert.match(sql, /GRANT SELECT,INSERT ON commerce_kiosk_kaspi_qr/);
+  assert.match(sql, /GRANT UPDATE\(state,operation_id,qr_payload,/);
+  assert.doesNotMatch(
+    sql,
+    /GRANT UPDATE ON|amount_minor|account_id|order_id|attempt_id|issue_started_at|DELETE|TRUNCATE/,
+  );
+  assert.doesNotMatch(kioskQrWorkerGrants('worker', false), /GRANT /);
+  for (const role of [null, {}, 'x;drop role y', 'UPPER'])
+    assert.throws(() => kioskQrWorkerGrants(role, true));
+  assert.throws(() => kioskQrWorkerGrants('worker', 'true'));
 });
