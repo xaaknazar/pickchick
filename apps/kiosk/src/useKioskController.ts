@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
+import { prefetchCatalogMedia, rememberCatalogMedia } from './assets';
+import { startKioskPolling } from './polling';
 import { KioskController } from './controller';
 import { CommercialKioskController } from './commercial-controller';
 import { commercialKioskEnabled } from './commercial-api';
@@ -22,38 +24,22 @@ export default function useKioskController(): KioskModel {
   useEffect(() => {
     void controller.restore();
   }, [controller]);
+  // Register the publication's photos before the screens render, then keep them on disk.
+  const [, setMediaReady] = useState(0);
+  useMemo(() => rememberCatalogMedia(state.catalog), [state.catalog]);
   useEffect(() => {
-    let stopped = false;
-    let failures = 0;
-    let catalogPollAt = Date.now();
-    let poll: ReturnType<typeof setTimeout> | undefined;
-    const schedule = () => {
-      if (stopped) return;
-      poll = setTimeout(
-        async () => {
-          const before = controller.getSnapshot();
-          if (
-            AppState.currentState === 'active' &&
-            before.ready &&
-            !before.busy &&
-            (before.order ||
-              before.recoveryRequired ||
-              !before.catalog ||
-              (before.step !== 'start' && Date.now() - catalogPollAt >= 60000))
-          ) {
-            await controller.refresh();
-            if (controller.getSnapshot().catalog) catalogPollAt = Date.now();
-            failures = controller.getSnapshot().error ? failures + 1 : 0;
-          }
-          schedule();
-        },
-        Math.min(30000, 3000 * 2 ** Math.min(failures, 4)),
-      );
+    const urls = rememberCatalogMedia(state.catalog);
+    if (!urls.length) return;
+    let live = true;
+    void prefetchCatalogMedia(urls).then((ready) => {
+      if (live && ready) setMediaReady((n) => n + 1);
+    });
+    return () => {
+      live = false;
     };
-    schedule();
-    const idle = setInterval(() => {
-      if (AppState.currentState === 'active') void controller.tick();
-    }, 1000);
+  }, [state.catalog]);
+  useEffect(() => {
+    const stop = startKioskPolling(controller, () => AppState.currentState === 'active');
     const active = AppState.addEventListener('change', (status) => {
       if (status === 'active') {
         void controller.tick();
@@ -61,9 +47,7 @@ export default function useKioskController(): KioskModel {
       }
     });
     return () => {
-      stopped = true;
-      clearTimeout(poll);
-      clearInterval(idle);
+      stop();
       active.remove();
     };
   }, [controller]);
