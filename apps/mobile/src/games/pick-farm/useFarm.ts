@@ -3,11 +3,11 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { fetch as expoFetch } from 'expo/fetch';
-import { CROPS, type FarmCommand } from '@pickchick/farm-game';
-import { HarvestQueue } from './harvest-queue';
+import { CROPS, FARM_PROTOCOL, type FarmCommand, type FarmState } from '@pickchick/farm-game';
 import { API_URL } from '../../api';
 import { useAccount } from '../../useAccount';
-import { FarmClient, FarmClientError, farmRequest, type FarmSnapshot } from './api';
+import { FarmClient, farmRequest } from './api';
+import { FarmPipeline, type ActionResult, type Ticket } from './pipeline';
 
 const messages: Record<string, string> = {
   GOAL_NOT_READY: 'Сначала выполните цель задания.',
@@ -41,8 +41,13 @@ const messages: Record<string, string> = {
   CELL_OCCUPIED: 'Это место уже занято. Выберите другую клетку.',
   LEGACY_COMMAND: 'Планировка фермы обновилась. Выберите место для новой грядки.',
   CROP_REQUIRES_BED: 'Посадку можно убрать только с грядки.',
+  CROP_REQUIRES_TREE: 'Яблоню покупают в магазине, на грядку её не посадить.',
+  CROP_LOCKED: 'Эта культура откроется на следующем уровне.',
   PLOT_EMPTY: 'На грядке уже нет посадки.',
   CROP_NOT_READY: 'Урожай ещё растёт. Осталось немного подождать.',
+  CROP_NOT_GROWING: 'Поливать нужно растущий урожай.',
+  ALREADY_WATERED: 'Эта посадка уже полита.',
+  WATER_UNAVAILABLE: 'Лейка заработает после обновления сервера фермы.',
   INSUFFICIENT_COINS: 'Не хватает монет. Соберите и продайте урожай.',
   ORDER_NOT_READY: 'Сначала соберите все продукты для этого заказа.',
   INSUFFICIENT_INVENTORY: 'Этого урожая пока нет на складе.',
@@ -53,144 +58,156 @@ const messages: Record<string, string> = {
   PENDING_RECOVERY: 'Проверяем предыдущее действие. Нажмите «Повторить».',
   RECOVERY_REQUIRED: 'Не удалось прочитать сохранённое действие. Обратитесь в поддержку.',
   RATE_LIMITED: 'Слишком много действий подряд. Подождите немного и повторите.',
+  CELL_LOCKED: 'Эта земля ещё не куплена. Расширьте участок в магазине.',
+  LAND_LOCKED: 'Новая земля откроется на следующем уровне.',
+  LAND_MAX: 'Вся земля фермы уже открыта.',
+  PEN_LOCKED: 'Постройка откроется на следующем уровне.',
+  PEN_OWNED: 'Эта постройка уже есть на ферме.',
+  PEN_NOT_OWNED: 'Сначала постройте загон.',
+  PEN_FULL: 'В загоне нет свободных мест.',
+  INSUFFICIENT_FEED: 'Нет корма на складе. При сборе выберите «На склад для заказов».',
+  ANIMALS_NOT_HUNGRY: 'Животные уже накормлены.',
+  ANIMALS_NOT_READY: 'Ещё не готово. Животные работают.',
+  ANIMAL_NOT_FOUND: 'Этого животного уже нет в загоне.',
+  BOARD_NOT_READY: 'Новый покупатель ещё в пути.',
 };
-function errorMessage(error: unknown): string {
-  const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+export function farmMessage(code: string): string {
   return (
     messages[code] ??
     'Не удалось сохранить действие. Нажмите «Повторить» - повторного списания монет не будет.'
   );
 }
+const codeOf = (error: unknown) =>
+  error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+
+export type FarmReceipt = { id: number; text: string; coins: number; xp: number };
 
 export function useFarm() {
   const { account, withOrderAccess } = useAccount();
   const customerId = account?.kind === 'server_customer' ? account.customerId : undefined;
-  const client = useMemo(() => {
+  const [version, setVersion] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<FarmReceipt | null>(null);
+  const [serverNow, setServerNow] = useState(0);
+  const receiptId = useRef(0);
+  const clock = useRef({ server: 0, monotonic: 0 });
+  const estimate = useCallback(
+    () =>
+      Math.floor(clock.current.server + Math.max(0, performance.now() - clock.current.monotonic)),
+    [],
+  );
+  const pipeline = useMemo(() => {
     if (!customerId || !withOrderAccess) return null;
     const key = `pickchick.farm.pending.v1.${customerId}`;
     const request = farmRequest(API_URL, expoFetch);
-    return new FarmClient({
+    const client = new FarmClient({
       read: () => AsyncStorage.getItem(key),
       write: (raw) =>
         raw === null ? AsyncStorage.removeItem(key) : AsyncStorage.setItem(key, raw),
       randomId: Crypto.randomUUID,
       request: (intent) => withOrderAccess(customerId, (token) => request(token, intent)),
     });
-  }, [customerId, withOrderAccess]);
-  const [snapshot, setSnapshot] = useState<FarmSnapshot | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<{ id: number; text: string } | null>(null);
-  const receiptId = useRef(0);
-  const [serverNow, setServerNow] = useState(0);
-  const currentClient = useRef(client);
-  currentClient.current = client;
-  const inFlight = useRef<FarmClient | null>(null);
-  const owner = useRef<FarmClient | null>(null);
-  const clock = useRef({ server: 0, monotonic: 0 });
-  const run = useCallback(
-    async (command?: FarmCommand) => {
-      if (!client) {
-        setLoading(false);
-        setError(messages.UNAUTHORIZED!);
-        return false;
-      }
-      if (inFlight.current === client) return false;
-      inFlight.current = client;
-      setBusy(true);
-      setError(null);
-      try {
-        const previous = client.snapshot?.state;
-        const next = await (command ? client.send(command) : client.refresh());
-        if (currentClient.current !== client) return false;
-        clock.current = { server: next.serverNow, monotonic: performance.now() };
-        owner.current = client;
-        setSnapshot(next);
-        setServerNow(next.serverNow);
-        if (command) {
-          const parts: string[] = [];
-          if (previous && next.state.revision === previous.revision + 1) {
-            const coins = next.state.coins - previous.coins;
-            if (coins) parts.push(`${coins > 0 ? '+' : ''}${coins} монет`);
-            for (const crop of CROPS) {
-              const n = next.state.inventory[crop.id] - previous.inventory[crop.id];
-              if (n > 0) parts.push(`${crop.name}: +${n} на склад`);
-            }
-          }
-          setReceipt({
-            id: ++receiptId.current,
-            text: parts.join(' · ') || (command.type === 'harvest' ? 'Урожай собран' : 'Сохранено'),
-          });
+    let last: unknown = null;
+    const instance: FarmPipeline = new FarmPipeline(
+      {
+        send: (command) => client.send(command),
+        refresh: () => client.refresh(),
+        current: () => client.snapshot,
+      },
+      estimate,
+      () => {
+        const confirmed = instance.confirmed;
+        if (confirmed && confirmed !== last) {
+          // Each server answer re-anchors the local clock used for timers and predictions.
+          last = confirmed;
+          clock.current = { server: confirmed.serverNow, monotonic: performance.now() };
+          setServerNow(confirmed.serverNow);
         }
-        return true;
-      } catch (cause) {
-        if (currentClient.current !== client) return false;
-        if (cause instanceof FarmClientError && cause.code === 'BUSY') return false;
-        if (client.snapshot) {
-          owner.current = client;
-          setSnapshot(client.snapshot);
-          clock.current = { server: client.snapshot.serverNow, monotonic: performance.now() };
-        }
-        setError(errorMessage(cause));
-        return false;
-      } finally {
-        if (inFlight.current === client) inFlight.current = null;
-        if (currentClient.current === client) {
-          setBusy(false);
-          setLoading(false);
-        }
-      }
-    },
-    [client],
-  );
-  const harvestQueue = useRef<HarvestQueue | null>(null);
+        setVersion((v) => v + 1);
+      },
+      (cause) => setError(farmMessage(codeOf(cause))),
+    );
+    return instance;
+  }, [customerId, withOrderAccess, estimate]);
+
   useEffect(() => {
-    const queue = new HarvestQueue(run);
-    harvestQueue.current = queue;
-    return () => {
-      queue.dispose();
-      if (harvestQueue.current === queue) harvestQueue.current = null;
-    };
-  }, [run]);
-  useEffect(() => {
-    currentClient.current = client;
-    owner.current = null;
-    setSnapshot(null);
     setReceipt(null);
-    setLoading(true);
     setError(null);
-    void run();
+    setLoading(true);
+    if (!pipeline) {
+      setLoading(false);
+      setError(messages.UNAUTHORIZED!);
+      return;
+    }
+    let alive = true;
+    void pipeline.refresh().then(() => {
+      if (alive) setLoading(false);
+    });
     const subscription = AppState.addEventListener('change', (value) => {
-      if (value === 'active') void run();
+      if (value === 'active') void pipeline.refresh();
     });
     const timer = setInterval(() => {
       if (AppState.currentState === 'active' || AppState.currentState == null)
-        setServerNow(
-          Math.floor(
-            clock.current.server + Math.max(0, performance.now() - clock.current.monotonic),
-          ),
-        );
+        setServerNow(estimate());
     }, 1000);
     return () => {
+      alive = false;
       subscription.remove();
       clearInterval(timer);
-      currentClient.current = null;
+      pipeline.dispose();
     };
-  }, [run, client]);
+  }, [pipeline, estimate]);
+
+  const onDone = useCallback((result: ActionResult) => {
+    if (!result.ok) return;
+    const { before, after } = result;
+    const coins = after.coins - before.coins;
+    const xp = after.xp - before.xp;
+    const parts: string[] = [];
+    for (const crop of CROPS) {
+      const n = after.inventory[crop.id] - before.inventory[crop.id];
+      if (n > 0) parts.push(`${crop.name} +${n}`);
+    }
+    setReceipt({ id: ++receiptId.current, text: parts.join(' · '), coins, xp });
+  }, []);
+  /** Validated at once against the predicted field; confirmation arrives later. */
+  const submit = useCallback(
+    (command: FarmCommand): Ticket => {
+      if (!pipeline) return { accepted: false, code: 'UNAUTHORIZED' };
+      const ticket = pipeline.submit(command);
+      if (ticket.accepted) {
+        setError(null);
+        void ticket.done.then(onDone);
+      }
+      return ticket;
+    },
+    [pipeline, onDone],
+  );
+  void version;
+  const state: FarmState | null = pipeline?.predicted() ?? null;
   return {
     customerId,
     receipt,
-    state: owner.current === client ? (snapshot?.state ?? null) : null,
-    serverNow,
-    loading,
-    busy,
+    /** Field shown to the player: confirmed state plus actions still being saved. */
+    state,
+    /** Server-confirmed state: the only source for displayed coins and XP. */
+    confirmed: pipeline?.confirmed?.state ?? null,
+    serverNow: Math.max(serverNow, pipeline?.confirmed?.serverNow ?? 0),
+    loading: loading && !state,
+    pending: pipeline?.pending ?? 0,
+    watering: pipeline?.watering ?? true,
+    /**
+     * False while the API still runs protocol 2: land, animals, the order board, daily
+     * rewards and the new recipes stay hidden because that server would reject them.
+     */
+    v3: (pipeline?.confirmed?.protocol ?? FARM_PROTOCOL) >= 3,
     error,
+    clearError: () => setError(null),
     retry: () => {
-      void run();
+      setError(null);
+      void pipeline?.refresh();
     },
-    send: (command: FarmCommand) => run(command),
-    harvest: (command: Extract<FarmCommand, { type: 'harvest' }>) =>
-      harvestQueue.current?.enqueue(command) ?? Promise.resolve(false),
+    submit,
   };
 }

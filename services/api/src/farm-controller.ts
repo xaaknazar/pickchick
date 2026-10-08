@@ -18,7 +18,12 @@ import {
   CustomerIdentity,
   CustomerIdentityError,
 } from '@pickchick/customer-identity';
-import { FARM, FarmPersistence, FarmPersistenceError } from '@pickchick/farm-persistence';
+import {
+  FARM,
+  FARM_PROTOCOL,
+  FarmPersistence,
+  FarmPersistenceError,
+} from '@pickchick/farm-persistence';
 @Catch(HttpException)
 class FarmExceptionFilter {
   catch(error: HttpException, host: ArgumentsHost) {
@@ -45,12 +50,13 @@ export class FarmController {
       if (process.env.FARM_ENABLED !== '1') throw new FarmPersistenceError('FARM_UNAVAILABLE');
       const token = authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '';
       const { customer } = await this.identity.me(token);
-      // Old clients parse a strict state schema. Reject before lazy creation/migration.
-      if (protocol !== '2')
+      // Old clients parse a strict state schema and know only the older rules. Reject before
+      // lazy creation/migration so a protocol 2 app never reads or replaces a protocol 3 save.
+      if (protocol !== String(FARM_PROTOCOL))
         throw new HttpException(
           {
             code: 'FARM_UNAVAILABLE',
-            minimumProtocol: 2,
+            minimumProtocol: FARM_PROTOCOL,
             message: 'Обновите PickChick, чтобы продолжить игру в ферму.',
           },
           503,

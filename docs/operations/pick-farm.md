@@ -1,3 +1,41 @@
+## 6 октября: PICK FARM v2 - мгновенные действия, полив, пакетные команды
+
+Ветка `codex/farm-gameplay-v2`, задача `farm-gameplay-v2`. Аудит, правила и
+обоснование: `../design/pick-farm-v2.md`. Снимки до/после: `images/farm-v2/`.
+
+Клиент показывает действие сразу после проверки тем же движком, сервер подтверждает
+по порядку; монеты и XP в HUD только подтверждённые. Подряд идущие сборы, посадки и
+поливы отправляются одной командой (`harvestMany`, `plantMany`, `waterMany`).
+Добавлен полив (`water`): -25% времени роста, срок увядания не меняется, +1 XP,
+форма состояния и protocol=2 без изменений. Исправлены промах касания по растениям
+с собственным временем посадки и пересоздание обработчика жестов во время сбора.
+Камера: луг всегда закрывает экран, старт показывает сад, инерция, плавный масштаб,
+двойное касание и колесо мыши. Перенос: кольцо удержания, объект под пальцем,
+прокрутка у края. HUD: монеты/уровень с анимацией, склад, точки наград, экран
+нового уровня. Компактная полоса семян, непрерывное строительство.
+
+Проверено: 33 engine, 28 mobile (геометрия, очередь, клиент), TypeScript, ESLint,
+Prettier, contracts:check, web export; PostgreSQL 16 - интеграция farm-persistence
+и новые команды через `FarmPersistence` (идемпотентный повтор, отказ повторного
+полива). `tests/mobile/browser_farm_v2.py` - 844x390 и 667x375, а также старый API
+с откатом на одиночные команды; задержка сети 600 мс.
+
+Существующий `packages/farm-persistence/tests/postgres.test.mjs` нестабилен и без
+этих изменений: две конкурирующие посадки (морковь/томат) выигрывают случайно, а тест
+ожидает 45 с моркови; 1 из 5 запусков падает и на базовой версии `239148b`.
+
+GitHub CI 37430727748 (PR #193, `34e3ef3`): `pnpm check` (build, typecheck, lint,
+format, unit, contracts, design), farm-game, PostgreSQL farm-persistence/HTTP и 291
+mobile-теста прошли. Полная CI не зелёная по причинам вне фермы: `audit:release`
+блокирует новые advisories source-map-js GHSA-68fv-2mgg-jv7q, proxy-addr
+GHSA-jqcg-44mw-7w3h, compression GHSA-vc2v-76pw-4v95 (зависимости не менялись), и
+прежние browser-проверки POS (`browser_staff_display`/`browser_service_shift`,
+TargetClosedError). Онлайн-пульт roadmap не обновлён: нет SSH, `@vps/roadmap` занят.
+
+Не выполнено: выкладка API с новым движком, TestFlight, физический iPhone/Android,
+планшет, FPS большого поля. До выкладки API клиент сам переходит на одиночные
+команды, а полив сообщает, что заработает после обновления сервера.
+
 ## 5 октября: PICK FARM - полноценный одиночный цикл, до выпуска
 
 CI для 1c1ccc8: найдены неиспользуемые переменные в engine и импорте теста,
@@ -306,3 +344,22 @@ result.json и доказательства находятся в приватн
 Новая команда removeCrop не требует изменения схемы БД.
 
 Данный checkpoint только готовит обновление; установленный API остаётся2a6d5cb.
+
+## PICK FARM v3 и protocol 3 - 6 октября
+
+Правила, интерфейс и проверки: `docs/design/pick-farm-v3.md`; снимки
+`docs/operations/images/farm-v3/`.
+
+- API: `GET/POST /v1/customer-farm?protocol=3`. Любой другой протокол - 503
+  `FARM_UNAVAILABLE`, `minimumProtocol: 3`, до чтения и создания сохранения.
+- Клиент: начинает с 3; ответ 503 с `minimumProtocol` 2 переводит запрос на 2 (legacy,
+  функции v3 скрыты), каждое чтение снова пробует 3.
+- Миграций БД нет: новые поля `progression` необязательные. Сохранения без `land`
+  открывают всё поле.
+- Локальные проверки: `pnpm --filter @pickchick/farm-game build`, затем
+  `node --test packages/farm-game/tests/*.test.mjs`, `node --test tests/mobile/*.test.mjs`,
+  `FARM_TEST_DATABASE_URL=postgres://...localhost.../farmtest node --test --test-concurrency=1
+packages/farm-persistence/tests/postgres.test.mjs packages/farm-persistence/tests/http.test.mjs`,
+  web export (`EXPO_PUBLIC_PICK_FARM=1 EXPO_PUBLIC_CUSTOMER_AUTH=server`) и
+  `FARM_UI_URL=http://127.0.0.1:4196 python3 tests/mobile/browser_farm_v3.py`
+  (а также `browser_farm_v2.py`, `browser_farm_progression.py`).

@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import {
   createFarm,
+  LAND_MAX,
   applyFarmCommand,
   canRecoverFarm,
   cropPhase,
@@ -10,7 +11,10 @@ import {
 
 /** Deterministic sessions, not a forecast of player retention or final economy acceptance. */
 export function simulateEconomy({ days, intervalHours, cropId, reinvest = false }) {
+  // Crop economy is measured on the whole 32x32 field; land expansion is simulated separately
+  // in simulate-progression.mjs.
   let state = createFarm(0);
+  state = { ...state, progression: { ...state.progression, land: LAND_MAX } };
   const crop = CROPS.find((item) => item.id === cropId);
   const stats = { harvests: 0, losses: 0, recoveries: 0, landSpend: 0 };
   const command = (input, now) => {

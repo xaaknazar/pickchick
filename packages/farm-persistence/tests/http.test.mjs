@@ -100,7 +100,7 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
     app = await createHttpApplication(TestModule);
     await app.listen(0, '127.0.0.1');
     const origin = await app.getUrl();
-    async function request(path = '', body, auth = token, protocol = '2') {
+    async function request(path = '', body, auth = token, protocol = '3') {
       const response = await fetch(
         origin + '/v1/customer-farm' + path + (protocol ? '?protocol=' + protocol : ''),
         {
@@ -115,11 +115,11 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
     assert.deepEqual(await request(), { status: 503, body: { code: 'FARM_UNAVAILABLE' } });
     process.env.FARM_ENABLED = '1';
     assert.equal((await request('', undefined, 'd'.repeat(64))).status, 401);
-    for (const protocol of ['', '1', '3']) {
+    for (const protocol of ['', '1', '2', '4']) {
       const legacy = await request('', undefined, token, protocol);
       assert.equal(legacy.status, 503);
       assert.equal(legacy.body.code, 'FARM_UNAVAILABLE');
-      assert.equal(legacy.body.minimumProtocol, 2);
+      assert.equal(legacy.body.minimumProtocol, 3);
       assert.match(legacy.body.message, /Обновите/);
       assert.equal((await pool.query('SELECT count(*)::int n FROM customer_farms')).rows[0].n, 0);
     }
@@ -139,7 +139,7 @@ test('farm HTTP verifies real bearer identity, preserves error codes and disable
       token,
       '',
     );
-    assert.equal(legacyCommand.body.minimumProtocol, 2);
+    assert.equal(legacyCommand.body.minimumProtocol, 3);
     assert.deepEqual((await pool.query('SELECT state FROM customer_farms')).rows[0].state, saved);
     const stale = await request('/commands', { ...command, commandId: randomUUID() });
     assert.equal(stale.status, 409);

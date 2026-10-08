@@ -105,3 +105,33 @@ objects. Warm soft daylight from upper left, moderate tonal variation, quiet rea
 organic detail at tiny game scale. Flat slightly moist natural umber with gentle ochre
 highlights, no black trenches, vignette or text. Square 1024x1024. The square is
 projected to an exact 2:1 isometric diamond in native code.
+
+## Watering can - 2026-10-06
+
+`watering-can.png` is original procedural artwork drawn for PICK FARM by
+`src/games/pick-farm/build-watering-can.py` (Pillow vector shapes, cylindrical shading,
+light noise). No third-party image was used. Rebuild with the script if it changes.
+
+## Grass cell tile - 2026-10-06
+
+By the owner's request the painted meadow was replaced by one generated grass cell repeated
+on every cell. `grass-tile.png` (192x192, one cell, seamless) and `grass-block.png` (the
+same tile 8x8) are original procedural art from `src/games/pick-farm/build-grass-tile.py`
+(seeded NumPy noise and Pillow strokes, deterministic). `meadow-painted-v2.png` is no longer
+used and was removed from the app bundle; it remains in Git history.
+
+## Farm v3: animals, buildings, scenery, sounds - 2026-10-06
+
+All original procedural assets, deterministic (seeded), no third-party artwork or samples:
+
+- `build-grass-tile.py` now also draws three variants of the grass cell (wildflowers,
+  clover, pebbles) that share the seamless base; `grass-block.png` mixes them at random.
+- `build-v3-art.py` (Pillow + NumPy, small isometric helper in the game's 2:1 projection,
+  gradients, soft shadows, light brush grain, 4x supersampling): `coop.png`, `barn.png`,
+  `chicken.png`, `cow.png`, `egg.png`, `milk.png`, `sale-sign.png`, `bush-a.png`,
+  `bush-b.png`, `rock.png`, `flowers-a.png`, `flowers-b.png`, `tree-round.png`,
+  `tree-dark.png`, `pond.png`. The script prints the yard anchors used in
+  `src/games/pick-farm/ranch-layout.ts`; rerun both together if the art changes.
+- `build-sounds.py` (NumPy synthesis, 22.05 kHz mono WAV): `water.wav`, `plant.wav`,
+  `coin.wav`, `level.wav`, `cluck.wav`, `moo.wav`, `tap.wav`. `garden-harvest.wav` is the
+  earlier harvest chime and is unchanged.

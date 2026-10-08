@@ -1,3 +1,59 @@
+## 6 октября: PICK FARM - животные на поле и полировка (farm-gameplay-v2)
+
+Продолжение PR #193 (общая версия `928bc68` влита). Движок: необязательный `animalIds`
+у `feedAnimals`/`collectAnimals` (протокол 3 ещё не выкачен, поэтому без смены
+протокола; клиент умеет откатиться на целый загон). Клиент: `ranch-layout.ts` (маршрут
+животных, попадание, волна земли), `Ranch.tsx`, `PickFarmScreen.tsx` (стек панелей,
+ряд HUD, отклик, касания загонов), `haptics.ts` (включится с `expo-haptics` в нативной
+сборке - `apps/mobile/ios` по-прежнему за `tiptoppay-native13`), `useFarmSound.ts`,
+`birds.wav`. Тесты: `tests/mobile/farm-ranch.test.mjs`, `farm-sound.test.mjs`,
+`farm-pipeline.test.mjs`, `browser_farm_v3.py`.
+
+## 6 октября: PICK FARM v3 (задача farm-gameplay-v2)
+
+Продолжение PR #193 на ветке `codex/farm-gameplay-v2` (общая версия `4a76cda` влита).
+Изменены `packages/farm-game` (land, pens, animals, goods, board, daily, FARM_PROTOCOL=3),
+`packages/farm-persistence` (экспорт FARM_PROTOCOL, тесты на protocol 3),
+`services/api/src/farm-controller.ts` (принимает только protocol 3),
+`scripts/contracts.mjs` и `packages/contracts/openapi.json`, клиент
+`apps/mobile/src/games/pick-farm` (Ranch, RanchPanels, ranch-layout, звуки), ассеты и
+генераторы, тесты `tests/mobile/browser_farm_v3.py`, `tests/mobile/farm-ranch.test.mjs`.
+
+Согласие владельца: 6 октября на вопрос о протоколе 3 и передаче серверного
+контроллера и persistence фермы из незакрытой задачи `farm-progression-api` (Mac 1)
+владелец ответил «Да, протокол 3». Инструмент claim не резервирует эти пути, пока
+`farm-progression-api` открыта: Mac 1 стоит закрыть её `finish`.
+
+Не тронуто: `apps/mobile/ios` и TestFlight (резерв `tiptoppay-native13`), поэтому push
+только план; `tests/operations/test_farm_*.py` (резерв `tiptop-historical-fixtures`) -
+протокол фермы там не проверяется. `docs/operations/mobile-testflight.md` описывает
+TestFlight 12 с protocol=2 - это история, не правилось.
+
+Выпуск: API с этим движком (миграций нет), затем TestFlight. Порядок любой: новый клиент
+сам переходит на protocol 2 со старым API. После выкладки API TestFlight 12 попросит
+обновиться. Слияние в общую ветку - только после ревью PR #193.
+
+## 6 октября: PICK FARM v2 (задача farm-gameplay-v2)
+
+Ветка `codex/farm-gameplay-v2` от `239148b`. Изменены `apps/mobile/src/games/pick-farm`,
+`packages/farm-game` (команды `water`, `waterMany`, `harvestMany`, `plantMany`,
+помощники `isWatered`, `canWater`, `growthProgress`, `msUntilReady`), тесты, ассет
+лейки и `packages/contracts/openapi.json` (только добавление команд).
+
+Резерв: `openapi.json` числился за незакрытой задачей `farm-progression-api` (Mac 1,
+статус handoff, её коммиты уже в общей ветке и выкачены вместе с TF12). Владелец
+6 октября разрешил изменить контракт в этой задаче. Инструмент claim не может
+зарезервировать путь, пока та задача открыта: Mac 1 стоит закрыть её `finish`
+после проверки общей ветки.
+
+PR #193, CI 37430727748: фермерские шаги и `pnpm check` прошли; красные `audit:release`
+(новые advisories в неизменённых зависимостях) и прежние browser-проверки POS.
+
+Выпуск: API с этим движком без миграций, затем TestFlight. До выкладки API клиент
+получает 400 INVALID_REQUEST на новые команды и сам переходит на одиночные; полив
+показывает сообщение. Протокол остаётся 2. Проверки и ограничения:
+`docs/operations/pick-farm.md`, `docs/design/pick-farm-v2.md`.
+
 ## 5 октября: TestFlight 0.2.0 (12) опубликована
 
 Apple обработала сборку и включила её в PickChick Internal (2 тестировщика),

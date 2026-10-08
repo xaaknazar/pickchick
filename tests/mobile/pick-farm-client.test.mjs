@@ -148,7 +148,7 @@ test('HTTPS transport validates response, uses bearer header and preserves auth 
   assert.equal(request.headers.Authorization, 'Bearer synthetic-token');
   assert.equal(request.redirect, 'error');
   assert.equal(request.cache, 'no-store');
-  assert.equal(request.url, 'https://example.test/v1/customer-farm?protocol=2');
+  assert.equal(request.url, 'https://example.test/v1/customer-farm?protocol=3');
   await assert.rejects(
     farmRequest('https://example.test', async () =>
       Response.json({ code: 'UNAUTHORIZED' }, { status: 401 }),
@@ -202,4 +202,56 @@ test('protocol mismatch requests an app update and cannot parse or replace saves
     request('token'),
     (e) => e.code === 'FARM_CLIENT_UPGRADE_REQUIRED' && e.status === 503,
   );
+});
+
+test('an API still on protocol 2 is used in legacy mode without touching the save twice', async () => {
+  const f = fixture();
+  const urls = [];
+  const request = farmRequest('https://example.test', async (url, init) => {
+    urls.push(url);
+    if (url.endsWith('protocol=3'))
+      return new Response(JSON.stringify({ code: 'FARM_UNAVAILABLE', minimumProtocol: 2 }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      });
+    if (init.body) f.sent.push(JSON.parse(init.body));
+    return Response.json({ state: f.state, serverNow: 1000 });
+  });
+  const first = await request('token');
+  assert.equal(first.protocol, 2);
+  const intent = {
+    commandId: '00000000-0000-4000-8000-000000000001',
+    expectedRevision: 0,
+    command: { type: 'buyPlot', x: 31, y: 31 },
+  };
+  assert.equal((await request('token', intent)).protocol, 2);
+  assert.deepEqual(urls, [
+    'https://example.test/v1/customer-farm?protocol=3',
+    'https://example.test/v1/customer-farm?protocol=2',
+    'https://example.test/v1/customer-farm/commands?protocol=2',
+  ]);
+  assert.equal(f.sent.filter((x) => x.commandId === intent.commandId).length, 1);
+  // The API is upgraded while the app stays open: the next read speaks protocol 3 again.
+  let upgraded = false;
+  const seen = [];
+  const rolling = farmRequest('https://example.test', async (url) => {
+    seen.push(url.split('protocol=')[1]);
+    const want = upgraded ? '3' : '2';
+    if (!url.endsWith('protocol=' + want))
+      return new Response(
+        JSON.stringify({ code: 'FARM_UNAVAILABLE', minimumProtocol: Number(want) }),
+        { status: 503, headers: { 'content-type': 'application/json' } },
+      );
+    return Response.json({ state: f.state, serverNow: 1000 });
+  });
+  assert.equal((await rolling('token')).protocol, 2);
+  upgraded = true;
+  assert.equal((await rolling('token', intent)).protocol, 3, 'a command steps up after a 503');
+  assert.equal((await rolling('token')).protocol, 3);
+  assert.deepEqual(seen, ['3', '2', '2', '3', '3']);
+  // A current API answers on protocol 3 directly.
+  const current = farmRequest('https://example.test', async () =>
+    Response.json({ state: f.state, serverNow: 1000 }),
+  );
+  assert.equal((await current('token')).protocol, 3);
 });

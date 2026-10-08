@@ -1,25 +1,33 @@
 import {
+  FARM_PROTOCOL,
   FarmCommandSchema,
   FarmStateSchema,
   type FarmCommand,
   type FarmState,
 } from '@pickchick/farm-game';
 
-export type FarmSnapshot = { state: FarmState; serverNow: number };
+/**
+ * `protocol` is the rules version the server accepted. 3 enables land, animals, the order
+ * board and daily rewards; 2 means an API that is not updated yet (legacy mode, those
+ * features stay hidden and are never sent).
+ */
+export type FarmSnapshot = { state: FarmState; serverNow: number; protocol: number };
 export type FarmIntent = { commandId: string; expectedRevision: number; command: FarmCommand };
 export class FarmClientError extends Error {
   readonly code: string;
   readonly status: number;
-  constructor(code: string, status = 0) {
+  readonly minimumProtocol: number | null;
+  constructor(code: string, status = 0, minimumProtocol: number | null = null) {
     super(code);
     this.code = code;
     this.status = status;
+    this.minimumProtocol = minimumProtocol;
   }
 }
 export const FARM_ENABLED = process.env.EXPO_PUBLIC_PICK_FARM === '1';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
-function parseSnapshot(value: unknown): FarmSnapshot {
+function parseSnapshot(value: unknown, protocol: number): FarmSnapshot {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -32,7 +40,7 @@ function parseSnapshot(value: unknown): FarmSnapshot {
     throw new FarmClientError('INVALID_RESPONSE');
   const state = FarmStateSchema.safeParse(value.state);
   if (!state.success) throw new FarmClientError('INVALID_RESPONSE');
-  return { state: state.data, serverNow: value.serverNow };
+  return { state: state.data, serverNow: value.serverNow, protocol };
 }
 
 /** Bounded HTTPS-only transport; the existing account provider owns token rotation. */
@@ -47,12 +55,41 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
     base.pathname !== '/'
   )
     throw new FarmClientError('INVALID_API_URL');
-  return async (token: string, intent?: FarmIntent): Promise<FarmSnapshot> => {
+  // The API rejects an unsupported protocol before reading or mutating the save (503 with the
+  // protocol it runs). The client then speaks that protocol, if it knows it, and retries once.
+  // Every read starts again from the newest protocol, so an API upgraded while the app stays
+  // open (or a rolling deploy) is picked up on the next refresh.
+  let protocol: number = FARM_PROTOCOL;
+  const send = async (token: string, intent?: FarmIntent): Promise<FarmSnapshot> => {
+    if (!intent) protocol = FARM_PROTOCOL;
+    try {
+      return await once(token, intent, protocol);
+    } catch (error) {
+      const wanted = error instanceof FarmClientError ? error.minimumProtocol : null;
+      if (
+        error instanceof FarmClientError &&
+        error.status === 503 &&
+        wanted !== null &&
+        wanted !== protocol &&
+        wanted >= 2 &&
+        wanted <= FARM_PROTOCOL
+      ) {
+        protocol = wanted;
+        return once(token, intent, protocol);
+      }
+      throw error;
+    }
+  };
+  const once = async (
+    token: string,
+    intent: FarmIntent | undefined,
+    version: number,
+  ): Promise<FarmSnapshot> => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetcher(
-        `${base.origin}/v1/customer-farm${intent ? '/commands' : ''}?protocol=2`,
+        `${base.origin}/v1/customer-farm${intent ? '/commands' : ''}?protocol=${version}`,
         {
           method: intent ? 'POST' : 'GET',
           credentials: 'omit',
@@ -103,14 +140,22 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
           value && typeof value === 'object' && 'code' in value && typeof value.code === 'string'
             ? value.code
             : 'INVALID_RESPONSE';
+        const minimum =
+          value &&
+          typeof value === 'object' &&
+          'minimumProtocol' in value &&
+          typeof value.minimumProtocol === 'number'
+            ? value.minimumProtocol
+            : null;
         throw new FarmClientError(
           value && typeof value === 'object' && 'minimumProtocol' in value
             ? 'FARM_CLIENT_UPGRADE_REQUIRED'
             : code,
           response.status,
+          minimum,
         );
       }
-      return parseSnapshot(value);
+      return parseSnapshot(value, version);
     } catch (error) {
       if (error instanceof FarmClientError) throw error;
       throw new FarmClientError('NETWORK_UNAVAILABLE');
@@ -118,6 +163,7 @@ export function farmRequest(baseUrl: string, fetcher: typeof fetch = fetch) {
       clearTimeout(timeout);
     }
   };
+  return send;
 }
 
 type FarmClientIO = {

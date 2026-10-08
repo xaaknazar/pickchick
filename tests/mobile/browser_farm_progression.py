@@ -83,8 +83,20 @@ with sync_playwright() as p:
             expect(page.get_by_test_id('pick-farm-screen')).to_be_visible()
             expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
             page.wait_for_function('Array.from(document.images).every(i => i.complete)')
+            page.wait_for_timeout(300)
+            celebrate()
+
+        def celebrate():
+            # A confirmed level-up shows a celebration card; dismiss it like a player would.
+            page.wait_for_timeout(200)
+            if page.get_by_test_id('pick-farm-level-up').count():
+                page.get_by_test_id('pick-farm-level-up').click()
+            # The daily gift greets a returning player once per visit; this journey skips it.
+            if page.get_by_test_id('pick-farm-daily').count():
+                page.get_by_role('button', name='Позже', exact=True).click()
 
         def close():
+            celebrate()
             page.get_by_role('button', name='Закрыть панель', exact=True).click()
 
         def tap(x, y):
@@ -102,8 +114,10 @@ with sync_playwright() as p:
             # Assertions inspect acknowledged engine state, not an optimistic local receipt.
             assert len(calls) == before + 1, (kind, calls)
             assert calls[-1]['command']['type'] == kind
+            celebrate()
 
         def shop(section=None):
+            celebrate()
             page.get_by_test_id('pick-farm-shop').click()
             if section:
                 page.get_by_role('button', name=section, exact=True).click()
@@ -114,19 +128,24 @@ with sync_playwright() as p:
             shop()
             page.get_by_role('button', name='Грядка - 150 монет', exact=True).click()
             command(lambda: page.get_by_role('button', name='Разместить - 150 монет', exact=True).click(), 'buyPlot')
+            # Building continues after a purchase; leave it explicitly.
+            page.get_by_role('button', name='Отменить размещение', exact=True).click()
             bed = saved['state']['plots'][0]
-            tap(bed['x'], bed['y'])
-            page.get_by_role('button', name='Посадить', exact=True).click()
+            tap(bed['x'], bed['y'])  # An empty bed opens the seed bar directly.
             command(lambda: page.get_by_test_id('pick-farm-seed-carrot').click(), 'plant')
             assert saved['state']['plots'][0]['timing']['growSeconds'] == 45
             saved['now'] += 44000
             reload()
             tap(bed['x'], bed['y'])
-            assert calls[-1]['command']['type'] == 'plant'  # No premature harvest.
-            close()
+            page.wait_for_timeout(1500)
+            # A growing carrot is watered by touch; it is never harvested early.
+            assert calls[-1]['command']['type'] in ('plant', 'water'), calls[-1]
             saved['now'] += 1000
             reload()
             command(lambda: tap(bed['x'], bed['y']), 'harvest')
+            # Narrow screens keep tasks in the HUD tray.
+            if not page.get_by_role('button', name='Задания Алекса', exact=True).count():
+                page.get_by_test_id('pick-farm-hud-more').click()
             page.get_by_role('button', name='Задания Алекса', exact=True).click()
             command(lambda: page.get_by_test_id('pick-farm-quest-first-harvest').click(), 'claimQuest')
             expect(page.get_by_test_id('pick-farm-quest-first-harvest')).to_have_count(0)
@@ -143,7 +162,6 @@ with sync_playwright() as p:
             command(lambda: page.get_by_test_id('pick-farm-reserve-welcome-basket').click(), 'setOrderReserve')
             close()
             tap(bed['x'], bed['y'])
-            page.get_by_role('button', name='Посадить', exact=True).click()
             command(lambda: page.get_by_test_id('pick-farm-seed-carrot').click(), 'plant')
             saved['now'] += 45000
             reload()

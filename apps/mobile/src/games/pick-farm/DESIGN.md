@@ -78,6 +78,22 @@ components:
 
 # Design System: Pick Farm
 
+## October 6 v2 interaction layer
+
+Actions are shown at once from an engine-validated prediction (`pipeline.ts`) and
+confirmed in order; coins and XP in the HUD come only from confirmed state. Tap: ripe
+harvests, withered clears, unwatered growing waters, empty bed opens the compact seed bar
+(bottom strip, the bed stays visible). Sweep from an actionable object repeats that action
+along the path, batched into one command. Hold 320 ms (fill ring) lifts an object that
+follows the finger; the field scrolls near screen edges. Two fingers pinch and pan,
+double tap on grass zooms, mouse wheel zooms on web. Status badges keep a readable screen
+size (13-26 px): forest basket for ripe, brown leaf for withered, a small water drop at
+the bed front for "needs water" (hidden at overview). Watered soil is darker. Effects:
+watering can and shower, produce/coins flying to HUD counters, rising +N labels, leaf puff
+on clearing, level-up card with unlocks. One hop when a badge appears; still no perpetual
+sway. Grass covers the screen at every zoom; the first view frames the garden.
+The watering can is original procedural art (`build-watering-can.py`).
+
 ## October 5 progression extension
 
 No bottom tool dock is rendered. Tap ripe crops to harvest; sweep across ripe crops
@@ -146,7 +162,7 @@ Soft rectangular controls use the rounded scale, with panels and dock at its lar
 
 Buttons use cream for secondary actions and forest for primary actions. Pressed opacity is 0.75; disabled opacity is 0.48. The bottom dock is removed; actions are contextual. Metrics sit in translucent forest pills. Cream panels expose shop, storage, orders, plot details, removal confirmation and help; choices use a warmer parchment inset. Shop purchase actions lead the panel: the bed button uses forest primary styling, with the tree button beside it. The culture strip follows with a visible scroll cue and compact 52 pixel crop previews; storage uses 64 pixel previews. The shop has no introductory text block. There is no standalone text-input component in this surface.
 
-The imagery sources are meadow-painted-v2.png, props-painted-v2.png and plants-painted-v2.png. The props atlas provides the house; soil-texture-v3.png provides a top-down generated soil texture projected to the exact ground diamond; the plants atlas contains six columns and three phase rows, giving 18 crop sprites. Use clipped source coordinates from visuals.tsx rather than substituting emoji or screenshots. Decorative images remain outside the accessibility tree; actionable plots keep their own labels.
+The ground is one generated grass cell (grass-tile.png) repeated on every cell through grass-block.png; the other imagery sources are props-painted-v2.png and plants-painted-v2.png. The props atlas provides the house; soil-texture-v3.png provides a top-down generated soil texture projected to the exact ground diamond; the plants atlas contains six columns and three phase rows, giving 18 crop sprites. Use clipped source coordinates from visuals.tsx rather than substituting emoji or screenshots. Decorative images remain outside the accessibility tree; actionable plots keep their own labels.
 
 ## Do's and Don'ts
 
@@ -190,3 +206,15 @@ surface. Planting animation affects only seeds/plants, never the bed footprint.
 Seeds follow two projected rows. Early sprouts reuse the crop-specific art at a small
 size over the same soil, avoiding a second mismatched soil sprite. Empty soil hit testing
 uses that same diamond, while foliage retains alpha hit masks. No economy or API change.
+
+## Farm v3 world - 6 October 2026
+
+- Locked land: darker wild grass in the ground plane, a light edge around the open square,
+  wooden sale signs. Never hide locked cells: the player should see what can be bought.
+- Coop and barn live behind the field (`ranch-layout.ts`), art from `build-v3-art.py`
+  in the 2:1 projection at 52 px per unit (scaled 48/52 in the game). Animals stand on
+  fixed yard spots, idle moves are short and rare and stop with reduced motion.
+- Buildings and land open a side sheet; the camera moves the object into the free part.
+- Scenery only outside the field, pens and workshops (unit-tested).
+- Sounds are off by default and short; one effect per action, a sweep plays at most one
+  per 70 ms.

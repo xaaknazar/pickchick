@@ -189,13 +189,13 @@ test('durable farm: concurrency, replay, collision, rollback, clock and isolatio
       progression = result.state;
       return { input, result };
     }
-    const decoration = await run({ type: 'buyDecoration', decorationId: 'path', x: 20, y: 20 });
+    const decoration = await run({ type: 'buyDecoration', decorationId: 'path', x: 27, y: 27 });
     const duplicate = await farm.command(progressionCustomer, decoration.input);
     assert.deepEqual(duplicate.state, progression);
     assert.equal(progression.progression.decorations.length, 1);
     await run({ type: 'storeDecoration', instanceId: 0 });
-    await run({ type: 'placeDecoration', instanceId: 0, x: 21, y: 21 });
-    await run({ type: 'moveDecoration', instanceId: 0, x: 22, y: 22 });
+    await run({ type: 'placeDecoration', instanceId: 0, x: 28, y: 28 });
+    await run({ type: 'moveDecoration', instanceId: 0, x: 29, y: 29 });
     await run({ type: 'setHouseStyle', style: 'mint' });
     await run({ type: 'buyStation', stationId: 'kitchen' });
     const production = await run({ type: 'startProduction', recipeId: 'jam' });

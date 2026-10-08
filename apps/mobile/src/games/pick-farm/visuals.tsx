@@ -8,7 +8,7 @@ import { useGameCardHeight } from '../ArcadeCard';
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 import { PLANTING_BOUNDS, HOUSE_DISPLAY_CELL, type CropId } from '@pickchick/farm-game';
-import { isoPoint, GROUND_TRANSFORM, TILE_WIDTH } from './geometry';
+import { isoPoint, GROUND_TRANSFORM, TILE_WIDTH, GRASS_CELLS } from './geometry';
 export { isoPoint, cellAtPoint } from './geometry';
 
 // Generated atlases remain intact. Each view clips its own source rectangle.
@@ -191,6 +191,52 @@ export function CellOutline({
     />
   );
 }
+
+const GRASS_BLOCK = 8;
+const grassBlock = require('../../../assets/games/pick-farm/grass-block.png');
+/**
+ * Ground made of one generated grass cell repeated everywhere. The plane is drawn as
+ * square blocks (8x8 cells each) and projected with the same transform as the soil, so
+ * every grass square lands exactly on one field cell. Centered on cell (31.5, 31.5).
+ */
+export const GrassGround = memo(function GrassGround() {
+  const side = GRASS_CELLS * TILE_WIDTH;
+  const center = isoPoint(31.5, 31.5);
+  const blocks = GRASS_CELLS / GRASS_BLOCK;
+  const block = GRASS_BLOCK * TILE_WIDTH;
+  return (
+    <View
+      pointerEvents="none"
+      accessible={false}
+      testID="pick-farm-grass"
+      style={{
+        position: 'absolute',
+        left: center.x - side / 2,
+        top: center.y - side / 2,
+        width: side,
+        height: side,
+        transform: GROUND_TRANSFORM,
+      }}
+    >
+      {Array.from({ length: blocks * blocks }, (_, i) => (
+        <NativeImage
+          key={i}
+          source={grassBlock}
+          resizeMode="stretch"
+          accessible={false}
+          style={{
+            position: 'absolute',
+            // A hair of overlap hides seams from sub-pixel rounding after the transform.
+            left: (i % blocks) * block - 0.5,
+            top: Math.floor(i / blocks) * block - 0.5,
+            width: block + 1,
+            height: block + 1,
+          }}
+        />
+      ))}
+    </View>
+  );
+});
 
 export const Landscape = memo(function Landscape({
   grid = false,
