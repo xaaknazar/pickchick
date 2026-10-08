@@ -370,6 +370,18 @@ APP_ENV=staging   (+ прочие обязательные platform env, как 
 `{"event":"kiosk_kaspi_qr","submitted":0,"checked":0,"errors":0,"sessionProblem":false,"unknownOverdue":0}`,
 затем постоянный режим; в логах только счётчики. Отключённый worker пишет `state:"disabled"`.
 
+### A3a. Касса: миграция edge017 до включения киоска (обязательно)
+
+На кассе по документам стоит edge schema015. Канал `kiosk` в `fulfillment_reservations`
+разрешает только `db/edge/migrations/017_edge_kiosk_prepaid.sql`. Если включить QR account
+раньше, резерв первого же заказа киоска упадёт на CHECK, FulfillmentWorker будет бесконечно
+повторять это событие (облако выдаёт по одному), и **встанет передача на кухню оплаченных
+заказов мобильного приложения**. С 839dd2f киоск больше не ждёт ACK меню, поэтому этот порядок
+держится только регламентом: сначала edge016/017 на кассе (`@windows/cashier`, штатный
+upgrade с backup), проверка `schema_migrations` = 17, затем A7. Долгосрочно: касса сообщает
+поддерживаемые каналы, `config()` киоска их проверяет, а worker паркует неповторяемые ошибки БД
+(см. `docs/audits/2026-10-08-system-audit.md`).
+
 ### A4. Меню: одна публикация для бэк-офиса, приложения и киоска
 
 Мобильное приложение и киоск читают **одну и ту же** опубликованную версию
@@ -401,7 +413,7 @@ APP_ENV=staging   (+ прочие обязательные platform env, как 
 
 ### A7. Включение QR account
 
-Только после A2-A6 и публикации меню (A4): `UPDATE commerce_provider_accounts SET enabled=true
+Только после A2-A6, публикации меню (A4) и установки edge017 на кассу (A3a): `UPDATE commerce_provider_accounts SET enabled=true
 WHERE id='<QR account>' AND provider='kaspi-qr' AND kind='payment'` - через профиль
 (шаг с собственным proof), не вручную. Проверка: `GET /config` ->
 `enabled:true`, `paymentMethod:"kaspi_qr"`, `paymentMethods` содержит `kaspi_qr`.
