@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import {
   Body,
+  Catch,
   Controller,
   Get,
   Headers,
@@ -9,9 +11,49 @@ import {
   Param,
   Post,
   Put,
+  UseFilters,
 } from '@nestjs/common';
+import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { CATALOG_ADMIN, CatalogAdmin, CatalogAdminError } from '@pickchick/catalog-admin';
+import type { CatalogErrorCode, CatalogErrorReason } from '@pickchick/catalog-admin';
+const statuses: Record<CatalogErrorCode, number> = {
+  INVALID_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  SERVICE_UNAVAILABLE: 503,
+};
+/** Carries only the stable reason code; never a message, stack or database detail. */
+class CatalogReasonException extends HttpException {
+  constructor(
+    readonly code: CatalogErrorCode,
+    readonly reason: CatalogErrorReason,
+  ) {
+    super({ code }, statuses[code]);
+  }
+}
+/** Standard error envelope plus `error: {code}` with the precise publication reason. */
+@Catch(CatalogReasonException)
+class CatalogReasonFilter implements ExceptionFilter {
+  catch(error: CatalogReasonException, host: ArgumentsHost) {
+    const http = host.switchToHttp();
+    const request = http.getRequest<{ traceId?: string }>();
+    const status = error.getStatus();
+    http
+      .getResponse<{ status(code: number): { json(body: unknown): void } }>()
+      .status(status)
+      .json({
+        code: error.code,
+        message_key: `errors.${error.code.toLowerCase()}`,
+        trace_id: request.traceId ?? randomUUID(),
+        retryable: status === 503,
+        error: { code: error.reason },
+      });
+  }
+}
 @Controller('v1')
+@UseFilters(CatalogReasonFilter)
 export class CatalogAdminController {
   constructor(@Inject(CATALOG_ADMIN) private readonly catalog: CatalogAdmin) {}
   private token(value?: string) {
@@ -22,14 +64,7 @@ export class CatalogAdminController {
       return await run();
     } catch (error) {
       if (error instanceof CatalogAdminError) {
-        const statuses = {
-          INVALID_REQUEST: 400,
-          UNAUTHORIZED: 401,
-          FORBIDDEN: 403,
-          NOT_FOUND: 404,
-          CONFLICT: 409,
-          SERVICE_UNAVAILABLE: 503,
-        };
+        if (error.reason) throw new CatalogReasonException(error.code, error.reason);
         throw new HttpException({ code: error.code }, statuses[error.code]);
       }
       throw error;

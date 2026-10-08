@@ -5,6 +5,8 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { catalogAdminGrants } from '../../infra/staging/catalog-admin-grants.mjs';
+import { catalogAccessGrants } from '../../infra/staging/catalog-edge-grants.mjs';
+import { backofficeGrants } from '../../infra/staging/backoffice-grants.mjs';
 import {
   CatalogAdmin,
   CatalogAdminError,
@@ -102,7 +104,15 @@ test('production-shaped grants allow row locks without permitting credential or 
         runtime.query('UPDATE catalog_managers SET lock_anchor=true'),
         (e) => e.code === '42501',
       );
-      assert.equal((await new CatalogAdmin(runtime).publicCatalog(ctx.branch)).version, 1);
+      // The public read follows the editor flag; a published version survives disabling it.
+      await assert.rejects(
+        new CatalogAdmin(runtime).publicCatalog(ctx.branch),
+        isError('SERVICE_UNAVAILABLE'),
+      );
+      assert.equal(
+        (await new CatalogAdmin(runtime, { enabled: true }).publicCatalog(ctx.branch)).version,
+        1,
+      );
       await assert.rejects(
         runtime.query('SELECT token_hash FROM catalog_managers'),
         (e) => e.code === '42501',
@@ -554,4 +564,198 @@ test('HTTP catalog routes require scoped Bearer for editing and expose only the 
     } finally {
       await app.close();
     }
+  }));
+
+async function catalogHttp(ctx, service, run) {
+  const { createRequire } = await import('node:module');
+  const require = createRequire(new URL('../../services/api/package.json', import.meta.url));
+  const { Module } = require('@nestjs/common');
+  const { createHttpApplication, RESOURCE } = await import('@pickchick/platform');
+  const { CatalogAdminController } =
+    await import('../../services/api/dist/catalog-admin-controller.js');
+  const { CATALOG_ADMIN } = await import('../../packages/catalog-admin/dist/index.js');
+  class CatalogRoleTestModule {}
+  Module({
+    controllers: [CatalogAdminController],
+    providers: [
+      { provide: CATALOG_ADMIN, useValue: service },
+      {
+        provide: RESOURCE,
+        useValue: {
+          config: ctx.cloud.config,
+          admission: { intercept: (_ctx, next) => next.handle() },
+        },
+      },
+    ],
+  })(CatalogRoleTestModule);
+  const app = await createHttpApplication(CatalogRoleTestModule);
+  try {
+    await app.listen(0, '127.0.0.1');
+    const base = await app.getUrl();
+    await run(async (path, method, body, token) => {
+      const response = await fetch(base + path, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      assert.match(response.headers.get('cache-control'), /no-store/);
+      return { status: response.status, body: await response.json() };
+    });
+  } finally {
+    await app.close();
+  }
+}
+
+test('role enforcement: no grant is forbidden, analyst only reads, manager writes, under production grants', async () =>
+  fixture(async (ctx) => {
+    const analyst = await provisionCatalogManager(ctx.pool, {
+      organization_id: ctx.org,
+      name: 'Synthetic analyst',
+      branch_ids: [ctx.branch],
+    });
+    const role = 'catalog_roles_' + randomUUID().replaceAll('-', '');
+    await ctx.cloud.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      await ctx.pool.query(
+        `GRANT USAGE ON SCHEMA ${ctx.cloud.schema} TO ${role}; GRANT SELECT ON branches TO ${role}`,
+      );
+      // Same order as provisioning: a disabled back-office revokes, catalog access re-grants.
+      await ctx.pool.query(catalogAdminGrants(role, true));
+      await ctx.pool.query(backofficeGrants(role, false));
+      await ctx.pool.query(catalogAccessGrants(role, true));
+      const url = new URL(ctx.cloud.config.databaseUrl);
+      url.searchParams.set('options', `-c search_path=${ctx.cloud.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 2);
+      const service = new CatalogAdmin(runtime, { enabled: true, enforceRoles: true });
+      const seedBody = () => ({ expected_revision: 0, request_id: randomUUID() });
+      await assert.rejects(service.read(ctx.manager.token, ctx.branch), isError('FORBIDDEN'));
+      await assert.rejects(
+        service.seed(ctx.manager.token, ctx.branch, seedBody()),
+        isError('FORBIDDEN'),
+      );
+      await ctx.pool.query(
+        "INSERT INTO bo_access_grants(actor_id,branch_id,role) VALUES($1,$3,'manager'),($2,$3,'analyst')",
+        [ctx.manager.actor_id, analyst.actor_id, ctx.branch],
+      );
+      await assert.rejects(
+        service.seed(analyst.token, ctx.branch, seedBody()),
+        isError('FORBIDDEN'),
+      );
+      let state = await service.seed(ctx.manager.token, ctx.branch, seedBody());
+      assert.equal((await service.read(analyst.token, ctx.branch)).draft.revision, 1);
+      const payload = structuredClone(state.draft.payload);
+      payload.content_reviewed = true;
+      const save = (token) =>
+        service.save(token, ctx.branch, {
+          expected_revision: state.draft.revision,
+          request_id: randomUUID(),
+          payload,
+        });
+      await assert.rejects(save(analyst.token), isError('FORBIDDEN'));
+      state = await save(ctx.manager.token);
+      const publish = (token) =>
+        service.publish(token, ctx.branch, {
+          expected_revision: state.draft.revision,
+          expected_published_version: 0,
+          request_id: randomUUID(),
+          confirmation: 'publish_catalog',
+        });
+      await catalogHttp(ctx, service, async (request) => {
+        const path = '/v1/admin/catalog/branches/' + ctx.branch;
+        const read = await request(path, 'GET', undefined, analyst.token);
+        assert.equal(read.status, 200);
+        assert.equal(read.body.draft.revision, state.draft.revision);
+        const put = await request(
+          path + '/draft',
+          'PUT',
+          { expected_revision: state.draft.revision, request_id: randomUUID(), payload },
+          analyst.token,
+        );
+        assert.equal(put.status, 403);
+        assert.equal(put.body.code, 'FORBIDDEN');
+        assert.equal(put.body.error, undefined);
+        const denied = await request(
+          path + '/publish',
+          'POST',
+          {
+            expected_revision: state.draft.revision,
+            expected_published_version: 0,
+            request_id: randomUUID(),
+            confirmation: 'publish_catalog',
+          },
+          analyst.token,
+        );
+        assert.equal(denied.status, 403);
+      });
+      await assert.rejects(publish(analyst.token), isError('FORBIDDEN'));
+      assert.equal((await publish(ctx.manager.token)).published.version, 1);
+      assert.equal((await service.read(analyst.token, ctx.branch)).published.version, 1);
+      // Disabled enforcement keeps the legacy token-scope behaviour (default in production).
+      const legacy = new CatalogAdmin(runtime, { enabled: true });
+      state = await legacy.read(analyst.token, ctx.branch);
+      assert.equal(
+        (
+          await legacy.save(analyst.token, ctx.branch, {
+            expected_revision: state.draft.revision,
+            request_id: randomUUID(),
+            payload: state.draft.payload,
+          })
+        ).draft.revision,
+        state.draft.revision + 1,
+      );
+      for (const sql of [
+        "UPDATE bo_access_grants SET role='manager'",
+        'DELETE FROM bo_access_grants',
+        `INSERT INTO bo_access_grants(actor_id,branch_id,role) VALUES('${randomUUID()}','${ctx.branch}','manager')`,
+      ])
+        await assert.rejects(runtime.query(sql), (e) => e.code === '42501');
+      await assert.rejects(
+        runtime.query('UPDATE bo_access_grants SET lock_anchor=false'),
+        immutable,
+      );
+    } finally {
+      if (runtime) await runtime.end();
+      await ctx.pool.query(`DROP OWNED BY ${role}`);
+      await ctx.cloud.admin.query(`DROP ROLE ${role}`);
+    }
+  }));
+
+test('HTTP publication errors expose only the precise reason code', async () =>
+  fixture(async (ctx) => {
+    let state = await ctx.seed();
+    const payload = structuredClone(state.draft.payload);
+    payload.content_reviewed = true;
+    payload.products[0].channel_prices_minor = { kiosk: '100' };
+    state = await ctx.save(state, payload);
+    await catalogHttp(ctx, ctx.service, async (request) => {
+      const response = await request(
+        '/v1/admin/catalog/branches/' + ctx.branch + '/publish',
+        'POST',
+        {
+          expected_revision: state.draft.revision,
+          expected_published_version: 0,
+          request_id: randomUUID(),
+          confirmation: 'publish_catalog',
+        },
+        ctx.manager.token,
+      );
+      assert.equal(response.status, 409);
+      const { error, ...envelope } = response.body;
+      assert.deepEqual(error, { code: 'CHANNEL_PRICES_NOT_SUPPORTED' });
+      assert.deepEqual(Object.keys(envelope).sort(), [
+        'code',
+        'message_key',
+        'retryable',
+        'trace_id',
+      ]);
+      assert.equal(envelope.code, 'CONFLICT');
+      assert.equal(envelope.message_key, 'errors.conflict');
+      assert.equal(envelope.retryable, false);
+      assert.match(envelope.trace_id, /^[a-f0-9-]{36}$/);
+    });
+    assert.equal((await ctx.service.read(ctx.manager.token, ctx.branch)).published, null);
   }));

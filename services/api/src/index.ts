@@ -20,6 +20,7 @@ import {
   Headers,
   HttpCode,
   HttpException,
+  Query,
 } from '@nestjs/common';
 import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
 import {
@@ -111,6 +112,16 @@ class BranchesController {
   }
 }
 
+/**
+ * Optional edge-reported active menu (EdgeMenuStateQuerySchema, validated by pullMenu).
+ * Other query keys stay ignored as before; a partial or malformed pair is a 400 with no echo.
+ */
+function edgeMenuState(query: Record<string, unknown>) {
+  const { active_release_id: releaseId, active_version: version } = query;
+  if (releaseId === undefined && version === undefined) return undefined;
+  return { active_release_id: releaseId, active_version: version };
+}
+
 @Controller('internal/v1/edge/sync')
 class MenuSyncController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
@@ -119,6 +130,7 @@ class MenuSyncController {
     deviceId: string | undefined,
     authorization: string | undefined,
     body?: unknown,
+    query: Record<string, unknown> = {},
   ) {
     const auth = {
       deviceId: deviceId ?? '',
@@ -126,7 +138,7 @@ class MenuSyncController {
     };
     try {
       return body === undefined
-        ? await pullMenu(this.resources.pool, auth)
+        ? await pullMenu(this.resources.pool, auth, edgeMenuState(query))
         : await acknowledgeMenu(this.resources.pool, auth, body);
     } catch (error) {
       if (error instanceof SyncError) {
@@ -139,10 +151,11 @@ class MenuSyncController {
 
   @Get('pull')
   pull(
+    @Query() query: Record<string, unknown>,
     @Headers('x-device-id') deviceId?: string,
     @Headers('authorization') authorization?: string,
   ) {
-    return this.execute(deviceId, authorization);
+    return this.execute(deviceId, authorization, undefined, query);
   }
 
   @Post('ack')

@@ -4,6 +4,7 @@ import { loadConfig } from '@pickchick/platform';
 import { customerAuthGrants } from './customer-auth-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
+import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 import { cloudPosSyncGrants } from './pos-sync-grants.mjs';
 import { customerCheckoutGrants } from './checkout-grants.mjs';
@@ -64,6 +65,7 @@ async function provision() {
         GRANT UPDATE (attempts, acknowledged_at) ON outbox_events TO pickchick_app;
         GRANT INSERT, UPDATE ON branch_menu_activations TO pickchick_app;
         GRANT INSERT ON inbox_messages TO pickchick_app;`);
+      await client.query(edgeMenuStateGrants('pickchick_app'));
       // TEST storage is isolated from sales. Runtime cannot issue/revoke staff
       // through HTTP, rewrite quotes/outbox or mutate the migration ledger.
       await client.query(`REVOKE ALL ON test_flow_lock, test_actors, test_quotes,
@@ -93,6 +95,7 @@ async function provision() {
       );
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
+      await client.query(catalogAccessGrants('pickchick_app', config.catalogAdminEnabled === true));
       // Validate the complete owner/branch policy before enabling checkout privileges.
       await client.query(
         customerCheckoutGrants('pickchick_app', customerCheckoutOptions(process.env) !== null),

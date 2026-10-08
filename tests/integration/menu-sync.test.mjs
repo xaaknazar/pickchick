@@ -322,3 +322,182 @@ test('pull redelivers oldest event; ACK gaps and wrong checksum are rejected', a
     await assert.rejects(applyMenu(edge.pool, branch, stale), isConflict);
   });
 });
+
+const ackFor = (event, extra = {}) => ({
+  event_id: event.event_id,
+  producer_id: event.producer_id,
+  producer_sequence: event.producer_sequence,
+  branch_id: event.branch_id,
+  release_id: event.aggregate_id,
+  checksum: event.payload.checksum,
+  ...extra,
+});
+
+test('rejected ACK keeps strict order, never activates, records the verdict and unblocks the next event', async () => {
+  await withSyncDatabases(async ({ cloud, device, menu }) => {
+    const auth = authFor(await provisionDevice(cloud.pool, device));
+    const first = await publishMenu(cloud.pool, menu());
+    const second = await publishMenu(cloud.pool, menu(2));
+    for (const invalid of [
+      ackFor(first, { result: 'rejected' }),
+      ackFor(first, { reason: 'INVALID_MENU' }),
+      ackFor(first, { result: 'applied', reason: 'INVALID_MENU' }),
+      ackFor(first, { result: 'rejected', reason: 'SOMETHING_ELSE' }),
+    ])
+      await assert.rejects(
+        acknowledgeMenu(cloud.pool, auth, invalid),
+        (e) => e.code === 'INVALID_REQUEST',
+      );
+    await assert.rejects(
+      acknowledgeMenu(
+        cloud.pool,
+        auth,
+        ackFor(second, { result: 'rejected', reason: 'INVALID_MENU' }),
+      ),
+      isConflict,
+      'a rejection cannot skip the oldest pending event',
+    );
+    const reject = ackFor(first, { result: 'rejected', reason: 'VERSION_NOT_NEWER' });
+    await acknowledgeMenu(cloud.pool, auth, reject);
+    await acknowledgeMenu(cloud.pool, auth, reject);
+    await assert.rejects(acknowledgeMenu(cloud.pool, auth, ackFor(first)), isConflict);
+    assert.equal(
+      (await cloud.pool.query('SELECT count(*)::int n FROM branch_menu_activations')).rows[0].n,
+      0,
+    );
+    assert.deepEqual((await pullMenu(cloud.pool, auth)).event, second);
+    // Applied ACKs without `result` stay byte-identical to the old protocol.
+    await acknowledgeMenu(cloud.pool, auth, ackFor(second));
+    assert.equal(
+      (await cloud.pool.query('SELECT release_id FROM branch_menu_activations')).rows[0].release_id,
+      second.aggregate_id,
+    );
+    assert.deepEqual(
+      (
+        await cloud.pool.query(
+          'SELECT r.result,r.reason,m.version FROM catalog_menu_delivery_results r JOIN menu_releases m ON m.id=r.release_id ORDER BY m.version',
+        )
+      ).rows,
+      [
+        { result: 'rejected', reason: 'VERSION_NOT_NEWER', version: 1 },
+        { result: 'applied', reason: null, version: 2 },
+      ],
+    );
+    assert.equal(
+      (
+        await cloud.pool.query('SELECT payload_hash FROM inbox_messages WHERE event_id=$1', [
+          second.event_id,
+        ])
+      ).rows[0].payload_hash,
+      hashJson(ackFor(second)),
+    );
+    assert.equal((await pullMenu(cloud.pool, auth)).event, null);
+  });
+});
+
+test('HTTP pull records the reported edge menu; malformed reports are rejected without echo', async () => {
+  await withSyncDatabases(async ({ cloud, device, branch }) => {
+    const identity = await provisionDevice(cloud.pool, device);
+    const api = await running(createApi, cloud.config);
+    const release = randomUUID();
+    const pull = (query) =>
+      request(`${api.url}/internal/v1/edge/sync/pull${query}`, { headers: headersFor(identity) });
+    const state = async () =>
+      (
+        await cloud.pool.query(
+          'SELECT device_id,active_release_id,active_version FROM edge_menu_state WHERE branch_id=$1',
+          [branch],
+        )
+      ).rows[0];
+    try {
+      const plain = await pull('?branch_id=ignored');
+      assert.equal(plain.status, 200);
+      assert.deepEqual(await plain.json(), { event: null });
+      assert.equal(await state(), undefined);
+      const reported = await pull(`?active_release_id=${release}&active_version=2`);
+      assert.equal(reported.status, 200);
+      assert.deepEqual(await state(), {
+        device_id: device,
+        active_release_id: release,
+        active_version: 2,
+      });
+      for (const query of [
+        `?active_release_id=${release}`,
+        '?active_version=3',
+        `?active_release_id=${release}&active_version=3x`,
+        `?active_release_id=${release}&active_version=0`,
+        `?active_release_id=${release}&active_version=3&active_version=4`,
+        `?active_release_id=probe-${'z'.repeat(20)}&active_version=3`,
+        `?active_release_id=${release}&active_version=99999999999`,
+      ]) {
+        const response = await pull(query);
+        assert.equal(response.status, 400, query);
+        const text = await response.text();
+        assert.equal(text.includes('probe-'), false);
+        assert.equal(text.includes('3x'), false);
+        const body = JSON.parse(text);
+        assert.equal(ErrorSchema.parse(body).code, 'INVALID_REQUEST');
+      }
+      const unauthorized = await request(
+        `${api.url}/internal/v1/edge/sync/pull?active_release_id=${release}&active_version=9`,
+        { headers: { ...headersFor(identity), Authorization: `Bearer ${'0'.repeat(64)}` } },
+      );
+      assert.equal(unauthorized.status, 401);
+      assert.equal((await state()).active_version, 2);
+    } finally {
+      await api.app.close();
+    }
+  });
+});
+
+test('least-privilege runtime records edge state and verdicts but cannot rewrite them', async () => {
+  const { edgeMenuStateGrants } = await import('../../infra/staging/catalog-edge-grants.mjs');
+  await withSyncDatabases(async ({ cloud, device, menu }) => {
+    const identity = await provisionDevice(cloud.pool, device);
+    const first = await publishMenu(cloud.pool, menu());
+    const role = 'menu_runtime_' + randomUUID().replaceAll('-', '');
+    await cloud.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      // Mirrors the always-on menu sync part of infra/staging/provision.mjs.
+      await cloud.pool.query(`GRANT USAGE ON SCHEMA ${cloud.schema} TO ${role};
+        GRANT SELECT ON branches, devices, menu_releases, branch_menu_activations, outbox_events,
+          inbox_messages, device_credentials, menu_streams TO ${role};
+        GRANT UPDATE (id) ON branches, devices TO ${role};
+        GRANT UPDATE (device_id) ON device_credentials TO ${role};
+        GRANT UPDATE (attempts, acknowledged_at) ON outbox_events TO ${role};
+        GRANT INSERT, UPDATE ON branch_menu_activations TO ${role};
+        GRANT INSERT ON inbox_messages TO ${role};
+        ${edgeMenuStateGrants(role)}`);
+      const url = new URL(cloud.config.databaseUrl);
+      url.searchParams.set('options', `-c search_path=${cloud.schema} -c role=${role}`);
+      runtime = createPool(url.toString(), 2);
+      const auth = authFor(identity);
+      await pullMenu(runtime, auth, { active_release_id: randomUUID(), active_version: 2 });
+      const current = { active_release_id: randomUUID(), active_version: 3 };
+      assert.deepEqual((await pullMenu(runtime, auth, current)).event, first);
+      await acknowledgeMenu(
+        runtime,
+        auth,
+        ackFor(first, { result: 'rejected', reason: 'MEDIA_UNAVAILABLE' }),
+      );
+      assert.equal(
+        (await cloud.pool.query('SELECT active_version FROM edge_menu_state')).rows[0]
+          .active_version,
+        3,
+      );
+      for (const sql of [
+        `UPDATE edge_menu_state SET device_id='${randomUUID()}'`,
+        `UPDATE edge_menu_state SET branch_id='${randomUUID()}'`,
+        'DELETE FROM edge_menu_state',
+        'DELETE FROM catalog_menu_delivery_results',
+        "UPDATE catalog_menu_delivery_results SET result='applied'",
+      ])
+        await assert.rejects(runtime.query(sql), (e) => e.code === '42501', sql);
+    } finally {
+      if (runtime) await runtime.end();
+      await cloud.pool.query(`DROP OWNED BY ${role}`);
+      await cloud.admin.query(`DROP ROLE ${role}`);
+    }
+  });
+});
