@@ -39,7 +39,8 @@ class FinanceDashboardRelease(unittest.TestCase):
             bad = copy.copy(args); setattr(bad, name, '0'*len(getattr(bad, name)))
             with self.assertRaises(r.market.GuardFailure): r.Release(bad)
         obj = object.__new__(r.Release)
-        obj.git = lambda *args: '\n'.join('db/cloud/migrations/'+p.name for p in (ROOT/'db/cloud/migrations').glob('*.sql'))
+        # git ls-tree of the schema044 baseline: later migrations (045+) are not part of it.
+        obj.git = lambda *args: '\n'.join('db/cloud/migrations/'+p.name for p in (ROOT/'db/cloud/migrations').glob('*.sql') if p.name[:3] <= '044')
         self.assertEqual(len(obj.baseline_migrations()), 43)
         self.assertEqual(obj.baseline_migrations()[-1], '044_cloud_kiosk_enrollment.sql')
 
