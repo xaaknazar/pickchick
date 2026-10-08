@@ -3592,9 +3592,10 @@
         "tests/kiosk/paid-delivery.test.mjs",
         "infra/staging/release-kiosk-independent-qr.py",
         "tests/operations/test_kiosk_independent_qr_release.py",
-        "docs/03-offline-and-reliability.md"
+        "docs/03-offline-and-reliability.md",
+        "tests/operations/test_finance_dashboard_release.py"
       ],
-      "updatedAt": "2026-10-08T12:45:30.449Z",
+      "updatedAt": "2026-10-08T12:48:12.375Z",
       "summary": "Installed85f API/QR bridge and iPad7, CI11/11 + backup/restore. One approved100KZT order blocked before bank; zero QR/capture. Owner removed per-order cashier wait. Pushedba6eff5 build8/schema045/worker + paid delivery recovery; PG18 commerce110/110 kiosk86/86 release43/43. CI37778936373 running, new release not installed. Windows edge support requires access;192.168.3.9 unavailable."
     }
   ]
