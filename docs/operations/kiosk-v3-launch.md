@@ -41,7 +41,9 @@ Schema045 применена дважды идемпотентно; прежни
 
 Windows найдена по локальной сети: `192.168.3.33`, прежний pinned SSH host key
 совпал. Read-only инвентаризация: Edge `e47702a`, отдельный worker `f83794c`,
-schema015, четыре службы и PostgreSQL работают. Подготовлены
+schema015, четыре службы и PostgreSQL работают. Фактическая роль worker -
+`pickchick_fulfillment_sync`, POS - `pickchick_edge_runtime`; установщик проверяет
+этот binding и выдаёт только новые права отчётного outbox существующей роли. Подготовлены
 `infra/windows/update-native-kiosk-qr.ps1` и `kiosk-prepaid-upgrade-db.mjs`:
 точная CI всех 11 jobs, свежий backup/restore, проверка ZIP/ACL/двух старых runtime,
 транзакционные016/017 и минимальные права нового outbox, сохранение всех старых

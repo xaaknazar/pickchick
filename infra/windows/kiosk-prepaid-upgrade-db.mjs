@@ -19,7 +19,7 @@ export async function upgradeKioskPrepaid(
     branchId,
     schema = 'public',
     posRole = 'pickchick_edge_runtime',
-    workerRole = 'pickchick_fulfillment_worker',
+    workerRole = 'pickchick_fulfillment_sync',
   },
 ) {
   if (!['inspect', 'apply'].includes(mode) || !/^[a-f0-9-]{36}$/i.test(branchId))

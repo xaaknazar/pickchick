@@ -88,6 +88,10 @@ if($workerService.State -ne 'Running' -or $workerService.StartName -ne 'NT AUTHO
 $workerDocument.SelectSingleNode('/service/workingdirectory').InnerText=[string]$newApp
 $workerDocument.SelectSingleNode('/service/arguments').InnerText=$expectedArguments.Replace($oldWorkerApp,$newApp)
 $newWorkerXml=$workerDocument.OuterXml
+$workerBinding=@(Get-Content $workerEnv | Where-Object {$_ -like 'EDGE_DATABASE_URL=*'})
+if($workerBinding.Count -ne 1) {throw 'Worker database binding missing.'}
+$workerDatabase=[Uri]$workerBinding[0].Substring(18)
+if($workerDatabase.Host -cne '127.0.0.1' -or $workerDatabase.Port -ne 55433 -or $workerDatabase.AbsolutePath -cne '/pickchick_edge' -or $workerDatabase.UserInfo.Split(':')[0] -cne 'pickchick_fulfillment_sync') {throw 'Reviewed worker database role differs.'}
 $workerEnvHash=(Get-FileHash $workerEnv).Hash;$identityHash=(Get-FileHash $workerIdentity).Hash
 $envHash=(Get-FileHash $envFile).Hash
 $otherServices=@{}
