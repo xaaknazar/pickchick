@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "b79fd4f948b12b20b2848cf394bd8868b8daedf7",
+      "head": "85f23d582540f89b0df86b7415cc764f7594774a",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3587,7 +3587,7 @@
         "tests/kiosk/browser_drink_photos.py",
         "tests/kiosk/browser_payment_success.py"
       ],
-      "updatedAt": "2026-10-08T10:55:37.103Z",
+      "updatedAt": "2026-10-08T11:28:20.166Z",
       "summary": "Import local v3 commits 839dd2f and earlier, integrate shared2983daa preserving supplied photos. Owner requests guest launch; limit/prices/fiscal account and bridge restart window pending. No server mutation yet."
     }
   ]
