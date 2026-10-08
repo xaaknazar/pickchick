@@ -15,14 +15,22 @@
 
 :8080 {
 	header {
-		Cache-Control no-store
 		X-Content-Type-Options nosniff
 		X-PickChick-Environment staging
 		X-PickChick-Ordering disabled
 		-Server
 	}
+	# Every response is no-store, except a GET/HEAD of a catalog photo rendition: its route
+	# (@catalog_media) caches a success immutably and keeps no-store on any error.
+	@no_store {
+		not {
+			method GET HEAD
+			path_regexp no_store_media_exception ^/v1/media/catalog/[a-f0-9]{64}(\.(card|hero|thumb))?\.webp$
+		}
+	}
+	header @no_store >Cache-Control no-store
 	@synthetic_surfaces {
-		not path /v1/customer-farm /v1/customer-farm/commands /v1/content/* /v1/admin/backoffice/* /v1/catalog/* /v1/admin/catalog/* /backoffice /backoffice/*
+		not path /v1/customer-farm /v1/customer-farm/commands /v1/content/* /v1/admin/backoffice/* /v1/catalog/* /v1/admin/catalog/* /v1/media/catalog/* /backoffice /backoffice/*
 	}
 	header @synthetic_surfaces X-PickChick-Data synthetic
 	@catalog_draft_body {
@@ -32,10 +40,22 @@
 	request_body @catalog_draft_body {
 		max_size 320KB
 	}
+	# Catalog photo upload: raw image bytes, re-encoded by the API (CATALOG_MEDIA_UPLOAD_ENABLED).
+	@catalog_asset_upload {
+		method POST
+		path_regexp catalog_asset_upload ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/assets$
+	}
+	request_body @catalog_asset_upload {
+		max_size 10MiB
+	}
 	@small_body {
 		not {
 			method PUT
 			path_regexp small_body_exception ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/draft$
+		}
+		not {
+			method POST
+			path_regexp small_body_asset_exception ^/v1/admin/catalog/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/assets$
 		}
 	}
 	request_body @small_body {
@@ -139,7 +159,7 @@
 	}
 	@catalog_admin_get {
 		method GET
-		path_regexp catalog_admin_get ^/v1/admin/catalog/branches(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$
+		path_regexp catalog_admin_get ^/v1/admin/catalog/branches(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/assets)?)?$
 	}
 	handle @catalog_admin_get {
 		header X-PickChick-Data catalog
@@ -170,6 +190,43 @@
 	handle @catalog_draft_body {
 		header X-PickChick-Data catalog
 		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	handle @catalog_asset_upload {
+		header X-PickChick-Data catalog
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 30s
+			}
+		}
+	}
+	# Immutable, content-addressed photo renditions. No credentials reach the API; only a
+	# successful (or not-modified) response may be cached, never an error.
+	@catalog_media {
+		method GET HEAD
+		path_regexp catalog_media ^/v1/media/catalog/[a-f0-9]{64}(\.(card|hero|thumb))?\.webp$
+	}
+	handle @catalog_media {
+		header X-PickChick-Data catalog
+		header {
+			>Cache-Control "public, max-age=31536000, immutable"
+			match status 200 304
+		}
+		header {
+			>Cache-Control no-store
+			match status 4xx 5xx
+		}
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Authorization
 			header_up -Cookie
 			header_up -X-Device-Id
 			transport http {

@@ -330,6 +330,7 @@ export type CatalogErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'RATE_LIMITED'
   | 'SERVICE_UNAVAILABLE';
 /** Precise publication failure shown to the editor; the HTTP status still follows `code`. */
 export const CatalogErrorReasonSchema = z.enum([
@@ -337,6 +338,12 @@ export const CatalogErrorReasonSchema = z.enum([
   'UNAVAILABLE_LINKED_PRODUCT',
   'EDGE_DEVICE_INACTIVE',
   'EDGE_MENU_STATE_UNKNOWN',
+  // Uploaded photos (catalog_assets): a product.image ref must name an existing asset.
+  'ASSET_MISSING',
+  'ASSET_UNSUPPORTED_TYPE',
+  'ASSET_TOO_LARGE',
+  'ASSET_INVALID_IMAGE',
+  'ASSET_RATE_LIMITED',
 ]);
 export type CatalogErrorReason = z.infer<typeof CatalogErrorReasonSchema>;
 export class CatalogAdminError extends Error {

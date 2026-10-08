@@ -59,6 +59,11 @@ test('channel price refusal carries a precise reason and keeps the CONFLICT stat
     'UNAVAILABLE_LINKED_PRODUCT',
     'EDGE_DEVICE_INACTIVE',
     'EDGE_MENU_STATE_UNKNOWN',
+    'ASSET_MISSING',
+    'ASSET_UNSUPPORTED_TYPE',
+    'ASSET_TOO_LARGE',
+    'ASSET_INVALID_IMAGE',
+    'ASSET_RATE_LIMITED',
   ]);
 });
 

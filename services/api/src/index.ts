@@ -45,8 +45,16 @@ import {
   createCustomerIdentityOptions,
 } from '@pickchick/customer-identity';
 import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
-import { CATALOG_ADMIN, CatalogAdmin, catalogAdminOptions } from '@pickchick/catalog-admin';
+import {
+  CATALOG_ADMIN,
+  CATALOG_MEDIA,
+  CatalogAdmin,
+  CatalogMedia,
+  catalogAdminOptions,
+  catalogMediaOptions,
+} from '@pickchick/catalog-admin';
 import { CatalogAdminController } from './catalog-admin-controller.js';
+import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-media-controller.js';
 import { BACKOFFICE, Backoffice } from '@pickchick/backoffice-core';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
@@ -185,6 +193,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CustomerAuthController,
       CustomerCheckoutController,
       CatalogAdminController,
+      CatalogMediaController,
       BackofficeController,
       BackofficeContentController,
       FulfillmentTransportController,
@@ -221,6 +230,16 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
           }),
       },
       {
+        provide: CATALOG_MEDIA,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new CatalogMedia(resources.pool, {
+            ...catalogAdminOptions(process.env),
+            ...catalogMediaOptions(process.env),
+            enabled: config.catalogAdminEnabled === true,
+          }),
+      },
+      {
         provide: CUSTOMER_IDENTITY,
         inject: [RESOURCE],
         useFactory: (resources: Resources) => {
@@ -243,6 +262,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     // The Kaspi bridge signs the exact JSON bytes it sends.
     rawJsonRoutes: [/^\/v1\/integrations\/kaspi-remote\/webhook\/?$/],
   });
+  // Photo uploads (CATALOG_MEDIA_UPLOAD_ENABLED): raw image bytes on one route only.
+  if (catalogMediaOptions(process.env).mediaEnabled) useCatalogAssetBodyParser(app);
   app.useBodyParser('raw', {
     limit: 16 * 1024,
     type: (request: IncomingMessage) =>

@@ -5,6 +5,7 @@ import { customerAuthGrants } from './customer-auth-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
+import { catalogAssetGrants } from './catalog-asset-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 import { cloudPosSyncGrants } from './pos-sync-grants.mjs';
 import { customerCheckoutGrants } from './checkout-grants.mjs';
@@ -96,6 +97,13 @@ async function provision() {
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
       await client.query(catalogAccessGrants('pickchick_app', config.catalogAdminEnabled === true));
+      await client.query(
+        catalogAssetGrants(
+          'pickchick_app',
+          config.catalogAdminEnabled === true &&
+            process.env.CATALOG_MEDIA_UPLOAD_ENABLED === 'true',
+        ),
+      );
       // Validate the complete owner/branch policy before enabling checkout privileges.
       await client.query(
         customerCheckoutGrants('pickchick_app', customerCheckoutOptions(process.env) !== null),
