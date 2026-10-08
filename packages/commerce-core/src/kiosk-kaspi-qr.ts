@@ -256,8 +256,9 @@ export class KioskKaspiQrProcessor {
     const source = (
       await this.pool.query<{ snapshot: unknown; branch_id: string; ready: boolean }>(
         `SELECT o.snapshot,o.branch_id,
-      (b.ordering_enabled AND NOT o.attention_required AND t.active AND d.status='active' AND p.state='held'
-       AND p.device_id=o.admission_device_id AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id
+      (b.ordering_enabled AND NOT o.attention_required AND t.active AND d.status='active'
+       AND (p.order_id IS NULL OR (p.state='held'
+        AND p.device_id=o.admission_device_id AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id))
        AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents c WHERE c.order_id=o.id)) ready
       FROM commerce_payment_attempts a JOIN commerce_orders o ON o.id=a.order_id JOIN branches b ON b.id=o.branch_id
       LEFT JOIN fulfillment_transport_bindings t ON t.branch_id=o.branch_id LEFT JOIN devices d ON d.id=t.device_id

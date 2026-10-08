@@ -78,7 +78,9 @@ export const invoicePhone = (value: string) => {
 };
 const paid = (o: CustomerCommerceOrder | null) =>
   !!o && ['paid', 'preparing', 'ready', 'handed_over'].includes(o.phase);
-const terminal = (o: CustomerCommerceOrder | null) => paid(o) || o?.phase === 'failed';
+const waitingForNumber = (o: CustomerCommerceOrder | null) => paid(o) && !o?.displayNumber?.trim();
+const terminal = (o: CustomerCommerceOrder | null) =>
+  (paid(o) && !waitingForNumber(o)) || o?.phase === 'failed';
 function decode(raw: string): unknown {
   if (raw.length > 200000) throw new KioskError('RECOVERY_DATA_INVALID');
   try {
@@ -384,7 +386,8 @@ export class CommercialKioskController {
         this.blocked ||
         !!this.current.intent ||
         this.current.resetPending ||
-        order?.phase === 'attention',
+        order?.phase === 'attention' ||
+        waitingForNumber(order),
       idleWarningSeconds: this.warning,
     };
   }
@@ -580,7 +583,7 @@ export class CommercialKioskController {
       this.blocked || this.current.intent || this.current.resetPending
         ? 'recovery'
         : this.current.order
-          ? terminal(this.current.order)
+          ? paid(this.current.order) || this.current.order.phase === 'failed'
             ? 'order'
             : 'payment'
           : this.current.mode

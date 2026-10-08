@@ -404,7 +404,11 @@ export class KioskCheckout {
       snapshotAvailabilityItems(order.snapshot),
     );
     if ('phone' in req) await this.sessions.setPhone(guest.sessionId, req.phone);
-    await this.repository.startPaymentAttempt(scope, paymentKey(orderId), {
+    const start =
+      method === 'kaspi_qr'
+        ? this.repository.startKioskQrPaymentAttempt.bind(this.repository)
+        : this.repository.startPaymentAttempt.bind(this.repository);
+    await start(scope, paymentKey(orderId), {
       orderId,
       providerAccountId:
         method === 'kaspi_invoice' && this.options!.paymentMethod === 'kaspi_qr'

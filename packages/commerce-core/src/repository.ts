@@ -824,6 +824,14 @@ export class CommerceRepository {
     );
   }
   async startPaymentAttempt(scope: CommerceScope, key: string, input: unknown) {
+    return this.startAttempt(scope, key, input, false);
+  }
+  /** Kiosk QR is paid before edge admission by the owner's explicit policy.
+   * This trusted port is not a caller-supplied skip flag. Other rails keep admission. */
+  async startKioskQrPaymentAttempt(scope: CommerceScope, key: string, input: unknown) {
+    return this.startAttempt(scope, key, input, true);
+  }
+  private async startAttempt(scope: CommerceScope, key: string, input: unknown, kioskQr: boolean) {
     const request = parse(AttemptSchema, input);
     return this.command(scope, key, 'attempt', request, async (client, actor) => {
       const row = await order(
@@ -832,6 +840,18 @@ export class CommerceRepository {
         request.orderId,
         actor.role === 'manager' ? undefined : actor.principalId,
       );
+      if (kioskQr) {
+        const guest = await client.query(
+          `SELECT 1 FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
+           JOIN commerce_provider_accounts a ON a.id=$4
+           WHERE s.id=$1 AND s.organization_id=$2 AND s.branch_id=$3
+            AND s.ended_at IS NULL AND s.expires_at>clock_timestamp() AND d.active
+            AND a.provider='kaspi-qr'`,
+          [row.principal_id, row.organization_id, row.branch_id, request.providerAccountId],
+        );
+        if (row.customer_id !== null || row.snapshot.channel !== 'kiosk' || !guest.rowCount)
+          throw new CommerceError('FORBIDDEN');
+      }
       if (
         (
           await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
@@ -857,11 +877,12 @@ export class CommerceRepository {
           )
         ).rows[0];
         if (
-          !admission ||
-          admission.state !== 'held' ||
-          admission.device_id !== transport.device_id ||
-          admission.device_id !== row.admission_device_id ||
-          admission.reservation_id !== row.admission_reservation_id
+          (!admission && !kioskQr) ||
+          (admission &&
+            (admission.state !== 'held' ||
+              admission.device_id !== transport.device_id ||
+              admission.device_id !== row.admission_device_id ||
+              admission.reservation_id !== row.admission_reservation_id))
         )
           throw new CommerceError('NOT_READY');
       }
@@ -873,7 +894,7 @@ export class CommerceRepository {
         true,
         row.snapshot.legalEntityId,
       );
-      if (!row.admission_reservation_id || row.attention_required)
+      if ((!row.admission_reservation_id && !kioskQr) || row.attention_required)
         throw new CommerceError('NOT_READY');
       const money = await totals(client, row.id);
       if (BigInt(money.captured) > 0n) throw new CommerceError('NOT_READY');

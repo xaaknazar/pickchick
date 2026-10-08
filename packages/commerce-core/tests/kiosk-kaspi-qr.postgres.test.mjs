@@ -167,11 +167,11 @@ class FakeQr {
     );
   }
 }
-async function ready(f, client = new FakeQr()) {
+async function ready(f, client = new FakeQr(), admitted = true) {
   await f.ack();
   const q = await f.checkout.quote(f.who, f.cart());
   const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
-  await f.admission(order);
+  if (admitted) await f.admission(order);
   await f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' });
   const config = {
     accountId: f.payment,
@@ -455,11 +455,90 @@ test('QR local expiry hides payload, preserves identity/deadline and accepts lat
     assert.equal((await r.row()).expires_at.toISOString(), before.expires_at.toISOString());
     assert.equal((await readKioskQrPayment(f.pool, r.order.orderId)).state, 'paid');
   }));
-test('QR server withholds create without active restaurant admission', async () =>
+test('QR server withholds create without an active restaurant transport', async () =>
   fixture(async (f) => {
     const r = await ready(f);
     await f.pool.query('UPDATE fulfillment_transport_bindings SET active=false');
     await r.processor().tick();
     assert.equal(r.client.creates, 0);
     assert.equal(await r.row(), undefined);
+  }));
+
+test('kiosk QR pays before edge admission, retains delivery and emits kitchen command only after admission', async () =>
+  fixture(async (f) => {
+    const r = await ready(f, new FakeQr(), false);
+    const count = async (event) =>
+      (
+        await f.pool.query('SELECT count(*)::int n FROM commerce_outbox WHERE event_type=$1', [
+          event,
+        ])
+      ).rows[0].n;
+    assert.equal(await count('edge.admission_requested'), 1);
+    await Promise.all([r.processor().tick(), r.processor().tick()]);
+    assert.equal(r.client.creates, 1);
+    assert.equal((await r.row()).state, 'issued');
+    r.client.statusAnswer = {
+      kind: 'ok',
+      data: { QrOperationId: 123, Amount: 110, Status: 'Processed' },
+    };
+    await r.due();
+    await r.processor().tick();
+    const paid = await f.checkout.read(f.who, r.order.orderId);
+    assert.equal(paid.phase, 'paid');
+    assert.equal(paid.displayNumber, null);
+    assert.equal(await count('edge.kitchen_admission_requested'), 0);
+    assert.equal(
+      (
+        await f.pool.query('SELECT admission_reservation_id FROM commerce_orders WHERE id=$1', [
+          r.order.orderId,
+        ])
+      ).rows[0].admission_reservation_id,
+      null,
+    );
+    await f.admission(r.order);
+    await r.processor().tick();
+    assert.equal((await f.checkout.read(f.who, r.order.orderId)).displayNumber, '1');
+    assert.equal(await count('edge.kitchen_admission_requested'), 1);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      1,
+    );
+    assert.equal(r.client.creates, 1);
+  }));
+
+test('generic payment port and database invoice guard still require admission; QR cannot change amount', async () =>
+  fixture(async (f) => {
+    const q = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    const scope = {
+      organizationId: f.org,
+      branchId: f.branch,
+      principalId: f.who.sessionId,
+      role: 'sales',
+    };
+    await assert.rejects(
+      f.checkout.repository.startPaymentAttempt(scope, randomUUID(), {
+        orderId: order.orderId,
+        providerAccountId: f.payment,
+      }),
+      { code: 'NOT_READY' },
+    );
+    const invoice = randomUUID();
+    await f.pool.query(
+      "INSERT INTO commerce_provider_accounts(id,organization_id,branch_id,kind,provider,external_reference,enabled,legal_entity_id) VALUES($1::uuid,$2,$3,'payment','kaspi-remote',$1::text,true,$4)",
+      [invoice, f.org, f.branch, f.legal],
+    );
+    const insert = (account, amount) =>
+      f.pool.query(
+        'INSERT INTO commerce_payment_attempts(id,intent_id,order_id,account_id,intended_minor) SELECT $1,id,order_id,$3,$4 FROM commerce_payment_intents WHERE order_id=$2',
+        [randomUUID(), order.orderId, account, amount],
+      );
+    await assert.rejects(insert(invoice, '11000'), { code: '23514' });
+    await assert.rejects(insert(f.payment, '11001'), { code: '23514' });
+    await f.pool.query('UPDATE kiosk_devices SET active=false');
+    await assert.rejects(insert(f.payment, '11000'), { code: '23514' });
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      0,
+    );
   }));

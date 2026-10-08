@@ -55,7 +55,7 @@ export function OrderTicket({
   locale,
   stage = 'accepted',
 }: {
-  number: string;
+  number: string | null;
   status: string;
   confirmed: boolean;
   showBoard: boolean;
@@ -78,8 +78,8 @@ export function OrderTicket({
   const target = useSpringTo(stage ? fill[stage] : 0);
   const glow = useLoop(4000, 0, true);
   const progress = Animated.multiply(bar, target);
-  const prefixed = number.startsWith('№');
-  const digits = prefixed ? number.slice(1) : number;
+  const prefixed = number?.startsWith('№') ?? false;
+  const digits = prefixed ? number!.slice(1) : (number ?? '');
   const numberSize = Math.min(
     v(tight ? 200 : 230),
     Math.floor((width - v(120)) / Math.max(1, digits.length + (prefixed ? 0.5 : 0)) / 0.72),
@@ -165,55 +165,59 @@ export function OrderTicket({
         </Animated.View>
       ) : null}
 
-      <Animated.Text
-        style={{
-          marginTop: v(6),
-          fontFamily: fonts.heavy,
-          fontSize: v(24),
-          letterSpacing: 3,
-          color: 'rgba(255,255,255,.7)',
-          textTransform: 'uppercase',
-          opacity: label,
-        }}
-      >
-        {t.yourNumber}
-      </Animated.Text>
+      {number !== null ? (
+        <>
+          <Animated.Text
+            style={{
+              marginTop: v(6),
+              fontFamily: fonts.heavy,
+              fontSize: v(24),
+              letterSpacing: 3,
+              color: 'rgba(255,255,255,.7)',
+              textTransform: 'uppercase',
+              opacity: label,
+            }}
+          >
+            {t.yourNumber}
+          </Animated.Text>
 
-      <Animated.View
-        style={{
-          opacity: stamp.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
-          transform: [
-            {
-              scale: Animated.multiply(
-                stamp.interpolate({
-                  inputRange: [0, 0.6, 0.8, 1],
-                  outputRange: [2.1, 0.95, 1.02, 1],
-                }),
-                pop,
-              ),
-            },
-          ],
-        }}
-      >
-        <Text
-          testID="kiosk-order-number"
-          style={{
-            fontFamily: fonts.black,
-            fontVariant: ['tabular-nums'],
-            fontSize: numberSize,
-            lineHeight: numberSize * 0.96 + v(10),
-            letterSpacing: -numberSize * 0.026,
-            color: colors.white,
-            textAlign: 'center',
-            textShadowColor: colors.orange,
-            textShadowOffset: { width: 0, height: v(10) },
-            textShadowRadius: 0,
-          }}
-        >
-          {prefixed ? <Text style={{ fontSize: numberSize * 0.42 }}>№</Text> : null}
-          {digits}
-        </Text>
-      </Animated.View>
+          <Animated.View
+            style={{
+              opacity: stamp.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] }),
+              transform: [
+                {
+                  scale: Animated.multiply(
+                    stamp.interpolate({
+                      inputRange: [0, 0.6, 0.8, 1],
+                      outputRange: [2.1, 0.95, 1.02, 1],
+                    }),
+                    pop,
+                  ),
+                },
+              ],
+            }}
+          >
+            <Text
+              testID="kiosk-order-number"
+              style={{
+                fontFamily: fonts.black,
+                fontVariant: ['tabular-nums'],
+                fontSize: numberSize,
+                lineHeight: numberSize * 0.96 + v(10),
+                letterSpacing: -numberSize * 0.026,
+                color: colors.white,
+                textAlign: 'center',
+                textShadowColor: colors.orange,
+                textShadowOffset: { width: 0, height: v(10) },
+                textShadowRadius: 0,
+              }}
+            >
+              {prefixed ? <Text style={{ fontSize: numberSize * 0.42 }}>№</Text> : null}
+              {digits}
+            </Text>
+          </Animated.View>
+        </>
+      ) : null}
 
       <Animated.View style={{ alignItems: 'center', gap: v(6), ...fadeUp(rest) }}>
         <Text
@@ -231,6 +235,23 @@ export function OrderTicket({
         >
           {status}
         </Text>
+        {number === null ? (
+          <Text
+            testID="kiosk-order-delivery-pending"
+            style={{
+              fontFamily: fonts.body,
+              fontSize: Math.max(18, v(24)),
+              lineHeight: v(34),
+              color: colors.white,
+              textAlign: 'center',
+              marginTop: v(20),
+            }}
+          >
+            {locale === 'ru'
+              ? 'Передаём заказ на кухню. Номер появится здесь. Не оплачивайте повторно. Если ожидание затянулось, пригласите сотрудника.'
+              : 'Тапсырысты асүйге жіберіп жатырмыз. Нөмірі осында пайда болады. Қайта төлем жасамаңыз. Күту ұзаққа созылса, қызметкерді шақырыңыз.'}
+          </Text>
+        ) : null}
       </Animated.View>
 
       {stage ? (

@@ -30,6 +30,15 @@ export const Pending: Story = {
   args: { confirmed: false, stage: 'accepted', showBoard: false, status: 'Ожидаем подтверждение' },
 };
 export const Ready: Story = { args: { stage: 'ready', status: 'Заказ готов' } };
+export const PaidAwaitingKitchen: Story = {
+  args: {
+    number: null,
+    confirmed: false,
+    stage: null,
+    showBoard: false,
+    status: 'Оплата подтверждена',
+  },
+};
 export const Kazakh: Story = {
   args: { locale: 'kk', status: 'Тапсырысыңыз дайындалуда' },
 };
