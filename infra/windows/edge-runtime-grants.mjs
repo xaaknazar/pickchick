@@ -38,14 +38,19 @@ function identifier(value) {
   return '"' + value + '"';
 }
 
-/** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports. */
+/** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports and
+ * applied schema019 with remoteStops. */
 export function edgeRuntimeGrantSql(
   role,
-  { schema = 'public', fulfillment = false, cashierReports = false } = {},
+  { schema = 'public', fulfillment = false, cashierReports = false, remoteStops = false } = {},
 ) {
   const target = identifier(role),
     namespace = identifier(schema);
-  if (typeof fulfillment !== 'boolean' || typeof cashierReports !== 'boolean')
+  if (
+    typeof fulfillment !== 'boolean' ||
+    typeof cashierReports !== 'boolean' ||
+    typeof remoteStops !== 'boolean'
+  )
     throw new Error('Invalid runtime grant flag');
   const tables = (names) => names.map((name) => `${namespace}.${identifier(name)}`).join(', ');
   const grant = (privilege, names) => `GRANT ${privilege} ON ${tables(names)} TO ${target};`;
@@ -86,6 +91,15 @@ export function edgeRuntimeGrantSql(
       'UPDATE(stopped, version, reason, expires_at, expires_shift_id, updated_at, updated_by)',
       ['local_stops'],
     ),
+    // The edge service applies back-office stop commands; the worker only fills the inbox.
+    ...(remoteStops
+      ? [
+          grant('UPDATE(source)', ['local_stops']),
+          grant('SELECT', ['remote_stop_commands']),
+          grant('UPDATE(state, result_version, applied_at)', ['remote_stop_commands']),
+          grant('INSERT', ['local_stop_events']),
+        ]
+      : []),
     ...(fulfillment
       ? [
           grant('SELECT', kitchenRead),
@@ -150,7 +164,22 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
       throw new Error('Cashier report migration objects differ');
     if (options.cashierReports !== undefined && options.cashierReports !== capability.applied)
       throw new Error('Cashier report grant flag differs from applied schema');
-    const sql = edgeRuntimeGrantSql(role, { ...options, cashierReports: capability.applied });
+    const stops = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='019_edge_remote_stops.sql') AS applied,
+       to_regclass($1) IS NOT NULL AS inbox, to_regclass($2) IS NOT NULL AS events`,
+        [`${namespace}.remote_stop_commands`, `${namespace}.local_stop_events`],
+      )
+    ).rows[0];
+    if (stops.applied !== stops.inbox || stops.applied !== stops.events)
+      throw new Error('Remote stop migration objects differ');
+    if (options.remoteStops !== undefined && options.remoteStops !== stops.applied)
+      throw new Error('Remote stop grant flag differs from applied schema');
+    const sql = edgeRuntimeGrantSql(role, {
+      ...options,
+      cashierReports: capability.applied,
+      remoteStops: stops.applied,
+    });
 
     // PUBLIC grants cannot be removed from just this role and would defeat the
     // allowlist below. The installer must use a dedicated private database.

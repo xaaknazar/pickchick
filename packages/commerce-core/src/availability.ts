@@ -7,6 +7,25 @@ export class AvailabilityError extends Error {
     super(code);
   }
 }
+/** Back-office STOP commands the edge has not answered yet block sales at once (fail closed).
+ * A pending UNSTOP never does anything here: it counts only after the edge applies it. Roles
+ * without the stop-command table (old schema, narrow workers) keep the edge projection only. */
+async function pendingRemoteStops(pool: Pick<DatabasePool, 'query'>, branchId: string) {
+  // CASE keeps the privilege lookup from resolving a table that does not exist yet.
+  const readable = (
+    await pool.query<{ readable: boolean }>(
+      "SELECT CASE WHEN to_regclass('cloud_stop_commands') IS NULL THEN false ELSE has_table_privilege('cloud_stop_commands','SELECT') END AS readable",
+    )
+  ).rows[0]?.readable;
+  if (!readable) return [];
+  return (
+    await pool.query<{ variant_id: string }>(
+      `SELECT DISTINCT variant_id FROM cloud_stop_commands WHERE branch_id=$1 AND stopped
+      AND state IN ('pending','delivered') AND expires_at>clock_timestamp()`,
+      [branchId],
+    )
+  ).rows.map((r) => r.variant_id);
+}
 /** An offline restaurant must not acquire a new mobile payment. Keep last known stops visible. */
 export async function branchAvailability(pool: Pick<DatabasePool, 'query'>, branchId: string) {
   const row = (
@@ -18,7 +37,12 @@ export async function branchAvailability(pool: Pick<DatabasePool, 'query'>, bran
       [branchId],
     )
   ).rows[0];
-  return { fresh: row?.fresh ?? false, stoppedIds: row?.stopped_ids ?? [] };
+  const projected = row?.stopped_ids ?? [],
+    pending = await pendingRemoteStops(pool, branchId);
+  return {
+    fresh: row?.fresh ?? false,
+    stoppedIds: pending.length ? [...new Set([...projected, ...pending])].sort() : projected,
+  };
 }
 export async function assertBranchItemsAvailable(
   pool: Pick<DatabasePool, 'query'>,

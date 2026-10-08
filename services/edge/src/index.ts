@@ -11,6 +11,7 @@ import type { ServiceConfig } from '@pickchick/platform';
 import { StaffAuthController } from './staff-auth-controller.js';
 import { LocalOrdersController } from './orders-controller.js';
 import { FulfillmentController } from './fulfillment-controller.js';
+import { RemoteStopsLoop } from './remote-stops-loop.js';
 
 @Controller('edge/v1')
 class LocalMenuController {
@@ -42,7 +43,7 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
       StaffAuthController,
       FulfillmentController,
     ],
-    providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }],
+    providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }, RemoteStopsLoop],
   })
   class EdgeModule {}
   return createHttpApplication(EdgeModule);
