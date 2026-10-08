@@ -27,7 +27,10 @@ cloud flag `CATALOG_EDGE_PUBLICATION_ENABLED` is on for this branch.
 - `apply`: downloads and hash-checks photos, applies the publication in one
   transaction (snapshot, active menu, routing, ACK) or ACKs it `rejected` with a
   reason (`VERSION_NOT_NEWER`, `MEDIA_UNAVAILABLE`, `ROUTING_UNRESOLVED`,
-  `INVALID_MENU`) while the cashier keeps its current menu.
+  `INVALID_MENU`) while the cashier keeps its current menu. A photo is
+  `MEDIA_UNAVAILABLE` after 3 permanent download failures (4xx, wrong hash, not
+  WebP) or 30 transient ones (timeout, tunnel or 5xx, about 25 min with the 60 s
+  backoff), so a short outage only delays the menu.
 
 Changing the mode is an administrator edit of that single line in
 `C:\ProgramData\PickChick\MenuSync\service\menu-sync.env`, then

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-/* global structuredClone */
+/* global structuredClone, DOMException */
 import { randomUUID } from 'node:crypto';
 import {
   canonicalJson,
   hashJson,
+  isPermanentMediaFailure,
   localCloudOrigin,
   projectCatalogMenu,
 } from '@pickchick/menu-sync';
@@ -119,4 +120,25 @@ test('edge menu state query accepts the worker query params and nothing else', (
     { active_release_id: id, active_version: '2', extra: '1' },
   ])
     assert.equal(EdgeMenuStateQuerySchema.safeParse(bad).success, false, JSON.stringify(bad));
+});
+
+test('photo download failures: 4xx and bad bytes are permanent, outages are transient', () => {
+  for (const message of [
+    'Sync HTTP 404',
+    'Sync HTTP 401',
+    'Menu media hash mismatch',
+    'Menu media is not WebP',
+    'Sync response too large',
+  ])
+    assert.equal(isPermanentMediaFailure(new Error(message)), true, message);
+  for (const message of [
+    'Sync HTTP 503',
+    'Sync HTTP 500',
+    'Sync HTTP 429',
+    'Sync HTTP 408',
+    'fetch failed',
+  ])
+    assert.equal(isPermanentMediaFailure(new Error(message)), false, message);
+  assert.equal(isPermanentMediaFailure(new DOMException('timeout', 'TimeoutError')), false);
+  assert.equal(isPermanentMediaFailure('Sync HTTP 404'), false);
 });

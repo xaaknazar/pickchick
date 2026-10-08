@@ -55,9 +55,22 @@ export async function missingMenuMedia(
 }
 
 /**
+ * A download failure that a retry cannot fix: the cloud answered 4xx (unknown, foreign or
+ * disabled media) or sent bytes that are not the requested WebP. Timeouts, connection errors
+ * and 5xx/429 answers are transient (tunnel blip, API restart) and are retried far longer.
+ */
+export function isPermanentMediaFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : '';
+  const status = /^Sync HTTP (\d{3})$/.exec(message)?.[1];
+  if (status) return status.startsWith('4') && status !== '408' && status !== '429';
+  return /^Menu media (hash mismatch|is not WebP)$|^Sync response too large$/.test(message);
+}
+
+/**
  * Downloads, verifies and caches card photos. Each body must hash to its requested SHA-256
  * and be a WebP container; stored rows are immutable and keyed by content, so a retry or a
- * concurrent download is a no-op. Every hash is attempted; the first failure is rethrown.
+ * concurrent download is a no-op. Every hash is attempted; the first permanent failure is
+ * rethrown, otherwise the first transient one.
  */
 export async function fetchMenuMedia(
   pool: DatabasePool,
@@ -85,7 +98,11 @@ export async function fetchMenuMedia(
       );
       fetched += 1;
     } catch (error) {
-      failure ??= error;
+      if (
+        failure === undefined ||
+        (!isPermanentMediaFailure(failure) && isPermanentMediaFailure(error))
+      )
+        failure = error;
     }
   }
   if (failure !== undefined) throw failure;

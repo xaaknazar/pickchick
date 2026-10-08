@@ -395,7 +395,9 @@ async function seedLocalMenu(edge, menu) {
 async function fakeCloud(media = new Map()) {
   const queue = [],
     requests = [],
-    acks = [];
+    acks = [],
+    // Status for every media request while set (a cloud or tunnel outage); null serves files.
+    outage = { mediaStatus: null };
   const server = createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -414,6 +416,8 @@ async function fakeCloud(media = new Map()) {
       return json(200, { event_id: ack.event_id, acknowledged: true });
     }
     const file = /^\/internal\/v1\/edge\/media\/([a-f0-9]{64})\.card\.webp$/.exec(url.pathname);
+    if (file && outage.mediaStatus)
+      return json(outage.mediaStatus, { code: 'SERVICE_UNAVAILABLE' });
     if (file && media.has(file[1])) {
       res.writeHead(200, { 'Content-Type': 'image/webp' });
       return res.end(media.get(file[1]));
@@ -427,6 +431,7 @@ async function fakeCloud(media = new Map()) {
     requests,
     acks,
     media,
+    outage,
     close: () => new Promise((resolve) => server.close(resolve)),
   };
 }
@@ -619,6 +624,32 @@ test('photos are downloaded and hash-verified before apply; missing media is rej
         assert.equal((await request(`${server.url}/edge/v1/media/${path}`)).status, 404);
     } finally {
       await server.app.close();
+    }
+  });
+});
+
+test('a photo outage (5xx) is retried well past 3 attempts and never rejects the menu', async () => {
+  await withSyncDatabases(async ({ cloud, device, edge, branch, menu }) => {
+    const identity = await provisionDevice(cloud.pool, device);
+    const fake = await fakeCloud();
+    const mediaAttempts = new Map();
+    const sync = () => syncMenuOnce(edge.pool, branch, fake.url, identity, { mediaAttempts });
+    try {
+      const release = menu(1);
+      const sha = withImage(release, webp('outage'));
+      fake.media.set(sha, webp('outage'));
+      fake.queue.push(await publishMenu(cloud.pool, release));
+      fake.outage.mediaStatus = 503;
+      for (let attempt = 0; attempt < 10; attempt += 1)
+        await assert.rejects(sync(), /Sync HTTP 503/);
+      assert.equal(fake.acks.length, 0);
+      fake.outage.mediaStatus = null;
+      assert.deepEqual(await sync(), { state: 'applied' });
+      assert.equal(fake.acks.length, 1);
+      assert.equal(fake.acks[0].result, undefined);
+      assert.equal(mediaAttempts.size, 0);
+    } finally {
+      await fake.close();
     }
   });
 });

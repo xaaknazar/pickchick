@@ -11,16 +11,30 @@ import type { DatabasePool } from '@pickchick/database';
 import { applyMenu, readActiveMenuState } from './edge.js';
 import { SyncError } from './common.js';
 import { deviceRequest, localCloudOrigin } from './device-http.js';
-import { fetchMenuMedia, menuImageShas, missingMenuMedia } from './media.js';
+import {
+  fetchMenuMedia,
+  isPermanentMediaFailure,
+  menuImageShas,
+  missingMenuMedia,
+} from './media.js';
 
 export { localCloudOrigin } from './device-http.js';
 
 /** Download attempts for a publication's photos before it is rejected as MEDIA_UNAVAILABLE. */
 export const MENU_MEDIA_ATTEMPTS = 3;
+/**
+ * Transient download failures (timeouts, connection errors, 5xx) allowed before the same
+ * rejection. With the worker backoff capped at 60 s this rides out a ~25 min outage instead of
+ * rejecting a price/photo publication for the cashier after a few seconds of tunnel trouble.
+ */
+export const MENU_MEDIA_TRANSIENT_ATTEMPTS = 30;
+/** One permanent failure costs as much as this many transient ones. */
+const PERMANENT_MEDIA_FAILURE_WEIGHT = MENU_MEDIA_TRANSIENT_ATTEMPTS / MENU_MEDIA_ATTEMPTS;
 
 export interface SyncMenuOptions {
   /**
-   * Failed photo downloads per menu event, kept across calls by the long-running worker.
+   * Photo download failure weight per menu event (permanent failures weigh more), kept across
+   * calls by the long-running worker.
    * Defaults to one map per process. A restart only grants a fresh set of attempts.
    */
   mediaAttempts?: Map<string, number>;
@@ -118,8 +132,10 @@ export async function syncMenuOnce(
         await fetchMenuMedia(pool, origin, identity, missing);
         attempts.delete(key);
       } catch (error) {
-        const failures = (attempts.get(key) ?? 0) + 1;
-        if (failures < MENU_MEDIA_ATTEMPTS) {
+        const failures =
+          (attempts.get(key) ?? 0) +
+          (isPermanentMediaFailure(error) ? PERMANENT_MEDIA_FAILURE_WEIGHT : 1);
+        if (failures < MENU_MEDIA_TRANSIENT_ATTEMPTS) {
           if (attempts.size >= 100) attempts.clear();
           attempts.set(key, failures);
           throw error;
