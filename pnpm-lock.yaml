@@ -421,6 +421,9 @@ importers:
 
   packages/commerce-core:
     dependencies:
+      '@pickchick/catalog-admin':
+        specifier: workspace:*
+        version: link:../catalog-admin
       '@pickchick/catalog-pricing':
         specifier: workspace:*
         version: link:../catalog-pricing
@@ -434,9 +437,6 @@ importers:
         specifier: 4.5.4
         version: 4.5.4
     devDependencies:
-      '@pickchick/catalog-admin':
-        specifier: workspace:*
-        version: link:../catalog-admin
       '@pickchick/test-fixtures':
         specifier: workspace:*
         version: link:../test-fixtures

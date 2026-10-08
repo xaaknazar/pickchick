@@ -7,7 +7,9 @@ import {
   CatalogKioskStorefrontSchema,
 } from '@pickchick/catalog-pricing';
 import { CommerceRepository } from './repository.js';
-import { CommerceError, parse, UUIDSchema, type CommerceScope } from './model.js';
+import { CommerceError, digest, parse, UUIDSchema, type CommerceScope } from './model.js';
+import { catalogMediaMap, storefrontPayload } from './catalog-media.js';
+import type { CatalogMediaMapOptions } from './catalog-media.js';
 import { KioskSessions } from './kiosk-sessions.js';
 import { readKioskQrPayment } from './kiosk-kaspi-qr.js';
 import { readCheckoutOrder } from './order-view.js';
@@ -153,7 +155,7 @@ export class KioskCheckout {
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
-    return CatalogKioskStorefrontSchema.parse({
+    const storefront = CatalogKioskStorefrontSchema.parse({
       branch: {
         id: row.id,
         code: row.code,
@@ -166,13 +168,26 @@ export class KioskCheckout {
       published_at: row.published_at.toISOString(),
       payload: row.payload,
     });
+    // Installed kiosk build 7 parses strictly; uploaded photos come from catalogMedia instead.
+    return { ...storefront, payload: storefrontPayload(storefront.payload) };
+  }
+  /** Photo map of the head publication for the same authenticated kiosk guest as catalog(). */
+  async catalogMedia(guest: KioskGuest, version: unknown, media: CatalogMediaMapOptions) {
+    return catalogMediaMap(this.pool, this.scope(guest), version, media);
   }
   async availability(guest: KioskGuest) {
+    return (await this.availabilityState(guest)).body;
+  }
+  /**
+   * Availability body (unchanged shape) plus its signature and the head catalog version, for the
+   * `?after=` long-poll and the X-Catalog-Version / X-Availability-Signature response headers.
+   */
+  async availabilityState(guest: KioskGuest) {
     const scope = this.scope(guest),
       catalog = await this.catalog(guest);
     const state = await branchAvailability(this.pool, scope.branchId),
       stopped = new Set(state.stoppedIds);
-    return {
+    const body = {
       fresh: state.fresh,
       products: catalog.payload.products.map((product) => ({
         productId: product.id,
@@ -192,6 +207,11 @@ export class KioskCheckout {
             .map((option) => ({ group_id: group.id, option_id: option.id })),
         ),
       })),
+    };
+    return {
+      body,
+      catalogVersion: catalog.version,
+      signature: digest({ ...body, catalog_version: catalog.version }),
     };
   }
   async config(guest: KioskGuest) {

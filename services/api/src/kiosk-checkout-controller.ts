@@ -8,13 +8,18 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import type { ServerResponse } from 'node:http';
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
+  AVAILABILITY_SIGNATURE_HEADER,
+  AvailabilityAfterSchema,
   AvailabilityError,
+  CATALOG_VERSION_HEADER,
   CommerceError,
+  pollAvailability,
   KioskCheckout,
   KioskSessions,
   KioskEnrollment,
@@ -23,12 +28,14 @@ import {
   kioskPiiKey,
 } from '@pickchick/commerce-core';
 import type { KioskGuest } from '@pickchick/commerce-core';
+import { catalogMediaOptions } from '@pickchick/catalog-admin';
 
 @Controller('v1/kiosk-checkout')
 export class KioskCheckoutController {
   private readonly enrollment: KioskEnrollment | null;
   private readonly sessions: KioskSessions | null;
   private readonly checkout: KioskCheckout | null;
+  private readonly mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
   constructor(@Inject(RESOURCE) resources: Resources) {
     const options = kioskCheckoutOptions(process.env),
       key = kioskPiiKey(process.env);
@@ -147,15 +154,45 @@ export class KioskCheckoutController {
       this.checkout!.catalog(await this.guest(device, key, auth)),
     );
   }
-  @Get('availability') availability(
+  /** Photo map for new kiosk builds; `version` must equal the head catalog version. */
+  @Get('catalog/media') catalogMedia(
     @Res({ passthrough: true }) res: ServerResponse,
+    @Query('version') version?: unknown,
     @Headers('x-kiosk-device') device?: string,
     @Headers('x-kiosk-key') key?: string,
     @Headers('authorization') auth?: string,
   ) {
     return this.execute(res, async () =>
-      this.checkout!.availability(await this.guest(device, key, auth)),
+      this.checkout!.catalogMedia(await this.guest(device, key, auth), version, {
+        mediaEnabled: this.mediaEnabled,
+      }),
     );
+  }
+  /**
+   * Without `after` this is the same single read as before. With `after` (the previous
+   * X-Availability-Signature) it waits, re-reading every second for up to 25 s, until stops,
+   * freshness or the head catalog version change. The body shape never changes.
+   */
+  @Get('availability') availability(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Query('after') after?: unknown,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () => {
+      if (after !== undefined && !AvailabilityAfterSchema.safeParse(after).success)
+        throw new CommerceError('INVALID');
+      const guest = await this.guest(device, key, auth);
+      const state = await pollAvailability(
+        () => this.checkout!.availabilityState(guest),
+        after as string | undefined,
+        { cancelled: () => res.destroyed },
+      );
+      res.setHeader(CATALOG_VERSION_HEADER, String(state.catalogVersion));
+      res.setHeader(AVAILABILITY_SIGNATURE_HEADER, state.signature);
+      return state.body;
+    });
   }
   @Get('config') config(
     @Res({ passthrough: true }) res: ServerResponse,
