@@ -94,6 +94,8 @@ jobs:
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
       - name: Export native and web JavaScript bundles
+        env:
+          EXPO_PUBLIC_PUBLISHED_CATALOG: '0'
         run: pnpm --filter @pickchick/mobile export
       - name: Browser recovery regressions (isolated HTTP fixtures)
         run: |
@@ -159,6 +161,8 @@ jobs:
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
       - name: Export native and web JavaScript bundles
+        env:
+          EXPO_PUBLIC_PUBLISHED_CATALOG: '0'
         run: pnpm --filter @pickchick/mobile export
       - name: Browser recovery regressions (isolated HTTP fixtures)
         run: |

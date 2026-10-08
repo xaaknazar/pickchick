@@ -167,6 +167,69 @@ gateway и обновить скрипт, а не обходить провер�
    - Приложение: сборка с опубликованным каталогом (TestFlight, затем App Store) и
      `CATALOG_MOBILE_STOREFRONT_ENABLED=true` отдельным выпуском.
 
+### Профиль установленной Windows-кассы 6ac409f
+
+Для текущей кассы используйте `infra/windows/update-native-unified-menu.ps1`.
+Прежние профили обновления рассчитаны на другие схемы и не заменяют этот переход.
+Профиль принимает только исходные Edge и fulfillment worker `6ac409f`, проверяет
+все 11 заданий CI для полного SHA кандидата, архив runtime и точные миграции
+017 → 018 → 019. Окружение, пароли и identity сохраняются; новые флаги он не включает.
+
+После зелёной CI соберите runtime через `scripts/build-windows-edge-runtime.py`
+из того же чистого опубликованного SHA. В отдельный защищённый каталог оператора
+на кассе доставьте из этого SHA (без изменения байтов):
+
+- `update-native-unified-menu.ps1`, `install-native-foundation.ps1`,
+  `update-native-service.ps1`, `install-native-menu-sync.ps1`;
+- `backup-native-service.mjs`, его зависимость `native-foundation-db.mjs`
+  и `native-edge-backup-ledger.json`;
+- runtime ZIP, его SHA-256 и полный JSON доказательства CI `{run, jobs}`.
+
+Не используйте старую копию backup-helper из foundation: она может не знать схемы
+017-019. Новую запускайте из каталога оператора, передавая существующий `toolsRoot`
+(`C:\ProgramData\PickChick\EdgeTools\edge-0186902`), PostgreSQL bin, новый приватный
+`runRoot`, идентификатор точки и явный `schema017`, `schema018` или `schema019`.
+Резервная копия должна пройти восстановление, совпасть с текущей точкой/кластером,
+содержать точные миграции и быть не старше шести часов.
+
+Общие параметры профиля:
+
+```powershell
+$p = @{
+  SourceCommit = '<полный SHA зелёного кандидата>'
+  RuntimeArchive = '<runtime.zip>'
+  RuntimeSha256 = '<SHA256 архива>'
+  CiProof = '<ci-proof.json>'
+  BranchId = '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
+  DeviceId = '<существующий fulfillment device>'
+}
+$script = '<каталог оператора>\update-native-unified-menu.ps1'
+& $script -Mode Inspect @p -BackupManifest '<017>\backup-manifest.json'
+& $script -Mode Stage @p -BackupManifest '<017>\backup-manifest.json' -Apply
+& $script -Mode PrepareMenu @p -BackupManifest '<017>\backup-manifest.json'
+& $script -Mode PrepareMenu @p -BackupManifest '<017>\backup-manifest.json' -Apply
+# Сделать НОВУЮ резервную копию schema018 с восстановлением.
+& $script -Mode PrepareStops @p -BackupManifest '<018>\backup-manifest.json'
+& $script -Mode PrepareStops @p -BackupManifest '<018>\backup-manifest.json' -Apply
+# Сделать НОВУЮ резервную копию schema019 с восстановлением.
+& $script -Mode Switch @p -BackupManifest '<019>\backup-manifest.json'
+& $script -Mode Switch @p -BackupManifest '<019>\backup-manifest.json' -Apply
+& $script -Mode Verify @p -BackupManifest '<019>\backup-manifest.json'
+```
+
+Далее установить menu-sync через его штатные `Install`/`Verify` в режиме `report`,
+переключить fulfillment на protocol 4 и установить POS из того же SHA. Изменять
+env-флаги только после `Switch`/`Verify`: до этого профиль сверяет окружение со
+снимком `Stage`. Затем продолжить с паритета, публикации и флагов по одному.
+
+При ошибке переключения профиль возвращает прежние XML и запускает службы,
+работавшие до операции. Схема и данные не откатываются. Для ручного возврата
+бинарников сначала вернуть env-флаги к исходным значениям, затем выполнить
+`-Mode Rollback` с новой копией schema019, проверить план и повторить с `-Apply`.
+После неопределённого исхода миграции сначала читать фактическую схему и записи
+в `C:\ProgramData\PickChick\EdgeTools\unified-menu-<7hex>`; автоматического повтора нет.
+Проверки функций на macOS/Linux не заменяют приёмку на Windows.
+
 Не сделано в коде и остаётся ручным:
 
 - лимит тела 300KB для `/backoffice/*` на общем фронте `pickchick.kz`
@@ -221,6 +284,12 @@ node infra/backoffice-login/accounts.mjs remove staff-v3.json aigerim staff-v4.j
 единственный действующий вход (`ceo`, тот же `actor_id`, что у директора) получает
 роль `manager` для Abay Plaza, чтобы правка цен, фото и стопов работала сразу после
 включения `CATALOG_ACCESS_ROLES_ENABLED`. Других `manager` не создавать без решения владельца.
+
+**Дополнение владельца 9 октября 2026:** старой активной записи «Владелец PickChick»
+для тестовой точки назначить только `analyst`. Это устраняет единственную привязку
+без роли; права действующего `ceo` в Abay Plaza остаются `manager`. Перед записью
+нужны резервная копия с проверкой восстановления и сверка точных actor/branch;
+остальные привязки и роли не изменять.
 
 Покрытие ролей перед `deploy`/`access-roles` (владелец решает, кому `manager`):
 
