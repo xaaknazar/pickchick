@@ -3585,9 +3585,10 @@
         "@apple/devices/kiosk",
         "@release/ios",
         "tests/kiosk/browser_drink_photos.py",
-        "tests/kiosk/browser_payment_success.py"
+        "tests/kiosk/browser_payment_success.py",
+        "@windows/cashier"
       ],
-      "updatedAt": "2026-10-08T11:29:15.115Z",
+      "updatedAt": "2026-10-08T12:16:29.636Z",
       "summary": "Owner decisions: prices from published back office, unlimited kiosk business cap, receipts deferred for this launch. Shared2983daa merged preserving owner photos. b5adce0 CI37767790087 passed11/11, checkout/QR108/108 PostgreSQL18. Build7 is85f23d5, CI pending. No VPS mutation or iPad installation yet; bridge restart window and owner-paid control payment remain pending."
     }
   ]
