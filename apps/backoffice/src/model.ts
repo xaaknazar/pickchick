@@ -11,7 +11,15 @@ import {
   type CatalogState,
   type Product,
 } from './domain.js';
-import { ApiError, type Transport, type Request } from './api.js';
+import {
+  ApiError,
+  mediaUrl,
+  uploadAsset,
+  type Transport,
+  type Request,
+  type Uploader,
+  type UploadedAsset,
+} from './api.js';
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 type Pending = {
   actorId: string;
@@ -48,7 +56,66 @@ export class CatalogModel {
     private api: Transport,
     private storage: Store,
     private requestId = () => crypto.randomUUID(),
+    private uploader: Uploader = uploadAsset,
   ) {}
+  /** Same-origin URL of an uploaded photo's card rendition for the current access mode. */
+  mediaUrl(sha256: string) {
+    return mediaUrl(this.token ?? '', sha256);
+  }
+  /**
+   * Uploads a photo for the selected branch. The asset is shared by the organisation and only
+   * becomes part of the menu when a product referencing it is saved and published.
+   */
+  async uploadPhoto(
+    file: Blob,
+    onProgress?: (fraction: number) => void,
+    requestId = this.requestId(),
+  ): Promise<UploadedAsset> {
+    if (!this.actor || !this.token || !this.state) throw new ApiError('UNAUTHORIZED', 401);
+    try {
+      return await this.uploader(this.token, this.state.branch.id, file, requestId, onProgress);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'UNAUTHORIZED') this.fail(error);
+      if (error instanceof ApiError && !error.reason && error.code === 'FORBIDDEN')
+        throw new ApiError('FORBIDDEN', error.status, 'UPLOAD_FORBIDDEN');
+      if (error instanceof ApiError && !error.reason && error.code === 'SERVICE_UNAVAILABLE')
+        throw new ApiError('SERVICE_UNAVAILABLE', error.status, 'UPLOAD_DISABLED');
+      throw error;
+    }
+  }
+  /**
+   * Refreshes only the channel status (cashier delivery, connected channels) of the selected
+   * branch. The draft, journal and published payload stay as they are; a newer publication
+   * by someone else is picked up by an explicit reload instead.
+   */
+  async refreshStatus() {
+    if (this.busy || !this.state || !this.actor || !this.token) return false;
+    const branch = this.state.branch.id,
+      actor = this.actor.id,
+      version = this.state.published?.version ?? 0;
+    let next: CatalogState;
+    try {
+      next = parseState(await this.request(`branches/${branch}`));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'UNAUTHORIZED') this.fail(error);
+      return false;
+    }
+    if (
+      this.busy ||
+      this.actor?.id !== actor ||
+      this.state?.branch.id !== branch ||
+      next.branch.id !== branch ||
+      (next.published?.version ?? 0) !== version
+    )
+      return false;
+    this.state = {
+      ...this.state,
+      ...(next.publication_support ? { publication_support: next.publication_support } : {}),
+      edge_delivery: next.edge_delivery ?? null,
+    };
+    this.emit();
+    return true;
+  }
   async operations(path: string, options?: Request) {
     if (!this.actor || !this.token) throw new ApiError('UNAUTHORIZED', 401);
     return this.api('operations/' + path, this.token, options);
@@ -62,7 +129,8 @@ export class CatalogModel {
   }
   private fail(error: unknown) {
     this.error = error;
-    this.conflict = error instanceof ApiError && error.code === 'CONFLICT';
+    // A reason-carrying CONFLICT (for example an unready cashier) is not a draft revision race.
+    this.conflict = error instanceof ApiError && error.code === 'CONFLICT' && !error.reason;
     if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
       this.actor = null;
       this.token = null;
@@ -334,9 +402,11 @@ export class CatalogModel {
       if (this.dirty) throw new Error('DIRTY');
       if (!this.state?.draft || !this.payload?.content_reviewed)
         throw new Error('Перед публикацией подтвердите проверку содержимого и сохраните черновик.');
-      if (catalogHasChannelPrices(this.payload, this.state.publication_support?.mobile === true))
+      // Mobile-only prices are blocked as well once the cashier takes publications.
+      const support = this.state.publication_support;
+      if (catalogHasChannelPrices(this.payload, support?.mobile === true && support.pos !== true))
         throw new Error(
-          'Цены каналов пока доступны только в черновике. Для публикации оставьте поля каналов пустыми: касса, киоск и витрины ещё не подключены к единой версии цен.',
+          'Цены каналов пока доступны только в черновике: касса, киоск и приложение получают одну базовую цену. Очистите поля «Цены по каналам», сохраните черновик и опубликуйте.',
         );
       await this.command('publish', {
         expected_revision: this.state.draft.revision,
@@ -373,6 +443,13 @@ export class CatalogModel {
     } catch (error) {
       if (error instanceof ApiError && [400, 403, 404, 409].includes(error.status))
         this.store({ ...this.journal, pending: null });
+      // With per-role catalog access a 403 on a write means a read-only (analyst) grant.
+      if (error instanceof ApiError && error.code === 'FORBIDDEN' && !error.reason)
+        throw new ApiError(
+          'FORBIDDEN',
+          error.status,
+          p.kind === 'publish' ? 'PUBLISH_FORBIDDEN' : 'EDIT_FORBIDDEN',
+        );
       throw error;
     }
     const result = parseState(value);

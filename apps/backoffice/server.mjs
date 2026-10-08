@@ -3,6 +3,14 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, URLSearchParams } from 'node:url';
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+/** Raw photo upload: the only route with a non-JSON body and the only one above 300 KB. */
+export const UPLOAD_ROUTE = new RegExp(`^/v1/admin/catalog/branches/${UUID}/assets$`, 'i');
+export const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+export const JSON_MAX_BYTES = 300 * 1024;
+/** Content-addressed catalog photo renditions, proxied same-origin so CSP img-src stays 'self'. */
+export const MEDIA_ROUTE = /^\/v1\/media\/catalog\/[a-f0-9]{64}(?:\.(?:card|hero|thumb))?\.webp$/;
+export const MEDIA_MAX_BYTES = 1500000;
 function reportQuery(search) {
   if (search.length > 400) return false;
   const query = new URLSearchParams(search);
@@ -38,7 +46,7 @@ function reportQuery(search) {
     Date.parse(end) - Date.parse(start) <= 365 * 86400000
   );
 }
-const allowed = (method, path) => {
+export const allowed = (method, path) => {
   const [pathname, search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
   if (
@@ -71,6 +79,12 @@ const allowed = (method, path) => {
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
+  if (
+    (method === 'GET' || method === 'POST') &&
+    (UPLOAD_ROUTE.test(pathname) ||
+      new RegExp(`^/v1/admin/backoffice/branches/${UUID}/stops$`, 'i').test(pathname))
+  )
+    return true;
   return (
     (method === 'GET' &&
       new RegExp(`^/v1/admin/backoffice/branches/${UUID}/orders/${UUID}$`, 'i').test(pathname)) ||
@@ -169,6 +183,51 @@ export function createBackofficeServer({
         return;
       }
       const path = access?.path ?? req.url ?? '';
+      if (path.startsWith('/v1/media/')) {
+        // Public, immutable photo bytes: no credential is forwarded upstream.
+        if (req.method !== 'GET' || !MEDIA_ROUTE.test(path)) {
+          send(404, { code: 'NOT_FOUND' });
+          return;
+        }
+        try {
+          const response = await fetch(`http://${apiHost}:${apiPort}${path}`, {
+            method: 'GET',
+            redirect: 'error',
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          if (
+            response.status !== 200 ||
+            response.headers.get('content-type') !== 'image/webp' ||
+            Number(response.headers.get('content-length') ?? 0) > MEDIA_MAX_BYTES
+          ) {
+            await response.body?.cancel().catch(() => undefined);
+            send(404, { code: 'NOT_FOUND' });
+            return;
+          }
+          const chunks = [];
+          let size = 0;
+          for await (const chunk of response.body ?? []) {
+            size += chunk.length;
+            if (size > MEDIA_MAX_BYTES) {
+              send(502, { code: 'INVALID_RESPONSE' });
+              return;
+            }
+            chunks.push(chunk);
+          }
+          const bytes = Buffer.concat(chunks);
+          res.writeHead(200, {
+            ...security,
+            'Cache-Control': 'private, max-age=31536000, immutable',
+            'Content-Type': 'image/webp',
+            'Content-Length': bytes.length,
+          });
+          res.end(bytes);
+        } catch {
+          if (!res.headersSent) send(504, { code: 'NETWORK' });
+          else res.destroy();
+        }
+        return;
+      }
       if (path.startsWith('/v1/')) {
         if (!allowed(req.method, path)) {
           send(404, { code: 'NOT_FOUND' });
@@ -181,7 +240,46 @@ export function createBackofficeServer({
         }
         let body;
         const headers = { Authorization: auth };
-        if (req.method !== 'GET') {
+        const upload = req.method === 'POST' && UPLOAD_ROUTE.test(path);
+        if (upload) {
+          const type = req.headers['content-type'];
+          const key = req.headers['idempotency-key'];
+          if (!UPLOAD_TYPES.includes(type)) {
+            send(415, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          if (typeof key !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(key)) {
+            send(400, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          if (Number(req.headers['content-length'] ?? 0) > UPLOAD_MAX_BYTES) {
+            send(413, { code: 'PAYLOAD_TOO_LARGE' });
+            req.resume();
+            return;
+          }
+          const chunks = [];
+          let size = 0;
+          try {
+            for await (const chunk of req) {
+              size += chunk.length;
+              if (size > UPLOAD_MAX_BYTES) {
+                send(413, { code: 'PAYLOAD_TOO_LARGE' });
+                return;
+              }
+              chunks.push(chunk);
+            }
+          } catch {
+            if (!res.destroyed) send(400, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          if (!size) {
+            send(400, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          body = Buffer.concat(chunks);
+          headers['Content-Type'] = type;
+          headers['Idempotency-Key'] = key.toLowerCase();
+        } else if (req.method !== 'GET') {
           if (req.headers['content-type'] !== 'application/json') {
             send(415, { code: 'INVALID_REQUEST' });
             return;
@@ -191,7 +289,7 @@ export function createBackofficeServer({
           try {
             for await (const chunk of req) {
               size += chunk.length;
-              if (size > 300 * 1024) {
+              if (size > JSON_MAX_BYTES) {
                 send(413, { code: 'INVALID_REQUEST' });
                 return;
               }
@@ -210,7 +308,8 @@ export function createBackofficeServer({
             method: req.method,
             headers,
             redirect: 'error',
-            signal: AbortSignal.timeout(timeoutMs),
+            // Re-encoding a large photo takes longer than a JSON command.
+            signal: AbortSignal.timeout(upload ? Math.max(timeoutMs, 30000) : timeoutMs),
             ...(body === undefined ? {} : { body }),
           });
           const chunks = [];
