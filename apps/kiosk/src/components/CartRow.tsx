@@ -1,9 +1,9 @@
 import { Animated, Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import { PhotoImage } from './PhotoImage';
 import type { KioskCartLine } from '../model';
 import { money } from '../cart';
 import { copy, type Locale } from '../i18n';
-import { heroPhoto, productImage, productPhoto, type Photo } from '../assets';
+import { heroPhoto, productImage, productPhoto, productArtworkId, type Photo } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { inCategory } from './categories';
@@ -45,12 +45,12 @@ export function CartRow({
   const tick = usePop(line.quantity);
   const product = line.product;
   const set = !inCategory(product, 'extras');
-  const photo: Photo = (set ? heroPhoto(product.image_id) : productPhoto(product.image_id)) ?? {
-    source: productImage(product.image_id),
+  const imageId = productArtworkId(product, line.selections);
+  const photo: Photo = (set ? heroPhoto(imageId) : productPhoto(imageId)) ?? {
+    source: productImage(imageId),
     tile: colors.cream,
     cutout: false,
   };
-  const blueTile = !photo.cutout && /^#0/.test(photo.tile);
   const options = selectionLines(line);
   const prefix = 'kiosk-cart-line-' + line.lineId;
   const max = 20;
@@ -89,13 +89,7 @@ export function CartRow({
           overflow: 'hidden',
         }}
       >
-        <Image
-          accessible={false}
-          accessibilityLabel=""
-          source={photo.source}
-          contentFit={blueTile ? 'cover' : 'contain'}
-          style={{ width: '100%', height: '100%' }}
-        />
+        <PhotoImage imageId={imageId} variant={set ? 'cart' : 'card'} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: v(8), paddingVertical: v(4) }}>
         <Text

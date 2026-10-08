@@ -5,6 +5,7 @@ import { heroPhoto, productImage, productPhoto, type Photo } from '../assets';
 import { colors, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { useEnter } from './motion';
+import { PhotoImage } from './PhotoImage';
 /**
  * Product photography. `hero` is the v3 product-page stage: the photo sits on its own
  * tile colour (blue studio shot for combos, warm tile for singles) and scales in once.
@@ -15,7 +16,7 @@ export function ProductArtwork({
   variant = 'tile',
 }: {
   imageId: string;
-  variant?: 'hero' | 'tile' | 'feature' | 'recommendation' | 'thumbnail' | 'rail';
+  variant?: 'hero' | 'tile' | 'feature' | 'recommendation' | 'thumbnail' | 'rail' | 'option';
 }) {
   const { px, v } = useMetrics();
   const hero = variant === 'hero';
@@ -28,6 +29,7 @@ export function ProductArtwork({
     const blue = !!photo && !photo.cutout && /^#0/.test(tile);
     return (
       <View
+        testID={`kiosk-artwork-${imageId}-${variant}`}
         pointerEvents="none"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
@@ -60,13 +62,7 @@ export function ProductArtwork({
               <Icon name="water-outline" size="hero" tone="brand" />
             </View>
           ) : (
-            <Image
-              accessible={false}
-              accessibilityLabel=""
-              source={photo?.source ?? productImage(imageId)}
-              contentFit="contain"
-              style={{ width: '100%', height: '100%' }}
-            />
+            <PhotoImage imageId={imageId} variant="hero" />
           )}
           {blue ? (
             <>
@@ -98,10 +94,11 @@ export function ProductArtwork({
       </View>
     );
   }
-  const small = variant === 'thumbnail' || variant === 'rail';
-  const dim = px(variant === 'rail' ? 72 : 124);
+  const small = variant === 'thumbnail' || variant === 'rail' || variant === 'option';
+  const dim = px(variant === 'option' ? 64 : variant === 'rail' ? 72 : 124);
   return (
     <View
+      testID={`kiosk-artwork-${imageId}-${variant}`}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -123,13 +120,7 @@ export function ProductArtwork({
       }}
     >
       {photo ? (
-        <Image
-          accessible={false}
-          accessibilityLabel=""
-          source={photo.source}
-          contentFit="contain"
-          style={{ width: '100%', height: '100%' }}
-        />
+        <PhotoImage imageId={imageId} />
       ) : imageId === 'generic-drink' ? (
         <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
           <Icon name="water-outline" size={small ? 'regular' : 'hero'} tone="brand" />

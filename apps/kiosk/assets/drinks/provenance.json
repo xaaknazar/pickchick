@@ -1,0 +1,127 @@
+{
+  "mask_revision": 1,
+  "method": "Exact screenshot crop + Apple Vision foreground alpha mask; original RGB, no generation or resizing",
+  "os": "Version 26.5.1 (Build 25F80)",
+  "photos": [
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "fuse-peach",
+      "output": "apps/kiosk/assets/drinks/fuse-peach.png",
+      "output_sha256": "15184064eca164bdbe296729364e99742a0fe0f3fbc99bf06690469254942355",
+      "reference_only": false,
+      "source_file": "1-Фото-1.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "2262784d2fae04a4ea3a452e4b839accc55684380d3665d6e2ba63d770bf7062"
+    },
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "fuse-mango-pineapple",
+      "output": "docs/operations/images/kiosk-drink-photos/reference-only/fuse-mango-pineapple.png",
+      "output_sha256": "9387423b9368d67d3165838c5abf64f83f568afe5226868d7b29773fa57455f9",
+      "reference_only": true,
+      "source_file": "2-Фото-2.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "27be8dc1c04635fe91a925d96cfed01ecc54ea26d59a26237b7cc150f036c9b2"
+    },
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "fuse-mango-chamomile",
+      "output": "apps/kiosk/assets/drinks/fuse-mango-chamomile.png",
+      "output_sha256": "91adb16e268e3c12cf1b84bcd4aa45c36f1e2351e35ff64b8e659c95ae2242f4",
+      "reference_only": false,
+      "source_file": "3-Фото-3.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "570efa23578d0437949d723ecb3b50389699be0533f13ab24b763ee04e933c12"
+    },
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "bonaqua-still",
+      "output": "apps/kiosk/assets/drinks/bonaqua-still.png",
+      "output_sha256": "d183c4e3aa46f9f9efe9480a21877786b9e666eabaa571dc34be580ff2573985",
+      "reference_only": false,
+      "source_file": "4-Фото-4.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "e60ea08abb6d3178455bd6b0b051bd0bf19a5919d113b0b27dadb787320ebbe7"
+    },
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "sprite",
+      "output": "apps/kiosk/assets/drinks/sprite.png",
+      "output_sha256": "23de961b943c4e2ca3275f2037821cbfaa80ab7f5c716fd7d9bf0fc537ce8c4f",
+      "reference_only": false,
+      "source_file": "5-Фото-5.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "1d7100c616519bb2acf2d87a0d99c799eefbdb2f6ecd6c991142e698dec96845"
+    },
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "cola-classic",
+      "output": "apps/kiosk/assets/drinks/cola-classic.png",
+      "output_sha256": "eddc2e19bf5105b89407bc0e380f303ee12159f06e3e3384fd077d8822174c8d",
+      "reference_only": false,
+      "source_file": "6-Фото-6.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "8173515c1bf8a5ebabb20bb7b5126bfc577a8ebd27d5d6a8a6b2bec4b01fbc43"
+    },
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "fanta",
+      "output": "apps/kiosk/assets/drinks/fanta.png",
+      "output_sha256": "7eda8b06b8a545f9370dd678006f4719031f16b801fd2289da2a754bf7e433c4",
+      "reference_only": false,
+      "source_file": "7-Фото-7.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "56f0c4216292e863155e7fae3c0b43528da15546d7b3e0eaf1dac3f0f8c7ac7f"
+    },
+    {
+      "crop_xywh": [140, 155, 320, 795],
+      "name": "cola-zero",
+      "output": "apps/kiosk/assets/drinks/cola-zero.png",
+      "output_sha256": "03f9528f29ebea7465001b67bcae433b89dceaab7ecb544bbfc039e3099290d4",
+      "reference_only": false,
+      "source_file": "8-Фото-8.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "4aecee5c0a8336d51f4a33190348b6a38ca7bbad3bc9f46faee79419bda35358"
+    },
+    {
+      "crop_xywh": [145, 350, 310, 585],
+      "name": "piko-apple",
+      "output": "apps/kiosk/assets/drinks/piko-apple.png",
+      "output_sha256": "bbb1dd41d00c7e5284aa65116a880215fd77c9207367efac0c4f39305dab7507",
+      "reference_only": false,
+      "source_file": "9-Фото-9.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "f1b7ed6a091f5a21edef3cd9373457e041fee1d5ef7befdc38ee7f2043993a3a"
+    },
+    {
+      "crop_xywh": [145, 350, 310, 585],
+      "name": "piko-orange",
+      "output": "apps/kiosk/assets/drinks/piko-orange.png",
+      "output_sha256": "267a2c74dc0631dd2b2394c49ec060d98a8a53b94032f21b533be60376601cf8",
+      "reference_only": false,
+      "source_file": "10-Фото-10.jpg",
+      "source_set": "original-drinks",
+      "source_sha256": "a17a883c029c143a23e25d31202b59b5f58fca9fafa5d10ea016a0b7147c6c59"
+    },
+    {
+      "crop_xywh": [145, 350, 310, 585],
+      "name": "piko-multifruit",
+      "output": "docs/operations/images/kiosk-drink-photos/reference-only/piko-multifruit.png",
+      "output_sha256": "7ebae16a660b0facae1732d6100cc2b342162b73ad4b29d3e6239ae94b045dc7",
+      "reference_only": true,
+      "source_file": "1-Фото-1.jpg",
+      "source_set": "extra-piko",
+      "source_sha256": "38534b0110cc167f7c85b59ad6bfa1972aa716d552cf309221e2cdbe01a04c1e"
+    },
+    {
+      "crop_xywh": [145, 350, 310, 585],
+      "name": "piko-peach",
+      "output": "docs/operations/images/kiosk-drink-photos/reference-only/piko-peach.png",
+      "output_sha256": "5ed898aee3ddf899a2e68e6b4ab9227c4bbad06796b070bf9d92569967413aa2",
+      "reference_only": true,
+      "source_file": "2-Фото-2.jpg",
+      "source_set": "extra-piko",
+      "source_sha256": "b003c858ef9926cc47134c232d8cf098400cd47c7f200432c48b0416296b1932"
+    }
+  ]
+}

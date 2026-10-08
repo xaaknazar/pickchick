@@ -5,7 +5,7 @@ import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message, staffAuth } from './api.js';
 import { money, copy } from './domain.js';
-import { element as el, button, field, select, check, image } from './dom.js';
+import { element as el, button, field, select, check, image, navigationIcon } from './dom.js';
 import { openEditor, emptyProduct } from './editor.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
@@ -75,8 +75,14 @@ let loginBusy = false;
 function login() {
   const page = el('main', 'login-page'),
     card = el('section', 'login-card');
-  card.append(
+  const intro = el('section', 'login-intro');
+  intro.append(
     image('logo.png', 'PickChick'),
+    el('h2', '', 'Ресторан под контролем.'),
+    el('p', '', 'Финансы, меню и работа команды в одном кабинете.'),
+  );
+  page.append(intro);
+  card.append(
     el('h1', '', 'Кабинет директора'),
     el(
       'p',
@@ -205,11 +211,7 @@ function render() {
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
-  brand.append(
-    image('logo.png', ''),
-    el('div', '', 'PickChick'),
-    el('small', '', 'Кабинет директора'),
-  );
+  brand.append(image('logo.png', 'PickChick'), el('small', '', 'Управление рестораном'));
   sidebar.append(brand);
   const primary = ['dash', 'orders', 'items', 'stoplist', 'shifts', 'reports', 'finance'];
   const navigation = el('nav', 'navigation');
@@ -239,6 +241,7 @@ function render() {
         `nav-item ${page === id ? 'active' : ''}`,
         'nav-' + id,
       );
+      nav.prepend(navigationIcon(id));
       if (page === id) nav.setAttribute('aria-current', 'page');
       container.append(nav);
     }
@@ -258,7 +261,20 @@ function render() {
     [...sections].filter((section) => !primary.includes(section[0])),
   );
   navigation.append(daily, secondary);
-  sidebar.append(navigation);
+  navigation.id = 'cabinet-navigation';
+  const menuToggle = button(
+    'Разделы кабинета',
+    () => {
+      const open = navigation.classList.toggle('is-open');
+      menuToggle.setAttribute('aria-expanded', String(open));
+    },
+    'mobile-navigation-toggle',
+    'navigation-toggle',
+  );
+  menuToggle.prepend(navigationIcon('items'));
+  menuToggle.setAttribute('aria-expanded', 'false');
+  menuToggle.setAttribute('aria-controls', navigation.id);
+  sidebar.append(menuToggle, navigation);
   const user = el('div', 'user');
   user.append(
     el('strong', '', model.actor.name),
@@ -282,7 +298,7 @@ function render() {
   sidebar.append(user);
   const main = el('main', 'workspace'),
     header = el('header', 'topbar'),
-    titles = el('div');
+    titles = el('div', 'page-title');
   titles.append(
     el('h1', '', sections.find((s) => s[0] === page)?.[1] ?? 'PickChick'),
     el('p', 'muted', sections.find((s) => s[0] === page)?.[2] ?? ''),

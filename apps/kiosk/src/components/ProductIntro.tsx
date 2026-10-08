@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
+import { productArtworkId } from '../assets';
 import { ProductArtwork } from './ProductArtwork';
 import { ProductNutrition } from './ProductNutrition';
 import { useEnter } from './motion';
@@ -44,7 +45,7 @@ export function ProductIntro({
   return (
     <View testID="kiosk-product-intro">
       <View>
-        <ProductArtwork imageId={product.image_id} variant="hero" />
+        <ProductArtwork imageId={productArtworkId(product)} variant="hero" />
         {hit ? (
           <Animated.View
             pointerEvents="none"

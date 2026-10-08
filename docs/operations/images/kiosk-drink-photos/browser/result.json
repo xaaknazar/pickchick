@@ -1,0 +1,32 @@
+{
+  "synthetic_catalog": true,
+  "checks": [
+    {
+      "width": 768,
+      "height": 1024,
+      "flavor_selection": true,
+      "distinct_cart_identity": true,
+      "price_unchanged": true,
+      "images_loaded": true,
+      "errors": []
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "flavor_selection": true,
+      "distinct_cart_identity": true,
+      "price_unchanged": true,
+      "images_loaded": true,
+      "errors": []
+    },
+    {
+      "width": 1024,
+      "height": 1366,
+      "flavor_selection": true,
+      "distinct_cart_identity": true,
+      "price_unchanged": true,
+      "images_loaded": true,
+      "errors": []
+    }
+  ]
+}

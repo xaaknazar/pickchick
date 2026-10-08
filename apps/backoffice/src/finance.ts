@@ -380,7 +380,7 @@ export class FinanceView {
         d.categories.find((c) => c.id === e.category_id)?.name ?? 'Перевод',
         d.centers[e.center] ?? e.center,
         value,
-        entryStatus(r),
+        el('span', r.void_reason ? 'entry-badge voided' : 'entry-badge', entryStatus(r)),
       ];
     });
     const journalTable = table(

@@ -25,6 +25,10 @@ with sync_playwright() as pw:
  assert page.locator('.nav-item').count()==17
  def navigate(section):
   nav=at('nav-'+section)
+  toggle=at('navigation-toggle')
+  if toggle.is_visible() and toggle.get_attribute('aria-expanded')=='false':
+   toggle.click()
+   expect(toggle).to_have_attribute('aria-expanded','true')
   if not nav.is_visible():page.locator('.nav-secondary summary').click()
   nav.click()
  def snapshot_request(request,period):

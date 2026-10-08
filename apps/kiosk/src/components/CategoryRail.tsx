@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import { PhotoImage } from './PhotoImage';
 import { copy, type Locale } from '../i18n';
 import { productPhoto } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
@@ -137,13 +137,7 @@ function Tile({
               ],
             }}
           >
-            <Image
-              accessible={false}
-              accessibilityLabel=""
-              source={photo.source}
-              contentFit="contain"
-              style={{ width: '100%', height: '100%' }}
-            />
+            <PhotoImage imageId={imageId!} />
           </Animated.View>
         ) : imageId ? (
           <ProductArtwork imageId={imageId} variant="rail" />

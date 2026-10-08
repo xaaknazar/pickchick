@@ -1,5 +1,5 @@
 import { Animated, Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import { PhotoImage } from './PhotoImage';
 import type { KioskModifierGroup, KioskSelection } from '../model';
 import { money } from '../cart';
 import { heinzColor, heinzInk, optionPhoto } from '../assets';
@@ -39,13 +39,7 @@ function OptionArt({ id, dim, selected }: { id: string; dim: number; selected: b
           ],
         }}
       >
-        <Image
-          accessible={false}
-          accessibilityLabel=""
-          source={photo.source}
-          contentFit="contain"
-          style={{ width: '100%', height: '100%' }}
-        />
+        <PhotoImage imageId={id} variant="option" />
       </Animated.View>
     );
   if (heinz)

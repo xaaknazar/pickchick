@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { productPhoto } from '../assets';
+import { productPhoto, productArtworkId } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { ProductArtwork } from './ProductArtwork';
@@ -48,7 +48,8 @@ export function ProductCard({
     animation.start();
     return () => animation.stop();
   }, [pressed, reduced, squeeze]);
-  const photo = productPhoto(product.image_id);
+  const imageId = productArtworkId(product);
+  const photo = productPhoto(imageId);
   const tile = photo?.tile ?? colors.cream;
   const unavailable = product.available === false;
   const blocked = busy || unavailable;
@@ -96,20 +97,11 @@ export function ProductCard({
                   ],
                 }}
               >
-                <Image
-                  accessible={false}
-                  accessibilityLabel=""
-                  source={photo.source}
-                  contentFit="contain"
-                  style={{ width: '100%', height: '100%' }}
-                />
+                <PhotoImage imageId={imageId} />
               </Animated.View>
             </View>
           ) : (
-            <ProductArtwork
-              imageId={product.image_id}
-              variant={compact ? 'recommendation' : 'tile'}
-            />
+            <ProductArtwork imageId={imageId} variant={compact ? 'recommendation' : 'tile'} />
           )}
           {tag ? (
             <View
