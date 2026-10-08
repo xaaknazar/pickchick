@@ -68,3 +68,26 @@ signature at once because it is part of `branchAvailability`.
   maintained by the release scripts. The release must add `/v1/customer-checkout/catalog/media`
   and `/v1/kiosk-checkout/catalog/media` (GET, small body) before new clients rely on them; until
   then clients fall back to bundled photos.
+
+## iPad kiosk client (build 8)
+
+The kiosk reads both additions; installed build 7 ignores them and keeps working.
+
+- After each catalog load the kiosk reads `GET /v1/kiosk-checkout/catalog/media?version=N` once per
+  version and attaches the entry to each product (`image_id` stays `image_asset_key`). Any failure
+  (404 before the gateway allowlist, 409, offline, a malformed map) keeps the bundled photos and is
+  retried at most once a minute.
+- Photo order: the published remote rendition (`card` for tiles, `hero` for the product page and
+  set lines), then the bundled v3 photo of the image key, then the mockup shot, then the logo.
+  `tile_color` and `cutout` come from the map, then from the bundled key, then white / no cutout.
+  Every published photo is prefetched to the expo-image disk cache after a load; the immutable
+  URL (it contains the rendition hash) is the cache key.
+- A background long-poll runs on every screen, including the start/attract screen:
+  `GET /v1/kiosk-checkout/availability?after=<X-Availability-Signature>` with a 32 s client
+  timeout. New stops are applied at once without blocking the UI. When `X-Catalog-Version` is
+  newer than the loaded publication, the idle start screen reloads the catalog at once; mid-session
+  the loaded publication is kept and the existing quote `CONFLICT`/`PRICE_CHANGED` path decides.
+  Errors back off 3, 6, 12, 24, then 30 s. Without the signature header (an older API) the kiosk
+  reads availability every 15 s instead.
+- After a guest finishes, the start screen allocates the next guest session in the normal refresh
+  path (the same as a kiosk restart), so the long-poll keeps running between guests.

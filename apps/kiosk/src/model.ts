@@ -1,9 +1,19 @@
 import type { TestCompleteCatalog, TestSelection } from '@pickchick/test-order-flow/contracts';
 
+/** Uploaded photo of a published product (catalog media map); image_id stays the bundled key. */
+export interface KioskMedia {
+  sha256: string;
+  card: string;
+  hero: string;
+  thumb: string;
+  tile_color?: string;
+  cutout?: boolean;
+}
 export type KioskProduct = Omit<TestCompleteCatalog['products'][number], 'nutrition_provenance'> & {
   sku?: string;
   available?: boolean;
   nutrition_provenance: string;
+  media?: KioskMedia;
 };
 export type KioskSelection = TestSelection;
 export type KioskModifierGroup = KioskProduct['modifier_groups'][number];

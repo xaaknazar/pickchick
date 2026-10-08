@@ -1,6 +1,11 @@
 // Literal paths bundle the customer's supplied artwork for offline presentation.
 // v3 kiosk photography (white studio shots, cut-outs, blue combo heroes) is keyed by catalog image_id.
+import { Image } from 'expo-image';
 import { colors } from './theme';
+import { KIOSK_API_URL } from './api';
+import { CatalogMediaRegistry, type Photo } from './photo-source';
+import type { KioskCatalog, KioskMedia } from './model';
+export type { Photo } from './photo-source';
 export const assets = {
   logo: require('../assets/v3/logo.webp'),
   logoTile: require('../../../design/prototype/assets/mockup/logo.png'),
@@ -12,12 +17,6 @@ export const assets = {
   chefCooking: require('../../mobile/assets/order-status/chef-cooking.png'),
   chefAssembly: require('../../mobile/assets/order-status/chef-assembly.png'),
 };
-export interface Photo {
-  source: number;
-  secondarySource?: number;
-  tile: string;
-  cutout: boolean;
-}
 const photo = (source: number, tile: string | null): Photo => ({
   source,
   tile: tile ?? '#FEF8F0',
@@ -125,12 +124,14 @@ Object.assign(heroes, {
 Object.assign(options, drinkPhotos);
 const suppliedDrink = (imageId: string) =>
   imageId.startsWith('drink:') ? drinkPhotos[imageId.slice(6)] : undefined;
-/** Card photo for menu tiles; falls back to the original mockup shot. */
-export const productPhoto = (imageId: string): Photo | null =>
+const bundledCard = (imageId: string): Photo | null =>
   suppliedDrink(imageId) ?? cards[imageId] ?? null;
-/** Large product-page photo: blue studio shot for combos, warm shot for singles. */
-export const heroPhoto = (imageId: string): Photo | null =>
+const bundledHero = (imageId: string): Photo | null =>
   suppliedDrink(imageId) ?? heroes[imageId] ?? cards[imageId] ?? null;
+/** Card photo for menu tiles: published media first; falls back to the original mockup shot. */
+export const productPhoto = (imageId: string): Photo | null => media.photo(imageId, 'card');
+/** Large product-page photo: blue studio shot for combos, warm shot for singles. */
+export const heroPhoto = (imageId: string): Photo | null => media.photo(imageId, 'hero');
 /** Modifier option artwork by option id (drinks, sauces, extras). */
 export const optionPhoto = (optionId: string): Photo | null => options[optionId] ?? null;
 /** Heinz sauces have no supplied photography; they keep a neutral colour mark. */
@@ -173,15 +174,38 @@ const products: Record<string, number> = {
   'drink:piko-apple': require('../assets/drinks/piko-apple.png'),
   'drink:piko-orange': require('../assets/drinks/piko-orange.png'),
 };
-export const productImage = (id: string) => products[id] ?? assets.logo;
+export const productImage = (id: string): number => products[id] ?? assets.logo;
+const media = new CatalogMediaRegistry(KIOSK_API_URL, {
+  card: bundledCard,
+  hero: bundledHero,
+  product: (id) => products[id],
+  logo: assets.logo,
+});
+/** Fallback chain for one photo: remote media, bundled v3 photo, mockup shot, logo. */
+export const photoCandidates = (imageId: string, variant: 'card' | 'hero') =>
+  media.candidates(imageId, variant);
+/** Registers the loaded publication's photos; returns the remote URLs to keep on disk. */
+export const rememberCatalogMedia = (catalog: KioskCatalog | null): string[] =>
+  catalog ? media.sync(catalog.products) : [];
+/** Downloads every published photo to the expo-image disk cache so the kiosk stays offline-safe. */
+export async function prefetchCatalogMedia(urls: readonly string[]): Promise<boolean> {
+  const results = await Promise.all(
+    urls.map(async (url) => ((await Image.prefetch(url, 'disk').catch(() => false)) ? url : null)),
+  );
+  const ready = results.filter((url): url is string => !!url);
+  media.markReady(ready);
+  return ready.length > 0;
+}
 
 export const isDrinkArtwork = (id: string) =>
   id === 'i1.jpg' || id === 'i23.jpg' || id.startsWith('drink:');
 
 export function productArtworkId(
-  product: { id: string; image_id: string },
+  product: { id: string; image_id: string; media?: KioskMedia },
   selections: readonly { group_id: string; option_id: string }[] = [],
 ) {
+  const remote = media.artworkId(product);
+  if (remote) return remote;
   if (product.id !== 'piko' || product.image_id !== 'generic-drink') return product.image_id;
   const flavor = selections.find((selection) => selection.group_id === 'piko-flavor');
   return (flavor && modifierArtworkId('piko-flavor', flavor.option_id)) || 'drink:piko';
