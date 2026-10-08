@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "85f23d582540f89b0df86b7415cc764f7594774a",
+      "head": "ba6eff5cf77c3b160a729c8c7bddf51ead6301ba",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3594,8 +3594,8 @@
         "tests/operations/test_kiosk_independent_qr_release.py",
         "docs/03-offline-and-reliability.md"
       ],
-      "updatedAt": "2026-10-08T12:20:04.815Z",
-      "summary": "Owner decisions: prices from published back office, unlimited kiosk business cap, receipts deferred for this launch. Shared2983daa merged preserving owner photos. b5adce0 CI37767790087 passed11/11, checkout/QR108/108 PostgreSQL18. Build7 is85f23d5, CI pending. No VPS mutation or iPad installation yet; bridge restart window and owner-paid control payment remain pending."
+      "updatedAt": "2026-10-08T12:45:30.449Z",
+      "summary": "Installed85f API/QR bridge and iPad7, CI11/11 + backup/restore. One approved100KZT order blocked before bank; zero QR/capture. Owner removed per-order cashier wait. Pushedba6eff5 build8/schema045/worker + paid delivery recovery; PG18 commerce110/110 kiosk86/86 release43/43. CI37778936373 running, new release not installed. Windows edge support requires access;192.168.3.9 unavailable."
     }
   ]
 }
