@@ -3586,9 +3586,15 @@
         "@release/ios",
         "tests/kiosk/browser_drink_photos.py",
         "tests/kiosk/browser_payment_success.py",
-        "@windows/cashier"
+        "@windows/cashier",
+        "packages/commerce-core/src/repository.ts",
+        "db/cloud/migrations/045_cloud_kiosk_qr_before_admission.sql",
+        "tests/kiosk/paid-delivery.test.mjs",
+        "infra/staging/release-kiosk-independent-qr.py",
+        "tests/operations/test_kiosk_independent_qr_release.py",
+        "docs/03-offline-and-reliability.md"
       ],
-      "updatedAt": "2026-10-08T12:16:29.636Z",
+      "updatedAt": "2026-10-08T12:20:04.815Z",
       "summary": "Owner decisions: prices from published back office, unlimited kiosk business cap, receipts deferred for this launch. Shared2983daa merged preserving owner photos. b5adce0 CI37767790087 passed11/11, checkout/QR108/108 PostgreSQL18. Build7 is85f23d5, CI pending. No VPS mutation or iPad installation yet; bridge restart window and owner-paid control payment remain pending."
     }
   ]
