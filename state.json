@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "cbb875835c453b6d7d4d8d6812d3e316af8cbd64",
+      "head": "24c4c360d7bf8998c6e431e65847d12c415d86f1",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3610,9 +3610,9 @@
         "docs/operations/payment-blockers-2026-10-09.md",
         "packages/platform/src/http.ts"
       ],
-      "updatedAt": "2026-10-08T19:39:23.378Z",
-      "summary": "Code06924c3 full CI11/11 success37827315997 and37826774463; identity retention fix not deployed. Docs cbb8758/PR211 included shared: AppleVision decoded both second diagnostic images exactly. Owner5000KZT QR is an external example, not owner merchant; qr.kaspi.kz opaque41hex. Stored firstbanktoken41hex and second40hex prove length difference not diagnosis; secondmatcheslocal exactly. No new bank requests or payment-link opens. VPS/Windows6ac409f and iPad8 preserved; acceptance NOT passed.",
-      "nextAction": "Find actual bank QR/amount contract or working dynamic QR from owner point without logging in as server cashier (would risk shared session). Do not pad/rewrite opaque token, weaken amount guard, substitute diagnostic IDs into original unknown order or repeat create. Two diagnostic permissions used. Any future release guarded with exact-source CI and backup/restore. Global status/roadmap occupied; online pult unchanged."
+      "updatedAt": "2026-10-08T19:44:12.999Z",
+      "summary": "24c4c36/PR212 records verified closed-hours RESTAURANT_CLOSED→CONFLICT HTTP filter bug and original kiosk unknown with lost bank ID. Docs published/shared. Five local HTTP/mobile transport regression checks pass for prepared contract/filter patch, not yet committed/deployed; mobile/OpenAPI scope sharing requested from owner. 24 published products price correctly with stored hash. No new QR/invoice/order/payment. Read-only history empty DailySets is not proof of no payment.",
+      "nextAction": "Await owner scope-sharing reply for mobile checkout error handling and OpenAPI, finish compatible client opt-in and generated contracts, then full CI and native/server release. iPad still unresolved: exact bank reconciliation or audited staff handoff needed; do not reset unknown or substitute diagnostic IDs. Local code patch and new test remain in kiosk worktree."
     }
   ]
 }
