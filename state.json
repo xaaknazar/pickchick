@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "74d46286f545637bbf89549a0174225cf68be67b",
+      "head": "06924c307122cf9fd960011164d349af98c9b5c4",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3606,9 +3606,9 @@
         "docs/operations/kiosk-v3-installation-2026-10-08.json",
         "docs/operations/kiosk-kaspi-qr-upstream-audit-2026-10-08.md"
       ],
-      "updatedAt": "2026-10-08T18:38:34.511Z",
-      "summary": "Installed VPS API/QR worker and Windows Edge/transport 6ac409f after CI37787035238 11/11; cloud046/edge017, both backup restores passed. iPad0.1.0(8)37dbc preserved. One100KZT order admitted, reserved number20; QR attempt unknown without operation ID, captures0. Diagnostic QR separately approved no-payment: bank Amount0, pending Id instead of QrOperationId, no Amount. Owner saw QR not recognized; later QrTokenDiscarded. Apple Vision exact payload. Code+sanitized evidence74d4628 integrated shared and primary Mac synced. Payment acceptance NOT passed.",
-      "nextAction": "Wait for owner approval before a second diagnostic QR, then show immediately/no payment. Resolve real Kaspi amount/status contract and preserve unknown original attempt; never invent bank failure/capture or create another order. Private diagnostic and native proofs local/VPS; runbook and installation JSON are shared. Global status/roadmap scopes occupied, online pult unchanged."
+      "updatedAt": "2026-10-08T18:47:30.575Z",
+      "summary": "PR210 / 06924c3: upstream175577e reviewed against deployed28c9167; QR implementation unchanged. Second separately approved no-payment probe used18:22:30UTC, Amount0 again; owner reports QR not recognized. Adapter now preserves bank identity on unbound create and validates Id/QrOperationId aliases without relaxing amount guard. Local PG18 QR14/14, build/lint/format pass, commerce43 pass1 skip. CI pending; not deployed. VPS/Windows6ac409f and iPad8 preserved; payment acceptance NOT passed.",
+      "nextAction": "Review CI37826774463 and integrate checked PR210 into shared, sync primary Mac. Resolve actual bank QR/amount contract without another create until separate owner approval; both diagnostic permissions used. Never substitute diagnostic IDs into original unknown order, fabricate outcome or repeat create. Global status/roadmap occupied; online pult unchanged."
     }
   ]
 }
