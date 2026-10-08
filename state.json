@@ -3635,11 +3635,14 @@
         "infra/windows/install-native-menu-sync.ps1",
         "infra/windows/remote-stops-upgrade-db.mjs",
         "docs/operations/unified-menu-publication.md",
-        "docs/operations/unified-menu-installation-2026-10-09.md"
+        "docs/operations/unified-menu-installation-2026-10-09.md",
+        "infra/windows/update-native-unified-menu.ps1",
+        "tests/operations/test_windows_unified_menu_release.py",
+        "tests/operations/windows-unified-menu-upgrade.test.ps1"
       ],
       "status": "active",
       "head": "65de28c4d62a031968d37d8c4071ce771dadada2",
-      "updatedAt": "2026-10-08T20:42:07.584Z"
+      "updatedAt": "2026-10-08T20:43:09.269Z"
     }
   ]
 }
