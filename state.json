@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "06924c307122cf9fd960011164d349af98c9b5c4",
+      "head": "cbb875835c453b6d7d4d8d6812d3e316af8cbd64",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3606,9 +3606,9 @@
         "docs/operations/kiosk-v3-installation-2026-10-08.json",
         "docs/operations/kiosk-kaspi-qr-upstream-audit-2026-10-08.md"
       ],
-      "updatedAt": "2026-10-08T18:50:47.619Z",
-      "summary": "06924c3 / PR210 integrated by fast-forward into shared; primary Documents/ChatGPT/PickChick synced clean at same SHA. Upstream175577e vs deployed28c9167: QR code unchanged. Second authorized no-payment diagnostic18:22:30UTC used; Amount0, owner reports QR not recognized. Fix retains bank identity on unbound amount, strict status aliases; PG18 QR14/14, build/lint/format pass, commerce43 pass1 optional skip. CI37826774463 and shared37827315997 still running, full green not claimed. NOT deployed; VPS/Windows6ac409f, iPad8 preserved; payment acceptance NOT passed.",
-      "nextAction": "Check full CI before any release. Resolve real bank QR/amount contract; both diagnostic create permissions used, any new bank probe requires separate owner approval. Original order unknown must not be SQL-cleared, diagnostic IDs substituted or create retried. See upstream-audit/runbook/installation JSON. Global status/roadmap occupied and online pult unchanged."
+      "updatedAt": "2026-10-08T19:26:21.638Z",
+      "summary": "Code06924c3 full CI11/11 success37827315997 and37826774463; identity retention fix not deployed. Docs cbb8758/PR211 included shared: AppleVision decoded both second diagnostic images exactly. Owner5000KZT QR is an external example, not owner merchant; qr.kaspi.kz opaque41hex. Stored firstbanktoken41hex and second40hex prove length difference not diagnosis; secondmatcheslocal exactly. No new bank requests or payment-link opens. VPS/Windows6ac409f and iPad8 preserved; acceptance NOT passed.",
+      "nextAction": "Find actual bank QR/amount contract or working dynamic QR from owner point without logging in as server cashier (would risk shared session). Do not pad/rewrite opaque token, weaken amount guard, substitute diagnostic IDs into original unknown order or repeat create. Two diagnostic permissions used. Any future release guarded with exact-source CI and backup/restore. Global status/roadmap occupied; online pult unchanged."
     }
   ]
 }
