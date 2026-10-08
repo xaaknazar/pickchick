@@ -3650,11 +3650,12 @@
         "tests/integration/catalog-assets.test.mjs",
         "tests/backoffice/unified-menu-browser.test.mjs",
         "scripts/build-windows-edge-runtime.py",
-        "tests/operations/test_windows_runtime.py"
+        "tests/operations/test_windows_runtime.py",
+        "tests/backoffice/helpers.mjs"
       ],
       "status": "active",
       "head": "81189403cea9b42999963e5825e7896060b0218a",
-      "updatedAt": "2026-10-08T21:05:10.615Z"
+      "updatedAt": "2026-10-08T21:08:11.358Z"
     }
   ]
 }
