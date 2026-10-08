@@ -3637,11 +3637,12 @@
         "docs/operations/unified-menu-installation-2026-10-09.md",
         "infra/windows/update-native-unified-menu.ps1",
         "tests/operations/test_windows_unified_menu_release.py",
-        "tests/operations/windows-unified-menu-upgrade.test.ps1"
+        "tests/operations/windows-unified-menu-upgrade.test.ps1",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
       "head": "65de28c4d62a031968d37d8c4071ce771dadada2",
-      "updatedAt": "2026-10-08T20:43:09.269Z"
+      "updatedAt": "2026-10-08T20:48:31.926Z"
     }
   ]
 }
