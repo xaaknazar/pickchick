@@ -106,3 +106,6 @@ test('stop-list runtime update only grants seven read columns and preserves ever
     await rm(candidateRoot, { recursive: true, force: true });
   }
 });
+
+// The existing CI entry point includes the subsequent guarded kiosk upgrade.
+import './windows-kiosk-upgrade.test.mjs';

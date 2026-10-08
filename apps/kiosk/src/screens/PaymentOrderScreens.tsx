@@ -135,6 +135,8 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
 export function OrderScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   const order = model.order;
+  const waitingForNumber =
+    model.commercial && order?.payment_state === 'paid' && (!order.number || order.number === '-');
   const canReset =
     !!order &&
     ['simulated_approved', 'paid'].includes(order.payment_state) &&
@@ -164,8 +166,11 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
     }, 1000);
     return () => clearInterval(interval);
   }, [canReset, order?.order_id]);
-  const status =
-    order?.state === 'ready'
+  const status = waitingForNumber
+    ? context.locale === 'ru'
+      ? 'Оплата подтверждена'
+      : 'Төлем расталды'
+    : order?.state === 'ready'
       ? t.ready
       : order?.state === 'fulfilled'
         ? t.fulfilled
@@ -180,9 +185,10 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
                   ? 'Оплата подтверждена. Ожидаем ресторан.'
                   : 'Төлем расталды. Мейрамхананы күтеміз.'
                 : t.waiting;
-  const number = kioskOrderNumber(order?.number);
-  const stage =
-    order?.state === 'ready' || order?.state === 'fulfilled'
+  const number = waitingForNumber ? null : kioskOrderNumber(order?.number);
+  const stage = waitingForNumber
+    ? null
+    : order?.state === 'ready' || order?.state === 'fulfilled'
       ? 'ready'
       : order?.state === 'preparing'
         ? 'preparing'

@@ -100,6 +100,13 @@ function operationId(value: unknown): string | null {
         : '';
   return /^[1-9][0-9]{0,19}$/.test(text) ? text : null;
 }
+function statusOperationId(data: Record<string, unknown>): string | null {
+  const primary = Object.hasOwn(data, 'QrOperationId');
+  const alias = Object.hasOwn(data, 'Id');
+  const id = operationId(primary ? data.QrOperationId : data.Id);
+  // Reject ambiguous or malformed identities even when the other field matches.
+  return primary && alias && operationId(data.Id) !== id ? null : id;
+}
 function payload(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 4096) return null;
   try {
@@ -256,8 +263,9 @@ export class KioskKaspiQrProcessor {
     const source = (
       await this.pool.query<{ snapshot: unknown; branch_id: string; ready: boolean }>(
         `SELECT o.snapshot,o.branch_id,
-      (b.ordering_enabled AND NOT o.attention_required AND t.active AND d.status='active' AND p.state='held'
-       AND p.device_id=o.admission_device_id AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id
+      (b.ordering_enabled AND NOT o.attention_required AND t.active AND d.status='active'
+       AND (p.order_id IS NULL OR (p.state='held'
+        AND p.device_id=o.admission_device_id AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id))
        AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents c WHERE c.order_id=o.id)) ready
       FROM commerce_payment_attempts a JOIN commerce_orders o ON o.id=a.order_id JOIN branches b ON b.id=o.branch_id
       LEFT JOIN fulfillment_transport_bindings t ON t.branch_id=o.branch_id LEFT JOIN devices d ON d.id=t.device_id
@@ -302,7 +310,9 @@ export class KioskKaspiQrProcessor {
     const id = answer.kind === 'ok' ? operationId(answer.data.QrOperationId) : null;
     const qr = answer.kind === 'ok' ? payload(answer.data.QrToken) : null;
     const bound = answer.kind === 'ok' && kaspiMinor(answer.data.Amount) === row.amount_minor;
-    if (id && qr && bound) {
+    if (id && qr) {
+      // Preserve the bank identity for reconciliation even when the amount is unbound.
+      // Unknown QR payloads remain hidden by readKioskQrPayment.
       // Keep the stricter bank expiry only when its timezone is explicit; never guess a local zone.
       const expiry =
         answer.kind === 'ok' &&
@@ -311,7 +321,7 @@ export class KioskKaspiQrProcessor {
           ? Date.parse(answer.data.ExpireDate)
           : NaN;
       await this.pool.query(
-        `UPDATE commerce_kiosk_kaspi_qr SET state='issued',state_changed_at=clock_timestamp(),operation_id=$2,qr_payload=$3,
+        `UPDATE commerce_kiosk_kaspi_qr SET state=$7,state_changed_at=clock_timestamp(),operation_id=$2,qr_payload=$3,
         expires_at=LEAST(expires_at,COALESCE($4::timestamptz,expires_at)),next_check_at=clock_timestamp(),delivered_at=NULL,
         lease_until=CASE WHEN lease_token=$5 THEN NULL ELSE lease_until END,
         lease_token=CASE WHEN lease_token=$5 THEN NULL ELSE lease_token END
@@ -323,6 +333,7 @@ export class KioskKaspiQrProcessor {
           Number.isFinite(expiry) ? new Date(expiry) : null,
           issuanceToken,
           row.issue_revision,
+          bound ? 'issued' : 'unknown',
         ],
       );
     } else
@@ -357,7 +368,7 @@ export class KioskKaspiQrProcessor {
       session = answer.kind === 'session';
       if (answer.kind === 'ok') {
         const bound =
-          operationId(answer.data.QrOperationId) === row.operation_id &&
+          statusOperationId(answer.data) === row.operation_id &&
           kaspiMinor(answer.data.Amount) === row.amount_minor;
         const status = answer.data.Status;
         if (bound && status === 'Processed') await this.state(row, 'paid', lease);

@@ -102,7 +102,7 @@ export function OrderTicket({
   locale,
   stage = 'accepted',
 }: {
-  number: string;
+  number: string | null;
   status: string;
   confirmed: boolean;
   showBoard: boolean;
@@ -131,8 +131,8 @@ export function OrderTicket({
   const target = useSpringTo(stage ? fill[stage] : 0);
   const glow = useLoop(4000, 0, true);
   const progress = Animated.multiply(bar, target);
-  const prefixed = number.startsWith('№');
-  const digits = prefixed ? number.slice(1) : number;
+  const prefixed = number?.startsWith('№') ?? false;
+  const digits = prefixed ? number!.slice(1) : (number ?? '');
   const numberSize = Math.min(
     v(tight ? 200 : 230),
     Math.floor((width - v(120)) / Math.max(1, digits.length + (prefixed ? 0.5 : 0)) / 0.72),
@@ -232,89 +232,98 @@ export function OrderTicket({
         </Animated.View>
       ) : null}
 
-      <Animated.Text
-        style={{
-          marginTop: v(6),
-          fontFamily: fonts.heavy,
-          fontSize: v(24),
-          letterSpacing: 3,
-          color: 'rgba(255,255,255,.7)',
-          textTransform: 'uppercase',
-          opacity: label,
-        }}
-      >
-        {t.yourNumber}
-      </Animated.Text>
-
-      <View style={{ zIndex: 2, alignItems: 'center' }}>
-        <Animated.View
-          style={{
-            opacity: stamp.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 1],
-              extrapolate: 'clamp',
-            }),
-            transform: [
-              {
-                scale: Animated.multiply(
-                  stamp.interpolate({ inputRange: [0, 1], outputRange: [2.1, 1] }),
-                  pop,
-                ),
-              },
-            ],
-          }}
-        >
-          {/* The hard orange shadow is a copy behind the number that slides down. */}
+      {number !== null ? (
+        <>
           <Animated.Text
-            accessible={false}
-            aria-hidden
             style={{
-              ...numberText,
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              color: colors.orange,
-              transform: [
-                { translateY: stamp.interpolate({ inputRange: [0, 1], outputRange: [0, v(10)] }) },
-              ],
+              marginTop: v(6),
+              fontFamily: fonts.heavy,
+              fontSize: v(24),
+              letterSpacing: 3,
+              color: 'rgba(255,255,255,.7)',
+              textTransform: 'uppercase',
+              opacity: label,
             }}
           >
-            {numberContent}
+            {t.yourNumber}
           </Animated.Text>
-          <Text testID="kiosk-order-number" style={{ ...numberText, color: colors.white }}>
-            {numberContent}
-          </Text>
-          {reduced ? null : (
-            // Blur stand-in: a soft, larger ghost that dissolves as the number lands.
-            <Animated.Text
-              accessible={false}
-              aria-hidden
+
+          <View style={{ zIndex: 2, alignItems: 'center' }}>
+            <Animated.View
               style={{
-                ...numberText,
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                color: colors.white,
                 opacity: stamp.interpolate({
-                  inputRange: [0, 0.25, 0.7],
-                  outputRange: [0, 0.35, 0],
+                  inputRange: [0, 1],
+                  outputRange: [0, 1],
                   extrapolate: 'clamp',
                 }),
-                transform: [{ scale: 1.15 }],
+                transform: [
+                  {
+                    scale: Animated.multiply(
+                      stamp.interpolate({ inputRange: [0, 1], outputRange: [2.1, 1] }),
+                      pop,
+                    ),
+                  },
+                ],
               }}
             >
-              {numberContent}
-            </Animated.Text>
-          )}
-        </Animated.View>
-        {confirmed && stage ? (
-          <View style={{ position: 'absolute', top: v(26), left: '50%' }}>
-            <OrderBurst after={lead} />
+              {/* The hard orange shadow is a copy behind the number that slides down. */}
+              <Animated.Text
+                accessible={false}
+                aria-hidden
+                style={{
+                  ...numberText,
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  color: colors.orange,
+                  transform: [
+                    {
+                      translateY: stamp.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, v(10)],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                {numberContent}
+              </Animated.Text>
+              <Text testID="kiosk-order-number" style={{ ...numberText, color: colors.white }}>
+                {numberContent}
+              </Text>
+              {reduced ? null : (
+                // Blur stand-in: a soft, larger ghost that dissolves as the number lands.
+                <Animated.Text
+                  accessible={false}
+                  aria-hidden
+                  style={{
+                    ...numberText,
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    color: colors.white,
+                    opacity: stamp.interpolate({
+                      inputRange: [0, 0.25, 0.7],
+                      outputRange: [0, 0.35, 0],
+                      extrapolate: 'clamp',
+                    }),
+                    transform: [{ scale: 1.15 }],
+                  }}
+                >
+                  {numberContent}
+                </Animated.Text>
+              )}
+            </Animated.View>
+            {confirmed && stage ? (
+              <View style={{ position: 'absolute', top: v(26), left: '50%' }}>
+                <OrderBurst after={lead} />
+              </View>
+            ) : null}
           </View>
-        ) : null}
-      </View>
+        </>
+      ) : null}
 
       <Animated.View style={{ alignItems: 'center', gap: v(6), ...fadeUp(rest) }}>
         <Text
@@ -332,6 +341,23 @@ export function OrderTicket({
         >
           {status}
         </Text>
+        {number === null ? (
+          <Text
+            testID="kiosk-order-delivery-pending"
+            style={{
+              fontFamily: fonts.body,
+              fontSize: Math.max(18, v(24)),
+              lineHeight: v(34),
+              color: colors.white,
+              textAlign: 'center',
+              marginTop: v(20),
+            }}
+          >
+            {locale === 'ru'
+              ? 'Передаём заказ на кухню. Номер появится здесь. Не оплачивайте повторно. Если ожидание затянулось, пригласите сотрудника.'
+              : 'Тапсырысты асүйге жіберіп жатырмыз. Нөмірі осында пайда болады. Қайта төлем жасамаңыз. Күту ұзаққа созылса, қызметкерді шақырыңыз.'}
+          </Text>
+        ) : null}
       </Animated.View>
 
       {stage ? (
