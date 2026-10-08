@@ -21,12 +21,13 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs"
+    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",
     "@pickchick/catalog-admin": "workspace:*",
     "@pickchick/commerce-core": "workspace:*",
+    "@pickchick/menu-sync": "workspace:*",
     "zod": "4.5.4"
   },
   "devDependencies": {

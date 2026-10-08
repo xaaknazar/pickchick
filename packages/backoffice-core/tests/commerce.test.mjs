@@ -285,6 +285,21 @@ test('director calendar bounds financial events, rejects unknown shift and repor
       { id: variant, name: 'Synthetic item', kind: 'variant' },
     ]);
     assert.deepEqual(stops.stopped_ids, [variant, unknown]);
+    // v2 stop list: without a publication every stop is unknown and keeps the legacy names.
+    const v2 = await f.bo.stops(f.boManager.token, f.branch);
+    assert.equal(v2.schema_version, 2);
+    assert.equal(v2.catalog, null);
+    assert.deepEqual(v2.items, []);
+    assert.deepEqual(
+      v2.unknown_stops.map((s) => [s.variant_id, s.name_ru, s.kind]).sort(),
+      [
+        [variant, 'Synthetic item', 'variant'],
+        [unknown, null, null],
+      ].sort(),
+    );
+    assert.equal(v2.availability.fresh, true);
+    assert.equal(v2.availability.states_reported, false);
+    assert.deepEqual(v2.remote_stops, { enabled: false, edge_ready: false, writable: false });
     assert.equal((await f.bo.read(f.boManager.token, f.branch)).availability.fresh, true);
     await f.pool.query(
       "UPDATE cloud_branch_availability SET observed_at=clock_timestamp()-interval '31 seconds'",
@@ -292,4 +307,5 @@ test('director calendar bounds financial events, rejects unknown shift and repor
     assert.equal((await f.bo.read(f.boManager.token, f.branch)).availability.fresh, false);
     await f.pool.query("UPDATE devices SET status='revoked' WHERE id=$1", [f.auth.deviceId]);
     assert.equal((await f.bo.read(f.boManager.token, f.branch)).availability.observed_at, null);
+    assert.equal((await f.bo.stops(f.boManager.token, f.branch)).availability.observed_at, null);
   }));

@@ -10,11 +10,19 @@ import {
   Request,
   Schemas,
   Recipe,
+  StopRequest,
   type Kind,
   periodWindow,
   stockEffect,
 } from './model.js';
+import {
+  catalogStopNames,
+  readStopList,
+  requestStopInTransaction,
+  type BackofficeOptions,
+} from './stops.js';
 export * from './model.js';
+export * from './stops.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = { id: string; organization_id: string; role: 'manager' | 'analyst' };
 type Row = {
@@ -61,6 +69,7 @@ export class Backoffice {
   constructor(
     private pool: DatabasePool,
     private enabled = false,
+    private options: BackofficeOptions = {},
   ) {}
   private async scope(
     db: DatabaseClient,
@@ -265,6 +274,14 @@ export class Backoffice {
         WHERE v.organization_id=$2 AND v.id=ANY($1::uuid[])`,
         [availability.stopped_ids, actor.organization_id],
       );
+      // Production stop ids are catalog hashes; resolve the rest from the published catalog.
+      stoppedItems.push(
+        ...(await catalogStopNames(
+          db,
+          branch,
+          availability.stopped_ids.filter((id: string) => !stoppedItems.some((i) => i.id === id)),
+        )),
+      );
       const kitchen = await rows(
         `SELECT * FROM (SELECT f.order_id,f.state,f.version,f.display_number::text,f.routing_version,f.assembly_station_id,f.observed_at,'cloud' commercial_owner FROM cloud_fulfillment_projection f WHERE f.branch_id=$1 UNION ALL SELECT k.order_id,k.state,k.version,k.display_number::text,k.routing_version,k.assembly_station_id,k.observed_at,'edge_pos' commercial_owner FROM pos_kitchen_sync_projection k WHERE k.branch_id=$1) observations ORDER BY observed_at DESC,order_id LIMIT 200`,
       );
@@ -375,6 +392,38 @@ export class Backoffice {
         },
       };
     });
+  }
+  /** Stop list v2 (catalog names, edge versions, open commands); analysts may read it. */
+  async stops(token: string, branch: string) {
+    return transaction(this.pool, async (db) => {
+      await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const actor = await this.scope(db, token, branch);
+      return readStopList(db, actor, branch, this.options);
+    });
+  }
+  /** Manager-only stop/unstop command for the cashier edge, behind BACKOFFICE_REMOTE_STOPS_ENABLED. */
+  async requestStop(token: string, branch: string, input: unknown) {
+    const request = parse(StopRequest, input);
+    try {
+      return await transaction(this.pool, async (db) => {
+        const actor = await this.scope(db, token, branch, true);
+        return requestStopInTransaction(db, actor, branch, request, this.options);
+      });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        if (error.code === '23505')
+          throw new ErrorCode(
+            'CONFLICT',
+            'constraint' in error && error.constraint === 'cloud_stop_commands_open_idx'
+              ? 'STOP_COMMAND_IN_PROGRESS'
+              : undefined,
+          );
+        if (['23503', '23514'].includes(String(error.code))) throw new ErrorCode('INVALID_REQUEST');
+        if (['40001', '40P01'].includes(String(error.code)))
+          throw new ErrorCode('SERVICE_UNAVAILABLE');
+      }
+      throw error;
+    }
   }
   async order(token: string, branch: string, id: string) {
     parse(z.uuid(), id);

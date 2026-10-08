@@ -358,6 +358,9 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../database
+      '@pickchick/menu-sync':
+        specifier: workspace:*
+        version: link:../menu-sync
       zod:
         specifier: 4.5.4
         version: 4.5.4

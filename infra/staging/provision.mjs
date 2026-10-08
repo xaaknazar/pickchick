@@ -3,6 +3,7 @@ import { createPool, migrate, transaction } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { customerAuthGrants } from './customer-auth-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
+import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
 import { catalogAssetGrants } from './catalog-asset-grants.mjs';
@@ -102,6 +103,13 @@ async function provision() {
           'pickchick_app',
           config.catalogAdminEnabled === true &&
             process.env.CATALOG_MEDIA_UPLOAD_ENABLED === 'true',
+        ),
+      );
+      await client.query(
+        backofficeStopGrants(
+          'pickchick_app',
+          config.backofficeEnabled === true &&
+            process.env.BACKOFFICE_REMOTE_STOPS_ENABLED === 'true',
         ),
       );
       // Validate the complete owner/branch policy before enabling checkout privileges.
