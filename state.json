@@ -3583,7 +3583,8 @@
         "@vps/kaspi-bridge",
         "@vps/kaspi-workers",
         "@apple/devices/kiosk",
-        "@release/ios"
+        "@release/ios",
+        "tests/kiosk/browser_drink_photos.py"
       ],
       "updatedAt": "2026-10-08T10:35:11.912Z",
       "summary": "Import local v3 commits 839dd2f and earlier, integrate shared2983daa preserving supplied photos. Owner requests guest launch; limit/prices/fiscal account and bridge restart window pending. No server mutation yet."
