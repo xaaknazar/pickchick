@@ -1,0 +1,121 @@
+{
+  "recordedAt": "2026-10-08",
+  "releaseSource": "6ac409f710f96e5247e8423963e2ef511a9e4d4a",
+  "ci": {
+    "runId": 37787035238,
+    "passedJobs": 11,
+    "totalJobs": 11,
+    "conclusion": "success",
+    "storybookRunId": 37787042365,
+    "storybookConclusion": "success"
+  },
+  "vps": {
+    "image": "sha256:6ef62d34b54cf1f6788358a8e972d72c3c4fc2f7ad5325734812d45f8131185c",
+    "lastMigration": 46,
+    "migrationFiles": 45,
+    "prepare": "passed",
+    "apply": "passed",
+    "backupSha256": "7e5f705e3b30b7e9772c9d39d9c5671e5be8906bee31296f0a9ed94573267ca0",
+    "restore": "passed",
+    "temporaryDatabaseRemoved": true,
+    "gatewaySha256": "a659c2428163b2e51c2f1affd62fda18ab339c6e55cf576cdcf0865b2d1d7d9f",
+    "mobileWorkerPreserved": true,
+    "bankBridgePreserved": true
+  },
+  "windows": {
+    "installation": {
+      "transportWorkerUpdated": true,
+      "dependentKitchenLinkRestarted": true,
+      "schema": 17,
+      "sourceCommit": "6ac409f710f96e5247e8423963e2ef511a9e4d4a",
+      "environmentChanged": false,
+      "completedAt": "2026-10-08T14:23:21.4050558Z",
+      "dataPreserved": true
+    },
+    "health": {
+      "service": "edge",
+      "ready": true,
+      "degraded": false,
+      "dependencies": {
+        "database": "up",
+        "schema": "up",
+        "redis": "not_required"
+      }
+    },
+    "services": [
+      {
+        "name": "PickChickEdge",
+        "status": "Running"
+      },
+      {
+        "name": "PickChickFulfillmentTunnel",
+        "status": "Running"
+      },
+      {
+        "name": "PickChickFulfillmentWorker",
+        "status": "Running"
+      },
+      {
+        "name": "PickChickKitchenLink",
+        "status": "Running"
+      },
+      {
+        "name": "PickChickPostgres",
+        "status": "Running"
+      }
+    ]
+  },
+  "windowsBackup": {
+    "sha256": "cda8861d2938931a65e60eaea46ca3d7f8e0bb94ae1370a3b3ff7d169f6408ef",
+    "finishedAt": "2026-10-08T13:57:46.193Z",
+    "restore": "passed"
+  },
+  "ipad": {
+    "version": "0.1.0",
+    "build": 8,
+    "source": "37dbc1a2c1941fb686206e64de7dca9bcaea125d",
+    "device": "iPad Air 13 M3",
+    "installed": true,
+    "existingOrderRestoration": "passed",
+    "qrToPaidNativeTest": "failed_waiting_for_qr"
+  },
+  "controlOrder": {
+    "count": 1,
+    "amountMinor": 10000,
+    "state": "awaiting_payment",
+    "admission": "held",
+    "reservedNumber": 20,
+    "qrAttempts": 1,
+    "qrState": "unknown",
+    "hasBankOperationId": false,
+    "hasQrPayload": false,
+    "captures": 0,
+    "kitchenAcceptance": false,
+    "paidOrderScreenVerified": false
+  },
+  "diagnosticRequest": {
+    "separatelyApproved": true,
+    "requestCount": 1,
+    "amountTenge": 100,
+    "paymentApproved": false,
+    "newOrders": 0,
+    "captures": 0,
+    "http": 200,
+    "statusCode": 0,
+    "returnedAmount": 0,
+    "returnedQrHost": "qr.kaspi.kz",
+    "statusIdentityField": "Id",
+    "statusIdentityMatches": true,
+    "pendingStatus": "QrTokenCreated",
+    "pendingStatusAmountPresent": false,
+    "ownerScanResult": "QR code not recognized",
+    "imageDecodedByAppleVision": true,
+    "decodedPayloadMatchesBank": true,
+    "laterStatus": "QrTokenDiscarded",
+    "laterStatusObservedAt": "2026-10-08T14:35:52Z",
+    "scanWaitTimeoutSeconds": 180,
+    "repeatRequiresSeparateApproval": true
+  },
+  "acceptance": "not_passed",
+  "sharedProjectStatusAndRoadmapUpdated": false
+}
