@@ -39,9 +39,13 @@ class FinanceDashboardRelease(unittest.TestCase):
             bad = copy.copy(args); setattr(bad, name, '0'*len(getattr(bad, name)))
             with self.assertRaises(r.market.GuardFailure): r.Release(bad)
         obj = object.__new__(r.Release)
-        obj.git = lambda *args: '\n'.join('db/cloud/migrations/'+p.name for p in (ROOT/'db/cloud/migrations').glob('*.sql'))
+        # This historical profile reads its pinned baseline, not today's HEAD.
+        names = ['db/cloud/migrations/'+p.name for p in (ROOT/'db/cloud/migrations').glob('*.sql') if int(p.name[:3]) <= 44]
+        obj.git = lambda *args: '\n'.join(names)
         self.assertEqual(len(obj.baseline_migrations()), 43)
         self.assertEqual(obj.baseline_migrations()[-1], '044_cloud_kiosk_enrollment.sql')
+        names.append('db/cloud/migrations/045_unreviewed.sql')
+        with self.assertRaises(r.market.GuardFailure): obj.baseline_migrations()
 
     def test_only_finance_changes_can_ship(self):
         r.verify_changed_paths(['apps/backoffice/src/finance.ts', 'packages/backoffice-core/src/finance.ts',
