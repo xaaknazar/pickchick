@@ -86,7 +86,7 @@ export function Header({
               fontFamily: fonts.black,
               fontSize: v(title ? 28 : 15),
               letterSpacing: title ? -0.3 : 1.4,
-              color: title ? colors.white : 'rgba(255,255,255,.62)',
+              color: title ? colors.white : colors.onBlueMuted,
             }}
           >
             {title ?? 'PICK CHICK'}

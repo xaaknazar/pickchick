@@ -1,5 +1,6 @@
 // Literal paths bundle the customer's supplied artwork for offline presentation.
 // v3 kiosk photography (white studio shots, cut-outs, blue combo heroes) is keyed by catalog image_id.
+import { colors } from './theme';
 export const assets = {
   logo: require('../assets/v3/logo.webp'),
   logoTile: require('../../../design/prototype/assets/mockup/logo.png'),
@@ -104,6 +105,9 @@ export const optionPhoto = (optionId: string): Photo | null => options[optionId]
 /** Heinz sauces have no supplied photography; they keep a neutral colour mark. */
 export const heinzColor = (optionId: string): string | null =>
   /cheese/.test(optionId) ? '#E7A51A' : /bbq/.test(optionId) ? '#7A2E12' : null;
+/** Word-mark colour that keeps WCAG AA on its Heinz mark (navy on the light mustard). */
+export const heinzInk = (optionId: string): string =>
+  /cheese/.test(optionId) ? colors.navy : colors.white;
 const products: Record<string, number> = {
   'shot.jpg': require('../../../design/prototype/assets/mockup/shot.jpg'),
   'i0.jpg': require('../../../design/prototype/assets/mockup/i0.jpg'),

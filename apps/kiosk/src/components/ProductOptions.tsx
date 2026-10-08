@@ -2,7 +2,7 @@ import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import type { KioskModifierGroup, KioskSelection } from '../model';
 import { money } from '../cart';
-import { heinzColor, optionPhoto } from '../assets';
+import { heinzColor, heinzInk, optionPhoto } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Icon } from './Icon';
@@ -62,7 +62,7 @@ function OptionArt({ id, dim, selected }: { id: string; dim: number; selected: b
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontFamily: fonts.black, fontSize: dim * 0.16, color: colors.white }}>
+        <Text style={{ fontFamily: fonts.black, fontSize: dim * 0.16, color: heinzInk(id) }}>
           Heinz
         </Text>
       </View>
@@ -91,7 +91,7 @@ function PricePill({ option, locale }: { option: Option; locale: Locale }) {
           fontFamily: fonts.bold,
           fontSize: Math.max(12, v(14)),
           fontVariant: ['tabular-nums'],
-          color: !option.available ? colors.muted : plus ? colors.orangeDeep : colors.blue,
+          color: !option.available ? colors.muted : plus ? colors.orangeInk : colors.blue,
         }}
       >
         {!option.available
@@ -213,7 +213,8 @@ function OptionTile({
         width: v(34),
         height: v(34),
         borderRadius: v(17),
-        backgroundColor: colors.orange,
+        // A count is small white text; a check mark keeps the brand orange.
+        backgroundColor: multi ? colors.orangeInk : colors.orange,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: colors.orange,
@@ -260,7 +261,7 @@ function OptionTile({
           <Pressable
             testID={`kiosk-modifier-plus-${group.id}-${option.id}`}
             accessibilityRole="button"
-            accessibilityLabel={'+ ' + option.label}
+            // No override: the name comes from the visible tile text (WCAG 2.5.3).
             accessibilityState={{
               disabled: !option.available || quantity >= option.max_quantity || total >= group.max,
             }}
@@ -391,7 +392,7 @@ function ExtraRow({
             fontFamily: fonts.bold,
             fontSize: Math.max(14, v(16)),
             fontVariant: ['tabular-nums'],
-            color: option.available ? colors.orangeDeep : colors.muted,
+            color: option.available ? colors.orangeInk : colors.muted,
           }}
         >
           {option.available ? '+' + money(option.price_delta_minor) : t.unavailableShort}
@@ -491,7 +492,7 @@ function GroupChip({
           flexShrink: 1,
           fontFamily: fonts.bold,
           fontSize: Math.max(13, v(15)),
-          color: done ? colors.blue : colors.orangeDeep,
+          color: done ? colors.blue : colors.orangeInk,
         }}
       >
         {done

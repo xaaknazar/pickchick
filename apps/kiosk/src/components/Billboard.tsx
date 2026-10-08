@@ -43,7 +43,8 @@ export function Billboard({
       <Pressable
         testID={testID}
         accessibilityRole="button"
-        accessibilityLabel={t.hit + '. ' + product.name}
+        // No override: the name comes from the visible tag, name and description
+        // (WCAG 2.5.3 label in name).
         onPress={onOpen}
         style={({ pressed }) => ({
           flex: 1,
@@ -98,7 +99,7 @@ export function Billboard({
             height: v(40),
             paddingHorizontal: v(16),
             borderRadius: v(12),
-            backgroundColor: colors.orange,
+            backgroundColor: colors.orangeInk,
             justifyContent: 'center',
             shadowColor: colors.orange,
             shadowOpacity: 0.35,

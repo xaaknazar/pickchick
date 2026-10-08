@@ -70,7 +70,7 @@ export function DiningModeCard({
   const reduced = useMotionPreference();
   const t = copy(locale);
   const here = mode === 'dine_in';
-  const tint = here ? colors.blue : colors.orange;
+  const tint = here ? colors.blue : colors.orangeCta;
   const rise = useEnter(here ? 90 : 180, 620);
   const chef = useArrive(here ? 320 : 420);
   const bob = useLoop(3400, here ? 1000 : 200, true);
@@ -197,7 +197,7 @@ export function DiningModeCard({
             height: v(44),
             paddingHorizontal: v(18),
             borderRadius: 999,
-            backgroundColor: here ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.2)',
+            backgroundColor: here ? 'rgba(255,255,255,.18)' : colors.orangeInk,
             justifyContent: 'center',
           }}
         >

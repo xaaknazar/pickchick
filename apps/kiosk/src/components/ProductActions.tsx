@@ -136,7 +136,7 @@ export function ProductActions({
                 style={{
                   height,
                   borderRadius: height / 2,
-                  backgroundColor: disabled ? '#FFA466' : colors.orange,
+                  backgroundColor: disabled ? '#FFA466' : colors.orangeCta,
                   shadowColor: colors.orange,
                   shadowOpacity: disabled ? 0 : 0.35,
                   shadowRadius: 26,

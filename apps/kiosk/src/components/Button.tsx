@@ -15,7 +15,10 @@ export interface ButtonProps {
   icon?: IconName;
   fullWidth?: boolean;
 }
-/** v3 pill button. Accent orange is the one primary action per screen. */
+/**
+ * v3 pill button. Accent orange is the one primary action per screen; its fill
+ * is the accessible orangeCta (orangeInk under the small compact label).
+ */
 export function Button({
   label,
   onPress,
@@ -76,7 +79,9 @@ export function Button({
               ? 'rgba(201,210,227,.9)'
               : colors.soft
             : tone === 'accent'
-              ? colors.orange
+              ? size === 'compact'
+                ? colors.orangeInk
+                : colors.orangeCta
               : tone === 'primary'
                 ? colors.blue
                 : tone === 'inverse'
@@ -103,7 +108,9 @@ export function Button({
         <Text
           style={{
             fontFamily: fonts.black,
-            fontSize: Math.max(18, v(size === 'hero' ? 34 : size === 'compact' ? 17 : 23)),
+            // Regular and hero labels stay >= 24 px: WCAG "large" text on orangeCta.
+            fontSize:
+              size === 'compact' ? Math.max(18, v(17)) : Math.max(24, v(size === 'hero' ? 34 : 23)),
             letterSpacing: size === 'hero' ? 1.2 : 0,
             color,
             flexShrink: 1,

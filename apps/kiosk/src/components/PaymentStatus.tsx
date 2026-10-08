@@ -51,7 +51,7 @@ function QrStep({ index, label }: { index: number; label: string }) {
           width: v(40),
           height: v(40),
           borderRadius: v(20),
-          backgroundColor: colors.orange,
+          backgroundColor: colors.orangeInk,
           alignItems: 'center',
           justifyContent: 'center',
         }}

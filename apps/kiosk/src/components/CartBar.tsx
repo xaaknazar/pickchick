@@ -156,7 +156,7 @@ export function CartBar({
               height: v(30),
               paddingHorizontal: v(4),
               borderRadius: v(15),
-              backgroundColor: colors.orange,
+              backgroundColor: colors.orangeInk,
               borderWidth: 3,
               borderColor: colors.white,
               alignItems: 'center',
@@ -177,7 +177,7 @@ export function CartBar({
             style={{
               fontFamily: fonts.body,
               fontSize: Math.max(15, v(15)),
-              color: added ? colors.orangeDeep : colors.muted,
+              color: added ? colors.orangeInk : colors.muted,
             }}
           >
             {added ? t.selected : quantity ? positions(quantity, locale) : t.cart}
@@ -209,7 +209,7 @@ export function CartBar({
               minHeight: Math.max(52, v(80)),
               paddingHorizontal: v(32),
               borderRadius: 999,
-              backgroundColor: empty ? '#C9D2E3' : colors.orange,
+              backgroundColor: empty ? '#C9D2E3' : colors.orangeCta,
               shadowColor: colors.orange,
               shadowOpacity: empty ? 0 : 0.4,
               shadowRadius: 18,
@@ -224,7 +224,13 @@ export function CartBar({
             {busy ? (
               <ActivityIndicator accessibilityLabel={t.checkout} color={colors.white} />
             ) : null}
-            <Text style={{ fontFamily: fonts.black, fontSize: v(21), color: colors.white }}>
+            <Text
+              style={{
+                fontFamily: fonts.black,
+                fontSize: Math.max(24, v(21)),
+                color: colors.white,
+              }}
+            >
               {t.checkout}
             </Text>
           </Pressable>

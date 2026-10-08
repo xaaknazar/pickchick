@@ -70,7 +70,7 @@ export function ProductNutrition({
     fontFamily: fonts.body,
     fontSize: Math.max(15, v(16)),
     lineHeight: Math.max(15, v(16)) * 1.45,
-    color: colors.onBlueMuted,
+    color: colors.onGlass,
   };
   const details = (
     <View

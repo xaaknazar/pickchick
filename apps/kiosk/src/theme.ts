@@ -17,13 +17,22 @@ export const colors = {
   night: '#061B4E',
   cream: '#FEF8F0',
   peach: '#FFF0E5',
-  orangeDeep: '#E25C00',
+  // WCAG AA orange roles (owner decision 2026-10-08). Brand `orange` stays for
+  // fills, icons, halos and badges that carry no text.
+  /** Orange surface under large white text (>= 24 px): white is 3.56:1. */
+  orangeCta: '#E85A00',
+  /** Orange text on white/peach (5.4/4.85:1) and surfaces under small white text. */
+  orangeInk: '#B84500',
   sky: '#EAF1FF',
   soft: '#EEF2FA',
   ok: '#13804A',
   glass: 'rgba(255,255,255,.14)',
   glassLine: 'rgba(255,255,255,.18)',
   onBlueMuted: 'rgba(255,255,255,.78)',
+  /** Secondary text on a glass panel over brand blue (4.97:1 on #2461C5). */
+  onGlass: '#E6EDF9',
+  /** Small orange-tinted accent text on brand blue (4.9:1 on #014FCE). */
+  orangeOnBlue: '#FFCFA8',
 };
 export const fonts = {
   body: 'GolosText_400Regular',
@@ -43,7 +52,7 @@ export const tones = {
   success: colors.success,
   navy: colors.navy,
   onBlue: colors.onBlueMuted,
-  deep: colors.orangeDeep,
+  deep: colors.orangeInk,
 };
 export type Tone = keyof typeof tones;
 export function useMetrics() {

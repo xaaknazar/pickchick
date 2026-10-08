@@ -129,7 +129,7 @@ export function ProductCard({
                   fontFamily: fonts.heavy,
                   fontSize: v(12),
                   letterSpacing: 0.8,
-                  color: tag === 'new' ? colors.blue : colors.orangeDeep,
+                  color: tag === 'new' ? colors.blue : colors.orangeInk,
                 }}
               >
                 {tag === 'new' ? (locale === 'ru' ? 'НОВИНКА' : 'ЖАҢА') : 'ХИТ'}
@@ -214,7 +214,7 @@ export function ProductCard({
           <Pressable
             testID={prefix + '-plus-' + product.id}
             accessibilityRole="button"
-            accessibilityLabel={'+ ' + product.name}
+            accessibilityLabel={'+ ' + product.name + ', ' + t.pick}
             accessibilityState={{ disabled: blocked }}
             disabled={blocked}
             onPress={onAdd}
@@ -231,7 +231,7 @@ export function ProductCard({
               transform: [{ scale: down ? 0.94 : 1 }],
             })}
           >
-            <Text style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.orangeDeep }}>
+            <Text style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.orangeInk }}>
               {t.pick}
             </Text>
             <Icon name="chevron-forward" size="small" tone="deep" />

@@ -57,7 +57,7 @@ export function ProductIntro({
                 { rotate: '4deg' },
                 { scale: tag.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
               ],
-              backgroundColor: colors.orange,
+              backgroundColor: colors.orangeInk,
               borderRadius: v(11),
               paddingVertical: v(9),
               paddingHorizontal: v(14),

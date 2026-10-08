@@ -45,7 +45,8 @@ export function CategoryRail({
             top: 0,
             height: v(142),
             borderRadius: v(24),
-            backgroundColor: colors.orange,
+            // Carries the small white label of the selected tile.
+            backgroundColor: colors.orangeInk,
             shadowColor: colors.orange,
             shadowOpacity: 0.4,
             shadowRadius: 22,

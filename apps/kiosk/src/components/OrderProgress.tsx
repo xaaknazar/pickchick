@@ -43,7 +43,8 @@ export function OrderProgress({
                 width: Math.max(24, v(28)),
                 height: Math.max(24, v(28)),
                 borderRadius: 999,
-                backgroundColor: i <= current ? colors.orange : colors.glass,
+                // The step number is small white text: accessible orangeInk fill.
+                backgroundColor: i <= current ? colors.orangeInk : colors.glass,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

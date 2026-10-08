@@ -104,7 +104,7 @@ export function RecommendationCard({
               style={{
                 fontFamily: fonts.heavy,
                 fontSize: Math.max(19, v(18)),
-                color: colors.orangeDeep,
+                color: colors.orangeInk,
                 fontVariant: ['tabular-nums'],
               }}
             >
