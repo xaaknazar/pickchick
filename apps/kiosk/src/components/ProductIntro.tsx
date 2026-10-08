@@ -4,6 +4,7 @@ import { copy, displayCopy, type Locale } from '../i18n';
 import { Body, Heading, Wrapper } from './UI';
 import { ProductArtwork } from './ProductArtwork';
 import { useEntranceMotion } from './useEntranceMotion';
+import { productArtworkId } from '../assets';
 export function ProductIntro({ product, locale }: { product: KioskProduct; locale: Locale }) {
   const t = copy(locale);
   const entrance = useEntranceMotion('product');
@@ -18,7 +19,7 @@ export function ProductIntro({ product, locale }: { product: KioskProduct; local
       }}
     >
       <Wrapper gap={24}>
-        <ProductArtwork imageId={product.image_id} variant="feature" />
+        <ProductArtwork imageId={productArtworkId(product)} variant="feature" />
         <Wrapper gap={10}>
           <Heading size="title">{product.name}</Heading>
           <Body tone="muted">{displayCopy(product.description)}</Body>

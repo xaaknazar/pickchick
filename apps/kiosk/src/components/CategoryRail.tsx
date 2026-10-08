@@ -4,6 +4,7 @@ import { colors, fonts, useMetrics } from '../theme';
 import type { KioskProduct } from '../model';
 import { ProductArtwork } from './ProductArtwork';
 import { categoryKeys, inCategory, type Category } from './categories';
+import { productArtworkId } from '../assets';
 export function CategoryRail({
   category,
   products,
@@ -34,7 +35,7 @@ export function CategoryRail({
       >
         {categoryKeys.map((key) => {
           const selected = key === category;
-          const image = products.find((p) => inCategory(p, key))?.image_id;
+          const product = products.find((p) => inCategory(p, key));
           return (
             <Pressable
               key={key}
@@ -53,7 +54,9 @@ export function CategoryRail({
                 opacity: pressed ? 0.8 : 1,
               })}
             >
-              {image ? <ProductArtwork imageId={image} variant="rail" /> : null}
+              {product ? (
+                <ProductArtwork imageId={productArtworkId(product)} variant="rail" />
+              ) : null}
               <Text
                 style={{
                   fontFamily: fonts.medium,

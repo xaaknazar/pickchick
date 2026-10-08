@@ -5,6 +5,7 @@ import { displayCopy } from '../i18n';
 import { colors, useMetrics } from '../theme';
 import { Body, Heading, IconButton, Wrapper } from './UI';
 import { ProductArtwork } from './ProductArtwork';
+import { productArtworkId } from '../assets';
 export function ProductCard({
   product,
   onOpen,
@@ -40,7 +41,7 @@ export function ProductCard({
         style={({ pressed }) => ({ gap: px(16), opacity: pressed ? 0.75 : 1 })}
       >
         <ProductArtwork
-          imageId={product.image_id}
+          imageId={productArtworkId(product)}
           variant={variant === 'recommendation' ? 'recommendation' : 'tile'}
         />
         <Heading size="card">{product.name}</Heading>

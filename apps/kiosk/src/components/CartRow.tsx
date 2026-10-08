@@ -6,6 +6,7 @@ import { colors, useMetrics } from '../theme';
 import { Body, Heading, Button, Stepper, Wrapper } from './UI';
 import { ProductArtwork } from './ProductArtwork';
 import { selectionSummary } from './selectionSummary';
+import { productArtworkId } from '../assets';
 export function CartRow({
   line,
   locale,
@@ -33,7 +34,10 @@ export function CartRow({
       }}
     >
       <Wrapper dir="row" gap={20} align="flex-start">
-        <ProductArtwork imageId={line.product.image_id} variant="thumbnail" />
+        <ProductArtwork
+          imageId={productArtworkId(line.product, line.selections)}
+          variant="thumbnail"
+        />
         <Wrapper flex={1} gap={8}>
           <Heading size="card">{line.product.name}</Heading>
           {summary ? (

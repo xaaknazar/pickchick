@@ -4,6 +4,8 @@ import { money } from '../cart';
 import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Body, Heading, Icon, IconButton, Wrapper } from './UI';
+import { modifierArtworkId } from '../assets';
+import { ProductArtwork } from './ProductArtwork';
 export function ModifierOptions({
   group,
   selections,
@@ -52,6 +54,7 @@ export function ModifierOptions({
             selections.find((s) => s.group_id === group.id && s.option_id === option.id)
               ?.quantity ?? 0;
           const selected = quantity > 0;
+          const imageId = modifierArtworkId(group.id, option.id);
           const delta =
             BigInt(option.price_delta_minor) > 0n ? '+ ' + money(option.price_delta_minor) : '';
           const appearance = {
@@ -99,6 +102,7 @@ export function ModifierOptions({
               >
                 {selected ? <Icon name="checkmark" size="small" tone="inverse" /> : null}
               </View>
+              {imageId ? <ProductArtwork imageId={imageId} variant="option" /> : null}
               <Wrapper flex={1} gap={4}>
                 <Body variant={selected ? 'label' : 'body'} tone={selected ? 'brand' : 'default'}>
                   {option.label}
@@ -117,6 +121,7 @@ export function ModifierOptions({
               style={appearance}
             >
               <Wrapper dir="row" align="center" gap={12}>
+                {imageId ? <ProductArtwork imageId={imageId} variant="option" /> : null}
                 <Wrapper flex={1} gap={4}>
                   <Body variant="label">{option.label}</Body>
                   {delta ? (

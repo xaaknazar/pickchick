@@ -10,7 +10,7 @@ export const assets = {
 const products: Record<string, number> = {
   'shot.jpg': require('../../../design/prototype/assets/mockup/shot.jpg'),
   'i0.jpg': require('../../../design/prototype/assets/mockup/i0.jpg'),
-  'i1.jpg': require('../../../design/prototype/assets/mockup/i1.jpg'),
+  'i1.jpg': require('../assets/drinks/fuse-peach.png'),
   'i2.jpg': require('../../../design/prototype/assets/mockup/i2.jpg'),
   'i4.jpg': require('../../../design/prototype/assets/mockup/i4.jpg'),
   'i5.jpg': require('../../../design/prototype/assets/mockup/i5.jpg'),
@@ -30,6 +30,34 @@ const products: Record<string, number> = {
   'i19.jpg': require('../../../design/prototype/assets/mockup/i19.jpg'),
   'i20.jpg': require('../../../design/prototype/assets/mockup/i20.jpg'),
   'i22.jpg': require('../../../design/prototype/assets/mockup/i22.jpg'),
-  'i23.jpg': require('../../../design/prototype/assets/mockup/i23.jpg'),
+  'i23.jpg': require('../assets/drinks/bonaqua-still.png'),
+  'drink:fuse-peach': require('../assets/drinks/fuse-peach.png'),
+  'drink:fuse-mango': require('../assets/drinks/fuse-mango-chamomile.png'),
+  'drink:water': require('../assets/drinks/bonaqua-still.png'),
+  'drink:cola-bottle': require('../assets/drinks/cola-classic.png'),
+  'drink:cola-zero': require('../assets/drinks/cola-zero.png'),
+  'drink:sprite': require('../assets/drinks/sprite.png'),
+  'drink:fanta': require('../assets/drinks/fanta.png'),
+  'drink:piko-apple': require('../assets/drinks/piko-apple.png'),
+  'drink:piko-orange': require('../assets/drinks/piko-orange.png'),
 };
 export const productImage = (id: string) => products[id] ?? assets.logo;
+
+export const isDrinkArtwork = (id: string) =>
+  id === 'i1.jpg' || id === 'i23.jpg' || id.startsWith('drink:');
+
+export function productArtworkId(
+  product: { id: string; image_id: string },
+  selections: readonly { group_id: string; option_id: string }[] = [],
+) {
+  if (product.id !== 'piko' || product.image_id !== 'generic-drink') return product.image_id;
+  const flavor = selections.find((selection) => selection.group_id === 'piko-flavor');
+  return (flavor && modifierArtworkId('piko-flavor', flavor.option_id)) || 'drink:piko';
+}
+
+export function modifierArtworkId(groupId: string, optionId: string) {
+  if (groupId !== 'drink' && groupId !== 'piko-flavor') return undefined;
+  if (optionId === 'piko') return 'drink:piko';
+  const id = `drink:${optionId}`;
+  return Object.hasOwn(products, id) ? id : undefined;
+}
