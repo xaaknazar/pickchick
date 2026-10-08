@@ -3556,7 +3556,7 @@
       "id": "kiosk-v3-launch",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-v3-design",
-      "head": "6ac409f710f96e5247e8423963e2ef511a9e4d4a",
+      "head": "74d46286f545637bbf89549a0174225cf68be67b",
       "status": "active",
       "scopes": [
         "apps/kiosk",
@@ -3605,8 +3605,9 @@
         "tests/operations/windows-kiosk-upgrade.test.ps1",
         "docs/operations/kiosk-v3-installation-2026-10-08.json"
       ],
-      "updatedAt": "2026-10-08T14:30:12.776Z",
-      "summary": "6ac409f published; full CI37787035238 in progress (9 substantive jobs passed). API37dbc/schema045 and iPad8 installed; one100 KZT order retained, no QR/capture. Bounded existing-order expiry recovery046 and guarded Windows015-017 prepared. ActualWindows192.168.3.33 pinnedSSH verified, roles edge_runtime/fulfillment_sync; native read-only XML/ACL/DBpreflight passed. Fresh Windows backup+restore cda8861d2938931a65e60eaea46ca3d7f8e0bb94ae1370a3b3ff7d169f6408ef completed2026-10-08T13:57:46Z. Next exact-greenCI, server+Windowsapply, same-orderQR, native number/kitchen proof."
+      "updatedAt": "2026-10-08T18:22:23.002Z",
+      "summary": "Installed VPS API/QR worker and Windows Edge/transport 6ac409f after CI37787035238 11/11; cloud046/edge017, both backup restores passed. iPad0.1.0(8)37dbc preserved. One100KZT order admitted, reserved number20; QR attempt unknown without operation ID, captures0. Diagnostic QR separately approved no-payment: bank Amount0, pending Id instead of QrOperationId, no Amount. Owner saw QR not recognized; later QrTokenDiscarded. Apple Vision exact payload. Code+sanitized evidence74d4628 integrated shared and primary Mac synced. Payment acceptance NOT passed.",
+      "nextAction": "Wait for owner approval before a second diagnostic QR, then show immediately/no payment. Resolve real Kaspi amount/status contract and preserve unknown original attempt; never invent bank failure/capture or create another order. Private diagnostic and native proofs local/VPS; runbook and installation JSON are shared. Global status/roadmap scopes occupied, online pult unchanged."
     }
   ]
 }
