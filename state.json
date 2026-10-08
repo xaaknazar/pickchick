@@ -3531,11 +3531,12 @@
         "@vps/gateway",
         "@vps/backoffice-login",
         "tests/backoffice/staff-browser.test.mjs",
-        "@vps/secrets/backoffice-ceo"
+        "@vps/secrets/backoffice-ceo",
+        "docs/operations/images/ceo-login"
       ],
       "status": "active",
-      "head": "fa982b74e5c2be8ab8c6c63a295cebb8bdde8a5f",
-      "updatedAt": "2026-10-08T01:05:04.500Z"
+      "head": "4696010b9fcd86b05c5466c36d0574c52345b373",
+      "updatedAt": "2026-10-08T01:51:52.211Z"
     }
   ]
 }
