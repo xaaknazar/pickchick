@@ -18,22 +18,29 @@ import {
   CUSTOMER_IDENTITY,
 } from '@pickchick/customer-identity';
 import {
+  AVAILABILITY_SIGNATURE_HEADER,
+  AvailabilityAfterSchema,
   AvailabilityError,
+  CATALOG_VERSION_HEADER,
   CommerceError,
   CustomerCheckout,
   customerCheckoutOptions,
+  pollAvailability,
 } from '@pickchick/commerce-core';
+import { catalogMediaOptions } from '@pickchick/catalog-admin';
 import { checkoutRepresentation } from './customer-checkout-response.js';
 import { RESOURCE, Resources } from '@pickchick/platform';
 
 @Controller('v1/customer-checkout')
 export class CustomerCheckoutController {
   private readonly checkout: CustomerCheckout;
+  private readonly mediaEnabled: boolean;
   constructor(
     @Inject(CUSTOMER_IDENTITY) private readonly identity: CustomerIdentity,
     @Inject(RESOURCE) resources: Resources,
   ) {
     this.checkout = new CustomerCheckout(resources.pool, customerCheckoutOptions(process.env));
+    this.mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
   }
   private async execute<T>(
     authorization: string | undefined,
@@ -82,20 +89,44 @@ export class CustomerCheckoutController {
       throw error;
     }
   }
+  /** Photo map for new clients; same audience and flag as the catalog, `version` = head. */
+  @Get('catalog/media') async catalogMedia(
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Query('version') version?: unknown,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    try {
+      return await this.checkout.catalogMedia(version, { mediaEnabled: this.mediaEnabled });
+    } catch (error) {
+      if (error instanceof CommerceError) {
+        const statuses: Partial<Record<CommerceError['code'], number>> = {
+          INVALID: 400,
+          NOT_FOUND: 404,
+          CONFLICT: 409,
+        };
+        const code = error.code === 'INVALID' ? 'INVALID_REQUEST' : error.code;
+        throw new HttpException({ code }, statuses[error.code] ?? 503);
+      }
+      throw error;
+    }
+  }
   @Get('availability') async availability(
     @Res({ passthrough: true }) response: ServerResponse,
     @Query('after') after?: string,
   ) {
     response.setHeader('Cache-Control', 'no-store');
-    if (after !== undefined && !/^[a-f0-9]{64}$/.test(after))
+    if (after !== undefined && !AvailabilityAfterSchema.safeParse(after).success)
       throw new HttpException('INVALID_REQUEST', 400);
-    let state = await this.checkout.availability();
-    const deadline = Date.now() + 25000;
-    while (after && state.signature === after && Date.now() < deadline && !response.destroyed) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      state = await this.checkout.availability();
+    const read = async () => {
+      const state = await this.checkout.availabilityState();
+      return { ...state, signature: state.body.signature };
+    };
+    const state = await pollAvailability(read, after, { cancelled: () => response.destroyed });
+    if (state.catalogVersion !== null) {
+      response.setHeader(CATALOG_VERSION_HEADER, String(state.catalogVersion));
+      response.setHeader(AVAILABILITY_SIGNATURE_HEADER, state.signature);
     }
-    return state;
+    return state.body;
   }
   @Get('config') config(
     @Headers('authorization') auth?: string,

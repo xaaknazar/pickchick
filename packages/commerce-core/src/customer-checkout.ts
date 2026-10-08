@@ -10,6 +10,8 @@ import {
   assertBranchItemsAvailable,
   snapshotAvailabilityItems,
 } from './availability.js';
+import { catalogMediaMap, storefrontPayload } from './catalog-media.js';
+import type { CatalogMediaMapOptions } from './catalog-media.js';
 import { localSelectionIds } from '@pickchick/menu-sync';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -135,21 +137,45 @@ export class CustomerCheckout {
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
-    return CatalogMobileStorefrontSchema.parse({
+    const storefront = CatalogMobileStorefrontSchema.parse({
       branch: row.branch,
       channel: 'mobile',
       version: row.version,
       published_at: row.published_at.toISOString(),
       payload: row.payload,
     });
+    // Installed strict mobile builds reject unknown product fields; photos come from catalogMedia.
+    return { ...storefront, payload: storefrontPayload(storefront.payload) };
+  }
+  /** Photo map of the head publication (same flag and audience as catalog()). */
+  async catalogMedia(version: unknown, media: CatalogMediaMapOptions) {
+    if (!this.options?.publishedCatalogEnabled) throw new CommerceError('NOT_FOUND');
+    return catalogMediaMap(
+      this.pool,
+      { organizationId: this.options.organizationId, branchId: this.options.branchId },
+      version,
+      media,
+    );
   }
   async availability() {
-    if (!this.options) return { enabled: false, fresh: false, signature: 'disabled', products: [] };
+    return (await this.availabilityState()).body;
+  }
+  /**
+   * Availability body plus the head catalog version. The signature also covers that version, so
+   * a republish (price or photo only) wakes a long-poll; the body shape is unchanged.
+   */
+  async availabilityState() {
+    if (!this.options)
+      return {
+        body: { enabled: false, fresh: false, signature: 'disabled', products: [] },
+        catalogVersion: null,
+      };
     const branchId = this.options.branchId;
     const state = await branchAvailability(this.pool, branchId);
     const stopped = new Set(state.stoppedIds);
     const row = (
       await this.pool.query<{
+        version: number;
         payload: {
           products: {
             id: string;
@@ -158,7 +184,7 @@ export class CustomerCheckout {
           }[];
         };
       }>(
-        `SELECT p.payload FROM catalog_branch_heads h JOIN catalog_publications p ON p.branch_id=h.branch_id AND p.organization_id=h.organization_id AND p.version=h.published_version WHERE h.branch_id=$1`,
+        `SELECT p.version,p.payload FROM catalog_branch_heads h JOIN catalog_publications p ON p.branch_id=h.branch_id AND p.organization_id=h.organization_id AND p.version=h.published_version WHERE h.branch_id=$1`,
         [branchId],
       )
     ).rows[0];
@@ -192,7 +218,11 @@ export class CustomerCheckout {
           }
         : {}),
     };
-    return { ...value, signature: digest(value) };
+    const catalogVersion = row?.version ?? null;
+    return {
+      body: { ...value, signature: digest({ ...value, catalog_version: catalogVersion }) },
+      catalogVersion,
+    };
   }
   async config(customerId: string) {
     const scope = await this.scope(customerId);
