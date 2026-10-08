@@ -9,7 +9,7 @@ export default function ProductPhotoRoute() {
   const preview = params.preview === '1';
   const model = useMobile(preview);
   const router = useRouter();
-  const product = model.products.find((p) => p.id === params.product && hasPhotoPilot(p.id));
+  const product = model.products.find((p) => p.id === params.product && hasPhotoPilot(p));
   const back = () => {
     if (router.canGoBack()) router.back();
     else if (preview)

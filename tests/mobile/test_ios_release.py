@@ -114,29 +114,61 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertIn("only for the mobile app", result.stdout)
         self.assertNotIn("Local Apple build environment", result.stdout)
 
-    def test_catalog_profile_pins_flags_and_preserves_existing_profiles(self):
+    def test_published_catalog_profile_pins_flags_and_existing_profiles_pin_legacy_catalog(self):
         expected = release.FARM_PILOT_FLAGS | {"EXPO_PUBLIC_PUBLISHED_CATALOG": "1"}
-        env = release.archive_environment("catalog-pilot", {"EXPO_PUBLIC_PUBLISHED_CATALOG": "0"})
-        self.assertEqual(release.feature_profile_flags("catalog-pilot"), expected)
-        self.assertEqual({key: env[key] for key in expected}, expected)
-        self.assertNotIn("EXPO_PUBLIC_PUBLISHED_CATALOG", release.FARM_PILOT_FLAGS)
-        self.assertNotIn("EXPO_PUBLIC_PUBLISHED_CATALOG", release.CUSTOMER_PILOT_FLAGS)
+        for name in ["published-catalog", "catalog-pilot"]:
+            with self.subTest(profile=name):
+                env = release.archive_environment(name, {"EXPO_PUBLIC_PUBLISHED_CATALOG": "0"})
+                self.assertEqual(release.feature_profile_flags(name), expected)
+                self.assertEqual({key: env[key] for key in expected}, expected)
+        # The bundle now defaults to the publication, so older profiles say "0" explicitly and a
+        # shell value can never decide the catalog source of a pinned archive.
+        for name, flags in [("customer-pilot", release.CUSTOMER_PILOT_FLAGS),
+                            ("farm-pilot", release.FARM_PILOT_FLAGS)]:
+            with self.subTest(profile=name):
+                self.assertEqual(flags["EXPO_PUBLIC_PUBLISHED_CATALOG"], "0")
+                env = release.archive_environment(name, {"EXPO_PUBLIC_PUBLISHED_CATALOG": "1"})
+                self.assertEqual(env["EXPO_PUBLIC_PUBLISHED_CATALOG"], "0")
         flags = release.feature_profile_flags("catalog-pilot")
         flags["EXPO_PUBLIC_PUBLISHED_CATALOG"] = "0"
         self.assertEqual(release.CATALOG_PILOT_FLAGS, expected)
+        self.assertIs(release.CATALOG_PILOT_FLAGS, release.PUBLISHED_CATALOG_FLAGS)
+
+    def test_mobile_default_profile_is_the_published_catalog_and_kiosk_stays_legacy(self):
+        self.assertEqual(release.default_feature_profile("mobile"), "published-catalog")
+        self.assertEqual(release.default_feature_profile("kiosk"), "legacy")
+        self.assertEqual(release.canonical_profile("catalog-pilot"), "published-catalog")
+        self.assertEqual(release.canonical_profile("farm-pilot"), "farm-pilot")
+        result = subprocess.run([sys.executable, release.__file__, "doctor", "--app", "kiosk",
+                                 "--feature-profile", "published-catalog"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("only for the mobile app", result.stdout)
 
     def test_catalog_delivery_requires_exact_metadata(self):
-        metadata = {"featureProfile": "catalog-pilot",
-                    "embeddedPublicEnv": dict(release.CATALOG_PILOT_FLAGS)}
-        release.verify_feature_profile(metadata, "catalog-pilot")
-        for changed in [dict(release.FARM_PILOT_FLAGS),
-                        release.CATALOG_PILOT_FLAGS | {"EXPO_PUBLIC_PUBLISHED_CATALOG": "0"},
-                        release.CATALOG_PILOT_FLAGS | {"EXTRA": "1"}]:
-            with self.subTest(flags=changed), self.assertRaisesRegex(RuntimeError, "do not match"):
-                release.verify_feature_profile(metadata | {"embeddedPublicEnv": changed}, "catalog-pilot")
-        for requested in ["legacy", "customer-pilot", "farm-pilot"]:
-            with self.subTest(profile=requested), self.assertRaisesRegex(RuntimeError, "differs"):
+        for archived in ["published-catalog", "catalog-pilot"]:
+            metadata = {"featureProfile": archived,
+                        "embeddedPublicEnv": dict(release.CATALOG_PILOT_FLAGS)}
+            for requested in ["published-catalog", "catalog-pilot"]:
                 release.verify_feature_profile(metadata, requested)
+            for changed in [dict(release.FARM_PILOT_FLAGS),
+                            release.HISTORICAL_PROFILE_FLAGS["farm-pilot"],
+                            release.CATALOG_PILOT_FLAGS | {"EXPO_PUBLIC_PUBLISHED_CATALOG": "0"},
+                            release.CATALOG_PILOT_FLAGS | {"EXTRA": "1"}]:
+                with self.subTest(flags=changed), self.assertRaisesRegex(RuntimeError, "do not match"):
+                    release.verify_feature_profile(metadata | {"embeddedPublicEnv": changed}, archived)
+            for requested in ["legacy", "customer-pilot", "farm-pilot"]:
+                with self.subTest(profile=requested), self.assertRaisesRegex(RuntimeError, "differs"):
+                    release.verify_feature_profile(metadata, requested)
+
+    def test_archives_made_before_the_catalog_pin_remain_deliverable(self):
+        for name in ["customer-pilot", "farm-pilot"]:
+            historical = release.HISTORICAL_PROFILE_FLAGS[name]
+            self.assertNotIn("EXPO_PUBLIC_PUBLISHED_CATALOG", historical)
+            release.verify_feature_profile({"featureProfile": name, "embeddedPublicEnv": historical}, name)
+            with self.assertRaisesRegex(RuntimeError, "do not match"):
+                release.verify_feature_profile(
+                    {"featureProfile": name,
+                     "embeddedPublicEnv": historical | {"EXPO_PUBLIC_PUBLISHED_CATALOG": "1"}}, name)
 
     def test_catalog_profile_cannot_be_used_for_kiosk(self):
         result = subprocess.run([sys.executable, release.__file__, "doctor", "--app", "kiosk",
