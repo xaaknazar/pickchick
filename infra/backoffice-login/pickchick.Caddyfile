@@ -46,5 +46,5 @@ api.pickchick.kz {
 	import pickchick_alias
 }
 www.pickchick.kz {
-	redir https://pickchick.kz{uri} permanent
+	redir https://pickchick.kz{uri} 308
 }
