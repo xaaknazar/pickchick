@@ -3605,6 +3605,20 @@
       "updatedAt": "2026-10-08T20:41:57.861Z",
       "summary": "24c4c36/PR212 records verified closed-hours RESTAURANT_CLOSED→CONFLICT HTTP filter bug and original kiosk unknown with lost bank ID. Docs published/shared. Five local HTTP/mobile transport regression checks pass for prepared contract/filter patch, not yet committed/deployed; mobile/OpenAPI scope sharing requested from owner. 24 published products price correctly with stored hash. No new QR/invoice/order/payment. Read-only history empty DailySets is not proof of no payment.",
       "nextAction": "Owner now authorized kiosk-v3-motion build9 and unified-menu deployment; device/API/db/public/gateway/Windows resources handed to their release tasks. Prior local checkout-error patch preserved; no payment reset."
+    },
+    {
+      "id": "kiosk-build9-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-v3-motion",
+      "scopes": [
+        "apps/kiosk",
+        "@apple/devices/kiosk",
+        "@release/ios",
+        "docs/operations/kiosk-build9-installation.md"
+      ],
+      "status": "active",
+      "head": "01ec5dbbdc33c7d9ffcf0a94f330ca4df735ae61",
+      "updatedAt": "2026-10-08T20:42:02.724Z"
     }
   ]
 }
