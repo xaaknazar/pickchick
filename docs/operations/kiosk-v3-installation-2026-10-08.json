@@ -137,13 +137,36 @@
     "sameTokenKaspiOnlyLinkShown": true,
     "ownerScanResult": "QR code not recognized",
     "exactScanTimeKnown": false,
-    "repeatRequiresSeparateApproval": true
+    "repeatRequiresSeparateApproval": true,
+    "originalImageDecodedByAppleVision": true,
+    "kaspiOnlyImageDecodedByAppleVision": true,
+    "bothDecodedPayloadsMatch": true
   },
   "upstreamAudit": {
     "deployedPin": "28c9167f9c72cd6758a25e254bc92bc610daa485",
     "reviewedHead": "175577ee1b34437dba46fb9bb0c8706f57f3b311",
     "qrImplementationChanged": false,
     "document": "kiosk-kaspi-qr-upstream-audit-2026-10-08.md",
-    "adapterIdentityFixDeployed": false
+    "adapterIdentityFixDeployed": false,
+    "adapterIdentityFixSource": "06924c307122cf9fd960011164d349af98c9b5c4",
+    "adapterIdentityFixCi": {
+      "runs": [37826774463, 37827315997],
+      "conclusion": "success",
+      "passedJobsPerRun": 11
+    }
+  },
+  "externalQrReference": {
+    "reviewedDateAlmaty": "2026-10-09",
+    "source": "external_example_not_owner_merchant",
+    "displayedAmountTenge": 5000,
+    "amountVerifiedByBank": false,
+    "host": "qr.kaspi.kz",
+    "tokenLength": 41,
+    "firstDiagnosticTokenLength": 41,
+    "secondDiagnosticTokenLength": 40,
+    "secondDiagnosticMatchesStoredBankPayload": true,
+    "paymentLinkOpened": false,
+    "newBankRequests": 0,
+    "merchantQrAcceptanceProven": false
   }
 }
