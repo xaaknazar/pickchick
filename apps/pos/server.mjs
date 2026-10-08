@@ -1,6 +1,11 @@
 import { V2_ASSETS } from '../pos-desktop/v2-assets.mjs';
 import { createServer } from 'node:http';
 import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
+import {
+  MENU_MEDIA_PATH,
+  createMenuMediaCache,
+  menuMediaResponse,
+} from '../pos-desktop/protocol.mjs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -8,7 +13,7 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|ordering|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
+        `^/edge/v1/(session|menu|menu/version|ordering|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
         'i',
       ).test(path)
     : method === 'POST' &&
@@ -61,6 +66,7 @@ export function createPosServer({
       ),
     ),
   };
+  const mediaCache = createMenuMediaCache();
   return createServer(async (req, res) => {
     const send = (status, payload) => {
       res.writeHead(status, { ...security, 'Content-Type': 'application/json; charset=utf-8' });
@@ -153,6 +159,23 @@ export function createPosServer({
     }
     if (path === '/config.json') {
       send(200, config);
+      return;
+    }
+    const media = MENU_MEDIA_PATH.exec(path);
+    if (media) {
+      // Published photos come only from the configured loopback edge and are hash-verified.
+      const result = await menuMediaResponse(media[1], {
+        edgePort,
+        timeoutMs,
+        cache: mediaCache,
+        assetDir,
+      });
+      if (!result) {
+        send(404, { code: 'NOT_FOUND' });
+        return;
+      }
+      res.writeHead(200, { ...security, 'Content-Type': result.type });
+      res.end(result.bytes);
       return;
     }
     const asset = assets.get(path);

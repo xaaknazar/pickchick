@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createServer } from 'node:http';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { desktopFile } from './support.mjs';
@@ -13,10 +14,11 @@ const { createProtocolHandler, validateConfig, APP_URL, isAllowedRendererURL } =
 const request = (path, options) => new globalThis.Request(new URL(path, APP_URL), options);
 const ID = '10000000-0000-4000-8000-000000000003';
 
-async function fixture(run, options = {}) {
+async function fixture(run, { setup, ...options } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'pickchick-pos-protocol-'));
   const upstream = [];
   try {
+    await setup?.(directory);
     await writeFile(
       join(directory, 'index.html'),
       '<!doctype html><title>Local POS fixture</title>',
@@ -384,4 +386,95 @@ test('password login has a small body, fixed terminal config and bounded retry h
       },
     );
   }
+});
+
+test('published hash photos come from the configured edge only after SHA-256 and WebP checks', async () => {
+  // Two tiny real lossless WebP images: one is served under the other's name.
+  const webp = Buffer.from('UklGRh4AAABXRUJQVlA4TBEAAAAvB8ABAAdQrcLXo/+BiOh/AAA=', 'base64');
+  const other = Buffer.from('UklGRh4AAABXRUJQVlA4TBEAAAAvB8ABAAdQnlIUuf+BiOh/AAA=', 'base64');
+  const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+  const good = hash(webp),
+    swapped = hash(other),
+    text = Buffer.from('plain text, not an image'),
+    plain = hash(text),
+    big = Buffer.alloc(1_500_001, 1);
+  big.write('RIFF', 0, 'latin1');
+  big.write('WEBP', 8, 'latin1');
+  const huge = hash(big);
+  const logo = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const upstream = [];
+  const bodies = new Map([
+    [good, webp],
+    [swapped, webp],
+    [plain, text],
+    [huge, big],
+  ]);
+  await fixture(
+    async (handler) => {
+      assert.equal(isAllowedRendererURL(new URL(`/assets/menu/${good}.webp`, APP_URL).href), true);
+      const photo = await handler(request(`/assets/menu/${good}.webp`));
+      assert.equal(photo.status, 200);
+      assert.equal(photo.headers.get('content-type'), 'image/webp');
+      assert.equal(photo.headers.get('cache-control'), 'no-store');
+      assert.match(photo.headers.get('content-security-policy'), /img-src 'self';/);
+      assert.deepEqual(Buffer.from(await photo.arrayBuffer()), webp);
+      assert.deepEqual(
+        upstream.map((u) => u.url),
+        [`http://127.0.0.1:3101/edge/v1/media/${good}.webp`],
+      );
+      assert.equal(upstream[0].options.redirect, 'error');
+      assert.equal(upstream[0].options.headers, undefined, 'No staff credential is forwarded');
+      await handler(request(`/assets/menu/${good}.webp`));
+      assert.equal(upstream.length, 1, 'Verified immutable bytes are cached in memory');
+      for (const name of [swapped, plain, huge, 'e'.repeat(64)]) {
+        const fallback = await handler(request(`/assets/menu/${name}.webp`));
+        assert.equal(fallback.status, 200, name);
+        assert.equal(fallback.headers.get('content-type'), 'image/png');
+        assert.deepEqual(Buffer.from(await fallback.arrayBuffer()), logo);
+      }
+      assert.equal(upstream.length, 5);
+      await handler(request(`/assets/menu/${swapped}.webp`));
+      assert.equal(upstream.length, 6, 'A rejected photo is asked for again later');
+      for (const path of [
+        `/assets/menu/${good.toUpperCase()}.webp`,
+        `/assets/menu/${good}.png`,
+        `/assets/menu/${good}0.webp`,
+        `/assets/menu/${good.slice(2)}.webp`,
+        `/assets/menu/${good}.webp?v=1`,
+        `/assets/menu/g${good.slice(1)}.webp`,
+      ]) {
+        assert.ok((await handler(request(path))).status >= 400, path);
+        assert.equal(isAllowedRendererURL(new URL(path, APP_URL).href), false, path);
+      }
+      assert.ok(
+        (await handler(request(`/assets/menu/${good}.webp`, { method: 'POST', body: '{}' })))
+          .status >= 400,
+      );
+      assert.equal(upstream.length, 6, 'Rejected names never reach the edge');
+      // The live-menu poll route is a fixed staff read.
+      assert.equal(isAllowedRendererURL(new URL('/edge/v1/menu/version', APP_URL).href), true);
+      assert.equal((await handler(request('/edge/v1/menu/version'))).status, 200);
+      assert.equal(upstream.at(-1).url, 'http://127.0.0.1:3101/edge/v1/menu/version');
+      assert.ok((await handler(request('/edge/v1/menu/version?x=1'))).status >= 400);
+      assert.ok(
+        (await handler(request('/edge/v1/menu/version', { method: 'POST', body: '{}' }))).status >=
+          400,
+      );
+    },
+    {
+      fetchImpl: async (url, options) => {
+        const name = /\/edge\/v1\/media\/([a-f0-9]{64})\.webp$/.exec(String(url))?.[1];
+        upstream.push({ url: String(url), options });
+        if (!name) return new Response('{"ok":true}', { status: 200 });
+        const body = bodies.get(name);
+        return body
+          ? new Response(body, { headers: { 'Content-Type': 'image/webp' } })
+          : new Response('{"code":"NOT_FOUND"}', { status: 404 });
+      },
+      setup: async (directory) => {
+        await mkdir(join(directory, 'v2/assets'), { recursive: true });
+        await writeFile(join(directory, 'v2/assets/logo.png'), logo);
+      },
+    },
+  );
 });
