@@ -3551,11 +3551,12 @@
         "docs/operations/backoffice-mobbin.md",
         "docs/operations/images/backoffice-mobbin",
         "infra/backoffice-login",
-        "@vps/backoffice-login"
+        "@vps/backoffice-login",
+        "docs/design/design-system.md"
       ],
       "status": "active",
       "head": "82400c84ccee016917d3f38e9788bb5a0901886c",
-      "updatedAt": "2026-10-08T08:24:25.522Z"
+      "updatedAt": "2026-10-08T08:45:11.129Z"
     }
   ]
 }
