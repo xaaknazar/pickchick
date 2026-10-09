@@ -67,11 +67,40 @@ node infra/backoffice-login/accounts.mjs rotate \
 копию. При несовпадении остановиться и подготовить файл от свежего baseline;
 не перетирать параллельные изменения аккаунтов.
 
-Применение требует отдельной проверяемой процедуры замены только private mount
-и пересоздания `pickchick-staff-login` с теми же образом, портами и ограничениями.
+Отдельный `infra/backoffice-login/rotate.py` выполняется из проверенного immutable
+архива `prepare.py`; по умолчанию только проверяет. Он принимает полную зелёную CI
+исходника оператора, точные source/image текущего staff-login, API/public pointers,
+front/gateway hashes и SHA-256 двух приватных конфигураций. Новая конфигурация
+передаётся на VPS отдельным файлом 0600; самого пароля в ней нет, только хеш.
+
+```sh
+python3 "$INCOMING/infra/backoffice-login/rotate.py" \
+  --source-sha "$OPERATOR_SHA" --ci-proof "$CI_PROOF" \
+  --expected-portal-sha "$STAFF_SHA" --expected-portal-image "$STAFF_IMAGE" \
+  --expected-api-sha "$API_SHA" --expected-public-sha "$PUBLIC_SHA" \
+  --expected-front-hash "$FRONT_HASH" --expected-gateway-hash "$GATEWAY_HASH" \
+  --expected-private-sha256 "$CURRENT_CONFIG_HASH" \
+  --candidate "$NEXT_CONFIG_FILE" --candidate-sha256 "$NEXT_CONFIG_HASH"
+```
+
+После просмотренного preflight повторяется та же команда с `--apply`. Проверка
+JSON допускает только новую уникальную соль и хеш существующего `ceo`; изменение
+любого другого поля блокируется до остановки. Оператор закрепляет исходные
+inode/device файла, проверяет резервную копию и её восстановление в отдельный
+файл. Останавливает только staff-login, сохраняет inode bind mount при точечной
+CAS-записи и запускает **тот же** контейнер. Image, Config, HostConfig, Mounts,
+все соседи и ingress сравниваются; новые образы/службы/сети не создаются.
+
 Простой atomic rename исходного файла не обновляет уже открытый Docker bind mount.
-Штатный `update.py` специально запрещает изменение credentials; обходить его
-проверку нельзя. Этот коммит не предоставляет и не выполняет live apply.
+Штатный `update.py` по-прежнему запрещает изменение credentials; новый оператор
+его проверку не обходит. До отправки stop сохраняется уникальный attempt. Любой
+незавершённый apply оставляет lock и доказательства, без автоматического возврата
+раскрытого старого пароля. После успешного apply нужна отдельная приёмка входа
+владельцем; HTTP health не объявляется подтверждением его пароля.
+
+Локально прошли реальные file/inode/CAS проверки, отказ salt-collision и изменения
+других аккаунтов, default read-only, штатный stop/start и потерянный ответ start
+с сохранением нового файла/lock/attempt без отката. Это не факт живой ротации.
 
 После замены завершатся все сессии портала. Владелец входит как `ceo` на
 `https://pickchick.kz/backoffice/`, проверяется прежняя роль manager; остальные
