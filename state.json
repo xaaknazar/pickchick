@@ -3794,9 +3794,9 @@
       "id": "mobile-native16",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-native16",
-      "head": "b246b453c809bbb07ff3dca09b8a18876e0b69e7",
+      "head": "301a73fde4b400adf93dd96f22ea436a042a8363",
       "status": "active",
-      "updatedAt": "2026-10-09T14:20:52.581Z",
+      "updatedAt": "2026-10-09T14:25:40.100Z",
       "scopes": [
         "apps/mobile/src/connectivity.ts",
         "tests/mobile/connectivity.test.mjs",
@@ -3805,8 +3805,8 @@
         "apps/mobile/ios",
         "@apple/testflight"
       ],
-      "summary": "Mobile 0.2.0(16) archive/export verified from immutable b25f6df6; full Foundation CI37929668466 11/11; same published-catalog flags as15, Distribution signature and bundle verified. Docs-only b246b453 published; IPA hash recorded in docs/operations/mobile-native16.md. No upload/install.",
-      "nextAction": "Coordinator review of exported IPA, then separately authorized upload/Apple processing/internal group/device acceptance. Source b25 remains unchanged; no iPad/QR/Windows changes."
+      "summary": "Native0.2.0(16) archive/export from b25f6df6 verified; full CI37929668466 11/11. One stock upload attempt stopped with Xcode exit70 Failed to Use Accounts: Xcode has no signed-in account, ASC web authenticated/latest15, delivery not confirmed. Docs301a73fd published; no repeat/install.",
+      "nextAction": "Await owner Xcode Apple Accounts sign-in; inspect ASC16 before bounded retry from same immutable archive, then processing and existing PickChick Internal. Keep iPad11 unchanged; physical acceptance remains separate."
     },
     {
       "id": "devices-access",
