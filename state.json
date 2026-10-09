@@ -3959,6 +3959,17 @@
       "status": "active",
       "head": "abee67cd10eba08bd059722c3f907edded739872",
       "updatedAt": "2026-10-09T14:35:22.185Z"
+    },
+    {
+      "id": "restaurant-report",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/restaurant-report",
+      "scopes": [
+        "@integration/restaurant-report"
+      ],
+      "status": "active",
+      "head": "b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0",
+      "updatedAt": "2026-10-09T23:39:40.339Z"
     }
   ]
 }
