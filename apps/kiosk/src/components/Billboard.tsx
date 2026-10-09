@@ -294,7 +294,7 @@ function Slide({
           height: v(40),
           paddingHorizontal: v(16),
           borderRadius: v(12),
-          backgroundColor: colors.orange,
+          backgroundColor: colors.orangeInk,
           justifyContent: 'center',
           shadowColor: colors.orange,
           shadowOpacity: 0.35,

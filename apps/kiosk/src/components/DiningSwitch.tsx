@@ -22,7 +22,7 @@ const utensils =
   );
 /**
  * v3 menu-header dining switch (prototype `#eat`): two segments "В зале / С собой"
- * on a dark glass track (240x52, radius 26, white .2 inset line); the #FF6900 pill
+ * on a dark glass track (240x52, radius 26, white .2 inset line); the accessible orange pill
  * (44 high, radius 22) glides to the chosen side (380 ms --spring). Both sides
  * share the wider label's width (at least half the drawn track) so only the
  * pill's position moves. The choice shows at once; `onChange` saves it.
@@ -148,7 +148,7 @@ function Pill({ span, offset }: { span: number; offset: number }) {
         bottom: v(4),
         width: span,
         borderRadius: v(22),
-        backgroundColor: colors.orange,
+        backgroundColor: colors.orangeInk,
         transform: [{ translateX: x }],
       }}
     />

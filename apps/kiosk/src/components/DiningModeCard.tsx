@@ -59,8 +59,8 @@ export function DiningModeCard({
   const reduced = useMotionPreference();
   const t = copy(locale);
   const here = mode === 'dine_in';
-  // Design 02: brand blue and brand orange #FF6900 slabs.
-  const tint = here ? colors.blue : colors.orange;
+  // Large white headings use the accessible orange surface; the glow stays brand orange.
+  const tint = here ? colors.blue : colors.orangeCta;
   const rise = useEnter(here ? 90 : 180, 620);
   // Prototype `chefIn` (700 ms, spring curve): slides in from 120 pt at 8deg, overshoots.
   const chef = useEnter(here ? 320 : 420, 700, 'spring');
@@ -205,7 +205,7 @@ export function DiningModeCard({
             height: v(44),
             paddingHorizontal: v(18),
             borderRadius: 999,
-            backgroundColor: here ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.22)',
+            backgroundColor: here ? 'rgba(255,255,255,.18)' : colors.orangeInk,
             justifyContent: 'center',
           }}
         >
@@ -246,7 +246,7 @@ export function DiningModeCard({
               fontFamily: fonts.body,
               fontSize: v(28),
               lineHeight: v(34),
-              color: 'rgba(255,255,255,.9)',
+              color: here ? 'rgba(255,255,255,.9)' : colors.white,
             }}
           >
             {here ? t.hereSub : t.togoSub}

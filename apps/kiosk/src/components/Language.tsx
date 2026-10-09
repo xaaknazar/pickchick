@@ -111,7 +111,7 @@ function Option({
           StyleSheet.absoluteFill,
           {
             borderRadius: 999,
-            backgroundColor: menu ? colors.orange : colors.white,
+            backgroundColor: menu ? colors.orangeInk : colors.white,
             opacity: fill,
           },
         ]}

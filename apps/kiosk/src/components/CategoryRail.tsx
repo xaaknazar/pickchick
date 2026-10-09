@@ -53,8 +53,8 @@ export function CategoryRail({
             top: 0,
             height: v(142),
             borderRadius: v(24),
-            // Design active tile: brand #FF6900 with 0 10px 22px rgba(255,105,0,.4).
-            backgroundColor: colors.orange,
+            // Small white labels use the accessible orange surface; the halo stays brand orange.
+            backgroundColor: colors.orangeInk,
             shadowColor: colors.orange,
             shadowOpacity: 0.4,
             shadowRadius: 22,
