@@ -477,7 +477,8 @@ export class KioskController {
         ? this.flow.cart.map((entry) => (entry === old ? line : entry))
         : [...this.flow.cart, line];
       await this.persist({ ...this.flow, cart, lastActivityAt: this.io.now() });
-      if (this.step !== 'upsell') this.step = 'menu';
+      // Upsell (its own step or the cart's inline block) keeps the guest where they are.
+      if (this.step !== 'upsell' && this.step !== 'cart') this.step = 'menu';
     });
   updateQuantity = (id: string, quantity: number) =>
     this.run(async () => {

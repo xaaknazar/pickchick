@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KioskModel } from '../model';
 import { visiblePaymentQr } from '../qr';
-import { kioskOrderNumber } from '../presentation';
+import { kioskOrderNumber, kioskTicketNumber } from '../presentation';
 import { copy } from '../i18n';
+import { PaymentCardSoon } from '../components/PaymentCardSoon';
 import {
   Body,
   Button,
@@ -31,6 +32,10 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
   const qrPayload = visiblePaymentQr(qr, unknown, Date.now());
   const showQr = !!qrPayload;
   const invoice = model.paymentMethod === 'kaspi_invoice';
+  // Design 07 (a live Kaspi QR): the footer is "Cancel" and the not-yet card option;
+  // the manual status check stays reachable as a quiet button under the steps.
+  const kaspiQr =
+    !!model.commercial && showQr && !unknown && !declined && model.paymentMethod !== 'card';
 
   const title = unknown
     ? t.unknownTitle
@@ -58,8 +63,16 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
     <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance={context.direction}>
       <Header {...context} title={t.payment} />
       <ScrollArea fill>
-        <Wrapper flex={1} paddingX={60} paddingY={34} gap={28} align="center" justify="center">
+        <Wrapper
+          flex={1}
+          paddingX={60}
+          paddingY={kaspiQr ? 8 : 34}
+          gap={kaspiQr ? 12 : 28}
+          align="center"
+          justify="center"
+        >
           <PaymentStatus
+            dense={kaspiQr}
             state={unknown ? 'unknown' : declined ? 'declined' : 'waiting'}
             title={title}
             total={total}
@@ -78,6 +91,16 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             method={model.paymentMethod === 'card' ? 'card' : invoice ? 'invoice' : 'qr'}
             locale={context.locale}
           />
+          {kaspiQr ? (
+            <Button
+              testID="kiosk-payment-retry"
+              label={t.refresh}
+              tone="outline"
+              size="compact"
+              busy={model.busy}
+              onPress={() => void model.recover()}
+            />
+          ) : null}
           {!unknown && !model.commercial ? (
             <Wrapper dir="row" gap={16} wrap justify="center">
               <Button
@@ -97,25 +120,39 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
                 onPress={() => void model.pay('unknown')}
               />
             </Wrapper>
-          ) : (
-            <Button label={t.help} tone="outline" size="compact" onPress={context.onHelp} />
-          )}
+          ) : null}
         </Wrapper>
       </ScrollArea>
       <Footer tone="brand">
-        <Button
-          testID={
-            model.commercial || unknown || declined
-              ? 'kiosk-payment-retry'
-              : 'kiosk-payment-approve'
-          }
-          label={model.commercial || unknown ? t.refresh : declined ? t.retry : t.approve}
-          busy={model.busy}
-          onPress={() =>
-            model.commercial || unknown ? void model.recover() : void model.pay('approved')
-          }
-          fullWidth
-        />
+        {/* Design: outlined "Cancel" (the header's cancel dialog) beside the main action. */}
+        <Wrapper dir="row" gap={14} align="center">
+          <Button
+            label={t.cancel}
+            tone="outline"
+            testID="kiosk-payment-cancel"
+            onPress={context.onCancel}
+          />
+          <Wrapper flex={1}>
+            {kaspiQr ? (
+              // Kiosk card payment is not offered yet (commercial methods are Kaspi only).
+              <PaymentCardSoon locale={context.locale} />
+            ) : (
+              <Button
+                testID={
+                  model.commercial || unknown || declined
+                    ? 'kiosk-payment-retry'
+                    : 'kiosk-payment-approve'
+                }
+                label={model.commercial || unknown ? t.refresh : declined ? t.retry : t.approve}
+                busy={model.busy}
+                onPress={() =>
+                  model.commercial || unknown ? void model.recover() : void model.pay('approved')
+                }
+                fullWidth
+              />
+            )}
+          </Wrapper>
+        </Wrapper>
       </Footer>
     </ScreenSurface>
   );
@@ -169,7 +206,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
               : model.commercial
                 ? t.awaitingRestaurant
                 : t.waiting;
-  const number = waitingForNumber ? null : kioskOrderNumber(order?.number);
+  const number = waitingForNumber ? null : kioskTicketNumber(order?.number);
   const stage = waitingForNumber
     ? null
     : order?.state === 'ready' || order?.state === 'fulfilled'
@@ -207,7 +244,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
             <Button
               label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
               testID="kiosk-next-guest"
-              tone="secondary"
+              tone="light"
               disabled={!canReset && order?.state !== 'cancelled' && order?.state !== 'failed'}
               busy={model.busy}
               onPress={() => void model.newGuest()}
