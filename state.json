@@ -3921,11 +3921,12 @@
         "packages/pos-order-sync/tests/kitchen-upgrade.test.mjs",
         "infra/kitchen-portal/activate-device-access.py",
         "tests/kitchen-portal/test_device_access_activation.py",
-        "docs/operations/device-access-portal.md"
+        "docs/operations/device-access-portal.md",
+        "infra/kitchen-portal/package-device-activation.py"
       ],
       "status": "active",
-      "head": "c272e02de785a1fc8b134366f6f20a7708c22b3d",
-      "updatedAt": "2026-10-09T12:19:24.049Z",
+      "head": "9caee5bf849558f4d07dcd20ea8985454e94c616",
+      "updatedAt": "2026-10-09T12:29:04.715Z",
       "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
     }
