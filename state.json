@@ -2957,26 +2957,25 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-testflight13",
       "scopes": [
-        "apps/mobile/app.json",
         "docs/operations/mobile-testflight13.md"
       ],
       "status": "available",
       "head": "da7d65d650507276400e1ffd6c7b076d28962c24",
-      "updatedAt": "2026-10-05T17:48:58.688Z",
+      "updatedAt": "2026-10-09T12:18:29.349Z",
       "summary": "Build13 source bump e560157 published; prep doc da7d65d published. Config version/bundle/team verified. Xcode26.6 firstlaunch and farm-pilot doctor at actual build12 magic-sort workspace passed with existing private manual signing inputs; no settings changed. No archive/prebuild/export/upload for13. Build12 observed3h24wallclock has192.7min timestampgap, activecompile duration unknown.",
-      "nextAction": "Root cherry-picks bump/doc before finalCI; only clean finalSHA with green fullCI may begin native13. Reuse clean native workspace by branch at exactSHA, prebuild13, doctor, archive/export/upload with newlabel and same private inputs; verify Apple processing/internalgroup separately."
+      "nextAction": "Root cherry-picks bump/doc before finalCI; only clean finalSHA with green fullCI may begin native13. Reuse clean native workspace by branch at exactSHA, prebuild13, doctor, archive/export/upload with newlabel and same private inputs; verify Apple processing/internalgroup separately. 2026-10-09 root continues user-requested Claude handoff: narrow native16 continuation takes apps/mobile/app.json. Prior build15/signing/evidence and all other changes preserved; published-catalog flags unchanged. New source requires full CI; no bank requests."
     },
     {
       "id": "tiptoppay-native13",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/tiptoppay-native13",
       "scopes": [
-        "apps/mobile/ios",
-        "@apple/testflight"
+        "@apple/build13-artifacts"
       ],
       "status": "active",
       "head": "4b1e40129be0973188588c29175afc8cc364a4f8",
-      "updatedAt": "2026-10-05T17:51:03.269Z"
+      "updatedAt": "2026-10-09T12:18:29.350Z",
+      "nextAction": " 2026-10-09 root continues user-requested Claude handoff: narrow native16 continuation takes apps/mobile/ios, @apple/testflight. Prior build15/signing/evidence and all other changes preserved; published-catalog flags unchanged. New source requires full CI; no bank requests."
     },
     {
       "id": "tiptop-historical-fixtures",
