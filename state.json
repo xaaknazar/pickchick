@@ -3688,6 +3688,23 @@
       "status": "active",
       "head": "1cd378929489a8e4070f3ee093a8ddcd7cbbd066",
       "updatedAt": "2026-10-09T06:36:54.908Z"
+    },
+    {
+      "id": "kiosk-payment-incident",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-payment-incident",
+      "scopes": [
+        "db/cloud/migrations/050_cloud_kiosk_payment_incidents.sql",
+        "packages/backoffice-core/src/kiosk-incidents.ts",
+        "packages/backoffice-core/tests/kiosk-incidents.test.mjs",
+        "services/api/src/kiosk-incident-controller.ts",
+        "infra/staging/kiosk-incident-grants.mjs",
+        "infra/staging/kiosk-payment-incident.py",
+        "docs/operations/kiosk-payment-incident.md"
+      ],
+      "status": "active",
+      "head": "1cd378929489a8e4070f3ee093a8ddcd7cbbd066",
+      "updatedAt": "2026-10-09T06:51:09.530Z"
     }
   ]
 }
