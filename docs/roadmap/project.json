@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-09T12:00:31.417151+00:00",
+  "updatedAt": "2026-10-09T14:23:11.247741+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -4184,7 +4184,7 @@
       "id": "mobile-live-menu",
       "workstream": "mobile",
       "title": "Обновлять опубликованное меню без потери корзины",
-      "summary": "Реализованы обновление до 3 секунд, сохранение выбора, явное подтверждение новых цен и транзакционная проверка перед первой оплатой. Проверено локально на PostgreSQL 18 и web; API/native выпуск не выполнен.",
+      "summary": "API 3bc98faf установлен, флаг проверки актуального меню включён; CI 11/11, backup/restore и сохранность соседних служб подтверждены. Native16 собран и экспортирован после CI; TestFlight и физическая приёмка ожидаются.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4200,7 +4200,7 @@
         "Корзина и доступные добавки сохраняются; новые цены требуют явного подтверждения.",
         "Начатый платёж сохраняет исходную сумму."
       ],
-      "nextAction": "Зелёная CI точного SHA, guarded API-only выпуск и новая native сборка с проверкой на iPhone.",
+      "nextAction": "Загрузить проверенную native16 в TestFlight и подтвердить обновление меню/корзины на iPhone.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -4272,9 +4272,9 @@
         }
       ],
       "acceptance": [
-        "Зелёная CI и guarded cloud/Windows/portal; Windows ждёт подключения Mac к сети кассы."
+        "Последовательно выпустить cloud051, Windows020 и портал; подтвердить подключение экранов и восстановление пароля управляющим."
       ],
-      "nextAction": "Зелёная CI и guarded cloud/Windows/portal; Windows ждёт подключения Mac к сети кассы.",
+      "nextAction": "Доступ к Windows восстановлен; общая зелёная CI, затем guarded cloud/Windows/portal с backup/restore.",
       "checks": {
         "implemented": true,
         "verified": true,
