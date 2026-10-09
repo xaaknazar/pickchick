@@ -17,6 +17,8 @@ import zipfile
 
 ADMIN_FILES = (
     'infra/windows/native-fulfillment-worker.mjs',
+    'infra/windows/native-identity-rotation.mjs',
+    'infra/windows/native-identity-acl.ps1',
     'infra/windows/native-pos-sync-worker.mjs',
     'infra/windows/native-pos-sync-permissions.ps1',
     'infra/windows/fulfillment-worker-grants.mjs',

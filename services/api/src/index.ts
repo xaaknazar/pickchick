@@ -60,6 +60,7 @@ import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
+import { EdgeIdentityController } from './edge-identity-controller.js';
 
 @Controller('v1/capabilities')
 class CapabilitiesController {
@@ -199,6 +200,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       BackofficeContentController,
       FulfillmentTransportController,
       PosOrderSyncController,
+      EdgeIdentityController,
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
