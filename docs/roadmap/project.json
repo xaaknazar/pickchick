@@ -784,8 +784,8 @@
       "id": "platform-monitoring",
       "workstream": "platform",
       "title": "Наблюдаемость и ежедневная эксплуатация",
-      "summary": "Нужны оповещения по заказам, unknown-операциям, outbox, дискам, backup и свежести служебных заданий; роли on-call ещё не приняты.",
-      "status": "planned",
+      "summary": "Read-only watchdog с Telegram (API, Kaspi worker и сессия, unknown-счета, очередь оплат, пульс кассы, ключи устройств, backup, диск) реализован и проверен локально; на VPS не установлен, роли on-call не приняты.",
+      "status": "active",
       "owner": "joint",
       "phase": "acceptance",
       "dependsOn": ["platform-pilot-deploy"],
@@ -801,16 +801,20 @@
         {
           "label": "Roadmap и сценарии AC-01-41",
           "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Watchdog и оповещения в Telegram",
+          "path": "docs/operations/ops-watchdog.md"
         }
       ],
       "acceptance": [
         "Контрольная неисправность создаёт понятный сигнал ответственному.",
         "Задокументированы SLO, секреты, ротация, восстановление и порядок эскалации."
       ],
-      "nextAction": "Подключить метрики и проверить оповещения на выделенном стенде.",
+      "nextAction": "Владельцу создать бота и чат; оператору установить watchdog в shadow mode по runbook, затем включить Telegram.",
       "checks": {
-        "implemented": false,
-        "verified": false,
+        "implemented": true,
+        "verified": true,
         "deployed": false,
         "accepted": false
       }

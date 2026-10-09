@@ -1,0 +1,16 @@
+[Unit]
+Description=PickChick read-only watchdog (Telegram alerts)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=pickchick-ops
+Group=pickchick-ops
+# Pinned by the symlink /opt/pickchick-staging/watchdog/current -> releases/<sha>.
+ExecStart=/usr/bin/python3 /opt/pickchick-staging/watchdog/current/infra/staging/watchdog/run-watchdog.py
+TimeoutStartSec=240
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
