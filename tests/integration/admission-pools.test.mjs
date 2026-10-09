@@ -240,6 +240,7 @@ test('long-poll overflow answers the current state after a pause; per-IP cap use
       httpMaxLongPollPerIp: 2,
       httpLongPollOverflowDelayMs: 400,
       trustedProxyIps: ['127.0.0.1'],
+      httpLongPollPerIpEnabled: true,
     });
     const mobile = await signatureOf(api.url + '/v1/customer-checkout/availability');
     const kiosk = await signatureOf(api.url + '/v1/kiosk-checkout/availability', ctx.kioskHeaders);
@@ -260,6 +261,8 @@ test('long-poll overflow answers the current state after a pause; per-IP cap use
       ];
       await until(() => api.admission.paced === 2, 'two overflow requests are paced');
       assert.equal(api.admission.active, 0, 'the pause holds no ordinary slot');
+      // The kiosk route arrives without a forwarded client address: it is never keyed.
+      assert.equal(api.admission.longPollClients, 2);
       // The overflow is bounded as well (as large as the pool); beyond it the answer is 503.
       const full = await poll('198.51.100.22');
       assert.equal(full.status, 503);
@@ -309,6 +312,7 @@ test('long-poll overflow answers the current state after a pause; per-IP cap use
       httpMaxLongPollPerIp: 1,
       httpLongPollOverflowDelayMs: 300,
       trustedProxyIps: ['10.255.255.1'],
+      httpLongPollPerIpEnabled: true,
     });
     const forged = (ip) =>
       fetch(`${direct.url}/v1/customer-checkout/availability?after=${mobile}`, {
@@ -332,4 +336,27 @@ test('long-poll overflow answers the current state after a pause; per-IP cap use
       await first;
     }
     await until(() => direct.admission.longPolls === 0, 'the forged wait is released');
+
+    // Default: TRUSTED_PROXY_IPS alone does not turn the per-IP cap (a new 429 path) on.
+    const off = await ctx.start({
+      httpMaxLongPoll: 10,
+      httpMaxLongPollPerIp: 1,
+      httpLongPollOverflowDelayMs: 300,
+      trustedProxyIps: ['127.0.0.1'],
+    });
+    const third = new AbortController();
+    const same = [1, 2, 3].map(() =>
+      fetch(`${off.url}/v1/customer-checkout/availability?after=${mobile}`, {
+        headers: { 'X-Forwarded-For': '192.0.2.9' },
+        signal: third.signal,
+      }).catch(() => null),
+    );
+    try {
+      await until(() => off.admission.longPolls === 3, 'one address waits three times');
+      assert.deepEqual([off.admission.paced, off.admission.longPollClients], [0, 0]);
+    } finally {
+      third.abort();
+      await Promise.all(same);
+    }
+    await until(() => off.admission.longPolls === 0, 'the default-off waits are released');
   }));

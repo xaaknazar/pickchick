@@ -13,8 +13,10 @@ export interface ServiceConfig {
   httpMaxInFlight?: number;
   /** Long-polls that may wait for a change; separate from ordinary requests. */
   httpMaxLongPoll?: number;
-  /** Long-polls per client address; enforced only with TRUSTED_PROXY_IPS. */
+  /** Long-polls per client address; enforced only when enabled and with TRUSTED_PROXY_IPS. */
   httpMaxLongPollPerIp?: number;
+  /** HTTP_LONG_POLL_PER_IP_ENABLED: new 429 path for shared addresses, off by default. */
+  httpLongPollPerIpEnabled?: boolean;
   /** Reserved for device-authenticated `/internal/v1/edge/*` transport. */
   httpMaxEdgeInFlight?: number;
   /** Pause before an overflow long-poll answers with the current state. */
@@ -144,6 +146,10 @@ export function loadConfig(
     (proxyIps.length > 8 || proxyIps.some((ip) => !isIP(ip) || ['0.0.0.0', '::'].includes(ip)))
   )
     throw new Error('TRUSTED_PROXY_IPS requires explicit proxy IP addresses');
+  // Without trusted hops every client shares the gateway address: a per-IP cap would be global.
+  const perIp = env.HTTP_LONG_POLL_PER_IP_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(perIp) || (perIp === 'true' && !proxyIps))
+    throw new Error('HTTP_LONG_POLL_PER_IP_ENABLED is invalid or lacks TRUSTED_PROXY_IPS');
   const key = service === 'api' ? 'CLOUD_DATABASE_URL' : 'EDGE_DATABASE_URL';
   const databaseUrl =
     environment === 'staging'
@@ -168,6 +174,7 @@ export function loadConfig(
     httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
     httpMaxLongPoll: boundedInteger(env, 'HTTP_MAX_LONG_POLL', 64, 1024),
     httpMaxLongPollPerIp: boundedInteger(env, 'HTTP_MAX_LONG_POLL_PER_IP', 16, 1024),
+    ...(perIp === 'true' ? { httpLongPollPerIpEnabled: true } : {}),
     httpMaxEdgeInFlight: boundedInteger(env, 'HTTP_MAX_EDGE_IN_FLIGHT', 16, 256),
     // Below one second installed clients would turn overflow answers into a busy loop.
     httpLongPollOverflowDelayMs: boundedInteger(

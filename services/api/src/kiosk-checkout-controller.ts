@@ -175,7 +175,10 @@ export class KioskCheckoutController {
    * long-poll budget is full, admission lets it read the current state once after a pause.
    */
   @Get('availability')
-  @LongPollRoute('after')
+  // The installed kiosk gateway route does not forward {client_ip}: request.ip is the front
+  // proxy for every kiosk. A kiosk wait starts only after enrolled-device auth, so the fleet
+  // bounds it; the per-IP cap would only pool all kiosks into one key.
+  @LongPollRoute('after', { perClient: false })
   availability(
     @Res({ passthrough: true }) res: ServerResponse,
     @Query('after') after?: unknown,

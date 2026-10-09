@@ -19,6 +19,7 @@ long-poll (`/v1/customer-checkout/availability?after=`, `/v1/customer-checkout/o
 | `HTTP_MAX_IN_FLIGHT`               | 32      | 1-1024     | Обычные запросы (как раньше), включая одно чтение overflow long-poll                             |
 | `HTTP_MAX_LONG_POLL`               | 64      | 1-1024     | Long-poll, которые ждут изменения; столько же одновременно получают отложенный ответ (overflow)  |
 | `HTTP_MAX_LONG_POLL_PER_IP`        | 16      | 1-1024     | Ждущие и, отдельно, отложенные long-poll одного клиента; IPv6 считается по /64                   |
+| `HTTP_LONG_POLL_PER_IP_ENABLED`    | false   | true/false | Включает per-IP лимит (новый путь 429); `true` без `TRUSTED_PROXY_IPS` останавливает запуск API  |
 | `HTTP_MAX_EDGE_IN_FLIGHT`          | 16      | 1-256      | Резерв для device-authenticated `/internal/v1/edge/*`; сверх резерва edge занимает обычные слоты |
 | `HTTP_LONG_POLL_OVERFLOW_DELAY_MS` | 5000    | 1000-20000 | Пауза перед ответом overflow long-poll (±25% jitter); не держит слот и соединение с БД           |
 
@@ -33,14 +34,15 @@ long-poll (`/v1/customer-checkout/availability?after=`, `/v1/customer-checkout/o
 
 ## Поведение при заполнении
 
-1. Есть место в long-poll бюджете и у клиента меньше `HTTP_MAX_LONG_POLL_PER_IP` ждущих —
-   запрос ждёт, как раньше. Обычные слоты не занимает.
+1. Есть место в long-poll бюджете и (при включённом per-IP) у клиента меньше
+   `HTTP_MAX_LONG_POLL_PER_IP` ждущих — запрос ждёт, как раньше. Обычные слоты не занимает.
 2. Иначе — overflow: через паузу `HTTP_LONG_POLL_OVERFLOW_DELAY_MS` handler один раз читает
    и возвращает текущее состояние (тот же статус, тело и `X-Availability-Signature`/
    `X-Catalog-Version`, что у ожидания без изменений). Пауза обязательна: установленные
    киоск build 10 повторяет запрос через 0 мс, mobile build 14 — через 100 мс, поэтому
    немедленный ответ превратил бы каждый лишний long-poll в цикл запросов.
-3. У клиента уже `HTTP_MAX_LONG_POLL_PER_IP` отложенных — `429 RATE_LIMITED`,
+3. Только при `HTTP_LONG_POLL_PER_IP_ENABLED=true`: у клиента уже `HTTP_MAX_LONG_POLL_PER_IP`
+   отложенных — `429 RATE_LIMITED`,
    `Retry-After` в секундах паузы. Клиенты повторяют с backoff.
 4. Отложенных уже `HTTP_MAX_LONG_POLL` (overflow тоже ограничен) или после паузы нет обычного
    слота — `503 SERVICE_UNAVAILABLE`, `Retry-After: 1`, как прежде.
@@ -55,10 +57,20 @@ Edge-запросы сначала занимают резерв `HTTP_MAX_EDGE_
 игнорируется, ротация `X-Forwarded-For` не обходит лимит. Gateway Caddy сам выставляет
 `X-Forwarded-For` клиентским адресом.
 
-Если `TRUSTED_PROXY_IPS` не задан, все клиенты видны как адрес gateway, поэтому per-IP лимит
-**выключен** (иначе он стал бы общим лимитом). Long-poll бюджет и edge-резерв работают
-независимо от этого. `TRUSTED_PROXY_IPS` добавляет release с customer auth
-(`infra/staging/release-server-pilot.py`).
+Per-IP лимит **выключен по умолчанию** (`HTTP_LONG_POLL_PER_IP_ENABLED=false`): это новый
+путь отказа 429 для установленных клиентов, а за общим NAT (Wi-Fi ресторана, мобильный CGNAT)
+много честных клиентов делят один адрес. Включать только после просмотра метрик и решения
+владельца. Без `TRUSTED_PROXY_IPS` все клиенты видны как адрес gateway, поэтому
+`HTTP_LONG_POLL_PER_IP_ENABLED=true` без него останавливает запуск API. Long-poll бюджет и
+edge-резерв работают независимо от флага. `TRUSTED_PROXY_IPS` добавляет release с customer
+auth (`infra/staging/release-server-pilot.py`).
+
+Kiosk `GET /v1/kiosk-checkout/availability` исключён из per-IP лимита
+(`@LongPollRoute('after', { perClient: false })`): установленный маршрут gateway
+`@kiosk_menu_read` не передаёт `X-Forwarded-For {client_ip}`, поэтому Caddy дописывает адрес
+внешнего proxy и `request.ip` у всех киосков одинаковый. Ожидание киоска начинается только
+после аутентификации enrolled-устройства, его число ограничено парком киосков. Mobile-маршруты
+`@customer_checkout` передают `{client_ip}`.
 
 ## Развёртывание
 
@@ -77,8 +89,14 @@ API-образа с этим коммитом; переменные необяз
 
    Ожидается `pickchick_http_long_poll_limit 64`, `pickchick_http_edge_limit 16`. При открытых
    приложениях/киосках `pickchick_http_long_poll_in_flight > 0`, а `pickchick_http_in_flight`
-   не растёт от них. Если при открытых long-poll `pickchick_http_long_poll_clients 0`, per-IP
-   выключен — проверить `TRUSTED_PROXY_IPS` в окружении API.
+   не растёт от них. `pickchick_http_long_poll_clients 0` ожидаемо, пока per-IP выключен.
+
+Включение per-IP (отдельный шаг, после наблюдения `pickchick_http_long_poll_in_flight` под
+реальной нагрузкой): добавить в `services.api.environment` установленного compose
+`HTTP_LONG_POLL_PER_IP_ENABLED: 'true'` (и при необходимости `HTTP_MAX_LONG_POLL_PER_IP`),
+убедиться, что `TRUSTED_PROXY_IPS` задан адресом gateway, пересоздать только `api`. Проверка:
+при открытых mobile-приложениях `pickchick_http_long_poll_clients > 0`. Откат: убрать
+переменную или `'false'`, пересоздать `api`.
 
 4. Smoke: киоск и mobile получают меню/стопы; касса синхронизирует меню и заказы.
 

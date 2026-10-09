@@ -13,7 +13,7 @@ export class CapacityExceeded extends ServiceUnavailableException {
 
 const ROUTE = 'pickchick:admission-route';
 const IMMEDIATE = Symbol.for('pickchick.admission.long-poll-immediate');
-type RouteClass = { kind: 'edge' } | { kind: 'long-poll'; query?: string };
+type RouteClass = { kind: 'edge' } | { kind: 'long-poll'; query?: string; perClient?: false };
 const reflector = new Reflector();
 
 /**
@@ -26,9 +26,15 @@ export const EdgeDeviceRoute = () => SetMetadata(ROUTE, { kind: 'edge' } satisfi
  * A bounded wait for a change (long-poll or watch). It holds its own budget instead of an
  * ordinary slot. With `query`, only a request carrying that query parameter waits; without it
  * the same handler is an ordinary single read. The handler must honour `longPollMayWait`.
+ * `perClient: false` exempts a route whose gateway hop does not forward the client address
+ * (its `request.ip` would be the front proxy, shared by every caller).
  */
-export const LongPollRoute = (query?: string) =>
-  SetMetadata(ROUTE, { kind: 'long-poll', ...(query ? { query } : {}) } satisfies RouteClass);
+export const LongPollRoute = (query?: string, options: { perClient?: boolean } = {}) =>
+  SetMetadata(ROUTE, {
+    kind: 'long-poll',
+    ...(query ? { query } : {}),
+    ...(options.perClient === false ? { perClient: false as const } : {}),
+  } satisfies RouteClass);
 
 /**
  * False when admission answers this long-poll in its overflow mode: the handler then reads the
@@ -50,8 +56,9 @@ export interface AdmissionOptions {
   /** Pause before an overflow long-poll reads once (HTTP_LONG_POLL_OVERFLOW_DELAY_MS). */
   overflowDelayMs?: number | undefined;
   /**
-   * Enforce the per-client cap. Only meaningful behind an explicitly trusted proxy: otherwise
-   * every client shares the gateway address and the cap would turn into a global one.
+   * Enforce the per-client cap (HTTP_LONG_POLL_PER_IP_ENABLED, off by default). Only meaningful
+   * behind an explicitly trusted proxy: otherwise every client shares the gateway address and
+   * the cap would turn into a global one.
    */
   perClient?: boolean | undefined;
   random?: (() => number) | undefined;
@@ -162,7 +169,7 @@ export class Admission implements NestInterceptor {
       if (route?.kind === 'edge') return this.run(context, next, this.takeEdge());
       const request = context.switchToHttp().getRequest<HttpRequestLike>();
       if (route?.kind === 'long-poll' && waits(route, request))
-        return this.longPoll(context, next, request);
+        return this.longPoll(context, next, request, this.perClient && route.perClient !== false);
       return this.run(context, next, this.takeGeneral());
     });
   }
@@ -220,11 +227,10 @@ export class Admission implements NestInterceptor {
     context: ExecutionContext,
     next: CallHandler,
     request: HttpRequestLike,
+    perClient: boolean,
   ): Observable<unknown> {
-    const key = this.perClient
-      ? admissionClientKey(request.ip ?? request.socket?.remoteAddress)
-      : '';
-    const client = this.perClient ? (this.clients.get(key) ?? { waiting: 0, paced: 0 }) : null;
+    const key = perClient ? admissionClientKey(request.ip ?? request.socket?.remoteAddress) : '';
+    const client = perClient ? (this.clients.get(key) ?? { waiting: 0, paced: 0 }) : null;
     const forget = () => {
       if (client && !client.waiting && !client.paced) this.clients.delete(key);
     };

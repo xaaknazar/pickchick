@@ -21,8 +21,9 @@ export class Resources implements OnApplicationShutdown {
       longPollPerClient: config.httpMaxLongPollPerIp,
       edgeLimit: config.httpMaxEdgeInFlight,
       overflowDelayMs: config.httpLongPollOverflowDelayMs,
-      // Without explicit proxy hops every client shares the gateway address.
-      perClient: (config.trustedProxyIps?.length ?? 0) > 0,
+      // Opt-in; without explicit proxy hops every client shares the gateway address.
+      perClient:
+        config.httpLongPollPerIpEnabled === true && (config.trustedProxyIps?.length ?? 0) > 0,
     });
   }
 

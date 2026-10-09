@@ -20,12 +20,14 @@ class EdgeController {}
 EdgeDeviceRoute()(EdgeController);
 function ordinary() {}
 function availability() {}
+function kioskAvailability() {}
 function watch() {}
 function edgeMedia() {}
 function ready() {}
 function live() {}
 LongPollRoute('after')(availability);
 LongPollRoute()(watch);
+LongPollRoute('after', { perClient: false })(kioskAvailability);
 EdgeDeviceRoute()(edgeMedia);
 const HealthController = { name: 'HealthController' };
 const TestOrderController = { name: 'TestOrderController' };
@@ -225,6 +227,28 @@ test('per-client cap: own share of waits, own share of paced answers, then 429',
   assert.deepEqual([admission.active, admission.longPolls, admission.paced], [0, 0, 0]);
 });
 
+test('a route without a forwarded client address is exempt from the per-client cap', async () => {
+  const admission = new Admission({
+    longPollLimit: 3,
+    longPollPerClient: 1,
+    overflowDelayMs: 0,
+    perClient: true,
+  });
+  // Every kiosk reaches the API with the front proxy address; they must not share one key.
+  const polls = [1, 2, 3].map(() =>
+    call(admission, { handler: kioskAvailability, ip: '172.18.0.9', query: { after: 'x' } }),
+  );
+  await tick();
+  assert.equal(admission.longPolls, 3);
+  assert.equal(admission.paced, 0);
+  assert.equal(admission.longPollClients, 0);
+  // The same address on a capped route is still limited.
+  const capped = call(admission, { handler: watch, ip: '172.18.0.9' });
+  await tick();
+  assert.equal(admission.paced, 1, 'pool full: paced, not refused');
+  for (const poll of [...polls, capped]) await poll.done();
+});
+
 test('without a trusted proxy the per-client cap stays off (all clients share the gateway)', async () => {
   const admission = new Admission({ longPollLimit: 3, longPollPerClient: 1, overflowDelayMs: 0 });
   const polls = [1, 2, 3].map(() => call(admission, { handler: watch, ip: '172.18.0.2' }));
@@ -303,6 +327,28 @@ test('long-poll and edge budgets default safely and reject invalid configuration
   assert.equal(config.httpMaxLongPollPerIp, 16);
   assert.equal(config.httpMaxEdgeInFlight, 16);
   assert.equal(config.httpLongPollOverflowDelayMs, 5000);
+  // The per-IP cap is a new 429 path: off by default, and only with trusted proxy hops.
+  assert.equal(config.httpLongPollPerIpEnabled, undefined);
+  assert.equal(
+    loadConfig('api', { ...env, TRUSTED_PROXY_IPS: '172.18.0.5' }).httpLongPollPerIpEnabled,
+    undefined,
+  );
+  assert.equal(
+    loadConfig('api', {
+      ...env,
+      TRUSTED_PROXY_IPS: '172.18.0.5',
+      HTTP_LONG_POLL_PER_IP_ENABLED: 'true',
+    }).httpLongPollPerIpEnabled,
+    true,
+  );
+  for (const extra of [
+    { HTTP_LONG_POLL_PER_IP_ENABLED: 'true' },
+    { HTTP_LONG_POLL_PER_IP_ENABLED: 'yes', TRUSTED_PROXY_IPS: '172.18.0.5' },
+  ])
+    assert.throws(
+      () => loadConfig('api', { ...env, ...extra }),
+      /HTTP_LONG_POLL_PER_IP_ENABLED is invalid or lacks TRUSTED_PROXY_IPS/,
+    );
   const custom = loadConfig('api', {
     ...env,
     HTTP_MAX_LONG_POLL: '200',
