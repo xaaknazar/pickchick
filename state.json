@@ -3825,11 +3825,14 @@
         "services/device-access-worker",
         "infra/db/edge/020_terminal_access.sql",
         "infra/windows/terminal-access-grants.mjs",
-        "tests/integration/terminal-access.test.ts"
+        "tests/integration/terminal-access.test.ts",
+        "db/edge/migrations/020_terminal_access.sql",
+        "services/edge/src/staff-auth-controller.ts",
+        "tests/integration/terminal-access.test.mjs"
       ],
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T11:17:32.417Z"
+      "updatedAt": "2026-10-09T11:18:04.222Z"
     }
   ]
 }
