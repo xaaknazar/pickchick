@@ -3928,11 +3928,16 @@
         "@vps/public",
         "@vps/gateway",
         "@vps/backoffice-login",
-        "@windows/cashier"
+        "@windows/cashier",
+        "infra/windows/enable-native-remote-stops.ps1",
+        "infra/windows/remote-stops-readiness.mjs",
+        "tests/operations/windows-remote-stops-activation.test.ps1",
+        "tests/operations/test_windows_remote_stops_activation.py",
+        "tests/integration/remote-stops-readiness.test.mjs"
       ],
       "status": "active",
       "head": "28e3fea7ef86299cf080c0d46a7351f31ca6305f",
-      "updatedAt": "2026-10-09T14:24:18.677Z",
+      "updatedAt": "2026-10-09T14:25:24.536Z",
       "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles. 2026-10-09 mobile API3bc installed/HEADguard enabled with verified backup/restore and unchanged neighbors; root transfers VPS API/DB/public/gateway/BO and cashier resources to Devices final release, then bounded remaining unified flags. Bank containers excluded.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
     }
