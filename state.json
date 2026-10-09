@@ -3737,7 +3737,6 @@
         "services/api/src/catalog-publication-listener.ts",
         "packages/catalog-admin/src/index.ts",
         "services/api/src/index.ts",
-        "docs/operations/mobile-live-menu.md",
         "infra/staging/release-live-menu.py",
         "tests/operations/test_live_menu_release.py",
         "tests/unit/checkout-errors.test.mjs",
@@ -3772,9 +3771,6 @@
         "tests/mobile/domain.test.mjs",
         "packages/commerce-core/tests/postgres.test.mjs",
         "apps/mobile/.storybook",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "docs/collaboration/handoff.md",
         "@vps/api",
         "@vps/db"
       ],
@@ -3789,11 +3785,16 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/restaurant-completion",
       "scopes": [
-        "@integration/restaurant-completion"
+        "@integration/restaurant-completion",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-live-menu.md"
       ],
       "status": "active",
       "head": "409a1deefe1d82623931e28d0b19afe57e1ac840",
-      "updatedAt": "2026-10-09T11:58:59.524Z"
+      "updatedAt": "2026-10-09T11:58:59.524Z",
+      "summary": " Root integrates completed mobile/iPad/kitchen/Devices stage and records installation facts; runtime source remains immutable during release."
     },
     {
       "id": "mobile-native16",
