@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import time
 import uuid
+import tempfile
 
 spec = importlib.util.spec_from_file_location('portal_release', Path(__file__).with_name('release.py'))
 portal = importlib.util.module_from_spec(spec)
@@ -23,6 +24,51 @@ NETWORKS = {'deploy_default', 'pickchick-staging_ingress'}
 
 def inspect(name):
     return json.loads(d.run(['docker', 'inspect', name]))[0]
+
+
+def neighbors():
+    """Include bank workers and every running neighbor, not just historical names."""
+    names = sorted(set(d.run(['docker', 'ps', '--format', '{{.Names}}']).decode().splitlines()) - {NAME})
+    d.require(set(d.NAMES).issubset(names), 'Required neighboring service missing')
+    result = {}
+    for name in names:
+        c = inspect(name)
+        d.require(c['State']['Running'], 'Neighbor stopped during snapshot')
+        result[name] = {'id': c['Id'], 'image': c['Image'], 'started': c['State']['StartedAt']}
+    return result
+
+
+def backup_and_restore_private(source, backup):
+    """Exercise byte restoration in a new private file; never replace live credentials."""
+    data = source.read_bytes()
+    with backup.open('xb') as f:
+        os.chmod(backup, 0o600)
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    d.require(backup.read_bytes() == data, 'Private backup differs')
+    with tempfile.TemporaryDirectory(prefix='restore-', dir=backup.parent) as directory:
+        restored = Path(directory)/'accounts.json'
+        with restored.open('xb') as f:
+            os.chmod(restored, 0o600)
+            f.write(backup.read_bytes())
+            f.flush()
+            os.fsync(f.fileno())
+        d.require(restored.read_bytes() == data and not restored.stat().st_mode & 0o077,
+                  'Private restoration failed')
+    return d.digest(data)
+
+
+def published_assets(root):
+    # Verify the actual Devices entry points on the canonical host. A successful
+    # nip.io public subtree update alone does not update this image's baked UI.
+    paths = ['', 'app.js', 'api.js', 'devices-model.js', 'components/DeviceAccessView.js',
+             'workspace.css', 'assets/logo.png']
+    for path in paths:
+        status, _, body = d.http('https://pickchick.kz/backoffice/'+path)
+        expected = root/'apps/backoffice/dist'/(path or 'index.html')
+        d.require(status == 200 and d.digest(body) == d.digest(expected.read_bytes()),
+                  'Canonical backoffice asset differs')
 
 
 def healthy(name):
@@ -92,10 +138,12 @@ def main(a):
     d.guards(a)
     front = d.FRONT.read_bytes()
     d.require(d.digest(front) == a.expected_front_hash, 'Front changed')
-    before = d.containers()
+    before = neighbors()
     neighbor = d.baseline_http()
     old = inspect(NAME)
     d.require(old['Config']['Image'] == 'pickchick-staff-login:'+a.expected_portal_sha, 'Portal source changed')
+    d.require(re.fullmatch('sha256:[a-f0-9]{64}', a.expected_portal_image) and
+              old['Image'] == a.expected_portal_image, 'Reviewed portal image changed')
     d.require(old['State']['Running'] and old['State']['Health']['Status'] == 'healthy', 'Existing portal unhealthy')
     d.require(set(old['NetworkSettings']['Networks']) == NETWORKS, 'Portal networks differ')
     d.require(old['HostConfig']['ReadonlyRootfs'] and not old['HostConfig']['PortBindings'], 'Portal isolation differs')
@@ -106,7 +154,7 @@ def main(a):
     private_hash = d.digest(private.read_bytes())
     def unchanged():
         d.guards(a)
-        d.require(d.FRONT.read_bytes() == front and d.containers() == before, 'Existing services changed')
+        d.require(d.FRONT.read_bytes() == front and neighbors() == before, 'Existing services changed')
         d.require(d.digest(private.read_bytes()) == private_hash, 'Credentials changed')
         d.require(d.baseline_http() == neighbor, 'Neighbor or payment capabilities changed')
     if not a.apply:
@@ -122,12 +170,16 @@ def main(a):
         release.mkdir(parents=True, exist_ok=False)
         # Contains configuration metadata; kept private and out of Git/report output.
         (release/'portal.before.json').write_text(json.dumps(old))
-        (release/'credentials.before.json').write_bytes(private.read_bytes())
+        d.require(backup_and_restore_private(private, release/'credentials.before.json') == private_hash,
+                  'Credentials changed before backup')
         (release/'front.before').write_bytes(front)
         (release/'ci-proof.json').write_bytes(a.ci_proof.read_bytes())
         (release/'portal-manifest.json').write_bytes((root/'portal-manifest.json').read_bytes())
         image = 'pickchick-staff-login:'+a.source_sha
         d.run(['docker', 'build', '--build-arg', 'RELEASE_SHA='+a.source_sha, '-t', image, '-f', str(root/'infra/backoffice-login/Dockerfile'), str(root/'apps/backoffice')])
+        candidate = json.loads(d.run(['docker', 'image', 'inspect', image]))[0]
+        d.require(candidate['Config']['Labels']['org.opencontainers.image.revision'] == a.source_sha,
+                  'Candidate image source differs')
         unchanged()
         d.require(inspect(NAME)['Id'] == old['Id'], 'Portal changed before replacement')
         rollback_name = NAME+'-backup-'+a.source_sha[:12]
@@ -140,13 +192,14 @@ def main(a):
                    '--health-timeout', '5s', '--health-retries', '3', image])
         def verify():
             unchanged()
+            d.require(inspect(NAME)['Image'] == candidate['Id'], 'Installed portal image differs')
             portal_http()
-            for path in ['workspace.css', 'assets/logo.png']:
-                status, _, body = d.http('https://pickchick.kz/backoffice/'+path)
-                d.require(status == 200 and d.digest(body) == d.digest((root/'apps/backoffice/dist'/path).read_bytes()), 'Published asset differs')
+            published_assets(root)
         replace_container(rollback_name, create, verify, lambda: (unchanged(), portal_http()))
         result = {'source_sha': a.source_sha, 'previous_sha': a.expected_portal_sha, 'rollback_container': rollback_name,
                   'url': 'https://pickchick.kz/backoffice/', 'healthy': True, 'assets_verified': True,
+                  'image': candidate['Id'], 'private_backup_restore': 'passed',
+                  'unchanged_neighbor_count': len(before),
                   'api_database_credentials_ingress_unchanged': True, 'existing_services_preserved': True}
         (release/'result.json').write_text(json.dumps(result, indent=2)+'\n')
         print(json.dumps(result))
@@ -162,7 +215,7 @@ def main(a):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
-    for name in ['source-sha', 'expected-portal-sha', 'expected-api-sha', 'expected-public-sha', 'expected-front-hash', 'expected-gateway-hash']:
+    for name in ['source-sha', 'expected-portal-sha', 'expected-portal-image', 'expected-api-sha', 'expected-public-sha', 'expected-front-hash', 'expected-gateway-hash']:
         p.add_argument('--'+name, required=True)
     p.add_argument('--ci-proof', type=Path, required=True)
     p.add_argument('--apply', action='store_true')
