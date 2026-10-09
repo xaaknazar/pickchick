@@ -3617,6 +3617,36 @@
       "updatedAt": "2026-10-08T21:17:16.093Z"
     },
     {
+      "id": "kiosk-build9-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-v3-motion",
+      "scopes": [
+        "apps/kiosk",
+        "@apple/devices/kiosk",
+        "@release/ios",
+        "docs/operations/kiosk-build9-installation.md"
+      ],
+      "status": "done",
+      "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
+      "updatedAt": "2026-10-09T06:00:15.199Z",
+      "summary": "Build 9 (0.1.0) установлен на iPad 9 октября и влит в общий срез (5eed0fa9); протокол kiosk-build9-installation.md",
+      "nextAction": "iPad продолжает Claude: kiosk-build10 (фото и long-poll единого меню) и разбор Kaspi QR"
+    },
+    {
+      "id": "kiosk-build10",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-build10",
+      "scopes": [
+        "apps/kiosk",
+        "@apple/devices/kiosk",
+        "@release/ios",
+        "docs/operations/kiosk-build10-installation.md"
+      ],
+      "status": "active",
+      "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
+      "updatedAt": "2026-10-09T06:00:20.235Z"
+    },
+    {
       "id": "unified-menu-release",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/unified-menu",
@@ -3650,41 +3680,14 @@
         "tests/operations/test_windows_runtime.py",
         "tests/backoffice/helpers.mjs",
         "infra/staging/Dockerfile",
-        "tests/operations/test_unified_menu_release.py"
-      ],
-      "status": "active",
-      "head": "23fb39e152fccaa97a32e9bf179c2d89a50dc1d5",
-      "updatedAt": "2026-10-09T04:44:21.674Z"
-    },
-    {
-      "id": "kiosk-build9-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-v3-motion",
-      "scopes": [
-        "apps/kiosk",
-        "@apple/devices/kiosk",
-        "@release/ios",
-        "docs/operations/kiosk-build9-installation.md"
-      ],
-      "status": "done",
-      "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
-      "updatedAt": "2026-10-09T06:00:15.199Z",
-      "summary": "Build 9 (0.1.0) установлен на iPad 9 октября и влит в общий срез (5eed0fa9); протокол kiosk-build9-installation.md",
-      "nextAction": "iPad продолжает Claude: kiosk-build10 (фото и long-poll единого меню) и разбор Kaspi QR"
-    },
-    {
-      "id": "kiosk-build10",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-build10",
-      "scopes": [
-        "apps/kiosk",
-        "@apple/devices/kiosk",
-        "@release/ios",
-        "docs/operations/kiosk-build10-installation.md"
+        "tests/operations/test_unified_menu_release.py",
+        "infra/staging/unified-menu-owner.mjs",
+        "infra/staging/catalog-edge-grants.mjs",
+        "tests/integration/unified-menu-release.test.mjs"
       ],
       "status": "active",
       "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
-      "updatedAt": "2026-10-09T06:00:20.235Z"
+      "updatedAt": "2026-10-09T06:29:36.967Z"
     }
   ]
 }
