@@ -24,3 +24,17 @@ export function catalogAccessGrants(name, enabled) {
  GRANT UPDATE(lock_anchor) ON bo_access_grants TO ${r};`
     : '';
 }
+
+/**
+ * Publication adds only the five missing writes to the existing menu transport ACL.
+ * Keep shared menu privileges when disabled: the feature flag fences publication, while
+ * pending delivery/ACK and kiosk reads must keep working. Never reset an existing ACL.
+ */
+export function edgePublicationGrants(name, enabled) {
+  const r = role(name);
+  if (typeof enabled !== 'boolean') throw new Error('Invalid catalog edge grant configuration');
+  return enabled
+    ? `GRANT INSERT ON catalog_menu_deliveries,menu_releases,menu_streams,outbox_events TO ${r};
+ GRANT UPDATE(last_sequence) ON menu_streams TO ${r};`
+    : '';
+}

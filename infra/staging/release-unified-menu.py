@@ -85,8 +85,8 @@ API_FLAGS_OFF = (('CATALOG_ACCESS_ROLES_ENABLED', 'false'), ('CATALOG_EDGE_PUBLI
                  ('CATALOG_MEDIA_UPLOAD_ENABLED', 'false'))
 # provision.mjs derives grants from these two, so a later full provision keeps the same ACL.
 PROVISION_FLAGS_OFF = (('BACKOFFICE_REMOTE_STOPS_ENABLED', 'false'), ('CATALOG_MEDIA_UPLOAD_ENABLED', 'false'))
-# Owner step names; edge-publication needs no grant.
-OWNER_FLAGS = {'access-roles', 'remote-stops', 'media-upload'}
+# Owner steps add only the privileges needed by the selected flag.
+OWNER_FLAGS = {'access-roles', 'edge-publication', 'remote-stops', 'media-upload'}
 VERIFY_EDGE_MAX_AGE = 2 * 60 * 60
 EDGE_STATE_MAX_AGE = 120
 HEARTBEAT_MAX_AGE = 30
@@ -303,6 +303,22 @@ STOP_INSERT = ('cloud_stop_commands', None, 'INSERT')
 MEDIA_WRITE = frozenset({('catalog_assets', None, 'INSERT'), ('catalog_asset_variants', None, 'INSERT'),
                          ('catalog_asset_audit', None, 'SELECT'), ('catalog_asset_audit', None, 'INSERT')})
 ACCESS_READ = frozenset({('bo_access_grants', None, 'SELECT'), ('bo_access_grants', 'lock_anchor', 'UPDATE')})
+EDGE_PUBLICATION_WRITE = frozenset({(table, None, 'INSERT') for table in
+                                   ['catalog_menu_deliveries', 'menu_releases', 'menu_streams', 'outbox_events']} |
+                                  {('menu_streams', 'last_sequence', 'UPDATE')})
+EDGE_PUBLICATION_READ = frozenset({(table, None, 'SELECT') for table in
+                                  ['catalog_menu_deliveries', 'menu_releases', 'menu_streams', 'outbox_events',
+                                   'branches', 'devices', 'branch_menu_activations', 'inbox_messages',
+                                   'fulfillment_transport_bindings', 'edge_menu_state', 'catalog_menu_delivery_results']})
+
+
+def check_edge_publication_acl(rows, *, writable=False):
+    keys = {acl_key(row) for row in rows}
+    required = EDGE_PUBLICATION_READ | (EDGE_PUBLICATION_WRITE if writable else frozenset())
+    require(required <= keys, 'Menu publication runtime privileges missing')
+    for table in ['branches', 'devices']:
+        require(any(name == table and privilege == 'UPDATE' for name, _, privilege in keys),
+                'Menu publication row-lock privilege missing: ' + table)
 
 
 def flag_acl(phase, enabled):
@@ -317,6 +333,8 @@ def flag_acl(phase, enabled):
                 else (frozenset(), MEDIA_WRITE, frozenset(), MEDIA_WRITE))
     if phase == 'access-roles' and enabled:
         return ACCESS_READ, frozenset(), ACCESS_READ, frozenset()
+    if phase == 'edge-publication' and enabled:
+        return EDGE_PUBLICATION_WRITE, frozenset(), EDGE_PUBLICATION_WRITE, frozenset()
     return frozenset(), frozenset(), frozenset(), frozenset()
 
 
@@ -818,6 +836,7 @@ sha256sum {backup} > {backup}.sha256
         if phase == 'access-roles':
             check_access_coverage(self.coverage())
         elif phase == 'edge-publication':
+            check_edge_publication_acl(self.acl())
             snapshot = self.edge_snapshot()
             edge = check_edge_state(snapshot, self.branch_id)
             require(edge == self.evidence()['verify-edge']['edge'], 'Edge menu changed since verify-edge')
@@ -834,6 +853,8 @@ sha256sum {backup} > {backup}.sha256
         flags = flag_environment(env)
         require(self.running_revision() == self.sha, 'Running API is not this release')
         if flags.get(phase) == 'true' and phase in evidence:
+            if phase == 'edge-publication':
+                check_edge_publication_acl(self.acl(), writable=True)
             print(json.dumps({'phase': phase, 'already_complete': True}), flush=True)
             return
         phase_gate(phase, evidence, flags)
@@ -876,6 +897,12 @@ sha256sum {backup} > {backup}.sha256
         try:
             if enabled and phase in OWNER_FLAGS:
                 owner = self.owner('flag', phase, 'true')
+            if enabled and phase == 'edge-publication':
+                # Prove the additive five grants before exposing the publication path.
+                added, removed, present, absent = flag_acl(phase, True)
+                current_acl = self.acl()
+                verify_acl_change(acl, current_acl, added=added, removed=removed, present=present, absent=absent)
+                check_edge_publication_acl(current_acl, writable=True)
             require(digest(self.read_text(path).encode()) == digest(current.encode()), 'Compose changed concurrently')
             self.write_remote(path, candidate)
             self.remote(market.api_compose(self.sha) + ' up -d --no-deps --wait --wait-timeout 120 api', timeout=180)

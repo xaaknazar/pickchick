@@ -4,7 +4,7 @@
  *
  *   node infra/staging/unified-menu-owner.mjs inspect
  *   node infra/staging/unified-menu-owner.mjs deploy
- *   node infra/staging/unified-menu-owner.mjs flag <access-roles|remote-stops|media-upload> <true|false>
+ *   node infra/staging/unified-menu-owner.mjs flag <access-roles|edge-publication|remote-stops|media-upload> <true|false>
  *
  * deploy applies cloud migrations 047-049 and only the grants they need with every new flag
  * off, in ONE repeatable-read transaction that also proves every pre-existing table kept every
@@ -18,7 +18,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
 import { catalogAssetGrants } from './catalog-asset-grants.mjs';
-import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
+import {
+  catalogAccessGrants,
+  edgeMenuStateGrants,
+  edgePublicationGrants,
+} from './catalog-edge-grants.mjs';
 
 export const UNIFIED_MENU_MIGRATIONS = Object.freeze([
   '047_cloud_edge_menu_state.sql',
@@ -35,7 +39,12 @@ export const UNIFIED_MENU_TABLES = Object.freeze([
 ]);
 /** The only column the release adds to an existing table (cloud048); NULL until protocol 4. */
 export const UNIFIED_MENU_COLUMNS = Object.freeze({ cloud_branch_availability: ['stop_states'] });
-export const UNIFIED_MENU_FLAGS = Object.freeze(['access-roles', 'remote-stops', 'media-upload']);
+export const UNIFIED_MENU_FLAGS = Object.freeze([
+  'access-roles',
+  'edge-publication',
+  'remote-stops',
+  'media-upload',
+]);
 const MIGRATION_LOCK = 724001; // Same advisory lock as @pickchick/database migrate().
 
 export class OwnerGuardError extends Error {}
@@ -157,6 +166,7 @@ export function flagGrants(role, flag, enabled) {
   guard(ROLE.test(role) && typeof enabled === 'boolean', 'Invalid grant configuration');
   guard(UNIFIED_MENU_FLAGS.includes(flag), 'Unknown unified-menu flag');
   if (flag === 'access-roles') return enabled ? catalogAccessGrants(role, true) : '';
+  if (flag === 'edge-publication') return edgePublicationGrants(role, enabled);
   if (flag === 'remote-stops') return backofficeStopGrants(role, enabled);
   return catalogAssetGrants(role, enabled);
 }
@@ -263,6 +273,7 @@ export async function deployUnifiedMenu(client, { directory, role }) {
 /** Prerequisites a flag needs on the runtime role (other features already granted). */
 const FLAG_REQUIRES = {
   'access-roles': ['catalog_managers', 'SELECT'],
+  'edge-publication': ['catalog_publications', 'SELECT'],
   'remote-stops': ['cloud_stop_commands', 'SELECT'],
   'media-upload': ['catalog_assets', 'SELECT'],
 };
@@ -278,6 +289,32 @@ export async function setUnifiedMenuFlag(client, { role, flag, enabled }) {
   );
   const [table, privilege] = FLAG_REQUIRES[flag];
   guard(await has(client, role, table, privilege), 'Feature prerequisite grant missing');
+  if (enabled && flag === 'edge-publication') {
+    for (const table of [
+      'catalog_menu_deliveries',
+      'menu_releases',
+      'menu_streams',
+      'outbox_events',
+      'branches',
+      'devices',
+      'branch_menu_activations',
+      'inbox_messages',
+      'fulfillment_transport_bindings',
+      'edge_menu_state',
+      'catalog_menu_delivery_results',
+    ])
+      guard(
+        await has(client, role, table, 'SELECT'),
+        'Menu publication read grant missing: ' + table,
+      );
+    // FOR UPDATE/SHARE needs UPDATE on any column, not a new redundant lock-anchor grant.
+    for (const table of ['branches', 'devices'])
+      guard(
+        (await client.query("SELECT has_any_column_privilege($1,$2,'UPDATE') AS ok", [role, table]))
+          .rows[0].ok,
+        'Menu publication row-lock grant missing: ' + table,
+      );
+  }
   if (enabled && flag === 'remote-stops')
     guard(
       (await has(client, role, 'bo_access_grants', 'SELECT')) &&
