@@ -239,7 +239,9 @@ export async function confirmDeviceIdentity(
         [id, auth.deviceId, row.now, hash],
       )
     ).rows[0];
-    if (!confirmed) throw new SyncError('NOT_FOUND');
+    // 409, never 404: a 404 must mean only "rotation unavailable" (flag off or an older API),
+    // which the edge answers by keeping its pending rotation instead of discarding the key.
+    if (!confirmed) throw new SyncError('CONFLICT');
     // Anchored at the first confirmation, so a repeated confirm never extends the overlap.
     const previous = (
       await client.query<{ previous_expires_at: Date }>(

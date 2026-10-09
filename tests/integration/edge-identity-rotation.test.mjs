@@ -244,7 +244,7 @@ test('a lost response is replayed with the old secret until confirmed; other ids
     await assert.rejects(rotate(cloud.pool, first), code('CONFLICT'));
     // Confirmation needs the new secret and is idempotent.
     await assert.rejects(confirm(cloud.pool, identity, rotationId), code('CONFLICT'));
-    await assert.rejects(confirm(cloud.pool, first, randomUUID()), code('NOT_FOUND'));
+    await assert.rejects(confirm(cloud.pool, first, randomUUID()), code('CONFLICT'));
     const confirmed = await confirm(cloud.pool, first, rotationId);
     assert.equal(confirmed.rotation_id, rotationId);
     assert.equal(confirmed.expires_at, first.expires_at);
@@ -355,6 +355,11 @@ test('HTTP rotation is off by default; enabled it is device-authenticated, readi
       const confirmed = await post(on.url, 'confirm', rotated, { rotation_id: rotationId });
       assert.equal(confirmed.status, 200);
       assert.equal((await confirmed.json()).rotation_id, rotationId);
+      // An unknown rotation is a 409: 404 means only "rotation unavailable" to the edge.
+      assert.equal(
+        (await post(on.url, 'confirm', rotated, { rotation_id: randomUUID() })).status,
+        409,
+      );
       assert.equal(
         (await post(on.url, 'rotate', rotated, { rotation_id: randomUUID() })).status,
         409,
@@ -631,7 +636,8 @@ test('edge renewal refuses when the cloud flag is off, the key expired or was re
       await off.app.close();
     }
     assert.equal((await t.read()).token, t.identity.token);
-    assert.deepEqual(await t.files(), ['device-identity.json'], 'no intent survives a refusal');
+    // The intent stays: an earlier attempt with this id may have committed (lost response).
+    assert.deepEqual(await t.files(), ['device-identity.json', 'device-identity.json.rotation']);
     const current = await t.read();
     await t.write(t.path, { ...current, expires_at: new Date(Date.now() - 1000).toISOString() });
     const expired = await renewIdentityFile(
@@ -667,5 +673,53 @@ test('edge renewal discards a pending candidate when the operator re-provisioned
     assert.deepEqual(await t.read(), manual, 'operator credential kept');
     assert.deepEqual(await t.files(), ['device-identity.json']);
     assert.equal((await renewIdentityFile(t.options())).state, 'not_due');
+  });
+});
+
+test('a rotation the cloud committed survives the cloud flag being off: same id, no lock-out', async () => {
+  await withIdentityFiles(async (t) => {
+    const off = await running(createApi, t.cloud.config);
+    try {
+      // A. The cloud commits, the response is lost, then rotation is switched off.
+      await t.due();
+      const lost = await renewIdentityFile(t.options({ io: failing('/rotate') }));
+      assert.deepEqual([lost.state, lost.error], ['retry', 'NETWORK_UNKNOWN']);
+      for (let turn = 0; turn < 2; turn++) {
+        const refused = await renewIdentityFile(t.options({ origin: off.url }));
+        assert.deepEqual([refused.state, refused.error], ['refused', 'CLOUD_ROTATION_DISABLED']);
+        assert.deepEqual(await t.files(), [
+          'device-identity.json',
+          'device-identity.json.rotation',
+        ]);
+      }
+      // Back on: the kept rotation_id replays the committed key (a new id would get 409).
+      const replayed = await renewIdentityFile(t.options());
+      assert.deepEqual([replayed.state, replayed.replayed], ['rotated', true]);
+      const first = await t.read();
+      assert.equal(await authenticates(t.cloud.pool, first), t.branch);
+      assert.equal(await rotations(t.cloud), 1);
+
+      // B. The candidate is written but its confirmation meets the switched-off endpoint.
+      await t.due();
+      const pending = await renewIdentityFile(t.options({ io: failing('/confirm') }));
+      assert.equal(pending.state, 'retry');
+      const candidate = await t.read(`${t.path}.next`);
+      const refused = await renewIdentityFile(t.options({ origin: off.url }));
+      assert.deepEqual([refused.state, refused.error], ['refused', 'CLOUD_ROTATION_DISABLED']);
+      assert.deepEqual(await t.files(), [
+        'device-identity.json',
+        'device-identity.json.next',
+        'device-identity.json.rotation',
+      ]);
+      assert.equal((await t.read()).token, first.token, 'never installs an unconfirmed key');
+      assert.deepEqual(await t.read(`${t.path}.next`), candidate, 'the issued key is kept');
+      const done = await renewIdentityFile(t.options());
+      assert.equal(done.state, 'rotated');
+      assert.equal((await t.read()).token, candidate.token);
+      assert.deepEqual(await t.files(), ['device-identity.json']);
+      assert.equal(await rotations(t.cloud), 2);
+    } finally {
+      await off.app.close();
+    }
   });
 });

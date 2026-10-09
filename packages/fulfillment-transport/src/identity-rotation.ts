@@ -231,7 +231,11 @@ async function confirm(
       throw new TransportHttpError('INVALID_RESPONSE');
     return 'confirmed';
   } catch (error) {
-    if ([401, 404, 409].includes(httpStatus(error) ?? 0)) return 'rejected';
+    if ([401, 409].includes(httpStatus(error) ?? 0)) return 'rejected';
+    // Rotation unavailable (cloud flag off or an older API): the cloud may already hold the
+    // candidate as the current key, so keep .next and the intent and confirm on a later run.
+    if (httpStatus(error) === 404)
+      throw new RenewalStop({ state: 'refused', error: 'CLOUD_ROTATION_DISABLED' });
     throw new RenewalStop({ state: 'retry', error: transportCode(error) });
   }
 }
@@ -314,6 +318,8 @@ async function renewLocked(options: IdentityRenewalOptions): Promise<IdentityRen
   let replayed = false;
   if (candidate && candidate.token === current.token) candidate = null;
   if (!candidate) {
+    // The replaced key is never valid past its own expiry, so a replay cannot succeed.
+    if (status.state === 'expired') return { state: 'unauthorized', error: 'EXPIRED', ...summary };
     let issued;
     try {
       issued = RotatedSchema.parse(
@@ -327,18 +333,19 @@ async function renewLocked(options: IdentityRenewalOptions): Promise<IdentityRen
       );
     } catch (error) {
       const code = httpStatus(error);
-      // Nothing was issued for this rotation_id: forget it, the next due run starts afresh.
+      // Rotation unavailable (cloud flag off or an older API). An earlier attempt with this
+      // rotation_id may have committed with its response lost: only this id can replay it, so
+      // keep the intent. A new id would get 409 forever and the device would lock out at expiry.
+      if (code === 404) return { state: 'refused', error: 'CLOUD_ROTATION_DISABLED', ...summary };
+      // The cloud answered for this rotation_id: nothing can be replayed, the next due run
+      // starts afresh.
       if (code === 401) {
         await rm(intentPath, { force: true });
         return { state: 'unauthorized', error: 'CREDENTIAL_REJECTED', ...summary };
       }
-      if (code === 400 || code === 404 || code === 409) {
+      if (code === 400 || code === 409) {
         await rm(intentPath, { force: true });
-        return {
-          state: 'refused',
-          error: code === 404 ? 'CLOUD_ROTATION_DISABLED' : 'ROTATION_REFUSED',
-          ...summary,
-        };
+        return { state: 'refused', error: 'ROTATION_REFUSED', ...summary };
       }
       return { state: 'retry', error: transportCode(error), ...summary };
     }
