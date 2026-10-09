@@ -3845,11 +3845,12 @@
         "apps/kitchen-desktop/security.mjs",
         "apps/kitchen-desktop/scripts/build.mjs",
         "infra/public-staging/gateway.Caddyfile",
-        "apps/kitchen/src/components/PasswordReset.ts"
+        "apps/kitchen/src/components/PasswordReset.ts",
+        "packages/local-orders/src/kitchen-password-reset.ts"
       ],
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T11:26:55.737Z"
+      "updatedAt": "2026-10-09T11:27:05.187Z"
     }
   ]
 }
