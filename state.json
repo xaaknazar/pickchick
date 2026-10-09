@@ -3729,6 +3729,23 @@
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "updatedAt": "2026-10-09T10:42:31.449Z"
+    },
+    {
+      "id": "devices-access",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/devices-access",
+      "scopes": [
+        "apps/backoffice/src/operations.ts",
+        "packages/backoffice-core/src/model.ts",
+        "packages/backoffice-core/src/device-access.ts",
+        "packages/backoffice-core/tests/device-access.test.mjs",
+        "tests/backoffice/device-access.test.mjs",
+        "docs/operations/device-access.md",
+        "docs/architecture/adr/0012-device-access.md"
+      ],
+      "status": "active",
+      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "updatedAt": "2026-10-09T10:42:58.915Z"
     }
   ]
 }
