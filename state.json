@@ -3896,6 +3896,17 @@
       "updatedAt": "2026-10-09T11:55:56.585Z",
       "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
+    },
+    {
+      "id": "restaurant-completion",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/restaurant-completion",
+      "scopes": [
+        "@integration/restaurant-completion"
+      ],
+      "status": "active",
+      "head": "409a1deefe1d82623931e28d0b19afe57e1ac840",
+      "updatedAt": "2026-10-09T11:58:59.524Z"
     }
   ]
 }
