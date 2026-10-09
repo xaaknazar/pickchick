@@ -116,3 +116,50 @@ detector Impeccable новых компонентов не обнаружил м
 такой терминал не получает legacy-доступ даже при выключенном feature flag.
 Live deployment и пользовательская приёмка пока не заявлены. CI будет привязана
 к итоговому опубликованному коммиту.
+
+## Cloud оператор schema050 -> 051
+
+`infra/staging/release-device-access.py` принимает точные SHA API/public, image ID,
+хеши compose/gateway из просмотренного preflight. API baseline должен происходить
+от `cf25cb9` и иметь ровно schema050; это позволяет сначала выпустить мобильное
+исправление, затем единый candidate с обоими изменениями. Все прежние API флаги,
+включая `CUSTOMER_CHECKOUT_HEAD_GUARD`, сохраняются. Включение нового флага отдельно.
+
+```sh
+# PINS - одни и те же просмотренные --expected-api-sha, --expected-public-sha,
+# --expected-api-image, --expected-compose-sha256 и --expected-gateway-sha256.
+# SOURCE - чистый опубликованный общий --sha, --branch и --branch-id.
+python3 infra/staging/release-device-access.py prepare $SOURCE $PINS --ssh-key "$SSH_KEY" --ci-proof "$CI_PROOF"
+python3 infra/staging/release-device-access.py prepare $SOURCE $PINS --ssh-key "$SSH_KEY" --ci-proof "$CI_PROOF" --apply
+python3 infra/staging/release-device-access.py apply $SOURCE $PINS --ssh-key "$SSH_KEY" --ci-proof "$CI_PROOF" --backup-identity "$BACKUP_KEY"
+python3 infra/staging/release-device-access.py apply $SOURCE $PINS --ssh-key "$SSH_KEY" --ci-proof "$CI_PROOF" --backup-identity "$BACKUP_KEY" --apply
+```
+
+Шаг prepare строит immutable API и заменяет только BO subtree в копии прежнего
+public bundle. Остальные файлы проверяются полным хешированием. Миграция и ACL
+в `device-access-owner.mjs` выполняются в одной REPEATABLE READ транзакции: прежние
+таблицы/строки/ledger/роли сохраняются, допускается ровно051 и reviewed ACL delta.
+Живые heartbeat между транзакциями не сравниваются как статичные данные.
+
+После Windows staging/Verify нужен приватный результат
+`pickchick-device-access-prepared-v1` с тем же source SHA, branch/device, schema020,
+её checksum, runtime/grants proofs, установленным worker и обновлённым KitchenLink.
+Worker может быть Manual+Stopped при `enabled=false`: это подготовка, не ACK.
+`enable` сначала проверяет этот результат, точный script hash и свежий heartbeat
+существующего edge; затем включает только cloud-флаг. Его `enabled.json` имеет
+формат `pickchick-device-access-cloud-enabled-v1` и нужен Windows Activate.
+
+```sh
+python3 infra/staging/release-device-access.py enable $SOURCE $PINS --ssh-key "$SSH_KEY" --ci-proof "$CI_PROOF" --windows-proof "$WINDOWS_PROOF"
+python3 infra/staging/release-device-access.py enable $SOURCE $PINS --ssh-key "$SSH_KEY" --ci-proof "$CI_PROOF" --windows-proof "$WINDOWS_PROOF" --apply
+```
+
+Затем отдельными guarded шагами включаются edge/worker и портал. Итоговая проверка
+подключения/ACK выполняется после этих шагов. Наличие файла подготовки не является
+доказательством работающего входа пользователя.
+
+Ошибка сохраняет общую release lock. При неизвестном исходе `apply` не повторяется:
+сохраняется marker до отправки owner-команды. `rollback` под своим `--owner-id`
+возвращает API/gateway без восстановления live БД; он разрешён только пока новые
+Devices таблицы пусты. После реальных кодов/привязок сначала нужен `disable` и
+отдельный план восстановления, чтобы не потерять ограничения managed-терминалов.
