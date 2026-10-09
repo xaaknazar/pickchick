@@ -4,6 +4,7 @@ import type { KioskProduct } from '../model';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { ProductCard } from './ProductCard';
+import { RAIL_WIDTH } from './CategoryRail';
 import { Billboard } from './Billboard';
 import { useStagger } from './motion';
 import type { Category, MenuMemory } from './categories';
@@ -12,6 +13,8 @@ const tags: Record<string, 'hit' | 'new'> = {
   'solo-combo': 'new',
   'sauce-hot': 'new',
 };
+/** Design `mixBg`: combo, duo and set cards sit on the bg1-bg4 illustrations. */
+const illustratedCategories = new Set<Category>(['combo', 'duo', 'sets']);
 const positions = (n: number, locale: Locale) => {
   if (locale !== 'ru') return n + ' позиция';
   const tens = n % 100;
@@ -89,7 +92,9 @@ export function MenuGrid({
       animated: false,
     });
   };
-  const cardWidth = Math.floor((width - v(156) - v(4) - v(20) - v(14) * (columns - 1)) / columns);
+  const cardWidth = Math.floor(
+    (width - v(RAIL_WIDTH) - v(4) - v(20) - v(14) * (columns - 1)) / columns,
+  );
   return (
     <FlatList
       ref={list}
@@ -176,6 +181,8 @@ export function MenuGrid({
             busy={busy}
             locale={locale}
             tag={tags[item.id]}
+            index={index}
+            illustrated={illustratedCategories.has(category)}
             inCart={cartCounts[item.id]}
             arriving={arriving === item.id}
             onOpen={() => onOpen(item)}
