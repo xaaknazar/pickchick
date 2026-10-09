@@ -3718,19 +3718,6 @@
       "updatedAt": "2026-10-09T09:58:42.386Z"
     },
     {
-      "id": "windows-env-lines",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/windows-env-lines",
-      "scopes": [
-        "infra/windows/reviewed-env-bytes.ps1",
-        "tests/operations/windows-reviewed-env-bytes.test.ps1",
-        "docs/operations/windows-env-lines-2026-10-09.md"
-      ],
-      "status": "active",
-      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T10:42:31.449Z"
-    },
-    {
       "id": "devices-access",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/devices-access",
@@ -3746,6 +3733,20 @@
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "updatedAt": "2026-10-09T10:42:58.915Z"
+    },
+    {
+      "id": "windows-env-lines",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/windows-env-lines",
+      "scopes": [
+        "infra/windows/reviewed-env-bytes.ps1",
+        "tests/operations/windows-reviewed-env-bytes.test.ps1",
+        "docs/operations/windows-env-lines-2026-10-09.md",
+        "tests/operations/test_windows_env_bytes.py"
+      ],
+      "status": "active",
+      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "updatedAt": "2026-10-09T10:43:02.595Z"
     }
   ]
 }
