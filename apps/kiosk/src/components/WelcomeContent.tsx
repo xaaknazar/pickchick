@@ -94,7 +94,7 @@ function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPr
           style={{
             height,
             borderRadius: height / 2,
-            backgroundColor: colors.orangeCta,
+            backgroundColor: colors.orange,
             overflow: 'hidden',
             flexDirection: 'row',
             alignItems: 'center',

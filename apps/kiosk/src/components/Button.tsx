@@ -31,8 +31,8 @@ export interface ButtonProps {
 }
 /**
  * v3 pill button. Accent orange is the one primary action per screen; its fill
- * is the accessible orangeCta (orangeInk under the small compact label): white on
- * the design's #FF6900 is 2.88:1 and fails the Storybook contrast check.
+ * is the design's brand #FF6900 at every size (owner decision 2026-10-09: follow
+ * the approved design for CTA fills; white on it is 2.88:1, a known exception).
  * Enabling or disabling crossfades the fill over 260 ms (prototype `.octa.dim`)
  * while the button itself switches state at once.
  */
@@ -60,9 +60,7 @@ export function Button({
         ? 'rgba(201,210,227,.9)'
         : colors.soft
       : tone === 'accent'
-        ? size === 'compact'
-          ? colors.orangeInk
-          : colors.orangeCta
+        ? colors.orange
         : tone === 'primary'
           ? colors.blue
           : tone === 'inverse'
@@ -141,7 +139,7 @@ export function Button({
         <Text
           style={{
             fontFamily: fonts.black,
-            // Regular and hero labels stay >= 24 px: WCAG "large" text on orangeCta.
+            // Regular and hero labels stay >= 24 px, as drawn in the design.
             fontSize:
               size === 'compact' ? Math.max(18, v(17)) : Math.max(24, v(size === 'hero' ? 34 : 23)),
             letterSpacing: size === 'hero' ? 1.2 : 0,

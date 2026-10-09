@@ -163,8 +163,8 @@ export function ProductActions({
                 style={{
                   height,
                   borderRadius: height / 2,
-                  // Large white label: the accessible orangeCta (#FF6900 is 2.88:1).
-                  backgroundColor: colors.orangeCta,
+                  // Design CTA fill: brand #FF6900 (owner decision 2026-10-09).
+                  backgroundColor: colors.orange,
                   shadowColor: colors.orange,
                   shadowOpacity: disabled ? 0 : 0.35,
                   shadowRadius: 26,

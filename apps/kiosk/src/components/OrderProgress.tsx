@@ -43,8 +43,8 @@ export function OrderProgress({
                 width: Math.max(24, v(28)),
                 height: Math.max(24, v(28)),
                 borderRadius: 999,
-                // The step number is small white text: accessible orangeInk fill.
-                backgroundColor: i <= current ? colors.orangeInk : colors.glass,
+                // Design 08: reached steps are brand orange #FF6900 (owner decision 2026-10-09).
+                backgroundColor: i <= current ? colors.orange : colors.glass,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

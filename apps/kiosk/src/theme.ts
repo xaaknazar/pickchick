@@ -17,11 +17,9 @@ export const colors = {
   night: '#061B4E',
   cream: '#FEF8F0',
   peach: '#FFF0E5',
-  // WCAG AA orange roles (owner decision 2026-10-08). Brand `orange` stays for
-  // fills, icons, halos and badges that carry no text.
-  /** Orange surface under large white text (>= 24 px): white is 3.56:1. */
-  orangeCta: '#E85A00',
-  /** Orange text on white/peach (5.4/4.85:1) and surfaces under small white text. */
+  // Orange roles. Brand `orange` #FF6900 fills every CTA, button and active control
+  // as drawn in the approved design (owner decision 2026-10-09).
+  /** Small orange text on white/peach only (5.4/4.85:1, owner decision 2026-10-08). */
   orangeInk: '#B84500',
   sky: '#EAF1FF',
   soft: '#EEF2FA',

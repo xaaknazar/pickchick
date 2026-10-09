@@ -238,8 +238,8 @@ function OptionTile({
         width: v(34),
         height: v(34),
         borderRadius: v(17),
-        // A count is small white text; a check mark keeps the brand orange.
-        backgroundColor: multi ? colors.orangeInk : colors.orange,
+        // Design: count and check badges are brand orange #FF6900.
+        backgroundColor: colors.orange,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: colors.orange,

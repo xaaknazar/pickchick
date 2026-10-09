@@ -77,7 +77,7 @@ export function ModeReveal({ mode }: { mode: RevealMode | null }) {
     return () => animation.stop();
   }, [done, fade, frame, grow, reduced]);
   if (!tile || done || reduced) return null;
-  const tint = mode === 'takeaway' ? colors.orangeCta : colors.blue;
+  const tint = mode === 'takeaway' ? colors.orange : colors.blue;
   const left = tile.x - (frame?.x ?? 0);
   const top = tile.y - (frame?.y ?? 0);
   const to = (end: number) => grow.interpolate({ inputRange: [0, 1], outputRange: [0, end] });
