@@ -3784,7 +3784,8 @@
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "status": "active",
-      "updatedAt": "2026-10-09T11:35:33.724Z"
+      "updatedAt": "2026-10-09T11:35:33.724Z",
+      "summary": " Agreed parallel hunk: devices-access may register DeviceRegistryController and DeviceAccessTransportController in services/api/src/index.ts; root owns publication LISTEN provider and will merge both."
     },
     {
       "id": "devices-access",
