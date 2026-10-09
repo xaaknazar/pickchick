@@ -3668,7 +3668,8 @@
       "head": "cd7ffa66044b610cec630786bac11570851b86d1",
       "updatedAt": "2026-10-09T10:43:52.611Z",
       "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/catalog-admin/src/index.ts, services/api/src/index.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen.",
-      "next": "Owner handed continued mobile/device work to Codex; payment behavior preserved."
+      "next": "Owner handed continued mobile/device work to Codex; payment behavior preserved.",
+      "summary": " 2026-10-09 owner incident: root delegates unified_ci_fixes portal-only @vps/kitchen-portal stock update-deploy.py b8821d5→23fb39e1, CI37845538624 11/11; preserve bank/edge/DB and existing locks/backups. New Devices not deployed."
     },
     {
       "id": "kaspi-qr-pending",
