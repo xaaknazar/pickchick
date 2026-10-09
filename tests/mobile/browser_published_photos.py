@@ -7,8 +7,8 @@ Checks, at 320 and 390 px:
   product page hero and the cart line, loaded from its immutable hash URL;
 - every other product keeps its bundled photo;
 - a missing media map (404) and an unreachable photo both fall back to the bundled photo;
-- a newer X-Catalog-Version on the availability long-poll reloads the menu at once (well
-  before the 60 s foreground re-read) and holds the basket behind 'Меню обновилось'.
+- a newer X-Catalog-Version reloads the menu within 3 seconds, preserves the basket and
+  displays the previous/new totals without creating an order or payment.
 Every POST is refused and recorded; no VPS, SMS, order or payment is touched.
 """
 from browser_network import isolated_context, route_fixture
@@ -205,15 +205,19 @@ with sync_playwright() as p:
         item['price_minor'] = str(int(item['price_minor']) + 10000)
         published_at = time.monotonic()
         fixture.version = 7
-        expect(page.get_by_test_id('catalog-update-notice')).to_contain_text(
-            'старой версией', timeout=15000)
+        expect(page.get_by_test_id('cart-prices-updated')).to_contain_text(
+            'Цены обновились. Проверьте итоговую сумму перед оплатой', timeout=3000)
         refresh_seconds = time.monotonic() - published_at
-        assert refresh_seconds < 30, refresh_seconds
-        assert fixture.count('/v1/customer-checkout/catalog') == catalog_reads + 1
+        assert refresh_seconds < 3, refresh_seconds
+        assert fixture.count('/v1/customer-checkout/catalog') > catalog_reads
+        expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 2 390 ₸. Сейчас 2 490 ₸.')
+        expect(page.get_by_test_id('cart-checkout')).to_have_attribute('aria-label', after)
+        expect(page.get_by_test_id('cart-quantity-burger')).to_have_text('1')
+        expect(page.locator(f'img[src="{API + ENTRY["card"]}"]').first).to_be_visible()
         assert ('/v1/customer-checkout/catalog/media', 'version=7') in fixture.requests
-        expect(page.get_by_test_id('cart-checkout')).to_have_attribute('aria-label', before)
         page.screenshot(path=str(OUTPUT / f'cart-republished-{width}.png'))
         page.get_by_test_id('catalog-update-apply').click()
+        expect(page.get_by_test_id('cart-prices-updated')).to_have_count(0)
         expect(page.get_by_test_id('cart-checkout')).to_have_attribute('aria-label', after)
         expect(page.locator(f'img[src="{API + ENTRY["card"]}"]').first).to_be_visible()
         assert not fixture.commands and not fixture.unexpected, (fixture.commands, fixture.unexpected)
