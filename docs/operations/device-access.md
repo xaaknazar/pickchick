@@ -286,3 +286,7 @@ restricted CONNECT login с PUBLIC revoked, неизменность019 backup g
 исполняемые PowerShell tests для stage/proof/flag guards, partial CAS rollback,
 foreign bytes и смешанных CRLF/LF. Нативная PowerShell5.1 проверка, настоящие службы
 и пользовательский вход остаются частью последующей установки.
+
+Завершение единого меню на schema051: [remote-stops и media-upload](unified-menu-continuation.md).
+Отдельный canonical BO на `pickchick.kz/backoffice`: [выпуск staff-login](device-access-backoffice.md)
+после Devices/portal и флагов, с сохранением CEO credential mount.
