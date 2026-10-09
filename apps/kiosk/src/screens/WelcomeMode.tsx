@@ -1,6 +1,13 @@
 import type { KioskModel } from '../model';
 import { copy } from '../i18n';
-import { Header, ScreenSurface, ScrollArea, Wrapper, type ScreenContext } from '../components/UI';
+import {
+  Header,
+  pilotBranch,
+  ScreenSurface,
+  ScrollArea,
+  Wrapper,
+  type ScreenContext,
+} from '../components/UI';
 import { Hero } from '../components/Hero';
 import { WelcomeContent } from '../components/WelcomeContent';
 import { DiningModeCard, DiningModeTitle } from '../components/DiningModeCard';
@@ -27,12 +34,13 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
     <ScreenSurface testID="kiosk-screen-mode" tone="night" entrance={context.direction}>
       <Header
         {...context}
-        back={() =>
+        onClose={() =>
           model.cart.length || model.unavailableCartLines.length
             ? context.onCancel()
             : void model.newGuest()
         }
         backLabel={t.back}
+        subtitle={pilotBranch}
         minimal
       />
       <ScrollArea fill>

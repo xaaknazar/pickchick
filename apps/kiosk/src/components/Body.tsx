@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { Text } from 'react-native';
 import { fonts, tones, useMetrics, type Tone } from '../theme';
+/**
+ * The kiosk is a fixed-size public device drawn in design points: iPad system
+ * text size (Dynamic Type) must not grow its type and overflow headers, chips or
+ * fixed actions. Spread on every kiosk Text: `<Text {...fixedText}>`.
+ */
+export const fixedText = { allowFontScaling: false, maxFontSizeMultiplier: 1 } as const;
 export interface BodyProps {
   children?: ReactNode;
   announce?: boolean;
@@ -26,6 +32,7 @@ export function Body({
     variant === 'caption' ? Math.max(15, v(15)) : variant === 'price' ? v(24) : Math.max(17, v(18));
   return (
     <Text
+      {...fixedText}
       accessibilityLiveRegion={announce ? 'polite' : undefined}
       testID={testID}
       accessibilityRole={accessibilityRole}
