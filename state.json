@@ -3778,9 +3778,9 @@
       "id": "mobile-native16",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-native16",
-      "head": "301a73fde4b400adf93dd96f22ea436a042a8363",
+      "head": "6aaa219878934281cdefe5f35a3fadf7314197cb",
       "status": "active",
-      "updatedAt": "2026-10-09T14:25:40.100Z",
+      "updatedAt": "2026-10-09T14:39:44.825Z",
       "scopes": [
         "apps/mobile/src/connectivity.ts",
         "tests/mobile/connectivity.test.mjs",
@@ -3789,8 +3789,8 @@
         "apps/mobile/ios",
         "@apple/testflight"
       ],
-      "summary": "Native0.2.0(16) archive/export from b25f6df6 verified; full CI37929668466 11/11. One stock upload attempt stopped with Xcode exit70 Failed to Use Accounts: Xcode has no signed-in account, ASC web authenticated/latest15, delivery not confirmed. Docs301a73fd published; no repeat/install.",
-      "nextAction": "Await owner Xcode Apple Accounts sign-in; inspect ASC16 before bounded retry from same immutable archive, then processing and existing PickChick Internal. Keep iPad11 unchanged; physical acceptance remains separate."
+      "summary": "Mobile0.2.0(16) immutable binary b25f6df6, CI37929668466 11/11, archive/export/signature verified. After owner Xcode sign-in, Apple upload accepted14:30:20UTC, processing complete, BuildID9fb3a59a-32fb-48f4-8c4d-1bd9a8e6ea48; existing PickChick Internal shows Testing14:38UTC with same2testers. Final docs6aaa2198 published; no public/external release or deviceinstall.",
+      "nextAction": "Integrate published native16 branch into shared after combinedCI; owner updates via TestFlight over existing app and verifies menu/reconnect without real payments. Preserve iPad11; full physical scroll acceptance separate."
     },
     {
       "id": "devices-access",
