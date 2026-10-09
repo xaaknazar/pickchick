@@ -1,6 +1,8 @@
 import { FarmController } from './farm-controller.js';
 import { FinanceController } from './finance-controller.js';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
+import { KioskIncidentController } from './kiosk-incident-controller.js';
+import { KIOSK_INCIDENTS, KioskPaymentIncidents } from '@pickchick/backoffice-core/kiosk-incidents';
 import { FARM, FarmPersistence } from '@pickchick/farm-persistence';
 import { KioskCheckoutController } from './kiosk-checkout-controller.js';
 import { CustomerCheckoutController } from './customer-checkout-controller.js';
@@ -183,6 +185,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   @Module({
     controllers: [
       FinanceController,
+      KioskIncidentController,
       FarmController,
       KioskCheckoutController,
       HealthController,
@@ -207,6 +210,12 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
           new Finance(resources.pool, config.backofficeEnabled === true),
+      },
+      {
+        provide: KIOSK_INCIDENTS,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new KioskPaymentIncidents(resources.pool, config.backofficeEnabled === true),
       },
       {
         provide: FARM,

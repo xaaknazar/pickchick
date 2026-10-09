@@ -470,12 +470,22 @@ export class KioskCheckout {
       return paymentMethod === 'kaspi_invoice' ? { ...order, paymentMethod } : order;
     const payment = await readKioskQrPayment(this.pool, orderId);
     // QR presentation is kiosk-only; shared mobile invoice projection stays intact.
-    const phase =
+    const shown =
       order.phase === 'sending' && payment?.state === 'pending'
         ? 'awaiting_payment'
         : order.phase === 'sending' && payment?.state === 'checking'
           ? 'checking'
           : order.phase;
+    // After a manager accepts the unknown payment, installed builds leave a saved order only
+    // through 'failed'. Device presentation only: the attempt stays on reconciliation.
+    const handed =
+      shown === 'checking' &&
+      !!(
+        await this.pool.query('SELECT 1 FROM commerce_kiosk_payment_incidents WHERE order_id=$1', [
+          orderId,
+        ])
+      ).rowCount;
+    const phase = handed ? 'failed' : shown;
     // Existing QR-only native builds use a strict response schema. Keep their shape.
     return { ...order, phase, payment };
   }

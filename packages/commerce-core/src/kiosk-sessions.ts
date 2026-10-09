@@ -234,7 +234,17 @@ export class KioskSessions {
            (SELECT COALESCE(sum(c.amount_minor),0) FROM commerce_captures c WHERE c.order_id=o.id)=o.total_minor OR
            (NOT EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id) AND
             EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id AND a.state='failed'))
-          )) LIMIT 1`,
+          ))
+         -- A manager-accepted incident releases the device only while its single QR attempt is
+         -- the sole open item; the attempt itself stays unknown for reconciliation.
+         AND NOT EXISTS(SELECT 1 FROM commerce_kiosk_payment_incidents h WHERE h.order_id=o.id
+          AND NOT o.attention_required
+          AND NOT EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id)
+          AND NOT EXISTS(SELECT 1 FROM commerce_refunds r WHERE r.order_id=o.id)
+          AND NOT EXISTS(SELECT 1 FROM commerce_payment_attempts x WHERE x.order_id=o.id AND x.id<>h.attempt_id AND x.state IN ('pending','unknown'))
+          AND NOT EXISTS(SELECT 1 FROM commerce_kaspi_invoices i WHERE i.order_id=o.id AND i.state IN ('issuing','issued','unknown'))
+          AND NOT EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id AND p.state IN ('cancel_requested','cancelled','released')))
+         LIMIT 1`,
         [sessionId],
       );
       if (unresolved.rowCount) throw new CommerceError('CONFLICT');

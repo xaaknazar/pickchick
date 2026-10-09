@@ -460,7 +460,7 @@ test('runtime starts and updates sessions with device lock-anchor column privile
     try {
       await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
       await f.pool.query(
-        `GRANT SELECT ON commerce_orders,commerce_payment_attempts,commerce_kaspi_invoices,commerce_refunds,commerce_captures,cloud_fulfillment_projection TO ${role}`,
+        `GRANT SELECT ON commerce_orders,commerce_payment_attempts,commerce_kaspi_invoices,commerce_refunds,commerce_captures,cloud_fulfillment_projection,commerce_kiosk_payment_incidents TO ${role}`,
       );
       await f.pool.query(`GRANT SELECT,UPDATE(lock_anchor) ON kiosk_devices TO ${role}`);
       await f.pool.query(
@@ -493,7 +493,7 @@ test('menu release exact session grants support start replay, authenticate and e
     try {
       await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
       await f.pool.query(
-        `GRANT SELECT ON commerce_orders,commerce_payment_attempts,commerce_kaspi_invoices,commerce_refunds,commerce_captures,cloud_fulfillment_projection TO ${role}`,
+        `GRANT SELECT ON commerce_orders,commerce_payment_attempts,commerce_kaspi_invoices,commerce_refunds,commerce_captures,cloud_fulfillment_projection,commerce_kiosk_payment_incidents TO ${role}`,
       );
       // The installed enrollment release already permits the device read/lock.
       await f.pool.query(`GRANT SELECT,UPDATE(lock_anchor) ON kiosk_devices TO ${role}`);

@@ -8,6 +8,10 @@
       "types": "./dist/finance.d.ts",
       "default": "./dist/finance.js"
     },
+    "./kiosk-incidents": {
+      "types": "./dist/kiosk-incidents.d.ts",
+      "default": "./dist/kiosk-incidents.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
@@ -21,7 +25,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs"
+    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs tests/kiosk-incidents.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",
