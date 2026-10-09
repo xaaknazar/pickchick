@@ -85,8 +85,7 @@ export function ProductNutrition({
       }}
     >
       <Text style={{ ...caption, fontFamily: fonts.medium }}>
-        {t.nutrition} · {n.basis === 'per_100_g' ? t.per100 : t.perServing} ·{' '}
-        {locale === 'ru' ? 'базовый состав' : 'негізгі құрам'}
+        {t.nutrition} · {n.basis === 'per_100_g' ? t.per100 : t.perServing} · {t.baseRecipe}
       </Text>
       <Text
         style={{

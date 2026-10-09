@@ -315,7 +315,7 @@ export function CartRow({
             <Pressable
               testID={id('-minus')}
               accessibilityRole="button"
-              accessibilityLabel={locale === 'ru' ? 'Уменьшить количество' : 'Санын азайту'}
+              accessibilityLabel={t.decrease}
               accessibilityState={{ disabled: busy }}
               disabled={busy}
               onPress={() => change(line.quantity - 1)}
@@ -353,7 +353,7 @@ export function CartRow({
             <Pressable
               testID={id('-plus')}
               accessibilityRole="button"
-              accessibilityLabel={locale === 'ru' ? 'Увеличить количество' : 'Санын көбейту'}
+              accessibilityLabel={t.increase}
               accessibilityState={{ disabled: busy || line.quantity >= max }}
               disabled={busy || line.quantity >= max}
               onPress={() => change(line.quantity + 1)}

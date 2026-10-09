@@ -52,11 +52,7 @@ function UpsellHeader({ locale }: { locale: Locale }) {
         </View>
         <Wrapper flex={1} gap={6}>
           <Heading tone="inverse">{copy(locale).upsellTitle}</Heading>
-          <Body tone="onBlue">
-            {locale === 'ru'
-              ? 'К любимому комбо - ещё немного вкусного'
-              : 'Сүйікті комбоға тағы бір дәмді қосымша'}
-          </Body>
+          <Body tone="onBlue">{copy(locale).upsellSub}</Body>
         </Wrapper>
       </Wrapper>
     </Animated.View>

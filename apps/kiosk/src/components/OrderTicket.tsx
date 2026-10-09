@@ -17,6 +17,7 @@ const order: OrderStage[] = ['accepted', 'preparing', 'ready'];
 const labels: Record<Locale, Record<OrderStage, string>> = {
   ru: { accepted: 'Принят', preparing: 'Готовим', ready: 'Готов' },
   kk: { accepted: 'Қабылданды', preparing: 'Дайындалуда', ready: 'Дайын' },
+  en: { accepted: 'Accepted', preparing: 'Cooking', ready: 'Ready' },
 };
 /** Concentric translucent discs: a soft radial glow without a gradient library. */
 const rings = Array.from({ length: 16 }, (_, index) => 1 - index * 0.055);
@@ -353,9 +354,7 @@ export function OrderTicket({
               marginTop: v(20),
             }}
           >
-            {locale === 'ru'
-              ? 'Передаём заказ на кухню. Номер появится здесь. Не оплачивайте повторно. Если ожидание затянулось, пригласите сотрудника.'
-              : 'Тапсырысты асүйге жіберіп жатырмыз. Нөмірі осында пайда болады. Қайта төлем жасамаңыз. Күту ұзаққа созылса, қызметкерді шақырыңыз.'}
+            {t.sendingToKitchen}
           </Text>
         ) : null}
       </Animated.View>

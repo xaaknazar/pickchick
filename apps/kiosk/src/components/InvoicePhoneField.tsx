@@ -1,6 +1,6 @@
 import { Animated, Text, TextInput, View } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
-import type { Locale } from '../i18n';
+import { copy, type Locale } from '../i18n';
 import { Icon } from './Icon';
 import { useEnter, useTimingTo } from './motion';
 /**
@@ -26,7 +26,8 @@ export function InvoicePhoneField({
   const enter = useEnter(100);
   const full = useTimingTo(valid ? 1 : 0, 260, 'css');
   const radius = v(26);
-  const label = locale === 'ru' ? 'Номер телефона Kaspi' : 'Kaspi телефон нөмірі';
+  const t = copy(locale);
+  const label = t.kaspiPhone;
   return (
     <Animated.View
       style={{
@@ -115,9 +116,7 @@ export function InvoicePhoneField({
           color: colors.onBlueMuted,
         }}
       >
-        {locale === 'ru'
-          ? 'Введите номер, к которому привязан Kaspi.kz. Подтвердите счёт в приложении на своём телефоне.'
-          : 'Kaspi.kz тіркелген нөмірді енгізіңіз. Шотты телефоныңыздағы қосымшада растаңыз.'}
+        {t.kaspiPhoneHint}
       </Text>
     </Animated.View>
   );

@@ -1,6 +1,6 @@
 import { Animated, Text } from 'react-native';
 import { fonts, colors, useMetrics } from '../theme';
-import type { Locale } from '../i18n';
+import { copy, type Locale } from '../i18n';
 import { Wrapper } from './Wrapper';
 import { IconButton } from './IconButton';
 import { usePopIn } from './motion';
@@ -46,7 +46,7 @@ export function Stepper({
       <IconButton
         name="remove"
         tone={tone === 'onBlue' ? 'light' : 'neutral'}
-        label={labels?.minus ?? (locale === 'ru' ? 'Уменьшить количество' : 'Санын азайту')}
+        label={labels?.minus ?? copy(locale).decrease}
         disabled={disabled || quantity <= min}
         onPress={onMinus}
         testID={ids?.minus ?? (prefix ? prefix + '-minus' : undefined)}
@@ -70,7 +70,7 @@ export function Stepper({
       <IconButton
         name="add"
         tone="accent"
-        label={labels?.plus ?? (locale === 'ru' ? 'Увеличить количество' : 'Санын көбейту')}
+        label={labels?.plus ?? copy(locale).increase}
         disabled={disabled || quantity >= max}
         onPress={onPlus}
         onRefused={!disabled && onLimit ? onLimit : undefined}

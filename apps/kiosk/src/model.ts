@@ -1,3 +1,4 @@
+import type { Locale } from './i18n';
 import type { TestCompleteCatalog, TestSelection } from '@pickchick/test-order-flow/contracts';
 
 /** Uploaded photo of a published product (catalog media map); image_id stays the bundled key. */
@@ -90,6 +91,8 @@ export interface KioskModel extends KioskState {
   openCart(): void;
   goLoyalty(): void;
   setInvoicePhone?(value: string): void;
+  /** Commercial catalog texts in the guest's language (absent in the simulator). */
+  setCatalogLocale?(locale: Locale): void;
   setPaymentMethod(method: KioskPaymentMethod): void;
   addToCart(productId: string, selections: KioskSelection[], quantity?: number): Promise<boolean>;
   updateQuantity(lineId: string, quantity: number): Promise<boolean>;

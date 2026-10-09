@@ -21,6 +21,7 @@ import { KioskError } from './api.ts';
 import type { KioskReadResult } from './commercial-api';
 import { selectedPriceMinor, validSelections, testLineId } from './cart.ts';
 import { KIOSK_IDLE_MS, KIOSK_IDLE_GRACE_MS, type KioskIO } from './controller.ts';
+import type { Locale } from './i18n';
 import type {
   KioskCatalog,
   KioskMedia,
@@ -126,7 +127,16 @@ function session(value: unknown): Session {
     throw new KioskError('INVALID_RESPONSE');
   return value as unknown as Session;
 }
-export function publishedKioskCatalog(value: unknown): KioskCatalog {
+/**
+ * Authored text in the kiosk language. The catalog contract carries ru (required) and kk
+ * (may be empty); `en` is read when a publication provides it. Missing or empty values fall
+ * back to Russian (en -> ru, kk -> ru).
+ */
+export function localizedText(text: { ru: string; kk?: string; en?: string }, locale: Locale) {
+  const value = locale === 'ru' ? text.ru : text[locale];
+  return typeof value === 'string' && value.trim() ? value : text.ru;
+}
+export function publishedKioskCatalog(value: unknown, locale: Locale = 'ru'): KioskCatalog {
   if (
     !isObject(value) ||
     !isObject(value.branch) ||
@@ -146,27 +156,28 @@ export function publishedKioskCatalog(value: unknown): KioskCatalog {
     products: payload.products.map((p) => ({
       id: p.id,
       sku: p.sku,
-      name: p.name.ru,
-      description: p.description.ru,
+      name: localizedText(p.name, locale),
+      description: localizedText(p.description, locale),
+      // The Russian category name is the menu's classifier key (components/categories.ts).
       category: payload.categories.find((c) => c.id === p.category_id)!.name.ru,
       price_minor: p.channel_prices_minor?.kiosk ?? p.price_minor,
       image_id: p.image_asset_key,
       available: p.available,
       prep_required: p.prep_required,
       prep_minutes: p.prep_minutes,
-      serving_label: p.serving_label.ru || '-',
-      ingredients: p.ingredients.ru,
+      serving_label: localizedText(p.serving_label, locale) || '-',
+      ingredients: localizedText(p.ingredients, locale),
       allergens: p.allergens,
       nutrition: p.nutrition,
       nutrition_provenance: p.nutrition_status,
       modifier_groups: p.modifier_groups.map((g) => ({
         id: g.id,
-        title: g.title.ru,
+        title: localizedText(g.title, locale),
         min: g.min,
         max: g.max,
         options: g.options.map((o) => ({
           id: o.id,
-          label: o.label.ru,
+          label: localizedText(o.label, locale),
           available: o.available,
           price_delta_minor: o.price_delta_minor,
           default_quantity: o.default_quantity,
@@ -177,6 +188,38 @@ export function publishedKioskCatalog(value: unknown): KioskCatalog {
         })),
       })),
     })),
+  };
+}
+/**
+ * Copies the authored texts of `source` (the same publication parsed for another language)
+ * onto `target` by id, keeping availability, prices and photos of `target`.
+ */
+export function relabelCatalog(target: KioskCatalog, source: KioskCatalog): KioskCatalog {
+  const products = new Map(source.products.map((p) => [p.id, p]));
+  return {
+    ...target,
+    products: target.products.map((p) => {
+      const text = products.get(p.id);
+      if (!text) return p;
+      const groups = new Map(text.modifier_groups.map((g) => [g.id, g]));
+      return {
+        ...p,
+        name: text.name,
+        description: text.description,
+        serving_label: text.serving_label,
+        ingredients: text.ingredients,
+        modifier_groups: p.modifier_groups.map((g) => {
+          const group = groups.get(g.id);
+          if (!group) return g;
+          const labels = new Map(group.options.map((o) => [o.id, o.label]));
+          return {
+            ...g,
+            title: group.title,
+            options: g.options.map((o) => ({ ...o, label: labels.get(o.id) ?? o.label })),
+          };
+        }),
+      };
+    }),
   };
 }
 /**
@@ -347,6 +390,9 @@ export class CommercialKioskController {
   private menu: KioskCatalog | null = null;
   /** Published catalog (with photos) before availability is applied. */
   private base: KioskCatalog | null = null;
+  /** Raw `/catalog` response of `base`, kept to re-read its texts in another language. */
+  private published: unknown = null;
+  private locale: Locale = 'ru';
   /** Last X-Availability-Signature; the next long-poll waits for a different one. */
   private signature: string | null = null;
   private media: { version: string; products: Record<string, KioskMedia> } | null = null;
@@ -553,7 +599,9 @@ export class CommercialKioskController {
       this.selectedMethod = this.paymentMethods[0] ?? 'kaspi';
       this.phone = '';
     }
-    const next = publishedKioskCatalog(await this.io.request('/catalog', guest.token));
+    const published = await this.io.request('/catalog', guest.token);
+    const textLocale = this.locale;
+    const next = publishedKioskCatalog(published, textLocale);
     if (
       next.branch_id !== config.branchId ||
       (this.guest?.branchId && next.branch_id !== this.guest.branchId)
@@ -564,7 +612,14 @@ export class CommercialKioskController {
     const availability = await this.readAvailability('/availability', guest.token);
     const applied = applyAvailability(next, availability.data, true);
     this.base = next;
+    this.published = published;
     this.menu = applied.menu;
+    if (textLocale !== this.locale) {
+      // The language changed while the publication was loading.
+      const texts = publishedKioskCatalog(published, this.locale);
+      this.base = relabelCatalog(this.base, texts);
+      this.menu = relabelCatalog(this.menu, texts);
+    }
     this.signature = availability.signature;
     if (!applied.fresh) throw new KioskError('AVAILABILITY_STALE');
     this.checkoutReady = config.enabled;
@@ -601,6 +656,19 @@ export class CommercialKioskController {
       return entry ? { ...p, media: { ...entry } } : p;
     });
   }
+  /**
+   * Shows the catalog texts in the guest's language (fallback en -> ru, kk -> ru). Only labels
+   * change: cart, availability, prices and the payment state are untouched.
+   */
+  setLocale = (locale: Locale) => {
+    if (locale === this.locale) return;
+    this.locale = locale;
+    if (!this.published || !this.base || !this.menu) return;
+    const texts = publishedKioskCatalog(this.published, locale);
+    this.base = relabelCatalog(this.base, texts);
+    this.menu = relabelCatalog(this.menu, texts);
+    this.emit();
+  };
   /** The attract screen with no guest activity: a new publication can replace the menu at once. */
   private idleStart() {
     return (
