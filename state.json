@@ -3662,19 +3662,6 @@
       "updatedAt": "2026-10-09T06:51:09.530Z"
     },
     {
-      "id": "kaspi-qr-pending",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kaspi-qr-pending",
-      "scopes": [
-        "packages/commerce-core/src/kiosk-kaspi-qr.ts",
-        "packages/commerce-core/tests/kiosk-kaspi-qr.postgres.test.mjs",
-        "docs/operations/kaspi-qr-pending-2026-10-09.md"
-      ],
-      "status": "active",
-      "head": "1cd378929489a8e4070f3ee093a8ddcd7cbbd066",
-      "updatedAt": "2026-10-09T07:03:33.291Z"
-    },
-    {
       "id": "unified-menu-release",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/unified-menu",
@@ -3716,6 +3703,19 @@
       "status": "active",
       "head": "cd7ffa66044b610cec630786bac11570851b86d1",
       "updatedAt": "2026-10-09T07:05:47.866Z"
+    },
+    {
+      "id": "kaspi-qr-pending",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-qr-pending",
+      "scopes": [
+        "packages/commerce-core/src/kiosk-kaspi-qr.ts",
+        "packages/commerce-core/tests/kiosk-kaspi-qr.postgres.test.mjs",
+        "docs/operations/kaspi-qr-pending-2026-10-09.md"
+      ],
+      "status": "active",
+      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "updatedAt": "2026-10-09T09:58:42.386Z"
     }
   ]
 }
