@@ -3768,12 +3768,17 @@
         "docs/operations/mobile-live-menu.md",
         "infra/staging/release-live-menu.py",
         "tests/operations/test_live_menu_release.py",
-        "tests/unit/checkout-errors.test.mjs"
+        "tests/unit/checkout-errors.test.mjs",
+        "apps/mobile/src/api.ts",
+        "apps/mobile/src/components/CartShortcut.tsx",
+        "apps/mobile/src/components/CatalogChangeNotice.tsx",
+        "apps/mobile/src/components/CartLinePrice.tsx",
+        "tests/mobile/cart-reprice.test.mjs"
       ],
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "status": "active",
-      "updatedAt": "2026-10-09T10:43:52.611Z"
+      "updatedAt": "2026-10-09T10:56:40.437Z"
     }
   ]
 }
