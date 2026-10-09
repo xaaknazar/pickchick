@@ -257,6 +257,7 @@ export function WelcomeContent({
                 source={kaspiLogo}
                 contentFit="contain"
                 accessible={false}
+                accessibilityLabel=""
                 style={{ width: v(42), height: v(42) }}
               />
               <Text
