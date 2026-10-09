@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { copy, type Locale } from '../i18n';
 import type { KioskMode } from '../model';
 import { colors, fonts, useMetrics } from '../theme';
@@ -8,6 +8,18 @@ import { fixedText } from './Body';
 import { Icon } from './Icon';
 import { useTimingTo } from './motion';
 const modes: KioskMode[] = ['dine_in', 'takeaway'];
+/**
+ * Design `#eat` "В зале" glyph: the prototype's inline upright fork and knife
+ * (24 grid, stroke 2.2), drawn as SVG so no extra icon font enters the bundle.
+ */
+const utensils =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF"' +
+      ' stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>' +
+      '<path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>',
+  );
 /**
  * v3 menu-header dining switch (prototype `#eat`): two segments "В зале / С собой"
  * on a dark glass track (240x52, radius 26, white .2 inset line); the #FF6900 pill
@@ -29,7 +41,7 @@ export function DiningSwitch({
   onChange: (mode: KioskMode) => unknown;
   testID?: string;
 }) {
-  const { v, px } = useMetrics();
+  const { v } = useMetrics();
   const t = copy(locale);
   const [chosen, setChosen] = useState(mode);
   const [seen, setSeen] = useState(mode);
@@ -100,12 +112,12 @@ export function DiningSwitch({
           }}
         >
           {m === 'dine_in' ? (
-            // Design 🍴: upright fork and knife (Ionicons only has them crossed).
-            <MaterialCommunityIcons
-              name="silverware-fork-knife"
-              size={px(20)}
-              color={colors.white}
+            <Image
+              source={{ uri: utensils }}
+              contentFit="contain"
+              style={{ width: v(18), height: v(18) }}
               accessible={false}
+              accessibilityLabel=""
             />
           ) : (
             <Icon name="bag-handle-outline" size="small" tone="inverse" />

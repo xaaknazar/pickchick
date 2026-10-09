@@ -28,7 +28,7 @@ export const pilotBranch = 'ТЦ Abay Plaza';
  * v3 header on blue/night surfaces, per design screen:
  * - dining choice (`onClose`): round close disc, logo, "PICK CHICK" over the
  *   branch, language pill (design 02, 105 high, side padding 28);
- * - menu (`title` + `subtitle` + `onDining`, `minimal`): logo, title over the
+ * - menu (`onDining`, `minimal`): logo, title over the
  *   branch, two-segment dining switch, language pill (design 03, 113 high,
  *   side padding 24); with `logoCancels` the logo opens the cancel dialog, as the
  *   design has no help/close discs there;
@@ -88,7 +88,9 @@ export function Header({
     shownMode.current = mode;
   }, [mode, pulseMode]);
   const brand = !!onClose;
-  const menu = !brand && !!title && !!subtitle;
+  // Only the menu (design 03) carries the dining switch; cart, upsell, loyalty
+  // and payment headers keep their own title/subtitle styling.
+  const menu = !brand && !!onDining;
   const side = v(brand ? 28 : 24);
   const close = v(64);
   const logo = <Logo size={brand ? 'regular' : 'large'} />;
@@ -229,7 +231,7 @@ export function Header({
                 style={{
                   fontFamily: fonts.medium,
                   fontSize: v(16),
-                  color: 'rgba(255,255,255,.8)',
+                  color: menu ? 'rgba(255,255,255,.8)' : colors.onBlueMuted,
                 }}
               >
                 {subtitle}
