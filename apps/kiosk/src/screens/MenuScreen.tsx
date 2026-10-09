@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { KioskModel } from '../model';
 import { copy } from '../i18n';
 import { defaultSelections, validSelections } from '../cart';
-import { Header, ScreenSurface, Wrapper, type ScreenContext } from '../components/UI';
+import { Header, pilotBranch, ScreenSurface, Wrapper, type ScreenContext } from '../components/UI';
 import { CategoryRail } from '../components/CategoryRail';
 import { MenuGrid } from '../components/MenuGrid';
 import { CartBar } from '../components/CartBar';
@@ -10,8 +10,6 @@ import { Toast } from '../components/Toast';
 import { ModeReveal } from '../components/ModeReveal';
 import { inCategory, type Category, type MenuMemory } from '../components/categories';
 export type { MenuMemory } from '../components/categories';
-// Single pilot point; the catalog carries only a branch id, not its display name.
-const branchName = 'ТЦ Abay Plaza';
 export function MenuScreen({
   model,
   context,
@@ -77,9 +75,11 @@ export function MenuScreen({
       <Header
         {...context}
         title={t.menu}
-        subtitle={branchName}
+        subtitle={pilotBranch}
         dining={model.mode}
         onDining={(mode) => (mode === model.mode ? true : model.setMode(mode))}
+        minimal
+        logoCancels
       />
       <Wrapper dir="row" flex={1}>
         <CategoryRail

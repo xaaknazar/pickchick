@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text } from 'react-native';
 import { fonts, tones, useMetrics, type Tone } from '../theme';
+import { fixedText } from './Body';
 /** v3 scale in 820-pt design units (see useMetrics().v). */
 const sizes = { card: 21, section: 28, title: 40, display: 56, hero: 70 } as const;
 export function Heading({
@@ -20,6 +21,7 @@ export function Heading({
   const fontSize = v(sizes[size]);
   return (
     <Text
+      {...fixedText}
       accessibilityRole="header"
       testID={testID}
       style={{

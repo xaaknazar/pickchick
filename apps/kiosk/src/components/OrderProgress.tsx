@@ -14,7 +14,7 @@ export function OrderProgress({
   const current = ['menu', 'cart', 'payment'].indexOf(step);
   return (
     <View
-      accessibilityLabel={locale === 'ru' ? 'Этап оформления' : 'Тапсырыс кезеңі'}
+      accessibilityLabel={t.orderStage}
       style={{
         flexDirection: 'row',
         alignItems: 'center',

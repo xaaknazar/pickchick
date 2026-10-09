@@ -511,7 +511,7 @@ function GroupChip({
           }}
         >
           {t.optional}
-          {total ? ` · ${total} ${locale === 'ru' ? 'шт' : 'дана'}` : ''}
+          {total ? ` · ${total} ${t.pieces}` : ''}
         </Text>
       </Animated.View>
     );
@@ -551,9 +551,7 @@ function GroupChip({
       >
         {done
           ? names
-          : locale === 'ru'
-            ? `${t.chosen} ${total} из ${group.max}`
-            : `${group.max} ішінен ${total} таңдалды`}
+          : t.chosenOf.replace('{n}', String(total)).replace('{max}', String(group.max))}
       </Text>
     </Animated.View>
   );

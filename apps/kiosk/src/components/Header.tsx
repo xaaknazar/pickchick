@@ -5,6 +5,7 @@ import { copy, type Locale } from '../i18n';
 import type { KioskMode, KioskStep } from '../model';
 import { colors, fonts, useMetrics } from '../theme';
 import { Wrapper } from './Wrapper';
+import { fixedText } from './Body';
 import { IconButton } from './IconButton';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
@@ -21,9 +22,18 @@ export interface ScreenContext {
   /** The step shown before this one (`boot` before the first screen). */
   from?: KioskStep | 'boot';
 }
+/** Single pilot point; the catalog carries only a branch id, not its display name. */
+export const pilotBranch = 'ТЦ Abay Plaza';
 /**
- * v3 header on blue/night surfaces: back pill or logo, white title, mode chip
- * (or the menu's dining switch), glass help/cancel controls and the language pill.
+ * v3 header on blue/night surfaces, per design screen:
+ * - dining choice (`onClose`): round close disc, logo, "PICK CHICK" over the
+ *   branch, language pill (design 02, 105 high, side padding 28);
+ * - menu (`onDining`, `minimal`): logo, title over the
+ *   branch, two-segment dining switch, language pill (design 03, 113 high,
+ *   side padding 24); with `logoCancels` the logo opens the cancel dialog, as the
+ *   design has no help/close discs there;
+ * - other screens: back pill or logo, white title, mode chip, glass help/cancel
+ *   controls and the language pill.
  */
 export function Header({
   locale,
@@ -32,6 +42,7 @@ export function Header({
   onHelp,
   back,
   backLabel,
+  onClose,
   title,
   subtitle,
   mode,
@@ -39,9 +50,13 @@ export function Header({
   dining,
   onDining,
   minimal = false,
+  logoCancels = false,
 }: ScreenContext & {
   back?: () => void;
+  /** Accessible name of the back pill or the close disc. */
   backLabel?: string;
+  /** Design 02: a round close disc replaces the back pill, with the brand block. */
+  onClose?: () => void;
   title?: string;
   subtitle?: string;
   mode?: string;
@@ -50,11 +65,15 @@ export function Header({
   dining?: KioskMode | null;
   onDining?: (mode: KioskMode) => unknown;
   minimal?: boolean;
+  /** Without visible help/close discs, the logo keeps the guest's way out. */
+  logoCancels?: boolean;
 }) {
-  const { v } = useMetrics();
+  const { v, px } = useMetrics();
   const safe = useSafeAreaInsets();
   const t = copy(locale);
   const backPress = usePress(0.96);
+  const closePress = usePress(0.92);
+  const logoPress = usePress(0.96);
   const modePress = usePress(0.96);
   // Prototype `#cMode`: scale .9 -> 1.05 -> 1 over 340 ms when the mode changes.
   const modePulse = usePulse(0.9, 1.05, 340, 'linear');
@@ -68,17 +87,54 @@ export function Header({
     if (shownMode.current !== mode && shownMode.current && mode) pulseMode();
     shownMode.current = mode;
   }, [mode, pulseMode]);
+  const brand = !!onClose;
+  // Only the menu (design 03) carries the dining switch; cart, upsell, loyalty
+  // and payment headers keep their own title/subtitle styling.
+  const menu = !brand && !!onDining;
+  const side = v(brand ? 28 : 24);
+  const close = v(64);
+  const logo = <Logo size={brand ? 'regular' : 'large'} />;
   return (
     <View
       style={{
         paddingTop: safe.top,
-        paddingLeft: Math.max(safe.left, v(24)),
-        paddingRight: Math.max(safe.right, v(24)),
+        paddingLeft: Math.max(safe.left, side),
+        paddingRight: Math.max(safe.right, side),
         borderBottomWidth: 1,
         borderColor: colors.glassLine,
       }}
     >
-      <Wrapper dir="row" align="center" gap={14} paddingY={14}>
+      <View
+        style={{
+          minHeight: brand ? v(104) : menu ? v(112) : undefined,
+          paddingVertical: brand || menu ? v(10) : px(14),
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: brand || menu ? v(16) : px(14),
+        }}
+      >
+        {onClose ? (
+          <Animated.View style={{ transform: [{ scale: closePress.scale }] }}>
+            <Pressable
+              testID="kiosk-header-back"
+              accessibilityRole="button"
+              accessibilityLabel={backLabel ?? t.back}
+              onPress={onClose}
+              onPressIn={closePress.onPressIn}
+              onPressOut={closePress.onPressOut}
+              style={{
+                width: close,
+                height: close,
+                borderRadius: close / 2,
+                backgroundColor: colors.glass,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon name="close" tone="inverse" />
+            </Pressable>
+          </Animated.View>
+        ) : null}
         {back ? (
           <Animated.View style={{ transform: [{ scale: backPress.scale }] }}>
             <Pressable
@@ -100,36 +156,89 @@ export function Header({
               }}
             >
               <Icon name="chevron-back" tone="inverse" />
-              <Text style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.white }}>
+              <Text
+                {...fixedText}
+                style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.white }}
+              >
                 {backLabel ?? t.back}
               </Text>
             </Pressable>
           </Animated.View>
-        ) : (
-          <Logo size="large" />
-        )}
-        <Wrapper flex={1} gap={2}>
-          <Text
-            accessibilityRole="header"
-            numberOfLines={1}
-            style={{
-              fontFamily: fonts.black,
-              fontSize: v(title ? 28 : 15),
-              letterSpacing: title ? -0.3 : 1.4,
-              color: title ? colors.white : colors.onBlueMuted,
-            }}
-          >
-            {title ?? 'PICK CHICK'}
-          </Text>
-          {subtitle ? (
-            <Text
-              numberOfLines={1}
-              style={{ fontFamily: fonts.medium, fontSize: v(16), color: colors.onBlueMuted }}
+        ) : logoCancels ? (
+          <Animated.View style={{ transform: [{ scale: logoPress.scale }] }}>
+            <Pressable
+              testID="kiosk-cancel-open"
+              accessibilityRole="button"
+              accessibilityLabel={t.cancel}
+              onPress={onCancel}
+              onPressIn={logoPress.onPressIn}
+              onPressOut={logoPress.onPressOut}
             >
-              {subtitle}
+              {logo}
+            </Pressable>
+          </Animated.View>
+        ) : (
+          logo
+        )}
+        {brand ? (
+          <Wrapper flex={1} gap={2}>
+            <Text
+              {...fixedText}
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.heavy,
+                fontSize: v(13),
+                letterSpacing: v(1.4),
+                color: 'rgba(255,255,255,.6)',
+              }}
+            >
+              PICK CHICK
             </Text>
-          ) : null}
-        </Wrapper>
+            <Text
+              {...fixedText}
+              accessibilityRole="header"
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.bold,
+                fontSize: v(19),
+                lineHeight: v(24),
+                color: colors.white,
+              }}
+            >
+              {subtitle ?? pilotBranch}
+            </Text>
+          </Wrapper>
+        ) : (
+          <Wrapper flex={1} gap={2}>
+            <Text
+              {...fixedText}
+              accessibilityRole="header"
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.black,
+                fontSize: v(title ? (menu ? 26 : 28) : 15),
+                lineHeight: menu ? v(30) : undefined,
+                letterSpacing: title ? -0.3 : 1.4,
+                color: title ? colors.white : colors.onBlueMuted,
+              }}
+            >
+              {title ?? 'PICK CHICK'}
+            </Text>
+            {subtitle ? (
+              <Text
+                {...fixedText}
+                numberOfLines={1}
+                style={{
+                  fontFamily: fonts.medium,
+                  fontSize: v(16),
+                  color: menu ? 'rgba(255,255,255,.8)' : colors.onBlueMuted,
+                }}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </Wrapper>
+        )}
         {onDining ? (
           <DiningSwitch key={locale} mode={dining ?? null} locale={locale} onChange={onDining} />
         ) : mode ? (
@@ -154,7 +263,10 @@ export function Header({
               }}
             >
               <Icon name="restaurant-outline" size="small" tone="accent" />
-              <Text style={{ fontFamily: fonts.black, fontSize: v(15), color: colors.blue }}>
+              <Text
+                {...fixedText}
+                style={{ fontFamily: fonts.black, fontSize: v(15), color: colors.blue }}
+              >
                 {mode.toUpperCase()}
               </Text>
             </Pressable>
@@ -172,8 +284,8 @@ export function Header({
             />
           </>
         ) : null}
-        <Language locale={locale} onChange={setLocale} />
-      </Wrapper>
+        <Language locale={locale} onChange={setLocale} tone={onDining ? 'menu' : 'default'} />
+      </View>
     </View>
   );
 }

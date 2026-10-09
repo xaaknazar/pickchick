@@ -1,18 +1,26 @@
 import { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { productPhoto, productArtworkId } from '../assets';
+import { cardBackgroundRatio, cardBackgrounds, productPhoto, productArtworkId } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { ProductArtwork } from './ProductArtwork';
 import { usePopIn, usePress, useTimingTo } from './motion';
 import { noteProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
+/** A studio photo shot on (near) white: it multiplies onto the cream card like the design. */
+const lightTile = (tile: string) =>
+  /^#[0-9A-F]{6}$/i.test(tile) &&
+  [1, 3, 5].every((at) => parseInt(tile.slice(at, at + 2), 16) >= 0xf0);
 /**
- * v3 menu card: full studio photo on its own tile colour, name, two-line
+ * v3 menu card (approved iPad v3 design, `.card`): a cream #FEF8F0 card; combo, duo
+ * and set cards carry the bg1-bg4 illustration (by position, right-top at 190%) with
+ * the photo inset 34/10/0 on it. White studio photos multiply onto the cream, as the
+ * design's `mix-blend-mode: multiply`; a photo on a coloured tile keeps that tile. Name, two-line
  * description, big price and a peach "pick" pill (the quick-add path).
  * The card squeezes to 0.96 with an orange ring while pressed, and a blue
  * badge counts how many are already in the bag.
@@ -28,6 +36,8 @@ export function ProductCard({
   tag,
   inCart = 0,
   arriving = false,
+  index = 0,
+  illustrated = false,
 }: {
   product: KioskProduct;
   onOpen: () => void;
@@ -41,6 +51,10 @@ export function ProductCard({
   inCart?: number;
   /** Its photo is still flying to the bag: the badge waits for the landing. */
   arriving?: boolean;
+  /** Position in its category: picks the illustration (i % 4). */
+  index?: number;
+  /** Combo, duo and set cards carry the card illustration. */
+  illustrated?: boolean;
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
@@ -53,11 +67,13 @@ export function ProductCard({
   const ring = useTimingTo(pressed ? 1 : 0, 150, 'css');
   const imageId = productArtworkId(product);
   const photo = productPhoto(imageId);
-  const tile = photo?.tile ?? colors.cream;
+  const blend = !photo || lightTile(photo.tile);
+  const tile = blend ? colors.cream : photo.tile;
   const unavailable = product.available === false;
   const blocked = busy || unavailable;
   const amount = money(product.price_minor).replace(/\s₸$/, '');
   const compact = variant === 'recommendation';
+  const art = illustrated && blend && !compact;
   const pick = usePress(0.94);
   // The product page opens as a circle from this card's centre.
   const card = useRef<View>(null);
@@ -81,6 +97,7 @@ export function ProductCard({
       }}
     >
       <View style={{ flex: 1, borderRadius: v(28), overflow: 'hidden' }}>
+        {art ? <Illustration index={index} /> : null}
         <Pressable
           testID={prefix + '-' + product.id}
           accessibilityRole="button"
@@ -92,15 +109,22 @@ export function ProductCard({
             <View
               style={{
                 width: '100%',
-                aspectRatio: compact ? 1.6 : 1,
+                // Design `aspect-ratio:1/1; padding:34px 10px 0` (content box): a square
+                // photo inset 10 pt at the sides and 34 pt from the top.
+                aspectRatio: art ? undefined : compact ? 1.6 : 1,
+                paddingTop: art ? v(34) : 0,
+                paddingHorizontal: art ? v(10) : 0,
                 backgroundColor: tile,
-                padding: photo.cutout ? v(22) : 0,
                 overflow: 'hidden',
               }}
             >
+              {/* The photo multiplies onto its own backdrop: the same illustration, aligned
+                  with the card's (every web view is its own stacking context). */}
+              {art ? <Illustration index={index} /> : null}
               <Animated.View
                 style={{
-                  flex: 1,
+                  ...(art ? { width: '100%', aspectRatio: 1 } : { flex: 1 }),
+                  mixBlendMode: blend ? 'multiply' : 'normal',
                   transform: [
                     {
                       scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
@@ -135,7 +159,7 @@ export function ProductCard({
                   color: tag === 'new' ? colors.blue : colors.orangeInk,
                 }}
               >
-                {tag === 'new' ? (locale === 'ru' ? 'НОВИНКА' : 'ЖАҢА') : 'ХИТ'}
+                {tag === 'new' ? t.newTag : t.hitTag}
               </Text>
             </View>
           ) : null}
@@ -264,6 +288,24 @@ export function ProductCard({
       />
       {inCart > 0 ? <InBag count={inCart} hold={arriving} /> : null}
     </Animated.View>
+  );
+}
+/** Design card background: bg1-bg4 by position, `right top / 190% auto no-repeat`. */
+function Illustration({ index }: { index: number }) {
+  return (
+    <Image
+      accessible={false}
+      accessibilityLabel=""
+      source={cardBackgrounds[index % cardBackgrounds.length]}
+      contentFit="cover"
+      style={{
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        width: '190%',
+        aspectRatio: cardBackgroundRatio,
+      }}
+    />
   );
 }
 /**

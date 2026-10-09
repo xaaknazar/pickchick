@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useMetrics } from '../theme';
 import { circleClose, circleOpen, LeavingContext, takeProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
@@ -97,21 +97,21 @@ export function RevealCircle({ children }: { children?: ReactNode }) {
                 overflow: 'hidden',
                 transform: [{ scale: outer }],
               }
-            : { flex: 1, minHeight: 0 }
+            : StyleSheet.absoluteFill
         }
       >
         <Animated.View
           style={
             clipping
               ? { width: radius * 2, height: radius * 2, transform: [{ scale: inner }] }
-              : { flex: 1, minHeight: 0 }
+              : StyleSheet.absoluteFill
           }
         >
           <View
             style={
               clipping
                 ? { position: 'absolute', left: radius - x, top: radius - y, width, height }
-                : { flex: 1, minHeight: 0 }
+                : StyleSheet.absoluteFill
             }
           >
             {children}

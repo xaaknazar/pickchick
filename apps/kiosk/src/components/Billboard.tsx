@@ -9,19 +9,20 @@ import { ProductArtwork } from './ProductArtwork';
 import { curve, useTimingTo, type Curve } from './motion';
 import { noteProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
-/** Prototype `billGo`: 1100 ms cubic-bezier(.65,0,.35,1), a slide every 7 s. */
+/** Approved v3 `bill`: 1100 ms cubic-bezier(.65,0,.35,1), a slide every 9 s. */
 const slideTime = 1100;
 const slideCurve = Easing.bezier(0.65, 0, 0.35, 1);
-const every = 7000;
+const every = 9000;
 /** The clone snaps back to the first slide 1150 ms after it was reached. */
 const snapAfter = 1150;
 type Kind = 'master' | 'promo';
 /** Track: Master, 7+1 and a Master clone so the loop always slides forward. */
 const track: Kind[] = ['master', 'promo', 'master'];
 /**
- * v3 menu billboard: the featured combo on the illustrated cream banner with a
+ * v3 menu billboard: the featured combo, cut out and laid straight on the
+ * illustrated cream banner (multiply, like the design), with a
  * tilted orange "hit" tag. With `onPromo` it becomes the prototype carousel:
- * Master Combo and the 7 + 1 loyalty offer glide past every 7 s (a clone of the
+ * Master Combo and the 7 + 1 loyalty offer glide past every 9 s (a clone of the
  * first slide keeps the loop moving forward) and two dots switch slides. The
  * slide that arrives floats its photo in and pops its tag. Under reduced motion
  * it stays on the current slide and the dots switch instantly.
@@ -215,7 +216,9 @@ function Slide({
   const float = useArrival(active, quiet, 900, 0, 'ease');
   const pop = useArrival(active, quiet, 480, 200, 'spring');
   const photo = productPhoto(product.image_id);
-  const plate = v(224);
+  const plate = v(230);
+  // A photo shot on a coloured tile keeps its tile; white shots multiply away.
+  const tinted = !!photo && !/^#F/i.test(photo.tile);
   const promo = kind === 'promo';
   const slide = useRef<View>(null);
   return (
@@ -246,21 +249,22 @@ function Slide({
         accessibilityLabel=""
         source={promo ? assets.billboardPromo : assets.billboard}
         contentFit="cover"
-        contentPosition={promo ? 'right center' : 'center'}
+        contentPosition={promo ? 'right center' : { left: '72%', top: '50%' }}
         style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
       />
       {promo ? null : (
         <Animated.View
           style={{
             position: 'absolute',
-            right: v(64),
-            top: (v(250) - plate) / 2,
+            right: v(79),
+            top: v(1),
             width: plate,
             height: plate,
-            borderRadius: plate / 2,
-            backgroundColor: photo?.tile ?? colors.white,
+            // The white studio shot melts into the illustration (design multiply).
+            mixBlendMode: tinted ? 'normal' : 'multiply',
+            backgroundColor: tinted ? photo.tile : undefined,
+            borderRadius: tinted ? v(28) : 0,
             overflow: 'hidden',
-            padding: v(24),
             opacity: float.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }),
             transform: [
               { translateX: float.interpolate({ inputRange: [0, 1], outputRange: [v(50), 0] }) },
@@ -341,7 +345,7 @@ function Slide({
             }}
           >
             {t.p7Title + '\n'}
-            <Text style={{ color: colors.orangeCta }}>{t.p7Gift}</Text>
+            <Text style={{ color: colors.orange }}>{t.p7Gift}</Text>
           </Text>
         ) : (
           <Text
@@ -414,7 +418,9 @@ function Dots({
         height: dotSize,
       }}
     >
-      <Pill {...firstDot} tint={colors.navy} opacity={range(1, 0.3)} />
+      {/* Design: the idle dot is navy .3 on the cream slide, white .6 on the 7 + 1 slide. */}
+      <Pill {...firstDot} tint={colors.navy} opacity={range(1, 0)} />
+      <Pill {...firstDot} tint={colors.white} opacity={range(0, 0.6)} />
       <Pill {...secondDot} tint={colors.navy} opacity={range(0.3, 0)} />
       <Pill {...secondDot} tint={colors.orange} opacity={range(0, 1)} />
       {([0, 1] as const).map((index) => (

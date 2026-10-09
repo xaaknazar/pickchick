@@ -8,6 +8,8 @@ import type { KioskProduct } from '../model';
 import { ProductArtwork } from './ProductArtwork';
 import { usePress, useTimingTo } from './motion';
 import { categoryKeys, inCategory, type Category } from './categories';
+/** Design rail `.kx` width: 12 pt gutters around 156 pt tiles. */
+export const RAIL_WIDTH = 180;
 /**
  * v3 category rail on the blue menu: white photo tiles; the selected one rides
  * on a spring-sliding orange indicator, its white card and navy label fade out
@@ -35,10 +37,10 @@ export function CategoryRail({
     'spring',
   );
   return (
-    <View style={{ width: v(156), flexShrink: 0 }}>
+    <View style={{ width: v(RAIL_WIDTH), flexShrink: 0 }}>
       <ScrollView
         accessibilityRole="tablist"
-        accessibilityLabel={locale === 'ru' ? 'Категории меню' : 'Мәзір санаттары'}
+        accessibilityLabel={t.menuCategories}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingVertical: v(18), paddingHorizontal: v(12), gap: v(10) }}
       >
@@ -51,7 +53,7 @@ export function CategoryRail({
             top: 0,
             height: v(142),
             borderRadius: v(24),
-            // Carries the small white label of the selected tile.
+            // Small white labels use the accessible orange surface; the halo stays brand orange.
             backgroundColor: colors.orangeInk,
             shadowColor: colors.orange,
             shadowOpacity: 0.4,
