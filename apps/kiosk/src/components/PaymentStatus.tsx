@@ -7,6 +7,7 @@ import { copy, type Locale } from '../i18n';
 import { Icon, type IconName } from './Icon';
 import { PaymentQR } from './PaymentQR';
 import { useEnter } from './motion';
+import { checkoutCopy } from '../checkoutCopy';
 const kaspiLogo = require('../../assets/v3/kaspi.webp');
 
 const clock = (seconds: number) =>
@@ -94,6 +95,7 @@ export function PaymentStatus({
   expiresAt,
   method = 'qr',
   locale = 'ru',
+  dense = false,
 }: {
   state: 'waiting' | 'unknown' | 'declined';
   title: string;
@@ -104,6 +106,8 @@ export function PaymentStatus({
   expiresAt?: string | null;
   method?: 'qr' | 'invoice' | 'card';
   locale?: Locale;
+  /** Closer vertical rhythm so a control below the steps stays above the footer. */
+  dense?: boolean;
 }) {
   const { v, height } = useMetrics();
   const t = copy(locale);
@@ -134,9 +138,9 @@ export function PaymentStatus({
   // Only a real bank QR or invoice carries the brand; the simulator keeps the tile.
   const kaspi = waiting && (method === 'invoice' || (method === 'qr' && !!qrPayload));
   const heading = waiting ? (kaspi && method === 'qr' ? 'Kaspi QR' : methodLabel) : title;
-  const amountSize = v(tight ? 58 : 70);
+  const amountSize = v(tight ? 58 : dense ? 62 : 70);
   return (
-    <View style={{ width: '100%', alignItems: 'center', gap: v(tight ? 16 : 26) }}>
+    <View style={{ width: '100%', alignItems: 'center', gap: v(tight || dense ? 12 : 26) }}>
       <Animated.View
         style={{
           flexDirection: waiting ? 'row' : 'column',
@@ -158,7 +162,7 @@ export function PaymentStatus({
             contentFit="contain"
             accessible={false}
             accessibilityLabel=""
-            style={{ width: v(76), height: v(76) }}
+            style={{ width: v(dense ? 64 : 76), height: v(dense ? 64 : 76) }}
           />
         ) : (
           <View
@@ -202,6 +206,20 @@ export function PaymentStatus({
             >
               {title}
             </Text>
+          ) : waiting ? (
+            // Hidden with the QR on screen (design), but still announced to VoiceOver.
+            <Text
+              accessibilityLiveRegion="polite"
+              style={{
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                overflow: 'hidden',
+                opacity: 0,
+              }}
+            >
+              {title}
+            </Text>
           ) : null}
         </View>
       </Animated.View>
@@ -217,7 +235,9 @@ export function PaymentStatus({
         }}
       >
         <Text style={{ fontFamily: fonts.medium, fontSize: v(20), color: colors.onBlueMuted }}>
-          {t.toPay}
+          {/* Dense (live Kaspi QR): the design has no order chip, so the reference
+              joins the "К оплате" line and the chip row goes away. */}
+          {dense ? t.toPay + ' · ' + reference : t.toPay}
         </Text>
         <Text
           numberOfLines={1}
@@ -233,22 +253,24 @@ export function PaymentStatus({
         >
           {money(total)}
         </Text>
-        <View
-          style={{
-            marginTop: v(6),
-            minHeight: v(36),
-            paddingHorizontal: v(16),
-            borderRadius: 999,
-            backgroundColor: colors.glass,
-            justifyContent: 'center',
-          }}
-        >
-          <Text
-            style={{ fontFamily: fonts.bold, fontSize: Math.max(15, v(16)), color: colors.white }}
+        {dense ? null : (
+          <View
+            style={{
+              marginTop: v(6),
+              minHeight: v(36),
+              paddingHorizontal: v(16),
+              borderRadius: 999,
+              backgroundColor: colors.glass,
+              justifyContent: 'center',
+            }}
           >
-            {reference}
-          </Text>
-        </View>
+            <Text
+              style={{ fontFamily: fonts.bold, fontSize: Math.max(15, v(16)), color: colors.white }}
+            >
+              {reference}
+            </Text>
+          </View>
+        )}
       </Animated.View>
 
       {qrPayload ? (
@@ -256,9 +278,9 @@ export function PaymentStatus({
           style={{
             borderRadius: v(40),
             backgroundColor: colors.white,
-            padding: v(tight ? 24 : 30),
+            padding: v(tight || dense ? 22 : 30),
             alignItems: 'center',
-            gap: v(tight ? 16 : 20),
+            gap: v(tight || dense ? 14 : 20),
             shadowColor: '#020A28',
             shadowOpacity: 0.45,
             shadowRadius: 35,
@@ -318,9 +340,10 @@ export function PaymentStatus({
 
       {qrPayload && waiting ? (
         <View style={{ width: '100%', flexDirection: 'row', gap: v(12) }}>
-          <QrStep index={0} label={t.qrStep1} />
-          <QrStep index={1} label={t.qrStep2} />
-          <QrStep index={2} label={t.qrStep3} />
+          {/* The QR on screen is always a Kaspi QR: design steps name Kaspi.kz. */}
+          {checkoutCopy(locale).kaspiSteps.map((label, index) => (
+            <QrStep key={index} index={index} label={label} />
+          ))}
         </View>
       ) : (
         <Animated.View

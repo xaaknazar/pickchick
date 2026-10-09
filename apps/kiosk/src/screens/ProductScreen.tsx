@@ -120,6 +120,8 @@ export function ProductScreen({
     <RevealCircle>
       <ScreenSurface testID="kiosk-screen-product" tone="brand">
         <ScrollArea
+          // A new set step opens at the top, so the hero's back disc is in view again.
+          key={'step-' + wizardStep}
           testID="kiosk-product-scroll"
           onInteraction={model.touch}
           parallax

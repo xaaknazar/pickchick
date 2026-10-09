@@ -23,7 +23,7 @@ export function PaymentQR({
   size?: 'regular' | 'compact';
   scanning?: boolean;
 }) {
-  const { v } = useMetrics();
+  const { v, height } = useMetrics();
   const reduced = useMotionPreference();
   const line = 5;
   const sweep = useLoop(4800, 0, true);
@@ -31,7 +31,9 @@ export function PaymentQR({
   // Snap the box to whole points per module so every module edge lands on the
   // pixel grid: no blurred or uneven modules at any iPad scale.
   const cells = Number(/viewBox="0 0 (\d+)/.exec(svg ?? '')?.[1] ?? 0);
-  const wanted = v(size === 'compact' ? 320 : 400);
+  // Design: about 360 pt on the 820 x 1180 iPad (~0.3 of the height), so the
+  // steps and the footer still fit on screen on every portrait iPad.
+  const wanted = Math.min(v(size === 'compact' ? 360 : 400), Math.round(height * 0.305));
   const box = cells ? Math.max(cells, Math.round(wanted / cells) * cells) : wanted;
   if (!svg) return null;
   return (

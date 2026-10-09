@@ -1,6 +1,7 @@
-import type { KioskModel } from '../model';
+import type { KioskModel, KioskProduct } from '../model';
 import { defaultSelections, validSelections } from '../cart';
 import { copy } from '../i18n';
+import { CartUpsell } from '../components/CartUpsell';
 import { InvoicePhoneField } from '../components/InvoicePhoneField';
 import {
   Body,
@@ -28,12 +29,18 @@ const modeLabel = (model: KioskModel, context: ScreenContext) =>
       ? copy(context.locale).hereChip
       : copy(context.locale).togo
     : undefined;
+const upsellProducts = (model: KioskModel) =>
+  model.catalog?.products.filter(
+    (p) => model.catalog?.upsell_product_ids.includes(p.id) && p.available !== false,
+  ) ?? [];
+const addUpsell = (model: KioskModel, p: KioskProduct) => {
+  const selections = defaultSelections(p);
+  if (validSelections(p, selections)) void model.addToCart(p.id, selections);
+  else model.openProduct(p.id);
+};
 export function UpsellScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
-  const products =
-    model.catalog?.products.filter(
-      (p) => model.catalog?.upsell_product_ids.includes(p.id) && p.available !== false,
-    ) ?? [];
+  const products = upsellProducts(model);
   return (
     <ScreenSurface testID="kiosk-screen-upsell" tone="brand" entrance={context.direction}>
       <Header
@@ -50,11 +57,7 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
         busy={model.busy}
         locale={context.locale}
         onInteraction={model.touch}
-        onAdd={(p) => {
-          const selections = defaultSelections(p);
-          if (validSelections(p, selections)) void model.addToCart(p.id, selections);
-          else model.openProduct(p.id);
-        }}
+        onAdd={(p) => addUpsell(model, p)}
       />
       <Footer entrance>
         <Button
@@ -118,6 +121,15 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
               />
             </Wrapper>
           ))}
+          {model.cart.length ? (
+            <CartUpsell
+              products={upsellProducts(model)}
+              addedIds={model.cart.map((l) => l.productId)}
+              busy={model.busy}
+              locale={context.locale}
+              onAdd={(p) => addUpsell(model, p)}
+            />
+          ) : null}
           {model.cart.length && !model.commercial ? (
             <Notice title={t.loyaltyTitle} body={t.loyaltyBody} />
           ) : null}
@@ -133,7 +145,13 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
           size="large"
         />
         <Wrapper dir="row" gap={14}>
-          <Button label={t.addMore} icon="add" tone="secondary" onPress={model.goMenu} />
+          <Button
+            label={t.addMore}
+            icon="add"
+            iconLeading
+            tone="brandOutline"
+            onPress={model.goMenu}
+          />
           <Wrapper flex={1}>
             <Button
               label={t.checkout}

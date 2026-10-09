@@ -122,12 +122,11 @@ export function ProductActions({
                 label="-"
                 tone="light"
                 size="large"
-                // Design keeps the white minus disc at full strength at 1; a tap
-                // there is simply ignored instead of dimming the control.
-                disabled={busy}
-                onPress={() => {
-                  if (quantity > 1) onMinus();
-                }}
+                // Design keeps the white minus disc at full strength at 1, but the
+                // control is still disabled there (VoiceOver announces it as such).
+                disabled={quantity <= 1 || busy}
+                dim={busy}
+                onPress={onMinus}
               />
               <Animated.View
                 style={{
@@ -164,8 +163,8 @@ export function ProductActions({
                 style={{
                   height,
                   borderRadius: height / 2,
-                  // Design: the to-cart pill is brand #FF6900 (large 26-pt white label).
-                  backgroundColor: colors.orange,
+                  // Large white label: the accessible orangeCta (#FF6900 is 2.88:1).
+                  backgroundColor: colors.orangeCta,
                   shadowColor: colors.orange,
                   shadowOpacity: disabled ? 0 : 0.35,
                   shadowRadius: 26,

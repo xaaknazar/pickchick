@@ -4,10 +4,8 @@ import { copy, type Locale } from '../i18n';
 import { money } from '../cart';
 import { colors, fonts, useMetrics } from '../theme';
 import { useTween } from './motion';
+import { checkoutCopy } from '../checkoutCopy';
 const kaspiLogo = require('../../assets/v3/kaspi.webp');
-/** Design chip copy: the payment brand is named, not just "QR". */
-const kaspiChip = (locale: Locale, fallback: string) =>
-  locale === 'ru' ? 'Оплата через Kaspi QR' : locale === 'kk' ? 'Kaspi QR арқылы төлем' : fallback;
 /** "3 позиции" / "3 позиция": Russian plural, Kazakh keeps the singular after a number. */
 export const positionsLabel = (n: number, locale: Locale) => {
   if (locale !== 'ru') return n + ' позиция';
@@ -107,7 +105,7 @@ export function CartTotal({
                 color: colors.navy,
               }}
             >
-              {kaspiChip(locale, t.payQR)}
+              {checkoutCopy(locale).payWithKaspi}
             </Text>
           </View>
         ) : null}
