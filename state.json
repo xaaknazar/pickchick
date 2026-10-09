@@ -3816,11 +3816,20 @@
         "infra/kitchen-portal/server.mjs",
         "infra/kitchen-portal/link.mjs",
         "tests/kitchen/terminal-cookie.test.mjs",
-        "tests/kitchen/terminal-access.test.mjs"
+        "tests/kitchen/terminal-access.test.mjs",
+        "packages/local-orders/src/terminal-access.ts",
+        "packages/local-orders/src/index.ts",
+        "services/edge/src/terminal-access-controller.ts",
+        "services/edge/src/fulfillment-controller.ts",
+        "services/edge/src/index.ts",
+        "services/device-access-worker",
+        "infra/db/edge/020_terminal_access.sql",
+        "infra/windows/terminal-access-grants.mjs",
+        "tests/integration/terminal-access.test.ts"
       ],
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T11:17:17.118Z"
+      "updatedAt": "2026-10-09T11:17:32.417Z"
     }
   ]
 }
