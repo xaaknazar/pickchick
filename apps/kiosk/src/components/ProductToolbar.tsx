@@ -5,8 +5,10 @@ import { colors, fonts, useMetrics } from '../theme';
 import { IconButton } from './IconButton';
 import { useEnter } from './motion';
 /**
- * Floating v3 product controls over the photo: a white 72-pt close disc (a back arrow
- * on the second set step) and, inside the set wizard, a step pill beside it.
+ * v3 product controls on the photo: a white 72-pt close disc (a back arrow on the
+ * second set step) and, inside the set wizard, a step pill beside it. Render it as
+ * the last child of the page scroller: it is absolute to the scrolled content, so
+ * it sits in the hero and scrolls away with it (design), never over the options.
  */
 export function ProductToolbar({
   locale,

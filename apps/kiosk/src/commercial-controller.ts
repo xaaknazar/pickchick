@@ -922,7 +922,8 @@ export class CommercialKioskController {
           : [...this.current.cart, next],
         lastActivityAt: this.io.now(),
       });
-      if (this.step !== 'upsell') this.step = 'menu';
+      // Upsell (its own step or the cart's inline block) keeps the guest where they are.
+      if (this.step !== 'upsell' && this.step !== 'cart') this.step = 'menu';
     });
   updateQuantity = (lineId: string, quantity: number) =>
     this.run(async () => {

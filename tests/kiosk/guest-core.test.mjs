@@ -263,13 +263,18 @@ test('safe basket restart restores variants, preserves upsell and rejects invali
   const p = catalog.products[0];
   assert.equal(await c.addToCart(p.id, defaultSelections(p)), true);
   assert.equal(c.getSnapshot().step, 'upsell');
+  // The cart's inline upsell (design 05) adds without leaving the cart.
+  c.openCart();
+  assert.equal(await c.addToCart(p.id, defaultSelections(p)), true);
+  assert.equal(c.getSnapshot().step, 'cart');
+  c.openUpsell();
   const before = h.rawFlow;
   assert.equal(await c.addToCart(p.id, []), false);
   assert.equal(await c.addToCart(p.id, defaultSelections(p), 20), false);
   assert.equal(h.rawFlow, before);
   const restored = h.core();
   await restored.restore();
-  assert.equal(restored.getSnapshot().cart[0].quantity, 2);
+  assert.equal(restored.getSnapshot().cart[0].quantity, 3);
   assert.equal(restored.getSnapshot().mode, 'takeaway');
   assert.equal(h.sessions.length, 0);
 });

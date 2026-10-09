@@ -33,12 +33,16 @@ test('QR encoder emits local vector modules with quiet zone and no remote image 
 });
 
 test('kiosk presentation labels order numbers and keeps scan instructions concise', async () => {
-  const { kioskOrderNumber, qrScanInstructions } =
+  const { kioskOrderNumber, kioskTicketNumber, qrScanInstructions } =
     await import('../../apps/kiosk/src/presentation.ts');
   assert.equal(kioskOrderNumber('12'), '№12');
   assert.equal(kioskOrderNumber('№12'), '№12');
   assert.equal(kioskOrderNumber(null), '-');
   assert.equal(kioskOrderNumber('-'), '-');
+  // The order screen shows the bare number, as in the approved design ("152").
+  assert.equal(kioskTicketNumber('152'), '152');
+  assert.equal(kioskTicketNumber('№ 152'), '152');
+  assert.equal(kioskTicketNumber(undefined), '-');
   assert.equal(qrScanInstructions('ru').includes('Не оплачивайте повторно'), false);
   assert.equal(qrScanInstructions('kk').includes('Қайта төлемеңіз'), false);
   assert.match(qrScanInstructions('ru'), /отсканируйте QR/);

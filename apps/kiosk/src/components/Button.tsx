@@ -9,16 +9,30 @@ export interface ButtonProps {
   testID?: string;
   disabled?: boolean;
   busy?: boolean;
-  tone?: 'accent' | 'primary' | 'secondary' | 'inverse' | 'quiet' | 'danger' | 'outline';
+  tone?:
+    | 'accent'
+    | 'primary'
+    | 'secondary'
+    | 'inverse'
+    | 'quiet'
+    | 'danger'
+    | 'outline'
+    /** White pill with navy text on the blue surface (design "Новый заказ"). */
+    | 'light'
+    /** Blue-outlined pill on a white sheet (design cart "+ Добавить ещё"). */
+    | 'brandOutline';
   size?: 'compact' | 'regular' | 'hero';
   icon?: IconName;
+  /** Draw the icon before the label (design "+ Добавить ещё"). */
+  iconLeading?: boolean;
   fullWidth?: boolean;
   /** 0..1 countdown fill: a peach band grows from the left, gliding 1 s per step. */
   progress?: number;
 }
 /**
  * v3 pill button. Accent orange is the one primary action per screen; its fill
- * is the accessible orangeCta (orangeInk under the small compact label).
+ * is the accessible orangeCta (orangeInk under the small compact label): white on
+ * the design's #FF6900 is 2.88:1 and fails the Storybook contrast check.
  * Enabling or disabling crossfades the fill over 260 ms (prototype `.octa.dim`)
  * while the button itself switches state at once.
  */
@@ -31,6 +45,7 @@ export function Button({
   tone = 'accent',
   size = 'regular',
   icon,
+  iconLeading = false,
   fullWidth = false,
   progress,
 }: ButtonProps) {
@@ -56,14 +71,16 @@ export function Button({
               ? colors.error
               : tone === 'secondary'
                 ? colors.soft
-                : 'transparent';
+                : tone === 'light'
+                  ? colors.white
+                  : 'transparent';
   const color = disabled
     ? filled
       ? 'rgba(255,255,255,.85)'
       : colors.muted
     : filled || tone === 'inverse' || tone === 'outline'
       ? colors.white
-      : tone === 'secondary' || tone === 'quiet'
+      : tone === 'secondary' || tone === 'quiet' || tone === 'brandOutline'
         ? colors.blue
         : colors.navy;
   const height = Math.max(52, v(size === 'hero' ? 112 : size === 'compact' ? 64 : 96));
@@ -84,8 +101,8 @@ export function Button({
           paddingHorizontal: v(size === 'compact' ? 22 : 32),
           borderRadius: 999,
           backgroundColor: fillFor(disabled),
-          borderWidth: tone === 'outline' ? 2.5 : 0,
-          borderColor: 'rgba(255,255,255,.4)',
+          borderWidth: tone === 'outline' ? 2.5 : tone === 'brandOutline' ? 3 : 0,
+          borderColor: tone === 'brandOutline' ? colors.blue : 'rgba(255,255,255,.4)',
           shadowColor: tone === 'accent' ? colors.orange : '#020A28',
           shadowOpacity: !disabled && tone === 'accent' ? 0.42 : 0,
           shadowRadius: 22,
@@ -115,6 +132,12 @@ export function Button({
         ) : null}
         {progress !== undefined ? <Countdown progress={progress} /> : null}
         {busy ? <ActivityIndicator accessibilityLabel={label} color={color} /> : null}
+        {icon && iconLeading ? (
+          <Icon
+            name={icon}
+            tone={filled || tone === 'inverse' || tone === 'outline' ? 'inverse' : 'brand'}
+          />
+        ) : null}
         <Text
           style={{
             fontFamily: fonts.black,
@@ -129,7 +152,7 @@ export function Button({
         >
           {label}
         </Text>
-        {icon === 'arrow-forward' && !blocked ? (
+        {iconLeading ? null : icon === 'arrow-forward' && !blocked ? (
           <Nudge>
             <Icon
               name={icon}

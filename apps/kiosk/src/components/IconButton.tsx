@@ -17,6 +17,7 @@ export function IconButton({
   tone = 'neutral',
   size = 'regular',
   disabled = false,
+  dim: dimDisabled = true,
   onRefused,
 }: {
   name: IconName;
@@ -26,6 +27,8 @@ export function IconButton({
   tone?: 'neutral' | 'inverse' | 'accent' | 'light';
   size?: 'regular' | 'large';
   disabled?: boolean;
+  /** Fade a disabled button to .35 (default). `false` keeps the design's solid disc. */
+  dim?: boolean;
   /** Tapped while disabled (feedback only; never the action itself). */
   onRefused?: () => void;
 }) {
@@ -61,7 +64,7 @@ export function IconButton({
           shadowOpacity: tone === 'light' ? 0.14 : 0,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 6 },
-          opacity: disabled ? 0.35 : 1,
+          opacity: disabled && dimDisabled ? 0.35 : 1,
         }}
       >
         <Icon name={name} tone={tone === 'inverse' || tone === 'accent' ? 'inverse' : 'navy'} />
