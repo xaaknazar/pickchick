@@ -30,6 +30,10 @@ export function Language({
     <View
       style={{
         flexDirection: 'row',
+        // A crowded header shrinks the options (never below a 48 pt target) instead of
+        // pushing the last language past the screen edge.
+        flexShrink: 1,
+        minWidth: 0,
         padding: v(menu ? 4 : 5),
         borderRadius: 999,
         backgroundColor: film
@@ -91,7 +95,9 @@ function Option({
       aria-pressed={on}
       onPress={onPress}
       style={{
-        minWidth: Math.max(48, size.width),
+        width: Math.max(48, size.width),
+        minWidth: 48,
+        flexShrink: 1,
         minHeight: Math.max(44, size.height),
         paddingHorizontal: v(8),
         borderRadius: 999,

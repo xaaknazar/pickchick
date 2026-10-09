@@ -98,19 +98,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
           />
           {model.unavailableCartLines.map((line) => (
             <Wrapper key={line.lineId} gap={14} testID={'kiosk-unavailable-line-' + line.lineId}>
-              <Notice
-                tone="error"
-                title={
-                  context.locale === 'ru'
-                    ? 'Позиция изменилась или недоступна'
-                    : 'Тағам өзгерді немесе қолжетімсіз'
-                }
-                body={
-                  context.locale === 'ru'
-                    ? 'Удалите её и выберите блюдо заново из актуального меню.'
-                    : 'Оны өшіріп, мәзірден қайта таңдаңыз.'
-                }
-              />
+              <Notice tone="error" title={t.lineChanged} body={t.lineChangedBody} />
               <Button
                 size="compact"
                 tone="secondary"
@@ -211,15 +199,9 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
             {model.commercial
               ? model.checkoutReady
                 ? model.paymentMethod === 'kaspi_invoice'
-                  ? context.locale === 'ru'
-                    ? 'После подтверждения заказа мы отправим счёт в Kaspi.kz.'
-                    : 'Тапсырыс расталғаннан кейін Kaspi.kz шотын жібереміз.'
-                  : context.locale === 'ru'
-                    ? 'На следующем экране появится QR для оплаты в Kaspi.kz. Телефон вводить не нужно.'
-                    : 'Келесі экранда Kaspi.kz арқылы төлеуге арналған QR көрсетіледі. Телефон нөмірін енгізудің қажеті жоқ.'
-                : context.locale === 'ru'
-                  ? 'Оплата на киоске пока недоступна. Заказ можно оформить у кассира.'
-                  : 'Киоскте төлем әзірге қолжетімсіз. Тапсырысты кассирден беруге болады.'
+                  ? t.invoiceAfterConfirm
+                  : t.qrNextScreen
+                : t.kioskPayUnavailable
               : t.testPayment}
           </Body>
         </Wrapper>
@@ -235,9 +217,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
         <Button
           label={
             model.commercial && model.paymentMethod === 'kaspi_invoice'
-              ? context.locale === 'ru'
-                ? 'Выставить счёт'
-                : 'Шот жіберу'
+              ? t.sendInvoice
               : t.createPayment
           }
           icon="arrow-forward"

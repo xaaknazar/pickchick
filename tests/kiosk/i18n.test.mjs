@@ -88,3 +88,33 @@ test('relabelling keeps availability, prices and photos and only swaps texts', (
   assert.deepEqual(out.products[0].media, { url: 'x' });
   assert.equal(target.products[0].name, 'Ру');
 });
+
+test('payment wording follows the approved v3 prototype (T.payWith, T.step1-3)', () => {
+  assert.equal(copy('en').payKaspiQR, 'Pay with Kaspi QR');
+  assert.equal(copy('ru').payKaspiQR, 'Оплата через Kaspi QR');
+  assert.equal(copy('en').qrStep1, 'Open the Kaspi.kz app');
+  assert.equal(copy('en').qrStep2, 'Tap «Kaspi QR»');
+  assert.equal(copy('en').qrStep3, 'Point the camera at the code');
+  assert.equal(copy('ru').qrStep1, 'Откройте приложение Kaspi.kz');
+  assert.equal(copy('ru').qrStep2, 'Нажмите «Kaspi QR»');
+  assert.equal(copy('kk').qrStep1, 'Kaspi.kz қосымшасын ашыңыз');
+  assert.equal(copy('kk').qrStep2, '«Kaspi QR» басыңыз');
+});
+
+test('guest components take their text from the dictionary, not from a ru/kk branch', async () => {
+  const { readdir, readFile } = await import('node:fs/promises');
+  const src = new URL('../../apps/kiosk/src/', import.meta.url);
+  const files = ['presentation.ts'];
+  for (const dir of ['components/', 'screens/'])
+    for (const name of await readdir(new URL(dir, src)))
+      if (/\.tsx?$/.test(name) && !name.includes('.stories.')) files.push(dir + name);
+  // EnrollmentForm is the staff-only device setup, shown before any guest picks a language.
+  const allowed = new Set(['components/EnrollmentForm.tsx']);
+  const offenders = [];
+  for (const file of files) {
+    if (allowed.has(file)) continue;
+    const text = await readFile(new URL(file, src), 'utf8');
+    if (/locale\s*[!=]==\s*'(ru|kk)'/.test(text)) offenders.push(file);
+  }
+  assert.deepEqual(offenders, [], 'these files would show Kazakh text to an English guest');
+});

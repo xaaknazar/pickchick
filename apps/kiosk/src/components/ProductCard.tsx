@@ -135,7 +135,7 @@ export function ProductCard({
                   color: tag === 'new' ? colors.blue : colors.orangeInk,
                 }}
               >
-                {tag === 'new' ? (locale === 'ru' ? 'НОВИНКА' : 'ЖАҢА') : 'ХИТ'}
+                {tag === 'new' ? t.newTag : t.hitTag}
               </Text>
             </View>
           ) : null}

@@ -113,11 +113,7 @@ export function PaymentStatus({
   // Prototype `qrIn` runs on the spring curve: the card overshoots, then settles.
   const card = useEnter(140, 640, 'spring');
   const methodLabel =
-    method === 'invoice'
-      ? 'Kaspi - ' + (locale === 'ru' ? 'счёт на телефон' : 'телефонға шот')
-      : method === 'card'
-        ? t.card
-        : t.payQR;
+    method === 'invoice' ? 'Kaspi - ' + t.invoiceMethod : method === 'card' ? t.card : t.payQR;
   const icon: IconName =
     state === 'unknown'
       ? 'time-outline'

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { copy, type Locale } from '../i18n';
+import { copy, itemCount, type Locale } from '../i18n';
 import { money } from '../cart';
 import type { KioskCartLine } from '../model';
 import { productArtworkId, productImage, productPhoto } from '../assets';
@@ -10,21 +10,7 @@ import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { measureRect, motion, useBump, useFly, usePop, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
-const positions = (n: number, locale: Locale) => {
-  if (locale !== 'ru') return n + ' позиция';
-  const tens = n % 100;
-  const ones = n % 10;
-  return (
-    n +
-    (tens >= 11 && tens <= 14
-      ? ' позиций'
-      : ones === 1
-        ? ' позиция'
-        : ones >= 2 && ones <= 4
-          ? ' позиции'
-          : ' позиций')
-  );
-};
+const positions = (n: number, locale: Locale) => itemCount(n, locale);
 const minorOf = (total: string) => (/^[0-9]{1,15}$/.test(total) ? Number(total) : 0);
 /**
  * v3 floating cart pill: blue bag with an orange count badge, item count and
@@ -251,7 +237,7 @@ export function CartBar({
               fontVariant: ['tabular-nums'],
             }}
           >
-            {valid ? display : locale === 'ru' ? 'Проверьте корзину' : 'Себетті тексеріңіз'}
+            {valid ? display : t.checkCart}
           </Text>
         </View>
         <Animated.View style={{ opacity: dim, transform: [{ scale: press }] }}>

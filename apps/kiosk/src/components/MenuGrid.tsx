@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import type { KioskProduct } from '../model';
-import { copy, type Locale } from '../i18n';
+import { copy, itemCount, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { ProductCard } from './ProductCard';
 import { Billboard } from './Billboard';
@@ -12,21 +12,7 @@ const tags: Record<string, 'hit' | 'new'> = {
   'solo-combo': 'new',
   'sauce-hot': 'new',
 };
-const positions = (n: number, locale: Locale) => {
-  if (locale !== 'ru') return n + ' позиция';
-  const tens = n % 100;
-  const ones = n % 10;
-  return (
-    n +
-    (tens >= 11 && tens <= 14
-      ? ' позиций'
-      : ones === 1
-        ? ' позиция'
-        : ones >= 2 && ones <= 4
-          ? ' позиции'
-          : ' позиций')
-  );
-};
+const positions = (n: number, locale: Locale) => itemCount(n, locale);
 /**
  * v3 menu feed: featured billboard (the Master / 7 + 1 carousel when `onPromo`
  * is given), category title with count and a two-column grid of photo cards

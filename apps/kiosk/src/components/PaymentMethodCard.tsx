@@ -31,29 +31,19 @@ export function PaymentMethodCard({
   const pop = usePop(selected);
   const invoice = method === 'kaspi_invoice';
   const title = invoice
-    ? locale === 'ru'
-      ? 'Счёт на телефон'
-      : 'Телефонға шот'
+    ? t.invoiceTitle
     : method === 'kaspi'
       ? commercial
         ? t.payQR
         : 'Kaspi'
       : t.card;
   const description = commercial
-    ? locale === 'ru'
-      ? invoice
-        ? 'Получите счёт в Kaspi.kz по номеру телефона'
-        : 'Отсканируйте QR в приложении Kaspi.kz'
-      : invoice
-        ? 'Телефон нөмірі бойынша Kaspi.kz шотын алыңыз'
-        : 'Kaspi.kz қосымшасында QR сканерлеңіз'
-    : locale === 'ru'
-      ? method === 'kaspi'
-        ? 'Тестовый сценарий Kaspi - без QR и списания денег.'
-        : 'Тестовый сценарий карты - без терминала и списания денег.'
-      : method === 'kaspi'
-        ? 'Kaspi сынағы - QR-кодсыз, ақша алынбайды.'
-        : 'Карта сынағы - терминалсыз, ақша алынбайды.';
+    ? invoice
+      ? t.invoiceDescription
+      : t.qrDescription
+    : method === 'kaspi'
+      ? t.testKaspiDescription
+      : t.testCardDescription;
   const tile = Math.max(56, v(72));
   const check = Math.max(30, v(36));
   return (
