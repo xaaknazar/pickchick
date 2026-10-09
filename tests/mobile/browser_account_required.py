@@ -1,4 +1,5 @@
 """Guest gates and login continuation; local fixtures only, no server writes."""
+from browser_network import isolated_context, route_fixture
 import os
 import sys
 from pathlib import Path
@@ -55,8 +56,8 @@ with sync_playwright() as p:
     # The welcome-to-input transition must finish before focusing the input;
     # repeated taps cannot skip steps or leave the content transparent.
     for preference in ['no-preference', 'reduce']:
-        context = browser.new_context(viewport={'width': 390, 'height': 844}, reduced_motion=preference)
-        context.route('**/v1/**', route_api)
+        context = isolated_context(browser,viewport={'width': 390, 'height': 844}, reduced_motion=preference)
+        route_fixture(context,'**/v1/**', route_api)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/auth?returnTo=M30')
@@ -89,8 +90,8 @@ with sync_playwright() as p:
     # Autofill may complete before the sheet entry animation. Sending then used
     # to create a challenge while navigation was still locked, stranding login.
     for preference in ['no-preference', 'reduce']:
-        context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion=preference)
-        context.route('**/v1/**', route_api)
+        context = isolated_context(browser,viewport={'width': 393, 'height': 852}, reduced_motion=preference)
+        route_fixture(context,'**/v1/**', route_api)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/auth?returnTo=M30')
@@ -125,8 +126,8 @@ with sync_playwright() as p:
         context.close()
     for destination, target in [('/games/pick-man', 'pick-man-start'), ('/games/pick-blocks', 'blocks-start'),
                                 ('/screen/M12', 'test-checkout-create')]:
-        context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
-        context.route('**/v1/**', route_api)
+        context = isolated_context(browser,viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
+        route_fixture(context,'**/v1/**', route_api)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         if destination.endswith('M12'):
@@ -164,8 +165,8 @@ with sync_playwright() as p:
         assert page.get_by_test_id(target).count() == 0
         context.close()
 
-    context = browser.new_context(viewport={'width': 320, 'height': 568})
-    context.route('**/v1/**', route_api)
+    context = isolated_context(browser,viewport={'width': 320, 'height': 568})
+    route_fixture(context,'**/v1/**', route_api)
     page = context.new_page()
     page.on('pageerror', lambda error: errors.append(str(error)))
     for path in ['/screen/M13', '/orders']:
@@ -180,8 +181,8 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('game-start')).to_have_count(0)
     context.close()
     # Unreadable persisted login must fail closed, with a retry instead of a game.
-    context = browser.new_context()
-    context.route('**/v1/**', route_api)
+    context = isolated_context(browser,)
+    route_fixture(context,'**/v1/**', route_api)
     context.add_init_script("""const get = Storage.prototype.getItem;
       Storage.prototype.getItem = function(key) {
         if (key === 'pickchick.demo.profile.v1') throw new Error('fixture read failure');

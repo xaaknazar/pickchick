@@ -1,4 +1,5 @@
 """Real checkout UI against isolated bank-free HTTP fixtures; no external requests escape."""
+from browser_network import isolated_context, route_fixture
 import json, os, subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,7 +18,7 @@ errors=[]
 with sync_playwright() as p:
  browser=p.chromium.launch()
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
-  context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
+  context=isolated_context(browser,viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
   state={'payment_blocked':True,'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
@@ -30,7 +31,7 @@ with sync_playwright() as p:
     assert r.request.headers.get('accept')=='application/json'
     assert r.request.headers.get('authorization')=='Bearer '+envelope['tokens']['access_token']
    elif path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
-    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1'
+    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1'
    data=None
    if path=='/v1/customers/me':data={'customer':customer}
    elif path=='/v1/customer-checkout/availability' and method=='GET':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':p['id'],'available':True,'stoppedOptions':[]} for p in CATALOG['products']]}
@@ -85,7 +86,7 @@ with sync_playwright() as p:
     data=order()
    else:r.abort();return
    r.fulfill(json=data,headers={'Access-Control-Allow-Origin':'*'})
-  context.route('**/v1/**',route)
+  route_fixture(context,'**/v1/**',route)
   page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
   page.get_by_test_id('product-pick-combo').click(timeout=25000);page.get_by_test_id('product-add').click()
   page.get_by_test_id('open-cart').click()
@@ -141,7 +142,7 @@ with sync_playwright() as p:
   expect(page.get_by_text('Не удалось загрузить оформление. Корзина сохранена. Проверяем связь автоматически.',exact=True)).to_have_count(0)
   state['config_offline']=False
   if width==393:
-   expect(page.get_by_text('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.',exact=True)).to_be_visible(timeout=10000)
+   expect(page.get_by_text('Цены обновились. Проверьте итоговую сумму перед оплатой',exact=True)).to_be_visible(timeout=10000)
    assert not state['keys'] and state['payments']==0
    expect(button).to_be_enabled()
    button.click()
@@ -186,7 +187,7 @@ with sync_playwright() as p:
   state['phase']='awaiting_restaurant';state['created']=False;state['revision']+=1
   button.click()
   if width==393:
-   expect(page.get_by_text('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.',exact=True)).to_be_visible(timeout=10000)
+   expect(page.get_by_text('Цены обновились. Проверьте итоговую сумму перед оплатой',exact=True)).to_be_visible(timeout=10000)
    assert state['payments']==1
    button.click()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
@@ -311,7 +312,6 @@ with sync_playwright() as p:
    try:held.abort()
    except Exception:pass
   page.wait_for_timeout(50)
-  context.unroute_all(behavior='ignoreErrors')
   context.close()
  browser.close()
 assert not errors,errors

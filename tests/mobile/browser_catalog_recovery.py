@@ -1,4 +1,5 @@
 """Local Expo-web regression; every API request is intercepted, no VPS orders are created."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 from datetime import datetime, timezone
@@ -29,7 +30,7 @@ ORDER = {**META, 'order_id': '30000000-0000-4000-8000-000000000003', 'number': '
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
-    context = browser.new_context(viewport={'width': 390, 'height': 844})
+    context = isolated_context(browser,viewport={'width': 390, 'height': 844})
     requests = []
     mode = {'orders': 'success'}
     def intercept(route):
@@ -53,7 +54,7 @@ with sync_playwright() as p:
             route.fulfill(json={**META, 'orders': [({**ORDER, 'version': 3, 'state': 'fulfilled', 'payment_state': 'simulated_approved'} if mode.get('terminal') else ORDER)]}, headers={'Access-Control-Allow-Origin': '*'})
         else:
             route.abort('failed')
-    context.route('**/v1/**', intercept)
+    route_fixture(context,'**/v1/**', intercept)
     context.add_init_script('localStorage.setItem(' + json.dumps(SESSION_KEY) + ',' +
                             json.dumps(json.dumps(SESSION)) + ');')
     from account_fixture import signed_in

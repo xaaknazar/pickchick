@@ -1,4 +1,5 @@
 """Magic Sort journeys on a loopback Expo export, using the actual seeded engine."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -151,7 +152,7 @@ with sync_playwright() as playwright:
     errors, blocked, contexts = [], [], []
 
     def open_game(size=(390, 844), path='/games/magic-sort', motion='reduce', snapshot=None):
-        context = browser.new_context(viewport={'width': size[0], 'height': size[1]},
+        context = isolated_context(browser,viewport={'width': size[0], 'height': size[1]},
                                       reduced_motion=motion, has_touch=True)
         contexts.append(context)
         signed_in(context)
@@ -169,7 +170,7 @@ with sync_playwright() as playwright:
                 blocked.append({'method': request.method, 'path': target.path})
                 route.abort()
 
-        context.route('**/*', network)
+        route_fixture(context,'**/*', network)
         page = context.new_page()
         page.set_default_timeout(10000)
         page.on('pageerror', lambda error: errors.append(str(error)))

@@ -1,4 +1,5 @@
 """Verify sub-cell animation and frozen pause on the exported games, not just engine ticks."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 from pathlib import Path
@@ -13,8 +14,8 @@ with sync_playwright() as p:
     for route,start,pause,resume,actor,axis in [
         ('pick-blocks','blocks-start','blocks-pause','blocks-resume','blocks-falling-piece','y'),
         ('pick-man','pick-man-start','pick-man-pause','pick-man-resume','pick-man-player','x')]:
-        context=browser.new_context(viewport={'width':393,'height':852},reduced_motion='no-preference')
-        signed_in(context);context.route('**/v1/**',lambda r:r.abort())
+        context=isolated_context(browser,viewport={'width':393,'height':852},reduced_motion='no-preference')
+        signed_in(context);route_fixture(context,'**/v1/**',lambda r:r.abort())
         page=context.new_page();page.goto(URL+'/games/'+route)
         expect(page.get_by_test_id(start)).to_be_visible(timeout=20000)
         page.get_by_test_id(start).click();expect(page.get_by_test_id(actor)).to_be_attached()
@@ -33,8 +34,8 @@ with sync_playwright() as p:
         results.append({'game':route,'frames':len(values),'distinct_positions':distinct,'pause_frozen':True})
         context.close()
     # Check even speed across cell boundaries, not merely distinct positions.
-    context=browser.new_context(viewport={'width':393,'height':852},reduced_motion='no-preference')
-    signed_in(context);context.route('**/v1/**',lambda r:r.abort())
+    context=isolated_context(browser,viewport={'width':393,'height':852},reduced_motion='no-preference')
+    signed_in(context);route_fixture(context,'**/v1/**',lambda r:r.abort())
     page=context.new_page();page.goto(URL+'/games/pick-man')
     expect(page.get_by_test_id('pick-man-start')).to_be_visible(timeout=20000)
     page.get_by_test_id('pick-man-start').click();page.wait_for_timeout(300)
@@ -69,8 +70,8 @@ with sync_playwright() as p:
     # At a turn, positions remain on corridor centrelines. Reduced Motion has
     # only integer cell positions, while the normal renderer has sub-cell poses.
     for reduced in ['no-preference','reduce']:
-        context=browser.new_context(viewport={'width':393,'height':852},reduced_motion=reduced)
-        signed_in(context);context.route('**/v1/**',lambda r:r.abort())
+        context=isolated_context(browser,viewport={'width':393,'height':852},reduced_motion=reduced)
+        signed_in(context);route_fixture(context,'**/v1/**',lambda r:r.abort())
         page=context.new_page();page.goto(URL+'/games/pick-man')
         expect(page.get_by_test_id('pick-man-start')).to_be_visible(timeout=20000)
         page.get_by_test_id('pick-man-start').click();page.keyboard.press('ArrowUp')

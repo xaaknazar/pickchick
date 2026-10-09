@@ -1,4 +1,5 @@
 """Source-composition and decorative-video regressions on an isolated local client."""
+from browser_network import isolated_context, route_fixture
 import os
 import sys
 import time
@@ -60,9 +61,9 @@ def settled_catalog_geometry(page):
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    context = browser.new_context(viewport={'width': 402, 'height': 874})
+    context = isolated_context(browser,viewport={'width': 402, 'height': 874})
     signed_in(context)
-    context.route('**/v1/**', fixture_read)
+    route_fixture(context,'**/v1/**', fixture_read)
     page = context.new_page()
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
@@ -158,8 +159,8 @@ with sync_playwright() as p:
         assert abs(first['width'] - first['height']) < 1, first
         assert abs(first['y'] - second['y']) < 1 and second['x'] > first['x'], (first, second)
     assert errors == [], errors
-    reduced = browser.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce')
-    reduced.route('**/v1/**', fixture_read)
+    reduced = isolated_context(browser,viewport={'width': 390, 'height': 844}, reduced_motion='reduce')
+    route_fixture(reduced,'**/v1/**', fixture_read)
     reduced_page = reduced.new_page()
     reduced_page.goto(url + '/menu')
     expect(reduced_page.get_by_test_id('hero-promotion')).to_be_visible()
@@ -167,8 +168,8 @@ with sync_playwright() as p:
     assert reduced_page.get_by_test_id('hero-video-toggle').count() == 0
     # Deterministic browser-media races: never suppress pageerror. The adapter
     # owns each play() promise, including interruption before the first frame.
-    interrupted = browser.new_context(viewport={'width': 402, 'height': 874})
-    interrupted.route('**/v1/**', fixture_read)
+    interrupted = isolated_context(browser,viewport={'width': 402, 'height': 874})
+    route_fixture(interrupted,'**/v1/**', fixture_read)
     interrupted.add_init_script("""
         window.mediaCalls = { play: 0, pause: 0 };
         window.mediaHidden = false;
@@ -206,8 +207,8 @@ with sync_playwright() as p:
     racing.wait_for_timeout(150)
     assert race_errors == [], race_errors
 
-    unsupported = browser.new_context(viewport={'width': 402, 'height': 874})
-    unsupported.route('**/v1/**', fixture_read)
+    unsupported = isolated_context(browser,viewport={'width': 402, 'height': 874})
+    route_fixture(unsupported,'**/v1/**', fixture_read)
     unsupported.add_init_script("""
         window.playAttempted = false;
         HTMLMediaElement.prototype.play = function () {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-09T11:46:04.354361+00:00",
+  "updatedAt": "2026-10-09T12:00:31.417151+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -65,7 +65,9 @@
     "docs/operations/commercial-channels.md",
     "docs/operations/pick-farm.md",
     "docs/design/magic-sort.md",
-    "docs/operations/mobile-live-menu.md"
+    "docs/operations/mobile-live-menu.md",
+    "docs/operations/kiosk-build11-installation.md",
+    "docs/operations/kitchen-portal-kiosk-parser-2026-10-09.md"
   ],
   "workstreams": [
     {
@@ -4199,6 +4201,80 @@
         "Начатый платёж сохраняет исходную сумму."
       ],
       "nextAction": "Зелёная CI точного SHA, guarded API-only выпуск и новая native сборка с проверкой на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-build11",
+      "workstream": "kiosk",
+      "title": "Установить iPad build 11 с исправлением карточки",
+      "summary": "Build11 установлен поверх10; точный исходник beddc360, Foundation11/11 и UI CI зелёные. Кнопка видима; полный XCTest не прошёл, ручная прокрутка ожидает подтверждения.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Реализация и подтверждённые границы",
+          "path": "docs/operations/kiosk-build11-installation.md"
+        }
+      ],
+      "acceptance": ["Получить ручное подтверждение прокрутки и видимой кнопки на iPad."],
+      "nextAction": "Получить ручное подтверждение прокрутки и видимой кнопки на iPad.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kitchen-kiosk-parser",
+      "workstream": "platform",
+      "title": "Восстановить кухню и сборку для заказов киоска",
+      "summary": "Portal b882 заменён на23fb; parser принимает kiosk. Backup/restore и соседние контейнеры проверены, владелец подтвердил обе страницы.",
+      "status": "done",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Реализация и подтверждённые границы",
+          "path": "docs/operations/kitchen-portal-kiosk-parser-2026-10-09.md"
+        }
+      ],
+      "acceptance": ["Работать с существующей очередью; новые Devices выпускать отдельно."],
+      "nextAction": "Работать с существующей очередью; новые Devices выпускать отдельно.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": true
+      }
+    },
+    {
+      "id": "manager-device-access",
+      "workstream": "backoffice",
+      "title": "Подключать экраны и восстанавливать пароль из кабинета управляющего",
+      "summary": "Код опубликован PR218; hash-only коды, scoped pairing/revoke и восстановление kitchen без изменения POS PIN. Пока не установлен; нужны schema051/020 и guarded выпуск.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Код Devices и результаты разработки",
+          "url": "https://github.com/xaaknazar/pickchick/pull/218"
+        }
+      ],
+      "acceptance": [
+        "Зелёная CI и guarded cloud/Windows/portal; Windows ждёт подключения Mac к сети кассы."
+      ],
+      "nextAction": "Зелёная CI и guarded cloud/Windows/portal; Windows ждёт подключения Mac к сети кассы.",
       "checks": {
         "implemented": true,
         "verified": true,

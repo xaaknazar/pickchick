@@ -1,4 +1,5 @@
 """Offline Pick Blocks journeys, persistence and touch geometry on a local export."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -132,7 +133,7 @@ with sync_playwright() as playwright:
     contexts = []
 
     def open_game(snapshot=None, extra_script='', path='/games/pick-blocks', size=(393, 852)):
-        context = browser.new_context(
+        context = isolated_context(browser,
             viewport={'width': size[0], 'height': size[1]}, reduced_motion='reduce', has_touch=True,
         )
         contexts.append(context)
@@ -141,7 +142,7 @@ with sync_playwright() as playwright:
             requests.append((route.request.method, urlparse(route.request.url).path))
             route.abort()
 
-        context.route('**/v1/**', block_api)
+        route_fixture(context,'**/v1/**', block_api)
         if snapshot is not None or extra_script:
             raw = json.dumps(snapshot, ensure_ascii=False) if snapshot is not None else None
             context.add_init_script(f"""

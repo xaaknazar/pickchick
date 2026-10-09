@@ -1,4 +1,5 @@
 """Customer payment UI: local catalog fixtures, no simulator or bank requests."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -34,7 +35,7 @@ def route(r):
 with sync_playwright() as p:
  browser=p.chromium.launch()
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
-  context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce');signed_in(context);context.route('**/v1/**',route)
+  context=isolated_context(browser,viewport={'width':width,'height':height},reduced_motion='reduce');signed_in(context);route_fixture(context,'**/v1/**',route)
   page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
   page.get_by_test_id('product-pick-combo').click(timeout=20000);page.get_by_test_id('product-add').click()
   expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
@@ -99,7 +100,7 @@ with sync_playwright() as p:
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
   context.close()
  # Non-reduced opening and handle dismissal; never intercept the content scroll.
- context=browser.new_context(viewport={'width':393,'height':852},reduced_motion='no-preference');signed_in(context);context.route('**/v1/**',route)
+ context=isolated_context(browser,viewport={'width':393,'height':852},reduced_motion='no-preference');signed_in(context);route_fixture(context,'**/v1/**',route)
  page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
  page.get_by_test_id('product-pick-combo').click(timeout=20000);page.get_by_test_id('product-add').click()
  expect(page.get_by_test_id('screen-M09')).not_to_be_visible()

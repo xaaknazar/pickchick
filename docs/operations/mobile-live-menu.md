@@ -66,3 +66,86 @@ Web-проверка не доказывает установку на iPhone/Te
 Откат: выключить только новый флаг, восстановить прежний API image/compose через
 проверенный профиль. Не удалять созданные durable cancellations и не переписывать
 платежи. Возврат мобильной сборки не должен очищать локальные заказы или ключи.
+
+### Профиль API-only и параметры оператора
+
+`infra/staging/release-live-menu.py` выпускает только мобильный API от
+`cf25cb9e4712a7beedc2d2b52a9d64d3e557598f` при точном schema050 (49 файлов,
+без 041). Кандидат с Devices/schema051 этим профилем отклоняется. Порядок:
+сначала отдельный mobile/schema050, затем согласованный Devices/schema051
+выпуск со своим baseline и CI. Не ослаблять проверку списка миграций.
+
+Все действия по умолчанию только проверяют состояние. Изменения требуют
+`--apply`; `prepare` сохраняет отдельный образ, `apply` устанавливает API с
+`CUSTOMER_CHECKOUT_HEAD_GUARD=false`, `enable` меняет только этот флаг.
+Никакой provision, миграции или GRANT этим профилем не выполняется.
+
+Перед командой оператор задаёт следующие значения из свежих read-only
+доказательств, сохраняя их в приватном каталоге операции:
+
+| Переменная                  | Значение                                                                   |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `LIVE_MENU_SHA`             | Полный SHA чистого опубликованного checkout с 11/11 зелёной Foundation CI  |
+| `LIVE_MENU_CI_PROOF`        | Приватный JSON GitHub API с объектами `run` и `jobs` для этого SHA         |
+| `LIVE_MENU_PUBLIC_SHA`      | Точный текущий public-https/current; не предполагать, что он равен SHA API |
+| `LIVE_MENU_API_IMAGE`       | Проверенный `sha256:…` работающего cf25 API и сохранённого rollback image  |
+| `LIVE_MENU_COMPOSE_SHA256`  | SHA-256 установленного cf25 `infra/staging/compose.yaml`                   |
+| `LIVE_MENU_GATEWAY_SHA256`  | SHA-256 фактически смонтированного `/etc/caddy/Caddyfile`                  |
+| `LIVE_MENU_BACKUP_IDENTITY` | Путь к существующему приватному age identity, права 0600; ключ не печатать |
+
+Пример для Bash/Zsh после заполнения этих переменных:
+
+```bash
+release=(python3 infra/staging/release-live-menu.py)
+pins=(
+  --sha "$LIVE_MENU_SHA"
+  --branch codex/mobile-live-menu
+  --expected-api-sha cf25cb9e4712a7beedc2d2b52a9d64d3e557598f
+  --expected-public-sha "$LIVE_MENU_PUBLIC_SHA"
+  --expected-api-image "$LIVE_MENU_API_IMAGE"
+  --expected-compose-sha256 "$LIVE_MENU_COMPOSE_SHA256"
+  --expected-gateway-sha256 "$LIVE_MENU_GATEWAY_SHA256"
+  --ssh-key /Users/xaknazar/.ssh/pickchick_staging_ed25519
+  --backup-identity "$LIVE_MENU_BACKUP_IDENTITY"
+  --ci-proof "$LIVE_MENU_CI_PROOF"
+)
+"${release[@]}" prepare "${pins[@]}"
+"${release[@]}" prepare "${pins[@]}" --apply
+"${release[@]}" apply "${pins[@]}"
+"${release[@]}" apply "${pins[@]}" --apply
+"${release[@]}" enable "${pins[@]}"
+"${release[@]}" enable "${pins[@]}" --apply
+```
+
+Перед каждым изменением повторно проверяются source/CI и общий release-lock.
+Runtime ACL читается через действующее подключение API с `BEGIN READ ONLY`:
+`pickchick_app` должен иметь head/binding lock, INSERT/UPDATE cancellation,
+INSERT outbox и USAGE sequence, при этом не иметь INSERT capture или UPDATE
+суммы заказа. При недостающих правах выпуск останавливается; дополнительный
+GRANT требует отдельного рассмотрения.
+
+`apply` сохраняет снимок таблиц/последовательностей, делает зашифрованный dump,
+проверяет восстановление в отдельную БД и лишь затем пересоздаёт один API.
+После установки сохраняется ещё один снимок; миграции и ACL сравниваются
+точно. Фоновые обработчики продолжают работать, поэтому равенство всех
+изменяемых ими строк до/после не заявляется. Платёжные контейнеры, gateway,
+опубликованные файлы и прочее окружение сверяются и сохраняются.
+
+Откат выполняется отдельно, без восстановления production-дампа:
+
+```bash
+"${release[@]}" disable "${pins[@]}" --apply
+"${release[@]}" rollback "${pins[@]}" --apply
+```
+
+`disable` применим только к реально включённому флагу; `rollback` возвращает
+прежний API и его окружение, сохраняя новые durable cancellation записи и
+платёжные данные. Ошибка оставляет owned release-lock. После read-only
+разбора разрешено продолжение только собственной блокировки через
+`--owner-id "$LIVE_MENU_OWNER_ID"` у `disable` или `rollback`: требуется
+совпадение локального и серверного owner.json. Чужую блокировку не удалять,
+при неопределённом результате сначала установить фактическое состояние.
+
+Адресные тесты профиля: 12/12 локально, включая PostgreSQL 18 с отдельными
+случайными schema/role внутри откатываемой транзакции. Это проверка оператора,
+не доказательство установки, включения флага или нового банковского платежа.

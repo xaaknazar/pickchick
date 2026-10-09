@@ -1,4 +1,5 @@
 """Published mobile UI with PostgreSQL quotes; fixture refuses order/payment commands."""
+from browser_network import isolated_context, route_fixture
 import json, sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,7 +12,7 @@ customer={'id':CUSTOMER,'phone':'+77000000000','nickname':'Synthetic browser','b
 envelope={'version':1,'device_id':'40000000-0000-4000-8000-000000000004','tokens':{'access_token':'a'*64,'refresh_token':'b'*64,'access_expires_at':future,'session_id':'40000000-0000-4000-8000-000000000002','customer':customer},'challenge':None,'otp_request':None,'verify_intent':None,'refresh_request_id':None,'closing':None}
 errors=[]; quotes=[]
 with sync_playwright() as p:
- browser=p.chromium.launch();context=browser.new_context(viewport={'width':393,'height':852},reduced_motion='reduce')
+ browser=p.chromium.launch();context=isolated_context(browser,viewport={'width':393,'height':852},reduced_motion='reduce')
  context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
  def route(r):
   path=urlparse(r.request.url).path
@@ -27,7 +28,7 @@ with sync_playwright() as p:
   elif path=='/v1/content/branches/'+BRANCH:data={'schema_version':1,'branch_id':BRANCH,'promos':[],'games':[]}
   else: raise AssertionError('Unexpected external API '+path)
   r.fulfill(status=200,content_type='application/json',body=json.dumps(data))
- context.route('https://pickchick.185.129.51.103.nip.io/**',route)
+ route_fixture(context,'https://pickchick.185.129.51.103.nip.io/**',route)
  page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(URL+'/menu');expect(page.get_by_test_id('product-burger')).to_contain_text('2 550,01',timeout=30000)
  page.get_by_test_id('product-burger').click();page.get_by_role('button',name='Увеличить: Extra sauce',exact=True).click();page.get_by_role('button',name='Увеличить: Director Burger',exact=True).click();page.get_by_test_id('product-add').click()

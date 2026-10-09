@@ -1,4 +1,5 @@
 """Launch continuity and reordered storefront on local, read-only synthetic data."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -41,9 +42,9 @@ def fixture(route):
 with sync_playwright() as p:
     browser = p.chromium.launch()
     for width, height in [(320, 568), (393, 852), (768, 1024), (852, 393)]:
-        context = browser.new_context(viewport={'width': width, 'height': height}, has_touch=True, reduced_motion='reduce')
+        context = isolated_context(browser,viewport={'width': width, 'height': height}, has_touch=True, reduced_motion='reduce')
         signed_in(context)
-        context.route('**/v1/**', fixture)
+        route_fixture(context,'**/v1/**', fixture)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/menu')
@@ -84,9 +85,9 @@ with sync_playwright() as p:
         page.goto(URL + '/events')
         expect(page.get_by_test_id('open-cart')).to_have_count(0)
         context.close()
-    context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion='no-preference')
+    context = isolated_context(browser,viewport={'width': 393, 'height': 852}, reduced_motion='no-preference')
     signed_in(context)
-    context.route('**/v1/**', fixture)
+    route_fixture(context,'**/v1/**', fixture)
     page = context.new_page()
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(URL + '/menu')
