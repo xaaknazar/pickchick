@@ -3726,7 +3726,6 @@
         "apps/mobile/src/catalog-recovery.ts",
         "apps/mobile/src/availability-recovery.ts",
         "apps/mobile/src/useAvailability.ts",
-        "apps/mobile/src/connectivity.ts",
         "apps/mobile/src/commerce-presentation.ts",
         "apps/mobile/src/customer-http.ts",
         "packages/commerce-core/src/customer-checkout.ts",
@@ -3783,7 +3782,7 @@
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "status": "active",
-      "updatedAt": "2026-10-09T12:13:30.731Z",
+      "updatedAt": "2026-10-09T12:17:43.429Z",
       "summary": " Agreed parallel hunk: devices-access may register DeviceRegistryController and DeviceAccessTransportController in services/api/src/index.ts; root owns publication LISTEN provider and will merge both. 2026-10-09 root continues owner-authorized handoff: guarded schema050 mobile API release owns API/DB until verified; no bank containers or payment probes, Devices follows after exact CI and baseline handoff."
     },
     {
@@ -3909,6 +3908,19 @@
       "updatedAt": "2026-10-09T12:05:16.127Z",
       "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
+    },
+    {
+      "id": "mobile-native16",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-native16",
+      "head": "865e132e9769aebe59d2c4fc2f96e0ac8f2704d6",
+      "status": "active",
+      "updatedAt": "2026-10-09T12:17:43.429Z",
+      "scopes": [
+        "apps/mobile/src/connectivity.ts",
+        "tests/mobile/connectivity.test.mjs"
+      ],
+      "summary": " Root-authorized exact foreground native handoff from mobile-live-menu; original files preserved until byte-copy verification."
     }
   ]
 }
