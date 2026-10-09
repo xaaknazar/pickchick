@@ -3632,10 +3632,6 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/unified-menu",
       "scopes": [
-        "@vps/public",
-        "@vps/gateway",
-        "@vps/backoffice-login",
-        "@windows/cashier",
         "infra/staging/release-unified-menu.py",
         "infra/windows/install-native-menu-sync.ps1",
         "infra/windows/remote-stops-upgrade-db.mjs",
@@ -3770,9 +3766,7 @@
         "apps/mobile/src/components/ProductMenuNotice.stories.tsx",
         "tests/mobile/domain.test.mjs",
         "packages/commerce-core/tests/postgres.test.mjs",
-        "apps/mobile/.storybook",
-        "@vps/api",
-        "@vps/db"
+        "apps/mobile/.storybook"
       ],
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
@@ -3928,12 +3922,18 @@
         "infra/staging/unified-menu-continuation-owner.mjs",
         "tests/operations/test_unified_menu_continuation.py",
         "tests/integration/unified-menu-continuation.test.mjs",
-        "docs/operations/unified-menu-continuation.md"
+        "docs/operations/unified-menu-continuation.md",
+        "@vps/api",
+        "@vps/db",
+        "@vps/public",
+        "@vps/gateway",
+        "@vps/backoffice-login",
+        "@windows/cashier"
       ],
       "status": "active",
       "head": "28e3fea7ef86299cf080c0d46a7351f31ca6305f",
       "updatedAt": "2026-10-09T14:24:18.677Z",
-      "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles.",
+      "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles. 2026-10-09 mobile API3bc installed/HEADguard enabled with verified backup/restore and unchanged neighbors; root transfers VPS API/DB/public/gateway/BO and cashier resources to Devices final release, then bounded remaining unified flags. Bank containers excluded.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
     }
   ]
