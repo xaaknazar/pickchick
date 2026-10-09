@@ -9,13 +9,16 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
-import { Icon, Language, Logo } from './UI';
+import { Language, Logo } from './UI';
 import { motion, useEnter, useLoop } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+/** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
+const kaspiLogo = require('../../assets/v3/kaspi.webp');
 /** v3 attract CTA: one orange pill with an expanding halo and a passing shine. */
 function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPress: () => void }) {
   const { v } = useMetrics();
@@ -250,23 +253,17 @@ export function WelcomeContent({
                 backgroundColor: 'rgba(255,255,255,.12)',
               }}
             >
-              <View
-                style={{
-                  width: v(42),
-                  height: v(42),
-                  borderRadius: v(21),
-                  backgroundColor: colors.orange,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Icon name="qr-code-outline" size="small" tone="inverse" />
-              </View>
+              <Image
+                source={kaspiLogo}
+                contentFit="contain"
+                accessible={false}
+                style={{ width: v(42), height: v(42) }}
+              />
               <Text
                 numberOfLines={1}
                 style={{ fontFamily: fonts.medium, fontSize: v(20), color: colors.white }}
               >
-                {t.payQR}
+                {t.payKaspiQR}
               </Text>
             </View>
             <Text

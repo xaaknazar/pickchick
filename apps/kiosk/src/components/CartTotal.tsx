@@ -1,25 +1,11 @@
 import { Text, View } from 'react-native';
-import { copy, type Locale } from '../i18n';
+import { copy, itemCount, type Locale } from '../i18n';
 import { money } from '../cart';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { useTween } from './motion';
-/** "3 позиции" / "3 позиция": Russian plural, Kazakh keeps the singular after a number. */
-export const positionsLabel = (n: number, locale: Locale) => {
-  if (locale !== 'ru') return n + ' позиция';
-  const tens = n % 100;
-  const ones = n % 10;
-  return (
-    n +
-    (tens >= 11 && tens <= 14
-      ? ' позиций'
-      : ones === 1
-        ? ' позиция'
-        : ones >= 2 && ones <= 4
-          ? ' позиции'
-          : ' позиций')
-  );
-};
+/** "3 позиции" / "3 позиция" / "3 items" (see `itemCount`). */
+export const positionsLabel = (n: number, locale: Locale) => itemCount(n, locale);
 /**
  * v3 order total. `large` is the footer sheet: "Итого · N позиций", an optional
  * orange QR chip and the 52-pt total, which counts to each new total (prototype
@@ -43,11 +29,7 @@ export function CartTotal({
   const { v } = useMetrics();
   const t = copy(locale);
   const large = size === 'large';
-  const amount = valid
-    ? money(total)
-    : locale === 'ru'
-      ? 'Проверьте корзину'
-      : 'Себетті тексеріңіз';
+  const amount = valid ? money(total) : t.checkCart;
   const target = valid ? Number(total) : 0;
   const counted = useTween(target);
   // Whole tenge while counting; the spoken label is always the final amount.
@@ -108,7 +90,7 @@ export function CartTotal({
                 color: colors.navy,
               }}
             >
-              {t.payQR}
+              {t.payKaspiQR}
             </Text>
           </View>
         ) : null}
