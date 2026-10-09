@@ -20,8 +20,9 @@ import {
 
 const MIGRATIONS = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
 
-/** A migration directory: the real files, optionally only up to 046 or with an edit. */
-async function directory(t, { upTo, edit } = {}) {
+/** A migration directory: the real files up to 049 (or an earlier bound), optionally with an edit. */
+// The unified-menu release ends at 049; later migrations belong to later releases.
+async function directory(t, { upTo = '049_z', edit } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'um-migrations-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   for (const name of (await readdir(MIGRATIONS)).filter((n) => n.endsWith('.sql')).sort()) {

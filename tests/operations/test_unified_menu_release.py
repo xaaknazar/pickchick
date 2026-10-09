@@ -58,8 +58,12 @@ def installed_compose():
     return text.replace('      BACKOFFICE_REMOTE_STOPS_ENABLED: ${BACKOFFICE_REMOTE_STOPS_ENABLED:-false}\n', '')
 
 
+# The unified-menu release ends at 049; later migrations belong to later releases.
+UNIFIED_LAST = '049_z'
+
+
 def files_and_ledger(upto):
-    files = sorted(p.name for p in (ROOT / 'db/cloud/migrations').glob('*.sql'))
+    files = sorted(p.name for p in (ROOT / 'db/cloud/migrations').glob('*.sql') if p.name <= UNIFIED_LAST)
     checksums = {n: r.digest((ROOT / 'db/cloud/migrations' / n).read_bytes()) for n in files}
     ledger = [{'version': n, 'scope': 'cloud', 'checksum': checksums[n]} for n in files if n <= upto]
     return files, checksums, ledger
@@ -119,6 +123,10 @@ class Fake(r.Release):
         path = self.private / name
         path.write_text(json.dumps(value))
         os.chmod(path, 0o600)
+
+    def candidate_migrations(self):
+        files, checksums, _ = files_and_ledger(UNIFIED_LAST)
+        return files, checksums
 
     @contextlib.contextmanager
     def deployment_lock(self):
