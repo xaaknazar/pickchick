@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { assets } from '../assets';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
+import { fixedText } from './Body';
 import { Icon } from './Icon';
 import { motion, useEnter, useLoop } from './motion';
 import { armReveal, trackRevealTile } from './reveal';
@@ -24,6 +25,7 @@ export function DiningModeTitle({ children }: { children?: ReactNode }) {
       }}
     >
       <Text
+        {...fixedText}
         accessibilityRole="header"
         style={{
           fontFamily: fonts.black,
@@ -57,7 +59,8 @@ export function DiningModeCard({
   const reduced = useMotionPreference();
   const t = copy(locale);
   const here = mode === 'dine_in';
-  const tint = here ? colors.blue : colors.orangeCta;
+  // Design 02: brand blue and brand orange #FF6900 slabs.
+  const tint = here ? colors.blue : colors.orange;
   const rise = useEnter(here ? 90 : 180, 620);
   // Prototype `chefIn` (700 ms, spring curve): slides in from 120 pt at 8deg, overshoots.
   const chef = useEnter(here ? 320 : 420, 700, 'spring');
@@ -202,11 +205,12 @@ export function DiningModeCard({
             height: v(44),
             paddingHorizontal: v(18),
             borderRadius: 999,
-            backgroundColor: here ? 'rgba(255,255,255,.18)' : colors.orangeInk,
+            backgroundColor: here ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.22)',
             justifyContent: 'center',
           }}
         >
           <Text
+            {...fixedText}
             style={{
               fontFamily: fonts.heavy,
               fontSize: v(15),
@@ -222,6 +226,7 @@ export function DiningModeCard({
           style={{ position: 'absolute', left: v(44), bottom: v(44), right: v(44), gap: v(10) }}
         >
           <Text
+            {...fixedText}
             numberOfLines={1}
             adjustsFontSizeToFit
             style={{
@@ -236,6 +241,7 @@ export function DiningModeCard({
             {here ? t.here : t.togo}
           </Text>
           <Text
+            {...fixedText}
             style={{
               fontFamily: fonts.body,
               fontSize: v(28),

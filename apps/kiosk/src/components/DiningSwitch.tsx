@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { copy, type Locale } from '../i18n';
 import type { KioskMode } from '../model';
 import { colors, fonts, useMetrics } from '../theme';
+import { fixedText } from './Body';
 import { Icon } from './Icon';
 import { useTimingTo } from './motion';
 const modes: KioskMode[] = ['dine_in', 'takeaway'];
 /**
- * v3 menu-header dining switch (prototype `#eat`): "В зале / С собой" on a dark
- * glass track; the orange pill glides to the chosen side (380 ms --spring).
- * Both sides share the wider label's width so only the pill's position moves.
- * The choice shows at once; `onChange` saves it.
+ * v3 menu-header dining switch (prototype `#eat`): two segments "В зале / С собой"
+ * on a dark glass track (240x52, radius 26, white .2 inset line); the #FF6900 pill
+ * (44 high, radius 22) glides to the chosen side (380 ms --spring). Both sides
+ * share the wider label's width (at least half the drawn track) so only the
+ * pill's position moves. The choice shows at once; `onChange` saves it.
  */
 export function DiningSwitch({
   mode,
@@ -26,7 +29,7 @@ export function DiningSwitch({
   onChange: (mode: KioskMode) => unknown;
   testID?: string;
 }) {
-  const { v } = useMetrics();
+  const { v, px } = useMetrics();
   const t = copy(locale);
   const [chosen, setChosen] = useState(mode);
   const [seen, setSeen] = useState(mode);
@@ -35,7 +38,9 @@ export function DiningSwitch({
     setChosen(mode);
   }
   const [natural, setNatural] = useState<[number, number]>([0, 0]);
-  const span = natural[0] && natural[1] ? Math.max(natural[0], natural[1]) : 0;
+  // Drawn track 240 = 4 + 2 x 115 + 2 + 4; longer (Kazakh) labels widen both halves.
+  const half = v(115);
+  const span = natural[0] && natural[1] ? Math.max(natural[0], natural[1], half) : 0;
   const label = (m: KioskMode) => (m === 'dine_in' ? t.hereChip : t.togo);
   return (
     <View
@@ -84,9 +89,9 @@ export function DiningSwitch({
               );
           }}
           style={{
-            minWidth: span || undefined,
+            minWidth: span || half,
             height: v(44),
-            paddingHorizontal: v(14),
+            paddingHorizontal: v(12),
             borderRadius: v(22),
             flexDirection: 'row',
             alignItems: 'center',
@@ -94,12 +99,22 @@ export function DiningSwitch({
             gap: v(6),
           }}
         >
-          <Icon
-            name={m === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline'}
-            size="small"
-            tone="inverse"
-          />
-          <Text style={{ fontFamily: fonts.heavy, fontSize: v(14), color: colors.white }}>
+          {m === 'dine_in' ? (
+            // Design 🍴: upright fork and knife (Ionicons only has them crossed).
+            <MaterialCommunityIcons
+              name="silverware-fork-knife"
+              size={px(20)}
+              color={colors.white}
+              accessible={false}
+            />
+          ) : (
+            <Icon name="bag-handle-outline" size="small" tone="inverse" />
+          )}
+          <Text
+            {...fixedText}
+            numberOfLines={1}
+            style={{ fontFamily: fonts.heavy, fontSize: v(14), color: colors.white }}
+          >
             {label(m).toUpperCase()}
           </Text>
         </Pressable>
@@ -121,7 +136,7 @@ function Pill({ span, offset }: { span: number; offset: number }) {
         bottom: v(4),
         width: span,
         borderRadius: v(22),
-        backgroundColor: colors.orangeInk,
+        backgroundColor: colors.orange,
         transform: [{ translateX: x }],
       }}
     />
