@@ -130,7 +130,8 @@ test('password transport uses no bearer and generic401, honors rate delay and ac
       assert.equal(path, '/edge/v1/staff/login');
       assert.equal(init.method, 'POST');
       assert.equal(init.redirect, 'error');
-      assert.equal(init.credentials, 'omit');
+      // Managed identity is an HttpOnly same-origin cookie, never a JS bearer.
+      assert.equal(init.credentials, 'same-origin');
       assert.equal(init.headers.Authorization, undefined);
       return new Response('{"private":"ignored"}', { status: 401 });
     };
