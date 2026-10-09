@@ -55,8 +55,8 @@
 
 ## Порядок безопасного выпуска
 
-Нужен отдельный проверенный профиль для перехода текущей установленной Windows
-схемы019 на020. Существующий `update-native-unified-menu.ps1` закреплён на другом
+Переход Windows схемы019 на020 реализован отдельным профилем
+`infra/windows/update-native-device-access.ps1`; его установка ещё не выполнена. Существующий `update-native-unified-menu.ps1` закреплён на другом
 переходе; нельзя подменять его доказательства или отключать проверки для этой задачи.
 Новый профиль до живой установки обязан сохранить следующие шаги:
 
@@ -165,3 +165,120 @@ python3 infra/staging/release-device-access.py enable $SOURCE $PINS --ssh-key "$
 ждут ранее отправленные записи перед проверкой пустоты всех новых Devices таблиц.
 После реальных кодов/привязок требуется отдельный план восстановления, чтобы
 не потерять принятые команды и ограничения managed-терминалов.
+
+## Windows: schema019 -> 020, KitchenLink и отдельный mailbox
+
+Операторы рассчитаны на фактически установленный `edge-23fb39e/app` (полный SHA
+`23fb39e152fccaa97a32e9bf179c2d89a50dc1d5`) и ровно19 миграций. Другой baseline
+требует нового просмотра, а не замены константы во время установки. Использовать
+один итоговый опубликованный SHA с полной зелёной Foundation CI для cloud, runtime
+и KitchenLink. Сейчас эти операторы проверены локально, Windows установка pending.
+
+Пакеты собираются из чистого итогового checkout:
+
+```sh
+python3 scripts/build-windows-edge-runtime.py --output .local/device-access-runtime.zip
+pnpm --filter @pickchick/kitchen build
+node infra/kitchen-portal/package.mjs
+```
+
+На Windows операторский каталог содержит exact bytes новых трёх PS файлов и
+закреплённых зависимостей `install-native-foundation.ps1`, `update-native-service.ps1`,
+`update-native-unified-menu.ps1`, `install-native-menu-sync.ps1`,
+`reviewed-env-bytes.ps1`. Последний включён из коммита86584357, его SHA проверяется
+при Activate. Исторические helpers не изменены. Установщик отдельно сверяет свой
+SHA с записью внутри runtime archive. `inputs.json` связывает staged manifest с
+проверенным ZIP/CI/branch/device. Node/WinSW/Postgres берутся из прежнего foundation.
+Запускать elevated x64 Windows PowerShell5.1; файлы операторов ASCII, конфигурация
+смешанных CRLF/LF сохраняется побайтово. Перед каждой мутацией брать свежий Inspect,
+сохранять только приватные JSON proofs и штатную общую maintenance lease.
+
+В следующих командах `$R` - просмотренная hashtable с SourceCommit, RuntimeArchive,
+RuntimeSha256, BackupManifest, CiProof, BranchId, DeviceId; `$W` - ReleaseName
+`edge-<sha7>`, SourceCommit, BranchId, DeviceId, CiProof, BackupManifest. Нельзя
+передавать секреты в аргументах. Каждый mutating режим без `-Apply` выполняет план.
+
+```powershell
+# Backup019: новый уникальный protected каталог, backup + полное восстановление
+# во временную БД. Helper и ledger брать вместе из итогового source.
+& $Node $BackupHelper $FoundationTools $PgBin $FreshBackupDir $BranchId schema019
+# $R.BackupManifest указывает на фактический backup-manifest.json этого запуска.
+.\update-native-device-access.ps1 -Mode Inspect @R
+.\update-native-device-access.ps1 -Mode Stage @R -Apply
+.\update-native-device-access.ps1 -Mode Prepare @R
+.\update-native-device-access.ps1 -Mode Prepare @R -Apply
+# После020 нужен НОВЫЙ backup/restore с schema020, затем обновить обе hashtable.
+& $Node $BackupHelper $FoundationTools $PgBin $FreshBackup020Dir $BranchId schema020
+.\update-native-device-access.ps1 -Mode Switch @R
+.\update-native-device-access.ps1 -Mode Switch @R -Apply
+.\update-native-device-access.ps1 -Mode Verify @R
+.\install-native-device-access.ps1 -Mode Install @W
+.\install-native-device-access.ps1 -Mode Install @W -Apply
+```
+
+Prepare останавливает только Edge и прежних его writers/dependents, применяет020
+через owner transaction, затем восстанавливает службы. Проверяются прежние строки,
+последовательности, immutable ledger, права других ролей, пустота новых таблиц.
+Новая роль получает только CONNECT к своей БД и canonical mailbox ACL. Отдельный
+реальный вход доказывается до migration COMMIT; CREATE/TEMP и права чтения заказов
+или password verifier запрещены. Пароли существующих ролей не меняются. Switch
+меняет только Edge XML; POS, fulfillment/menu worker binaries и identity сохраняются.
+Новый mailbox устанавливается LocalService Manual+Stopped, флаги выключены.
+Postgres и tunnel не перезапускаются. Полные живые проверки могут занять минуты;
+согласованное окно остановки необходимо перед Prepare/Switch/Activate.
+
+KitchenLink обновляется отдельно. `$L` содержит PackageDirectory, ManifestSha256
+для agent-package.json, SourceCommit, CiProof, HelpersDirectory. Inspect JSON
+сохраняется в приватный `$LinkPlan` без CLIXML/служебного stdout; его фактический
+SHA передаётся далее. План связывает весь текущий binary tree, config/XML и машину.
+
+```powershell
+.\update-agent.ps1 -Mode Inspect @L
+.\update-agent.ps1 -Mode Update @L -PlanFile $LinkPlan -PlanSha256 $LinkPlanHash
+.\update-agent.ps1 -Mode Update @L -PlanFile $LinkPlan -PlanSha256 $LinkPlanHash -Apply
+.\update-agent.ps1 -Mode Verify @L -PlanFile $LinkPlan -PlanSha256 $LinkPlanHash
+# Сохранить actual Verify JSON как $LinkProof, посчитать $LinkHash.
+.\install-native-device-access.ps1 -Mode Verify @W -LinkProof $LinkProof -LinkProofSha256 $LinkHash
+```
+
+Обновляются ровно `infra/kitchen-portal/agent.mjs`, `infra/kitchen-portal/link.mjs`,
+`apps/kitchen/server.mjs`, `apps/kitchen/terminal-cookie.mjs`. До остановки только
+KitchenLink сохраняется полный прежний каталог, private config и выполняется
+побайтовое восстановление в отдельный каталог. Config/key/XML не меняются.
+Verify проверяет hashes, SCM и фактический Node child; это не подтверждение WAN ACK.
+Полученный `pickchick-device-access-prepared-v1` содержит schema020, actual runtime/
+grants и `link.files` из этих четырёх файлов. Worker установлен, но ещё остановлен.
+
+После cloud `enable` и получения actual `pickchick-device-access-cloud-enabled-v1`:
+
+```powershell
+# $A добавляет LinkProof/LinkProofSha256, CloudProof/CloudProofSha256 и точный
+# ExpectedEdgeEnvSha256 к $W. Просмотреть новый план перед Apply.
+.\install-native-device-access.ps1 -Mode Activate @A
+.\install-native-device-access.ps1 -Mode Activate @A -Apply
+.\install-native-device-access.ps1 -Mode Ready @A
+```
+
+Activate сохраняет private backup/intent, меняет только EDGE_DEVICE_ACCESS_ENABLED
+и флаг отдельного mailbox, перезапускает Edge с прежними зависимыми службами,
+запускает новый worker Automatic. Итог `pickchick-device-access-ready-v1` связывает
+тот же SHA, branch/device, schema020, worker script SHA и KitchenLink files.
+Подтверждение доставки команд и portal opt-in - следующие самостоятельные шаги;
+ready proof не создаёт ни pairing/reset-кодов, ни заказов, ни платежей.
+
+При известном отказе файл CAS возвращает только наши точные old/new bytes;
+постороннее изменение сохраняется для разбора. KitchenLink `Rollback -Apply`
+использует тот же plan/hash и проверенный полный backup до закрытия службы. Его
+результат явно сообщает восстановление старых файлов, не готовность новой версии.
+При неизвестном COMMIT, потере ответа или отсутствующем Prepare.json не повторять
+Prepare: сохранить вывод/lease evidence, читать ledger/grants/готовность и составлять
+отдельное восстановление фактического состояния. Production restore/down-migration
+не выполнять. Новый runtime нельзя откатить при любом managed local_terminal;
+для этого потребуется отдельное guarded завершение привязок и сессий. Отключение
+флага само по себе не разрешает старый runtime.
+
+Адресные проверки операторов: PostgreSQL18 upgrade/rollback/unknown-COMMIT,
+restricted CONNECT login с PUBLIC revoked, неизменность019 backup guards;
+исполняемые PowerShell tests для stage/proof/flag guards, partial CAS rollback,
+foreign bytes и смешанных CRLF/LF. Нативная PowerShell5.1 проверка, настоящие службы
+и пользовательский вход остаются частью последующей установки.

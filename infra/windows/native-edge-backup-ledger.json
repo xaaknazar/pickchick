@@ -93,5 +93,10 @@
     "version": "019_edge_remote_stops.sql",
     "checksum": "3aa628b93a642f62f50b551510a1c39c14ff278e9c47f7ba288c93ddc409f98d",
     "scope": "edge"
+  },
+  {
+    "version": "020_terminal_access.sql",
+    "checksum": "afeffbdd49c9dfaa5a3fea4be32b97aa99c45e6897f4ff0c220f9b89d02a24b6",
+    "scope": "edge"
   }
 ]
