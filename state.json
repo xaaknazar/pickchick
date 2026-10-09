@@ -3430,7 +3430,6 @@
       "scopes": [
         "docs/operations/kiosk-kaspi-qr.md",
         "db/cloud/migrations/043_cloud_kiosk_kaspi_qr.sql",
-        "packages/commerce-core/src/index.ts",
         "packages/commerce-core/src/kiosk-sessions.ts",
         "packages/commerce-core/package.json",
         "packages/commerce-core/tests/kiosk-sessions.postgres.test.mjs",
@@ -3462,7 +3461,8 @@
       "head": "a9a5d4d249f97748a88fa73b014dff488b7232a7",
       "updatedAt": "2026-10-09T10:43:52.611Z",
       "summary": "PR205, checkpoint a9a5d4d249f97748a88fa73b014dff488b7232a7 published and fast-forwarded into shared. Native 0.1.0 (6), exact source 2d825d6, installed/launched over build5 on iPad Air13 M3/iPadOS18.7.8 with saved enrollment. Physical XCTest1/1 menu/product/geometry passed; screenshots and hashes in docs/operations/images/kiosk-payment-options/native-build6. Local pnpm check148, kiosk85, PG33, Storybook102/Axe0, browser2methods/3sizes passed. CI37632608069: 10 substantive jobs success, final aggregate failure because Actions budget prevented runner; UI library push+PR success. Owner explicitly approved only this native installation exception. VPS/bank unchanged; no real QR/invoice/order/payment created. Runtime VPS scopes released unused; code/device scopes retained for continuation. Shared status/roadmap and online roadmap remain reserved by other tasks.",
-      "nextAction": "Read docs/operations/kiosk-payment-options.md and claim this task from the published checkpoint. Installed build6; no reinstall/enrollment reset needed. Bank activation still pending: restore complete release CI after Actions budget is resolved, freshly claim needed VPS scopes, build and test release profile against actual finance API/public778a718/schema044 with backup/restore/lock, deliver exact immutable catalogv3 and obtain real edge ACK (old menuv1 items differ; no synthetic SQL ACK), configure QR account/worker/bridge and invoice worker PII support. Windows trusted SSH timed out before authentication; portal edgeConnected alone is insufficient. Prepare concrete control QR100KZT, obtain explicit owner authorization before bank creation, owner pays himself; then native phone keyboard/QR/recovery/kitchen acceptance. Preserve fiscal pilot cap and all mobile accounts/session/keys. Copy installation facts separately into shared status/roadmap when their owners release them; online roadmap not updated. No exception granted for server deployment/main/bank/billing. 2026-10-08: owner requested replacement drink photographs in this same chat; assets.ts and components transferred to kiosk-drink-photos for this UI-only stage. Payment/device/server scopes retained. 2026-10-08: owner explicitly requested v3 launch in the same chat; overlapping kiosk UI, checkout, QR bridge/worker and device scopes transferred to kiosk-v3-launch. Preserve prior build6 proof. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred tests/kiosk/browser_ui.py, tests/kiosk/enrollment.test.mjs, tests/kiosk/guest-core.test.mjs, tests/kiosk/ios/SmokeTests.swift, tests/kiosk/qr.test.mjs, tests/kiosk/verification/2026-10-07/README.md, tests/kiosk/verification/2026-10-07/enroll-820x1180.png, tests/kiosk/verification/2026-10-07/payment-820x1180.png, tests/kiosk/verification/2026-10-07/review-820x1180.png, tests/kiosk/commercial-core.test.mjs, tests/kiosk/payment-methods.test.mjs, tests/kiosk/browser_payment_options.py, tests/kiosk/catalog-delivery.postgres.test.mjs to kiosk-build11-release. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
+      "nextAction": "Read docs/operations/kiosk-payment-options.md and claim this task from the published checkpoint. Installed build6; no reinstall/enrollment reset needed. Bank activation still pending: restore complete release CI after Actions budget is resolved, freshly claim needed VPS scopes, build and test release profile against actual finance API/public778a718/schema044 with backup/restore/lock, deliver exact immutable catalogv3 and obtain real edge ACK (old menuv1 items differ; no synthetic SQL ACK), configure QR account/worker/bridge and invoice worker PII support. Windows trusted SSH timed out before authentication; portal edgeConnected alone is insufficient. Prepare concrete control QR100KZT, obtain explicit owner authorization before bank creation, owner pays himself; then native phone keyboard/QR/recovery/kitchen acceptance. Preserve fiscal pilot cap and all mobile accounts/session/keys. Copy installation facts separately into shared status/roadmap when their owners release them; online roadmap not updated. No exception granted for server deployment/main/bank/billing. 2026-10-08: owner requested replacement drink photographs in this same chat; assets.ts and components transferred to kiosk-drink-photos for this UI-only stage. Payment/device/server scopes retained. 2026-10-08: owner explicitly requested v3 launch in the same chat; overlapping kiosk UI, checkout, QR bridge/worker and device scopes transferred to kiosk-v3-launch. Preserve prior build6 proof. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred tests/kiosk/browser_ui.py, tests/kiosk/enrollment.test.mjs, tests/kiosk/guest-core.test.mjs, tests/kiosk/ios/SmokeTests.swift, tests/kiosk/qr.test.mjs, tests/kiosk/verification/2026-10-07/README.md, tests/kiosk/verification/2026-10-07/enroll-820x1180.png, tests/kiosk/verification/2026-10-07/payment-820x1180.png, tests/kiosk/verification/2026-10-07/review-820x1180.png, tests/kiosk/commercial-core.test.mjs, tests/kiosk/payment-methods.test.mjs, tests/kiosk/browser_payment_options.py, tests/kiosk/catalog-delivery.postgres.test.mjs to kiosk-build11-release. Preserve previous checkpoints; bank QR production behavior accepted and frozen.",
+      "next": "Owner handed continued mobile/device work to Codex; payment behavior preserved."
     },
     {
       "id": "ceo-login",
@@ -3656,7 +3656,6 @@
         "packages/catalog-admin/package.json",
         "services/api/src/catalog-image-encoder.ts",
         "services/api/package.json",
-        "pnpm-lock.yaml",
         "tests/unit/catalog-assets.test.mjs",
         "tests/integration/catalog-assets.test.mjs",
         "tests/backoffice/unified-menu-browser.test.mjs",
@@ -3672,7 +3671,8 @@
       "status": "active",
       "head": "cd7ffa66044b610cec630786bac11570851b86d1",
       "updatedAt": "2026-10-09T10:43:52.611Z",
-      "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/catalog-admin/src/index.ts, services/api/src/index.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
+      "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/catalog-admin/src/index.ts, services/api/src/index.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen.",
+      "next": "Owner handed continued mobile/device work to Codex; payment behavior preserved."
     },
     {
       "id": "kaspi-qr-pending",
@@ -3754,12 +3754,14 @@
         "apps/mobile/src/components/CartShortcut.tsx",
         "apps/mobile/src/components/CatalogChangeNotice.tsx",
         "apps/mobile/src/components/CartLinePrice.tsx",
-        "tests/mobile/cart-reprice.test.mjs"
+        "tests/mobile/cart-reprice.test.mjs",
+        "packages/commerce-core/src/index.ts",
+        "pnpm-lock.yaml"
       ],
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "status": "active",
-      "updatedAt": "2026-10-09T10:56:40.437Z"
+      "updatedAt": "2026-10-09T11:11:45.541Z"
     },
     {
       "id": "devices-access",
