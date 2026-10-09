@@ -3785,11 +3785,16 @@
         "apps/backoffice/src/api.ts",
         "apps/backoffice/server.mjs",
         "tests/backoffice/devices-model.test.mjs",
-        "docs/architecture/adr/0013-device-access.md"
+        "docs/architecture/adr/0013-device-access.md",
+        "packages/backoffice-core/src/device-registry.ts",
+        "packages/backoffice-core/src/device-transport.ts",
+        "tests/unit/device-access.test.mjs",
+        "tests/integration/device-access.test.mjs",
+        "apps/backoffice/src/components/DeviceAccessView.ts"
       ],
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T10:57:01.911Z"
+      "updatedAt": "2026-10-09T10:57:35.933Z"
     }
   ]
 }
