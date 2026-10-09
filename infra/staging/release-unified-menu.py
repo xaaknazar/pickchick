@@ -425,6 +425,18 @@ def gateway_candidate(text, expected_hash):
     return gateway_storefront(gateway_stops(gateway_media(text)))
 
 
+def caddy_validation_command(path):
+    """Match the pinned Caddy file capability without granting network or filesystem access."""
+    # The official binary has cap_net_bind_service=ep; dropping it from the bounding set
+    # prevents exec even for offline validation. --mount refuses a missing source instead
+    # of creating a directory as Docker -v does; refuse non-files and symlinks first.
+    return ('test -f ' + quote(path) + ' && test ! -L ' + quote(path) +
+            ' && docker run --rm --network none --read-only --cap-drop ALL --cap-add NET_BIND_SERVICE '
+            '--security-opt no-new-privileges:true --tmpfs /tmp --tmpfs /config --tmpfs /data '
+            '--entrypoint caddy --mount ' + quote('type=bind,source=' + path + ',target=/tmp/Caddyfile,readonly') +
+            ' ' + CADDY + ' validate --config /tmp/Caddyfile --adapter caddyfile')
+
+
 class Release(market.Release):
     """Remote effects go through market.Release (ssh, psql, private evidence, shared lock)."""
 
@@ -638,10 +650,7 @@ with open(new,'x') as output:
         self.write_remote(new + '/compose.yaml', json.dumps(relocate_public_mounts(web, old, new)))
         self.write_remote(new + '/gateway.Caddyfile', base['gateway'], public=True)
         self.remote(market.web_compose(self.sha) + ' config --quiet')
-        self.remote('docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true '
-                    '--tmpfs /tmp --tmpfs /config --tmpfs /data --entrypoint caddy -v ' +
-                    quote(new + '/gateway.Caddyfile:/tmp/Caddyfile:ro') + ' ' + CADDY +
-                    ' validate --config /tmp/Caddyfile --adapter caddyfile', timeout=45)
+        self.remote(caddy_validation_command(new + '/gateway.Caddyfile'), timeout=45)
         return {'image_id': image, 'archive_sha256': digest(archive), 'gateway_sha256': digest(base['gateway'].encode()),
                 'compose_sha256': digest(base['compose'].encode())}
 
