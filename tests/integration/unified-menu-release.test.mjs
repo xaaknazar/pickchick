@@ -1,3 +1,4 @@
+/* global structuredClone */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -9,6 +10,7 @@ import { createPool, migrate } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { backofficeGrants } from '../../infra/staging/backoffice-grants.mjs';
 import { catalogAdminGrants } from '../../infra/staging/catalog-admin-grants.mjs';
+import { CatalogAdmin, provisionCatalogManager } from '../../packages/catalog-admin/dist/index.js';
 import {
   OwnerGuardError,
   UNIFIED_MENU_MIGRATIONS,
@@ -16,6 +18,7 @@ import {
   deployUnifiedMenu,
   inspectUnifiedMenu,
   setUnifiedMenuFlag,
+  runtimePrivileges,
 } from '../../infra/staging/unified-menu-owner.mjs';
 
 const MIGRATIONS = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
@@ -99,7 +102,11 @@ async function baseline(t) {
   await pool.query(catalogAdminGrants(role, true));
   await pool.query(backofficeGrants(role, true));
   await pool.query(`GRANT SELECT,INSERT,UPDATE ON cloud_branch_availability TO ${role}`);
-  return { pool, role, branch, device, analyst, url: url.toString() };
+  await pool.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role};
+    GRANT SELECT ON menu_releases,menu_streams,outbox_events,catalog_menu_deliveries,
+      branch_menu_activations,inbox_messages TO ${role};
+    GRANT UPDATE(id) ON branches,devices TO ${role};`);
+  return { pool, role, org, branch, device, analyst, url: url.toString() };
 }
 
 async function inTransaction(pool, run) {
@@ -225,10 +232,174 @@ test('each flag grants and revokes exactly its own privileges', async (t) => {
   const off = await flag('media-upload', false);
   assert.deepEqual(off.privilegesRemoved, media.privilegesAdded);
   assert.deepEqual(off.privilegesAdded, []);
-  await assert.rejects(flag('edge-publication', true), OwnerGuardError);
+  assert.deepEqual(
+    (await flag('edge-publication', true)).privilegesAdded,
+    [
+      'catalog_menu_deliveries||INSERT',
+      'menu_releases||INSERT',
+      'menu_streams|last_sequence|UPDATE',
+      'menu_streams||INSERT',
+      'outbox_events||INSERT',
+    ].sort(),
+  );
+  assert.deepEqual((await flag('edge-publication', false)).privilegesRemoved, []);
   // Remote stops need the fulfillment transport on the runtime role.
   await db.pool.query(`REVOKE UPDATE ON cloud_branch_availability FROM ${db.role}`);
   await assert.rejects(flag('remote-stops', true), /fulfillment transport/);
+});
+
+test('release grants let the restricted API publish atomically, replay and retain delivery reads when disabled', async (t) => {
+  const db = await baseline(t);
+  const dir = await directory(t);
+  await inTransaction(db.pool, (c) => deployUnifiedMenu(c, { directory: dir, role: db.role }));
+  const manager = await provisionCatalogManager(db.pool, {
+    organization_id: db.org,
+    name: 'Publication regression',
+    branch_ids: [db.branch],
+  });
+  await db.pool.query("UPDATE devices SET status='active' WHERE id=$1", [db.device]);
+  await db.pool.query(
+    "INSERT INTO bo_access_grants(actor_id,branch_id,role) VALUES($1,$2,'manager')",
+    [manager.actor_id, db.branch],
+  );
+  await db.pool.query(
+    'INSERT INTO edge_menu_state(branch_id,device_id,active_release_id,active_version) VALUES($1,$2,$3,2)',
+    [db.branch, db.device, randomUUID()],
+  );
+  await db.pool.query(
+    'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+    [db.branch, db.org, db.device, randomUUID()],
+  );
+  const options = { enabled: true, enforceRoles: true, edgePublicationBranchId: db.branch };
+  const ownerService = new CatalogAdmin(db.pool, options);
+  let state = await ownerService.seed(manager.token, db.branch, {
+    expected_revision: 0,
+    request_id: randomUUID(),
+  });
+  const payload = structuredClone(state.draft.payload);
+  payload.content_reviewed = true;
+  state = await ownerService.save(manager.token, db.branch, {
+    expected_revision: state.draft.revision,
+    request_id: randomUUID(),
+    payload,
+  });
+  const url = new URL(db.url);
+  url.searchParams.set('options', url.searchParams.get('options') + ` -c role=${db.role}`);
+  const runtime = createPool(url.toString(), 2);
+  try {
+    const service = new CatalogAdmin(runtime, options);
+    const request = {
+      expected_revision: state.draft.revision,
+      expected_published_version: 0,
+      request_id: randomUUID(),
+      confirmation: 'publish_catalog',
+    };
+    // This is the production failure: owner migrations passed, but the API cannot INSERT a release.
+    await assert.rejects(
+      service.publish(manager.token, db.branch, request),
+      (e) => e.code === '42501',
+    );
+    for (const table of [
+      'catalog_publications',
+      'menu_releases',
+      'menu_streams',
+      'outbox_events',
+      'catalog_menu_deliveries',
+    ])
+      assert.equal((await db.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n, 0);
+    const failed = await ownerService.read(manager.token, db.branch);
+    assert.equal(failed.draft.revision, state.draft.revision);
+    assert.equal(failed.published, null);
+    assert.equal(
+      (
+        await db.pool.query(
+          'SELECT count(*)::int n FROM catalog_command_receipts WHERE request_id=$1',
+          [request.request_id],
+        )
+      ).rows[0].n,
+      0,
+    );
+    const before = await runtimePrivileges(db.pool, db.role);
+    const result = await inTransaction(db.pool, (c) =>
+      setUnifiedMenuFlag(c, { role: db.role, flag: 'edge-publication', enabled: true }),
+    );
+    assert.deepEqual(result.privilegesRemoved, []);
+    assert.deepEqual(
+      result.privilegesAdded,
+      [
+        'catalog_menu_deliveries||INSERT',
+        'menu_releases||INSERT',
+        'menu_streams|last_sequence|UPDATE',
+        'menu_streams||INSERT',
+        'outbox_events||INSERT',
+      ].sort(),
+    );
+    const published = await service.publish(manager.token, db.branch, request);
+    assert.equal(published.published.version, 1);
+    assert.equal(published.edge_delivery.status, 'pending');
+    assert.equal(published.edge_delivery.menu_version, 3);
+    assert.deepEqual(await service.publish(manager.token, db.branch, request), published);
+    assert.equal(
+      (
+        await db.pool.query(
+          'SELECT count(*)::int n FROM catalog_command_receipts WHERE request_id=$1',
+          [request.request_id],
+        )
+      ).rows[0].n,
+      1,
+    );
+    for (const table of [
+      'catalog_publications',
+      'menu_releases',
+      'menu_streams',
+      'outbox_events',
+      'catalog_menu_deliveries',
+    ])
+      assert.equal((await db.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n, 1);
+    assert.equal(
+      (await db.pool.query('SELECT last_sequence FROM menu_streams')).rows[0].last_sequence,
+      '1',
+    );
+    for (const sql of [
+      'UPDATE menu_releases SET version=version',
+      'DELETE FROM menu_releases',
+      'UPDATE menu_streams SET producer_id=producer_id',
+      'UPDATE outbox_events SET payload=payload',
+      'DELETE FROM catalog_menu_deliveries',
+      'CREATE TABLE forbidden(id integer)',
+    ])
+      await assert.rejects(runtime.query(sql), (e) => e.code === '42501');
+    await inTransaction(db.pool, (c) =>
+      setUnifiedMenuFlag(c, { role: db.role, flag: 'edge-publication', enabled: false }),
+    );
+    assert.deepEqual(
+      await runtimePrivileges(db.pool, db.role),
+      [...before, ...result.privilegesAdded].sort(),
+    );
+    assert.equal((await service.read(manager.token, db.branch)).edge_delivery.status, 'pending');
+  } finally {
+    await runtime.end();
+  }
+});
+
+test('publication grant step refuses missing read or row-lock baseline without adding writes', async (t) => {
+  const db = await baseline(t);
+  const dir = await directory(t);
+  await inTransaction(db.pool, (c) => deployUnifiedMenu(c, { directory: dir, role: db.role }));
+  const enable = () =>
+    inTransaction(db.pool, (c) =>
+      setUnifiedMenuFlag(c, { role: db.role, flag: 'edge-publication', enabled: true }),
+    );
+  await db.pool.query(`REVOKE SELECT ON menu_releases FROM ${db.role}`);
+  await assert.rejects(enable(), /read grant missing: menu_releases/);
+  await db.pool.query(
+    `GRANT SELECT ON menu_releases TO ${db.role}; REVOKE UPDATE(id) ON branches FROM ${db.role}`,
+  );
+  await assert.rejects(enable(), /row-lock grant missing: branches/);
+  assert.equal(
+    (await runtimePrivileges(db.pool, db.role)).includes('menu_releases||INSERT'),
+    false,
+  );
 });
 
 test('ledger drift, unreviewed migrations and data edits are refused and rolled back', async (t) => {

@@ -115,7 +115,8 @@ class Fake(r.Release):
         self.compose = r.compose_candidate(installed_compose(), r.digest(installed_compose().encode()))
         self.base_env = {'APP_ENV': r.digest(b'staging'), 'CLOUD_DATABASE_URL': r.digest(b'postgresql://synthetic')}
         self.env = env_for(self.compose, self.base_env)
-        self.grants = {r.acl_key(x) for x in ACL_BASE} | r.deploy_acl(True)
+        self.grants = ({r.acl_key(x) for x in ACL_BASE} | r.deploy_acl(True) |
+                       r.EDGE_PUBLICATION_READ | {('branches', 'id', 'UPDATE'), ('devices', 'id', 'UPDATE')})
         self.coverage_missing, self.snapshot, self.beat = 0, edge(), None
         self.fail_up = False
 
@@ -655,7 +656,10 @@ class Phases(unittest.TestCase):
             moved.run()
         release, _ = step('edge-publication', apply=True)
         self.assertEqual(release.env[r.BRANCH_KEY], r.digest(BRANCH.encode()))
-        self.assertNotIn(('owner', ('flag', 'edge-publication', 'true')), release.calls)
+        self.assertIn(('owner', ('flag', 'edge-publication', 'true')), release.calls)
+        self.assertTrue(r.EDGE_PUBLICATION_WRITE <= state['grants'])
+        order = [c for c in release.calls if c[0] in ('owner', 'write')]
+        self.assertEqual(order[0], ('owner', ('flag', 'edge-publication', 'true')))
         release, _ = step('remote-stops', apply=True)
         self.assertIn(('cloud_stop_commands', None, 'INSERT'), state['grants'])
         self.assertIn(('owner', ('flag', 'remote-stops', 'true')), release.calls)
@@ -692,6 +696,48 @@ class Phases(unittest.TestCase):
         self.assertEqual(release.compose, before_compose)
         self.assertEqual(release.grants, before_grants)
         self.assertFalse((Path(self.tmp.name) / 'phase-remote-stops.json').exists())
+
+    def test_publication_refuses_missing_reads_before_any_flag_effect(self):
+        self.record('deploy')
+        self.record('access-roles')
+        self.record('verify-edge', edge=r.check_edge_state(edge(), BRANCH), head_version=5)
+        release = self.release('edge-publication', apply=True)
+        release.compose = r.compose_flag(release.compose, 'access-roles', True)
+        release.env = env_for(release.compose, release.base_env)
+        release.grants.remove(('menu_releases', None, 'SELECT'))
+        with self.assertRaisesRegex(GuardFailure, 'runtime privileges missing'):
+            release.run()
+        self.assertEqual(release.calls, [])
+
+    def test_publication_proves_each_write_before_enabling_and_rechecks_completed_flag(self):
+        for missing in r.EDGE_PUBLICATION_WRITE:
+            with self.subTest(missing=missing):
+                release = self.release('edge-publication', apply=True)
+                original = release.owner
+                def incomplete_owner(*argv, sha=None):
+                    result = original(*argv, sha=sha)
+                    release.grants.discard(missing)
+                    return result
+                release.owner = incomplete_owner
+                with self.assertRaisesRegex(GuardFailure, 'Runtime privileges do not match'):
+                    release.switch_flag('edge-publication', True, release.env)
+                self.assertEqual(r.flag_environment(release.env)['edge-publication'], 'false')
+        self.record('deploy')
+        self.record('edge-publication')
+        release = self.release('edge-publication', apply=True)
+        release.compose = r.compose_flag(release.compose, 'edge-publication', True, BRANCH)
+        release.env = env_for(release.compose, release.base_env)
+        with self.assertRaisesRegex(GuardFailure, 'runtime privileges missing'):
+            release.run()
+        self.assertEqual(release.calls, [])
+
+    def test_disabling_publication_preserves_shared_menu_acl(self):
+        release = self.release('edge-publication', apply=True)
+        release.switch_flag('edge-publication', True, release.env)
+        before = set(release.grants)
+        release.switch_flag('edge-publication', False, release.env)
+        self.assertEqual(release.grants, before)
+        self.assertEqual(r.flag_environment(release.env)['edge-publication'], 'false')
 
     def test_remote_stops_needs_protocol4_heartbeat(self):
         for phase in ['deploy', 'access-roles', 'verify-edge', 'edge-publication']:
