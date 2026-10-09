@@ -309,7 +309,13 @@ export class KioskKaspiQrProcessor {
     );
     const id = answer.kind === 'ok' ? operationId(answer.data.QrOperationId) : null;
     const qr = answer.kind === 'ok' ? payload(answer.data.QrToken) : null;
-    const bound = answer.kind === 'ok' && kaspiMinor(answer.data.Amount) === row.amount_minor;
+    // The create answer reports Amount 0 although the bank binds and shows the requested amount
+    // to the buyer (owner scan test, 9 Oct). Zero or absent shows the QR; any other amount that
+    // differs from the order keeps it hidden as unknown.
+    const created: Record<string, unknown> = answer.kind === 'ok' ? answer.data : {};
+    const zero =
+      !Object.hasOwn(created, 'Amount') || created.Amount === 0 || created.Amount === '0';
+    const bound = answer.kind === 'ok' && (zero || kaspiMinor(created.Amount) === row.amount_minor);
     if (id && qr) {
       // Preserve the bank identity for reconciliation even when the amount is unbound.
       // Unknown QR payloads remain hidden by readKioskQrPayment.
@@ -367,9 +373,14 @@ export class KioskKaspiQrProcessor {
       const answer = await this.client.status(row.operation_id);
       session = answer.kind === 'session';
       if (answer.kind === 'ok') {
+        const sameOperation = statusOperationId(answer.data) === row.operation_id;
+        // Real status answers (pending and final) carry no Amount: the bank shows the buyer the
+        // amount requested at create (owner scan test, 9 Oct). An Amount, when present, must
+        // equal the order; a different explicit amount never captures or fails the attempt.
         const bound =
-          statusOperationId(answer.data) === row.operation_id &&
-          kaspiMinor(answer.data.Amount) === row.amount_minor;
+          sameOperation &&
+          (!Object.hasOwn(answer.data, 'Amount') ||
+            kaspiMinor(answer.data.Amount) === row.amount_minor);
         const status = answer.data.Status;
         if (bound && status === 'Processed') await this.state(row, 'paid', lease);
         else if (
@@ -388,6 +399,7 @@ export class KioskKaspiQrProcessor {
         )
           await this.state(row, 'failed', lease);
         else if (!bound || !['QrTokenCreated', 'QrTokenScanned', 'Wait'].includes(String(status)))
+          // Pending keeps the current state; it never revives an unknown attempt.
           await this.state(row, 'unknown', lease);
       }
     }
