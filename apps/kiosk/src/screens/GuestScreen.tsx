@@ -61,6 +61,8 @@ export function GuestScreen() {
     }
     previousStep.current = liveModel.step;
   }, [liveModel.step]);
+  const setCatalogLocale = liveModel.setCatalogLocale;
+  useEffect(() => setCatalogLocale?.(locale), [locale, setCatalogLocale]);
   const openUpsell = useCallback(() => {
     if (upsellSeen.current || BigInt(liveModel.cartTotalMinor) > 1000000n) liveModel.openCart();
     else {
@@ -169,13 +171,7 @@ export function GuestScreen() {
       ) : null}
       <Dialog visible={help} onClose={() => setHelp(false)} testID="kiosk-help">
         <Heading size="title">{t.helpTitle}</Heading>
-        <Body>
-          {model.commercial
-            ? locale === 'ru'
-              ? 'Пригласите сотрудника ресторана. Если результат оплаты неизвестен, не оплачивайте повторно.'
-              : 'Мейрамхана қызметкерін шақырыңыз. Төлем нәтижесі белгісіз болса, қайта төлемеңіз.'
-            : t.helpBody}
-        </Body>
+        <Body>{model.commercial ? t.helpCommercial : t.helpBody}</Body>
         <Button label={t.close} onPress={() => setHelp(false)} />
       </Dialog>
       <Dialog visible={cancel} onClose={closeCancel} testID="kiosk-cancel-dialog">

@@ -1,28 +1,15 @@
 import { Text, View } from 'react-native';
-import { copy, type Locale } from '../i18n';
+import { Image } from 'expo-image';
+import { copy, itemCount, type Locale } from '../i18n';
 import { money } from '../cart';
 import { colors, fonts, useMetrics } from '../theme';
-import { Icon } from './Icon';
 import { useTween } from './motion';
-/** "3 позиции" / "3 позиция": Russian plural, Kazakh keeps the singular after a number. */
-export const positionsLabel = (n: number, locale: Locale) => {
-  if (locale !== 'ru') return n + ' позиция';
-  const tens = n % 100;
-  const ones = n % 10;
-  return (
-    n +
-    (tens >= 11 && tens <= 14
-      ? ' позиций'
-      : ones === 1
-        ? ' позиция'
-        : ones >= 2 && ones <= 4
-          ? ' позиции'
-          : ' позиций')
-  );
-};
+const kaspiLogo = require('../../assets/v3/kaspi.webp');
+/** "3 позиции" / "3 позиция" / "3 items" (see `itemCount`). */
+export const positionsLabel = (n: number, locale: Locale) => itemCount(n, locale);
 /**
  * v3 order total. `large` is the footer sheet: "Итого · N позиций", an optional
- * orange QR chip and the 52-pt total, which counts to each new total (prototype
+ * Kaspi QR chip (Kaspi mark) and the 52-pt total, which counts to each new total (prototype
  * `tween()`, 380 ms ease-out cubic). `regular` is the summary-card row.
  */
 export function CartTotal({
@@ -43,11 +30,7 @@ export function CartTotal({
   const { v } = useMetrics();
   const t = copy(locale);
   const large = size === 'large';
-  const amount = valid
-    ? money(total)
-    : locale === 'ru'
-      ? 'Проверьте корзину'
-      : 'Себетті тексеріңіз';
+  const amount = valid ? money(total) : t.checkCart;
   const target = valid ? Number(total) : 0;
   const counted = useTween(target);
   // Whole tenge while counting; the spoken label is always the final amount.
@@ -79,9 +62,9 @@ export function CartTotal({
           <View
             style={{
               alignSelf: 'flex-start',
-              minHeight: v(40),
+              minHeight: v(44),
               paddingLeft: v(6),
-              paddingRight: v(14),
+              paddingRight: v(16),
               borderRadius: 999,
               backgroundColor: '#F3F5FA',
               flexDirection: 'row',
@@ -89,26 +72,21 @@ export function CartTotal({
               gap: v(8),
             }}
           >
-            <View
-              style={{
-                width: v(30),
-                height: v(30),
-                borderRadius: 999,
-                backgroundColor: colors.orange,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon name="qr-code-outline" size="small" tone="inverse" />
-            </View>
+            <Image
+              source={kaspiLogo}
+              contentFit="contain"
+              accessible={false}
+              accessibilityLabel=""
+              style={{ width: v(32), height: v(32) }}
+            />
             <Text
               style={{
                 fontFamily: fonts.medium,
-                fontSize: Math.max(15, v(16)),
+                fontSize: Math.max(15, v(17)),
                 color: colors.navy,
               }}
             >
-              {t.payQR}
+              {t.payKaspiQR}
             </Text>
           </View>
         ) : null}
