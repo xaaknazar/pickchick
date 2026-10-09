@@ -19,8 +19,8 @@ branch=git('branch','--show-current')
 assert git('rev-parse','origin/'+branch)==a.sha
 assert not a.output.exists()
 assert subprocess.check_output(['node','--version'],text=True).strip()=='v'+(root/'.node-version').read_text().strip()
-assert subprocess.check_output(['pnpm','--version'],text=True).strip()==json.loads((root/'package.json').read_text())['packageManager'].split('@')[1]
-subprocess.run(['pnpm','--filter','@pickchick/backoffice','build'],cwd=root,check=True)
+assert subprocess.check_output(['corepack','pnpm','--version'],cwd=root,text=True).strip()==json.loads((root/'package.json').read_text())['packageManager'].split('@')[1]
+subprocess.run(['corepack','pnpm','--filter','@pickchick/backoffice','build'],cwd=root,check=True)
 archive=subprocess.check_output(['git','archive',a.sha,'apps/backoffice','infra/backoffice-login','infra/domains'],cwd=root)
 with tempfile.TemporaryDirectory(prefix='pickchick-ceo-') as tmp:
     stage=Path(tmp)
