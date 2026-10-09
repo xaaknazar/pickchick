@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -459,6 +460,53 @@ class Gateway(unittest.TestCase):
             r.relocate_public_mounts(config, old, new)
 
 
+class CaddyValidation(unittest.TestCase):
+    def test_offline_validator_keeps_only_caddy_file_capability(self):
+        path = '/private/owned/gateway.Caddyfile'
+        command = r.caddy_validation_command(path)
+        guard, not_symlink, container = command.split(' && ')
+        self.assertEqual(shlex.split(guard), ['test', '-f', path])
+        self.assertEqual(shlex.split(not_symlink), ['test', '!', '-L', path])
+        argv = shlex.split(container)
+        self.assertEqual(argv[:2], ['docker', 'run'])
+        for flag in ['--read-only', '--rm']:
+            self.assertIn(flag, argv)
+        self.assertEqual(argv[argv.index('--cap-drop') + 1], 'ALL')
+        self.assertEqual(argv.count('--cap-add'), 1)
+        self.assertEqual(argv[argv.index('--cap-add') + 1], 'NET_BIND_SERVICE')
+        self.assertEqual(argv[argv.index('--network') + 1], 'none')
+        self.assertEqual(argv[argv.index('--security-opt') + 1], 'no-new-privileges:true')
+        self.assertEqual(argv[argv.index('--mount') + 1],
+                         'type=bind,source=' + path + ',target=/tmp/Caddyfile,readonly')
+        self.assertNotIn('-v', argv)
+        self.assertNotIn('DAC_OVERRIDE', argv)
+        self.assertIn(r.CADDY, argv)
+        self.assertEqual(argv[-5:], ['validate', '--config', '/tmp/Caddyfile', '--adapter', 'caddyfile'])
+
+    def test_missing_directory_and_symlink_sources_never_start_docker(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary = root / 'bin'
+            binary.mkdir()
+            marker = root / 'docker-started'
+            docker = binary / 'docker'
+            docker.write_text('#!/bin/sh\nprintf started > ' + shlex.quote(str(marker)) + '\n')
+            docker.chmod(0o700)
+            config = root / 'Caddyfile'
+            config.write_text(':8080 { respond "ok" }')
+            link = root / 'link'
+            link.symlink_to(config)
+            for path in [root / 'missing', root, link]:
+                result = subprocess.run(['/bin/sh', '-c', r.caddy_validation_command(str(path))],
+                                        env={'PATH': str(binary)}, capture_output=True, timeout=10)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(marker.exists())
+            result = subprocess.run(['/bin/sh', '-c', r.caddy_validation_command(str(config))],
+                                    env={'PATH': str(binary)}, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(marker.read_text(), 'started')
+
+
 class Phases(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -794,6 +842,15 @@ class Deploy(unittest.TestCase):
                                   self.tmp.name)
         self.release.source_checks = lambda: None
         self.release.ci = lambda: 'proof'
+
+    def test_prepare_artifacts_uses_offline_validator_for_actual_prepared_gateway(self):
+        base = {'compose': self.release.compose, 'gateway': r.gateway_candidate(GATEWAY, r.digest(GATEWAY.encode()))}
+        with mock.patch.object(self.release, 'remote', wraps=self.release.remote) as remote:
+            self.release.prepare_artifacts(base)
+        path = self.release.public_dir(SHA) + '/gateway.Caddyfile'
+        self.assertEqual(remote.call_args, mock.call(r.caddy_validation_command(path), timeout=45))
+        self.assertEqual(self.release.files[path], base['gateway'])
+        self.assertTrue(any('config --quiet' in call.args[0] for call in remote.call_args_list[:-1]))
 
     def run_deploy(self):
         buffer = io.StringIO()
