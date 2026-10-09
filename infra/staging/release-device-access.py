@@ -93,6 +93,13 @@ def check_windows(proof, sha, branch, device, migration_hash, now=None):
     require(0 <= age <= 21600, 'Windows preparation is stale')
 
 
+def rollback_counts_sql():
+    # Flag-off API replacement stops admissions; these SHARE locks wait for any
+    # already dispatched writes to finish before observing all branches' rows.
+    counts=' UNION ALL '.join("SELECT '"+t+"' AS name,count(*)::int AS n FROM "+t for t in sorted(TABLES))
+    return "BEGIN; SET LOCAL lock_timeout='5s'; LOCK TABLE "+','.join(sorted(TABLES))+" IN SHARE MODE; SELECT json_agg(row_to_json(t)) FROM ("+counts+") t; COMMIT;"
+
+
 def check_pins(args):
     for name in ('sha', 'expected_api_sha', 'expected_public_sha'):
         require(re.fullmatch('[a-f0-9]{40}', getattr(args, name) or ''), 'Full source/baseline SHA required')
@@ -313,11 +320,17 @@ p.write_text(json.dumps(m,indent=2)+'\\n');p.chmod(0o644)
 
     def rollback(self):
         proof=self.prepared()
+        revision=self.running_revision()
+        require(revision in (self.sha,self.profile.old_api),'Foreign running API')
+        flag=self.runtime_environment().get(FLAG)
+        require(flag==digest(b'false') or (revision==self.profile.old_api and flag is None),
+                'Disable Devices and verify API restart before rollback; active commands can race the empty-table probe')
         require(self.neighbors()==proof['before']['neighbors'] and self.rollback_artifacts()==proof['before']['rollback'],'Rollback baseline drift')
         require(self.ledger() in (self.expected_ledger(),self.expected_ledger(True)),'Foreign rollback schema')
         if self.ledger()==self.expected_ledger(True):
-            counts=self.json_query('SELECT json_agg(row_to_json(t)) FROM ('+' UNION ALL '.join("SELECT '"+t+"' AS name,count(*)::int AS n FROM "+t for t in sorted(TABLES))+') t')
-            require(all(r['n']==0 for r in counts),'Device commands exist; disable and plan explicit recovery instead')
+            counts=self.json_query(rollback_counts_sql())
+            require({r['name'] for r in counts}==TABLES and all(r['n']==0 for r in counts),'Device commands exist; disable and plan explicit recovery instead')
+            require(self.runtime_environment().get(FLAG)==flag,'Devices flag changed during rollback drain')
         require(self.running_revision() in (self.sha,self.profile.old_api),'Foreign running API')
         if not self.args.apply:return self.plan('rollback',{'schema':'retained','database_restore':False})
         for pointer,old,new in [(REMOTE+'/current',REMOTE+'/releases/'+self.profile.old_api,REMOTE+'/releases/'+self.sha),(REMOTE+'/public-https/current',REMOTE+'/public-https/releases/'+self.profile.old_web,REMOTE+'/public-https/releases/'+self.sha)]:

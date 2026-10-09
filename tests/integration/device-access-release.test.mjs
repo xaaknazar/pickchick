@@ -168,3 +168,67 @@ test('RR proof tolerates a concurrent heartbeat-style writer without comparing s
     'Concurrent synthetic update',
   );
 });
+
+test('rollback table drain waits for a prior device write and observes it before accepting empty state', async (t) => {
+  const f = await fixture(t);
+  await transaction(f.pool, (c) => deployDevices(c, { directory: MIGRATIONS, role: f.role }));
+  const legal = randomUUID(),
+    branch = randomUUID(),
+    device = randomUUID();
+  await f.pool.query(
+    "INSERT INTO legal_entities(id,organization_id,name,bin) VALUES($1,$2,'Synthetic','000000000000')",
+    [legal, f.org],
+  );
+  await f.pool.query(
+    "INSERT INTO branches(id,organization_id,legal_entity_id,code,name) VALUES($1,$2,$3,'DR','Synthetic')",
+    [branch, f.org, legal],
+  );
+  await f.pool.query(
+    "INSERT INTO devices(id,branch_id,organization_id,kind,name,status) VALUES($1,$2,$3,'display','Synthetic','active')",
+    [device, branch, f.org],
+  );
+  const { execFileSync } = await import('node:child_process');
+  const sql = execFileSync(
+    'python3',
+    [
+      '-c',
+      "import importlib.util; s=importlib.util.spec_from_file_location('release','infra/staging/release-device-access.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.rollback_counts_sql())",
+    ],
+    { cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8' },
+  );
+  const writer = await f.pool.connect(),
+    drain = await f.pool.connect();
+  let pending;
+  try {
+    await writer.query('BEGIN');
+    await writer.query(
+      "INSERT INTO device_events(id,device_id,branch_id,actor_kind,actor_id,action,reason) VALUES($1,$2,$3,'edge',$2,'paired','Synthetic prior request')",
+      [randomUUID(), device, branch],
+    );
+    const pid = (await drain.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    pending = drain.query(sql);
+    let blocked = false;
+    for (let i = 0; i < 100; i++) {
+      blocked =
+        (
+          await f.pool.query(
+            "SELECT wait_event_type='Lock' AS blocked FROM pg_stat_activity WHERE pid=$1",
+            [pid],
+          )
+        ).rows[0]?.blocked === true;
+      if (blocked) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(blocked, true);
+    await writer.query('COMMIT');
+    const result = await pending,
+      counts = result.find((r) => r.rows[0]?.json_agg)?.rows[0].json_agg;
+    assert.equal(counts.find((r) => r.name === 'device_events').n, 1);
+  } finally {
+    await writer.query('ROLLBACK');
+    await pending?.catch(() => {});
+    await drain.query('ROLLBACK');
+    writer.release();
+    drain.release();
+  }
+});
