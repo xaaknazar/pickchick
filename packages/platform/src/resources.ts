@@ -226,6 +226,65 @@ export class Resources implements OnApplicationShutdown {
             this.config.branchId,
           ]);
           await this.pool.query('SELECT branch_id FROM active_menu LIMIT 1');
+          // Persisted terminal classification is required even with enrollment disabled:
+          // a feature rollback must not convert registered devices into legacy staff terminals.
+          if (
+            (
+              await this.pool.query(
+                "SELECT 1 FROM schema_migrations WHERE scope='edge' AND version='020_terminal_access.sql'",
+              )
+            ).rowCount !== 1
+          )
+            throw new Error('Local terminal classification schema unavailable');
+          await this.pool.query('SELECT device_access_managed FROM local_terminals LIMIT 0');
+          const deviceAccess = process.env['EDGE_DEVICE_ACCESS_ENABLED'] ?? 'false';
+          if (!['true', 'false'].includes(deviceAccess))
+            throw new Error('Invalid terminal access flag');
+          if (deviceAccess === 'true') {
+            if (!this.config.edgeFulfillmentEnabled)
+              throw new Error('Device access requires local fulfillment');
+            for (const [table, columns] of [
+              ['terminal_access_commands', 'command_id,branch_id,edge_device_id,state'],
+              [
+                'terminal_access_registry',
+                'terminal_id,branch_id,edge_device_id,mode,generation,state,key_hash,code_hash',
+              ],
+              ['terminal_pair_limits', 'branch_id,attempts,window_started_at'],
+              [
+                'kitchen_password_reset_commands',
+                'command_id,branch_id,edge_device_id,staff_id,code_hash,state,expires_at',
+              ],
+            ])
+              await this.pool.query(`SELECT ${columns} FROM ${table} LIMIT 0`);
+            for (const [table, column] of [
+              ['local_terminals', 'active'],
+              ['terminal_access_commands', 'state'],
+              ['terminal_access_registry', 'state'],
+              ['terminal_access_registry', 'code_hash'],
+              ['terminal_access_registry', 'key_hash'],
+              ['terminal_pair_limits', 'attempts'],
+              ['terminal_pair_limits', 'window_started_at'],
+              ['kitchen_password_reset_commands', 'state'],
+              ['local_staff_passwords', 'salt'],
+              ['local_staff_passwords', 'verifier'],
+              ['local_staff_passwords', 'updated_at'],
+            ]) {
+              const permission = await this.pool.query(
+                "SELECT has_column_privilege(current_user,$1,$2,'UPDATE') AS permitted",
+                [table, column],
+              );
+              if (!permission.rows[0]?.permitted)
+                throw new Error('Device access write privilege unavailable');
+            }
+            if (
+              !(
+                await this.pool.query(
+                  "SELECT has_table_privilege(current_user,'terminal_pair_limits','INSERT') AS permitted",
+                )
+              ).rows[0]?.permitted
+            )
+              throw new Error('Device access rate limit privilege unavailable');
+          }
           await this.pool.query('SELECT id,cash_shift_id FROM local_orders LIMIT 0');
           await this.pool.query('SELECT id FROM local_cash_shifts LIMIT 0');
           await this.pool.query('SELECT id FROM local_cash_movements LIMIT 0');

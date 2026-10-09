@@ -11,6 +11,7 @@ files:
   - main.mjs
   - security.mjs
   - gateway.mjs
+  - terminal-cookie.mjs
   - renderer/index.html
   - renderer/styles.css
   - renderer/logo.png
@@ -20,6 +21,9 @@ files:
   - renderer/model.js
   - renderer/runtime.js
   - renderer/types.js
+  - renderer/terminal-access.js
+  - renderer/components/*.js
+  - renderer/components/*.css
   - renderer/fonts/*.woff2
   - renderer/asset-manifest.json
   - package.json

@@ -1,3 +1,4 @@
+import { terminalCookies, validTerminalCredential } from './terminal-cookie.mjs';
 import { createServer } from 'node:http';
 import { request as requestHttps } from 'node:https';
 import { X509Certificate } from 'node:crypto';
@@ -9,9 +10,14 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const base = '/edge/v1/fulfillment';
 export function allowed(method, raw) {
   if (typeof raw !== 'string' || /[%#\\]/.test(raw)) return false;
-  if (method === 'POST' && ['/edge/v1/staff/login', '/edge/v1/staff/logout'].includes(raw))
+  if (
+    method === 'POST' &&
+    ['/edge/v1/staff/login', '/edge/v1/staff/logout', '/edge/v1/staff/password-reset'].includes(raw)
+  )
     return true;
-  if (method === 'GET' && raw === '/edge/v1/session') return true;
+  if (method === 'GET' && ['/edge/v1/session', '/edge/v1/terminals/session'].includes(raw))
+    return true;
+  if (method === 'POST' && raw === '/edge/v1/terminals/pair') return true;
   if (!raw.startsWith(base)) return false;
   const u = new URL(raw, 'http://127.0.0.1');
   if (method === 'POST')
@@ -116,10 +122,20 @@ const security = {
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
-  ...['app', 'model', 'types', 'api', 'runtime', 'demo', 'ticket-view'].map((n) => [
-    '/' + n + '.js',
-    [n + '.js', 'text/javascript; charset=utf-8'],
-  ]),
+  ['/components/PasswordReset.css', ['components/PasswordReset.css', 'text/css; charset=utf-8']],
+  ...[
+    'app',
+    'model',
+    'types',
+    'api',
+    'runtime',
+    'demo',
+    'ticket-view',
+    'terminal-access',
+    'components/TerminalPairing',
+    'components/DisplayAccess',
+    'components/PasswordReset',
+  ].map((n) => ['/' + n + '.js', [n + '.js', 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'bg-blue.png'].map((n) => ['/' + n, [n, 'image/png']]),
   ...[
     'golos-text-2f175b8fc40e',
@@ -136,6 +152,7 @@ export function createKitchenServer({
   edgeHost,
   edgeCertificatePem,
   terminalId,
+  terminalAccess,
 } = {}) {
   if (!Number.isInteger(edgePort) || edgePort < 1 || edgePort > 65535)
     throw new Error('Invalid edge port');
@@ -145,6 +162,7 @@ export function createKitchenServer({
     (typeof terminalId !== 'string' || !new RegExp('^' + UUID + '$', 'i').test(terminalId))
   )
     throw new Error('INVALID_KITCHEN_CONFIG');
+  const cookies = terminalAccess ? terminalCookies(terminalAccess) : null;
   return createServer(async (req, res) => {
     const send = (status, body) => {
       if (res.destroyed) return;
@@ -161,14 +179,39 @@ export function createKitchenServer({
       return;
     }
     const path = req.url ?? '';
+    const paired = cookies?.read(req.headers.cookie);
+    const actualTerminalId = cookies ? paired?.terminalId : terminalId;
     if (path.startsWith('/edge/')) {
       if (!allowed(req.method, path)) {
         send(404, { code: 'NOT_FOUND' });
         return;
       }
+      const pairing = path === '/edge/v1/terminals/pair';
+      if (pairing && (!cookies || req.headers.origin !== `http://${host}`)) {
+        send(403, { code: 'FORBIDDEN' });
+        return;
+      }
+      if (cookies && !pairing && path !== '/edge/v1/fulfillment/config' && !paired) {
+        send(401, { code: 'UNAUTHORIZED' });
+        return;
+      }
+      if (
+        paired?.mode === 'display' &&
+        !pairing &&
+        !['/edge/v1/terminals/session', '/edge/v1/fulfillment/config'].includes(path) &&
+        !(req.method === 'GET' && path.startsWith('/edge/v1/fulfillment/display'))
+      ) {
+        send(403, { code: 'FORBIDDEN' });
+        return;
+      }
+      const reset = path === '/edge/v1/staff/password-reset';
+      if (reset && (!cookies || !paired || req.headers.origin !== `http://${host}`)) {
+        send(403, { code: 'FORBIDDEN' });
+        return;
+      }
       const login = path === '/edge/v1/staff/login';
       const logout = path === '/edge/v1/staff/logout';
-      const bodyLimit = login ? 2048 : 16384;
+      const bodyLimit = login || pairing || reset ? 2048 : 16384;
       const headers = { Accept: 'application/json' };
       for (const k of ['authorization', 'x-staff-session-id', 'x-terminal-id', 'idempotency-key']) {
         const v = req.headers[k];
@@ -177,6 +220,10 @@ export function createKitchenServer({
           return;
         }
         if (v && !login) headers[k] = v;
+      }
+      if (paired) {
+        headers['x-terminal-id'] = paired.terminalId;
+        headers['x-terminal-key'] = paired.terminalKey;
       }
       let body;
       if (req.method === 'POST' && !logout) {
@@ -202,14 +249,37 @@ export function createKitchenServer({
           }
           body = Buffer.concat(chunks).toString('utf8');
           const parsed = JSON.parse(body);
+          if (pairing) {
+            if (
+              !parsed ||
+              typeof parsed !== 'object' ||
+              Array.isArray(parsed) ||
+              Object.keys(parsed).join(',') !== 'code' ||
+              typeof parsed.code !== 'string' ||
+              parsed.code.length > 39
+            )
+              throw new Error();
+            body = JSON.stringify({ code: parsed.code, mode: terminalAccess.mode });
+          }
+          if (
+            reset &&
+            (!parsed ||
+              typeof parsed !== 'object' ||
+              Array.isArray(parsed) ||
+              Object.keys(parsed).sort().join(',') !== 'code,password,terminal_id' ||
+              parsed.terminal_id !== actualTerminalId ||
+              typeof parsed.code !== 'string' ||
+              typeof parsed.password !== 'string')
+          )
+            throw new Error();
           if (
             login &&
-            (!terminalId ||
+            (!actualTerminalId ||
               !parsed ||
               typeof parsed !== 'object' ||
               Array.isArray(parsed) ||
               Object.keys(parsed).sort().join(',') !== 'login,password,terminal_id' ||
-              parsed.terminal_id !== terminalId ||
+              parsed.terminal_id !== actualTerminalId ||
               typeof parsed.login !== 'string' ||
               typeof parsed.password !== 'string')
           )
@@ -269,17 +339,35 @@ export function createKitchenServer({
           }
           parts.push(r.value);
         }
-        const payload = Buffer.concat(parts);
+        let payload = Buffer.concat(parts);
         try {
           JSON.parse(payload.toString('utf8'));
         } catch {
           send(502, { code: 'INVALID_RESPONSE' });
           return;
         }
+        if (pairing && response.ok) {
+          const credential = JSON.parse(payload.toString('utf8'));
+          if (!validTerminalCredential(credential) || credential.mode !== terminalAccess.mode) {
+            send(502, { code: 'INVALID_RESPONSE' });
+            return;
+          }
+          res.setHeader('Set-Cookie', cookies.seal(credential));
+          payload = Buffer.from(
+            JSON.stringify({
+              terminalId: credential.terminalId,
+              branchId: credential.branchId,
+              mode: credential.mode,
+              generation: credential.generation,
+            }),
+          );
+        }
+        if (cookies && path === '/edge/v1/terminals/session' && response.status === 401)
+          res.setHeader('Set-Cookie', cookies.clear());
         const retryAfter = response.headers.get('retry-after');
         res.writeHead(response.status, {
           ...security,
-          ...(login &&
+          ...((login || pairing || reset) &&
           response.status === 429 &&
           /^[1-9]\d{0,3}$/.test(retryAfter ?? '') &&
           Number(retryAfter) <= 3600
@@ -300,7 +388,10 @@ export function createKitchenServer({
     if (path === '/config.json') {
       send(200, {
         branchLabel: String(branchLabel).slice(0, 120),
-        ...(terminalId ? { terminalId } : {}),
+        ...(actualTerminalId ? { terminalId: actualTerminalId } : {}),
+        ...(cookies
+          ? { pairingEnabled: true, mode: terminalAccess.mode, paired: Boolean(paired) }
+          : {}),
       });
       return;
     }

@@ -388,7 +388,11 @@ test('010 to 011 preserves existing sessions/menu/shift rows and does not seed a
             (
               await ctx.edge.pool.query(
                 'SELECT to_jsonb(t)' +
-                  (table === 'branch_config' ? "-'pos_service_mode'" : '') +
+                  (table === 'branch_config'
+                    ? "-'pos_service_mode'"
+                    : table === 'local_terminals'
+                      ? "-'device_access_managed'"
+                      : '') +
                   ' AS record FROM ' +
                   table +
                   ' t',
@@ -416,7 +420,11 @@ test('010 to 011 preserves existing sessions/menu/shift rows and does not seed a
             (
               await ctx.edge.pool.query(
                 'SELECT to_jsonb(t)' +
-                  (table === 'branch_config' ? "-'pos_service_mode'" : '') +
+                  (table === 'branch_config'
+                    ? "-'pos_service_mode'"
+                    : table === 'local_terminals'
+                      ? "-'device_access_managed'"
+                      : '') +
                   ' AS record FROM ' +
                   table +
                   ' t',
@@ -424,6 +432,15 @@ test('010 to 011 preserves existing sessions/menu/shift rows and does not seed a
             ).rows,
             before.get(table),
           );
+        assert.equal(
+          (
+            await ctx.edge.pool.query(
+              'SELECT count(*)::int AS n FROM local_terminals WHERE device_access_managed',
+            )
+          ).rows[0].n,
+          0,
+          'Migration does not enroll legacy terminals',
+        );
         for (const table of ['local_staff_passwords', 'local_staff_login_limits'])
           assert.equal(
             (await ctx.edge.pool.query('SELECT count(*)::int AS n FROM ' + table)).rows[0].n,

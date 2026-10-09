@@ -1,5 +1,6 @@
-import { app, BrowserWindow, Menu, session, dialog } from 'electron';
-import { mkdir, readFile, stat } from 'node:fs/promises';
+import { app, BrowserWindow, Menu, session, dialog, safeStorage } from 'electron';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { isAbsolute, join } from 'node:path';
 import { APP_URL, isAllowedRendererRequest, startGateway, validateConfig } from './security.mjs';
 
@@ -45,7 +46,26 @@ else {
         if (error.code !== 'ENOENT') throw error;
       }
       config = validateConfig(config);
-      gateway = await startGateway({ config, assetDir: new URL('./renderer/', import.meta.url) });
+      let terminalKey;
+      if (config.terminalMode) {
+        if (!safeStorage.isEncryptionAvailable()) throw new Error('PRIVATE_STORAGE_UNAVAILABLE');
+        const path = join(profile, 'terminal-cookie-key.encrypted');
+        let encrypted;
+        try {
+          encrypted = await readFile(path);
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error;
+          encrypted = safeStorage.encryptString(randomBytes(32).toString('hex'));
+          await writeFile(path, encrypted, { flag: 'wx', mode: 0o600 });
+        }
+        terminalKey = safeStorage.decryptString(encrypted);
+        if (!/^[a-f0-9]{64}$/.test(terminalKey)) throw new Error('PRIVATE_STORAGE_INVALID');
+      }
+      gateway = await startGateway({
+        config,
+        terminalKey,
+        assetDir: new URL('./renderer/', import.meta.url),
+      });
       gateway.on('error', () => app.quit());
       const isolatedSession = session.fromPartition('persist:kitchen-v1');
       isolatedSession.setPermissionRequestHandler((_contents, _permission, callback) =>

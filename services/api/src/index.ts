@@ -59,6 +59,10 @@ import { CatalogAdminController } from './catalog-admin-controller.js';
 import { encodeCatalogImage } from './catalog-image-encoder.js';
 import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-media-controller.js';
 import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
+import {
+  DeviceRegistryController,
+  DeviceAccessTransportController,
+} from './device-registry-controller.js';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
@@ -200,6 +204,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CatalogMediaController,
       BackofficeController,
       BackofficeContentController,
+      DeviceRegistryController,
+      DeviceAccessTransportController,
       FulfillmentTransportController,
       PosOrderSyncController,
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),

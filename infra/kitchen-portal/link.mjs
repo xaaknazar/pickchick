@@ -6,6 +6,7 @@ export const HEADER_NAMES = [
   'authorization',
   'x-staff-session-id',
   'x-terminal-id',
+  'x-terminal-key',
   'idempotency-key',
   'content-type',
   'accept',

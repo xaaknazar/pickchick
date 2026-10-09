@@ -2,3 +2,4 @@ node_modules/
 renderer/
 release/
 gateway.mjs
+terminal-cookie.mjs

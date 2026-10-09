@@ -12,6 +12,7 @@ import type { DatabasePool } from '@pickchick/database';
 import { hashToken } from '@pickchick/menu-sync';
 import { audit, authenticateStaff } from './staff.js';
 import type { StaffAuth } from './staff.js';
+import { authenticateManagedTerminal, type TerminalAuth } from './terminal-access.js';
 import { OrderError } from './errors.js';
 
 const SCRYPT = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 } as const;
@@ -113,7 +114,7 @@ export async function setStaffPassword(
 async function reserveAttempt(pool: DatabasePool, branchId: string, terminalId: string) {
   return transaction(pool, async (client) => {
     const terminal = await client.query(
-      'SELECT id FROM local_terminals WHERE id=$1 AND branch_id=$2 AND active FOR SHARE',
+      'SELECT id,device_access_managed FROM local_terminals WHERE id=$1 AND branch_id=$2 AND active FOR SHARE',
       [terminalId, branchId],
     );
     if (!terminal.rowCount) return false;
@@ -141,6 +142,7 @@ export async function loginStaff(
   branchId: string,
   input: unknown,
   pinMode = false,
+  terminalAuth?: TerminalAuth,
 ): Promise<StaffCredential> {
   const table = pinMode ? 'local_staff_pins' : 'local_staff_passwords';
   const parsed = StaffLoginSchema.safeParse(input);
@@ -167,9 +169,14 @@ export async function loginStaff(
           )
         : undefined;
       const terminal = await client.query(
-        'SELECT id FROM local_terminals WHERE id=$1 AND branch_id=$2 AND active FOR SHARE',
+        'SELECT id,device_access_managed FROM local_terminals WHERE id=$1 AND branch_id=$2 AND active FOR SHARE',
         [terminalId, branchId],
       );
+      if (terminal.rows[0]?.device_access_managed || terminalAuth?.key) {
+        if (terminalAuth?.id !== terminalId) throw new OrderError('UNAUTHORIZED');
+        const bound = await authenticateManagedTerminal(client, branchId, terminalAuth);
+        if (bound?.mode === 'display') throw new OrderError('FORBIDDEN');
+      }
       const stored = staffId
         ? await client.query(
             `SELECT *, (locked_until > clock_timestamp()) AS locked,
@@ -300,7 +307,12 @@ export async function setStaffPin(
   );
   return { staff_id: result.staff_id, role: result.role, terminal_id: result.terminal_id };
 }
-export async function loginStaffPin(pool: DatabasePool, branchId: string, input: unknown) {
+export async function loginStaffPin(
+  pool: DatabasePool,
+  branchId: string,
+  input: unknown,
+  terminalAuth?: TerminalAuth,
+) {
   const value = input as { pin?: unknown; terminal_id?: unknown };
   if (
     !value ||
@@ -316,5 +328,6 @@ export async function loginStaffPin(pool: DatabasePool, branchId: string, input:
     branchId,
     { login, password: 'PickChick-PIN:' + value.pin, terminal_id: value.terminal_id },
     true,
+    terminalAuth,
   );
 }

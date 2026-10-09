@@ -1,0 +1,16 @@
+{
+  "name": "@pickchick/operations-storybook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6011 --no-open",
+    "build:storybook": "pnpm --filter @pickchick/backoffice --filter @pickchick/kitchen build && storybook build --output-dir dist"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "10.6.1",
+    "@storybook/html-vite": "10.6.1",
+    "storybook": "10.6.1",
+    "vite": "8.3.3"
+  }
+}
