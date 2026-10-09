@@ -18,6 +18,18 @@ export const assets = {
   chefCooking: require('../../mobile/assets/order-status/chef-cooking.png'),
   chefAssembly: require('../../mobile/assets/order-status/chef-assembly.png'),
 };
+/**
+ * Approved v3 card illustrations (prototype `assets_kiosk_bg_bg1..bg4`, 667x1000): combo,
+ * duo and set cards cycle through them by position (i % 4), anchored right-top at 190%.
+ */
+export const cardBackgrounds: readonly number[] = [
+  require('../assets/v3/bg/bg1.webp'),
+  require('../assets/v3/bg/bg2.webp'),
+  require('../assets/v3/bg/bg3.webp'),
+  require('../assets/v3/bg/bg4.webp'),
+];
+/** Width / height of the card illustrations. */
+export const cardBackgroundRatio = 667 / 1000;
 const photo = (source: number, tile: string | null): Photo => ({
   source,
   tile: tile ?? '#FEF8F0',
