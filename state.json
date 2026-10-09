@@ -3799,9 +3799,9 @@
       "id": "mobile-native16",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-native16",
-      "head": "3e5c58ee164d0fabd80e2fabe299876d38c7c445",
+      "head": "b25f6df68cabe1100bf8265a57fb141bd6ef867d",
       "status": "active",
-      "updatedAt": "2026-10-09T12:20:34.564Z",
+      "updatedAt": "2026-10-09T12:25:45.095Z",
       "scopes": [
         "apps/mobile/src/connectivity.ts",
         "tests/mobile/connectivity.test.mjs",
@@ -3810,8 +3810,8 @@
         "apps/mobile/ios",
         "@apple/testflight"
       ],
-      "summary": "Published 3e5c58ee / PR220: foreground NetInfo refresh with lifecycle/cleanup races covered; build16, unchanged published-catalog flags. 19 recovery +4 app-config +30 iOS release tests, mobile dependency build/typecheck and lint/format passed. Manual signing doctor read-only passed. No native prebuild/archive/upload/install yet.",
-      "nextAction": "Integrate upcoming mobile fixture checkpoint, wait full exact-source CI, then fresh native prebuild/pods/doctor/archive/export. Root review before TestFlight upload. Preserve iPad11, old archives and payment runtime."
+      "summary": "Published b25f6df6 / PR220: build16 + foreground NetInfo refresh; merged reviewed catalog fixture checkpoint3bc98faf. Same six published-catalog flags/signing as15. 19 recovery +4 appconfig +30 release tests, mobile build/lint passed. Full CI37929668466 running. No prebuild/archive/upload/install performed.",
+      "nextAction": "Wait complete 11/11 CI37929668466 for exactb25, then fresh iOS prebuild/pods and signed archive/export only. Root reviews before TestFlight upload; preserve iPad11/QR/Windows and prior15 archives."
     },
     {
       "id": "devices-access",
