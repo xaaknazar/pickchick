@@ -2774,7 +2774,6 @@
         "packages/farm-persistence",
         "services/api/src/farm-controller.ts",
         "tests/farm",
-        "packages/contracts/openapi.json",
         "scripts/contracts.mjs"
       ],
       "status": "available",
@@ -3767,7 +3766,8 @@
         "tests/integration/catalog-mobile-live.test.mjs",
         "packages/commerce-core/src/availability.ts",
         "packages/commerce-core/src/menu-changed.ts",
-        "tests/unit/admission.test.mjs"
+        "tests/unit/admission.test.mjs",
+        "packages/contracts/openapi.json"
       ],
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
