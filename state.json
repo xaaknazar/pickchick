@@ -3666,11 +3666,11 @@
         "@release/ios",
         "docs/operations/kiosk-build9-installation.md"
       ],
-      "status": "active",
+      "status": "done",
       "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
-      "updatedAt": "2026-10-09T06:00:09.690Z",
-      "summary": "Build 9 (0.1.0) установлен на iPad 9 октября, протокол kiosk-build9-installation.md; владелец поручил Claude продолжить iPad (build 10 с фото/long-poll единого меню) и Kaspi QR",
-      "nextAction": "Claude: codex/kiosk-build10 из общего среза 90eb6b6b, claim kiosk-build10"
+      "updatedAt": "2026-10-09T06:00:15.199Z",
+      "summary": "Build 9 (0.1.0) установлен на iPad 9 октября и влит в общий срез (5eed0fa9); протокол kiosk-build9-installation.md",
+      "nextAction": "iPad продолжает Claude: kiosk-build10 (фото и long-poll единого меню) и разбор Kaspi QR"
     }
   ]
 }
