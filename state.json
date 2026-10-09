@@ -3185,9 +3185,6 @@
         "docs/design/pick-farm-v2.md",
         "docs/operations/pick-farm.md",
         "docs/operations/images/farm-v2",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
         "tests/mobile/farm-pipeline.test.mjs",
         "tests/mobile/browser_farm_v2.py",
         "tests/mobile/browser_pick_farm.py",
@@ -3196,7 +3193,7 @@
       "status": "available",
       "head": "e9e8fd77f94eeb01b3d36ff45e8b247fce868278",
       "updatedAt": "2026-10-06T12:18:08.723Z",
-      "summary": "PR #193: животные на поле (касание/проведение/удержание), прогулки, событие земли, отклик, звук комбо и птицы, стек панелей, ряд HUD. Тесты engine 42, mobile, PG16, browser v2/v3/progression прошли.",
+      "summary": "PR #193: животные на поле (касание/проведение/удержание), прогулки, событие земли, отклик, звук комбо и птицы, стек панелей, ряд HUD. Тесты engine 42, mobile, PG16, browser v2/v3/progression прошли. Shared status files released for owner-authorized kiosk/mobile/devices handoff; preserve existing farm entries.",
       "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3, TestFlight (добавить expo-haptics при освобождении apps/mobile/ios), физический iPhone."
     },
     {
@@ -3779,7 +3776,10 @@
         "apps/mobile/src/components/ProductMenuNotice.stories.tsx",
         "tests/mobile/domain.test.mjs",
         "packages/commerce-core/tests/postgres.test.mjs",
-        "apps/mobile/.storybook"
+        "apps/mobile/.storybook",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md"
       ],
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
