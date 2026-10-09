@@ -464,6 +464,27 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(len(fixture.orders), 1)
                 assert_no_overflow(page, width)
 
+    def test_menu_header_branch_fits_one_line_in_every_language(self):
+        # Design 03: "ТЦ Abay Plaza" sits under "Меню" on one line, never clipped,
+        # in KZ, RU and EN (English "TAKE AWAY" is the widest dining label).
+        for width, height in [(820, 1180), (1032, 1376)]:
+            with self.subTest(width=width):
+                page, _ = self.open(width, height)
+                self.start(page)
+                for locale in ['en', 'kk', 'ru']:
+                    element(page, 'kiosk-language-' + locale).click()
+                    expect(element(page, 'kiosk-language-' + locale)).to_have_attribute(
+                        'aria-pressed', 'true')
+                    branch = element(page, 'kiosk-screen-menu').get_by_text('ТЦ Abay Plaza', exact=True)
+                    expect(branch).to_be_visible()
+                    fit = branch.evaluate('''e => ({scroll: e.scrollWidth, client: e.clientWidth,
+                        height: e.getBoundingClientRect().height,
+                        line: parseFloat(getComputedStyle(e).fontSize) * 1.6})''')
+                    self.assertLessEqual(fit['scroll'], fit['client'], (width, locale, fit))
+                    self.assertLessEqual(fit['height'], fit['line'], (width, locale, fit))
+                    assert_bounded(page, 'kiosk-language-ru', width, height)
+                assert_no_overflow(page, width)
+
     def test_compact_upsell_cards_add_to_cart_without_creating_order(self):
         page, fixture = self.open(1024, 1366)
         self.start(page)

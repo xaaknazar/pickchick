@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { copy, type Locale } from '../i18n';
@@ -6,7 +6,8 @@ import type { KioskMode } from '../model';
 import { colors, fonts, useMetrics } from '../theme';
 import { fixedText } from './Body';
 import { Icon } from './Icon';
-import { useTimingTo } from './motion';
+import { curve } from './motion';
+import { useMotionPreference } from './useMotionPreference';
 const modes: KioskMode[] = ['dine_in', 'takeaway'];
 /**
  * Design `#eat` "В зале" glyph: the prototype's inline upright fork and knife
@@ -23,9 +24,10 @@ const utensils =
 /**
  * v3 menu-header dining switch (prototype `#eat`): two segments "В зале / С собой"
  * on a dark glass track (240x52, radius 26, white .2 inset line); the #FF6900 pill
- * (44 high, radius 22) glides to the chosen side (380 ms --spring). Both sides
- * share the wider label's width (at least half the drawn track) so only the
- * pill's position moves. The choice shows at once; `onChange` saves it.
+ * (44 high, radius 22) glides to the chosen side (380 ms --spring). Each side is
+ * at least half the drawn track and grows only for its own label (English
+ * "TAKE AWAY"), so the header keeps room for "ТЦ Abay Plaza"; the pill glides
+ * and resizes to the chosen side. The choice shows at once; `onChange` saves it.
  */
 export function DiningSwitch({
   mode,
@@ -50,9 +52,10 @@ export function DiningSwitch({
     setChosen(mode);
   }
   const [natural, setNatural] = useState<[number, number]>([0, 0]);
-  // Drawn track 240 = 4 + 2 x 115 + 2 + 4; longer (Kazakh) labels widen both halves.
+  // Drawn track 240 = 4 + 2 x 115 + 2 + 4; a longer label widens only its own side.
   const half = v(115);
-  const span = natural[0] && natural[1] ? Math.max(natural[0], natural[1], half) : 0;
+  const sides: [number, number] | null =
+    natural[0] && natural[1] ? [Math.max(natural[0], half), Math.max(natural[1], half)] : null;
   const label = (m: KioskMode) => (m === 'dine_in' ? t.hereChip : t.togo);
   return (
     <View
@@ -69,7 +72,12 @@ export function DiningSwitch({
         borderColor: 'rgba(255,255,255,.2)',
       }}
     >
-      {span && chosen ? <Pill span={span} offset={modes.indexOf(chosen) * (span + v(2))} /> : null}
+      {sides && chosen ? (
+        <Pill
+          span={chosen === 'dine_in' ? sides[0] : sides[1]}
+          offset={chosen === 'dine_in' ? 0 : sides[0] + v(2)}
+        />
+      ) : null}
       {modes.map((m, index) => (
         <Pressable
           key={m}
@@ -101,7 +109,7 @@ export function DiningSwitch({
               );
           }}
           style={{
-            minWidth: span || half,
+            minWidth: sides?.[index] ?? half,
             height: v(44),
             paddingHorizontal: v(12),
             borderRadius: v(22),
@@ -134,10 +142,34 @@ export function DiningSwitch({
     </View>
   );
 }
-/** The orange pill; mounted once both sides are measured so it never slides in. */
+/**
+ * The orange pill; mounted once both sides are measured so it never slides in.
+ * Position and width animate together (JS driver: width cannot run natively).
+ */
 function Pill({ span, offset }: { span: number; offset: number }) {
   const { v } = useMetrics();
-  const x = useTimingTo(offset, 380, 'spring');
+  const reduced = useMotionPreference();
+  const x = useRef(new Animated.Value(offset)).current;
+  const width = useRef(new Animated.Value(span)).current;
+  useEffect(() => {
+    x.stopAnimation();
+    width.stopAnimation();
+    if (reduced) {
+      x.setValue(offset);
+      width.setValue(span);
+      return;
+    }
+    const timing = (value: Animated.Value, toValue: number) =>
+      Animated.timing(value, {
+        toValue,
+        duration: 380,
+        easing: curve('spring'),
+        useNativeDriver: false,
+      });
+    const animation = Animated.parallel([timing(x, offset), timing(width, span)]);
+    animation.start();
+    return () => animation.stop();
+  }, [offset, reduced, span, width, x]);
   return (
     <Animated.View
       pointerEvents="none"
@@ -146,7 +178,7 @@ function Pill({ span, offset }: { span: number; offset: number }) {
         left: v(4),
         top: v(4),
         bottom: v(4),
-        width: span,
+        width,
         borderRadius: v(22),
         backgroundColor: colors.orange,
         transform: [{ translateX: x }],
