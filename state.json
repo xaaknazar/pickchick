@@ -3915,10 +3915,11 @@
       "branch": "codex/mobile-native16",
       "head": "865e132e9769aebe59d2c4fc2f96e0ac8f2704d6",
       "status": "active",
-      "updatedAt": "2026-10-09T12:17:43.429Z",
+      "updatedAt": "2026-10-09T12:17:58.244Z",
       "scopes": [
         "apps/mobile/src/connectivity.ts",
-        "tests/mobile/connectivity.test.mjs"
+        "tests/mobile/connectivity.test.mjs",
+        "docs/operations/mobile-native16.md"
       ],
       "summary": " Root-authorized exact foreground native handoff from mobile-live-menu; original files preserved until byte-copy verification."
     }
