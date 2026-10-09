@@ -5,12 +5,16 @@
 //   node infra/backoffice-login/accounts.mjs migrate <current.json> <new.json>
 //   node infra/backoffice-login/accounts.mjs add <current.json> <credential.json> <username> <new.json> <delivery.txt>
 //   node infra/backoffice-login/accounts.mjs remove <current.json> <username> <new.json>
+//   node infra/backoffice-login/accounts.mjs rotate <current.json> <username> <password-file> <new.json>
 //
 // <credential.json> is that person's own catalog_manager credential ({token, actor_id}),
 // issued separately; a token already used by another account is refused.
 import { open, readFile, stat } from 'node:fs/promises';
-import { randomBytes } from 'node:crypto';
+import { constants } from 'node:fs';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TextDecoder } from 'node:util';
 import {
   STAFF_MAX_ACCOUNTS,
   STAFF_USERNAME,
@@ -43,6 +47,66 @@ export function removeStaffAccount(config, username) {
   if (accounts.length === current.accounts.length) fail('Unknown username');
   if (accounts.length === 0) fail('The last account cannot be removed');
   return parseStaffConfig({ ...current, accounts });
+}
+
+/** Preserve the input format and every field except the selected person's salt/hash. */
+export async function rotateStaffPassword(config, username, password) {
+  const current = parseStaffConfig(config);
+  const selected = current.accounts.find((entry) => entry.username === username);
+  if (!selected) fail('Unknown username');
+  if (typeof password !== 'string' || /[\p{Cc}\p{Cs}]/u.test(password))
+    fail('Password must be a single UTF-8 line without control characters');
+  const previous = await passwordHash(password, selected.salt);
+  if (timingSafeEqual(Buffer.from(previous.hash, 'hex'), Buffer.from(selected.hash, 'hex')))
+    fail('New password must differ from the current password');
+  const replacement = await passwordHash(password);
+  const next =
+    config.version === 1
+      ? { ...config, ...replacement }
+      : {
+          ...config,
+          accounts: config.accounts.map((entry) =>
+            entry.username === username ? { ...entry, ...replacement } : { ...entry },
+          ),
+        };
+  parseStaffConfig(next);
+  return next;
+}
+
+// Rotation is a Mac/Linux operator command. Check the opened descriptor (not only its
+// pathname), refuse links/FIFOs/shared files, bound the read, and never echo parse errors.
+async function readRotationFile(path, maximum) {
+  let file;
+  let buffer;
+  try {
+    if (process.platform === 'win32') fail('Use the Mac/Linux rotation operator');
+    file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const before = await file.stat();
+    if (
+      !before.isFile() ||
+      before.nlink !== 1 ||
+      before.uid !== process.getuid() ||
+      (before.mode & 0o777) !== 0o600 ||
+      before.size > maximum
+    )
+      fail('Private input required');
+    buffer = Buffer.alloc(maximum + 1);
+    const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+    const after = await file.stat();
+    if (
+      bytesRead !== before.size ||
+      bytesRead > maximum ||
+      before.mtimeMs !== after.mtimeMs ||
+      before.ctimeMs !== after.ctimeMs
+    )
+      fail('Private input changed');
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, bytesRead));
+  } catch {
+    return fail('Rotation input must be an unchanged, owned regular UTF-8 file with mode 0600');
+  } finally {
+    buffer?.fill(0);
+    await file?.close();
+  }
 }
 
 // JSON.parse errors quote the input; private files are only ever reported generically.
@@ -80,6 +144,22 @@ async function credentialOf(path) {
 
 export async function main(argv) {
   const [command, ...rest] = argv;
+  if (command === 'rotate' && rest.length === 4) {
+    const [current, username, passwordFile, next] = rest;
+    if (new Set([current, passwordFile, next].map((path) => resolve(path))).size !== 3)
+      fail('Inputs and output must be distinct files');
+    let config;
+    try {
+      config = JSON.parse(await readRotationFile(current, 256 * 1024));
+    } catch {
+      return fail('Invalid private rotation configuration');
+    }
+    // Permit one editor-added line ending; never trim meaningful password spaces.
+    const password = (await readRotationFile(passwordFile, 1026)).replace(/\r?\n$/, '');
+    const rotated = await rotateStaffPassword(config, username, password);
+    await writeExclusive(next, JSON.stringify(rotated) + '\n');
+    return 'Password hash rotated in a new private configuration; live portal unchanged.';
+  }
   if (command === 'migrate' && rest.length === 2) {
     const [current, next] = rest;
     if (current === next) fail('Output must be a new file');
@@ -116,7 +196,7 @@ export async function main(argv) {
     );
     return 'Staff account removed; restart the portal so its sessions end.';
   }
-  fail('Usage: accounts.mjs migrate|add|remove ... (see the header of this file)');
+  fail('Usage: accounts.mjs migrate|add|remove|rotate ... (see the header of this file)');
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
