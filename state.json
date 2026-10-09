@@ -3790,11 +3790,13 @@
         "packages/backoffice-core/src/device-transport.ts",
         "tests/unit/device-access.test.mjs",
         "tests/integration/device-access.test.mjs",
-        "apps/backoffice/src/components/DeviceAccessView.ts"
+        "apps/backoffice/src/components/DeviceAccessView.ts",
+        "apps/backoffice/src/app.ts",
+        "infra/public-staging/device-access.Caddyfile"
       ],
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T10:57:35.933Z"
+      "updatedAt": "2026-10-09T11:01:35.574Z"
     }
   ]
 }
