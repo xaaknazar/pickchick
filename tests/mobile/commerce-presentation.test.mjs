@@ -24,7 +24,7 @@ test('uncertain, failed and sent invoices never render as received money', () =>
   }
   for (const phase of ['paid', 'preparing', 'ready', 'handed_over'])
     assert.equal(paymentReceived(phase), true);
-  assert.match(checkoutError(new Error('QUOTE_EXPIRED')), /цен.*изменились/);
+  assert.match(checkoutError(new Error('QUOTE_EXPIRED')), /Цены обновились/);
   assert.match(checkoutError(new Error('CHECKOUT_STORAGE')), /Счёт не отправлен/);
 });
 test('customer payment contract rejects extra financial internals and invalid phases', () => {

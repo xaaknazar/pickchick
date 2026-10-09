@@ -170,3 +170,26 @@ test('stopping during backoff prevents any further public request', async (t) =>
   await h.advance(60_000);
   assert.equal(calls, 1);
 });
+
+test('explicit refresh resolves only after the queued newer read is applied', async (t) => {
+  let finish;
+  let count = 0;
+  const h = harness(t, () =>
+    ++count === 1
+      ? new Promise((resolve) => {
+          finish = resolve;
+        })
+      : Promise.resolve('new'),
+  );
+  h.recovery.setActive(true);
+  let result;
+  const next = h.recovery.refresh().then((value) => {
+    result = value;
+  });
+  finish('old');
+  await next;
+  assert.equal(result, true);
+  assert.deepEqual(h.successes, ['old', 'new']);
+  h.recovery.setActive(false);
+  assert.equal(await h.recovery.refresh(), false);
+});

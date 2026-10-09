@@ -28,6 +28,8 @@ import type { CartLine, Product, ScreenProps } from '../model';
 import { assets } from '../assets';
 import { restaurantLocation } from '../restaurant-location';
 import { cartLineKey, cartTotal, lineUnitPrice, selectionDescription } from '../domain';
+import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
+import { CartLinePrice } from '../components/CartLinePrice';
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
 import { CartOffers, CartRecommendations, PromoCodeEntry } from '../components/CartExtras';
 import { mergeCartLines } from '../cart-actions';
@@ -660,6 +662,10 @@ export function Cart(props: ScreenProps) {
           <>
             <CheckoutAction
               title="Оформить заказ"
+              disabled={
+                props.model.catalogUpdatePending ||
+                props.model.cart.some((line) => line.product.available === false)
+              }
               amount={MinorMoney(total)}
               onPress={() => props.navigate('M12')}
               testID="cart-checkout"
@@ -669,20 +675,11 @@ export function Cart(props: ScreenProps) {
       }
     >
       {props.model.catalogUpdateNotice ? (
-        <View testID="catalog-update-notice" accessibilityLiveRegion="polite">
-          <Notice title="Меню обновилось" warning>
-            {props.model.catalogUpdateNotice}
-          </Notice>
-          <Button
-            title={props.model.catalogUpdatePending ? 'Обновить корзину' : 'Понятно'}
-            testID="catalog-update-apply"
-            onPress={
-              props.model.catalogUpdatePending
-                ? props.model.refreshPublishedCart
-                : props.model.dismissCatalogUpdate
-            }
-          />
-        </View>
+        <CatalogChangeNotice
+          message={props.model.catalogUpdateNotice}
+          totals={props.model.cartChanges}
+          onDismiss={props.model.dismissCatalogUpdate}
+        />
       ) : null}
       <MotionModal
         visible={editing !== null}
@@ -694,7 +691,12 @@ export function Cart(props: ScreenProps) {
           <ConfiguredProduct
             {...props}
             key={cartLineKey(editing)}
-            product={editing.product}
+            product={
+              props.model.products.find((product) => product.id === editing.product.id) ?? {
+                ...editing.product,
+                available: false,
+              }
+            }
             editing={editing}
             goBack={() => setEditing(null)}
             onSave={(selections, quantity) => {
@@ -808,6 +810,9 @@ export function Cart(props: ScreenProps) {
                   {unavailableCartLine(line) ? (
                     <Caption style={{ color: colors.warning }}>{unavailableCartLine(line)}</Caption>
                   ) : null}
+                  {line.issue === 'choose_options' ? (
+                    <Caption>Нужно выбрать состав заново</Caption>
+                  ) : null}
                   {selectionDescription(line) ? (
                     <Caption numberOfLines={2} style={s.cartDescription}>
                       {selectionDescription(line)}
@@ -859,9 +864,11 @@ export function Cart(props: ScreenProps) {
                       onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity + 1)}
                     />
                   </Row>
-                  <Body style={{ fontFamily: font.heading, fontSize: 18, lineHeight: 24 }}>
-                    {MinorMoney(BigInt(lineUnitPrice(line)) * BigInt(line.quantity))}
-                  </Body>
+                  <CartLinePrice
+                    unitMinor={lineUnitPrice(line)}
+                    previousUnitMinor={line.previousUnitPriceMinor}
+                    quantity={line.quantity}
+                  />
                 </Row>
               </View>
             </View>

@@ -13,6 +13,7 @@ export class Admission implements NestInterceptor {
   active = 0;
   probes = 0;
   watches = 0;
+  catalogWatches = 0;
   rejected = 0;
   completed = 0;
 
@@ -27,9 +28,20 @@ export class Admission implements NestInterceptor {
     const probe = health && context.getHandler().name === 'ready';
     const watch =
       context.getClass().name === 'TestOrderController' && context.getHandler().name === 'watch';
+    const catalogWatch =
+      context.getClass().name === 'CustomerCheckoutController' &&
+      context.getHandler().name === 'availability';
     if (health && !probe) return next.handle();
     return defer(() => {
-      if (probe ? this.probes >= 4 : watch ? this.watches >= 32 : this.active >= this.limit) {
+      if (
+        probe
+          ? this.probes >= 4
+          : watch
+            ? this.watches >= 32
+            : catalogWatch
+              ? this.catalogWatches >= 256
+              : this.active >= this.limit
+      ) {
         this.rejected += 1;
         context
           .switchToHttp()
@@ -39,6 +51,7 @@ export class Admission implements NestInterceptor {
       }
       if (probe) this.probes += 1;
       else if (watch) this.watches += 1;
+      else if (catalogWatch) this.catalogWatches += 1;
       else this.active += 1;
       // Track the handler observable, not the client socket: an aborted client
       // does not mean its database transaction has stopped executing.
@@ -46,6 +59,7 @@ export class Admission implements NestInterceptor {
         finalize(() => {
           if (probe) this.probes -= 1;
           else if (watch) this.watches -= 1;
+          else if (catalogWatch) this.catalogWatches -= 1;
           else this.active -= 1;
           this.completed += 1;
         }),

@@ -1,6 +1,6 @@
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { CartLine, Product } from './model';
-import { cartLineKey, defaultSelections, lineUnitPrice, validSelections } from './domain.ts';
+import { selectionKey, defaultSelections, lineUnitPrice, validSelections } from './domain.ts';
 
 /** Add all configurations or none. Never replace an existing basket or use historic prices. */
 export function mergeCartLines(cart: CartLine[], additions: CartLine[], products: Product[]) {
@@ -18,11 +18,20 @@ export function mergeCartLines(cart: CartLine[], additions: CartLine[], products
       next.some((l) => l.product.source !== product.source)
     )
       return null;
-    const key = cartLineKey(line);
-    const existing = next.find((l) => cartLineKey(l) === key);
+    const existing = next.find(
+      (l) =>
+        l.product.id === product.id && selectionKey(l.selections) === selectionKey(line.selections),
+    );
     const quantity = (existing?.quantity ?? 0) + line.quantity;
     if (quantity > 20) return null;
-    const updated = { ...line, product, quantity };
+    const updated = {
+      ...existing,
+      ...line,
+      key: existing?.key ?? line.key,
+      product,
+      quantity,
+      issue: undefined,
+    };
     next = existing ? next.map((l) => (l === existing ? updated : l)) : [...next, updated];
     if (next.length > 11) return null;
   }

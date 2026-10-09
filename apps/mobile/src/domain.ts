@@ -60,8 +60,8 @@ export function selectionKey(selections: Selection[] = []): string {
     .map((s) => `${s.group_id}:${s.option_id}:${s.quantity}`)
     .join(',');
 }
-export function cartLineKey(line: Pick<CartLine, 'product' | 'selections'>): string {
-  return testLineId(line.product.id, line.selections);
+export function cartLineKey(line: Pick<CartLine, 'product' | 'selections' | 'key'>): string {
+  return line.key ?? testLineId(line.product.id, line.selections);
 }
 export function validSelections(product: Product, selections: Selection[]): boolean {
   if (product.available === false) return false;
@@ -139,7 +139,11 @@ export function updateQuantity(
   const chosen = selections ?? defaultSelections(product);
   if (!validSelections(product, chosen)) return lines;
   const next: CartLine = { product, quantity, ...(chosen.length ? { selections: chosen } : {}) };
-  const key = cartLineKey(next);
+  const canonical = testLineId(product.id, chosen);
+  const previous = lines.find((line) => testLineId(line.product.id, line.selections) === canonical);
+  const key = previous ? cartLineKey(previous) : canonical;
+  next.key = key;
+  next.previousUnitPriceMinor = previous?.previousUnitPriceMinor;
   const rest = lines.filter((line) => cartLineKey(line) !== key);
   if (quantity === 0) return rest;
   const existing = lines.findIndex((line) => cartLineKey(line) === key);
@@ -156,12 +160,7 @@ export function replaceCartLine(
 ): CartLine[] {
   const key = cartLineKey(original);
   const current = lines.find((line) => cartLineKey(line) === key);
-  if (
-    !current ||
-    current.quantity !== original.quantity ||
-    current.product.catalogVersion !== original.product.catalogVersion
-  )
-    return lines;
+  if (!current || current.quantity !== original.quantity) return lines;
   if (
     !Number.isInteger(quantity) ||
     quantity < 1 ||
@@ -169,9 +168,18 @@ export function replaceCartLine(
     !validSelections(current.product, selections)
   )
     return lines;
-  const next = { product: current.product, selections, quantity };
-  const nextKey = cartLineKey(next);
-  const matching = lines.find((line) => cartLineKey(line) !== key && cartLineKey(line) === nextKey);
+  const next = {
+    ...current,
+    key: testLineId(current.product.id, selections),
+    product: current.product,
+    selections,
+    quantity,
+    issue: undefined,
+  };
+  const nextKey = testLineId(next.product.id, selections);
+  const matching = lines.find(
+    (line) => cartLineKey(line) !== key && testLineId(line.product.id, line.selections) === nextKey,
+  );
   if ((matching?.quantity ?? 0) + quantity > MAX_ITEM_QUANTITY) return lines;
   if (matching)
     return lines
@@ -181,7 +189,7 @@ export function replaceCartLine(
 }
 
 export interface SavedPreferences {
-  version: 1;
+  version: 1 | 2;
   catalogMode: CatalogMode;
   diningMode: 'takeaway' | 'dine_in';
   locale: 'ru' | 'kk';
@@ -191,7 +199,14 @@ export interface SavedPreferences {
   branchId: string | null;
   releaseId: string | null;
   publication?: CatalogMobileStorefront;
-  lines: { id: string; quantity: number; selections?: Selection[] }[];
+  lines: {
+    id: string;
+    key?: string;
+    quantity: number;
+    selections?: Selection[];
+    unavailable?: { name: string; unitMinor: string };
+    previousUnitPriceMinor?: string;
+  }[];
 }
 
 export function parsePreferences(raw: string | null): SavedPreferences | null {
@@ -201,7 +216,7 @@ export function parsePreferences(raw: string | null): SavedPreferences | null {
     if (!value || typeof value !== 'object') return null;
     const p = value as Record<string, unknown>;
     if (
-      p.version !== 1 ||
+      (p.version !== 1 && p.version !== 2) ||
       !['server', 'design'].includes(String(p.catalogMode)) ||
       !['takeaway', 'dine_in'].includes(String(p.diningMode)) ||
       !['ru', 'kk'].includes(String(p.locale)) ||
@@ -234,14 +249,24 @@ export function parsePreferences(raw: string | null): SavedPreferences | null {
         !Number.isInteger(line.quantity) ||
         line.quantity < 1 ||
         line.quantity > MAX_ITEM_QUANTITY ||
+        (line.key !== undefined && (typeof line.key !== 'string' || line.key.length > 1000)) ||
+        (line.previousUnitPriceMinor !== undefined &&
+          (typeof line.previousUnitPriceMinor !== 'string' ||
+            !/^(0|[1-9]\d{0,18})$/.test(line.previousUnitPriceMinor))) ||
+        (line.unavailable !== undefined &&
+          (!line.unavailable ||
+            typeof line.unavailable.name !== 'string' ||
+            line.unavailable.name.length > 200 ||
+            typeof line.unavailable.unitMinor !== 'string' ||
+            !/^(0|[1-9]\d{0,18})$/.test(line.unavailable.unitMinor))) ||
         (line.selections !== undefined &&
           (!Array.isArray(line.selections) ||
             line.selections.length > 40 ||
             line.selections.some((s: unknown) => !TestSelectionSchema.safeParse(s).success))) ||
-        ids.has(line.id + '|' + selectionKey(line.selections))
+        ids.has(line.key ?? line.id + '|' + selectionKey(line.selections))
       )
         return null;
-      ids.add(line.id + '|' + selectionKey(line.selections));
+      ids.add(line.key ?? line.id + '|' + selectionKey(line.selections));
     }
     return p as unknown as SavedPreferences;
   } catch {
@@ -260,13 +285,43 @@ export function restoreCart(
       (preferences.releaseId === 'mockup-v0.2' && currentReleaseId === 'mockup-v0.3'));
   if (!preferences || (!upgrade && preferences.releaseId !== currentReleaseId)) return [];
   const byId = new Map(products.map((product) => [product.id, product]));
-  return preferences.lines.flatMap((line) => {
+  return preferences.lines.flatMap<CartLine>((line) => {
     const product = byId.get(line.id);
+    if (!product && preferences.version === 2 && line.unavailable)
+      return [
+        {
+          key: line.key,
+          product: {
+            id: line.id,
+            name: line.unavailable.name,
+            priceMinor: line.unavailable.unitMinor,
+            source: preferences.catalogMode,
+            description: '',
+            category: '',
+            image: 0,
+            available: false,
+          },
+          quantity: line.quantity,
+          issue: 'unavailable' as const,
+        },
+      ];
     const selections = product && upgrade ? defaultSelections(product) : line.selections;
-    return product &&
-      product.source === preferences.catalogMode &&
-      validSelections(product, selections ?? [])
-      ? [{ product, quantity: line.quantity, ...(selections?.length ? { selections } : {}) }]
-      : [];
+    if (
+      !product ||
+      product.source !== preferences.catalogMode ||
+      (preferences.version === 1 && !validSelections(product, selections ?? []))
+    )
+      return [];
+    const restored: CartLine = {
+      product,
+      quantity: line.quantity,
+      ...(selections?.length ? { selections } : {}),
+    };
+    if (line.key !== undefined) restored.key = line.key;
+    if (line.previousUnitPriceMinor !== undefined)
+      restored.previousUnitPriceMinor = line.previousUnitPriceMinor;
+    if (product.available === false) restored.issue = 'unavailable';
+    else if (!validSelections(product, selections ?? [])) restored.issue = 'choose_options';
+    return [restored];
   });
 }

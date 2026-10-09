@@ -183,6 +183,8 @@ export const ErrorSchema = z.strictObject({
     'FORBIDDEN',
     'QUOTE_EXPIRED',
     'MENU_CHANGED',
+    'RESTAURANT_CLOSED',
+    'AVAILABILITY_STALE',
     'BRANCH_UNAVAILABLE',
     'ITEM_STOPPED',
     'CASH_SHIFT_REQUIRED',

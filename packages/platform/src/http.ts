@@ -70,7 +70,17 @@ class SafeExceptionFilter implements ExceptionFilter {
       details && typeof details === 'object' && 'code' in details
         ? ErrorSchema.shape.code.safeParse(details.code)
         : null;
-    const code = declared?.success ? declared.data : defaultCode;
+    const accept = request.headers.accept;
+    const preciseCheckout =
+      typeof accept === 'string' &&
+      accept
+        .split(',')
+        .some((part) => part.trim() === 'application/json; profile=pickchick.checkout-errors-v1');
+    const proposed = declared?.success ? declared.data : defaultCode;
+    const code =
+      !preciseCheckout && ['RESTAURANT_CLOSED', 'AVAILABILITY_STALE'].includes(proposed)
+        ? defaultCode
+        : proposed;
     const traceId = request.traceId ?? randomUUID();
     if (status >= 500 && !(error instanceof CapacityExceeded)) {
       console.error(JSON.stringify({ event: 'request_failed', code, trace_id: traceId }));

@@ -1,4 +1,7 @@
-import { useRef, useState } from 'react';
+import { ProductMenuNotice } from '../components/ProductMenuNotice';
+import { useEffect, useRef, useState } from 'react';
+import { retainSelections, MENU_UPDATED } from '../cart-reprice';
+import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import {
   Platform,
   ScrollView,
@@ -66,7 +69,25 @@ export function PhotoProduct(props: Props) {
   const afterPickerDismiss = useRef<(() => void) | null>(null);
   const [info, setInfo] = useState(false);
   const [footerHeight, setFooterHeight] = useState(110);
+  const [compositionChanged, setCompositionChanged] = useState(false);
   const [companionCounts, setCompanionCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    setSelections((previous) => retainSelections(product, previous));
+    setPicker((previous) => {
+      if (!previous) return previous;
+      const group = product.modifierGroups?.find((candidate) => candidate.id === previous.group.id);
+      if (!group) return null;
+      return {
+        ...previous,
+        group,
+        chosen: group.options.some(
+          (option) => option.id === previous.chosen && option.available !== false,
+        )
+          ? previous.chosen
+          : null,
+      };
+    });
+  }, [product]);
   const combo = isComboProduct(product.id);
   const blue = combo;
   const s = blue ? blueStyles : warmStyles;
@@ -86,6 +107,17 @@ export function PhotoProduct(props: Props) {
   const drinkPhotoSize = Math.min(180, optionWidth - 16);
   const unit = lineUnitPrice({ product, selections });
   const companions = comboCompanions(product.id, props.model.products);
+  useEffect(() => {
+    const available = new Set(
+      comboCompanions(product.id, props.model.products).map((line) => line.product.id),
+    );
+    setCompanionCounts((previous) => {
+      if (Object.entries(previous).every(([id, count]) => count === 0 || available.has(id)))
+        return previous;
+      setCompositionChanged(true);
+      return Object.fromEntries(Object.entries(previous).filter(([id]) => available.has(id)));
+    });
+  }, [product.id, props.model.products]);
   const companionLines = (counts = companionCounts): CartLine[] =>
     companions
       .filter((line) => (counts[line.product.id] ?? 0) > 0)
@@ -292,6 +324,13 @@ export function PhotoProduct(props: Props) {
             ) : null}
           </View>
           <View style={s.intro}>
+            <ProductMenuNotice product={product} selections={selections} />
+            {compositionChanged ? (
+              <CatalogChangeNotice
+                message={MENU_UPDATED}
+                onDismiss={() => setCompositionChanged(false)}
+              />
+            ) : null}
             <Text style={s.title} testID="photo-product-title">
               {title}
             </Text>

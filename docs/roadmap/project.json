@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-05T17:31:23.878738Z",
+  "updatedAt": "2026-10-09T11:46:04.354361+00:00",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -64,7 +64,8 @@
     "docs/operations/launch-readiness-2026-10-04.md",
     "docs/operations/commercial-channels.md",
     "docs/operations/pick-farm.md",
-    "docs/design/magic-sort.md"
+    "docs/design/magic-sort.md",
+    "docs/operations/mobile-live-menu.md"
   ],
   "workstreams": [
     {
@@ -4174,6 +4175,34 @@
         "implemented": true,
         "verified": false,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-live-menu",
+      "workstream": "mobile",
+      "title": "Обновлять опубликованное меню без потери корзины",
+      "summary": "Реализованы обновление до 3 секунд, сохранение выбора, явное подтверждение новых цен и транзакционная проверка перед первой оплатой. Проверено локально на PostgreSQL 18 и web; API/native выпуск не выполнен.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Реализация, проверки и выпуск",
+          "path": "docs/operations/mobile-live-menu.md"
+        }
+      ],
+      "acceptance": [
+        "Публикация видна в открытом приложении до 3 секунд при доступной сети.",
+        "Корзина и доступные добавки сохраняются; новые цены требуют явного подтверждения.",
+        "Начатый платёж сохраняет исходную сумму."
+      ],
+      "nextAction": "Зелёная CI точного SHA, guarded API-only выпуск и новая native сборка с проверкой на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
         "accepted": false
       }
     }

@@ -142,6 +142,7 @@ export async function loadCatalogMedia(
 export async function loadCatalog(
   branchId: string | null,
   signal?: AbortSignal,
+  options: { deferMedia?: boolean } = {},
 ): Promise<{
   capabilities: Capabilities;
   branches: Branch[];
@@ -162,7 +163,10 @@ export async function loadCatalog(
     const capabilities = capabilitiesResult.value;
     const publication = publicationResult.value;
     const branch = BranchSchema.parse(publication.branch);
-    const media = await loadCatalogMedia(publication.version, signal);
+    // Prices must not wait for an optional photo request. Store hydrates media separately.
+    const media: CatalogMediaMap = options.deferMedia
+      ? { version: publication.version, products: {} }
+      : await loadCatalogMedia(publication.version, signal);
     if (signal?.aborted) throw new Error('Aborted');
     return { capabilities, publication, media, branch, branches: [branch], menu: null };
   }

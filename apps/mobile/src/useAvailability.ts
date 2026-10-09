@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AppState } from 'react-native';
+import { subscribeCatalogConnectivity } from './connectivity';
 import { API_URL } from './api';
 import { parseAvailability, type AvailabilityReadState } from './availability';
 import { AvailabilityRequestError, createAvailabilityRecovery } from './availability-recovery';
@@ -20,7 +20,7 @@ export function useAvailability(
         const controller = new AbortController();
         const abort = () => controller.abort();
         signal.addEventListener('abort', abort, { once: true });
-        const timeout = setTimeout(abort, 32_000);
+        const timeout = setTimeout(abort, 24_000);
         try {
           if (signal.aborted) throw Error('Aborted');
           const response = await fetch(
@@ -53,16 +53,10 @@ export function useAvailability(
         setState((previous) => ({ ...previous, status: retrying ? 'offline' : 'error' })),
     });
     setState((previous) => ({ ...previous, status: 'checking' }));
-    const sub = AppState.addEventListener('change', (value) => {
-      if (value === 'active') setState((previous) => ({ ...previous, status: 'checking' }));
-      recovery.setActive(value === 'active');
-    });
-    recovery.setActive(
-      AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
-    );
+    const unsubscribe = subscribeCatalogConnectivity(recovery);
     return () => {
       recovery.stop();
-      sub.remove();
+      unsubscribe();
     };
   }, [enabled, refresh]);
   return useMemo(() => ({ ...state, catalogVersion }), [state, catalogVersion]);

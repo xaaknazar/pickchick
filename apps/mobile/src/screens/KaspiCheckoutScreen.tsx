@@ -1,3 +1,5 @@
+import { PRICES_UPDATED } from '../cart-reprice';
+import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
 import { prepareCheckout } from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
@@ -306,8 +308,30 @@ function KaspiCheckoutSession(props: ScreenProps) {
     const timer = setTimeout(() => setPaidMoment(false), 2000);
     return () => clearTimeout(timer);
   }, [paidMoment, foreground]);
+  const refreshChangedMenu = useCallback(
+    async (discardUnattempted = false) => {
+      if (discardUnattempted) {
+        // MENU_CHANGED on pay guarantees no bank attempt and a durable local cancellation.
+        await AsyncStorage.removeItem(key);
+        pending.current = null;
+        orderRef.current = null;
+        setOrder(null);
+      }
+      setQuote(null);
+      const refreshed = await props.model.refreshCatalog?.();
+      setPriceNotice(PRICES_UPDATED);
+      setError(refreshed ? null : new Error('NETWORK_UNAVAILABLE'));
+      // A second explicit press is required. This path never creates an order or invoice.
+    },
+    [key, props.model.refreshCatalog],
+  );
+  const displayedCartTotal = cartTotal(props.model.cart);
+  useEffect(() => {
+    if (!orderRef.current) setQuote(null);
+  }, [displayedCartTotal]);
   const submit = async () => {
     if (lock.current || !cart.current.length) return;
+    const acceptedTotal = quote?.totalMinor ?? cartTotal(cart.current);
     lock.current = true;
     bootstrap.current?.abort();
     const controller = new AbortController();
@@ -375,10 +399,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
         ),
       );
       if (signature !== signatureRef.current) return;
-      const displayedTotal = quote?.totalMinor ?? cartTotal(cart.current);
+      const displayedTotal = acceptedTotal;
       setQuote(currentQuote);
       if (String(currentQuote.totalMinor) !== String(displayedTotal)) {
-        setPriceNotice('Сумма заказа изменилась. Проверьте её и нажмите оплату ещё раз.');
+        setPriceNotice(PRICES_UPDATED);
         return;
       }
       const draft: Pending = {
@@ -394,7 +418,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
       await accept(await prepared(() => recover(draft, controller.signal)));
     } catch (e) {
       // Transport failures stay on the connecting scene; only a final actionable outcome returns.
-      if (controller.signal.reason === 'timeout') setConnectionPaused(true);
+      if (
+        e instanceof CustomerSessionError &&
+        e.authoritative &&
+        !pending.current &&
+        ['MENU_CHANGED', 'CONFLICT', 'QUOTE_EXPIRED'].includes(e.code)
+      )
+        await refreshChangedMenu();
+      else if (controller.signal.reason === 'timeout') setConnectionPaused(true);
       else if (!controller.signal.aborted) setError(e);
     } finally {
       clearTimeout(deadline);
@@ -421,7 +452,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
         ),
       );
     } catch (e) {
-      if (controller.signal.aborted) setPaymentPaused(true);
+      if (e instanceof CustomerSessionError && e.authoritative && e.code === 'MENU_CHANGED')
+        await refreshChangedMenu(true);
+      else if (controller.signal.aborted) setPaymentPaused(true);
       else setError(e);
     } finally {
       clearTimeout(deadline);
@@ -429,7 +462,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       lock.current = false;
       setBusy(false);
     }
-  }, [order, request, accept]);
+  }, [order, request, accept, refreshChangedMenu]);
   useEffect(() => {
     // Explicit consent is persisted before order creation. Admission can arrive later.
     // Existing pre-consent drafts retain the manual action; no charge on a passive history visit.
@@ -469,7 +502,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
               />
             </View>
           ) : null}
-          {priceNotice ? <Caption accessibilityRole="alert">{priceNotice}</Caption> : null}
+          {priceNotice || props.model.catalogUpdateNotice ? (
+            <CatalogChangeNotice
+              message={priceNotice || props.model.catalogUpdateNotice!}
+              totals={props.model.cartChanges}
+            />
+          ) : null}
         </>
         <Row style={s.total}>
           <Body style={s.totalLabel}>

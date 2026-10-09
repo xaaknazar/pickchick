@@ -46,6 +46,7 @@ export function createCatalogRecovery<T>(options: {
   let request: AbortController | null = null;
   let resumeAfterRequest = false;
   let refreshAfterRequest = false;
+  let refreshWaiters: ((success: boolean) => void)[] = [];
 
   const clearRetry = () => {
     clearTimeout(timer);
@@ -61,12 +62,16 @@ export function createCatalogRecovery<T>(options: {
     if (stopped || !active || request) return;
     const controller = new AbortController();
     request = controller;
+    const waiters = refreshWaiters;
+    refreshWaiters = [];
+    let succeeded = false;
     options.onLoading(background);
     try {
       const value = await options.load(controller.signal);
       if (!stopped && active && !controller.signal.aborted) {
         retryIndex = 0;
         options.onSuccess(value);
+        succeeded = true;
         const delay = options.successDelay?.(value) ?? null;
         if (delay !== null && Number.isFinite(delay) && !stopped && active && !refreshAfterRequest)
           schedule(delay, true);
@@ -78,6 +83,7 @@ export function createCatalogRecovery<T>(options: {
           schedule(recoveryRetryDelay(++retryIndex, options.random), background);
       }
     } finally {
+      for (const resolve of waiters) resolve(succeeded);
       request = null;
       // A rapid background/foreground transition must finish cancelling the old
       // request before starting another, even if fetch settles its abort later.
@@ -102,6 +108,7 @@ export function createCatalogRecovery<T>(options: {
         resumeAfterRequest = false;
         refreshAfterRequest = false;
         request?.abort();
+        for (const resolve of refreshWaiters.splice(0)) resolve(false);
       } else {
         retryIndex = 0;
         if (request) resumeAfterRequest = true;
@@ -112,15 +119,17 @@ export function createCatalogRecovery<T>(options: {
      * Re-read now without the activation loading state, e.g. when the server reports a newer
      * publication. A read already in flight is followed by exactly one more read.
      */
-    refresh() {
-      if (stopped || !active) return;
+    refresh(): Promise<boolean> {
+      if (stopped || !active) return Promise.resolve(false);
+      const result = new Promise<boolean>((resolve) => refreshWaiters.push(resolve));
       if (request) {
         refreshAfterRequest = true;
-        return;
+        return result;
       }
       clearRetry();
       retryIndex = 0;
       void run(true);
+      return result;
     },
     stop() {
       stopped = true;
@@ -128,6 +137,7 @@ export function createCatalogRecovery<T>(options: {
       resumeAfterRequest = false;
       refreshAfterRequest = false;
       request?.abort();
+      for (const resolve of refreshWaiters.splice(0)) resolve(false);
     },
   };
 }

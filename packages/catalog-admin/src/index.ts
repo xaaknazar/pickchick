@@ -416,6 +416,8 @@ export class CatalogAdmin {
         'UPDATE catalog_branch_heads SET draft_revision=$2,published_version=$3 WHERE branch_id=$1',
         [branch.id, revision, publication],
       );
+      if (kind === 'publish')
+        await db.query("SELECT pg_notify('pickchick_catalog_published', $1)", [branch.id]);
       await db.query(
         'INSERT INTO catalog_audit(id,branch_id,organization_id,actor_id,action,from_revision,to_revision,published_version,before_hash,after_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
         [

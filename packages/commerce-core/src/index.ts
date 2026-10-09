@@ -13,3 +13,5 @@ export * from './kiosk-sessions.js';
 export * from './kiosk-kaspi-qr.js';
 
 export * from './kiosk-enrollment.js';
+
+export { MenuChangedError } from './menu-changed.js';

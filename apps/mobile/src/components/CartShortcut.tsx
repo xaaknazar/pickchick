@@ -100,7 +100,9 @@ export function CartShortcut({
         </View>
         <View style={[s.content, compact && s.contentCompact]}>
           <View style={s.labelRow}>
-            <Body style={s.label}>Корзина</Body>
+            <Body style={s.label}>
+              {model.catalogUpdateNotice ? 'Цены и состав обновлены' : 'Корзина'}
+            </Body>
             <Animated.View
               testID="cart-count-feedback"
               style={[

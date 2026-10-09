@@ -36,13 +36,18 @@ test('edit merges matching line without silently clipping quantity', () => {
   assert.equal(replaceCartLine(lines, original, water, 2), lines);
 });
 test('stale edit, removed line, invalid modifiers and oversized quantity preserve basket', () => {
-  for (const lines of [
-    [],
-    [{ ...original, quantity: 3 }],
-    [{ ...original, product: { ...product, catalogVersion: 'next' } }],
-  ])
+  for (const lines of [[], [{ ...original, quantity: 3 }]])
     assert.equal(replaceCartLine(lines, original, water, 1), lines);
   const lines = [original];
   for (const qty of [0, 21, 1.5]) assert.equal(replaceCartLine(lines, original, water, qty), lines);
   assert.equal(replaceCartLine(lines, original, [], 1), lines);
+});
+
+test('open editor survives publication and applies choices using current prices', () => {
+  const current = [
+    { ...original, product: { ...product, catalogVersion: 'next', priceMinor: '20000' } },
+  ];
+  const next = replaceCartLine(current, original, water, 1);
+  assert.equal(next[0].product.catalogVersion, 'next');
+  assert.equal(cartTotal(next), '25000');
 });

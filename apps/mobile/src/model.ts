@@ -56,9 +56,13 @@ export interface Product {
   modifierGroups?: ModifierGroup[];
 }
 export interface CartLine {
+  /** Stable identity across a publication removing one of the selected options. */
+  key?: string;
   product: Product;
   quantity: number;
   selections?: Selection[];
+  issue?: 'unavailable' | 'choose_options';
+  previousUnitPriceMinor?: string;
 }
 export interface Branch {
   id: string;
@@ -76,7 +80,8 @@ export interface MobileModel {
   availabilityHours?: import('./availability').Availability['hours'];
   catalogUpdateNotice?: string | null;
   catalogUpdatePending?: boolean;
-  refreshPublishedCart?(): void;
+  cartChanges?: { oldTotal: string; newTotal: string } | null;
+  refreshCatalog?(): Promise<boolean>;
   dismissCatalogUpdate?(): void;
   products: Product[];
   cart: CartLine[];

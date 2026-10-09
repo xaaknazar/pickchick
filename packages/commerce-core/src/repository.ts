@@ -1,3 +1,4 @@
+import { MenuChangedError } from './menu-changed.js';
 import { UnpaidCancellationRequestSchema, UnpaidCancellationViewSchema } from './model.js';
 import { randomUUID } from 'node:crypto';
 import { authenticateDevice } from '@pickchick/menu-sync';
@@ -692,52 +693,112 @@ export class CommerceRepository {
       key,
       'unpaid_cancellation',
       request,
-      async (client, actor) => {
-        const row = await order(client, actor, request.orderId);
-        const binding = (
-          await client.query(
-            'SELECT active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
-            [actor.branchId],
-          )
-        ).rows[0];
-        if (!binding?.active) throw new CommerceError('NOT_READY');
-        if (
-          (
-            await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
-              row.id,
-            ])
-          ).rowCount
-        )
-          throw new CommerceError('CONFLICT');
-        if (
-          row.kitchen_effect_id ||
-          row.attention_required ||
-          (
-            await client.query(
-              `SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_refunds WHERE order_id=$1 LIMIT 1`,
-              [row.id],
-            )
-          ).rowCount
-        )
-          throw new CommerceError('NOT_READY');
-        await client.query(
-          "INSERT INTO commerce_cancellation_intents(id,order_id,organization_id,branch_id,requested_by,reason,state) VALUES($1,$2,$3,$4,$5,$6,'waiting_admission')",
-          [
-            randomUUID(),
-            row.id,
-            actor.organizationId,
-            actor.branchId,
-            actor.principalId,
-            request.reason,
-          ],
-        );
-        await this.scheduleUnpaidCancellation(client, actor, row.id);
-        return this.cancellationView(client, actor, row.id);
-      },
+      (client, actor) => this.queueUnpaidCancellation(client, actor, request),
       true,
       db,
     );
   }
+  private async queueUnpaidCancellation(
+    client: DatabaseClient,
+    actor: CommerceScope,
+    request: { orderId: string; reason: string },
+  ) {
+    const row = await order(client, actor, request.orderId);
+    const binding = (
+      await client.query(
+        'SELECT active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
+        [actor.branchId],
+      )
+    ).rows[0];
+    if (!binding?.active) throw new CommerceError('NOT_READY');
+    if (
+      (
+        await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
+          row.id,
+        ])
+      ).rowCount
+    )
+      throw new CommerceError('CONFLICT');
+    if (
+      row.kitchen_effect_id ||
+      row.attention_required ||
+      (
+        await client.query(
+          `SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_refunds WHERE order_id=$1 LIMIT 1`,
+          [row.id],
+        )
+      ).rowCount
+    )
+      throw new CommerceError('NOT_READY');
+    await client.query(
+      "INSERT INTO commerce_cancellation_intents(id,order_id,organization_id,branch_id,requested_by,reason,state) VALUES($1,$2,$3,$4,$5,$6,'waiting_admission')",
+      [
+        randomUUID(),
+        row.id,
+        actor.organizationId,
+        actor.branchId,
+        actor.principalId,
+        request.reason,
+      ],
+    );
+    await this.scheduleUnpaidCancellation(client, actor, row.id);
+    return this.cancellationView(client, actor, row.id);
+  }
+
+  /** Trusted mobile port: published prices and first attempt are serialized with publication. */
+  async startMobilePaymentAttempt(scopeInput: CommerceScope, key: string, input: unknown) {
+    const scope = parse(ScopeSchema, scopeInput),
+      request = parse(AttemptSchema, input);
+    const changed = await transaction(this.pool, async (client) => {
+      await boundary(client, scope);
+      const row = await order(client, scope, request.orderId, scope.principalId);
+      if (row.customer_id !== scope.principalId || row.snapshot.channel !== 'mobile')
+        throw new CommerceError('FORBIDDEN');
+      // An already attempted order owns its original amount forever, even after a republish.
+      if (
+        (
+          await client.query(
+            'SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 LIMIT 1',
+            [row.id],
+          )
+        ).rowCount
+      )
+        return false;
+      const head = (
+        await client.query<{ published_version: number | null }>(
+          'SELECT published_version FROM catalog_branch_heads WHERE branch_id=$1 AND organization_id=$2 FOR SHARE',
+          [scope.branchId, scope.organizationId],
+        )
+      ).rows[0];
+      const quote = (
+        await client.query<{ catalog_version: number | null }>(
+          'SELECT catalog_version FROM commerce_quotes WHERE id=$1',
+          [row.quote_id],
+        )
+      ).rows[0];
+      if (!head || !quote?.catalog_version || quote.catalog_version !== head.published_version) {
+        const cancellation = (
+          await client.query<{ reason: string }>(
+            'SELECT reason FROM commerce_cancellation_intents WHERE order_id=$1',
+            [row.id],
+          )
+        ).rows[0];
+        if (!cancellation)
+          await this.queueUnpaidCancellation(client, scope, {
+            orderId: row.id,
+            reason: 'CATALOG_CHANGED_BEFORE_PAYMENT',
+          });
+        else if (cancellation.reason !== 'CATALOG_CHANGED_BEFORE_PAYMENT')
+          throw new CommerceError('NOT_READY');
+        return true;
+      }
+      await this.startAttempt(scope, key, request, false, client);
+      return false;
+    });
+    // The durable release must commit before the customer is offered a new quote.
+    if (changed) throw new MenuChangedError();
+  }
+
   private async cancellationView(client: DatabaseClient, scope: Boundary, orderId: string) {
     const row = (
       await client.query(
@@ -831,106 +892,126 @@ export class CommerceRepository {
   async startKioskQrPaymentAttempt(scope: CommerceScope, key: string, input: unknown) {
     return this.startAttempt(scope, key, input, true);
   }
-  private async startAttempt(scope: CommerceScope, key: string, input: unknown, kioskQr: boolean) {
+  private async startAttempt(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    kioskQr: boolean,
+    db?: DatabaseClient,
+  ) {
     const request = parse(AttemptSchema, input);
-    return this.command(scope, key, 'attempt', request, async (client, actor) => {
-      const row = await order(
-        client,
-        actor,
-        request.orderId,
-        actor.role === 'manager' ? undefined : actor.principalId,
-      );
-      if (kioskQr) {
-        const guest = await client.query(
-          `SELECT 1 FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
+    return this.command(
+      scope,
+      key,
+      'attempt',
+      request,
+      async (client, actor) => {
+        const row = await order(
+          client,
+          actor,
+          request.orderId,
+          actor.role === 'manager' ? undefined : actor.principalId,
+        );
+        if (kioskQr) {
+          const guest = await client.query(
+            `SELECT 1 FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
            JOIN commerce_provider_accounts a ON a.id=$4
            JOIN commerce_orders o ON o.id=$5
            WHERE s.id=$1 AND s.organization_id=$2 AND s.branch_id=$3
             AND s.ended_at IS NULL AND s.created_at<=o.created_at
             AND s.expires_at>o.created_at AND d.active
             AND a.provider='kaspi-qr'`,
-          [row.principal_id, row.organization_id, row.branch_id, request.providerAccountId, row.id],
-        );
-        if (row.customer_id !== null || row.snapshot.channel !== 'kiosk' || !guest.rowCount)
-          throw new CommerceError('FORBIDDEN');
-      }
-      if (
-        (
-          await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
-            row.id,
-          ])
-        ).rowCount
-      )
-        throw new CommerceError('NOT_READY');
-      // A transport-owned admission may have been released/cancelled by its edge.
-      // The order lock serializes this decision with incoming fulfillment facts.
-      const transport = (
-        await client.query<{ device_id: string; active: boolean }>(
-          'SELECT device_id,active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
-          [actor.branchId],
-        )
-      ).rows[0];
-      if (transport) {
-        if (!transport.active) throw new CommerceError('NOT_READY');
-        const admission = (
-          await client.query<{ state: string; device_id: string; reservation_id: string }>(
-            'SELECT state,device_id,reservation_id FROM cloud_fulfillment_projection WHERE order_id=$1',
-            [row.id],
-          )
-        ).rows[0];
+            [
+              row.principal_id,
+              row.organization_id,
+              row.branch_id,
+              request.providerAccountId,
+              row.id,
+            ],
+          );
+          if (row.customer_id !== null || row.snapshot.channel !== 'kiosk' || !guest.rowCount)
+            throw new CommerceError('FORBIDDEN');
+        }
         if (
-          (!admission && !kioskQr) ||
-          (admission &&
-            (admission.state !== 'held' ||
-              admission.device_id !== transport.device_id ||
-              admission.device_id !== row.admission_device_id ||
-              admission.reservation_id !== row.admission_reservation_id))
+          (
+            await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
+              row.id,
+            ])
+          ).rowCount
         )
           throw new CommerceError('NOT_READY');
-      }
-      await account(
-        client,
-        actor,
-        request.providerAccountId,
-        'payment',
-        true,
-        row.snapshot.legalEntityId,
-      );
-      if ((!row.admission_reservation_id && !kioskQr) || row.attention_required)
-        throw new CommerceError('NOT_READY');
-      const money = await totals(client, row.id);
-      if (BigInt(money.captured) > 0n) throw new CommerceError('NOT_READY');
-      if (
-        (
-          await client.query(
-            "SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 AND state IN ('pending','unknown')",
+        // A transport-owned admission may have been released/cancelled by its edge.
+        // The order lock serializes this decision with incoming fulfillment facts.
+        const transport = (
+          await client.query<{ device_id: string; active: boolean }>(
+            'SELECT device_id,active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
+            [actor.branchId],
+          )
+        ).rows[0];
+        if (transport) {
+          if (!transport.active) throw new CommerceError('NOT_READY');
+          const admission = (
+            await client.query<{ state: string; device_id: string; reservation_id: string }>(
+              'SELECT state,device_id,reservation_id FROM cloud_fulfillment_projection WHERE order_id=$1',
+              [row.id],
+            )
+          ).rows[0];
+          if (
+            (!admission && !kioskQr) ||
+            (admission &&
+              (admission.state !== 'held' ||
+                admission.device_id !== transport.device_id ||
+                admission.device_id !== row.admission_device_id ||
+                admission.reservation_id !== row.admission_reservation_id))
+          )
+            throw new CommerceError('NOT_READY');
+        }
+        await account(
+          client,
+          actor,
+          request.providerAccountId,
+          'payment',
+          true,
+          row.snapshot.legalEntityId,
+        );
+        if ((!row.admission_reservation_id && !kioskQr) || row.attention_required)
+          throw new CommerceError('NOT_READY');
+        const money = await totals(client, row.id);
+        if (BigInt(money.captured) > 0n) throw new CommerceError('NOT_READY');
+        if (
+          (
+            await client.query(
+              "SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 AND state IN ('pending','unknown')",
+              [row.id],
+            )
+          ).rowCount
+        )
+          throw new CommerceError('NOT_READY');
+        const intent = (
+          await client.query<{ id: string }>(
+            'SELECT id FROM commerce_payment_intents WHERE order_id=$1',
             [row.id],
           )
-        ).rowCount
-      )
-        throw new CommerceError('NOT_READY');
-      const intent = (
-        await client.query<{ id: string }>(
-          'SELECT id FROM commerce_payment_intents WHERE order_id=$1',
-          [row.id],
-        )
-      ).rows[0]!;
-      const id = randomUUID();
-      await client.query(
-        'INSERT INTO commerce_payment_attempts(id,intent_id,order_id,account_id,intended_minor) VALUES($1,$2,$3,$4,$5)',
-        [id, intent.id, row.id, request.providerAccountId, row.total_minor],
-      );
-      await emit(client, row.id, 'payment:' + id, 'payment.submit_requested', {
-        attemptId: id,
-        orderId: row.id,
-        accountId: request.providerAccountId,
-        amountMinor: row.total_minor,
-        currency: row.currency,
-        externalReference: id,
-      });
-      await reconcile(client, row);
-      return { attemptId: id, orderId: row.id, amountMinor: row.total_minor, state: 'pending' };
-    });
+        ).rows[0]!;
+        const id = randomUUID();
+        await client.query(
+          'INSERT INTO commerce_payment_attempts(id,intent_id,order_id,account_id,intended_minor) VALUES($1,$2,$3,$4,$5)',
+          [id, intent.id, row.id, request.providerAccountId, row.total_minor],
+        );
+        await emit(client, row.id, 'payment:' + id, 'payment.submit_requested', {
+          attemptId: id,
+          orderId: row.id,
+          accountId: request.providerAccountId,
+          amountMinor: row.total_minor,
+          currency: row.currency,
+          externalReference: id,
+        });
+        await reconcile(client, row);
+        return { attemptId: id, orderId: row.id, amountMinor: row.total_minor, state: 'pending' };
+      },
+      false,
+      db,
+    );
   }
 
   private async observation<T>(

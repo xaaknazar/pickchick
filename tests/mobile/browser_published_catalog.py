@@ -20,7 +20,8 @@ with sync_playwright() as p:
    if path.endswith('/quotes'):
     quotes.append({'request':r.request.post_data_json,'status':response.status,'response':response.json()})
    return
-  if path=='/v1/capabilities':data={'schema_version':1,'environment':'staging','data_mode':'pilot','ordering_enabled':False,'features':{'phone_auth':True,'test_order_flow':True,**{k:False for k in ['payments','fiscal','checkout','loyalty']}}}
+  if path=='/health/live':data={'alive':True,'service':'api'}
+  elif path=='/v1/capabilities':data={'schema_version':1,'environment':'staging','data_mode':'pilot','ordering_enabled':False,'features':{'phone_auth':True,'test_order_flow':True,**{k:False for k in ['payments','fiscal','checkout','loyalty']}}}
   elif path=='/v1/customers/me':data={'customer':customer}
   elif path=='/v1/auth/config':data={'enabled':True,'delivery_consent_required':True,'consent_version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy'}
   elif path=='/v1/content/branches/'+BRANCH:data={'schema_version':1,'branch_id':BRANCH,'promos':[],'games':[]}
@@ -41,15 +42,19 @@ with sync_playwright() as p:
  # The fixture refuses order creation; discard its deliberately unfinished command before a new checkout.
  page.evaluate('(key)=>localStorage.removeItem(key)', 'pickchick.commerce.pending.v1:'+CUSTOMER)
  page.request.post(URL+'/fixture/publish')
- # Persisted full publication lets restart retain the old prices/selected choices.
- page.reload();expect(page.get_by_test_id('catalog-update-notice')).to_contain_text('старой версией',timeout=15000)
- expect(page.get_by_test_id('cart-quantity-burger')).to_have_text('2');expect(page.get_by_test_id('cart-quantity-side')).to_have_text('1')
- page.get_by_test_id('cart-checkout').click();page.get_by_test_id('kaspi-checkout-submit').click();expect(page.get_by_text('Меню или цена изменились. Вернитесь в корзину и проверьте заказ.',exact=True)).to_be_visible(timeout=15000)
- assert quotes[-1]['status']==409 and quotes[-1]['response']['code']=='CONFLICT'
- page.get_by_test_id('checkout-close').click();page.get_by_test_id('catalog-update-apply').click();expect(page.get_by_test_id('catalog-update-notice')).to_contain_text('Director Side');expect(page.get_by_test_id('cart-quantity-side')).to_have_count(0);expect(page.get_by_test_id('cart-quantity-burger')).to_have_text('2');expect(page.get_by_test_id('cart-checkout')).to_contain_text('5 600,02')
+ # A publication updates the visible basket without navigation or reload.
+ expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Цены обновились',timeout=3000)
+ expect(page.get_by_test_id('cart-quantity-burger')).to_have_text('2')
+ expect(page.get_by_test_id('cart-quantity-side')).to_have_text('1')
+ expect(page.get_by_test_id('cart-checkout')).to_be_disabled()
+ page.reload()
+ expect(page.get_by_test_id('cart-quantity-side')).to_have_text('1',timeout=15000)
+ page.get_by_test_id('cart-minus-side').click()
+ expect(page.get_by_test_id('cart-quantity-side')).to_have_count(0)
+ expect(page.get_by_test_id('cart-checkout')).to_contain_text('5 600,02')
  page.screenshot(path=str(OUT/'published-cart-updated.png'))
  page.get_by_test_id('cart-checkout').click();page.get_by_test_id('kaspi-checkout-submit').click();expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible(timeout=15000)
  assert quotes[-1]['status']==200 and quotes[-1]['response']['totalMinor']=='560002';assert quotes[-1]['request']['items'][0]['selections']==[{'group_id':'side','option_id':'extra','quantity':1}]
  assert not errors,errors
  context.close();browser.close()
-print(json.dumps({'browser':'passed','quotes':len(quotes),'stale_rejected':True,'quantity_and_modifiers_retained':True,'removed_line_named':True,'payments':0}))
+print(json.dumps({'browser':'passed','quotes':len(quotes),'publication_without_reload':True,'quantity_and_modifiers_retained':True,'removed_line_retained':True,'payments':0}))

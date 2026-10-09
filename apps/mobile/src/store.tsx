@@ -1,14 +1,11 @@
-import {
-  reconcilePublishedCart,
-  restoreLegacyPublishedCart,
-  publishedCartStorageRelease,
-} from './published-catalog';
+import { restoreLegacyPublishedCart, publishedCartStorageRelease } from './published-catalog';
+import { repriceCart, PRICES_UPDATED, MENU_UPDATED } from './cart-reprice';
 import type { CatalogMediaMap, CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mergeCartLines } from './cart-actions';
-import { AppState } from 'react-native';
+import { subscribeCatalogConnectivity } from './connectivity';
 import {
   createContext,
   useCallback,
@@ -20,7 +17,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { MenuSnapshot } from '@pickchick/contracts';
-import { isRetryableCatalogError, loadCatalog, loadTestCatalog } from './api';
+import { isRetryableCatalogError, loadCatalog, loadCatalogMedia, loadTestCatalog } from './api';
 import {
   PUBLISHED_CATALOG_REFRESH_MS,
   catalogRefreshTarget,
@@ -44,6 +41,9 @@ import {
   replaceCartLine,
   updateQuantity,
   cartLineKey,
+  lineUnitPrice,
+  cartTotal,
+  selectionKey,
   defaultSelections,
   clearMatchingCart,
   type SavedPreferences,
@@ -85,6 +85,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [requestedBranchId, setRequestedBranchId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [catalogUpdateNotice, setCatalogUpdateNotice] = useState<string | null>(null);
+  const [cartChanges, setCartChanges] = useState<{ oldTotal: string; newTotal: string } | null>(
+    null,
+  );
   const [publication, setPublication] = useState<CatalogMobileStorefront | null>(null);
   const [media, setMedia] = useState<CatalogMediaMap | null>(null);
   const [menu, setMenu] = useState<MenuSnapshot | null>(null);
@@ -112,7 +115,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   modeRef.current = catalogMode;
   const serverRelease = useRef<string | null>(null);
   const cartPublication = useRef<CatalogMobileStorefront | null>(null);
-  const catalogRecovery = useRef<{ refresh(): void } | null>(null);
+  const catalogRecovery = useRef<{ refresh(): Promise<boolean> } | null>(null);
   const requestedCatalogVersion = useRef<number | null>(null);
 
   useEffect(() => {
@@ -149,7 +152,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     const recovery = createCatalogRecovery({
       load: async (signal) => {
-        const result = await loadCatalog(requestedBranchId, signal);
+        const result = await loadCatalog(requestedBranchId, signal, { deferMedia: true });
         if (signal.aborted) throw new Error('Aborted');
         const testCatalog =
           !result.publication && result.capabilities.features.test_order_flow
@@ -184,13 +187,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         );
         setMenu(result.menu);
         setPublication(result.publication);
-        setMedia(result.media);
-        prefetchCatalogMedia(result.media);
-        if (!restoration.current)
-          setCart((previous) => {
-            if (!previous.length) cartPublication.current = result.publication;
-            return previous;
-          });
+        setMedia((previous) =>
+          previous?.version === result.publication?.version ? previous : result.media,
+        );
         setConnectedCatalog(testCatalog);
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
@@ -198,52 +197,52 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           const legacyCart = legacy
             ? restoreLegacyPublishedCart(restoration.current, designProducts)
             : null;
-          setCart(
-            legacy
-              ? legacyCart!
-              : restoreCart(
-                  restoration.current,
-                  result.publication
-                    ? publishedProducts(
-                        restoration.current.publication ?? result.publication,
-                        'ru',
-                        result.media,
-                      )
-                    : testCatalog
-                      ? connectedProducts(testCatalog)
-                      : serverProducts(result.menu, 'ru'),
-                  result.publication && restoration.current.publication
-                    ? restoration.current.releaseId
-                    : nextRelease,
-                ),
-          );
-          if (legacy && restoration.current.lines.length) {
-            cartPublication.current = null;
-            setCatalogUpdateNotice(
-              legacyCart?.length
-                ? 'Меню обновилось. Корзина сохранена со старой версией. Обновите её и проверьте состав и цены перед оформлением.'
-                : 'Версия прежней корзины больше недоступна. Добавьте блюда из актуального меню и проверьте цены перед оформлением.',
-            );
-          }
-          if (result.publication && restoration.current.publication) {
-            cartPublication.current = restoration.current.publication;
-            if (restoration.current.releaseId !== nextRelease && restoration.current.lines.length)
-              setCatalogUpdateNotice(
-                'Меню обновилось. Сохранённая корзина восстановлена со старой версией. Обновите её и проверьте состав и цены перед оформлением.',
+          const restored = legacy
+            ? legacyCart!
+            : restoreCart(
+                restoration.current,
+                result.publication
+                  ? publishedProducts(
+                      restoration.current.publication ?? result.publication,
+                      'ru',
+                      result.media,
+                    )
+                  : testCatalog
+                    ? connectedProducts(testCatalog)
+                    : serverProducts(result.menu, 'ru'),
+                result.publication && restoration.current.publication
+                  ? restoration.current.releaseId
+                  : nextRelease,
               );
-          }
+          setCart(restored);
+          if (legacy && restoration.current.lines.length && !legacyCart?.length)
+            setCatalogUpdateNotice(
+              'Версия прежней корзины больше недоступна. Добавьте блюда из актуального меню и проверьте цены перед оформлением.',
+            );
           restoration.current = null;
-        } else if (changed && modeRef.current === 'server') {
-          if (result.publication) {
-            setCart((previous) => {
-              if (previous.length)
-                setCatalogUpdateNotice(
-                  'Меню обновилось. Корзина сохранена со старой версией. Обновите её и проверьте состав и цены перед оформлением.',
-                );
-              return previous;
-            });
-          } else setCart([]);
         }
+        if (result.publication && modeRef.current === 'server') {
+          const currentProducts = publishedProducts(result.publication, locale, result.media);
+          setCart((previous) => {
+            const repriced = repriceCart(previous, currentProducts);
+            const changes = repriced.changes;
+            cartPublication.current = result.publication;
+            if (changes.priceChanged.length) {
+              setCatalogUpdateNotice(PRICES_UPDATED);
+              setCartChanges((prior) => ({
+                oldTotal: prior?.oldTotal ?? changes.oldTotal,
+                newTotal: changes.newTotal,
+              }));
+            } else if (
+              changes.optionsDropped.length ||
+              changes.needsChoice.length ||
+              changes.unavailable.length
+            ) {
+              setCatalogUpdateNotice(MENU_UPDATED);
+            }
+            return repriced.cart;
+          });
+        } else if (changed && modeRef.current === 'server') setCart([]);
         setConnection({
           status: 'online',
           checkedAt: new Date().toISOString(),
@@ -261,18 +260,26 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       },
     });
     catalogRecovery.current = recovery;
-    const subscription = AppState.addEventListener('change', (state) =>
-      recovery.setActive(state === 'active'),
-    );
-    recovery.setActive(
-      AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
-    );
+    const unsubscribe = subscribeCatalogConnectivity(recovery);
     return () => {
-      subscription.remove();
+      unsubscribe();
       recovery.stop();
       if (catalogRecovery.current === recovery) catalogRecovery.current = null;
     };
   }, [hydrated, requestedBranchId, refreshIndex]);
+
+  // Media is version-bound but never delays authoritative prices and selections.
+  useEffect(() => {
+    if (!publication) return;
+    const controller = new AbortController();
+    void loadCatalogMedia(publication.version, controller.signal).then((next) => {
+      if (!controller.signal.aborted) {
+        setMedia(next);
+        prefetchCatalogMedia(next);
+      }
+    });
+    return () => controller.abort();
+  }, [publication?.branch.id, publication?.version]);
 
   const availability = useAvailability(hydrated && catalogMode === 'server', refreshIndex);
   // A republish (price, photo, items) reaches the long-poll as a newer X-Catalog-Version. Reload
@@ -328,7 +335,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     const pendingCart = restoration.current;
     const saved: SavedPreferences = {
-      version: 1,
+      version: 2,
       catalogMode,
       diningMode,
       paymentMethod,
@@ -352,7 +359,14 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         pendingCart?.lines ??
         cart.map((line) => ({
           id: line.product.id,
+          key: cartLineKey(line),
           quantity: line.quantity,
+          ...(line.issue === 'unavailable'
+            ? { unavailable: { name: line.product.name, unitMinor: lineUnitPrice(line) } }
+            : {}),
+          ...(line.previousUnitPriceMinor
+            ? { previousUnitPriceMinor: line.previousUnitPriceMinor }
+            : {}),
           ...(line.selections ? { selections: line.selections } : {}),
         })),
     };
@@ -389,6 +403,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setMedia(null);
     cartPublication.current = null;
     setCatalogUpdateNotice(null);
+    setCartChanges(null);
     setConnectedCatalog(null);
     setPracticeScore(null);
     setRefreshIndex((previous) => previous + 1);
@@ -399,30 +414,19 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     void persistQueue.current.catch(() => {});
   };
 
-  const catalogUpdatePending = Boolean(
-    publication &&
-    cart.some(
-      (line) =>
-        line.product.catalogVersion !== `published:${publication.branch.id}:${publication.version}`,
-    ),
-  );
+  const catalogUpdatePending = cart.some((line) => Boolean(line.issue));
   const model: MobileModel = {
     catalogUpdateNotice,
     catalogUpdatePending,
-    refreshPublishedCart: () => {
-      if (!publication) return;
-      setCart((previous) => {
-        const result = reconcilePublishedCart(previous, products);
-        cartPublication.current = publication;
-        setCatalogUpdateNotice(
-          result.removed.length
-            ? `Корзина обновлена. Удалены недоступные блюда или варианты: ${result.removed.join(', ')}. Проверьте новые цены.`
-            : 'Корзина обновлена. Количество и выбранные варианты сохранены. Проверьте новые цены перед оформлением.',
-        );
-        return result.cart;
-      });
+    cartChanges: cartChanges ? { ...cartChanges, newTotal: cartTotal(cart) } : null,
+    refreshCatalog: () => catalogRecovery.current?.refresh() ?? Promise.resolve(false),
+    dismissCatalogUpdate: () => {
+      setCatalogUpdateNotice(null);
+      setCartChanges(null);
+      setCart((previous) =>
+        previous.map((line) => ({ ...line, previousUnitPriceMinor: undefined })),
+      );
     },
-    dismissCatalogUpdate: () => setCatalogUpdateNotice(null),
     products,
     upsellProductIds:
       publication && catalogMode === 'server'
@@ -444,7 +448,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     branches,
     branch,
     connection,
-    selectedProduct: products.find((product) => product.id === selectedId) ?? products[0] ?? null,
+    selectedProduct:
+      selectedId === null
+        ? (products[0] ?? null)
+        : (products.find((product) => product.id === selectedId) ?? null),
     nickname,
     orderComment,
     testFlow,
@@ -475,7 +482,6 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
     selectProduct: setSelectedId,
     appendCartLines: (lines) => {
-      if (catalogUpdatePending) return false;
       restoration.current = null;
       let accepted = false;
       setCart((previous) => {
@@ -488,16 +494,19 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
     addToCart: (id, selections, quantity = 1) => {
       const product = products.find((candidate) => candidate.id === id);
-      if (!product || product.available === false || catalogUpdatePending) return;
+      if (!product || product.available === false) return;
       const chosen = selections ?? defaultSelections(product);
-      const key = cartLineKey({ product, selections: chosen });
       restoration.current = null;
       setCart((previous) => {
         if (!previous.length) cartPublication.current = publication;
         return updateQuantity(
           previous,
           product,
-          (previous.find((line) => cartLineKey(line) === key)?.quantity ?? 0) + quantity,
+          (previous.find(
+            (line) =>
+              line.product.id === product.id &&
+              selectionKey(line.selections) === selectionKey(chosen),
+          )?.quantity ?? 0) + quantity,
           chosen,
         );
       });
@@ -506,6 +515,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       restoration.current = null;
       setCart((previous) => {
         const line = previous.find((l) => cartLineKey(l) === id);
+        if (line && quantity === 0) return previous.filter((candidate) => candidate !== line);
+        if (line && Number.isInteger(quantity) && quantity > 0 && quantity <= 20)
+          return previous.map((candidate) =>
+            candidate === line ? { ...line, quantity } : candidate,
+          );
         return line ? updateQuantity(previous, line.product, quantity, line.selections) : previous;
       });
     },

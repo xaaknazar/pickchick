@@ -64,7 +64,7 @@ test('delayed order approval never clears a different current basket', () => {
 test('untrusted local preferences reject corrupt, oversized, duplicate and invalid quantities', () => {
   assert.equal(parsePreferences('{'), null);
   assert.equal(parsePreferences('x'.repeat(20001)), null);
-  assert.equal(parsePreferences(JSON.stringify({ ...preferences, version: 2 })), null);
+  assert.equal(parsePreferences(JSON.stringify({ ...preferences, version: 3 })), null);
   assert.equal(
     parsePreferences(
       JSON.stringify({ ...preferences, lines: [...preferences.lines, ...preferences.lines] }),

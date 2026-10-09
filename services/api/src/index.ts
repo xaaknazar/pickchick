@@ -1,3 +1,4 @@
+import { CatalogPublicationListener } from './catalog-publication-listener.js';
 import { FarmController } from './farm-controller.js';
 import { FinanceController } from './finance-controller.js';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
@@ -205,6 +206,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
+      CatalogPublicationListener,
       {
         provide: FINANCE,
         inject: [RESOURCE],

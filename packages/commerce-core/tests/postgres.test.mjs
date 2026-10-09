@@ -1831,3 +1831,85 @@ test('restaurant hours reject new business operations while closed and preserve 
     },
     { paymentProvider: 'kaspi-remote' },
   ));
+
+test('mobile head guard preserves an existing attempt and its price after republish', () =>
+  fixture(async (f) => {
+    const publication = await publishCatalog(f);
+    const quote = await f.repo.issueQuote(f.scope, randomUUID(), {
+      ...publication.priced,
+      customerId: f.scope.principalId,
+    });
+    const created = await f.repo.createOrder(f.scope, randomUUID(), {
+      quoteId: quote.quoteId,
+      fiscalAccountId: f.fiscal,
+    });
+    await f.repo.confirmAdmission(f.edge, {
+      eventId: randomUUID(),
+      orderId: created.orderId,
+      reservationId: randomUUID(),
+      quoteDigest: quote.digest,
+    });
+    const command = { orderId: created.orderId, providerAccountId: f.payment };
+    await f.repo.startMobilePaymentAttempt(f.scope, randomUUID(), command);
+    const before = await f.repo.readOrder(f.scope, created.orderId);
+    await publishCatalog(f, { version: 2, price: '20000' });
+    await f.repo.startMobilePaymentAttempt(f.scope, randomUUID(), command);
+    const after = await f.repo.readOrder(f.scope, created.orderId);
+    assert.deepEqual(after.attempts, before.attempts);
+    assert.equal(after.totalMinor, before.totalMinor);
+    assert.equal(await f.count('commerce_cancellation_intents'), 0);
+    await assert.rejects(
+      f.repo.startMobilePaymentAttempt(
+        { ...f.scope, principalId: randomUUID() },
+        randomUUID(),
+        command,
+      ),
+      /NOT_FOUND/,
+    );
+  }));
+
+test('publication and mobile first attempt serialize on the head; stale cancellation commits before rejection', () =>
+  fixture(async (f) => {
+    const publication = await publishCatalog(f);
+    const quote = await f.repo.issueQuote(f.scope, randomUUID(), {
+      ...publication.priced,
+      customerId: f.scope.principalId,
+    });
+    const created = await f.repo.createOrder(f.scope, randomUUID(), {
+      quoteId: quote.quoteId,
+      fiscalAccountId: f.fiscal,
+    });
+    await f.pool.query(
+      'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+      [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+    );
+    const publicationTx = await f.pool.connect();
+    let attempt;
+    try {
+      await publicationTx.query('BEGIN');
+      await publicationTx.query('SELECT 1 FROM catalog_branch_heads FOR UPDATE');
+      attempt = f.repo
+        .startMobilePaymentAttempt(f.scope, randomUUID(), {
+          orderId: created.orderId,
+          providerAccountId: f.payment,
+        })
+        .then(
+          () => null,
+          (error) => error,
+        );
+      await publishCatalog(f, { version: 2, price: '20000', db: publicationTx });
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      await publicationTx.query('COMMIT');
+      assert.equal((await attempt).constructor.name, 'MenuChangedError');
+      assert.equal(await f.count('commerce_payment_attempts'), 0);
+      assert.equal(await f.count('commerce_cancellation_intents'), 1);
+      assert.equal(
+        (await f.repo.readOrder(f.scope, created.orderId)).totalMinor,
+        quote.snapshot.totalMinor,
+      );
+    } finally {
+      await publicationTx.query('ROLLBACK');
+      publicationTx.release();
+      await attempt;
+    }
+  }));

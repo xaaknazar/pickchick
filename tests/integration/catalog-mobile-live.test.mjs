@@ -7,7 +7,7 @@ import {
   CatalogAdminError,
   provisionCatalogManager,
 } from '../../packages/catalog-admin/dist/index.js';
-import { CustomerCheckout } from '../../packages/commerce-core/dist/index.js';
+import { CustomerCheckout, MenuChangedError } from '../../packages/commerce-core/dist/index.js';
 import {
   publishedProductData,
   publishedCartVersion,
@@ -189,6 +189,36 @@ test('mobile storefront and checkout share published products, channel prices an
     const replay = await checkout.create(customer, { key: createKey, quoteId: quote.quoteId });
     assert.equal(replay.orderId, created.orderId);
     assert.deepEqual(await counts(), beforeReplay);
+    const guarded = new CustomerCheckout(pool, {
+      organizationId: org,
+      branchId: branch,
+      paymentAccountId: account,
+      customerIds: [customer],
+      maxOrderMinor: '10000000',
+      approvalReference: 'Synthetic approved pilot',
+      publishedCatalogEnabled: true,
+      headGuardEnabled: true,
+    });
+    await Promise.all(
+      [1, 2].map(() => assert.rejects(guarded.pay(customer, created.orderId), MenuChangedError)),
+    );
+    assert.equal(
+      (await pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      0,
+    );
+    const cancellation = (
+      await pool.query('SELECT reason,state FROM commerce_cancellation_intents WHERE order_id=$1', [
+        created.orderId,
+      ])
+    ).rows;
+    assert.equal(cancellation.length, 1, 'retry retains one durable cancellation');
+    assert.equal(cancellation[0].reason, 'CATALOG_CHANGED_BEFORE_PAYMENT');
+    assert.equal((await guarded.read(customer, created.orderId)).phase, 'failed');
+    assert.equal(
+      (await guarded.read(customer, created.orderId)).totalMinor,
+      quote.totalMinor,
+      'saved financial amount is immutable',
+    );
 
     assert.equal(
       (

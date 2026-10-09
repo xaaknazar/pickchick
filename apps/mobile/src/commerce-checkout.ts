@@ -21,7 +21,8 @@ export const commerceRequest = (
       /^\/v1\/customer-checkout\/(config|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
     timeoutMs: 28000,
     maxBytes: 128000,
-    accept: 'application/json; profile=pickchick.checkout-comments-v1',
+    accept:
+      'application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1',
     signal,
   })(path, method, body, token);
 

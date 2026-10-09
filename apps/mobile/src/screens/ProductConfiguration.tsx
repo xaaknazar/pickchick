@@ -1,7 +1,9 @@
+import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { PhotoProduct } from './PhotoProduct';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { MotionPressable as Pressable } from '../components/Motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { retainSelections } from '../cart-reprice';
 import { Image } from 'expo-image';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,24 +29,18 @@ import {
 import { colors, font } from '../theme';
 
 export function ProductConfiguration(props: ScreenProps) {
-  const product = props.model.selectedProduct ?? props.model.products[0];
+  const product = props.model.selectedProduct;
   if (!product)
     return (
       <Page props={props} title="Блюдо">
         <Empty
-          title="Блюдо не выбрано"
-          detail="Выберите любимое в меню."
+          title="Блюдо больше недоступно"
+          detail="Выберите другое блюдо в меню."
           action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
         />
       </Page>
     );
-  return (
-    <ConfiguredProduct
-      key={`${product.source}:${product.catalogVersion}:${product.id}`}
-      {...props}
-      product={product}
-    />
-  );
+  return <ConfiguredProduct key={`${product.source}:${product.id}`} {...props} product={product} />;
 }
 export function ConfiguredProduct(
   props: ScreenProps & {
@@ -75,6 +71,9 @@ function LegacyConfiguredProduct(
   const [quantity, setQuantity] = useState(props.editing?.quantity ?? 1);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [details, setDetails] = useState(false);
+  useEffect(() => {
+    setSelections((previous) => retainSelections(product, previous));
+  }, [product]);
   const candidate = { product, selections };
   const unitPrice = lineUnitPrice(candidate);
   const existing = props.model.cart.find(
@@ -152,6 +151,7 @@ function LegacyConfiguredProduct(
           />
         </View>
         <View testID="product-content" style={s.body}>
+          <ProductMenuNotice product={product} selections={selections} />
           <Heading style={s.title}>{product.name}</Heading>
           <Body muted style={s.description}>
             {product.description}

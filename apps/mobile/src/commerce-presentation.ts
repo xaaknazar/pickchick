@@ -74,8 +74,9 @@ export function checkoutError(error: unknown) {
     return 'Комментарий временно недоступен. Удалите его, чтобы оформить заказ.';
   if (code === 'CHECKOUT_STORAGE')
     return 'Не удалось сохранить оформление на устройстве. Счёт не отправлен. Освободите место и попробуйте снова.';
-  if (['CONFLICT', 'QUOTE_EXPIRED'].includes(code))
-    return 'Меню или цена изменились. Вернитесь в корзину и проверьте заказ.';
+  if (['MENU_CHANGED', 'CONFLICT', 'QUOTE_EXPIRED'].includes(code))
+    return 'Цены обновились. Проверьте итоговую сумму перед оплатой';
+  if (code === 'INVALID_REQUEST') return 'Не удалось рассчитать заказ. Попробуйте ещё раз.';
   if (code === 'FORBIDDEN') return 'Оплата Kaspi ещё не открыта для вашего аккаунта.';
 
   if (code === 'UNAUTHORIZED') return 'Войдите в аккаунт снова, чтобы продолжить свой заказ.';

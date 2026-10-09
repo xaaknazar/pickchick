@@ -1,3 +1,4 @@
+import { CatalogPublicationListener } from './catalog-publication-listener.js';
 import {
   Body,
   Controller,
@@ -23,6 +24,7 @@ import {
   AvailabilityError,
   CATALOG_VERSION_HEADER,
   CommerceError,
+  MenuChangedError,
   CustomerCheckout,
   customerCheckoutOptions,
   pollAvailability,
@@ -35,9 +37,41 @@ import { RESOURCE, Resources } from '@pickchick/platform';
 export class CustomerCheckoutController {
   private readonly checkout: CustomerCheckout;
   private readonly mediaEnabled: boolean;
+  private availabilityCache: {
+    revision: number;
+    at: number;
+    value: Awaited<ReturnType<CustomerCheckout['availabilityState']>>;
+  } | null = null;
+  private availabilityRead: Promise<
+    Awaited<ReturnType<CustomerCheckout['availabilityState']>>
+  > | null = null;
+  private async availabilityState(): Promise<
+    Awaited<ReturnType<CustomerCheckout['availabilityState']>>
+  > {
+    const revision = this.publications.revision;
+    if (
+      this.availabilityCache?.revision === revision &&
+      Date.now() - this.availabilityCache.at < 500
+    )
+      return this.availabilityCache.value;
+    if (!this.availabilityRead) {
+      this.availabilityRead = this.checkout
+        .availabilityState()
+        .then((value) => {
+          this.availabilityCache = { revision, at: Date.now(), value };
+          return value;
+        })
+        .finally(() => {
+          this.availabilityRead = null;
+        });
+    }
+    const value = await this.availabilityRead;
+    return revision === this.publications.revision ? value : this.availabilityState();
+  }
   constructor(
     @Inject(CUSTOMER_IDENTITY) private readonly identity: CustomerIdentity,
     @Inject(RESOURCE) resources: Resources,
+    @Inject(CatalogPublicationListener) private readonly publications: CatalogPublicationListener,
   ) {
     this.checkout = new CustomerCheckout(resources.pool, customerCheckoutOptions(process.env));
     this.mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
@@ -45,7 +79,11 @@ export class CustomerCheckoutController {
   private async execute<T>(
     authorization: string | undefined,
     run: (customerId: string) => Promise<T>,
+    accept?: string,
   ) {
+    const precise = accept
+      ?.split(',')
+      .some((part) => part.trim() === 'application/json; profile=pickchick.checkout-errors-v1');
     const token = authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
     if (!token) throw new HttpException({ code: 'UNAUTHORIZED' }, 401);
     try {
@@ -55,7 +93,13 @@ export class CustomerCheckoutController {
       if (error instanceof CustomerIdentityError)
         throw new HttpException({ code: error.code }, error.code === 'UNAUTHORIZED' ? 401 : 503);
       if (error instanceof AvailabilityError)
-        throw new HttpException({ code: error.code }, error.code === 'ITEM_STOPPED' ? 409 : 503);
+        throw new HttpException(
+          {
+            code:
+              error.code === 'AVAILABILITY_STALE' && !precise ? 'SERVICE_UNAVAILABLE' : error.code,
+          },
+          error.code === 'ITEM_STOPPED' ? 409 : 503,
+        );
       if (error instanceof CommerceError) {
         const statuses = {
           CATALOG_UPGRADE_REQUIRED: 409,
@@ -69,11 +113,15 @@ export class CustomerCheckoutController {
           RESTAURANT_CLOSED: 409,
         };
         const code =
-          error.code === 'EXPIRED'
-            ? 'QUOTE_EXPIRED'
-            : error.code === 'INVALID'
-              ? 'INVALID_REQUEST'
-              : error.code;
+          error instanceof MenuChangedError && precise
+            ? 'MENU_CHANGED'
+            : error.code === 'RESTAURANT_CLOSED' && !precise
+              ? 'CONFLICT'
+              : error.code === 'EXPIRED'
+                ? 'QUOTE_EXPIRED'
+                : error.code === 'INVALID'
+                  ? 'INVALID_REQUEST'
+                  : error.code;
         throw new HttpException({ code }, statuses[error.code]);
       }
       throw error;
@@ -118,12 +166,21 @@ export class CustomerCheckoutController {
     if (after !== undefined && !AvailabilityAfterSchema.safeParse(after).success)
       throw new HttpException('INVALID_REQUEST', 400);
     const read = async () => {
-      const state = await this.checkout.availabilityState();
+      const state = await this.availabilityState();
       return { ...state, signature: state.body.signature };
     };
-    const state = await pollAvailability(read, after, { cancelled: () => response.destroyed });
+    const state = await pollAvailability(read, after, {
+      cancelled: () => response.destroyed,
+      timeoutMs: 20_000,
+      intervalMs: 2000,
+      wait: this.publications.wait,
+    });
     if (state.catalogVersion !== null) {
       response.setHeader(CATALOG_VERSION_HEADER, String(state.catalogVersion));
+      response.setHeader(
+        'Access-Control-Expose-Headers',
+        `${CATALOG_VERSION_HEADER}, ${AVAILABILITY_SIGNATURE_HEADER}`,
+      );
       response.setHeader(AVAILABILITY_SIGNATURE_HEADER, state.signature);
     }
     return state.body;
@@ -141,8 +198,10 @@ export class CustomerCheckoutController {
     @Headers('authorization') auth?: string,
     @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, async (id) =>
-      checkoutRepresentation(await this.checkout.quote(id, body), accept),
+    return this.execute(
+      auth,
+      async (id) => checkoutRepresentation(await this.checkout.quote(id, body), accept),
+      accept,
     );
   }
   @Post('orders') @HttpCode(200) create(
@@ -150,8 +209,10 @@ export class CustomerCheckoutController {
     @Headers('authorization') auth?: string,
     @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, async (id) =>
-      checkoutRepresentation(await this.checkout.create(id, body), accept),
+    return this.execute(
+      auth,
+      async (id) => checkoutRepresentation(await this.checkout.create(id, body), accept),
+      accept,
     );
   }
   @Get('orders') list(@Headers('authorization') auth?: string, @Headers('accept') accept?: string) {
@@ -164,8 +225,10 @@ export class CustomerCheckoutController {
     @Headers('authorization') auth?: string,
     @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, async (id) =>
-      checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
+    return this.execute(
+      auth,
+      async (id) => checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
+      accept,
     );
   }
   @Get('feedback') listFeedback(

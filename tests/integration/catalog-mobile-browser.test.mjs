@@ -15,7 +15,7 @@ import { withSyncDatabases } from '../helpers/sync.mjs';
 // catalog is the default; PUBLISHED_CATALOG=0 would select the legacy menu).
 // Opt in explicitly; generic integration CI does not build this release-specific web artifact.
 test(
-  'browser live catalog selection and retained stale basket agree with trusted PostgreSQL quote',
+  'live menu reprices basket within three seconds and preserves unavailable dishes for explicit removal',
   { skip: process.env.MOBILE_CATALOG_BROWSER !== '1' },
   async () => {
     await withSyncDatabases(async ({ cloud, org, legal, branch, device }) => {
@@ -119,7 +119,10 @@ test(
               await pool.query(
                 'UPDATE cloud_branch_availability SET observed_at=clock_timestamp()',
               );
-              value = await checkout.availability();
+              const state = await checkout.availabilityState();
+              res.setHeader('X-Catalog-Version', String(state.catalogVersion));
+              res.setHeader('Access-Control-Expose-Headers', 'X-Catalog-Version');
+              value = state.body;
             } else if (path === '/v1/customer-checkout/config')
               value = await checkout.config(customer);
             else if (path === '/v1/customer-checkout/quotes' && req.method === 'POST') {

@@ -1,3 +1,4 @@
+import { MenuChangedError } from './menu-changed.js';
 import { readCheckoutOrder } from './order-view.js';
 import {
   RestaurantHoursSchema,
@@ -31,6 +32,7 @@ export const CheckoutOptionsSchema = z.strictObject({
   paymentAccountId: z.uuid(),
   customerIds: z.array(z.uuid()).min(1).max(10),
   publishedCatalogEnabled: z.boolean().optional(),
+  headGuardEnabled: z.boolean().optional(),
   repeatOrdersEnabled: z.boolean().optional(),
   allVerifiedCustomers: z.boolean().optional(),
   maxOrderMinor: z
@@ -49,6 +51,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
     paymentAccountId: env.KASPI_REMOTE_ACCOUNT_ID,
     customerIds: env.CUSTOMER_KASPI_PILOT_CUSTOMER_IDS?.split(','),
     publishedCatalogEnabled: env.CATALOG_MOBILE_STOREFRONT_ENABLED === 'true',
+    headGuardEnabled: env.CUSTOMER_CHECKOUT_HEAD_GUARD === 'true',
     repeatOrdersEnabled: env.CUSTOMER_KASPI_PILOT_REPEAT_ORDERS === 'true',
     allVerifiedCustomers: env.CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS === 'true',
     maxOrderMinor: env.CUSTOMER_KASPI_PILOT_MAX_MINOR ?? '10000',
@@ -284,7 +287,7 @@ export class CustomerCheckout {
     )
       throw new CommerceError('CATALOG_UPGRADE_REQUIRED');
     if (request.catalog_version !== undefined && request.catalog_version !== head.version)
-      throw new CommerceError('CONFLICT');
+      throw new MenuChangedError();
     try {
       const priced = await new CatalogPricing(this.pool).price(
         {
@@ -375,10 +378,15 @@ export class CustomerCheckout {
       snapshotAvailabilityItems(current.snapshot),
     );
     // A single stable command per order. Unknown responses never create a fresh attempt.
-    await this.repository.startPaymentAttempt(scope, keyFor(orderId), {
-      orderId,
-      providerAccountId: this.options!.paymentAccountId,
-    });
+    await (this.options!.headGuardEnabled
+      ? this.repository.startMobilePaymentAttempt(scope, keyFor(orderId), {
+          orderId,
+          providerAccountId: this.options!.paymentAccountId,
+        })
+      : this.repository.startPaymentAttempt(scope, keyFor(orderId), {
+          orderId,
+          providerAccountId: this.options!.paymentAccountId,
+        }));
     return this.read(customerId, orderId);
   }
   async listFeedback(customerId: string) {
@@ -528,6 +536,21 @@ export class CustomerCheckout {
   async read(customerId: string, orderId: string) {
     const scope = await this.scope(customerId);
     await this.assertMobileOrder(scope, orderId);
-    return readCheckoutOrder(this.pool, this.repository, scope, orderId);
+    const view = await readCheckoutOrder(this.pool, this.repository, scope, orderId);
+    if (
+      this.options!.headGuardEnabled &&
+      (
+        await this.pool.query(
+          `SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=$1 AND i.reason='CATALOG_CHANGED_BEFORE_PAYMENT'
+       AND NOT EXISTS(SELECT 1 FROM commerce_payment_attempts WHERE order_id=i.order_id)
+       AND NOT EXISTS(SELECT 1 FROM commerce_captures WHERE order_id=i.order_id)`,
+          [orderId],
+        )
+      ).rowCount
+    ) {
+      const body = { ...view, phase: 'failed' };
+      return { ...body, revision: digest(body) };
+    }
+    return view;
   }
 }
