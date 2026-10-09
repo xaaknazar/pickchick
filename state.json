@@ -3886,12 +3886,15 @@
         "tests/integration/staff-passwords.test.mjs",
         "tests/operations/windows-unified-menu-upgrade.test.ps1",
         "infra/staging/device-access-owner.mjs",
-        "tests/integration/device-access-release.test.mjs"
+        "tests/integration/device-access-release.test.mjs",
+        "infra/windows/backup-native-service.mjs",
+        "infra/windows/native-edge-backup-ledger.json",
+        "tests/unit/native-service-backup.test.mjs"
       ],
       "status": "active",
       "head": "4eddc0475b76693b13d24e87c34b9c772424c1dc",
       "updatedAt": "2026-10-09T11:55:56.585Z",
-      "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment.",
+      "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
     }
   ]
