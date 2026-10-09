@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "kz.pickchick.app",
-      "buildNumber": "15",
+      "buildNumber": "16",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
