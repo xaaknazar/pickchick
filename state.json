@@ -3775,22 +3775,6 @@
       "summary": " Agreed parallel hunk: devices-access may register DeviceRegistryController and DeviceAccessTransportController in services/api/src/index.ts; root owns publication LISTEN provider and will merge both. 2026-10-09 root continues owner-authorized handoff: guarded schema050 mobile API release owns API/DB until verified; no bank containers or payment probes, Devices follows after exact CI and baseline handoff."
     },
     {
-      "id": "restaurant-completion",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/restaurant-completion",
-      "scopes": [
-        "@integration/restaurant-completion",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "docs/operations/mobile-live-menu.md"
-      ],
-      "status": "active",
-      "head": "409a1deefe1d82623931e28d0b19afe57e1ac840",
-      "updatedAt": "2026-10-09T11:58:59.524Z",
-      "summary": " Root integrates completed mobile/iPad/kitchen/Devices stage and records installation facts; runtime source remains immutable during release."
-    },
-    {
       "id": "mobile-native16",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-native16",
@@ -3953,6 +3937,26 @@
       "status": "active",
       "head": "dd442241ccbd54ab1f16aebfe91c1dada23fd2ee",
       "updatedAt": "2026-10-09T14:27:10.857Z"
+    },
+    {
+      "id": "restaurant-completion",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/restaurant-completion",
+      "scopes": [
+        "@integration/restaurant-completion",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-live-menu.md",
+        "infra/backoffice-login/update.py",
+        "infra/backoffice-login/prepare.py",
+        "infra/backoffice-login/test_update.py",
+        "docs/operations/device-access-backoffice.md"
+      ],
+      "status": "active",
+      "head": "dd442241ccbd54ab1f16aebfe91c1dada23fd2ee",
+      "updatedAt": "2026-10-09T14:29:09.788Z",
+      "summary": " Root integrates completed mobile/iPad/kitchen/Devices stage and records installation facts; runtime source remains immutable during release."
     }
   ]
 }
