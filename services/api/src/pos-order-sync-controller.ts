@@ -8,12 +8,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { EdgeDeviceRoute, RESOURCE, Resources } from '@pickchick/platform';
 import { PosSyncError, receivePosOrder, receivePosKitchen } from '@pickchick/pos-order-sync';
 import { SyncError } from '@pickchick/menu-sync';
 
 /** Private authenticated transport only; no public or manager mutation endpoint. */
 @Controller('internal/v1/edge/pos-orders')
+@EdgeDeviceRoute()
 export class PosOrderSyncController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
   @Post('events')

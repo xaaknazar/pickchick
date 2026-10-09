@@ -12,7 +12,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { ServerResponse } from 'node:http';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { LongPollRoute, longPollMayWait, RESOURCE, Resources } from '@pickchick/platform';
 import {
   AVAILABILITY_SIGNATURE_HEADER,
   AvailabilityAfterSchema,
@@ -171,9 +171,12 @@ export class KioskCheckoutController {
   /**
    * Without `after` this is the same single read as before. With `after` (the previous
    * X-Availability-Signature) it waits, re-reading every second for up to 25 s, until stops,
-   * freshness or the head catalog version change. The body shape never changes.
+   * freshness or the head catalog version change. The body shape never changes. When the
+   * long-poll budget is full, admission lets it read the current state once after a pause.
    */
-  @Get('availability') availability(
+  @Get('availability')
+  @LongPollRoute('after')
+  availability(
     @Res({ passthrough: true }) res: ServerResponse,
     @Query('after') after?: unknown,
     @Headers('x-kiosk-device') device?: string,
@@ -186,7 +189,7 @@ export class KioskCheckoutController {
       const guest = await this.guest(device, key, auth);
       const state = await pollAvailability(
         () => this.checkout!.availabilityState(guest),
-        after as string | undefined,
+        longPollMayWait(res.req) ? (after as string | undefined) : undefined,
         { cancelled: () => res.destroyed },
       );
       res.setHeader(CATALOG_VERSION_HEADER, String(state.catalogVersion));

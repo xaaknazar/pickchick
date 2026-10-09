@@ -29,7 +29,7 @@ import {
 } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
 import { checkoutRepresentation } from './customer-checkout-response.js';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { LongPollRoute, longPollMayWait, RESOURCE, Resources } from '@pickchick/platform';
 
 @Controller('v1/customer-checkout')
 export class CustomerCheckoutController {
@@ -110,7 +110,10 @@ export class CustomerCheckoutController {
       throw error;
     }
   }
-  @Get('availability') async availability(
+  /** Long-poll only with `after`; on overflow admission lets it read the current state once. */
+  @Get('availability')
+  @LongPollRoute('after')
+  async availability(
     @Res({ passthrough: true }) response: ServerResponse,
     @Query('after') after?: string,
   ) {
@@ -121,7 +124,8 @@ export class CustomerCheckoutController {
       const state = await this.checkout.availabilityState();
       return { ...state, signature: state.body.signature };
     };
-    const state = await pollAvailability(read, after, { cancelled: () => response.destroyed });
+    const wait = longPollMayWait(response.req) ? after : undefined;
+    const state = await pollAvailability(read, wait, { cancelled: () => response.destroyed });
     if (state.catalogVersion !== null) {
       response.setHeader(CATALOG_VERSION_HEADER, String(state.catalogVersion));
       response.setHeader(AVAILABILITY_SIGNATURE_HEADER, state.signature);
@@ -199,7 +203,9 @@ export class CustomerCheckoutController {
       checkoutRepresentation(await this.checkout.read(id, orderId), accept),
     );
   }
-  @Get('orders/:orderId/watch') watch(
+  @Get('orders/:orderId/watch')
+  @LongPollRoute()
+  watch(
     @Param('orderId') orderId: string,
     @Query('after') after: string,
     @Res({ passthrough: true }) response: ServerResponse,
@@ -209,7 +215,8 @@ export class CustomerCheckoutController {
     response.setHeader('Cache-Control', 'no-store');
     return this.execute(auth, async (id) => {
       if (!/^[a-f0-9]{64}$/.test(after ?? '')) throw new CommerceError('INVALID');
-      const deadline = Date.now() + 20000;
+      // Admission overflow: one read of the current order, the same answer as a timed-out wait.
+      const deadline = Date.now() + (longPollMayWait(response.req) ? 20000 : 0);
       let disconnected = false;
       const onClose = () => {
         disconnected = true;
