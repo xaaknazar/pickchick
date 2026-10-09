@@ -3606,22 +3606,6 @@
       "nextAction": "Owner now authorized kiosk-v3-motion build9 and unified-menu deployment; device/API/db/public/gateway/Windows resources handed to their release tasks. Prior local checkout-error patch preserved; no payment reset."
     },
     {
-      "id": "kiosk-build9-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-v3-motion",
-      "scopes": [
-        "apps/kiosk",
-        "@apple/devices/kiosk",
-        "@release/ios",
-        "docs/operations/kiosk-build9-installation.md"
-      ],
-      "status": "available",
-      "head": "6dcc4518ed71535ad1c63e22e413191b7a3caf8d",
-      "updatedAt": "2026-10-09T05:56:59.674Z",
-      "summary": "Build 9 (0.1.0) установлен на iPad 9 октября, протокол kiosk-build9-installation.md; владелец поручил Claude продолжить iPad (build 10 с фото/long-poll единого меню) и Kaspi QR",
-      "nextAction": "Claude: codex/kiosk-build10 из общего среза 90eb6b6b, claim kiosk-build10"
-    },
-    {
       "id": "kiosk-unified-integration",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-unified-integration",
@@ -3671,6 +3655,22 @@
       "status": "active",
       "head": "23fb39e152fccaa97a32e9bf179c2d89a50dc1d5",
       "updatedAt": "2026-10-09T04:44:21.674Z"
+    },
+    {
+      "id": "kiosk-build9-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-v3-motion",
+      "scopes": [
+        "apps/kiosk",
+        "@apple/devices/kiosk",
+        "@release/ios",
+        "docs/operations/kiosk-build9-installation.md"
+      ],
+      "status": "active",
+      "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
+      "updatedAt": "2026-10-09T06:00:09.690Z",
+      "summary": "Build 9 (0.1.0) установлен на iPad 9 октября, протокол kiosk-build9-installation.md; владелец поручил Claude продолжить iPad (build 10 с фото/long-poll единого меню) и Kaspi QR",
+      "nextAction": "Claude: codex/kiosk-build10 из общего среза 90eb6b6b, claim kiosk-build10"
     }
   ]
 }
