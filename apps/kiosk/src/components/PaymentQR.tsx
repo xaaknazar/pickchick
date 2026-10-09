@@ -25,10 +25,14 @@ export function PaymentQR({
 }) {
   const { v } = useMetrics();
   const reduced = useMotionPreference();
-  const box = v(size === 'compact' ? 320 : 400);
   const line = 5;
   const sweep = useLoop(4800, 0, true);
   const svg = useMemo(() => paymentQrSvg(payload), [payload]);
+  // Snap the box to whole points per module so every module edge lands on the
+  // pixel grid: no blurred or uneven modules at any iPad scale.
+  const cells = Number(/viewBox="0 0 (\d+)/.exec(svg ?? '')?.[1] ?? 0);
+  const wanted = v(size === 'compact' ? 320 : 400);
+  const box = cells ? Math.max(cells, Math.round(wanted / cells) * cells) : wanted;
   if (!svg) return null;
   return (
     <View style={{ width: box, height: box }}>

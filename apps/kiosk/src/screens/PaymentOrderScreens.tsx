@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KioskModel } from '../model';
 import { visiblePaymentQr } from '../qr';
-import { kioskOrderNumber, qrScanInstructions } from '../presentation';
+import { kioskOrderNumber, kioskTicketNumber, qrScanInstructions } from '../presentation';
 import { copy } from '../i18n';
 import {
   Body,
@@ -109,25 +109,34 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
                 onPress={() => void model.pay('unknown')}
               />
             </Wrapper>
-          ) : (
-            <Button label={t.help} tone="outline" size="compact" onPress={context.onHelp} />
-          )}
+          ) : null}
         </Wrapper>
       </ScrollArea>
       <Footer tone="brand">
-        <Button
-          testID={
-            model.commercial || unknown || declined
-              ? 'kiosk-payment-retry'
-              : 'kiosk-payment-approve'
-          }
-          label={model.commercial || unknown ? t.refresh : declined ? t.retry : t.approve}
-          busy={model.busy}
-          onPress={() =>
-            model.commercial || unknown ? void model.recover() : void model.pay('approved')
-          }
-          fullWidth
-        />
+        {/* Design: outlined "Cancel" (the header's cancel dialog) beside the main action. */}
+        <Wrapper dir="row" gap={14} align="center">
+          <Button
+            label={t.cancel}
+            tone="outline"
+            testID="kiosk-payment-cancel"
+            onPress={context.onCancel}
+          />
+          <Wrapper flex={1}>
+            <Button
+              testID={
+                model.commercial || unknown || declined
+                  ? 'kiosk-payment-retry'
+                  : 'kiosk-payment-approve'
+              }
+              label={model.commercial || unknown ? t.refresh : declined ? t.retry : t.approve}
+              busy={model.busy}
+              onPress={() =>
+                model.commercial || unknown ? void model.recover() : void model.pay('approved')
+              }
+              fullWidth
+            />
+          </Wrapper>
+        </Wrapper>
       </Footer>
     </ScreenSurface>
   );
@@ -185,7 +194,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
                   ? 'Оплата подтверждена. Ожидаем ресторан.'
                   : 'Төлем расталды. Мейрамхананы күтеміз.'
                 : t.waiting;
-  const number = waitingForNumber ? null : kioskOrderNumber(order?.number);
+  const number = waitingForNumber ? null : kioskTicketNumber(order?.number);
   const stage = waitingForNumber
     ? null
     : order?.state === 'ready' || order?.state === 'fulfilled'

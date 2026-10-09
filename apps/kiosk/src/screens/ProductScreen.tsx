@@ -16,7 +16,6 @@ import {
 import { RevealCircle } from '../components/RevealCircle';
 import { ModifierOptions } from '../components/ProductOptions';
 import { ProductIntro } from '../components/ProductIntro';
-import { ProductNutrition } from '../components/ProductNutrition';
 import { ProductToolbar } from '../components/ProductToolbar';
 import { ProductActions } from '../components/ProductActions';
 // One v3 row of drinks (five across) stays inline; the full list opens in the sheet.
@@ -148,20 +147,15 @@ export function ProductScreen({
                 ) : null}
               </Wrapper>
             ))}
-            <ProductNutrition
-              key="details"
-              product={product}
-              locale={context.locale}
-              part="details"
-            />
           </ProductIntro>
+          {/* Design: the close disc sits in the hero and scrolls away with the page. */}
+          <ProductToolbar
+            locale={context.locale}
+            step={isSet ? wizardStep + 1 : undefined}
+            steps={optionalGroups.length ? 2 : 1}
+            onClose={() => (isSet && wizardStep ? setWizardStep(0) : model.goMenu())}
+          />
         </ScrollArea>
-        <ProductToolbar
-          locale={context.locale}
-          step={isSet ? wizardStep + 1 : undefined}
-          steps={optionalGroups.length ? 2 : 1}
-          onClose={() => (isSet && wizardStep ? setWizardStep(0) : model.goMenu())}
-        />
         <ProductActions
           locale={context.locale}
           quantity={quantity}

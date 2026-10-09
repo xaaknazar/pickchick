@@ -74,8 +74,9 @@ function StageLabel({ label, state }: { label: string; state: 'done' | 'active' 
           state === 'done'
             ? colors.white
             : state === 'active'
-              ? colors.orangeOnBlue
-              : colors.onBlueMuted,
+              ? // Design `#k08`: the current stage in light orange, the next one at 50 %.
+                '#FF8A3D'
+              : 'rgba(255,255,255,.5)',
         opacity:
           state === 'active'
             ? blink.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] })
