@@ -8,6 +8,10 @@
       "types": "./dist/finance.d.ts",
       "default": "./dist/finance.js"
     },
+    "./device-registry": {
+      "types": "./dist/device-registry.d.ts",
+      "default": "./dist/device-registry.js"
+    },
     "./kiosk-incidents": {
       "types": "./dist/kiosk-incidents.d.ts",
       "default": "./dist/kiosk-incidents.js"
@@ -24,8 +28,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs tests/kiosk-incidents.test.mjs"
+    "test": "node --test tests/unit.test.mjs tests/device-pairing.test.mjs",
+    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs tests/kiosk-incidents.test.mjs tests/device-access.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",

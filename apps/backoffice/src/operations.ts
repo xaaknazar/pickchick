@@ -3,6 +3,7 @@ import { message } from './api.js';
 import {
   OperationsModel,
   StopsModel,
+  deviceRevocable,
   object,
   type Data,
   type Entry,
@@ -1932,7 +1933,7 @@ export class OperationsView {
             badge(v['status']),
             date(v['last_fulfillment_at']),
             date(v['last_pos_at']),
-            d.role === 'manager' && v['status'] !== 'revoked'
+            d.role === 'manager' && deviceRevocable(v)
               ? button(
                   'Отозвать доступ',
                   () =>
@@ -1943,7 +1944,9 @@ export class OperationsView {
                     ),
                   'button subtle',
                 )
-              : el('span'),
+              : d.role === 'manager' && v['kind'] === 'edge' && v['status'] !== 'revoked'
+                ? el('span', 'muted', 'Замена кассы - по процедуре в docs/operations/menu-sync.md')
+                : el('span'),
           ]),
         ),
       );

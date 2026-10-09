@@ -7,6 +7,19 @@ export const BackofficeErrorReasonSchema = z.enum([
   'CATALOG_ITEM_NOT_FOUND',
   'EDGE_STOPS_NOT_READY',
   'STOP_COMMAND_IN_PROGRESS',
+  // Device registry: revoking the branch edge is irreversible until a replacement protocol.
+  'EDGE_REVOKE_REQUIRES_REPLACEMENT_PROTOCOL',
+  'CONFIRM_NAME_MISMATCH',
+  'CODE_ALREADY_ISSUED',
+  'CODE_NOT_OPEN',
+  'DEVICE_NOT_PENDING',
+  'DEVICE_REVOKED',
+  'PAIRING_NOT_CONFIGURED',
+  'KIOSK_NOT_CONFIGURED',
+  'ROLE_PAIRING_NOT_READY',
+  'PAIRING_RATE_LIMITED',
+  'KIOSK_PAYMENT_OPEN',
+  'KIOSK_REVOKE_USES_REGISTRY',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
@@ -361,4 +374,11 @@ export function stockEffect(
     quantity: (q + delta).toString(),
     value_minor: (v + dv).toString(),
   };
+}
+/**
+ * Only non-edge devices may be revoked from the back office. Revoking the edge is irreversible
+ * (device:setup refuses a revoked edge) until a reviewed replacement protocol exists.
+ */
+export function deviceRevocable(kind: unknown): boolean {
+  return typeof kind === 'string' && kind !== 'edge';
 }

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { URLSearchParams } from 'node:url';
-import { OperationsModel } from '../../apps/backoffice/dist/operations-model.js';
+import { OperationsModel, deviceRevocable } from '../../apps/backoffice/dist/operations-model.js';
 import { ApiError } from '../../apps/backoffice/dist/api.js';
 import { withCatalog, storage } from './helpers.mjs';
 test('unknown HTTP outcome survives reload with the exact body; no duplicate stock record or audit', () =>
@@ -195,4 +195,13 @@ test('calendar query preserves custom dates on refresh and clears stale data whe
   m.clear();
   assert.deepEqual(m.filters, {});
   assert.equal(m.period, 'day');
+});
+
+test('legacy devices table never offers revoking the branch edge or a kiosk', () => {
+  assert.equal(deviceRevocable({ kind: 'edge', status: 'active' }), false);
+  assert.equal(deviceRevocable({ kind: 'kiosk', status: 'active' }), false);
+  assert.equal(deviceRevocable({ kind: 'display', status: 'active' }), true);
+  assert.equal(deviceRevocable({ kind: 'pos', status: 'pending' }), true);
+  assert.equal(deviceRevocable({ kind: 'kitchen', status: 'revoked' }), false);
+  assert.equal(deviceRevocable({ status: 'active' }), false);
 });

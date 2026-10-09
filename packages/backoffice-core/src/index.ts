@@ -12,6 +12,7 @@ import {
   Recipe,
   StopRequest,
   type Kind,
+  deviceRevocable,
   periodWindow,
   stockEffect,
 } from './model.js';
@@ -608,11 +609,17 @@ export class Backoffice {
         } else if (c.type === 'revoke_device') {
           const d = (
             await db.query(
-              'SELECT id,status FROM devices WHERE id=$1 AND branch_id=$2 FOR UPDATE',
+              'SELECT id,kind,name,status FROM devices WHERE id=$1 AND branch_id=$2 FOR UPDATE',
               [c.id, branch],
             )
           ).rows[0];
           if (!d) return fail('NOT_FOUND');
+          // The branch edge cannot be re-provisioned after revocation: one click would stop
+          // menu sync, fulfillment, POS sync and media for the whole branch.
+          if (!deviceRevocable(d.kind))
+            throw new ErrorCode('CONFLICT', 'EDGE_REVOKE_REQUIRES_REPLACEMENT_PROTOCOL');
+          // A kiosk row also owns kiosk_devices, its aliases and payment checks (device registry).
+          if (d.kind === 'kiosk') throw new ErrorCode('CONFLICT', 'KIOSK_REVOKE_USES_REGISTRY');
           before = d;
           entity = c.id;
           await db.query("UPDATE devices SET status='revoked' WHERE id=$1", [c.id]);
