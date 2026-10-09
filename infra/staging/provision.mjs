@@ -4,6 +4,7 @@ import { loadConfig } from '@pickchick/platform';
 import { customerAuthGrants } from './customer-auth-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
 import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
+import { deviceRegistryGrants } from './device-registry-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
 import { catalogAssetGrants } from './catalog-asset-grants.mjs';
@@ -110,6 +111,14 @@ async function provision() {
           'pickchick_app',
           config.backofficeEnabled === true &&
             process.env.BACKOFFICE_REMOTE_STOPS_ENABLED === 'true',
+        ),
+      );
+      // After backofficeGrants: additive device registry privileges (cloud051), opt-in.
+      await client.query(
+        deviceRegistryGrants(
+          'pickchick_app',
+          config.backofficeEnabled === true &&
+            process.env.BACKOFFICE_DEVICE_REGISTRY_ENABLED === 'true',
         ),
       );
       // Validate the complete owner/branch policy before enabling checkout privileges.

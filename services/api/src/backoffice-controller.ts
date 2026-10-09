@@ -16,7 +16,7 @@ import {
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { BACKOFFICE, Backoffice, BackofficeError } from '@pickchick/backoffice-core';
 import type { BackofficeErrorReason } from '@pickchick/backoffice-core';
-const statuses: Record<BackofficeError['code'], number> = {
+export const statuses: Record<BackofficeError['code'], number> = {
   INVALID_REQUEST: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
@@ -29,7 +29,7 @@ const statuses: Record<BackofficeError['code'], number> = {
 /** Stop commands are small; the generic 100 KiB JSON limit is far more than they need. */
 export const BACKOFFICE_STOP_BODY_LIMIT = 16 * 1024;
 /** Carries only the stable reason code; never a message, stack or database detail. */
-class BackofficeReasonException extends HttpException {
+export class BackofficeReasonException extends HttpException {
   constructor(
     readonly code: BackofficeError['code'],
     readonly reason: BackofficeErrorReason,
@@ -39,7 +39,7 @@ class BackofficeReasonException extends HttpException {
 }
 /** Standard error envelope plus `error: {code}` with the precise stop-command reason. */
 @Catch(BackofficeReasonException)
-class BackofficeReasonFilter implements ExceptionFilter {
+export class BackofficeReasonFilter implements ExceptionFilter {
   catch(error: BackofficeReasonException, host: ArgumentsHost) {
     const http = host.switchToHttp();
     const request = http.getRequest<{ traceId?: string }>();

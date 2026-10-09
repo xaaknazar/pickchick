@@ -2,6 +2,14 @@ import { FarmController } from './farm-controller.js';
 import { FinanceController } from './finance-controller.js';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
 import { KioskIncidentController } from './kiosk-incident-controller.js';
+import { DeviceRegistryController } from './device-registry-controller.js';
+import {
+  DEVICE_REGISTRY,
+  DeviceRegistry,
+  devicePairingPepper,
+  deviceRegistryEnabled,
+} from '@pickchick/backoffice-core/device-registry';
+import { kioskCheckoutOptions, kioskEnrollmentKey } from '@pickchick/commerce-core';
 import { KIOSK_INCIDENTS, KioskPaymentIncidents } from '@pickchick/backoffice-core/kiosk-incidents';
 import { FARM, FarmPersistence } from '@pickchick/farm-persistence';
 import { KioskCheckoutController } from './kiosk-checkout-controller.js';
@@ -186,6 +194,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     controllers: [
       FinanceController,
       KioskIncidentController,
+      DeviceRegistryController,
       FarmController,
       KioskCheckoutController,
       HealthController,
@@ -216,6 +225,28 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
           new KioskPaymentIncidents(resources.pool, config.backofficeEnabled === true),
+      },
+      {
+        provide: DEVICE_REGISTRY,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) => {
+          const enabled = config.backofficeEnabled === true && deviceRegistryEnabled(process.env);
+          // Kiosk pairing reuses the kiosk API branch and its enrollment sealing key only.
+          const kiosk = enabled ? kioskCheckoutOptions(process.env) : null,
+            key = enabled ? kioskEnrollmentKey(process.env) : null;
+          return new DeviceRegistry(resources.pool, {
+            enabled,
+            pepper: enabled ? devicePairingPepper(process.env) : null,
+            kiosk:
+              kiosk && key
+                ? {
+                    encryptionKey: key,
+                    organizationId: kiosk.organizationId,
+                    branchId: kiosk.branchId,
+                  }
+                : null,
+          });
+        },
       },
       {
         provide: FARM,

@@ -50,6 +50,18 @@ type Pending = {
   request: { request_id: string; reason: string; command: Data };
 };
 const KEY = 'pickchick.backoffice.operations.v1';
+/**
+ * The legacy table offers revocation only for non-edge, non-kiosk devices still active or pending.
+ * Revoking the branch edge (cashier node) cannot be undone and stops the whole branch exchange;
+ * kiosks are revoked through the device registry, which also disables kiosk_devices.
+ */
+export function deviceRevocable(device: Data): boolean {
+  return (
+    typeof device['kind'] === 'string' &&
+    !['edge', 'kiosk'].includes(device['kind']) &&
+    device['status'] !== 'revoked'
+  );
+}
 export function object(value: unknown): Data {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new ApiError('INVALID_RESPONSE');
