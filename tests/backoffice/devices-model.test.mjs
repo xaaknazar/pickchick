@@ -28,8 +28,10 @@ const branch = '10000000-0000-4000-8000-000000000003';
 const T0 = Date.parse('2026-10-09T08:00:00.000Z');
 const iso = (ms) => new Date(ms).toISOString();
 const id = () => randomUUID();
+/** Parsed form (what the view uses); `raw` turns it into the server list item. */
 const device = (over = {}) => ({
   id: id(),
+  registered: true,
   role: 'kiosk',
   name: 'iPad у входа',
   status: 'active',
@@ -39,16 +41,39 @@ const device = (over = {}) => ({
   credential_expires_at: null,
   open_code: null,
   payment_open: false,
+  revocable: true,
   revoked_at: null,
   ...over,
+});
+/** Same shape as DeviceRegistry.list in packages/backoffice-core/src/device-registry.ts. */
+const raw = ({ open_code, ...d }) => ({
+  ...d,
+  kind: { kitchen_prep: 'kitchen', board: 'display' }[d.role] ?? d.role,
+  created_at: iso(T0 - 86400_000),
+  last_seen_age_seconds: null,
+  last_seen_source: d.last_seen_at ? 'kiosk_session' : null,
+  pairing: open_code
+    ? {
+        id: open_code.id,
+        purpose: 'kiosk',
+        state: Date.parse(open_code.expires_at) <= T0 ? 'expired' : 'open',
+        created_at: iso(T0 - 60_000),
+        expires_at: open_code.expires_at,
+      }
+    : null,
 });
 const registry = (devices, over = {}) => ({
   branch_id: branch,
   role: 'manager',
-  as_of: iso(T0),
-  kiosk_supported: true,
-  devices,
+  server_time: iso(T0),
+  kiosk_pairing: 'ready',
+  devices: Array.isArray(devices) ? devices.map(raw) : devices,
   ...over,
+});
+/** Write response of create / pairing-codes: the secret is inside `pairing`, shown once. */
+const issued = (deviceId, codeId, login, password, expires) => ({
+  device: { id: deviceId, kind: 'kiosk', role: 'kiosk', name: 'iPad', status: 'pending' },
+  pairing: { id: codeId, purpose: 'kiosk', expires_at: expires, login, password },
 });
 const envelope = (code, reason) => ({
   code,
@@ -58,40 +83,71 @@ const envelope = (code, reason) => ({
   ...(reason === undefined ? {} : { error: { code: reason } }),
 });
 
-test('registry parser accepts snake_case and camelCase and rejects foreign or malformed data', () => {
-  const edge = device({ role: 'edge', name: 'Касса 1' });
-  const camel = {
-    branchId: branch,
-    role: 'analyst',
-    asOf: iso(T0),
-    kioskSupported: false,
-    devices: [
-      {
-        id: edge.id,
-        kind: 'display',
-        name: 'Табло зала',
-        status: 'active',
-        lastSeenAt: iso(T0 - 60_000),
-        appVersion: '2.0.1',
-        openCode: { id: id(), expiresAt: iso(T0 + 60_000) },
-      },
-    ],
+test('registry parser reads the server list shape and rejects foreign or malformed data', () => {
+  const edge = device({ role: 'edge', name: 'Касса 1', revocable: false });
+  const board = {
+    ...raw(device({ role: 'board', name: 'Табло зала', app_version: '2.0.1' })),
+    role: null,
+    pairing: {
+      id: id(),
+      purpose: 'kiosk',
+      state: 'open',
+      created_at: iso(T0),
+      expires_at: iso(T0 + 60_000),
+    },
   };
-  const parsed = parseRegistry(camel, branch);
+  const used = {
+    ...raw(device({ name: 'iPad' })),
+    pairing: {
+      id: id(),
+      purpose: 'kiosk',
+      state: 'consumed',
+      created_at: iso(T0),
+      expires_at: iso(T0 + 60_000),
+    },
+  };
+  const legacyKiosk = { ...raw(device({ name: 'Киоск 1234abcd' })), registered: false };
+  const parsed = parseRegistry(
+    {
+      ...registry([]),
+      role: 'analyst',
+      kiosk_pairing: 'not_configured',
+      devices: [board, used, legacyKiosk],
+    },
+    branch,
+  );
   assert.equal(parsed.source, 'registry');
   assert.equal(parsed.role, 'analyst');
+  assert.equal(parsed.as_of, iso(T0), 'server_time anchors the clock');
   assert.equal(parsed.kiosk_supported, false);
   assert.equal(parsed.devices[0].role, 'board', 'legacy kind maps to role');
   assert.equal(parsed.devices[0].app_version, '2.0.1');
   assert.equal(parsed.devices[0].open_code.expires_at, iso(T0 + 60_000));
-  assert.equal(parseRegistry(registry([edge]), branch).devices[0].role, 'edge');
+  assert.equal(parsed.devices[1].open_code, null, 'a consumed code is not an open code');
+  assert.equal(parsed.devices[2].registered, false);
+  assert.equal(parsed.devices[2].revocable, true);
+  const e = parseRegistry(registry([edge]), branch).devices[0];
+  assert.equal(e.role, 'edge');
+  assert.equal(e.revocable, false);
+  assert.equal(
+    parseRegistry(registry([{ ...edge, revocable: true }]), branch).devices[0].revocable,
+    false,
+    'the cashier node is never revocable, whatever the server says',
+  );
+  assert.equal(parseRegistry(registry([device()]), branch).kiosk_supported, true);
   for (const bad of [
     registry([edge], { branch_id: id() }),
     registry([edge], { role: 'owner' }),
+    registry([edge], { kiosk_pairing: true }),
+    registry([edge], { server_time: undefined }),
     registry([{ ...edge, status: 'lost' }]),
     registry([{ ...edge, role: 'printer' }]),
     registry([{ ...edge, id: 'not-a-uuid' }]),
     registry([{ ...edge, last_seen_at: 'yesterday' }]),
+    {
+      ...registry([]),
+      devices: [{ ...raw(edge), pairing: { id: id(), state: 'burned', expires_at: iso(T0) } }],
+    },
     registry('x'),
   ])
     assert.throws(
@@ -194,7 +250,7 @@ test('groups follow the cabinet layout; revoked devices are kept apart', () => {
 });
 
 test('actions: never revoke the cashier node, kitchen/board/pos read-only, analyst views only', () => {
-  const r = { ...registry([]), source: 'registry' };
+  const r = parseRegistry(registry([]), branch);
   const edge = device({ role: 'edge' });
   assert.deepEqual(actions(edge, r), ['journal']);
   for (const role of ['pos', 'kitchen_prep', 'kitchen_assembly', 'board'])
@@ -205,6 +261,7 @@ test('actions: never revoke the cashier node, kitchen/board/pos read-only, analy
     ['code', 'cancel_code', 'rename', 'journal', 'revoke'],
   );
   assert.deepEqual(actions(device({ payment_open: true }), r), ['rename', 'journal']);
+  assert.deepEqual(actions(device({ revocable: false }), r), ['rename', 'journal']);
   assert.deepEqual(actions(device(), { ...r, role: 'analyst' }), ['journal']);
   assert.deepEqual(actions(device({ status: 'revoked' }), r), ['journal']);
   assert.deepEqual(actions(device({ status: 'pending' }), { ...r, kiosk_supported: false }), [
@@ -249,18 +306,28 @@ test('small helpers: countdown, reason and typed-name confirmation', () => {
   assert.equal(reasonValid('x'.repeat(501)), false);
   assert.equal(sameName(' ipad у входа ', device()), true);
   assert.equal(sameName('iPad', device()), false);
-  assert.deepEqual(
-    parseIssued({
-      codeId: id().toUpperCase(),
-      login: 'kiosk-a1',
-      password: 'abcdefghijkl',
-      expiresAt: iso(T0),
-    }).login,
-    'kiosk-a1',
+  const codeId = id();
+  const one = parseIssued(
+    issued(id(), codeId.toUpperCase(), 'kiosk-a1b2c3d4', 'abcdefghjkmn', iso(T0)),
   );
-  assert.equal(parseIssued({ code: 'AB12-CD34', expires_at: iso(T0) }).code, 'AB12-CD34');
-  assert.throws(() => parseIssued({ login: 'kiosk-a1', password: 'short', expires_at: iso(T0) }));
-  assert.throws(() => parseIssued({ code: 'abcd-efgh', expires_at: iso(T0) }));
+  assert.equal(one.login, 'kiosk-a1b2c3d4');
+  assert.equal(one.codeId, codeId);
+  assert.equal(
+    parseIssued({ pairing: { id: id(), code: 'AB12-CD34', expires_at: iso(T0) } }).code,
+    'AB12-CD34',
+  );
+  assert.throws(() => parseIssued(issued(id(), id(), 'kiosk-a1', 'short', iso(T0))));
+  assert.throws(() =>
+    parseIssued({ pairing: { id: id(), code: 'abcd-efgh', expires_at: iso(T0) } }),
+  );
+  assert.throws(
+    () =>
+      parseIssued({ id: id(), login: 'kiosk-a1', password: 'abcdefghjkmn', expires_at: iso(T0) }),
+    'the secret is read only from `pairing`',
+  );
+  assert.throws(() =>
+    parseIssued({ pairing: { login: 'kiosk-a1', password: 'abcdefghjkmn', expires_at: iso(T0) } }),
+  );
   assert.equal(
     parseEvents({
       events: [{ action: 'paired', actor_kind: 'device', reason: null, at: iso(T0) }],
@@ -299,19 +366,14 @@ test('iPad pairing: create kiosk, one-time login shown in memory, follows to pai
             open_code: paired ? null : { id: code, expires_at: iso(T0 + 30 * 60_000) },
           }),
         ],
-        { as_of: iso(now) },
+        { server_time: iso(now) },
       ),
     'POST branches/:id/devices': () => {
       createAttempts++;
       if (createAttempts === 1) throw new ApiError('NETWORK');
-      return { device: { id: kiosk } };
+      // Creating the kiosk issues its first code in the same command.
+      return issued(kiosk, code, 'kiosk-entrance', 'Sup3r-Secret-1', iso(T0 + 30 * 60_000));
     },
-    'POST branches/:id/devices/:id/pairing-codes': () => ({
-      code_id: code,
-      login: 'kiosk-entrance',
-      password: 'Sup3r-Secret-1',
-      expires_at: iso(T0 + 30 * 60_000),
-    }),
   });
   let changes = 0;
   const m = new DevicesModel(
@@ -327,19 +389,23 @@ test('iPad pairing: create kiosk, one-time login shown in memory, follows to pai
   assert.match(m.pairing.error, /от 2 до 64/);
   assert.equal(await m.issue('iPad у входа', 'н'), false);
   assert.match(m.pairing.error, /причину/);
-  // Lost reply on creation: the retry reuses the same requestId (idempotent create).
+  // Lost reply on creation: the retry reuses the same request_id (idempotent create).
   assert.equal(await m.issue('iPad у входа', 'Новый киоск у входа'), false);
   assert.equal(m.pairing.stage, 'form');
   assert.equal(m.pairing.deviceId, null);
   assert.equal(await m.issue('iPad у входа', 'Новый киоск у входа'), true);
   const creates = calls.filter((c) => c.method === 'POST' && c.path.endsWith('/devices'));
   assert.equal(creates.length, 2);
-  assert.equal(creates[0].body.requestId, creates[1].body.requestId);
-  assert.deepEqual(Object.keys(creates[1].body).sort(), ['name', 'reason', 'requestId', 'role']);
+  assert.equal(creates[0].body.request_id, creates[1].body.request_id);
+  assert.deepEqual(Object.keys(creates[1].body).sort(), ['name', 'reason', 'request_id', 'role']);
   assert.equal(creates[1].body.role, 'kiosk');
-  const issue = calls.find((c) => c.path.endsWith('/pairing-codes'));
-  assert.equal(issue.path, `branches/${branch}/devices/${kiosk}/pairing-codes`);
-  assert.deepEqual(Object.keys(issue.body).sort(), ['reason', 'requestId']);
+  assert.equal(
+    calls.filter((c) => c.path.endsWith('/pairing-codes')).length,
+    0,
+    'create already returned the first code; a second one would cancel it',
+  );
+  assert.equal(m.pairing.deviceId, kiosk);
+  assert.equal(m.pairing.codeId, code);
   assert.equal(m.pairing.stage, 'code');
   assert.equal(m.pairing.password, 'Sup3r-Secret-1');
   assert.equal(m.nextDelay(), 3000);
@@ -362,15 +428,12 @@ test('pairing code expiry and a lost code reply both drop the secret and demand 
   let fail = false;
   const { api, calls } = fakeApi({
     'GET branches/:id/devices': () =>
-      registry([device({ id: kiosk, status: 'pending', last_seen_at: null })], { as_of: iso(now) }),
+      registry([device({ id: kiosk, status: 'pending', last_seen_at: null })], {
+        server_time: iso(now),
+      }),
     'POST branches/:id/devices/:id/pairing-codes': () => {
       if (fail) throw new ApiError('NETWORK');
-      return {
-        id: id(),
-        login: 'kiosk-x',
-        password: 'abcdefghijkl',
-        expiresAt: iso(T0 + 30 * 60_000),
-      };
+      return issued(kiosk, id(), 'kiosk-x', 'abcdefghjkmn', iso(T0 + 30 * 60_000));
     },
   });
   const m = new DevicesModel(
@@ -385,6 +448,8 @@ test('pairing code expiry and a lost code reply both drop the secret and demand 
   m.tick();
   assert.equal(m.pairing.stage, 'expired');
   assert.equal(m.pairing.password, null);
+  const sent = calls.find((c) => c.path.endsWith('/pairing-codes'));
+  assert.deepEqual(Object.keys(sent.body).sort(), ['reason', 'request_id']);
   m.startPairing(m.data.devices[0]);
   const before = m.pairing.codeRequest;
   fail = true;
@@ -419,8 +484,8 @@ test('revoke: cashier node refused locally; kiosk needs reason and exact name; r
   assert.equal(await m.revoke(m.data.devices[1], 'Украден', 'ipad у входа'), '');
   const sent = calls.find((c) => c.path.endsWith('/revoke'));
   assert.equal(sent.path, `branches/${branch}/devices/${kiosk.id}/revoke`);
-  assert.deepEqual(Object.keys(sent.body).sort(), ['confirmName', 'reason', 'requestId']);
-  assert.equal(sent.body.confirmName, 'iPad у входа');
+  assert.deepEqual(Object.keys(sent.body).sort(), ['confirm_name', 'reason', 'request_id']);
+  assert.equal(sent.body.confirm_name, 'iPad у входа');
   conflict = true;
   assert.match(await m.revoke(m.data.devices[1], 'Украден', 'iPad у входа'), /Замена кассы/);
 });
@@ -441,6 +506,50 @@ test('missing registry route falls back to read-only; other failures stay visibl
   await m.load();
   assert.equal(m.unavailable, true, 'a previous verdict is not reset by an unrelated error');
   assert.match(m.error, /только управляющему/);
+  // BACKOFFICE_DEVICE_REGISTRY_ENABLED off: 503 without a reason before any registry answer.
+  error = new ApiError('SERVICE_UNAVAILABLE', 503);
+  const off = new DevicesModel(
+    async () => {
+      throw error;
+    },
+    () => {},
+    () => T0,
+  );
+  await off.scope('actor', branch);
+  assert.equal(off.unavailable, true);
+  assert.equal(off.error, '');
+});
+
+test('cancel sends a reason; a lost create reply is not retried into a second device', async () => {
+  const kiosk = device({
+    status: 'pending',
+    last_seen_at: null,
+    open_code: { id: id(), expires_at: iso(T0 + 60_000) },
+  });
+  const { api, calls } = fakeApi({
+    'GET branches/:id/devices': () => registry([kiosk]),
+    'POST branches/:id/devices/:id/pairing-codes/:id/cancel': () => ({
+      device: { id: kiosk.id },
+      code: { id: kiosk.open_code.id, state: 'cancelled' },
+    }),
+    'POST branches/:id/devices': () => {
+      throw new ApiError('CONFLICT', 409, 'CODE_ALREADY_ISSUED');
+    },
+  });
+  const m = new DevicesModel(
+    api,
+    () => {},
+    () => T0,
+  );
+  await m.scope('actor', branch);
+  assert.equal(await m.cancelCode(kiosk.id, kiosk.open_code.id), true);
+  const cancel = calls.find((c) => c.path.endsWith('/cancel'));
+  assert.deepEqual(Object.keys(cancel.body).sort(), ['reason', 'request_id']);
+  assert.ok(cancel.body.reason.length >= 3);
+  m.startPairing();
+  assert.equal(await m.issue('iPad 2', 'Второй киоск'), false);
+  assert.match(m.pairing.error, /Киоск уже создан/);
+  assert.equal(m.pairing.deviceId, null);
 });
 
 test('client and proxy allowlists accept exactly the device routes and methods', async () => {
@@ -507,7 +616,7 @@ test('client and proxy allowlists accept exactly the device routes and methods',
   try {
     let r = await fetch(base + p, { headers });
     assert.equal(r.status, 200);
-    const body = { requestId: id(), reason: 'Украден', confirmName: 'iPad' };
+    const body = { request_id: id(), reason: 'Украден', confirm_name: 'iPad' };
     r = await fetch(`${base}${p}/${d}/revoke`, {
       method: 'POST',
       headers,
@@ -532,7 +641,7 @@ test('client and proxy allowlists accept exactly the device routes and methods',
       };
       await transport(`operations/branches/${branch}/devices/${d}/pairing-codes`, token, {
         method: 'POST',
-        body: { requestId: id(), reason: 'Новый' },
+        body: { request_id: id(), reason: 'Новый' },
       });
       await transport(`operations/branches/${branch}/devices`, 'session');
     } finally {

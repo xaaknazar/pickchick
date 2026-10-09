@@ -66,8 +66,8 @@
 `infra/staging/release-device-registry.py` от установленного `cf25cb9e`:
 точная зелёная CI, ledger 001-040, 042-050, общая блокировка, зашифрованный
 backup с проверкой восстановления, шаг владельца (051 и гранты в одной
-транзакции REPEATABLE READ), compose переносится байт в байт плюс одна строка
-`DEVICE_PAIRING_PEPPER`, откат на прежний образ. Порядок -
+транзакции REPEATABLE READ), compose переносится байт в байт плюс две строки:
+`BACKOFFICE_DEVICE_REGISTRY_ENABLED: "true"` и `DEVICE_PAIRING_PEPPER`, откат на прежний образ. Порядок -
 [docs/operations/backoffice-devices.md](../../operations/backoffice-devices.md).
 Маршруты в прокси бэк-офиса и gateway выпускаются отдельно.
 

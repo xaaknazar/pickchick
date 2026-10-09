@@ -21,7 +21,7 @@ import { fingerprint, runtimePrivileges, OwnerGuardError } from './unified-menu-
 
 export const REGISTRY_MIGRATION = '051_cloud_device_registry.sql';
 export const REGISTRY_NEW_TABLES = Object.freeze(['device_events', 'device_pairing_codes']);
-/** Nullable/defaulted columns 051 appends to `devices` (plan section 1.1). */
+/** Nullable columns db/cloud/migrations/051 appends to `devices` (checked against the file). */
 export const REGISTRY_DEVICE_COLUMNS = Object.freeze([
   'role',
   'kiosk_device_id',
@@ -33,9 +33,10 @@ export const REGISTRY_DEVICE_COLUMNS = Object.freeze([
   'created_by',
 ]);
 /**
- * Runtime privileges the API must hold after 051 (`table|column|PRIVILEGE`, plan section 1.5).
- * Rows on existing tables may already be present; rows on the new tables must match exactly.
- * Kept in sync with REQUIRED_ACL in release-device-registry.py (checked by its unit test).
+ * Runtime privileges the API must hold after 051 (`table|column|PRIVILEGE`): exactly
+ * DEVICE_REGISTRY_ACL of device-registry-grants.mjs. Rows on existing tables may already be
+ * present; rows on the new tables must match exactly. Kept in sync with REQUIRED_ACL in
+ * release-device-registry.py and with the grant module (checked by its unit test).
  */
 export const REGISTRY_PRIVILEGES = Object.freeze(
   [
@@ -57,7 +58,12 @@ export const REGISTRY_PRIVILEGES = Object.freeze(
     'devices|revoked_by|UPDATE',
     'devices|status|UPDATE',
     'kiosk_devices||INSERT',
+    'kiosk_devices||SELECT',
     'kiosk_devices|active|UPDATE',
+    // MVP kiosk pairing issues a cloud044 alias from the back office.
+    'kiosk_enrollment_aliases||INSERT',
+    'kiosk_enrollment_aliases||SELECT',
+    'kiosk_enrollment_aliases|active|UPDATE',
     'kiosk_sessions||SELECT',
   ].sort(),
 );

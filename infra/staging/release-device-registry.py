@@ -11,8 +11,11 @@ Owner-run and guarded; without --apply it only runs the read-only preflight and 
            columns and rows unchanged. The old API keeps serving on the additive schema
            (compatibility proof) before the new API starts.
 
-The live compose (every flag value included) is carried over byte for byte except ONE new line in
-the api environment: DEVICE_PAIRING_PEPPER: ${DEVICE_PAIRING_PEPPER:?...}. Its value comes only from
+The live compose (every flag value included) is carried over byte for byte except TWO new lines in
+the api environment: BACKOFFICE_DEVICE_REGISTRY_ENABLED: "true" (the API serves the registry routes
+only with it) and DEVICE_PAIRING_PEPPER: ${DEVICE_PAIRING_PEPPER:?...}, plus the same switch in the
+provision environment (provision.mjs would otherwise revoke the registry grants on its next run).
+The pepper value comes only from
 the owner's private 0600 --environment JSON (the same mechanism as KIOSK_ENROLLMENT_KEY in
 release-kiosk-qr.py) and is appended to the candidate's 0600 release.env next to the replaced
 RELEASE_SHA. This script never generates, prints or stores the value; only its SHA-256 is compared
@@ -44,7 +47,13 @@ NEW_TABLES = frozenset({'device_pairing_codes', 'device_events'})
 BASE_API_SHA = 'cf25cb9e4712a7beedc2d2b52a9d64d3e557598f'
 BASE_SCHEMA = tuple(range(1, 41)) + tuple(range(42, 51))
 PEPPER = 'DEVICE_PAIRING_PEPPER'
-PEPPER_LINE = '      ' + PEPPER + ': ${' + PEPPER + ':?Private device pairing pepper required}\n'
+# The API serves the registry only with this switch on (services/api/src/index.ts,
+# deviceRegistryEnabled); without it every route answers 503 and the route check below fails.
+ENABLED = 'BACKOFFICE_DEVICE_REGISTRY_ENABLED'
+PEPPER_LINE = ('      ' + ENABLED + ': "true"\n'
+               '      ' + PEPPER + ': ${' + PEPPER + ':?Private device pairing pepper required}\n')
+# provision.mjs re-applies deviceRegistryGrants on every run; without the switch it revokes them.
+PROVISION_LINE = '      ' + ENABLED + ': "true"\n'
 
 
 def _acl(entries):
@@ -60,7 +69,10 @@ REQUIRED_ACL = _acl([
     'device_pairing_codes|failed_attempts|UPDATE', 'device_pairing_codes|state|UPDATE',
     'devices||INSERT', 'devices|app_version|UPDATE', 'devices|last_seen_at|UPDATE', 'devices|name|UPDATE',
     'devices|revoked_at|UPDATE', 'devices|revoked_by|UPDATE', 'devices|status|UPDATE',
-    'kiosk_devices||INSERT', 'kiosk_devices|active|UPDATE', 'kiosk_sessions||SELECT',
+    'kiosk_devices||INSERT', 'kiosk_devices||SELECT', 'kiosk_devices|active|UPDATE',
+    # MVP kiosk pairing issues a cloud044 alias from the back office (device-registry-grants.mjs).
+    'kiosk_enrollment_aliases||INSERT', 'kiosk_enrollment_aliases||SELECT',
+    'kiosk_enrollment_aliases|active|UPDATE', 'kiosk_sessions||SELECT',
 ])
 EXACT_NEW_ACL = frozenset(row for row in REQUIRED_ACL if row[0] in NEW_TABLES)
 EXISTING_TABLE_ACL = REQUIRED_ACL - EXACT_NEW_ACL
@@ -99,18 +111,27 @@ def validate_environment(value):
     return value
 
 
-def pepper_compose(raw):
-    """The live compose plus exactly one api environment line referencing the private pepper."""
-    require(PEPPER not in raw, 'Device pairing pepper already configured in the live compose')
-    require(raw.count('\n  api:\n') == 1, 'Exact API service anchor required')
-    head, tail = raw.split('\n  api:\n', 1)
+def _service_environment(raw, service, lines):
+    """Inserts `lines` right after the single `environment:` of one top-level compose service."""
+    anchor = '\n  ' + service + ':\n'
+    require(raw.count(anchor) == 1, 'Exact ' + service + ' service anchor required')
+    head, tail = raw.split(anchor, 1)
     following = re.search(r'^(?:  )?[A-Za-z0-9_.-]+:', tail, re.M)  # next service or top-level key
-    api, rest = (tail[:following.start()], tail[following.start():]) if following else (tail, '')
-    anchors = list(re.finditer(r'^    environment:\n', api, re.M))
-    require(len(anchors) == 1, 'Exact API environment anchor required')
-    api = api[:anchors[0].end()] + PEPPER_LINE + api[anchors[0].end():]
-    result = head + '\n  api:\n' + api + rest
-    require(result.replace(PEPPER_LINE, '', 1) == raw and result.count(PEPPER) == 2, 'Existing compose changed')
+    body, rest = (tail[:following.start()], tail[following.start():]) if following else (tail, '')
+    anchors = list(re.finditer(r'^    environment:\n', body, re.M))
+    require(len(anchors) == 1, 'Exact ' + service + ' environment anchor required')
+    return head + anchor + body[:anchors[0].end()] + lines + body[anchors[0].end():] + rest
+
+
+def pepper_compose(raw):
+    """The live compose plus the registry switch and the private pepper reference in the api
+    environment, and the same switch in provision (a later provision run keeps the grants)."""
+    require(PEPPER not in raw, 'Device pairing pepper already configured in the live compose')
+    require(ENABLED not in raw, 'Device registry switch already present in the live compose')
+    result = _service_environment(raw, 'api', PEPPER_LINE)
+    result = _service_environment(result, 'provision', PROVISION_LINE)
+    require(result.replace(PEPPER_LINE, '', 1).replace(PROVISION_LINE, '', 1) == raw and
+            result.count(PEPPER) == 2 and result.count(ENABLED) == 2, 'Existing compose changed')
     return result
 
 
@@ -131,9 +152,10 @@ with open(new,'x') as output:
 
 
 def verify_pepper_environment(before, after, pepper):
-    """Only RELEASE_SHA may change and the pepper appears; values compared as digests."""
+    """Only RELEASE_SHA may change; the pepper and the registry switch appear (digests)."""
     require(PEPPER not in before, 'Previous API already had a device pairing pepper')
-    um.verify_environment_delta(before, after, {PEPPER: pepper}, release_sha_may_change=True)
+    require(ENABLED not in before, 'Previous API already had the device registry switch')
+    um.verify_environment_delta(before, after, {PEPPER: pepper, ENABLED: 'true'}, release_sha_may_change=True)
 
 
 class Release(um.Release):

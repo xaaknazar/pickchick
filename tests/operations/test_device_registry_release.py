@@ -61,6 +61,25 @@ class Privileges(unittest.TestCase):
         tables = owner.split('export const REGISTRY_NEW_TABLES', 1)[1].split(');', 1)[0]
         self.assertEqual(set(re.findall(r"'([a-z_]+)'", tables)), r.NEW_TABLES)
 
+    def test_acl_matches_the_runtime_grant_module(self):
+        grants = (ROOT / 'infra/staging/device-registry-grants.mjs').read_text()
+        block = grants.split('export const DEVICE_REGISTRY_ACL', 1)[1].split('].map(', 1)[0]
+        rows = re.findall(r"\['([a-z_]+)', (null|'[a-z_]+'), '([A-Z]+)'\]", block)
+        self.assertTrue(rows)
+        self.assertEqual(frozenset((t, None if c == 'null' else c.strip("'"), p) for t, c, p in rows), r.REQUIRED_ACL)
+        tables = grants.split('export const DEVICE_REGISTRY_TABLES', 1)[1].split(');', 1)[0]
+        self.assertEqual(set(re.findall(r"'([a-z_]+)'", tables)), r.NEW_TABLES)
+
+    def test_owner_step_targets_the_real_051_shape(self):
+        sql = (ROOT / 'db/cloud/migrations' / r.MIGRATION).read_text()
+        owner = (ROOT / 'infra/staging/device-registry-owner.mjs').read_text()
+        block = owner.split('export const REGISTRY_DEVICE_COLUMNS', 1)[1].split(']);', 1)[0]
+        columns = re.findall(r"'([a-z_]+)'", block)
+        added = re.findall(r'ADD COLUMN ([a-z_]+)', sql)
+        self.assertEqual(sorted(columns), sorted(added))
+        self.assertEqual(set(re.findall(r'CREATE TABLE ([a-z_]+)', sql)), r.NEW_TABLES)
+        self.assertNotRegex(sql, r'(?i)\b(DROP|TRUNCATE|DELETE FROM|RENAME)\b')
+
     def test_new_tables_are_append_or_state_only(self):
         self.assertEqual({row[0] for row in r.EXACT_NEW_ACL}, r.NEW_TABLES)
         self.assertFalse({row for row in r.REQUIRED_ACL if row[2] in ('DELETE', 'TRUNCATE')})
@@ -86,24 +105,37 @@ class Pepper(unittest.TestCase):
             path.chmod(0o600)
             self.assertIn(b'DEVICE_PAIRING_PEPPER', r.private_read(path))
 
-    def test_compose_gains_exactly_one_api_line(self):
+    def test_compose_gains_the_switch_and_pepper_lines_only(self):
         raw = (ROOT / 'infra/staging/compose.yaml').read_text()
         result = r.pepper_compose(raw)
-        self.assertEqual(result.replace(r.PEPPER_LINE, '', 1), raw)
+        self.assertEqual(result.replace(r.PEPPER_LINE, '', 1).replace(r.PROVISION_LINE, '', 1), raw)
         api = result.split('\n  api:\n', 1)[1].split('\n  provision:\n', 1)[0]
         self.assertIn('    environment:\n' + r.PEPPER_LINE, api)
-        self.assertNotIn(r.PEPPER, result.split('\n  provision:\n', 1)[1])
+        provision = result.split('\n  provision:\n', 1)[1]
+        self.assertNotIn(r.PEPPER, provision)
+        self.assertIn('    environment:\n' + r.PROVISION_LINE, provision)
         self.assertNotIn(PEPPER, result)
+        self.assertIn('      ' + r.ENABLED + ': "true"\n', api)
         with self.assertRaisesRegex(GuardFailure, 'already configured'):
             r.pepper_compose(result)
+        api_env = "    environment:\n      APP_ENV: staging\n      API_PORT: '3100'\n"
+        self.assertEqual(raw.count(api_env), 1)
+        with self.assertRaisesRegex(GuardFailure, 'switch already present'):
+            r.pepper_compose(raw.replace(api_env, api_env + '      ' + r.ENABLED + ': "false"\n'))
 
     def test_compose_with_service_after_api_and_missing_anchor(self):
-        raw = 'services:\n  api:\n    image: x\n    environment:\n      A: b\n  worker:\n    environment:\n      C: d\n'
+        raw = ('services:\n  api:\n    image: x\n    environment:\n      A: b\n  worker:\n    environment:\n      C: d\n'
+               '  provision:\n    environment:\n      E: f\n')
         result = r.pepper_compose(raw)
         self.assertEqual(result.count(r.PEPPER_LINE), 1)
         self.assertTrue(result.startswith('services:\n  api:\n    image: x\n    environment:\n' + r.PEPPER_LINE))
+        self.assertTrue(result.endswith('  provision:\n    environment:\n' + r.PROVISION_LINE + '      E: f\n'))
+        self.assertIn('  worker:\n    environment:\n      C: d\n', result)
         with self.assertRaisesRegex(GuardFailure, 'environment anchor'):
-            r.pepper_compose('services:\n  api:\n    image: x\n  worker:\n    environment:\n      C: d\n')
+            r.pepper_compose('services:\n  api:\n    image: x\n  worker:\n    environment:\n      C: d\n'
+                             '  provision:\n    environment:\n      E: f\n')
+        with self.assertRaisesRegex(GuardFailure, 'provision service anchor'):
+            r.pepper_compose('services:\n  api:\n    image: x\n    environment:\n      A: b\n')
 
     def test_release_env_program_appends_pepper_once(self):
         old_sha, new_sha = 'a' * 40, 'b' * 40
@@ -125,8 +157,16 @@ class Pepper(unittest.TestCase):
 
     def test_environment_delta_requires_the_pepper_digest(self):
         before = {'RELEASE_SHA': r.digest(b'a'), 'DB': r.digest(b'x')}
-        after = {'RELEASE_SHA': r.digest(b'b'), 'DB': r.digest(b'x'), r.PEPPER: r.digest(PEPPER.encode())}
+        after = {'RELEASE_SHA': r.digest(b'b'), 'DB': r.digest(b'x'), r.PEPPER: r.digest(PEPPER.encode()),
+                 r.ENABLED: r.digest(b'true')}
         r.verify_pepper_environment(before, after, PEPPER)
+        without_switch = {k: v for k, v in after.items() if k != r.ENABLED}
+        with self.assertRaisesRegex(GuardFailure, r.ENABLED):
+            r.verify_pepper_environment(before, without_switch, PEPPER)
+        with self.assertRaises(GuardFailure):
+            r.verify_pepper_environment(before, {**after, r.ENABLED: r.digest(b'false')}, PEPPER)
+        with self.assertRaisesRegex(GuardFailure, 'switch'):
+            r.verify_pepper_environment({**before, r.ENABLED: r.digest(b'false')}, after, PEPPER)
         with self.assertRaises(GuardFailure):
             r.verify_pepper_environment(before, {**after, r.PEPPER: r.digest(b'other')}, PEPPER)
         with self.assertRaises(GuardFailure):

@@ -95,6 +95,7 @@ test('kiosk pairing from the back office: one-time alias, exchange, list, revoke
     assert.equal(edge.kind, 'edge');
     assert.equal(edge.role, 'edge');
     assert.equal(edge.revocable, false);
+    assert.equal(edge.payment_open, false);
 
     const created = await f.registry.create(
       token,
@@ -124,6 +125,8 @@ test('kiosk pairing from the back office: one-time alias, exchange, list, revoke
     assert.equal(pending.status, 'pending');
     assert.equal(pending.pairing.state, 'open');
     assert.equal(pending.revocable, true);
+    // No open kiosk payment: the list runs the same query as the revoke guard (runtime role).
+    assert.equal(pending.payment_open, false);
 
     const exchanged = await f.enrollment.exchange({
       login: created.pairing.login,
@@ -414,6 +417,7 @@ test('a kiosk provisioned before cloud051 is listed and adopted on rename or rev
     assert.equal(shown.registered, false);
     assert.equal(shown.status, 'active');
     assert.equal(shown.revocable, true);
+    assert.equal(shown.payment_open, false);
     await f.registry.revoke(token, f.branch, kioskId, f.req({ confirm_name: shown.name }));
     const after = (await f.registry.list(token, f.branch)).devices.filter(
       (d) => d.id === kioskId || d.name === shown.name,

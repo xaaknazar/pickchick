@@ -3,9 +3,10 @@ import { ApiError, message, type Request } from './api.js';
 /**
  * Device registry of one branch (plan "Устройства", section 4/5/8 MVP).
  *
- * Contract: GET/POST v1/admin/backoffice/branches/:id/devices[...]. Field names are accepted in
- * snake_case and camelCase because the server contract is still being finalized; request bodies
- * follow the plan literally ({requestId, reason, ...}).
+ * Contract: GET/POST v1/admin/backoffice/branches/:id/devices[...] as served by
+ * services/api/src/device-registry-controller.ts and backoffice-core/src/device-registry.ts.
+ * Responses and request bodies are snake_case; request bodies are strict objects on the server
+ * ({request_id, reason, ...}), so no extra field may be sent.
  *
  * A one-time kiosk password or pairing code lives only in memory of this model (never in
  * storage) and is dropped as soon as the dialog closes, the code expires or the device pairs.
@@ -16,6 +17,8 @@ export type DeviceStatus = 'pending' | 'active' | 'revoked';
 export type OpenCode = { id: string; expires_at: string };
 export type Device = {
   id: string;
+  /** False for a kiosk provisioned before cloud051: adopted into the registry on first write. */
+  registered: boolean;
   role: DeviceRole;
   name: string;
   status: DeviceStatus;
@@ -25,6 +28,8 @@ export type Device = {
   credential_expires_at: string | null;
   open_code: OpenCode | null;
   payment_open: boolean;
+  /** Server decision (never the branch edge). */
+  revocable: boolean;
   revoked_at: string | null;
 };
 export type Registry = {
@@ -101,6 +106,8 @@ export const STAFF_RESET_HINT =
   'Сброс пароля сотрудника выполняется на кассе: scripts/staff-password-setup.mjs --replace.';
 export const EDGE_HINT =
   'Отключить кассу из кабинета нельзя. Замена кассы - по процедуре в docs/operations/menu-sync.md.';
+/** The server requires a reason for every write; cancelling an unused code needs no judgement. */
+export const CANCEL_REASON = 'Код подключения отменён в кабинете';
 export const ONLINE_MS = 2 * 60_000;
 export const ATTENTION_MS = 10 * 60_000;
 export const CREDENTIAL_WARN_MS = 7 * 86_400_000;
@@ -114,10 +121,8 @@ const LEGACY_ROLE: Record<string, DeviceRole> = {
   display: 'board',
 };
 type Raw = Record<string, unknown>;
-const camel = (key: string) => key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
-/** Reads `snake_case` or its camelCase twin. */
 function pick(o: Raw, key: string): unknown {
-  return key in o ? o[key] : o[camel(key)];
+  return Object.hasOwn(o, key) ? o[key] : undefined;
 }
 const invalid = () => new ApiError('INVALID_RESPONSE');
 function object(value: unknown): Raw {
@@ -147,14 +152,20 @@ export function parseDevice(value: unknown): Device {
   const status = pick(o, 'status');
   if (status !== 'pending' && status !== 'active' && status !== 'revoked') throw invalid();
   const online = pick(o, 'online');
-  const code = pick(o, 'open_code');
+  // `pairing` is the latest open code: state open/expired keeps it on the card, consumed means
+  // the iPad already used it (the exchange is reconciled into the registry on the next write).
+  const code = pick(o, 'pairing');
   let open: OpenCode | null = null;
   if (code !== null && code !== undefined) {
     const c = object(code);
-    open = { id: uuid(pick(c, 'id')), expires_at: stamp(pick(c, 'expires_at'), false)! };
+    const state = pick(c, 'state');
+    if (state !== 'open' && state !== 'expired' && state !== 'consumed') throw invalid();
+    const parsed = { id: uuid(pick(c, 'id')), expires_at: stamp(pick(c, 'expires_at'), false)! };
+    if (state !== 'consumed') open = parsed;
   }
   return {
     id: uuid(pick(o, 'id')),
+    registered: pick(o, 'registered') !== false,
     role: rawRole as DeviceRole,
     name: text(pick(o, 'name'), 120)!,
     status,
@@ -164,6 +175,7 @@ export function parseDevice(value: unknown): Device {
     credential_expires_at: stamp(pick(o, 'credential_expires_at')),
     open_code: open,
     payment_open: pick(o, 'payment_open') === true,
+    revocable: pick(o, 'revocable') === true && rawRole !== 'edge',
     revoked_at: stamp(pick(o, 'revoked_at')),
   };
 }
@@ -171,6 +183,8 @@ export function parseRegistry(value: unknown, branch: string): Registry {
   const o = object(value);
   const role = pick(o, 'role');
   const devices = pick(o, 'devices');
+  const pairing = pick(o, 'kiosk_pairing');
+  if (pairing !== 'ready' && pairing !== 'not_configured') throw invalid();
   if (
     String(pick(o, 'branch_id')).toLowerCase() !== branch.toLowerCase() ||
     (role !== 'manager' && role !== 'analyst') ||
@@ -182,8 +196,8 @@ export function parseRegistry(value: unknown, branch: string): Registry {
     source: 'registry',
     branch_id: branch,
     role,
-    as_of: stamp(pick(o, 'as_of'), false)!,
-    kiosk_supported: pick(o, 'kiosk_supported') === true,
+    as_of: stamp(pick(o, 'server_time'), false)!,
+    kiosk_supported: pairing === 'ready',
     devices: devices.map(parseDevice),
   };
 }
@@ -214,8 +228,10 @@ export function legacyRegistry(
       last_seen_at: seen ?? null,
       app_version: null,
       credential_expires_at: null,
+      registered: true,
       open_code: null,
       payment_open: false,
+      revocable: false,
       revoked_at: null,
     });
   }
@@ -323,14 +339,15 @@ export function actions(d: Device, r: Registry): Action[] {
   if (r.kiosk_supported && d.status === 'pending') list.push('code');
   if (d.open_code) list.push('cancel_code');
   list.push('rename', 'journal');
-  if (!d.payment_open) list.push('revoke');
+  if (d.revocable && !d.payment_open) list.push('revoke');
   return list;
 }
 export const canPair = (r: Registry | null) =>
   r?.source === 'registry' && r.role === 'manager' && r.kiosk_supported;
 
+/** Write response {device, pairing:{id, purpose, expires_at, login, password}}; shown once. */
 export function parseIssued(value: unknown) {
-  const o = object(value);
+  const o = object(pick(object(value), 'pairing'));
   const login = pick(o, 'login'),
     password = pick(o, 'password'),
     code = pick(o, 'code');
@@ -338,9 +355,8 @@ export function parseIssued(value: unknown) {
   if (!hasLogin && typeof code !== 'string') throw invalid();
   if (hasLogin && (!/^[A-Za-z0-9_.-]{3,64}$/.test(login) || password.length < 12)) throw invalid();
   if (typeof code === 'string' && !/^[0-9A-Z]{4}-[0-9A-Z]{4}$/.test(code)) throw invalid();
-  const id = pick(o, 'code_id') ?? pick(o, 'id');
   return {
-    codeId: id === undefined || id === null ? null : uuid(id),
+    codeId: uuid(pick(o, 'id')),
     login: hasLogin ? login : null,
     password: hasLogin ? password : null,
     code: typeof code === 'string' ? code : null,
@@ -377,15 +393,29 @@ export const EVENT_LABELS: Record<string, string> = {
 export function explain(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.reason === 'EDGE_REVOKE_REQUIRES_REPLACEMENT_PROTOCOL') return EDGE_HINT;
-    if (e.reason === 'CODE_ALREADY_ISSUED')
-      return 'Код по этому запросу уже выпущен и повторно не показывается. Выпустите новый код.';
+    const reasons: Record<string, string> = {
+      CODE_ALREADY_ISSUED:
+        'Код по этому запросу уже выпущен и повторно не показывается. Выпустите новый код.',
+      CONFIRM_NAME_MISMATCH: 'Введите название устройства точно как в карточке.',
+      CODE_NOT_OPEN: 'Код уже использован, отменён или истёк. Обновите список.',
+      DEVICE_NOT_PENDING:
+        'Устройство уже подключено. Чтобы заменить iPad, отключите его и подключите новый.',
+      DEVICE_REVOKED: 'Доступ устройства уже отозван.',
+      PAIRING_NOT_CONFIGURED: 'Подключение устройств на сервере пока не настроено.',
+      KIOSK_NOT_CONFIGURED: 'Киоск для этой точки пока не настроен.',
+      ROLE_PAIRING_NOT_READY: 'Этот тип устройства пока подключается только на кассе.',
+      PAIRING_RATE_LIMITED: 'Слишком много кодов за короткое время. Подождите 10 минут.',
+      KIOSK_PAYMENT_OPEN: 'Идёт оплата Kaspi. Отключить киоск можно только после закрытия платежа.',
+      KIOSK_REVOKE_USES_REGISTRY: 'Киоск отключается в разделе «Устройства».',
+    };
+    if (e.reason && reasons[e.reason]) return reasons[e.reason]!;
     const known: Record<string, string> = {
       FORBIDDEN: 'Действие доступно только управляющему этой точки.',
       CONFLICT: 'Состояние устройства уже изменилось. Обновите список и повторите.',
       NOT_FOUND: 'Устройство не найдено. Обновите список.',
       INVALID_REQUEST: 'Сервер отклонил данные. Проверьте название и причину.',
       SERVICE_UNAVAILABLE: 'Реестр устройств временно недоступен. Повторите позже.',
-      RATE_LIMITED: 'Слишком много кодов за короткое время. Подождите 10 минут.',
+      RATE_LIMITED: 'Слишком много запросов за короткое время. Подождите и повторите.',
     };
     if (known[e.code]) return known[e.code]!;
   }
@@ -395,6 +425,9 @@ const registryMissing = (e: unknown) =>
   e instanceof ApiError &&
   e.status === 404 &&
   (e.code === 'INVALID_RESPONSE' || (e.code === 'NOT_FOUND' && !e.reason));
+
+const serviceOff = (e: unknown) =>
+  e instanceof ApiError && e.status === 503 && e.code === 'SERVICE_UNAVAILABLE' && !e.reason;
 
 export class DevicesModel {
   actor = '';
@@ -456,7 +489,9 @@ export class DevicesModel {
       this.followPairing();
     } catch (e) {
       if (generation !== this.generation) return;
-      if (registryMissing(e)) {
+      // Route not installed (404), or BACKOFFICE_DEVICE_REGISTRY_ENABLED off (503) before any
+      // registry answer: the read-only operations list stays, without actions.
+      if (registryMissing(e) || (!this.data && serviceOff(e))) {
         this.unavailable = true;
         this.data = null;
         this.error = '';
@@ -535,30 +570,30 @@ export class DevicesModel {
     p.name = name.trim();
     this.changed();
     try {
+      let issued: ReturnType<typeof parseIssued>;
       if (!p.deviceId) {
-        // Same requestId on retry: creation is idempotent on the server (bo_commands).
+        // Creating the kiosk issues its first code in the same command (bo_commands).
         const created = object(
           await this.api(this.path(), {
             method: 'POST',
             body: {
-              requestId: p.createRequest,
+              request_id: p.createRequest,
               role: 'kiosk',
               name: p.name,
               reason: reason.trim(),
             },
           }),
         );
-        const device = pick(created, 'device');
-        p.deviceId = uuid(
-          pick(device && typeof device === 'object' ? (device as Raw) : created, 'id'),
+        const deviceId = uuid(pick(object(pick(created, 'device')), 'id'));
+        issued = parseIssued(created);
+        p.deviceId = deviceId;
+      } else
+        issued = parseIssued(
+          await this.api(this.path(`/${p.deviceId}/pairing-codes`), {
+            method: 'POST',
+            body: { request_id: p.codeRequest, reason: reason.trim() },
+          }),
         );
-      }
-      const issued = parseIssued(
-        await this.api(this.path(`/${p.deviceId}/pairing-codes`), {
-          method: 'POST',
-          body: { requestId: p.codeRequest, reason: reason.trim() },
-        }),
-      );
       if (this.pairing !== p) return false;
       Object.assign(p, issued, { stage: 'code' as const });
       void this.load();
@@ -567,7 +602,13 @@ export class DevicesModel {
       if (this.pairing !== p) return false;
       p.stage = 'form';
       p.error = explain(e);
-      if (p.deviceId) {
+      if (!p.deviceId && e instanceof ApiError && e.reason === 'CODE_ALREADY_ISSUED') {
+        // The kiosk was created by an earlier attempt whose reply was lost; its code is never
+        // shown again. The card appears in the list, a new code is issued from there.
+        p.error =
+          'Киоск уже создан, но его код больше не будет показан. Закройте окно и выпустите новый код в карточке киоска.';
+        void this.load();
+      } else if (p.deviceId) {
         // A lost reply may have issued a code that is never shown again: a new request id
         // issues a fresh code, and the server cancels the previous open one.
         p.codeRequest = crypto.randomUUID();
@@ -579,12 +620,12 @@ export class DevicesModel {
       return false;
     }
   }
-  async cancelCode(deviceId: string, codeId: string) {
+  async cancelCode(deviceId: string, codeId: string, reason = CANCEL_REASON) {
     if (this.busy) return false;
     try {
       await this.api(this.path(`/${deviceId}/pairing-codes/${codeId}/cancel`), {
         method: 'POST',
-        body: { requestId: crypto.randomUUID() },
+        body: { request_id: crypto.randomUUID(), reason },
       });
       if (this.pairing?.codeId === codeId) this.forget(this.pairing, 'cancelled');
       this.notice = 'Код подключения отменён.';
@@ -605,7 +646,7 @@ export class DevicesModel {
     try {
       await this.api(this.path(`/${d.id}/revoke`), {
         method: 'POST',
-        body: { requestId: crypto.randomUUID(), reason: reason.trim(), confirmName: d.name },
+        body: { request_id: crypto.randomUUID(), reason: reason.trim(), confirm_name: d.name },
       });
       this.notice = `Доступ устройства «${d.name}» отозван.`;
       void this.load();
@@ -622,7 +663,7 @@ export class DevicesModel {
     try {
       await this.api(this.path(`/${d.id}/rename`), {
         method: 'POST',
-        body: { requestId: crypto.randomUUID(), name: name.trim(), reason: reason.trim() },
+        body: { request_id: crypto.randomUUID(), name: name.trim(), reason: reason.trim() },
       });
       this.notice = 'Название сохранено.';
       void this.load();

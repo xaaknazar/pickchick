@@ -214,6 +214,15 @@ export class DeviceRegistry {
           [branch],
         )
       ).rows;
+      // Same boundary as revoke: an open kiosk payment keeps the kiosk connected.
+      const paying = new Set<string>();
+      for (const kioskId of [
+        ...registered
+          .filter((d) => d.kiosk_device_id && d.status !== 'revoked' && d.kiosk_active !== false)
+          .map((d) => d.kiosk_device_id as string),
+        ...legacy.filter((k) => k.active).map((k) => k.id as string),
+      ])
+        if (await this.kioskPaymentOpen(db, kioskId)) paying.add(kioskId);
       const seen = (a: Date | null, b: Date | null) => (a && b ? (a > b ? a : b) : (a ?? b));
       const age = (at: Date | null) =>
         at ? Math.max(0, Math.floor((now.getTime() - at.getTime()) / 1000)) : null;
@@ -249,6 +258,7 @@ export class DeviceRegistry {
                   ? 'device'
                   : null,
             credential_expires_at: d.credential_expires_at,
+            payment_open: !revoked && !!d.kiosk_device_id && paying.has(d.kiosk_device_id),
             pairing:
               code && !revoked
                 ? {
@@ -276,6 +286,7 @@ export class DeviceRegistry {
           last_seen_age_seconds: age(k.observed_at),
           last_seen_source: k.observed_at ? 'kiosk_session' : null,
           credential_expires_at: null,
+          payment_open: !!k.active && paying.has(k.id),
           pairing: null,
         })),
       ];

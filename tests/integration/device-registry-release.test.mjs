@@ -23,8 +23,8 @@ const REAL_GRANTS = fileURLToPath(
 );
 
 /**
- * Synthetic stand-in for the reviewed 051 (owned by the device-registry-db work package): the
- * same additive shape, so the owner-step guards are exercised before the real file lands.
+ * Synthetic 051 of the same additive shape, used to exercise the refusal paths (changed old
+ * data, extra privileges) without editing the reviewed file; the last test runs the real 051.
  */
 const SYNTHETIC_051 = `
 ALTER TABLE devices
@@ -52,7 +52,8 @@ const syntheticGrants = (role) =>
    GRANT SELECT, INSERT ON device_pairing_codes, device_events TO ${role};
    GRANT UPDATE(state, failed_attempts, consumed_at, consumed_request_id) ON device_pairing_codes TO ${role};
    GRANT INSERT, UPDATE(name, status, revoked_at, revoked_by, last_seen_at, app_version) ON devices TO ${role};
-   GRANT INSERT, UPDATE(active) ON kiosk_devices TO ${role};
+   GRANT SELECT, INSERT, UPDATE(active) ON kiosk_devices TO ${role};
+   GRANT SELECT, INSERT, UPDATE(active) ON kiosk_enrollment_aliases TO ${role};
    GRANT SELECT(device_id, expires_at) ON device_credentials TO ${role};
    GRANT SELECT ON kiosk_sessions TO ${role};`;
 
@@ -212,14 +213,38 @@ test('owner step refuses changed old data, extra privileges and unexpected migra
 
 test(
   'reviewed 051 and its grant module pass the owner step',
-  { skip: !(existsSync(REAL_051) && existsSync(REAL_GRANTS)) && 'reviewed 051 not merged yet' },
+  { skip: !(existsSync(REAL_051) && existsSync(REAL_GRANTS)) && 'reviewed 051 missing' },
   async (t) => {
     const db = await baseline(t);
     const dir = await directory(t, { upTo: '051_z', migration: null });
+    const plan = await inTransaction(db.pool, (c) =>
+      inspectRegistry(c, { directory: dir, role: db.role }),
+    );
+    assert.deepEqual(plan.pending, [REGISTRY_MIGRATION]);
     const result = await inTransaction(db.pool, (c) =>
       deployRegistry(c, { directory: dir, role: db.role }),
     );
     assert.deepEqual(result.applied, [REGISTRY_MIGRATION]);
+    assert.equal(result.checksum, plan.checksum);
     assert.equal(result.existingDataPreserved, true);
+    // The real grant module adds exactly the reviewed list (UPDATE(status) was already held).
+    assert.deepEqual(
+      result.privilegesAdded,
+      REGISTRY_PRIVILEGES.filter((p) => p !== 'devices|status|UPDATE'),
+    );
+    const device = await db.pool.query('SELECT name,status,role FROM devices WHERE id=$1', [
+      db.device,
+    ]);
+    assert.deepEqual(device.rows[0], { name: 'Synthetic edge', status: 'active', role: 'edge' });
+    // The ledger row is what @pickchick/database migrate() would have written.
+    const ledger = await db.pool.query(
+      'SELECT checksum,scope FROM schema_migrations WHERE version=$1',
+      [REGISTRY_MIGRATION],
+    );
+    assert.deepEqual(ledger.rows[0], { checksum: plan.checksum, scope: 'cloud' });
+    const again = await inTransaction(db.pool, (c) =>
+      deployRegistry(c, { directory: dir, role: db.role }),
+    );
+    assert.equal(again.resumed, true);
   },
 );

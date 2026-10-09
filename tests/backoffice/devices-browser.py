@@ -1,5 +1,6 @@
 """Devices tab on an isolated HTTP/PostgreSQL fixture. Registry routes are mocked in the
-browser (synthetic devices only); the operations snapshot and login are real."""
+browser (synthetic devices only) with the wire shape of DeviceRegistry in
+packages/backoffice-core/src/device-registry.ts; the operations snapshot and login are real."""
 import json
 import os
 import re
@@ -27,21 +28,40 @@ def ago(**delta):
     return iso(now() - timedelta(**delta))
 
 
+KIND = {'kitchen_prep': 'kitchen', 'kitchen_assembly': 'kitchen', 'board': 'display'}
+
+
 def device(role, name, status='active', **extra):
     base = {
         'id': str(uuid.uuid4()),
+        'registered': True,
+        'kind': KIND.get(role, role),
         'role': role,
         'name': name,
         'status': status,
-        'last_seen_at': None,
-        'app_version': None,
-        'credential_expires_at': None,
-        'open_code': None,
-        'payment_open': False,
+        'created_at': ago(days=30),
         'revoked_at': None,
+        'app_version': None,
+        'last_seen_at': None,
+        'credential_expires_at': None,
+        'payment_open': False,
+        'pairing': None,
     }
     base.update(extra)
     return base
+
+
+def wire(d):
+    """List item exactly as DeviceRegistry.list returns it."""
+    seen = d['last_seen_at']
+    age = None if not seen else int((now() - datetime.fromisoformat(seen.replace('Z', '+00:00'))).total_seconds())
+    return {**d, 'revocable': d['kind'] != 'edge' and d['status'] != 'revoked',
+            'last_seen_age_seconds': age,
+            'last_seen_source': None if not seen else ('edge_availability' if d['kind'] == 'edge' else 'device')}
+
+
+def public(d):
+    return {k: d[k] for k in ('id', 'kind', 'role', 'name', 'status')}
 
 
 edge = device('edge', 'Моноблок кассы', last_seen_at=ago(seconds=20), app_version='edge 0.9.4',
@@ -71,35 +91,46 @@ def handle(route, request):
     find = lambda i: next(d for d in state['devices'] if d['id'] == i)
     if request.method == 'GET' and tail == '':
         return reply(route, {
-            'schema_version': 1, 'branch_id': branch, 'role': 'manager', 'as_of': iso(now()),
-            'kiosk_supported': True, 'devices': state['devices'],
+            'branch_id': branch, 'role': 'manager', 'server_time': iso(now()),
+            'kiosk_pairing': 'ready', 'devices': [wire(d) for d in state['devices']],
         })
+
+    def issue(d):
+        code = {'id': str(uuid.uuid4()), 'purpose': 'kiosk', 'state': 'open',
+                'created_at': iso(now()), 'expires_at': iso(now() + timedelta(minutes=30))}
+        d['pairing'] = code
+        state['paired'] = d['id']
+        return {'device': public(d),
+                'pairing': {'id': code['id'], 'purpose': 'kiosk', 'expires_at': code['expires_at'],
+                            'login': 'kiosk-entrance7', 'password': 'q7m4tz9pk2wx'}}
     if request.method == 'POST' and tail == '':
+        assert set(body) == {'request_id', 'role', 'name', 'reason'}, body
         assert body['role'] == 'kiosk' and len(body['reason']) >= 3, body
         d = device('kiosk', body['name'], status='pending')
         state['devices'].append(d)
-        return reply(route, {'device': {'id': d['id']}})
+        return reply(route, issue(d))
     parts = tail.strip('/').split('/')
     d = find(parts[0])
     if request.method == 'POST' and parts[1:] == ['pairing-codes']:
-        code = {'id': str(uuid.uuid4()), 'expires_at': iso(now() + timedelta(minutes=30))}
-        d['open_code'] = code
-        state['paired'] = d['id']
-        return reply(route, {'code_id': code['id'], 'login': 'kiosk-entrance-7',
-                             'password': 'Q7m-4tZ9-pK2w', 'expires_at': code['expires_at']})
+        assert set(body) == {'request_id', 'reason'}, body
+        return reply(route, issue(d))
     if request.method == 'POST' and parts[1:2] == ['pairing-codes'] and parts[-1] == 'cancel':
-        d['open_code'] = None
-        return reply(route, {'ok': True})
+        assert set(body) == {'request_id', 'reason'}, body
+        d['pairing'] = None
+        return reply(route, {'device': public(d), 'code': {'id': parts[2], 'state': 'cancelled'}})
     if request.method == 'POST' and parts[1:] == ['revoke']:
-        assert body['confirmName'] == d['name'] and d['role'] != 'edge', body
+        assert set(body) == {'request_id', 'reason', 'confirm_name'}, body
+        assert body['confirm_name'] == d['name'] and d['kind'] != 'edge', body
         d['status'] = 'revoked'
         d['revoked_at'] = iso(now())
-        return reply(route, {'ok': True})
+        return reply(route, {'device': public(d)})
     if request.method == 'GET' and parts[1:] == ['events']:
         return reply(route, {'events': [
-            {'action': 'paired', 'actor_kind': 'device', 'reason': None, 'at': ago(days=3)},
-            {'action': 'code_issued', 'actor_kind': 'backoffice', 'reason': 'Новый киоск', 'at': ago(days=3, minutes=5)},
-        ]})
+            {'id': str(uuid.uuid4()), 'action': 'paired', 'actor_kind': 'device', 'actor_name': None,
+             'reason': None, 'at': ago(days=3)},
+            {'id': str(uuid.uuid4()), 'action': 'code_issued', 'actor_kind': 'backoffice',
+             'actor_name': 'Управляющий', 'reason': 'Новый киоск', 'at': ago(days=3, minutes=5)},
+        ], 'next_before': None})
     raise AssertionError('unexpected ' + request.method + ' ' + tail)
 
 
@@ -116,7 +147,7 @@ with sync_playwright() as p:
     page.get_by_test_id('credential-file').set_input_files({
         'name': 'access.json', 'mimeType': 'application/json',
         'buffer': json.dumps(fixture['manager']).encode()})
-    # Real API without the registry route: read-only legacy list, no revoke anywhere.
+    # Real API with the registry switched off (503): read-only legacy list, no revoke anywhere.
     expect(page.get_by_test_id('devices-legacy')).to_be_visible()
     expect(page.get_by_role('button', name='Отозвать доступ')).to_have_count(0)
     expect(page.locator('[data-testid^="device-revoke-"]')).to_have_count(0)
@@ -165,22 +196,22 @@ with sync_playwright() as p:
     page.get_by_test_id('device-pairing-name').fill('iPad на террасе')
     page.get_by_test_id('device-pairing-reason').fill('Новый киоск на летней террасе')
     page.get_by_test_id('device-pairing-issue').click()
-    expect(page.get_by_test_id('device-pairing-login')).to_have_text('kiosk-entrance-7')
-    expect(page.get_by_test_id('device-pairing-password')).to_have_text('Q7m-4tZ9-pK2w')
+    expect(page.get_by_test_id('device-pairing-login')).to_have_text('kiosk-entrance7')
+    expect(page.get_by_test_id('device-pairing-password')).to_have_text('q7m4tz9pk2wx')
     expect(page.get_by_test_id('device-pairing-countdown')).to_have_text(re.compile(r'^(29:[0-5]\d|30:00)$'))
     first = page.get_by_test_id('device-pairing-countdown').inner_text()
-    page.wait_for_timeout(1300)
-    assert page.get_by_test_id('device-pairing-countdown').inner_text() != first, 'countdown ticks'
+    # Ticks every second; the bound tolerates a slow mocked registry reload in between.
+    expect(page.get_by_test_id('device-pairing-countdown')).not_to_have_text(first, timeout=4000)
     creates = [r for r in requests if r[0] == 'POST' and r[1] == '']
     issues = [r for r in requests if r[1].endswith('/pairing-codes')]
-    assert len(creates) == 1 and len(issues) == 1, requests
-    assert set(creates[0][2]) == {'requestId', 'role', 'name', 'reason'}, creates
-    assert set(issues[0][2]) == {'requestId', 'reason'}, issues
+    # Creation returns the first code itself; a second code request would cancel it.
+    assert len(creates) == 1 and len(issues) == 0, requests
     if shots:
         page.screenshot(path=os.path.join(shots, 'devices-pairing-1440.png'))
     # The iPad signs in: the registry reports it active; the dialog notices within ~3 s.
     paired = next(d for d in state['devices'] if d['id'] == state['paired'])
-    paired.update(status='active', open_code=None, last_seen_at=iso(now()), app_version='1.0 (11)')
+    paired.update(status='active', last_seen_at=iso(now()), app_version='1.0 (11)')
+    paired['pairing'] = {**paired['pairing'], 'state': 'consumed'}
     expect(page.get_by_test_id('device-pairing-paired')).to_be_visible(timeout=8000)
     expect(page.get_by_test_id('device-pairing-password')).to_have_count(0)
     page.get_by_test_id('device-pairing-finish').click()

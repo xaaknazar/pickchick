@@ -90,8 +90,9 @@ python3 infra/staging/release-device-registry.py <sha> \
    `pickchick_app`, отсутствие pepper в окружении API;
 3. берёт общую блокировку выпуска, делает зашифрованный backup и проверяет
    восстановление в изоляции;
-4. готовит кандидата: compose - живой байт в байт плюс одна строка
-   `DEVICE_PAIRING_PEPPER: ${DEVICE_PAIRING_PEPPER:?...}` в `api.environment`;
+4. готовит кандидата: compose - живой байт в байт плюс две строки в
+   `api.environment`: `BACKOFFICE_DEVICE_REGISTRY_ENABLED: "true"` и
+   `DEVICE_PAIRING_PEPPER: ${DEVICE_PAIRING_PEPPER:?...}`;
    `release.env` - прежний с новым `RELEASE_SHA` и добавленным pepper (0600);
 5. шаг владельца `infra/staging/device-registry-owner.mjs deploy` в одной
    транзакции REPEATABLE READ: применяет только 051 и гранты, доказывает, что
@@ -99,8 +100,9 @@ python3 infra/staging/release-device-registry.py <sha> \
    8 колонок), новые таблицы пусты, ни одно право не снято, добавлены только
    права из `REGISTRY_PRIVILEGES`;
 6. прежний API продолжает работать на аддитивной схеме, затем запускается новый;
-7. проверяет: образ, ревизию, окружение (изменились только `RELEASE_SHA` и
-   добавлен pepper с ожидаемым SHA-256), прежние capabilities, маршрут
+7. проверяет: образ, ревизию, окружение (изменились только `RELEASE_SHA`,
+   добавлены pepper с ожидаемым SHA-256 и `BACKOFFICE_DEVICE_REGISTRY_ENABLED=true`
+   в compose API - без него маршрут отвечает 503), прежние capabilities, маршрут
    `/v1/admin/backoffice/branches/<id>/devices` отвечает 401 без токена;
 8. переключает `current`; соседние контейнеры (QR worker, банковский мост,
    мобильный worker, БД) и gateway должны остаться как были.
@@ -130,8 +132,10 @@ python3 -m unittest tests/operations/test_device_registry_release.py
 node --env-file=.env --test --test-concurrency=1 tests/integration/device-registry-release.test.mjs
 ```
 
-Интеграционный тест прогоняет шаг владельца на синтетической 051 той же формы
-и, когда настоящая 051 и модуль грантов появятся в ветке, на них.
+Интеграционный тест прогоняет шаг владельца на настоящей 051 с модулем грантов
+`device-registry-grants.mjs`, а отказные сценарии - на синтетической 051 той же
+формы. Unit-тест сверяет список прав профиля с `DEVICE_REGISTRY_ACL` модуля
+грантов и 8 колонок `devices` с текстом 051.
 
 ## Не входит в MVP
 
