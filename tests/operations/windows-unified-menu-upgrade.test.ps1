@@ -23,11 +23,13 @@ foreach($bad in @('run-sha','repo','workflow','missing','duplicate','skipped','j
 }
 $files=@{};$installed=@{}
 $migrationRoot=Join-Path $PSScriptRoot '../../db/edge/migrations'
-foreach($file in Get-ChildItem $migrationRoot -Filter '*.sql' | Sort-Object Name) {
+# Historical release profile intentionally accepts only the schema019 candidate.
+foreach($file in Get-ChildItem $migrationRoot -Filter '*.sql' | Where-Object {[int]$_.Name.Substring(0,3) -le 19} | Sort-Object Name) {
   $key='db/edge/migrations/'+$file.Name;$hash=(Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
   $files[$key]=@{sha256=$hash};if([int]$file.Name.Substring(0,3) -le 17) {$installed[$key]=$hash}
 }
 $ledger=@(Assert-UnifiedMigrationSet $files $installed);Check ($ledger.Count -eq 19) 'Candidate ledger'
+$badFiles=$files.Clone();$badFiles['db/edge/migrations/020_terminal_access.sql']=@{sha256='0'*64};Rejects {Assert-UnifiedMigrationSet $badFiles $installed} 'Future schema020 must use its own release profile'
 $badFiles=$files.Clone();$badFiles.Remove('db/edge/migrations/019_edge_remote_stops.sql');Rejects {Assert-UnifiedMigrationSet $badFiles $installed} 'Missing019'
 $badFiles=$files.Clone();$badFiles['db/edge/migrations/019_edge_remote_stops.sql']=@{sha256='0'*64};Rejects {Assert-UnifiedMigrationSet $badFiles $installed} 'Changed019'
 $badInstalled=$installed.Clone();$key=@($badInstalled.Keys)[0];$badInstalled[$key]='0'*64;Rejects {Assert-UnifiedMigrationSet $files $badInstalled} 'Changed baseline'
