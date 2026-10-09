@@ -46,6 +46,11 @@ function reportQuery(search: string) {
     Date.parse(end) - Date.parse(start) <= 365 * 86400000
   );
 }
+/**
+ * Device registry routes (relative to v1/admin/backoffice/): list, create, journal, one-time
+ * pairing code, its cancellation, revoke and rename. Never with a query string.
+ */
+const DEVICE_ROUTES = `branches/${UUID}/devices(?:/${UUID}(?:/events|/revoke|/rename|/pairing-codes(?:/${UUID}/cancel)?))?`;
 export function allowedPath(path: string): boolean {
   if (/^branches(?:\/[a-f0-9-]{36}(?:\/(?:draft|draft\/seed|publish|assets))?)?$/.test(path))
     return true;
@@ -76,7 +81,8 @@ export function allowedPath(path: string): boolean {
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
-    new RegExp(`^operations/branches/${UUID}/(?:commands|stops|orders/${UUID})$`).test(pathname)
+    (new RegExp(`^operations/branches/${UUID}/(?:commands|stops|orders/${UUID})$`).test(pathname) ||
+      new RegExp(`^operations/${DEVICE_ROUTES}$`).test(pathname))
   );
 }
 export async function staffAuth(action: 'session' | 'login' | 'logout', body?: unknown) {
@@ -350,6 +356,10 @@ const reasons: Record<string, string> = {
   STOP_COMMAND_IN_PROGRESS:
     'По этой позиции уже есть команда, которая ждёт кассу. Дождитесь ответа и повторите.',
   STOP_FORBIDDEN: 'Нет права менять стоп-лист. Ставить на стоп может только управляющий точки.',
+  EDGE_REVOKE_REQUIRES_REPLACEMENT_PROTOCOL:
+    'Кассу нельзя отключить из кабинета. Замена кассы выполняется по процедуре замены узла.',
+  CODE_ALREADY_ISSUED:
+    'Код по этому запросу уже выпущен и повторно не показывается. Выпустите новый код.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

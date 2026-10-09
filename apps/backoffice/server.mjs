@@ -46,6 +46,13 @@ function reportQuery(search) {
     Date.parse(end) - Date.parse(start) <= 365 * 86400000
   );
 }
+/** Device registry: list (GET/POST), journal (GET), pairing codes, cancel, revoke and rename (POST). */
+const DEVICES = `^/v1/admin/backoffice/branches/${UUID}/devices`;
+export const DEVICE_GET = new RegExp(`${DEVICES}(?:/${UUID}/events)?$`, 'i');
+export const DEVICE_POST = new RegExp(
+  `${DEVICES}(?:/${UUID}/(?:revoke|rename|pairing-codes(?:/${UUID}/cancel)?))?$`,
+  'i',
+);
 export const allowed = (method, path) => {
   const [pathname, search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
@@ -79,6 +86,11 @@ export const allowed = (method, path) => {
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
+  if (DEVICE_GET.test(pathname) || DEVICE_POST.test(pathname))
+    return (
+      (method === 'GET' && DEVICE_GET.test(pathname)) ||
+      (method === 'POST' && DEVICE_POST.test(pathname))
+    );
   if (
     (method === 'GET' || method === 'POST') &&
     (UPLOAD_ROUTE.test(pathname) ||
@@ -117,6 +129,8 @@ const assets = new Map([
     'finance-model',
     'finance-report',
     'finance-charts',
+    'devices',
+    'devices-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,

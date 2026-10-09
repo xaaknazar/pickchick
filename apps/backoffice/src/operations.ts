@@ -26,7 +26,7 @@ export const sections = [
   ['tickets', 'Обращения', 'Вопросы, жалобы и сроки ответа'],
   ['reviews', 'Отзывы', 'Оценки и обратная связь по заказам'],
   ['stations', 'Станции и маршруты', 'Состав кухни и наблюдаемое состояние заказов'],
-  ['devices', 'Устройства', 'Доступ и последний обмен с точкой'],
+  ['devices', 'Устройства', 'Касса, киоски, экраны кухни и табло точки'],
   ['shifts', 'Смены', 'Сотрудники и управленческий журнал смен'],
   ['audit', 'Журнал аудита', 'Кто, когда и что изменил'],
 ] as const;
@@ -1913,37 +1913,6 @@ export class OperationsView {
             badge(v['state']),
             val(v['routing_version']),
             date(v['observed_at']),
-          ]),
-        ),
-      );
-      content.append(p);
-    }
-    if (page === 'devices') {
-      const p = panel(
-        'Устройства точки',
-        'Время обмена не является подтверждением, что устройство сейчас онлайн.',
-      );
-      p.append(
-        table(
-          ['Устройство', 'Тип', 'Доступ', 'Обмен с кухней', 'POS-обмен', ''],
-          d.devices.map((v) => [
-            val(v['name']),
-            status(v['kind']),
-            badge(v['status']),
-            date(v['last_fulfillment_at']),
-            date(v['last_pos_at']),
-            d.role === 'manager' && v['status'] !== 'revoked'
-              ? button(
-                  'Отозвать доступ',
-                  () =>
-                    this.confirm(
-                      'Отозвать доступ устройства',
-                      String(v['name']) + '. Новые запросы этого устройства будут запрещены.',
-                      { type: 'revoke_device', id: v['id'] },
-                    ),
-                  'button subtle',
-                )
-              : el('span'),
           ]),
         ),
       );
