@@ -62,7 +62,8 @@ with sync_playwright() as p:
                 data = {'enabled': False}
             else:
                 raise AssertionError('Unexpected external API ' + path)
-            r.fulfill(status=200, content_type='application/json', body=json.dumps(data))
+            r.fulfill(status=200, content_type='application/json', body=json.dumps(data),
+                      headers={'Access-Control-Allow-Origin': '*'})
 
         route_fixture(context,'https://pickchick.185.129.51.103.nip.io/**', route)
         page = context.new_page()
@@ -86,32 +87,33 @@ with sync_playwright() as p:
             {'group_id': 'sauce', 'option_id': 'pick', 'quantity': 1}]
         # Simulate a pre-upgrade persisted basket with a chosen paid drink.
         saved.pop('publication')
+        saved['version'] = 1
         saved['releaseId'] = 'test:mockup-v0.3'
         saved['lines'][0]['quantity'] = 2
         saved['lines'][0]['selections'][0]['option_id'] = 'lemonade'
         page.evaluate('(saved)=>localStorage.setItem("pickchick.mobile.preferences.v1", JSON.stringify(saved))', saved)
         page.reload()
-        expect(page.get_by_test_id('catalog-update-notice')).to_contain_text('старой версией', timeout=15000)
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('8 780 ₸')
+        expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 8 780 ₸. Сейчас 600 ₸.', timeout=15000)
+        expect(page.get_by_test_id('cart-checkout')).to_contain_text('600 ₸')
         expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('2')
-        page.get_by_test_id('cart-recommend-toast').click()
         expect(page.get_by_test_id('cart-quantity-toast')).to_have_count(0)
         page.reload()
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('8 780 ₸', timeout=15000)
+        expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 8 780 ₸. Сейчас 600 ₸.', timeout=15000)
         page.get_by_test_id('catalog-update-apply').click()
+        expect(page.get_by_test_id('cart-prices-updated')).to_have_count(0)
         expect(page.get_by_test_id('cart-checkout')).to_contain_text('600 ₸')
         assert page.evaluate('JSON.parse(localStorage.getItem("pickchick.mobile.preferences.v1")).lines[0].selections[0].option_id') == 'lemonade'
-        # Public catalog refresh on foreground updates cards but retains the basket.
+        # Foreground publication refresh keeps quantity/options and records the price change.
         state['publication']['version'] = 4
         combo = next(x for x in state['publication']['payload']['products'] if x['id'] == 'pick-combo')
         combo['channel_prices_minor']['mobile'] = '20000'
         page.evaluate('Object.defineProperty(document, "visibilityState", {configurable:true,get:()=>"hidden"});document.dispatchEvent(new Event("visibilitychange"))')
         page.evaluate('Object.defineProperty(document, "visibilityState", {configurable:true,get:()=>"visible"});document.dispatchEvent(new Event("visibilitychange"))')
-        expect(page.get_by_test_id('catalog-update-notice')).to_contain_text('старой версией', timeout=15000)
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('600 ₸')
+        expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 600 ₸. Сейчас 800 ₸.', timeout=3000)
+        expect(page.get_by_test_id('cart-checkout')).to_contain_text('800 ₸')
         page.reload()
-        expect(page.get_by_test_id('catalog-update-notice')).to_contain_text('старой версией', timeout=15000)
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('600 ₸')
+        expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 600 ₸. Сейчас 800 ₸.', timeout=15000)
+        expect(page.get_by_test_id('cart-checkout')).to_contain_text('800 ₸')
         page.get_by_test_id('catalog-update-apply').click()
         expect(page.get_by_test_id('cart-checkout')).to_contain_text('800 ₸')
         context.close()
