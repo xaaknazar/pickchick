@@ -1,3 +1,5 @@
+import { DevicesModel } from './devices-model.js';
+import { DeviceAccessView } from './components/DeviceAccessView.js';
 import { OperationsModel, StopsModel } from './operations-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
@@ -47,6 +49,8 @@ function softRender() {
   }
   render();
 }
+const devices = new DevicesModel((path, request) => model.operations(path, request), softRender);
+const deviceView = new DeviceAccessView(devices);
 const stops = new StopsModel((path, request) => model.operations(path, request), softRender);
 const operationView = new OperationsView(
   operations,
@@ -73,6 +77,7 @@ function syncOperations() {
     financeView.clear();
     operations.clear();
     stops.clear();
+    devices.clear();
     document.querySelectorAll<HTMLDialogElement>('.op-dialog').forEach((d) => {
       d.close();
       d.remove();
@@ -80,12 +85,33 @@ function syncOperations() {
     return;
   }
   const branch = model.state?.branch.id;
+  if (branch && (devices.actor !== model.actor.id || devices.branch !== branch)) devices.clear();
+  if (
+    branch &&
+    page === 'devices' &&
+    (devices.actor !== model.actor.id || devices.branch !== branch)
+  )
+    void devices.load(model.actor.id, branch);
   if (branch) void finance.scope(model.actor.id, branch);
   if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
     void operations.load(model.actor.id, branch);
   if (branch && page === 'stoplist' && (stops.actor !== model.actor.id || stops.branch !== branch))
     void stops.load(model.actor.id, branch);
 }
+setInterval(() => {
+  const branch = model.state?.branch.id;
+  if (
+    page === 'devices' &&
+    model.actor &&
+    branch &&
+    !devices.busy &&
+    document.visibilityState !== 'hidden'
+  )
+    void devices.load(model.actor.id, branch);
+}, 3000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') devices.hideCode();
+});
 /**
  * Stop list polling: every 2 s while a command waits for the cashier, otherwise every 10 s,
  * only while the stop list is open and the tab is visible.
@@ -271,6 +297,7 @@ function login() {
   root.replaceChildren(page);
 }
 function render() {
+  if (page !== 'devices') devices.hideCode();
   if (!model.actor) {
     login();
     return;
@@ -567,6 +594,11 @@ function render() {
   root.replaceChildren(shell);
   if (page === 'finance') {
     financeView.render(content);
+    return;
+  }
+  if (page === 'devices') {
+    deviceView.render(content);
+    if (!devices.data) operationView.render('devices', content);
     return;
   }
   if (page !== 'items') {

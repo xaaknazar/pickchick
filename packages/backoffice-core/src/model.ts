@@ -7,6 +7,10 @@ export const BackofficeErrorReasonSchema = z.enum([
   'CATALOG_ITEM_NOT_FOUND',
   'EDGE_STOPS_NOT_READY',
   'STOP_COMMAND_IN_PROGRESS',
+  'EDGE_REVOKE_REQUIRES_REPLACEMENT_PROTOCOL',
+  'DEVICE_NAME_CONFIRMATION_REQUIRED',
+  'DEVICE_REVOKE_REQUIRES_EDGE_ACK',
+  'KIOSK_REVOKE_REQUIRES_SESSION_PROTOCOL',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
@@ -211,7 +215,7 @@ export const Command = z.discriminatedUnion('type', [
     order_id: id,
     expected_balances: z.record(id, revision),
   }),
-  z.strictObject({ type: z.literal('revoke_device'), id }),
+  z.strictObject({ type: z.literal('revoke_device'), id, confirm_name: text }),
   z.strictObject({
     type: z.literal('cancel_order'),
     id,

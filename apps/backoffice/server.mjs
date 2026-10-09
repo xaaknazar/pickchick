@@ -80,6 +80,22 @@ export const allowed = (method, path) => {
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
   if (
+    method === 'GET' &&
+    new RegExp(
+      `^/v1/admin/backoffice/branches/${UUID}/devices(?:/(?:${UUID}|kitchen-password-reset)/events)?$`,
+      'i',
+    ).test(pathname)
+  )
+    return true;
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^/v1/admin/backoffice/branches/${UUID}/devices/(?:pairing-codes|revoke|kitchen-password-reset)$`,
+      'i',
+    ).test(pathname)
+  )
+    return true;
+  if (
     (method === 'GET' || method === 'POST') &&
     (UPLOAD_ROUTE.test(pathname) ||
       new RegExp(`^/v1/admin/backoffice/branches/${UUID}/stops$`, 'i').test(pathname))
@@ -113,6 +129,8 @@ const assets = new Map([
     'editor',
     'operations',
     'operations-model',
+    'devices-model',
+    'components/DeviceAccessView',
     'finance',
     'finance-model',
     'finance-report',

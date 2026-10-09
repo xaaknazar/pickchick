@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TerminalPairRequestSchema } from './device-access.js';
 
 export const UuidSchema = z.uuid();
 export const MoneyMinorSchema = z
@@ -322,6 +323,11 @@ export const StaffPinLoginSchema = z.strictObject({
   terminal_id: UuidSchema,
 });
 export const StaffPasswordSchema = z.string().min(12).max(128);
+export const KitchenPasswordResetRequestSchema = z.strictObject({
+  code: TerminalPairRequestSchema.shape.code,
+  password: StaffPasswordSchema,
+  terminal_id: UuidSchema,
+});
 export const StaffLoginSchema = z.strictObject({
   login: StaffLoginNameSchema,
   password: StaffPasswordSchema,
@@ -522,3 +528,5 @@ export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);
 export * from './fulfillment.js';
 
 export * from './customer-commerce.js';
+
+export * from './device-access.js';

@@ -36,7 +36,7 @@ $manifestPath=Join-Path $PackageDirectory 'agent-package.json'
 $manifestHandle=Open-VerifiedFile $manifestPath $ManifestSha256
 $reader=[IO.StreamReader]::new($manifestHandle)
 try{$manifest=$reader.ReadToEnd()|ConvertFrom-Json}finally{$reader.Dispose()}
-$required=@('infra/kitchen-portal/agent.mjs','infra/kitchen-portal/link.mjs','apps/kitchen/server.mjs')
+$required=@('infra/kitchen-portal/agent.mjs','infra/kitchen-portal/link.mjs','apps/kitchen/server.mjs','apps/kitchen/terminal-cookie.mjs')
 $names=@($manifest.files.PSObject.Properties|ForEach-Object {$_.Name})
 if(@(Compare-Object $required $names).Count){throw 'Unexpected agent package paths'}
 $config=Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8|ConvertFrom-Json

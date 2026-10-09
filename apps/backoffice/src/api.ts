@@ -76,7 +76,9 @@ export function allowedPath(path: string): boolean {
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
-    new RegExp(`^operations/branches/${UUID}/(?:commands|stops|orders/${UUID})$`).test(pathname)
+    new RegExp(
+      `^operations/branches/${UUID}/(?:commands|stops|orders/${UUID}|devices(?:/(?:pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/events))?)$`,
+    ).test(pathname)
   );
 }
 export async function staffAuth(action: 'session' | 'login' | 'logout', body?: unknown) {

@@ -44,7 +44,7 @@ export const request: Transport = async (path, actor, body, key) => {
     response = await fetch(apiPrefix + path, {
       method: body === undefined && path !== '/edge/v1/staff/logout' ? 'GET' : 'POST',
       headers,
-      credentials: 'omit',
+      credentials: 'same-origin',
       redirect: 'error',
       cache: 'no-store',
       signal: AbortSignal.timeout(12000),

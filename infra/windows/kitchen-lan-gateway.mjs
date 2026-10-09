@@ -13,9 +13,18 @@ export function privateIPv4(value) {
 }
 export function allowedKitchenRoute(method, raw) {
   if (typeof raw !== 'string' || /[%#\\]/.test(raw)) return false;
-  if (method === 'POST' && ['/edge/v1/staff/login', '/edge/v1/staff/logout'].includes(raw))
+  if (
+    method === 'POST' &&
+    [
+      '/edge/v1/staff/login',
+      '/edge/v1/staff/logout',
+      '/edge/v1/staff/password-reset',
+      '/edge/v1/terminals/pair',
+    ].includes(raw)
+  )
     return true;
-  if (method === 'GET' && raw === '/edge/v1/session') return true;
+  if (method === 'GET' && ['/edge/v1/session', '/edge/v1/terminals/session'].includes(raw))
+    return true;
   if (!raw.startsWith(base)) return false;
   const url = new URL(raw, 'https://127.0.0.1');
   if (raw !== url.pathname + url.search) return false;
@@ -123,6 +132,7 @@ export function createKitchenLanGateway({
         'authorization',
         'x-staff-session-id',
         'x-terminal-id',
+        'x-terminal-key',
         'idempotency-key',
       ]) {
         const value = req.headers[name];
@@ -134,7 +144,13 @@ export function createKitchenLanGateway({
         if (value) headers[name] = value;
       }
       let body;
-      const limit = path === '/edge/v1/staff/login' ? 2048 : 16384;
+      const limit = [
+        '/edge/v1/staff/login',
+        '/edge/v1/staff/password-reset',
+        '/edge/v1/terminals/pair',
+      ].includes(path)
+        ? 2048
+        : 16384;
       if (req.method === 'POST' && path !== '/edge/v1/staff/logout') {
         if (req.headers['content-type'] !== 'application/json') {
           req.resume();

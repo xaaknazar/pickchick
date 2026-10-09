@@ -50,6 +50,8 @@ assert.deepEqual(
     '/main.mjs',
     '/security.mjs',
     '/gateway.mjs',
+    '/terminal-cookie.mjs',
+    '/renderer/components',
     '/package.json',
     '/renderer',
     '/renderer/fonts',
@@ -67,6 +69,10 @@ for (const name of ['main.mjs', 'security.mjs']) {
   assert.equal(hash(readEntry(name)), manifest.inputs[`apps/kitchen-desktop/${name}`].sha256);
 }
 assert.equal(hash(readEntry('gateway.mjs')), manifest.inputs['apps/kitchen/server.mjs'].sha256);
+assert.equal(
+  hash(readEntry('terminal-cookie.mjs')),
+  manifest.inputs['apps/kitchen/terminal-cookie.mjs'].sha256,
+);
 for (const name of ['index.html', 'styles.css']) {
   assert.equal(
     hash(readEntry(`renderer/${name}`)),

@@ -15,6 +15,7 @@ const paths = [
   'infra/kitchen-portal/update-deploy.py',
   'infra/roadmap/remote-deploy.py',
   'apps/kitchen/server.mjs',
+  'apps/kitchen/terminal-cookie.mjs',
 ];
 async function walk(path) {
   for (const name of await readdir(path, { withFileTypes: true })) {
@@ -41,6 +42,7 @@ const agentFiles = Object.fromEntries(
     'infra/kitchen-portal/agent.mjs',
     'infra/kitchen-portal/link.mjs',
     'apps/kitchen/server.mjs',
+    'apps/kitchen/terminal-cookie.mjs',
   ].map((path) => [path, files[path]]),
 );
 await writeFile(

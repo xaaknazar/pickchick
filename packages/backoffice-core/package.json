@@ -19,6 +19,10 @@
     "./model": {
       "types": "./dist/model.d.ts",
       "default": "./dist/model.js"
+    },
+    "./devices": {
+      "types": "./dist/device-registry.d.ts",
+      "default": "./dist/device-registry.js"
     }
   },
   "scripts": {
