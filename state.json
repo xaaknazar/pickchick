@@ -3855,11 +3855,13 @@
         "apps/kitchen-desktop/tests/security.test.mjs",
         "infra/kitchen-portal/package.mjs",
         "infra/kitchen-portal/install-agent.ps1",
-        "apps/kitchen/tests/tls-password-gateway.test.mjs"
+        "apps/kitchen/tests/tls-password-gateway.test.mjs",
+        "packages/platform/src/resources.ts",
+        "packages/local-orders/src/staff-passwords.ts"
       ],
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T11:33:44.555Z"
+      "updatedAt": "2026-10-09T11:34:13.910Z"
     }
   ]
 }
