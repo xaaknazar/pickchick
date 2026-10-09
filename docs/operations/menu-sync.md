@@ -81,6 +81,15 @@ pnpm sync:watch
 отклоняются. Worker нуждается в EDGE_DATABASE_URL, EDGE_BRANCH_ID и приватном
 файле идентичности; CLOUD_DATABASE_URL и Redis ему не нужны.
 
+Worker может передавать активное меню кассы в pull:
+`GET /internal/v1/edge/sync/pull?active_release_id=<uuid>&active_version=<n>`.
+Облако хранит отчёт в `edge_menu_state` (только от того же устройства и только
+не старее сохранённого); неполная или некорректная пара — 400 без эха. ACK может
+нести `result: "rejected"` и `reason`: облако помечает событие доставленным,
+записывает вердикт в `catalog_menu_delivery_results` и не двигает
+`branch_menu_activations`, поэтому следующий релиз не блокируется. ACK без
+`result` означает `applied`, как раньше.
+
 ## Проверка отказов
 
 Остановить cloud API: worker пишет безопасную ошибку, повторяет с backoff;

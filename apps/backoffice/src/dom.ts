@@ -31,6 +31,32 @@ export function image(key: string, name = '') {
   });
   return img;
 }
+/**
+ * Product photo: the uploaded card rendition when the product has one (same-origin media
+ * route), otherwise the bundled fallback key. A photo that fails to load falls back as well.
+ */
+export function productPhoto(
+  p: { image_asset_key: string; image?: { sha256: string } | undefined },
+  name = '',
+  mediaUrl?: (sha256: string) => string,
+) {
+  if (!p.image || !mediaUrl) return image(p.image_asset_key, name);
+  let src: string;
+  try {
+    src = mediaUrl(p.image.sha256);
+  } catch {
+    return image(p.image_asset_key, name);
+  }
+  const img = element('img', 'uploaded-photo');
+  img.src = src;
+  img.alt = name;
+  img.loading = 'lazy';
+  img.dataset.photo = 'uploaded';
+  img.addEventListener('error', () => img.replaceWith(image(p.image_asset_key, name)), {
+    once: true,
+  });
+  return img;
+}
 export function field(
   label: string,
   value: string,

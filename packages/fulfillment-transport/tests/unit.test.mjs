@@ -8,6 +8,8 @@ import {
   transportRequest,
   syncFulfillmentOnce,
   EdgeEventSchema,
+  PullRequestSchema,
+  PullResponseSchema,
 } from '../dist/index.js';
 const identity = {
   device_id: randomUUID(),
@@ -236,4 +238,85 @@ test('HTML, partial, mismatched and malformed 409 are never authoritative lease 
       transportRequest('http://127.0.0.1:3100', 'ack', identity, {}, { fetch: async () => make() }),
       (e) => e.status === undefined && e.code !== 'HTTP_REJECTED',
     );
+});
+
+test('stop states and receipts require protocol 4; stop commands are bounded', () => {
+  const stopState = {
+    id: randomUUID(),
+    version: 3,
+    stopped: true,
+    source: 'backoffice',
+    expiresAt: '2026-10-08T12:00:00.000Z',
+    shiftScoped: false,
+  };
+  const receipt = { commandId: randomUUID(), result: 'applied', version: 3 };
+  const base = { workerId: randomUUID(), leaseSeconds: 15 };
+  const withStops = { ...base, stopStates: [stopState], stopReceipts: [receipt] };
+  assert.equal(PullRequestSchema.safeParse({ ...withStops, protocolVersion: 4 }).success, true);
+  for (const protocolVersion of [undefined, 2, 3])
+    for (const extra of [{ stopStates: [stopState] }, { stopReceipts: [receipt] }])
+      assert.equal(
+        PullRequestSchema.safeParse({ ...base, ...extra, protocolVersion }).success,
+        false,
+        `${protocolVersion} ${Object.keys(extra)}`,
+      );
+  for (const protocolVersion of [2, 3, 4])
+    assert.equal(PullRequestSchema.safeParse({ ...base, protocolVersion }).success, true);
+  assert.equal(PullRequestSchema.safeParse({ ...base, protocolVersion: 5 }).success, false);
+  for (const bad of [
+    { stopStates: [{ ...stopState, version: 0 }] },
+    { stopStates: [{ ...stopState, source: 'kiosk' }] },
+    { stopStates: [{ ...stopState, expiresAt: 'tomorrow' }] },
+    { stopStates: Array.from({ length: 5001 }, () => stopState) },
+    { stopReceipts: [{ ...receipt, result: 'ignored' }] },
+    { stopReceipts: [{ ...receipt, extra: true }] },
+    { stopReceipts: Array.from({ length: 101 }, () => receipt) },
+  ])
+    assert.equal(
+      PullRequestSchema.safeParse({ ...base, protocolVersion: 4, ...bad }).success,
+      false,
+    );
+  for (const result of ['conflict', 'not_found', 'no_open_shift', 'expired'])
+    assert.equal(
+      PullRequestSchema.safeParse({
+        ...base,
+        protocolVersion: 4,
+        stopReceipts: [{ ...receipt, result, version: null }],
+      }).success,
+      true,
+    );
+  const scope = {
+    organizationId: randomUUID(),
+    branchId: randomUUID(),
+    deviceId: randomUUID(),
+    producerId: randomUUID(),
+  };
+  const command = {
+    commandId: randomUUID(),
+    variantId: randomUUID(),
+    stopped: true,
+    duration: 'hour',
+    reason: 'Закончился соус',
+    expectedVersion: 0,
+    actorLabel: 'Менеджер',
+    issuedAt: '2026-10-08T11:00:00.000Z',
+  };
+  const response = (stopCommands) => ({ scope, event: null, stopCommands });
+  assert.equal(PullResponseSchema.safeParse(response([command])).success, true);
+  assert.equal(
+    PullResponseSchema.safeParse(response([{ ...command, stopped: false, duration: 'manual' }]))
+      .success,
+    true,
+  );
+  assert.equal(PullResponseSchema.safeParse({ scope, event: null }).success, true);
+  for (const bad of [
+    [{ ...command, duration: 'day' }],
+    [{ ...command, reason: '' }],
+    [{ ...command, reason: 'x'.repeat(301) }],
+    [{ ...command, expectedVersion: -1 }],
+    [{ ...command, actorLabel: '' }],
+    [{ ...command, issuedAt: 'now' }],
+    Array.from({ length: 51 }, () => command),
+  ])
+    assert.equal(PullResponseSchema.safeParse(response(bad)).success, false);
 });

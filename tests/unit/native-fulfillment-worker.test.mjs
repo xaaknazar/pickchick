@@ -51,3 +51,13 @@ test('commercial Windows worker requires dedicated role, enabled flags and exact
     assert.throws(() => validate(patch));
   assert.throws(() => validate({}, 'https://example.invalid'));
 });
+
+test('remote stop protocol is opt-in and accepts only protocol 2 or 4', async () => {
+  const { workerProtocolVersion } =
+    await import('../../infra/windows/native-fulfillment-worker.mjs');
+  assert.equal(workerProtocolVersion({}), 2);
+  assert.equal(workerProtocolVersion({ FULFILLMENT_TRANSPORT_PROTOCOL: '2' }), 2);
+  assert.equal(workerProtocolVersion({ FULFILLMENT_TRANSPORT_PROTOCOL: '4' }), 4);
+  for (const value of ['3', '', ' 4', 'true', '04'])
+    assert.throws(() => workerProtocolVersion({ FULFILLMENT_TRANSPORT_PROTOCOL: value }));
+});

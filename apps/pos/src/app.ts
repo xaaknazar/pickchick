@@ -1,4 +1,10 @@
-import { orderView, kitchenLabel, orderNumber, confirmationView } from './order-view.js';
+import {
+  orderView,
+  kitchenLabel,
+  menuChangeText,
+  orderNumber,
+  confirmationView,
+} from './order-view.js';
 import { loginView } from './auth-view.js';
 import { PosController } from './model.js';
 import { transport, errorMessage } from './api.js';
@@ -8,6 +14,8 @@ import {
   linePrice,
   inputMoney,
   isUuid,
+  categoryLabels,
+  sortedItems,
   type Item,
   type Selection,
   type CashShift,
@@ -151,7 +159,7 @@ async function toggleFullscreen() {
 
 function notice() {
   const s = model.state;
-  return `${s.error ? `<div class="notice error" role="alert" data-testid="pos-error">${escape(errorMessage(s.error))}</div>` : ''}${s.pending ? `<section class="notice pending" role="status" data-testid="pos-recovery"><div><strong>Проверка сохранённого запроса</strong><p>Результат пока не подтверждён. Новый заказ заблокирован.</p><small>Запрос ${escape(s.pending.key)}</small></div>${s.actor ? `<button data-action="recover"${disabled(s.busy)} data-testid="pos-recover">Проверить результат</button>` : '<p>Войдите под тем же логином, чтобы проверить результат.</p>'}</section>` : ''}`;
+  return `${s.menuChange ? `<div class="notice" role="status" data-testid="pos-menu-change">${escape(menuChangeText(s.menuChange))}</div>` : ''}${s.error ? `<div class="notice error" role="alert" data-testid="pos-error">${escape(errorMessage(s.error))}</div>` : ''}${s.pending ? `<section class="notice pending" role="status" data-testid="pos-recovery"><div><strong>Проверка сохранённого запроса</strong><p>Результат пока не подтверждён. Новый заказ заблокирован.</p><small>Запрос ${escape(s.pending.key)}</small></div>${s.actor ? `<button data-action="recover"${disabled(s.busy)} data-testid="pos-recover">Проверить результат</button>` : '<p>Войдите под тем же логином, чтобы проверить результат.</p>'}</section>` : ''}`;
 }
 function login() {
   return loginView({
@@ -173,7 +181,7 @@ function navigation() {
   return `<nav class="nav" aria-label="Касса"><button data-view="sale" aria-current="${view === 'sale' ? 'page' : 'false'}">▦<span>Новый заказ</span></button><button data-view="orders" aria-current="${view === 'orders' ? 'page' : 'false'}">≡<span>Заказы</span></button><button data-view="shifts" aria-current="${view === 'shifts' ? 'page' : 'false'}">◷<span>Смена</span></button><button data-view="status" aria-current="${view === 'status' ? 'page' : 'false'}">⚙<span>Настройки</span></button><div class="nav-note">PICK<br />CHICK</div></nav>`;
 }
 function availableItems() {
-  const items = model.state.menu?.items ?? [];
+  const items = model.state.menu ? sortedItems(model.state.menu) : [];
   return items.filter(
     (i) =>
       (!category || i.category_id === category) &&
@@ -191,7 +199,7 @@ function product(item: Item) {
     s.draft?.items
       .filter((i) => i.variant_id === item.variant_id)
       .reduce((sum, i) => sum + i.quantity, 0) ?? 0;
-  return `<article class="product ${stop?.stopped ? 'stopped' : ''}" data-testid="pos-product-${item.variant_id}"><button class="product-photo" data-add="${item.variant_id}" aria-label="Выбрать ${escape(item.name.ru)}"${disabled(blocked)}>${item.image_url ? `<img class="product-image" src="${escape(item.image_url)}" alt="${escape(item.name.ru)}" loading="lazy" decoding="async" />` : `<span class="product-symbol" aria-hidden="true">${escape(item.name.ru.slice(0, 1))}<small>PICK CHICK</small></span>`}${inCart ? `<span class="in-cart-badge">${inCart} в заказе</span>` : ''}${stop?.stopped ? '<span class="stop-badge">Стоп-лист</span>' : ''}</button><div class="product-body"><small>${escape(config.categories[item.category_id] ?? 'Меню')}</small><button class="product-open" data-add="${item.variant_id}"${disabled(blocked)}><h3>${escape(item.name.ru)}</h3></button><div class="product-bottom"><strong>${money(item.price_minor)}</strong><button aria-label="Добавить ${escape(item.name.ru)}" data-add="${item.variant_id}"${disabled(blocked)} data-testid="pos-add-${item.variant_id}">+</button></div><span class="availability">${!stop ? 'Проверяем доступность' : item.modifier_groups?.length ? 'Выберите состав' : 'Готово к выбору'}</span>${s.actor?.role === 'shift_manager' ? `<button class="stop-action" data-stop="${item.variant_id}"${disabled(s.busy || s.pending || !stop)}>${stop?.stopped ? 'Снять стоп' : 'В стоп-лист'}</button>` : ''}</div></article>`;
+  return `<article class="product ${stop?.stopped ? 'stopped' : ''}" data-testid="pos-product-${item.variant_id}"><button class="product-photo" data-add="${item.variant_id}" aria-label="Выбрать ${escape(item.name.ru)}"${disabled(blocked)}>${item.image_url ? `<img class="product-image" src="${escape(item.image_url)}" alt="${escape(item.name.ru)}" loading="lazy" decoding="async" />` : `<span class="product-symbol" aria-hidden="true">${escape(item.name.ru.slice(0, 1))}<small>PICK CHICK</small></span>`}${inCart ? `<span class="in-cart-badge">${inCart} в заказе</span>` : ''}${stop?.stopped ? '<span class="stop-badge">Стоп-лист</span>' : ''}</button><div class="product-body"><small>${escape(categoryLabels(s.menu, config.categories).get(item.category_id) ?? 'Меню')}</small><button class="product-open" data-add="${item.variant_id}"${disabled(blocked)}><h3>${escape(item.name.ru)}</h3></button><div class="product-bottom"><strong>${money(item.price_minor)}</strong><button aria-label="Добавить ${escape(item.name.ru)}" data-add="${item.variant_id}"${disabled(blocked)} data-testid="pos-add-${item.variant_id}">+</button></div><span class="availability">${!stop ? 'Проверяем доступность' : item.modifier_groups?.length ? 'Выберите состав' : 'Готово к выбору'}</span>${s.actor?.role === 'shift_manager' ? `<button class="stop-action" data-stop="${item.variant_id}"${disabled(s.busy || s.pending || !stop)}>${stop?.stopped ? 'Снять стоп' : 'В стоп-лист'}</button>` : ''}</div></article>`;
 }
 function selectionText(item: Item | undefined, selected: Selection[] = []) {
   return selected
@@ -235,8 +243,9 @@ function sale() {
   if (s.order) return orderDetail();
   const items = availableItems();
   page = Math.min(page, Math.max(0, Math.ceil(items.length / 36) - 1));
-  const categories = [...new Set(s.menu?.items.map((i) => i.category_id) ?? [])];
-  return `<section class="sale"><div class="catalog"><div class="section-head"><div><span class="eyebrow">МЕНЮ ТОЧКИ</span><h1>Меню</h1></div><button class="subtle" data-action="refresh"${disabled(s.busy)}>Обновить</button></div><div class="catalog-tools"><label for="search" class="sr-only">Поиск блюда</label><input id="search" data-testid="pos-search" type="search" placeholder="Найти блюдо" value="${escape(search)}" /><div class="categories" aria-label="Категории"><button data-category="" aria-pressed="${!category}">Все блюда</button>${categories.map((id, n) => `<button data-category="${id}" aria-pressed="${category === id}">${escape(config.categories[id] ?? `Категория ${n + 1}`)}</button>`).join('')}</div></div>${s.ordering?.ordering_enabled === false ? '<div class="notice">Приём заказов закрыт. Меню доступно для просмотра и подготовки корзины.</div>' : ''}<div class="products" data-testid="pos-products">${
+  const labels = categoryLabels(s.menu, config.categories),
+    categories = [...labels.keys()];
+  return `<section class="sale"><div class="catalog"><div class="section-head"><div><span class="eyebrow">МЕНЮ ТОЧКИ</span><h1>Меню</h1></div><button class="subtle" data-action="refresh"${disabled(s.busy)}>Обновить</button></div><div class="catalog-tools"><label for="search" class="sr-only">Поиск блюда</label><input id="search" data-testid="pos-search" type="search" placeholder="Найти блюдо" value="${escape(search)}" /><div class="categories" aria-label="Категории"><button data-category="" aria-pressed="${!category}">Все блюда</button>${categories.map((id) => `<button data-category="${id}" aria-pressed="${category === id}">${escape(labels.get(id))}</button>`).join('')}</div></div>${s.ordering?.ordering_enabled === false ? '<div class="notice">Приём заказов закрыт. Меню доступно для просмотра и подготовки корзины.</div>' : ''}<div class="products" data-testid="pos-products">${
     items
       .slice(page * 36, page * 36 + 36)
       .map(product)
@@ -766,4 +775,7 @@ window.setInterval(updateClock, 1000);
 window.setInterval(() => {
   if (!document.hidden) void model.refreshOperations();
 }, 15000);
+window.setInterval(() => {
+  if (!document.hidden) void model.syncMenu();
+}, 3000);
 void syncFullscreen();

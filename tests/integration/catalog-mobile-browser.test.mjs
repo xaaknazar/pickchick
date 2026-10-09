@@ -11,7 +11,8 @@ import { CustomerCheckout } from '../../packages/commerce-core/dist/index.js';
 import { pricingFixture, product, group, option } from '../helpers/catalog-pricing.mjs';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 
-// Requires an Expo web export with PUBLISHED_CATALOG=1, KASPI_CHECKOUT=1, CUSTOMER_AUTH=server.
+// Requires an Expo web export with KASPI_CHECKOUT=1 and CUSTOMER_AUTH=server (the published
+// catalog is the default; PUBLISHED_CATALOG=0 would select the legacy menu).
 // Opt in explicitly; generic integration CI does not build this release-specific web artifact.
 test(
   'browser live catalog selection and retained stale basket agree with trusted PostgreSQL quote',
@@ -109,6 +110,11 @@ test(
             res.setHeader('Cache-Control', 'no-store');
             let value;
             if (path === '/v1/customer-checkout/catalog') value = await checkout.catalog();
+            else if (path === '/v1/customer-checkout/catalog/media')
+              value = await checkout.catalogMedia(
+                new URL(req.url, 'http://localhost').searchParams.get('version'),
+                { mediaEnabled: false },
+              );
             else if (path === '/v1/customer-checkout/availability') {
               await pool.query(
                 'UPDATE cloud_branch_availability SET observed_at=clock_timestamp()',

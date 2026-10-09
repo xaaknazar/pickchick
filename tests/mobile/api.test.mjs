@@ -10,6 +10,10 @@ import {
   parseCapabilities,
 } from '../../apps/mobile/src/api.ts';
 
+// These cases cover the legacy public menu and TEST catalog. Since the published back-office
+// catalog became the default, that path needs the explicit development opt-out.
+process.env.EXPO_PUBLIC_PUBLISHED_CATALOG = '0';
+
 const capabilities = {
   schema_version: 1,
   environment: 'staging',

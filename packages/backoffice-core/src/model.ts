@@ -1,5 +1,14 @@
 import { z } from 'zod';
 import { CATALOG_ASSET_KEYS } from '@pickchick/catalog-admin/contracts';
+/** Machine-readable detail for stop commands; the top-level code keeps the existing contract. */
+export const BackofficeErrorReasonSchema = z.enum([
+  'REMOTE_STOPS_DISABLED',
+  'CATALOG_NOT_PUBLISHED',
+  'CATALOG_ITEM_NOT_FOUND',
+  'EDGE_STOPS_NOT_READY',
+  'STOP_COMMAND_IN_PROGRESS',
+]);
+export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
   constructor(
     public readonly code:
@@ -11,6 +20,7 @@ export class BackofficeError extends Error {
       | 'SERVICE_UNAVAILABLE'
       | 'INSUFFICIENT_STOCK'
       | 'NOT_READY',
+    public readonly reason?: BackofficeErrorReason,
   ) {
     super(code);
   }
@@ -214,6 +224,30 @@ export const Request = z.strictObject({
   reason: z.string().trim().min(3).max(500),
   command: Command,
 });
+/** Slug identity in the published catalog; an option needs both its group and option slug. */
+const catalogSlug = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/);
+export const StopCatalogRef = z
+  .strictObject({
+    product_id: catalogSlug,
+    group_id: catalogSlug.optional(),
+    option_id: catalogSlug.optional(),
+  })
+  .refine((v) => (v.group_id === undefined) === (v.option_id === undefined));
+/**
+ * Back-office stop/unstop intent for the cashier edge (POST .../stops). The edge applies it only
+ * when expected_version still matches its own stop row; an unstop has no duration.
+ */
+export const StopRequest = z
+  .strictObject({
+    request_id: id,
+    catalog_ref: StopCatalogRef,
+    stopped: z.boolean(),
+    duration: z.enum(['manual', 'hour', 'shift']).default('manual'),
+    reason: z.string().trim().min(3).max(300),
+    expected_version: z.number().int().min(0).max(2147483646),
+  })
+  .refine((v) => v.stopped || v.duration === 'manual');
+export type StopRequestInput = z.infer<typeof StopRequest>;
 const calendarDate = z.iso.date().refine((value) => {
   const date = new Date(`${value}T00:00:00Z`);
   return (

@@ -7,6 +7,7 @@ import { checkoutStyle } from '../components/CheckoutPresentation';
 import { MotionPressable } from '../components/Motion';
 import { Body, Button, Caption, CloseButton, Heading, Icon, Page, Row } from '../components/UI';
 import { money } from '../domain';
+import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { menuPhotos } from '../menu-photo-assets';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
@@ -131,7 +132,8 @@ export function CompletedOrderScreen({
             const product = props.model.products.find(
               (candidate) => candidate.id === item.productId,
             );
-            const photo = menuPhotos[item.productId] ?? product?.image;
+            const photo = product ? productPhoto(product, 'card', 'menu') : undefined;
+            const legacyPhoto = photo ? undefined : menuPhotos[item.productId];
             return (
               <View
                 key={`${item.productId}-${index}`}
@@ -140,8 +142,15 @@ export function CompletedOrderScreen({
               >
                 <View style={s.photo}>
                   {photo ? (
+                    <ProductPhoto
+                      photo={photo}
+                      contentFit="contain"
+                      style={s.image}
+                      accessibilityLabel={item.title}
+                    />
+                  ) : legacyPhoto ? (
                     <Image
-                      source={photo}
+                      source={legacyPhoto}
                       contentFit="contain"
                       style={s.image}
                       accessibilityLabel={item.title}

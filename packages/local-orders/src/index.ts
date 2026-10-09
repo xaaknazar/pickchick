@@ -4,4 +4,5 @@ export * from './pricing.js';
 export * from './orders.js';
 export * from './shifts.js';
 export * from './staff-passwords.js';
+export * from './remote-stops.js';
 export { effectiveLocalStops, localSelectionIds } from '@pickchick/menu-sync';

@@ -16,12 +16,14 @@ const CustomerCommerceOrderSchema = BaseOrderSchema.extend({
 });
 type CustomerCommerceOrder = z.infer<typeof CustomerCommerceOrderSchema>;
 import { TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
-import { CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
+import { CatalogMediaMapSchema, CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { KioskError } from './api.ts';
+import type { KioskReadResult } from './commercial-api';
 import { selectedPriceMinor, validSelections, testLineId } from './cart.ts';
 import { KIOSK_IDLE_MS, KIOSK_IDLE_GRACE_MS, type KioskIO } from './controller.ts';
 import type {
   KioskCatalog,
+  KioskMedia,
   KioskMode,
   KioskSelection,
   KioskState,
@@ -34,7 +36,19 @@ export const COMMERCIAL_FLOW_KEY = 'pickchick.kiosk.commercial-flow.v1';
 export const KIOSK_DEVICE_KEY = 'pickchick.kiosk.device.v1';
 export interface CommercialKioskIO extends KioskIO {
   readDevice(): Promise<string | null>;
+  /**
+   * GET with the storefront signal headers (photo map, availability long-poll). Optional:
+   * without it the kiosk keeps bundled photos and plain availability reads.
+   */
+  read?(path: string, token: string, options?: { timeoutMs?: number }): Promise<KioskReadResult>;
 }
+/** Server long-poll window is 25 s; the client gives up a little later. */
+export const AVAILABILITY_LONG_POLL_MS = 32000;
+/** A failed photo map is retried at most this often; photos are optional for the menu. */
+export const MEDIA_RETRY_MS = 60000;
+/** One background availability cycle; see CommercialKioskController.watchAvailability. */
+export type AvailabilityWatch =
+  'idle' | 'unchanged' | 'changed' | 'reloaded' | 'unsupported' | 'failed';
 type Session = {
   sessionId: string;
   token: string;
@@ -165,6 +179,69 @@ export function publishedKioskCatalog(value: unknown): KioskCatalog {
     })),
   };
 }
+/**
+ * Applies an availability body to the published catalog without mutating it. `strict` keeps the
+ * checkout rules of a full menu load (an unknown product is an invalid response, a missing one
+ * makes availability stale). The background long-poll is lenient: it may still hold an older
+ * publication, so unknown products are ignored and missing ones are shown as unavailable.
+ */
+export function applyAvailability(
+  base: KioskCatalog,
+  availability: unknown,
+  strict: boolean,
+): { menu: KioskCatalog; fresh: boolean } {
+  if (
+    !isObject(availability) ||
+    typeof availability.fresh !== 'boolean' ||
+    !Array.isArray(availability.products) ||
+    availability.products.length > 100
+  )
+    throw new KioskError('INVALID_RESPONSE');
+  const fresh = availability.fresh;
+  const entries = new Map<string, { available: boolean; stopped: Set<string> }>();
+  for (const entry of availability.products) {
+    if (
+      !isObject(entry) ||
+      typeof entry.productId !== 'string' ||
+      typeof entry.available !== 'boolean' ||
+      !Array.isArray(entry.stoppedOptions) ||
+      entry.stoppedOptions.some(
+        (o) => !isObject(o) || typeof o.group_id !== 'string' || typeof o.option_id !== 'string',
+      ) ||
+      entries.has(entry.productId)
+    )
+      throw new KioskError('INVALID_RESPONSE');
+    if (strict && !base.products.some((p) => p.id === entry.productId))
+      throw new KioskError('INVALID_RESPONSE');
+    const stoppedOptions = entry.stoppedOptions as { group_id: string; option_id: string }[];
+    entries.set(entry.productId, {
+      available: entry.available,
+      stopped: new Set(stoppedOptions.map((o) => `${o.group_id}\u0000${o.option_id}`)),
+    });
+  }
+  if (strict && base.products.some((p) => !entries.has(p.id)))
+    throw new KioskError('AVAILABILITY_STALE');
+  return {
+    fresh,
+    menu: {
+      ...base,
+      products: base.products.map((product) => {
+        const entry = entries.get(product.id);
+        return {
+          ...product,
+          available: product.available !== false && !!entry?.available && fresh,
+          modifier_groups: product.modifier_groups.map((g) => ({
+            ...g,
+            options: g.options.map((o) => ({
+              ...o,
+              available: o.available && !entry?.stopped.has(`${g.id}\u0000${o.id}`),
+            })),
+          })),
+        };
+      }),
+    },
+  };
+}
 function flow(value: unknown): Flow {
   if (
     !isObject(value) ||
@@ -268,6 +345,12 @@ export class CommercialKioskController {
   private current: Flow;
   private guest: Session | null = null;
   private menu: KioskCatalog | null = null;
+  /** Published catalog (with photos) before availability is applied. */
+  private base: KioskCatalog | null = null;
+  /** Last X-Availability-Signature; the next long-poll waits for a different one. */
+  private signature: string | null = null;
+  private media: { version: string; products: Record<string, KioskMedia> } | null = null;
+  private mediaRetryAt = 0;
   private checkoutReady = false;
   private paymentMethods: ('kaspi' | 'kaspi_invoice')[] = [];
   private selectedMethod: 'kaspi' | 'kaspi_invoice' = 'kaspi';
@@ -476,51 +559,118 @@ export class CommercialKioskController {
       (this.guest?.branchId && next.branch_id !== this.guest.branchId)
     )
       throw new KioskError('INVALID_RESPONSE');
-    const availability = await this.io.request('/availability', guest.token);
-    if (
-      !isObject(availability) ||
-      typeof availability.fresh !== 'boolean' ||
-      !Array.isArray(availability.products) ||
-      availability.products.length > 100
-    )
-      throw new KioskError('INVALID_RESPONSE');
-    const observed = new Set<string>();
-    for (const entry of availability.products) {
-      if (
-        !isObject(entry) ||
-        typeof entry.productId !== 'string' ||
-        typeof entry.available !== 'boolean' ||
-        !Array.isArray(entry.stoppedOptions) ||
-        entry.stoppedOptions.some(
-          (o) => !isObject(o) || typeof o.group_id !== 'string' || typeof o.option_id !== 'string',
-        ) ||
-        observed.has(entry.productId)
-      )
-        throw new KioskError('INVALID_RESPONSE');
-      const stoppedOptions = entry.stoppedOptions as { group_id: string; option_id: string }[];
-      const product = next.products.find((p) => p.id === entry.productId);
-      if (!product) throw new KioskError('INVALID_RESPONSE');
-      observed.add(entry.productId);
-      product.available = product.available !== false && entry.available && availability.fresh;
-      product.modifier_groups = product.modifier_groups.map((g) => ({
-        ...g,
-        options: g.options.map((o) => ({
-          ...o,
-          available:
-            o.available &&
-            !stoppedOptions.some(
-              (stop) =>
-                (stop as { group_id: string; option_id: string }).group_id === g.id &&
-                (stop as { group_id: string; option_id: string }).option_id === o.id,
-            ),
-        })),
-      }));
-    }
-    if (next.products.some((p) => !observed.has(p.id))) throw new KioskError('AVAILABILITY_STALE');
-    this.menu = next;
-    if (!availability.fresh) throw new KioskError('AVAILABILITY_STALE');
+    this.attachMedia(next, await this.catalogMedia(next.catalog_version, guest.token));
+    this.signature = null;
+    const availability = await this.readAvailability('/availability', guest.token);
+    const applied = applyAvailability(next, availability.data, true);
+    this.base = next;
+    this.menu = applied.menu;
+    this.signature = availability.signature;
+    if (!applied.fresh) throw new KioskError('AVAILABILITY_STALE');
     this.checkoutReady = config.enabled;
   }
+  private async readAvailability(path: string, token: string): Promise<KioskReadResult> {
+    return this.io.read
+      ? this.io.read(path, token)
+      : { data: await this.io.request(path, token), catalogVersion: null, signature: null };
+  }
+  /**
+   * Photo map of the loaded publication (WP-K). Photos are optional: any failure keeps the
+   * bundled photos and is retried at most once a minute; a version's map is fetched once.
+   */
+  private async catalogMedia(version: string, token: string) {
+    if (!this.io.read) return null;
+    if (this.media?.version === version) return this.media.products;
+    if (this.io.now() < this.mediaRetryAt) return null;
+    try {
+      const response = await this.io.read(`/catalog/media?version=${version}`, token);
+      const map = CatalogMediaMapSchema.parse(response.data);
+      if (String(map.version) !== version) throw new KioskError('INVALID_RESPONSE');
+      this.media = { version, products: map.products };
+      this.mediaRetryAt = 0;
+      return map.products;
+    } catch {
+      this.mediaRetryAt = this.io.now() + MEDIA_RETRY_MS;
+      return null;
+    }
+  }
+  private attachMedia(catalog: KioskCatalog, media: Record<string, KioskMedia> | null) {
+    if (!media) return;
+    catalog.products = catalog.products.map((p) => {
+      const entry = Object.hasOwn(media, p.id) ? media[p.id] : undefined;
+      return entry ? { ...p, media: { ...entry } } : p;
+    });
+  }
+  /** The attract screen with no guest activity: a new publication can replace the menu at once. */
+  private idleStart() {
+    return (
+      this.step === 'start' &&
+      !this.unsafe() &&
+      !this.current.order &&
+      !this.current.cart.length &&
+      !this.current.mode
+    );
+  }
+  /**
+   * One background availability cycle that never marks the kiosk busy. With a known signature it
+   * long-polls `?after=` until stops, freshness or the catalog version change (at most 25 s).
+   * - Same publication: the new stops are applied to the menu at once (also on the start screen).
+   * - Newer publication (X-Catalog-Version): on the idle start screen the catalog is reloaded at
+   *   once; mid-session the loaded publication is kept and the quote CONFLICT path decides.
+   * AVAILABILITY_STALE semantics are unchanged: a stale body makes every product unavailable.
+   */
+  watchAvailability = async (): Promise<AvailabilityWatch> => {
+    if (!this.io.read) return 'unsupported';
+    if (!this.ready || this.busy || !this.menu || !this.base || this.unsafe() || this.current.order)
+      return 'idle';
+    const guest = this.guest;
+    if (
+      !guest?.branchId ||
+      guest.sessionId !== this.current.guestId ||
+      (guest.expiresAt && Date.parse(guest.expiresAt) <= this.io.now())
+    ) {
+      // A finished guest leaves no session; the start screen allocates the next one in the
+      // normal refresh path (the same as a kiosk restart), so the poll can continue.
+      if (!this.idleStart()) return 'idle';
+      return (await this.refreshResult()) ? 'reloaded' : 'failed';
+    }
+    const after = this.signature;
+    let response: KioskReadResult;
+    try {
+      response = await this.io.read(
+        after ? `/availability?after=${after}` : '/availability',
+        guest.token,
+        { timeoutMs: AVAILABILITY_LONG_POLL_MS },
+      );
+    } catch {
+      return 'failed';
+    }
+    // The guest may have acted while the request was waiting; a foreground load then wins.
+    if (
+      this.guest !== guest ||
+      this.busy ||
+      !this.menu ||
+      !this.base ||
+      this.unsafe() ||
+      this.current.order ||
+      this.signature !== after
+    )
+      return 'idle';
+    const loaded = Number(this.base.catalog_version);
+    if (response.catalogVersion !== null && response.catalogVersion > loaded && this.idleStart())
+      return (await this.refreshResult()) ? 'reloaded' : 'failed';
+    let applied: { menu: KioskCatalog; fresh: boolean };
+    try {
+      applied = applyAvailability(this.base, response.data, false);
+    } catch {
+      return 'failed';
+    }
+    this.menu = applied.menu;
+    this.signature = response.signature;
+    this.emit();
+    if (!response.signature) return 'unsupported';
+    return response.signature === after ? 'unchanged' : 'changed';
+  };
   private async authenticate() {
     if (this.guest) {
       if (!this.current.guestId && !this.current.order && !this.current.intent)

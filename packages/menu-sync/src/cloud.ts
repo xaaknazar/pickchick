@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { MenuAckSchema, MenuPublishedSchema, MenuSnapshotSchema } from '@pickchick/contracts';
-import type { MenuPublished } from '@pickchick/contracts';
+import {
+  EdgeMenuStateQuerySchema,
+  MenuAckSchema,
+  MenuPublishedSchema,
+  MenuSnapshotSchema,
+  menuAckResult,
+} from '@pickchick/contracts';
+import type { EdgeMenuStateQuery, MenuPublished } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { authenticateDevice } from './identity.js';
@@ -38,10 +44,19 @@ export async function publishMenu(pool: DatabasePool, input: unknown): Promise<M
   return transaction(pool, (client) => publishMenuInTransaction(client, menu));
 }
 
+export interface PublishMenuOptions {
+  /**
+   * Highest menu version already active outside cloud history (the edge-reported version).
+   * The new version must then be exactly max(cloud versions, floorVersion) + 1.
+   */
+  floorVersion?: number;
+}
+
 /** Caller must hold a transaction; publication and CMS source commit atomically. */
 export async function publishMenuInTransaction(
   client: DatabaseClient,
   input: unknown,
+  options: PublishMenuOptions = {},
 ): Promise<MenuPublished> {
   const parsed = MenuSnapshotSchema.safeParse(input);
   if (!parsed.success) throw new SyncError('INVALID_REQUEST');
@@ -72,7 +87,10 @@ export async function publishMenuInTransaction(
     'SELECT coalesce(max(version), 0) AS version FROM menu_releases WHERE branch_id = $1',
     [menu.branch_id],
   );
-  if (menu.version !== latest.rows[0].version + 1) throw new SyncError('CONFLICT');
+  const floor = options.floorVersion ?? 0;
+  if (!Number.isSafeInteger(floor) || floor < 0) throw new SyncError('INVALID_REQUEST');
+  if (menu.version !== Math.max(Number(latest.rows[0].version), floor) + 1)
+    throw new SyncError('CONFLICT');
   const checksum = hashJson(menu);
   await client.query(
     `INSERT INTO menu_releases(id, branch_id, version, schema_version, payload, checksum, published_at)
@@ -130,9 +148,36 @@ export async function publishMenuInTransaction(
   return event;
 }
 
-export async function pullMenu(pool: DatabasePool, auth: DeviceAuth) {
+/**
+ * Records the menu the authenticated edge reports as active. The first reporting device owns
+ * the row; reports from another device or with an older version are ignored (no fencing yet).
+ */
+async function recordEdgeMenuState(
+  client: DatabaseClient,
+  branchId: string,
+  deviceId: string,
+  state: EdgeMenuStateQuery,
+) {
+  await client.query(
+    `INSERT INTO edge_menu_state AS s(branch_id, device_id, active_release_id, active_version, observed_at)
+      VALUES ($1, $2, $3, $4, clock_timestamp())
+      ON CONFLICT (branch_id) DO UPDATE SET active_release_id = EXCLUDED.active_release_id,
+        active_version = EXCLUDED.active_version, observed_at = EXCLUDED.observed_at
+      WHERE s.device_id = EXCLUDED.device_id AND EXCLUDED.active_version >= s.active_version`,
+    [branchId, deviceId, state.active_release_id, state.active_version],
+  );
+}
+
+export async function pullMenu(pool: DatabasePool, auth: DeviceAuth, state?: unknown) {
+  let reported: EdgeMenuStateQuery | undefined;
+  if (state !== undefined) {
+    const parsed = EdgeMenuStateQuerySchema.safeParse(state);
+    if (!parsed.success) throw new SyncError('INVALID_REQUEST');
+    reported = parsed.data;
+  }
   return transaction(pool, async (client) => {
     const branchId = await authenticateDevice(client, auth);
+    if (reported) await recordEdgeMenuState(client, branchId, auth.deviceId, reported);
     // No caller-controlled cursor: the earliest unacknowledged event is always redelivered.
     const result = await client.query(
       `SELECT event_id FROM outbox_events
@@ -188,12 +233,21 @@ export async function acknowledgeMenu(pool: DatabasePool, auth: DeviceAuth, inpu
       [branchId],
     );
     if (first.rows[0]?.event_id !== ack.event_id) throw new SyncError('CONFLICT');
+    const applied = menuAckResult(ack) === 'applied';
+    // A rejected release is acknowledged so it stops blocking later releases, but the edge
+    // kept its previous menu, so the cloud activation pointer must not move.
+    if (applied)
+      await client.query(
+        `INSERT INTO branch_menu_activations(branch_id, release_id, acknowledged_at)
+        VALUES ($1, $2, now()) ON CONFLICT (branch_id) DO UPDATE
+        SET release_id = EXCLUDED.release_id, acknowledged_at = EXCLUDED.acknowledged_at
+        WHERE (SELECT version FROM menu_releases WHERE id = branch_menu_activations.release_id) < $3`,
+        [branchId, ack.release_id, event.aggregate_version],
+      );
     await client.query(
-      `INSERT INTO branch_menu_activations(branch_id, release_id, acknowledged_at)
-      VALUES ($1, $2, now()) ON CONFLICT (branch_id) DO UPDATE
-      SET release_id = EXCLUDED.release_id, acknowledged_at = EXCLUDED.acknowledged_at
-      WHERE (SELECT version FROM menu_releases WHERE id = branch_menu_activations.release_id) < $3`,
-      [branchId, ack.release_id, event.aggregate_version],
+      `INSERT INTO catalog_menu_delivery_results(branch_id, release_id, result, reason)
+      VALUES ($1, $2, $3, $4)`,
+      [branchId, ack.release_id, applied ? 'applied' : 'rejected', ack.reason ?? null],
     );
     await client.query('UPDATE outbox_events SET acknowledged_at = now() WHERE event_id = $1', [
       ack.event_id,

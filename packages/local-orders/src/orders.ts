@@ -14,7 +14,7 @@ import {
   EventEnvelopeSchema,
   LocalOrderListSchema,
 } from '@pickchick/contracts';
-import type { StaffSession, LocalOrder, Quote } from '@pickchick/contracts';
+import type { StaffSession, LocalOrder, Quote, MenuSnapshot } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { authenticateStaff, requirePermission, audit } from './staff.js';
@@ -50,6 +50,42 @@ async function activeMenu(client: DatabaseClient, branchId: string) {
   );
   if (!result.rows[0]) throw new OrderError('BRANCH_UNAVAILABLE');
   return MenuSnapshotSchema.parse(result.rows[0].payload);
+}
+/** The variant (base item or modifier option) is sellable in the active edge menu. */
+export function menuHasVariant(menu: MenuSnapshot, variantId: string) {
+  return menu.items.some(
+    (item) =>
+      item.variant_id === variantId ||
+      item.modifier_groups?.some((g) => g.options.some((o) => o.id === variantId)),
+  );
+}
+/** Active-menu membership for stop commands; a branch without an active menu has no variants. */
+export async function activeMenuHasVariant(
+  client: DatabaseClient,
+  branchId: string,
+  variantId: string,
+) {
+  try {
+    return menuHasVariant(await activeMenu(client, branchId), variantId);
+  } catch (error) {
+    if (error instanceof OrderError && error.code === 'BRANCH_UNAVAILABLE') return false;
+    throw error;
+  }
+}
+/** Stop history (edge migration 019) is written only once its table and grants are installed,
+ * so a POS stop keeps working during a staged Windows upgrade. */
+export async function stopAuditReady(client: DatabaseClient) {
+  const table = (
+    await client.query<{ ready: boolean }>(
+      "SELECT to_regclass('local_stop_events') IS NOT NULL AND EXISTS(SELECT 1 FROM schema_migrations WHERE scope='edge' AND version='019_edge_remote_stops.sql') AS ready",
+    )
+  ).rows[0]!.ready;
+  if (!table) return false;
+  return (
+    await client.query<{ ready: boolean }>(
+      "SELECT has_table_privilege('local_stop_events','INSERT') AND has_column_privilege('local_stops','source','UPDATE') AND has_column_privilege('local_stops','source','INSERT') AS ready",
+    )
+  ).rows[0]!.ready;
 }
 async function checkStops(client: DatabaseClient, branchId: string, variants: string[]) {
   const stopped = await client.query(
@@ -425,14 +461,7 @@ export function setStop(
     stop,
     async (client, actor) => {
       const menu = await activeMenu(client, branchId);
-      if (
-        !menu.items.some(
-          (item) =>
-            item.variant_id === stop.variant_id ||
-            item.modifier_groups?.some((g) => g.options.some((o) => o.id === stop.variant_id)),
-        )
-      )
-        throw new OrderError('NOT_FOUND');
+      if (!menuHasVariant(menu, stop.variant_id)) throw new OrderError('NOT_FOUND');
       const old = (
         await client.query('SELECT version FROM local_stops WHERE branch_id=$1 AND variant_id=$2', [
           branchId,
@@ -444,8 +473,13 @@ export function setStop(
         stop.duration === 'shift' && stop.stopped
           ? await requireOpenCashShift(client, branchId, actor)
           : null;
+      const history = await stopAuditReady(client);
       const result = await client.query(
-        `INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason,expires_at,expires_shift_id,updated_by) VALUES ($1,$2,$3,1,$4,CASE WHEN $5 THEN clock_timestamp()+interval '1 hour' ELSE NULL END,$6,$7)
+        history
+          ? `INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason,expires_at,expires_shift_id,updated_by,source) VALUES ($1,$2,$3,1,$4,CASE WHEN $5 THEN clock_timestamp()+interval '1 hour' ELSE NULL END,$6,$7,'pos')
+      ON CONFLICT(branch_id,variant_id) DO UPDATE SET stopped=EXCLUDED.stopped,version=local_stops.version+1,reason=EXCLUDED.reason,expires_at=EXCLUDED.expires_at,expires_shift_id=EXCLUDED.expires_shift_id,updated_by=EXCLUDED.updated_by,source=EXCLUDED.source,updated_at=clock_timestamp()
+      RETURNING variant_id,stopped,version`
+          : `INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason,expires_at,expires_shift_id,updated_by) VALUES ($1,$2,$3,1,$4,CASE WHEN $5 THEN clock_timestamp()+interval '1 hour' ELSE NULL END,$6,$7)
       ON CONFLICT(branch_id,variant_id) DO UPDATE SET stopped=EXCLUDED.stopped,version=local_stops.version+1,reason=EXCLUDED.reason,expires_at=EXCLUDED.expires_at,expires_shift_id=EXCLUDED.expires_shift_id,updated_by=EXCLUDED.updated_by,updated_at=clock_timestamp()
       RETURNING variant_id,stopped,version`,
         [
@@ -459,6 +493,21 @@ export function setStop(
         ],
       );
       await audit(client, branchId, actor.staff_id, 'availability.changed', stop.variant_id);
+      if (history)
+        await client.query(
+          `INSERT INTO local_stop_events(id,branch_id,variant_id,stopped,version,source,staff_id,duration,reason)
+          VALUES ($1,$2,$3,$4,$5,'pos',$6,$7,$8)`,
+          [
+            randomUUID(),
+            branchId,
+            stop.variant_id,
+            stop.stopped,
+            result.rows[0].version,
+            actor.staff_id,
+            stop.duration ?? 'manual',
+            stop.reason,
+          ],
+        );
       return StopStateSchema.parse(result.rows[0]);
     },
   );
@@ -470,14 +519,7 @@ export function readStop(pool: DatabasePool, branchId: string, auth: StaffAuth, 
     const actor = await authenticateStaff(client, branchId, auth);
     requirePermission(actor, 'read');
     const menu = await activeMenu(client, branchId);
-    if (
-      !menu.items.some(
-        (item) =>
-          item.variant_id === variantId ||
-          item.modifier_groups?.some((g) => g.options.some((o) => o.id === variantId)),
-      )
-    )
-      throw new OrderError('NOT_FOUND');
+    if (!menuHasVariant(menu, variantId)) throw new OrderError('NOT_FOUND');
     const result = await client.query(
       `SELECT variant_id, (stopped AND (expires_at IS NULL OR expires_at>clock_timestamp()) AND (expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=expires_shift_id AND c.state='open'))) AS stopped, version FROM local_stops WHERE branch_id=$1 AND variant_id=$2`,
       [branchId, variantId],

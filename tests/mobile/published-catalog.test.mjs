@@ -126,12 +126,22 @@ test('explicit live catalog loading uses the checkout branch and never falls bac
   };
   let missing = false;
   process.env.EXPO_PUBLIC_PUBLISHED_CATALOG = '1';
+  const unexpected = [];
   globalThis.fetch = async (url) => {
-    const path = new URL(url).pathname;
+    const { pathname: path, search } = new URL(url);
     calls.push(path);
     if (path === '/v1/customer-checkout/catalog' && missing)
       return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } });
-    assert.ok(['/v1/capabilities', '/v1/customer-checkout/catalog'].includes(path));
+    if (path === '/v1/customer-checkout/catalog/media') {
+      assert.equal(search, '?version=3');
+      return new Response(JSON.stringify({ version: 3, products: {} }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (!['/v1/capabilities', '/v1/customer-checkout/catalog'].includes(path)) {
+      unexpected.push(path);
+      throw new Error('unexpected ' + path);
+    }
     return new Response(JSON.stringify(path.endsWith('/catalog') ? publication : capabilities), {
       headers: { 'content-type': 'application/json' },
     });
@@ -141,6 +151,9 @@ test('explicit live catalog loading uses the checkout branch and never falls bac
     assert.equal(value.branch.id, f.scope.branchId);
     assert.equal(value.menu, null);
     assert.equal(value.publication.version, 3);
+    assert.deepEqual(value.media, { version: 3, products: {} });
+    assert.ok(calls.includes('/v1/customer-checkout/catalog/media'));
+    assert.deepEqual(unexpected, []);
     missing = true;
     await assert.rejects(loadCatalog(null));
     assert.ok(calls.every((path) => !path.includes('/test/') && !path.includes('/menu')));

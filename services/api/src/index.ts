@@ -20,6 +20,7 @@ import {
   Headers,
   HttpCode,
   HttpException,
+  Query,
 } from '@nestjs/common';
 import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
 import {
@@ -44,9 +45,18 @@ import {
   createCustomerIdentityOptions,
 } from '@pickchick/customer-identity';
 import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
-import { CATALOG_ADMIN, CatalogAdmin, catalogAdminOptions } from '@pickchick/catalog-admin';
+import {
+  CATALOG_ADMIN,
+  CATALOG_MEDIA,
+  CatalogAdmin,
+  CatalogMedia,
+  catalogAdminOptions,
+  catalogMediaOptions,
+} from '@pickchick/catalog-admin';
 import { CatalogAdminController } from './catalog-admin-controller.js';
-import { BACKOFFICE, Backoffice } from '@pickchick/backoffice-core';
+import { encodeCatalogImage } from './catalog-image-encoder.js';
+import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-media-controller.js';
+import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
@@ -111,6 +121,16 @@ class BranchesController {
   }
 }
 
+/**
+ * Optional edge-reported active menu (EdgeMenuStateQuerySchema, validated by pullMenu).
+ * Other query keys stay ignored as before; a partial or malformed pair is a 400 with no echo.
+ */
+function edgeMenuState(query: Record<string, unknown>) {
+  const { active_release_id: releaseId, active_version: version } = query;
+  if (releaseId === undefined && version === undefined) return undefined;
+  return { active_release_id: releaseId, active_version: version };
+}
+
 @Controller('internal/v1/edge/sync')
 class MenuSyncController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
@@ -119,6 +139,7 @@ class MenuSyncController {
     deviceId: string | undefined,
     authorization: string | undefined,
     body?: unknown,
+    query: Record<string, unknown> = {},
   ) {
     const auth = {
       deviceId: deviceId ?? '',
@@ -126,7 +147,7 @@ class MenuSyncController {
     };
     try {
       return body === undefined
-        ? await pullMenu(this.resources.pool, auth)
+        ? await pullMenu(this.resources.pool, auth, edgeMenuState(query))
         : await acknowledgeMenu(this.resources.pool, auth, body);
     } catch (error) {
       if (error instanceof SyncError) {
@@ -139,10 +160,11 @@ class MenuSyncController {
 
   @Get('pull')
   pull(
+    @Query() query: Record<string, unknown>,
     @Headers('x-device-id') deviceId?: string,
     @Headers('authorization') authorization?: string,
   ) {
-    return this.execute(deviceId, authorization);
+    return this.execute(deviceId, authorization, undefined, query);
   }
 
   @Post('ack')
@@ -172,6 +194,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CustomerAuthController,
       CustomerCheckoutController,
       CatalogAdminController,
+      CatalogMediaController,
       BackofficeController,
       BackofficeContentController,
       FulfillmentTransportController,
@@ -195,7 +218,11 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: BACKOFFICE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Backoffice(resources.pool, config.backofficeEnabled === true),
+          new Backoffice(
+            resources.pool,
+            config.backofficeEnabled === true,
+            backofficeOptions(process.env),
+          ),
       },
       { provide: RESOURCE, useFactory: () => new Resources(config) },
       {
@@ -206,6 +233,20 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
             ...catalogAdminOptions(process.env),
             enabled: config.catalogAdminEnabled === true,
           }),
+      },
+      {
+        provide: CATALOG_MEDIA,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new CatalogMedia(
+            resources.pool,
+            {
+              ...catalogAdminOptions(process.env),
+              ...catalogMediaOptions(process.env),
+              enabled: config.catalogAdminEnabled === true,
+            },
+            encodeCatalogImage,
+          ),
       },
       {
         provide: CUSTOMER_IDENTITY,
@@ -230,6 +271,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     // The Kaspi bridge signs the exact JSON bytes it sends.
     rawJsonRoutes: [/^\/v1\/integrations\/kaspi-remote\/webhook\/?$/],
   });
+  // Photo uploads (CATALOG_MEDIA_UPLOAD_ENABLED): raw image bytes on one route only.
+  if (catalogMediaOptions(process.env).mediaEnabled) useCatalogAssetBodyParser(app);
   app.useBodyParser('raw', {
     limit: 16 * 1024,
     type: (request: IncomingMessage) =>

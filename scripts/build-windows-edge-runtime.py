@@ -20,6 +20,12 @@ ADMIN_FILES = (
     'infra/windows/native-pos-sync-worker.mjs',
     'infra/windows/native-pos-sync-permissions.ps1',
     'infra/windows/fulfillment-worker-grants.mjs',
+    'infra/windows/native-menu-sync-worker.mjs',
+    'infra/windows/menu-sync-worker-grants.mjs',
+    'infra/windows/menu-sync-upgrade-db.mjs',
+    'infra/windows/remote-stops-upgrade-db.mjs',
+    'infra/windows/remote-stops-upgrade.md',
+    'infra/windows/native-menu-sync.md',
     'scripts/edge-migrate.mjs',
     'scripts/edge-runtime-grants.mjs',
     'scripts/staff-setup.mjs',
@@ -43,6 +49,17 @@ ADMIN_FILES = (
     'infra/windows/runtime-package.md',
     'infra/windows/PickChickEdge.xml.example',
 )
+
+
+# Build every root shipped by build_package, including packages not reachable from edge.
+BUILD_ROOTS = ('@pickchick/edge', '@pickchick/pos-order-sync', '@pickchick/fulfillment-transport')
+
+
+def build_workspace_roots(source):
+    command = ['pnpm']
+    for name in BUILD_ROOTS:
+        command.extend(['--filter', name + '...'])
+    subprocess.run([*command, 'build'], cwd=source, check=True)
 
 
 def build_package(source, output, commit):
@@ -228,5 +245,5 @@ if __name__ == '__main__':
     if status.strip():
         raise SystemExit('Commit source changes before creating a pinned package')
     commit = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
-    subprocess.run(['pnpm', '--filter', '@pickchick/edge...', 'build'], cwd=source, check=True)
+    build_workspace_roots(source)
     print(json.dumps(build_package(source, args.output, commit), indent=2))

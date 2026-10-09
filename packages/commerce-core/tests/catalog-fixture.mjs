@@ -87,10 +87,12 @@ export function pricePublication(reference, payload, legalEntityId) {
     lines: quote.lines.map((line) => ({ ...line, taxCode: 'SYNTHETIC-TAX' })),
   };
 }
-export async function publishCatalog(f, { version = 1, price = '10000', db = f.pool } = {}) {
+export async function publishCatalog(
+  f,
+  { version = 1, price = '10000', db = f.pool, payload = catalogPayload(price) } = {},
+) {
   const organizationId = f.scope.organizationId,
     branchId = f.scope.branchId,
-    payload = catalogPayload(price),
     payloadHash = catalogPayloadHash(payload);
   const actor =
     (

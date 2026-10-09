@@ -23,7 +23,8 @@ import {
   comboCompanions,
   photoCartLimit,
 } from '../product-photo-selection';
-import { optionPhotos, extraPhotos, photoHeroes } from '../product-photo-assets';
+import { optionPhotos, extraPhotos } from '../product-photo-assets';
+import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { colors, font } from '../theme';
@@ -136,8 +137,8 @@ export function PhotoProduct(props: Props) {
         testID={`photo-extra-${id === 'sauce' ? 'large-sauce' : id}`}
         style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
       >
-        <Image
-          source={photoHeroes[id] ?? line.product.image}
+        <ProductPhoto
+          photo={productPhoto(line.product, 'card', 'hero')}
           contentFit="contain"
           style={{
             width: extraWidth - 24,
@@ -192,10 +193,15 @@ export function PhotoProduct(props: Props) {
     selections.some((v) => v.group_id === sizeGroup.id && v.option_id === o.id),
   );
   const servingLabel = chosenSize?.label ?? product.servingLabel;
+  const resolvedHero = productPhoto(product, 'hero', 'hero');
+  // The seed sauce hero shows the small bottle while the included size is chosen.
   const hero =
-    product.id === 'sauce' && chosenSize?.price_delta_minor === '0'
-      ? optionPhotos.pick
-      : photoHeroes[product.id];
+    resolvedHero.kind === 'id' &&
+    product.id === 'sauce' &&
+    chosenSize?.price_delta_minor === '0' &&
+    optionPhotos.pick
+      ? { kind: 'id' as const, source: optionPhotos.pick }
+      : resolvedHero;
   const nutritionMultiplier =
     product.nutrition?.basis === 'per_serving' ? (chosenSize?.nutrition_multiplier ?? 1) : 1;
   const infoContent = (
@@ -253,8 +259,8 @@ export function PhotoProduct(props: Props) {
         >
           <View style={{ height: heroHeight, backgroundColor: pagePaper }}>
             {hero ? (
-              <Image
-                source={hero}
+              <ProductPhoto
+                photo={hero}
                 style={StyleSheet.absoluteFill}
                 contentFit="contain"
                 accessibilityLabel={title}

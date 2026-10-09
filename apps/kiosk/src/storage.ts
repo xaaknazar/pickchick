@@ -3,7 +3,11 @@ import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { kioskRequest } from './api';
-import { commercialKioskRequest, exchangeKioskEnrollment } from './commercial-api';
+import {
+  commercialKioskRead,
+  commercialKioskRequest,
+  exchangeKioskEnrollment,
+} from './commercial-api';
 import { enrollDevice, KIOSK_ENROLLMENT_REQUEST_KEY } from './enrollment';
 import {
   COMMERCIAL_FLOW_KEY,
@@ -45,6 +49,21 @@ export function createCommercialKioskIO(): CommercialKioskIO {
       throw new Error('Commercial kiosk requires provisioned native storage');
     return SecureStore.getItemAsync(key);
   };
+  const credentials = async () => {
+    const raw = await read(KIOSK_DEVICE_KEY);
+    if (!raw || raw.length > 1000) throw new Error('Device is not provisioned');
+    const device: unknown = JSON.parse(raw);
+    if (
+      !device ||
+      typeof device !== 'object' ||
+      !('deviceId' in device) ||
+      !('key' in device) ||
+      typeof device.deviceId !== 'string' ||
+      typeof device.key !== 'string'
+    )
+      throw new Error('Device is not provisioned');
+    return { deviceId: device.deviceId, key: device.key };
+  };
   return {
     readSession: () => read(COMMERCIAL_SESSION_KEY),
     writeSession: (raw) => SecureStore.setItemAsync(COMMERCIAL_SESSION_KEY, raw, options),
@@ -52,24 +71,10 @@ export function createCommercialKioskIO(): CommercialKioskIO {
     readFlow: () => read(COMMERCIAL_FLOW_KEY),
     writeFlow: (raw) => SecureStore.setItemAsync(COMMERCIAL_FLOW_KEY, raw, options),
     readDevice: () => read(KIOSK_DEVICE_KEY),
-    request: async (path, token, body, key) => {
-      const raw = await read(KIOSK_DEVICE_KEY);
-      if (!raw || raw.length > 1000) throw new Error('Device is not provisioned');
-      const device: unknown = JSON.parse(raw);
-      if (
-        !device ||
-        typeof device !== 'object' ||
-        !('deviceId' in device) ||
-        !('key' in device) ||
-        typeof device.deviceId !== 'string' ||
-        typeof device.key !== 'string'
-      )
-        throw new Error('Device is not provisioned');
-      return commercialKioskRequest(path, token, body, key, fetch, {
-        deviceId: device.deviceId,
-        key: device.key,
-      });
-    },
+    request: async (path, token, body, key) =>
+      commercialKioskRequest(path, token, body, key, fetch, await credentials()),
+    read: async (path, token, readOptions) =>
+      commercialKioskRead(path, token, fetch, await credentials(), readOptions),
     now: Date.now,
     uuid: () => Crypto.randomUUID(),
   };

@@ -135,3 +135,18 @@ test('customer SMS auth needs exact cloud opt-in and trusts only explicitly conf
   ])
     assert.throws(() => loadConfig('api', { ...env, TRUSTED_PROXY_IPS: value }));
 });
+
+test('edge remote stop applier defaults off and is an exact edge-only opt-in', () => {
+  assert.equal(loadConfig('edge', env).remoteStopsEnabled, undefined);
+  assert.equal(
+    loadConfig('edge', { ...env, EDGE_REMOTE_STOPS_ENABLED: 'false' }).remoteStopsEnabled,
+    undefined,
+  );
+  assert.equal(
+    loadConfig('edge', { ...env, EDGE_REMOTE_STOPS_ENABLED: 'true' }).remoteStopsEnabled,
+    true,
+  );
+  for (const value of ['1', 'TRUE', 'yes', ''])
+    assert.throws(() => loadConfig('edge', { ...env, EDGE_REMOTE_STOPS_ENABLED: value }));
+  assert.throws(() => loadConfig('api', { ...env, EDGE_REMOTE_STOPS_ENABLED: 'true' }));
+});

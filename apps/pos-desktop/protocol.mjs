@@ -1,12 +1,13 @@
 import { V2_ASSETS } from './v2-assets.mjs';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { MENU_ASSETS } from './menu-assets.mjs';
 
 export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const readPath = new RegExp(
-  `^/edge/v1/(session|menu|ordering|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
+  `^/edge/v1/(session|menu|menu/version|ordering|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
   'i',
 );
 const writePath = new RegExp(
@@ -24,6 +25,86 @@ const assets = new Map([
     [`${name}.js`, 'text/javascript; charset=utf-8'],
   ]),
 ]);
+/** Published photos are content-addressed: /assets/menu/<sha256>.webp (lowercase hex only). */
+export const MENU_MEDIA_PATH = /^\/assets\/menu\/([a-f0-9]{64})\.webp$/;
+export const MENU_MEDIA_MAX_BYTES = 1_500_000;
+const MENU_MEDIA_FALLBACK = ['v2/assets/logo.png', 'image/png'];
+const isWebp = (bytes) =>
+  bytes.length >= 12 &&
+  bytes.toString('latin1', 0, 4) === 'RIFF' &&
+  bytes.toString('latin1', 8, 12) === 'WEBP';
+/** Reads one cached photo from the loopback edge. The bytes are returned only when they are a
+ *  WebP whose SHA-256 is exactly the requested name; anything else yields null (fallback). */
+export async function fetchMenuMedia(
+  sha256,
+  { edgePort, fetchImpl = globalThis.fetch, timeoutMs },
+) {
+  if (!/^[a-f0-9]{64}$/.test(sha256)) return null;
+  try {
+    const response = await fetchImpl(`http://127.0.0.1:${edgePort}/edge/v1/media/${sha256}.webp`, {
+      method: 'GET',
+      redirect: 'error',
+      signal: AbortSignal.timeout(Math.min(timeoutMs, 5000)),
+    });
+    if (response.status !== 200 || response.redirected) {
+      await response.body?.cancel().catch(() => {});
+      return null;
+    }
+    const bytes = Buffer.from(await readBounded(response.body, MENU_MEDIA_MAX_BYTES));
+    if (!isWebp(bytes) || createHash('sha256').update(bytes).digest('hex') !== sha256) return null;
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+/** Verified photos are immutable by name, so a small in-memory cache spares the edge database.
+ *  Failures are never cached: the photo appears as soon as the edge has downloaded it. */
+export function createMenuMediaCache({ maxBytes = 24 * 1024 * 1024 } = {}) {
+  const entries = new Map();
+  let size = 0;
+  return {
+    get(sha256) {
+      const bytes = entries.get(sha256);
+      if (bytes) {
+        entries.delete(sha256);
+        entries.set(sha256, bytes);
+      }
+      return bytes;
+    },
+    set(sha256, bytes) {
+      if (entries.has(sha256) || bytes.length > maxBytes) return;
+      entries.set(sha256, bytes);
+      size += bytes.length;
+      for (const [key, value] of entries) {
+        if (size <= maxBytes) break;
+        entries.delete(key);
+        size -= value.length;
+      }
+    },
+  };
+}
+/** Resolves a hash photo to verified WebP bytes or the bundled logo. */
+export async function menuMediaResponse(
+  sha256,
+  { edgePort, fetchImpl, timeoutMs, cache, assetDir },
+) {
+  let bytes = cache.get(sha256);
+  if (!bytes) {
+    bytes = await fetchMenuMedia(sha256, { edgePort, fetchImpl, timeoutMs });
+    if (bytes) cache.set(sha256, bytes);
+  }
+  if (bytes) return { status: 200, type: 'image/webp', bytes };
+  try {
+    return {
+      status: 200,
+      type: MENU_MEDIA_FALLBACK[1],
+      bytes: await readFile(new URL(MENU_MEDIA_FALLBACK[0], assetDir)),
+      fallback: true,
+    };
+  } catch {
+    return null;
+  }
+}
 export const SECURITY_HEADERS = {
   'Cache-Control': 'no-store',
   'Referrer-Policy': 'no-referrer',
@@ -57,6 +138,7 @@ export function isAllowedRendererURL(value) {
   return Boolean(
     url &&
     (assets.has(url.pathname) ||
+      MENU_MEDIA_PATH.test(url.pathname) ||
       url.pathname === '/config.json' ||
       url.pathname === '/health/ready' ||
       readPath.test(url.pathname) ||
@@ -153,6 +235,7 @@ export function createProtocolHandler({
     throw new Error('INVALID_ASSET_DIRECTORY');
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000)
     throw new Error('INVALID_TIMEOUT');
+  const mediaCache = createMenuMediaCache();
   return async (request) => {
     const url = localURL(request.url);
     const origin = request.headers.get('origin');
@@ -243,6 +326,20 @@ export function createProtocolHandler({
         categories: settings.categories,
         ...(settings.terminalId ? { terminalId: settings.terminalId } : {}),
       });
+    const media = MENU_MEDIA_PATH.exec(path);
+    if (media) {
+      const result = await menuMediaResponse(media[1], {
+        edgePort: settings.edgePort,
+        fetchImpl,
+        timeoutMs,
+        cache: mediaCache,
+        assetDir,
+      });
+      if (!result) return json(404, { code: 'NOT_FOUND' });
+      return new Response(result.bytes, {
+        headers: { ...SECURITY_HEADERS, 'Content-Type': result.type },
+      });
+    }
     const asset = assets.get(path);
     if (!asset) return json(404, { code: 'NOT_FOUND' });
     try {

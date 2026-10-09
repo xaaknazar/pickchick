@@ -1,9 +1,11 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
+  CatalogProjectionError,
   projectCatalogMenu,
   publishMenuInTransaction,
   readCatalogMenuDelivery,
+  SyncError,
 } from '@pickchick/menu-sync';
 import { transaction } from '@pickchick/database';
 import type { DatabasePool, DatabaseClient } from '@pickchick/database';
@@ -22,8 +24,13 @@ import {
   assertCatalogPublishable,
 } from './contracts.js';
 import type { CatalogCredential, CatalogPayload, CatalogState } from './contracts.js';
+import { authenticateCatalogActor, authorizeCatalog } from './auth.js';
+import type { CatalogActor, CatalogBranch } from './auth.js';
 import { mockupCatalogDraft } from './seed.js';
+import { assertCatalogAssets } from './assets.js';
 export * from './contracts.js';
+export * from './auth.js';
+export * from './assets.js';
 export { readCatalogMenuDelivery } from '@pickchick/menu-sync';
 export const CATALOG_ADMIN = Symbol('CATALOG_ADMIN');
 export const catalogHash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -31,6 +38,10 @@ export interface CatalogAdminOptions {
   enabled: boolean;
   mobileStorefrontBranchId?: string;
   edgePublicationBranchId?: string;
+  /** Branch served by the iPad kiosk storefront (publication_support.kiosk). */
+  kioskBranchId?: string;
+  /** bo_access_grants role check: analyst reads only, manager writes. Off by default. */
+  enforceRoles?: boolean;
 }
 export function catalogAdminOptions(
   env: Readonly<Record<string, string | undefined>> = {},
@@ -53,23 +64,22 @@ export function catalogAdminOptions(
     (edge === 'true' && !z.uuid().safeParse(edgeBranch).success)
   )
     throw new Error('CATALOG_EDGE_PUBLICATION_CONFIGURATION_INVALID');
+  const roles = env['CATALOG_ACCESS_ROLES_ENABLED'] ?? 'false';
+  if (!['true', 'false'].includes(roles))
+    throw new Error('CATALOG_ACCESS_ROLES_CONFIGURATION_INVALID');
+  // Informational only; kiosk checkout validates its own configuration.
+  const kioskBranch =
+    env['KIOSK_CHECKOUT_ENABLED'] === 'true' ? env['KIOSK_CHECKOUT_BRANCH_ID'] : undefined;
   return {
     enabled: value === 'true',
     ...(edge === 'true' ? { edgePublicationBranchId: edgeBranch! } : {}),
     ...(mobile === 'true' ? { mobileStorefrontBranchId: branchId! } : {}),
+    ...(z.uuid().safeParse(kioskBranch).success ? { kioskBranchId: kioskBranch! } : {}),
+    ...(roles === 'true' ? { enforceRoles: true } : {}),
   };
 }
-interface Actor {
-  id: string;
-  organization_id: string;
-  name: string;
-}
-interface Branch {
-  id: string;
-  organization_id: string;
-  code: string;
-  name: string;
-}
+type Actor = CatalogActor;
+type Branch = CatalogBranch;
 interface Head {
   draft_revision: number | null;
   published_version: number | null;
@@ -88,8 +98,8 @@ interface PublicationRow {
   actor_id: string;
   published_at: Date;
 }
-const failure = (code: ConstructorParameters<typeof CatalogAdminError>[0]) =>
-  new CatalogAdminError(code);
+const failure = (...args: ConstructorParameters<typeof CatalogAdminError>) =>
+  new CatalogAdminError(...args);
 function validId(value: string) {
   return parseCatalogInput(z.uuid(), value);
 }
@@ -149,28 +159,8 @@ export class CatalogAdmin {
     private readonly pool: DatabasePool,
     private readonly options: CatalogAdminOptions = { enabled: false },
   ) {}
-  private async actor(db: DatabaseClient, token: string): Promise<Actor> {
-    if (!this.options.enabled) throw failure('SERVICE_UNAVAILABLE');
-    if (!/^[a-f0-9]{64}$/.test(token)) throw failure('UNAUTHORIZED');
-    const actor = (
-      await db.query<Actor>(
-        'SELECT id,organization_id,name FROM catalog_managers WHERE token_hash=$1 AND revoked_at IS NULL FOR SHARE',
-        [catalogHash(token)],
-      )
-    ).rows[0];
-    if (!actor) throw failure('UNAUTHORIZED');
-    return actor;
-  }
-  private async branch(db: DatabaseClient, actor: Actor, id: string): Promise<Branch> {
-    validId(id);
-    const row = (
-      await db.query<Branch>(
-        'SELECT b.id,b.organization_id,b.code,b.name FROM branches b JOIN catalog_manager_branches s ON s.branch_id=b.id AND s.organization_id=b.organization_id WHERE b.id=$1 AND s.actor_id=$2 AND b.organization_id=$3 FOR SHARE OF s',
-        [id, actor.id, actor.organization_id],
-      )
-    ).rows[0];
-    if (!row) throw failure('FORBIDDEN');
-    return row;
+  private actor(db: DatabaseClient, token: string): Promise<Actor> {
+    return authenticateCatalogActor(db, token, this.options);
   }
   private async state(db: DatabaseClient, branch: Branch): Promise<CatalogState> {
     const head = (
@@ -198,8 +188,8 @@ export class CatalogAdmin {
     return CatalogStateSchema.parse({
       publication_support: {
         mobile: this.options.mobileStorefrontBranchId === branch.id,
-        pos: false,
-        kiosk: false,
+        pos: this.options.edgePublicationBranchId === branch.id,
+        kiosk: this.options.kioskBranchId === branch.id,
       },
       ...(this.options.edgePublicationBranchId === branch.id
         ? {
@@ -244,11 +234,19 @@ export class CatalogAdmin {
     });
   }
   async read(token: string, branchId: string): Promise<CatalogState> {
-    return transaction(this.pool, async (db) =>
-      this.state(db, await this.branch(db, await this.actor(db, token), branchId)),
-    );
+    return transaction(this.pool, async (db) => {
+      const { branch } = await authorizeCatalog(
+        db,
+        token,
+        branchId,
+        { write: false },
+        this.options,
+      );
+      return this.state(db, branch);
+    });
   }
   async publicCatalog(branchId: string) {
+    if (!this.options.enabled) throw failure('SERVICE_UNAVAILABLE');
     validId(branchId);
     return transaction(this.pool, async (db) => {
       const row = (
@@ -281,8 +279,13 @@ export class CatalogAdmin {
     validId(branchId);
     const hash = catalogHash(JSON.stringify({ branch_id: branchId, kind, body }));
     return transaction(this.pool, async (db) => {
-      const actor = await this.actor(db, token),
-        branch = await this.branch(db, actor, branchId);
+      const { actor, branch } = await authorizeCatalog(
+        db,
+        token,
+        branchId,
+        { write: true },
+        this.options,
+      );
       // A request key is unique for an actor across branches and commands; lock before lookup.
       await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 909001))', [
         `${actor.id}:${body.request_id}`,
@@ -327,6 +330,7 @@ export class CatalogAdmin {
       } else if (kind === 'save') {
         if (!before || !('payload' in body)) throw failure('CONFLICT');
         payload = body.payload;
+        await assertCatalogAssets(db, branch.organization_id, payload);
       } else {
         if (
           !before ||
@@ -341,6 +345,7 @@ export class CatalogAdmin {
           payload,
           !edgePublication && this.options.mobileStorefrontBranchId === branch.id,
         );
+        await assertCatalogAssets(db, branch.organization_id, payload);
         publication = (head.published_version ?? 0) + 1;
         await db.query(
           'INSERT INTO catalog_publications(branch_id,organization_id,version,source_revision,payload,payload_hash,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
@@ -361,11 +366,19 @@ export class CatalogAdmin {
               [branch.id],
             )
           ).rows[0];
-          if (!device) throw failure('CONFLICT');
+          if (!device) throw failure('CONFLICT', 'EDGE_DEVICE_INACTIVE');
+          // The edge may already serve a newer local menu than cloud history (installed v2).
+          const edge = (
+            await db.query<{ active_version: number }>(
+              'SELECT active_version FROM edge_menu_state WHERE branch_id=$1 AND device_id=$2',
+              [branch.id, device.id],
+            )
+          ).rows[0];
+          if (!edge) throw failure('CONFLICT', 'EDGE_MENU_STATE_UNKNOWN');
           const latest = (
             await db.query<{ version: number }>(
-              'SELECT COALESCE(max(version),0)::int version FROM menu_releases WHERE branch_id=$1',
-              [branch.id],
+              'SELECT GREATEST(COALESCE(max(version),0),$2::int)::int version FROM menu_releases WHERE branch_id=$1',
+              [branch.id, edge.active_version],
             )
           ).rows[0]!;
           let menu;
@@ -376,10 +389,17 @@ export class CatalogAdmin {
               latest.version + 1,
               new Date().toISOString(),
             );
-          } catch {
-            throw failure('CONFLICT');
+          } catch (error) {
+            throw error instanceof CatalogProjectionError
+              ? failure('CONFLICT', error.code)
+              : failure('CONFLICT');
           }
-          await publishMenuInTransaction(db, menu);
+          try {
+            await publishMenuInTransaction(db, menu, { floorVersion: edge.active_version });
+          } catch (error) {
+            if (error instanceof SyncError) throw failure('CONFLICT');
+            throw error;
+          }
           await db.query(
             'INSERT INTO catalog_menu_deliveries(branch_id,catalog_version,release_id,device_id) VALUES($1,$2,$3,$4)',
             [branch.id, publication, menu.release_id, device.id],

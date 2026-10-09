@@ -86,6 +86,35 @@ node --env-file=.env scripts/backoffice-setup.mjs --actor UUID --branch UUID --r
 `backofficeGrants` даёт этот минимум независимо от флага; старые отдельные commerce
 runtimes надо обновить вместе с миграцией. Trigger не получает SECURITY DEFINER.
 
+## Удалённый стоп-лист (cloud048, protocol 4)
+
+Касса остаётся единственным источником стопов. Бэк-офис только ставит команду в
+`cloud_stop_commands`; транспорт (protocol 4) доставляет её кассе, касса применяет её с
+проверкой `expected_version` и возвращает результат при следующем обмене.
+
+- `GET /v1/admin/backoffice/branches/:id/stops` — стоп-лист v2 (читает и `analyst`).
+  Строка на каждый товар и опцию опубликованного каталога: `catalog_ref` (slug), хэш-id кассы
+  (`localCatalogId`, как в меню кассы), имя, `stopped`, `version`, `source`, `expires_at`,
+  `sales_blocked`, открытая команда `pending` и последний ответ кассы `last_result`
+  (`applied`, `conflict`, `not_found`, `no_open_shift`, `expired`). Стопы вне публикации
+  попадают в `unknown_stops` с именем из старых таблиц `products`. Стоп-лист v1 внутри
+  `GET branches/:id` сохраняет прежнюю форму и теперь тоже называет хэш-id по публикации.
+- `POST /v1/admin/backoffice/branches/:id/stops` (только `manager`, JSON до 16 KB, ответ 202):
+  `{request_id, catalog_ref:{product_id, group_id?, option_id?}, stopped, duration:
+manual|hour|shift, reason, expected_version}`. Повтор того же `request_id` возвращает
+  тот же результат, тот же `request_id` с другим телом — `CONFLICT`. Действие пишется в
+  `bo_audit` (`remote_stop:stop|unstop`).
+- Ошибки несут стандартный конверт и `error.code`: `REMOTE_STOPS_DISABLED` (503),
+  `CATALOG_NOT_PUBLISHED`, `EDGE_STOPS_NOT_READY` (409, нет протокола 4 у кассы),
+  `CATALOG_ITEM_NOT_FOUND` (404), `STOP_COMMAND_IN_PROGRESS` (409, по позиции уже есть
+  открытая команда; она закрывается ответом кассы или через 120 с + 60 с).
+- Включение: `BACKOFFICE_REMOTE_STOPS_ENABLED=true` (по умолчанию false) только после
+  миграции cloud048, кассы на `FULFILLMENT_TRANSPORT_PROTOCOL=4` с
+  `EDGE_REMOTE_STOPS_ENABLED=true` и публикации меню на кассу. Grants:
+  `backofficeStopGrants` из `infra/staging/backoffice-stop-grants.mjs` (provision.mjs
+  применяет их после transport/BO grants). В публичном gateway нужно разрешить
+  `GET` и `POST .../stops` в allowlist BO.
+
 ## Что ещё требуется для полного §4.6
 
 - Доставка и подтверждение плана станций edge-узлом. `bo_delivery_outbox` хранит намерение,

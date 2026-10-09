@@ -11,10 +11,14 @@ const stop = new AbortController();
 const once = process.argv.includes('--once');
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => stop.abort());
 let failures = 0;
+// Photo download failures per menu event; after three, the publication is ACKed as rejected.
+const mediaAttempts = new Map();
 try {
   do {
     try {
-      const result = await syncMenuOnce(pool, config.branchId, origin, await readIdentity());
+      const result = await syncMenuOnce(pool, config.branchId, origin, await readIdentity(), {
+        mediaAttempts,
+      });
       failures = 0;
       if (once || result.state !== 'idle')
         console.log(JSON.stringify({ event: 'menu_sync', ...result }));

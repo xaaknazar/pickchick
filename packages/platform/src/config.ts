@@ -19,6 +19,8 @@ export interface ServiceConfig {
   edgeDeviceId?: string;
   fulfillmentTransportEnabled?: boolean;
   posOrderSyncEnabled?: boolean;
+  /** Edge service applies back-office stop commands from its inbox (edge schema019). */
+  remoteStopsEnabled?: boolean;
 }
 
 function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
@@ -119,6 +121,9 @@ export function loadConfig(
     'true';
   if (posSync && service === 'edge' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
     throw new Error('POS order sync requires EDGE_DEVICE_ID');
+  const remoteStops = env.EDGE_REMOTE_STOPS_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(remoteStops) || (remoteStops === 'true' && service !== 'edge'))
+    throw new Error('EDGE_REMOTE_STOPS_ENABLED configuration invalid');
   const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
   if (
     proxyIps &&
@@ -157,6 +162,7 @@ export function loadConfig(
     ...(transport ? { fulfillmentTransportEnabled: true } : {}),
     ...(posSync ? { posOrderSyncEnabled: true } : {}),
     ...(posSync && service === 'edge' ? { edgeDeviceId: env.EDGE_DEVICE_ID! } : {}),
+    ...(remoteStops === 'true' ? { remoteStopsEnabled: true } : {}),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

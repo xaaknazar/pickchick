@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, readdir, copyFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, copyFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,13 +12,22 @@ import {
 import { upgradeKioskPrepaid } from '../../infra/windows/kiosk-prepaid-upgrade-db.mjs';
 
 test('kiosk schema015-017 upgrade preserves prior data, resumes without duplicate backfill and retains minimal roles', async () => {
-  const appRoot = fileURLToPath(new URL('../../', import.meta.url));
+  const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
   const dir = await mkdtemp(join(tmpdir(), 'pickchick-cashier-upgrade-'));
+  // The helper ships for the reviewed schema017 runtime (6ac409f, installed 8 October); later
+  // candidates carry newer edge migrations and use their own upgrade helpers.
+  const appRoot = await mkdtemp(join(tmpdir(), 'pickchick-kiosk-runtime-'));
   try {
-    for (const name of (await readdir(join(appRoot, 'db/edge/migrations'))).filter(
-      (n) => n.endsWith('.sql') && n < '016',
-    ))
-      await copyFile(join(appRoot, 'db/edge/migrations', name), join(dir, name));
+    await mkdir(join(appRoot, 'db/edge/migrations'), { recursive: true });
+    for (const name of (await readdir(join(repoRoot, 'db/edge/migrations'))).filter(
+      (n) => n.endsWith('.sql') && n < '018',
+    )) {
+      await copyFile(
+        join(repoRoot, 'db/edge/migrations', name),
+        join(appRoot, 'db/edge/migrations', name),
+      );
+      if (name < '016') await copyFile(join(repoRoot, 'db/edge/migrations', name), join(dir, name));
+    }
     await withSyncDatabases(
       async (f) => {
         const c = await f.edge.pool.connect();
@@ -38,6 +47,10 @@ test('kiosk schema015-017 upgrade preserves prior data, resumes without duplicat
           await assert.rejects(
             upgradeKioskPrepaid(c, { ...o, branchId: '00000000-0000-0000-0000-000000000000' }),
             /Branch differs/,
+          );
+          await assert.rejects(
+            upgradeKioskPrepaid(c, { ...o, appRoot: repoRoot }),
+            /Expected reviewed migrations 001-017/,
           );
           const id = '11111111-1111-4111-8111-111111111111';
           await c.query(
@@ -140,5 +153,6 @@ test('kiosk schema015-017 upgrade preserves prior data, resumes without duplicat
     );
   } finally {
     await rm(dir, { recursive: true, force: true });
+    await rm(appRoot, { recursive: true, force: true });
   }
 });

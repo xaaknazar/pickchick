@@ -1,13 +1,23 @@
 import type {
   Cart,
   LocalOrder,
+  MenuCategory,
   MenuSnapshot,
   Quote,
   CashShift,
   StaffCredential,
   StaffSession,
 } from '@pickchick/contracts';
-export type { Cart, LocalOrder, MenuSnapshot, Quote, CashShift, StaffCredential, StaffSession };
+export type {
+  Cart,
+  LocalOrder,
+  MenuCategory,
+  MenuSnapshot,
+  Quote,
+  CashShift,
+  StaffCredential,
+  StaffSession,
+};
 export type FulfillmentState = NonNullable<LocalOrder['fulfillment']>['state'];
 export type Item = MenuSnapshot['items'][number];
 export type CartLine = Cart['items'][number];
@@ -191,6 +201,50 @@ export function credential(value: unknown): StaffCredential {
     throw new Error('INVALID_CREDENTIAL');
   return { ...session(s), token: s.token };
 }
+const SHA256 = /^[a-f0-9]{64}$/;
+const SOURCE_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const sortOrder = (value: unknown) =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100000
+    ? value
+    : undefined;
+/** Unified-menu fields are optional extras: a malformed extra is dropped, never trusted. */
+function optionalItemFields(i: Record<string, unknown>, imageUrl: string | undefined) {
+  const result: Pick<Item, 'source_id' | 'sort_order' | 'kind' | 'image'> = {};
+  if (typeof i.source_id === 'string' && SOURCE_ID.test(i.source_id))
+    result.source_id = i.source_id;
+  const order = sortOrder(i.sort_order);
+  if (order !== undefined) result.sort_order = order;
+  if (i.kind === 'item' || i.kind === 'combo' || i.kind === 'set') result.kind = i.kind;
+  if (i.image && typeof i.image === 'object' && !Array.isArray(i.image)) {
+    const image = i.image as Record<string, unknown>;
+    if (
+      typeof image.sha256 === 'string' &&
+      SHA256.test(image.sha256) &&
+      image.url === `/assets/menu/${image.sha256}.webp` &&
+      imageUrl === image.url
+    )
+      result.image = { sha256: image.sha256, url: image.url };
+  }
+  return result;
+}
+function optionalCategories(value: unknown, items: Item[]): MenuCategory[] | undefined {
+  if (!Array.isArray(value) || value.length > 200) return undefined;
+  try {
+    const categories = value.map((v) => {
+      const c = record(v);
+      const order = sortOrder(c.sort_order);
+      if (typeof c.source_id !== 'string' || !SOURCE_ID.test(c.source_id) || order === undefined)
+        throw new Error('INVALID_RESPONSE');
+      return { id: uuid(c.id), source_id: c.source_id, name: names(c.name), sort_order: order };
+    });
+    const ids = new Set(categories.map((c) => c.id));
+    if (ids.size !== categories.length || items.some((i) => !ids.has(i.category_id)))
+      return undefined;
+    return categories;
+  } catch {
+    return undefined;
+  }
+}
 export function menu(value: unknown): MenuSnapshot {
   const m = record(value);
   if (m.schema_version !== 1 || !Array.isArray(m.items) || m.items.length > 10000)
@@ -198,6 +252,15 @@ export function menu(value: unknown): MenuSnapshot {
   const items = m.items.map((input): Item => {
     const i = record(input);
     if (i.currency !== 'KZT') throw new Error('INVALID_RESPONSE');
+    const imageUrl =
+      i.image_url === undefined
+        ? undefined
+        : (() => {
+            const image = text(i.image_url, 160);
+            if (!/^\/assets\/menu\/[a-zA-Z0-9_-]+\.(?:jpg|jpeg|png|webp)$/.test(image))
+              throw new Error('INVALID_RESPONSE');
+            return image;
+          })();
     return {
       product_id: uuid(i.product_id),
       variant_id: uuid(i.variant_id),
@@ -205,23 +268,16 @@ export function menu(value: unknown): MenuSnapshot {
       name: names(i.name),
       currency: 'KZT',
       price_minor: minor(i.price_minor),
-      ...(i.image_url === undefined
-        ? {}
-        : {
-            image_url: (() => {
-              const image = text(i.image_url, 160);
-              if (!/^\/assets\/menu\/[a-zA-Z0-9_-]+\.(?:jpg|jpeg|png|webp)$/.test(image))
-                throw new Error('INVALID_RESPONSE');
-              return image;
-            })(),
-          }),
+      ...(imageUrl === undefined ? {} : { image_url: imageUrl }),
       ...(i.modifier_groups === undefined
         ? {}
         : { modifier_groups: modifierGroups(i.modifier_groups) }),
+      ...optionalItemFields(i, imageUrl),
     };
   });
   if (new Set(items.map((i) => i.variant_id)).size !== items.length)
     throw new Error('INVALID_RESPONSE');
+  const categories = optionalCategories(m.categories, items);
   return {
     schema_version: 1,
     release_id: uuid(m.release_id),
@@ -229,7 +285,45 @@ export function menu(value: unknown): MenuSnapshot {
     version: integer(m.version),
     published_at: date(m.published_at),
     items,
+    ...(categories ? { categories } : {}),
   };
+}
+export type MenuVersion = { release_id: string; version: number };
+export function menuVersion(value: unknown): MenuVersion {
+  const v = record(value);
+  return { release_id: uuid(v.release_id), version: integer(v.version) };
+}
+/** Category label: the publication name, then the operator config, then a neutral number. */
+export function categoryLabels(
+  m: MenuSnapshot | null | undefined,
+  configured: Record<string, string> = {},
+): Map<string, string> {
+  const published = new Map((m?.categories ?? []).map((c) => [c.id, c.name.ru]));
+  const labels = new Map<string, string>();
+  for (const item of m ? sortedItems(m) : []) {
+    if (labels.has(item.category_id)) continue;
+    labels.set(
+      item.category_id,
+      published.get(item.category_id) ??
+        (Object.hasOwn(configured, item.category_id) ? configured[item.category_id] : undefined) ??
+        `Категория ${labels.size + 1}`,
+    );
+  }
+  return labels;
+}
+/** Back-office order: category sort_order, then item sort_order, then snapshot order. */
+export function sortedItems(m: MenuSnapshot): Item[] {
+  const categories = new Map((m.categories ?? []).map((c) => [c.id, c.sort_order]));
+  return m.items
+    .map((item, index) => ({ item, index }))
+    .sort(
+      (a, b) =>
+        (categories.get(a.item.category_id) ?? Number.MAX_SAFE_INTEGER) -
+          (categories.get(b.item.category_id) ?? Number.MAX_SAFE_INTEGER) ||
+        (a.item.sort_order ?? a.index) - (b.item.sort_order ?? b.index) ||
+        a.index - b.index,
+    )
+    .map(({ item }) => item);
 }
 function details(value: unknown) {
   const d = record(value);

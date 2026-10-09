@@ -13,6 +13,7 @@ import {
   TransportReceiptSchema,
   TransportScopeSchema,
 } from './model.js';
+import type { StopReceipt, StopStateReport } from './model.js';
 import { cloudTransportOrigin, transportRequest, TransportHttpError } from './http.js';
 import type { TransportIo } from './http.js';
 
@@ -21,6 +22,70 @@ export interface FulfillmentWorkerOptions {
   branchId: string;
   origin: string;
   identity: unknown;
+  /** 4 adds back-office stop commands (edge schema019 and worker grants required). Default 2. */
+  protocolVersion?: 2 | 4;
+}
+/** Bounded per-pull stop report; the request body is capped at 64 KiB. Stopped rows go first. */
+export const STOP_STATE_REPORT_LIMIT = 250;
+
+/** Edge schema019 is installed and this role may run the protocol-4 stop exchange. */
+export async function remoteStopTransportReady(pool: DatabasePool) {
+  const installed = (
+    await pool.query<{ ready: boolean }>(
+      "SELECT to_regclass('remote_stop_commands') IS NOT NULL AND EXISTS(SELECT 1 FROM schema_migrations WHERE scope='edge' AND version='019_edge_remote_stops.sql') AS ready",
+    )
+  ).rows[0]!.ready;
+  if (!installed) return false;
+  return (
+    await pool.query<{ ready: boolean }>(
+      "SELECT has_column_privilege('remote_stop_commands','variant_id','INSERT') AND has_column_privilege('remote_stop_commands','reported_at','UPDATE') AND has_column_privilege('local_stops','source','SELECT') AND has_column_privilege('local_stops','version','SELECT') AS ready",
+    )
+  ).rows[0]!.ready;
+}
+
+async function unreportedStopReceipts(pool: DatabasePool, branchId: string) {
+  const rows = (
+    await pool.query<{ command_id: string; state: StopReceipt['result']; result_version: number }>(
+      `SELECT command_id,state,result_version FROM remote_stop_commands
+      WHERE branch_id=$1 AND state<>'received' AND reported_at IS NULL ORDER BY applied_at,command_id LIMIT 100`,
+      [branchId],
+    )
+  ).rows;
+  return rows.map((r): StopReceipt => ({
+    commandId: r.command_id,
+    result: r.state,
+    version: r.result_version === null ? null : Number(r.result_version),
+  }));
+}
+/** Same effective-stop rule as effectiveLocalStops: an hour or shift stop lapses without a write. */
+async function localStopStates(pool: DatabasePool, branchId: string) {
+  const rows = (
+    await pool.query<{
+      variant_id: string;
+      version: number;
+      stopped: boolean;
+      source: 'pos' | 'backoffice';
+      expires_at: Date | null;
+      shift_scoped: boolean;
+    }>(
+      `SELECT variant_id,version,source,stopped,CASE WHEN stopped THEN expires_at END AS expires_at,
+      (stopped AND expires_shift_id IS NOT NULL) AS shift_scoped FROM (
+        SELECT s.variant_id,s.version,s.source,s.expires_at,s.expires_shift_id,s.updated_at,
+        (s.stopped AND (s.expires_at IS NULL OR s.expires_at>clock_timestamp())
+          AND (s.expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=s.expires_shift_id AND c.state='open'))) AS stopped
+        FROM local_stops s WHERE s.branch_id=$1) t
+      ORDER BY stopped DESC,updated_at DESC,variant_id LIMIT $2`,
+      [branchId, STOP_STATE_REPORT_LIMIT],
+    )
+  ).rows;
+  return rows.map((r): StopStateReport => ({
+    id: r.variant_id,
+    version: Number(r.version),
+    stopped: r.stopped,
+    source: r.source,
+    expiresAt: r.expires_at ? r.expires_at.toISOString() : null,
+    shiftScoped: r.shift_scoped,
+  }));
 }
 const PendingSchema = z.strictObject({
   scope: TransportScopeSchema,
@@ -84,6 +149,11 @@ export async function syncFulfillmentOnce(
     deviceId: local.device_id,
     producerId: local.cloud_producer_id,
   });
+  // A protocol-4 worker on an edge without schema019/grants keeps the protocol-2 heartbeat:
+  // stale availability would block every mobile and kiosk payment.
+  let remoteStops: 'active' | 'edge_unavailable' | 'cloud_unsupported' | null = null;
+  if (options.protocolVersion === 4)
+    remoteStops = (await remoteStopTransportReady(pool)) ? 'active' : 'edge_unavailable';
   const workerId = randomUUID(),
     leaseToken = randomUUID();
   const acquired = await transaction(pool, async (client) => {
@@ -106,6 +176,94 @@ export async function syncFulfillmentOnce(
     );
     if (!r.rowCount) throw new TransportHttpError('NETWORK_UNKNOWN');
   };
+  /** Receipts are read before the stop list, so an 'applied' verdict always travels with a
+   * stop list that already contains its effect. */
+  const heartbeat = async () => {
+    const stopReceipts =
+      remoteStops === 'active' ? await unreportedStopReceipts(pool, branchId) : [];
+    const availability = {
+      revision: acquired.revision,
+      stoppedIds: await effectiveLocalStops(pool, branchId),
+    };
+    return remoteStops === 'active'
+      ? {
+          availability,
+          stopStates: await localStopStates(pool, branchId),
+          ...(stopReceipts.length ? { stopReceipts } : {}),
+        }
+      : { availability };
+  };
+  const stopInbound = async (
+    response: ReturnType<typeof PullResponseSchema.parse>,
+    receipts: StopReceipt[],
+  ) =>
+    transaction(pool, async (client) => {
+      for (const command of response.stopCommands ?? [])
+        await client.query(
+          `INSERT INTO remote_stop_commands(command_id,branch_id,variant_id,stopped,duration,reason,expected_version,actor_label,issued_at)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
+          [
+            command.commandId,
+            branchId,
+            command.variantId,
+            command.stopped,
+            command.duration,
+            command.reason,
+            command.expectedVersion,
+            command.actorLabel,
+            command.issuedAt,
+          ],
+        );
+      if (receipts.length)
+        await client.query(
+          `UPDATE remote_stop_commands SET reported_at=clock_timestamp()
+          WHERE branch_id=$1 AND command_id=ANY($2::uuid[]) AND state<>'received' AND reported_at IS NULL`,
+          [branchId, receipts.map((r) => r.commandId)],
+        );
+    });
+  /** Heartbeat pull. Protocol 4 carries stop receipts/states out and stop commands in; an old
+   * cloud that rejects protocol 4 gets the protocol-2 request instead, in the same turn. */
+  const pull = async (body: { availabilityOnly?: true }) => {
+    const beat = await heartbeat();
+    const base = { workerId, leaseSeconds: 30, protocolVersion: 2, ...body };
+    if (remoteStops === 'active') {
+      try {
+        const response = PullResponseSchema.parse(
+          await transportRequest(
+            origin,
+            'pull',
+            identity,
+            { ...base, protocolVersion: 4, ...beat },
+            io,
+          ),
+        );
+        if (!response.stopCommands) throw new TransportHttpError('INVALID_RESPONSE');
+        await stopInbound(response, 'stopReceipts' in beat ? (beat.stopReceipts ?? []) : []);
+        return response;
+      } catch (error) {
+        if (
+          !(error instanceof TransportHttpError) ||
+          error.code !== 'HTTP_REJECTED' ||
+          ![400, 503].includes(error.status ?? 0)
+        )
+          throw error;
+        remoteStops = 'cloud_unsupported';
+      }
+    }
+    const response = PullResponseSchema.parse(
+      await transportRequest(
+        origin,
+        'pull',
+        identity,
+        { ...base, availability: beat.availability },
+        io,
+      ),
+    );
+    if (response.stopCommands) throw new TransportHttpError('INVALID_RESPONSE');
+    return response;
+  };
+  const stopNote = () =>
+    remoteStops && remoteStops !== 'active' ? { remoteStops: remoteStops } : {};
   const diagnostic = async () => ({
     unresolvedFailures: Number(
       (
@@ -198,24 +356,7 @@ export async function syncFulfillmentOnce(
   try {
     // A blocked admission must not block its own stop-list recovery.
     if (acquired.pending_cloud !== null) {
-      const pulse = PullResponseSchema.parse(
-        await transportRequest(
-          origin,
-          'pull',
-          identity,
-          {
-            workerId,
-            leaseSeconds: 30,
-            protocolVersion: 2,
-            availabilityOnly: true,
-            availability: {
-              revision: acquired.revision,
-              stoppedIds: await effectiveLocalStops(pool, branchId),
-            },
-          },
-          io,
-        ),
-      );
+      const pulse = await pull({ availabilityOnly: true });
       if (JSON.stringify(pulse.scope) !== JSON.stringify(scope) || pulse.event !== null)
         throw new TransportHttpError('INVALID_RESPONSE');
       await syncCashier();
@@ -276,23 +417,7 @@ export async function syncFulfillmentOnce(
     let pending: Pending | null =
       acquired.pending_cloud === null ? null : PendingSchema.parse(acquired.pending_cloud);
     if (!pending) {
-      const pulled = PullResponseSchema.parse(
-        await transportRequest(
-          origin,
-          'pull',
-          identity,
-          {
-            workerId,
-            leaseSeconds: 30,
-            protocolVersion: 2,
-            availability: {
-              revision: acquired.revision,
-              stoppedIds: await effectiveLocalStops(pool, branchId),
-            },
-          },
-          io,
-        ),
-      );
+      const pulled = await pull({});
       if (JSON.stringify(pulled.scope) !== JSON.stringify(scope))
         throw new TransportHttpError('INVALID_RESPONSE');
       await syncCashier();
@@ -305,6 +430,7 @@ export async function syncFulfillmentOnce(
               ? ('acknowledged' as const)
               : ('idle' as const),
           ...(reverseError ? { error: reverseError } : {}),
+          ...stopNote(),
           ...(await diagnostic()),
         };
       }
@@ -386,12 +512,13 @@ export async function syncFulfillmentOnce(
     return {
       state: 'applied' as const,
       ...(reverseError ? { reverseError } : {}),
+      ...stopNote(),
       ...(await diagnostic()),
     };
   } catch (error) {
     const reason = failed(error);
     await update('last_error=$4', [reason]);
-    return { state: 'retry' as const, error: reason };
+    return { state: 'retry' as const, error: reason, ...stopNote() };
   } finally {
     await pool.query(
       'UPDATE fulfillment_transport_state SET worker_id=NULL,lease_token=NULL,lease_until=NULL WHERE branch_id=$1 AND worker_id=$2 AND lease_token=$3',

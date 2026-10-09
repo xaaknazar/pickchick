@@ -49,6 +49,16 @@ export type State = {
   operationsAvailable: boolean;
   operationsAt: number | null;
   operationsError: unknown;
+  /** Last menu replacement seen by this session; `id` grows so a view shows each notice once. */
+  menuChange: MenuChange | null;
+};
+export type MenuChange = {
+  id: number;
+  release_id: string;
+  version: number;
+  previous_version: number | null;
+  /** Russian names of draft lines dropped because the new menu no longer offers them. */
+  removed: string[];
 };
 const AUTH_KEY = 'pickchick.pos.staff-session.v1';
 export const scopeFor = (actor: StaffSession) =>
@@ -76,7 +86,9 @@ export class PosController {
     operationsAvailable: false,
     operationsAt: null,
     operationsError: null,
+    menuChange: null,
   };
+  private menuChanges = 0;
   private credential: StaffCredential | null = null;
   private journal: Journal | null = null;
   private listeners = new Set<() => void>();
@@ -350,6 +362,7 @@ export class PosController {
       operationsAvailable: false,
       operationsAt: null,
       operationsError: null,
+      menuChange: null,
     };
     await this.refreshData();
     await this.readOperations();
@@ -390,8 +403,40 @@ export class PosController {
       operationsAvailable: false,
       operationsAt: null,
       operationsError: null,
+      menuChange: null,
     };
     this.emit();
+  }
+  /** Moves unsent carts to the new release. Lines whose variant or chosen options are gone are
+   *  dropped; kept lines are repriced by the next quote. Orders and pending commands are never
+   *  touched: a pending create only references its quote, which the edge re-checks. */
+  private reconcileDrafts(previous: MenuSnapshot | null, next: MenuSnapshot): string[] {
+    const journal = this.journal;
+    if (!journal) return [];
+    const removed: string[] = [];
+    const move = (cart: Cart): Cart => {
+      if (cart.release_id === next.release_id) return cart;
+      const items = cart.items.filter((line) => {
+        const item = next.items.find((i) => i.variant_id === line.variant_id);
+        try {
+          if (!item) throw new Error('ITEM_REMOVED');
+          parse.validateSelections(item, line.modifiers ?? []);
+          return true;
+        } catch {
+          removed.push(
+            (previous?.items.find((i) => i.variant_id === line.variant_id) ?? item)?.name.ru ??
+              'из прошлого меню',
+          );
+          return false;
+        }
+      });
+      return { ...cart, release_id: next.release_id, items };
+    };
+    const draft = journal.draft && move(journal.draft);
+    const held = journal.held?.map(move);
+    if (draft !== journal.draft || held?.some((cart, n) => cart !== journal.held![n]))
+      this.save({ ...journal, draft, ...(held ? { held } : {}) });
+    return removed;
   }
   private async refreshData() {
     const [m, o] = await Promise.all([
@@ -400,10 +445,20 @@ export class PosController {
     ]);
     if (m.branch_id !== this.state.actor?.branch_id || o.branch_id !== m.branch_id)
       throw new Error('WRONG_BRANCH');
+    const previous = this.state.menu;
     this.state.menu = m;
     this.state.ordering = o;
     this.state.stops = new Map();
     if (this.state.quote && this.state.quote.release_id !== m.release_id) this.state.quote = null;
+    const removed = this.reconcileDrafts(previous, m);
+    if ((previous && previous.release_id !== m.release_id) || removed.length)
+      this.state.menuChange = {
+        id: ++this.menuChanges,
+        release_id: m.release_id,
+        version: m.version,
+        previous_version: previous?.version ?? null,
+        removed,
+      };
     if (this.journal && !this.journal.draft)
       this.save({
         ...this.journal,
@@ -421,6 +476,37 @@ export class PosController {
       await this.refreshData();
       await this.readOperations();
     });
+  }
+  /** Cheap live-menu check for the stop poll. A changed release reloads the menu and moves the
+   *  unsent draft; a quote that was already shown is recalculated once on the new menu. */
+  async syncMenu(): Promise<MenuChange | null> {
+    const epoch = this.generation,
+      current = this.state.menu;
+    if (!this.state.actor || !current || this.state.busy || this.journal?.pending) return null;
+    let latest: parse.MenuVersion;
+    try {
+      latest = parse.menuVersion(await this.request('menu/version'));
+    } catch (error) {
+      // An edge without this route (404) or a transient failure keeps the loaded menu.
+      if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
+        this.fail(error);
+      return null;
+    }
+    if (
+      epoch !== this.generation ||
+      latest.release_id === current.release_id ||
+      this.state.menu !== current ||
+      this.state.busy ||
+      this.journal?.pending
+    )
+      return null;
+    const requote = Boolean(this.state.quote && !this.state.order);
+    const before = this.state.menuChange;
+    await this.run(async () => {
+      await this.refreshData();
+      if (requote && this.journal?.draft?.items.length) await this.quoteWithRetry();
+    });
+    return this.state.menuChange !== before ? this.state.menuChange : null;
   }
   private operationsRead = 0;
   private async readOperations() {
@@ -637,27 +723,42 @@ export class PosController {
     await this.run(async () => {
       if (!this.journal?.draft?.items.length) throw new Error('INVALID_REQUEST');
       await this.refreshData();
-      const draft = { ...this.journal.draft!, release_id: this.state.menu!.release_id };
-      this.save({ ...this.journal, draft });
-      this.state.quote = null;
-      const q = parse.quote(await this.request('checkout/quotes', { method: 'POST', body: draft }));
-      const actual = q.lines
-        .map((l) => ({ key: parse.lineKey(l), quantity: l.quantity }))
-        .sort((a, b) => a.key.localeCompare(b.key));
-      if (
-        q.branch_id !== this.state.actor?.branch_id ||
-        q.release_id !== draft.release_id ||
-        q.service_mode !== draft.service_mode ||
-        !unchanged(
-          actual,
-          draft.items
-            .map((l) => ({ key: parse.lineKey(l), quantity: l.quantity }))
-            .sort((a, b) => a.key.localeCompare(b.key)),
-        )
-      )
-        throw new Error('INVALID_RESPONSE');
-      this.state.quote = q;
+      await this.quoteWithRetry();
     });
+  }
+  /** MENU_CHANGED means a publication landed between the menu read and the quote. The draft is
+   *  moved to the new release and quoted exactly once more; a second change is shown to staff. */
+  private async quoteWithRetry() {
+    try {
+      await this.quoteDraft();
+    } catch (error) {
+      if (!(error instanceof ApiError && error.code === 'MENU_CHANGED')) throw error;
+      await this.refreshData();
+      await this.quoteDraft();
+    }
+  }
+  private async quoteDraft() {
+    if (!this.journal?.draft?.items.length) throw new Error('MENU_CHANGED');
+    const draft = { ...this.journal.draft!, release_id: this.state.menu!.release_id };
+    this.save({ ...this.journal, draft });
+    this.state.quote = null;
+    const q = parse.quote(await this.request('checkout/quotes', { method: 'POST', body: draft }));
+    const actual = q.lines
+      .map((l) => ({ key: parse.lineKey(l), quantity: l.quantity }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+    if (
+      q.branch_id !== this.state.actor?.branch_id ||
+      q.release_id !== draft.release_id ||
+      q.service_mode !== draft.service_mode ||
+      !unchanged(
+        actual,
+        draft.items
+          .map((l) => ({ key: parse.lineKey(l), quantity: l.quantity }))
+          .sort((a, b) => a.key.localeCompare(b.key)),
+      )
+    )
+      throw new Error('INVALID_RESPONSE');
+    this.state.quote = q;
   }
   private async begin(kind: Pending['kind'], path: string, body: Record<string, unknown>) {
     if (!this.journal || this.state.storageBlocked || this.journal.pending)

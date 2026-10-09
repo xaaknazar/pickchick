@@ -1,12 +1,21 @@
 import { element as el, button, field, select, check } from './dom.js';
 import { message } from './api.js';
-import { OperationsModel, object, type Data, type Entry } from './operations-model.js';
+import {
+  OperationsModel,
+  StopsModel,
+  object,
+  type Data,
+  type Entry,
+  type StopDuration,
+  type StopItem,
+  type StopList,
+} from './operations-model.js';
 
 export const sections = [
   ['dash', 'Главная', 'Продажи, заказы и состояние точки'],
   ['orders', 'Заказы', 'Все каналы, оплата, кухня и история'],
   ['items', 'Номенклатура', 'Блюда, цены, модификаторы и КБЖУ'],
-  ['stoplist', 'Стоп-лист', 'Доступность блюд по последним данным кассы'],
+  ['stoplist', 'Стоп-лист', 'Временный стоп блюд на кассе, в приложении и киоске'],
   ['stock', 'Остатки', 'Ингредиенты, техкарты и складские документы'],
   ['reports', 'Отчёты', 'Показатели за выбранный период'],
   ['finance', 'Финансы', 'Ежедневные операции, движение денег и прибыль'],
@@ -122,6 +131,12 @@ function badge(value: unknown) {
 }
 function note(text: string) {
   return el('p', 'op-note', text);
+}
+function notice(text: string, cls: string, testId?: string) {
+  const n = el('div', 'notice ' + cls, text);
+  n.setAttribute('role', cls.includes('bad') ? 'alert' : 'status');
+  if (testId) n.dataset.testid = testId;
+  return n;
 }
 function panel(title: string, sub = '', actions: HTMLElement[] = []) {
   const p = el('section', 'panel op-panel'),
@@ -305,12 +320,345 @@ const defaultPayload = (kind: string): Data =>
     }) as Record<string, Data>
   )[kind]!;
 
+const clock = (v: string | null | undefined) => {
+  if (!v) return '-';
+  const at = new Date(v);
+  const sameDay =
+    at.toLocaleDateString('ru-RU', { timeZone: 'Asia/Almaty' }) ===
+    new Date().toLocaleDateString('ru-RU', { timeZone: 'Asia/Almaty' });
+  return at.toLocaleString(
+    'ru-RU',
+    sameDay
+      ? { timeZone: 'Asia/Almaty', hour: '2-digit', minute: '2-digit' }
+      : {
+          timeZone: 'Asia/Almaty',
+          day: '2-digit',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        },
+  );
+};
+const durations: [StopDuration, string][] = [
+  ['manual', 'Без срока'],
+  ['hour', '1 час'],
+  ['shift', 'До конца смены'],
+];
+const stopSource = (v: string | null) =>
+  v === 'pos' ? 'Касса' : v === 'backoffice' ? 'Бэк-офис' : '';
+/** Per-row cashier verdict or wait, in the words the design specifies. */
+export function stopRowState(
+  item: StopItem,
+): { text: string; tone: string; detail?: string } | null {
+  if (item.pending)
+    return {
+      text: 'Ждём подтверждения кассы…',
+      tone: 'wait',
+      detail: `${item.pending.stopped ? 'Стоп' : 'Возврат в продажу'} · ${item.pending.actor_label}${
+        item.pending.expires_at ? ' · отмена без ответа в ' + clock(item.pending.expires_at) : ''
+      }`,
+    };
+  const last = item.last_result;
+  if (!last) return null;
+  switch (last.state) {
+    case 'applied':
+      return {
+        text: `Применено кассой ${clock(last.resolved_at ?? last.created_at)}`,
+        tone: 'good',
+      };
+    case 'conflict':
+      return { text: 'Касса изменила позицию — обновите', tone: 'bad' };
+    case 'no_open_shift':
+      return { text: 'Нет открытой смены', tone: 'bad' };
+    case 'expired':
+      return { text: 'Касса не ответила за 2 минуты', tone: 'bad' };
+    case 'not_found':
+      return { text: 'Позиции нет в меню кассы — опубликуйте меню', tone: 'bad' };
+    default:
+      return { text: 'Касса вернула неизвестный ответ', tone: 'bad' };
+  }
+}
+export function stopName(item: StopItem) {
+  return item.kind === 'option'
+    ? `${item.product_name_ru} · ${item.group_name_ru ?? 'Вариант'}: ${item.name_ru}`
+    : item.name_ru;
+}
+
 export class OperationsView {
+  private stopFilter: 'all' | 'stopped' | 'waiting' = 'all';
+  private stopQuery = '';
   constructor(
     readonly model: OperationsModel,
     private catalog: () => { products: { id: string; name: { ru: string } }[] } | null,
     private navigate: (section: string) => void,
+    readonly stops: StopsModel | null = null,
   ) {}
+  /** Why stop controls are absent or disabled; null when the manager can send commands. */
+  private stopBlocker(d: StopList): { text: string; hide: boolean } | null {
+    if (!d.remote_stops.enabled)
+      return {
+        text: 'Удалённый стоп из кабинета выключен на сервере. Ставьте позиции на стоп на кассе: изменения с кассы появятся здесь, в приложении и киоске.',
+        hide: true,
+      };
+    if (d.role !== 'manager')
+      return {
+        text: 'У вас доступ только для просмотра. Ставить позиции на стоп может управляющий точки.',
+        hide: false,
+      };
+    if (!d.catalog)
+      return {
+        text: 'Сначала опубликуйте меню: стоп-лист строится по опубликованной версии.',
+        hide: false,
+      };
+    if (!d.remote_stops.edge_ready)
+      return {
+        text: 'Касса пока не принимает команды стопа из кабинета: кассовый узел не на связи или ещё не обновлён. Поставьте позицию на стоп на кассе.',
+        hide: false,
+      };
+    if (!d.remote_stops.writable) return { text: 'Команды стопа сейчас недоступны.', hide: false };
+    return null;
+  }
+  private stopDialog(item: StopItem, stopped: boolean) {
+    const stops = this.stops!;
+    const d = dialog(
+      stopped ? 'Поставить на стоп' : 'Вернуть в продажу',
+      stopped
+        ? 'Позиция сразу перестанет продаваться в приложении и киоске. Касса применит стоп в течение нескольких секунд; если касса не ответит за 2 минуты, команда отменится.'
+        : 'Позиция вернётся в продажу везде после подтверждения кассы. Если касса не ответит за 2 минуты, команда отменится.',
+    );
+    d.dataset.testid = 'stop-dialog';
+    d.append(el('p', 'stop-dialog-name', stopName(item)));
+    let duration: StopDuration = 'manual',
+      reason = '';
+    if (stopped) {
+      const group = el('fieldset', 'stop-durations');
+      group.append(el('legend', 'field-label', 'Срок стопа'));
+      for (const [value, label] of durations) {
+        const option = el('label', 'check'),
+          input = el('input');
+        input.type = 'radio';
+        input.name = 'stop-duration';
+        input.value = value;
+        input.checked = value === duration;
+        input.dataset.testid = 'stop-duration-' + value;
+        input.addEventListener('change', () => {
+          if (input.checked) duration = value;
+        });
+        option.append(input, el('span', '', label));
+        group.append(option);
+      }
+      d.append(group);
+    }
+    d.append(
+      field(
+        'Причина (необязательно)',
+        reason,
+        (v) => {
+          reason = v;
+        },
+        {
+          id: 'stop-reason',
+          max: 300,
+          hint: stopped ? 'Например: закончилась курица' : 'Например: поставка пришла',
+        },
+      ),
+    );
+    const error = el('p', 'notice error op-form-error');
+    error.setAttribute('role', 'alert');
+    error.hidden = true;
+    const submit = button(
+      stopped ? 'Поставить на стоп' : 'Вернуть в продажу',
+      async () => {
+        submit.disabled = true;
+        error.hidden = true;
+        try {
+          await stops.request(item, { stopped, duration, reason });
+          d.close();
+          d.remove();
+        } catch (e) {
+          error.textContent = message(e);
+          error.hidden = false;
+          submit.disabled = false;
+        }
+      },
+      stopped ? 'button danger' : 'button primary',
+      'stop-submit',
+    );
+    d.append(error, submit);
+  }
+  private renderStops(content: HTMLElement, d: StopList) {
+    const stops = this.stops!;
+    if (stops.error) content.append(note(message(stops.error)));
+    const a = d.availability;
+    if (!a.observed_at)
+      content.append(
+        notice(
+          'Касса ещё не передавала стоп-лист. Пока нет данных кассы, отсутствие позиций на стопе не означает, что всё в продаже.',
+          'stop-freshness bad',
+          'stop-freshness',
+        ),
+      );
+    else if (!a.fresh)
+      content.append(
+        notice(
+          `Касса не на связи с ${clock(a.observed_at)}. Показан последний полученный стоп-лист; новые команды будут ждать кассу и отменятся через 2 минуты.`,
+          'stop-freshness bad',
+          'stop-freshness',
+        ),
+      );
+    const blocker = this.stopBlocker(d);
+    const p = panel(
+      'Стоп-лист точки',
+      'Стоп временно убирает позицию из продажи на кассе, в приложении и киоске. Чтобы убрать блюдо из меню насовсем, снимите «Показывать в меню» в разделе «Меню и цены» и опубликуйте меню.',
+    );
+    p.dataset.testid = 'stoplist-v2';
+    p.append(
+      stats([
+        [
+          'На стопе',
+          String(d.items.filter((i) => i.sales_blocked).length + d.unknown_stops.length),
+        ],
+        ['Ждут кассу', String(d.items.filter((i) => i.pending).length)],
+        ['Последний обмен с кассой', a.observed_at ? clock(a.observed_at) : '-'],
+        ['Меню', d.catalog ? `v${d.catalog.version}` : 'Не опубликовано'],
+      ]),
+    );
+    if (blocker) {
+      const n = notice(blocker.text, 'stop-blocker', 'stop-blocker');
+      p.append(n);
+    }
+    const filters = el('div', 'filters stop-filters');
+    const search = field(
+      'Поиск',
+      this.stopQuery,
+      (v) => {
+        this.stopQuery = v;
+        rows();
+      },
+      { id: 'stop-search', max: 150 },
+    );
+    search.querySelector('input')!.placeholder = 'Блюдо или вариант';
+    filters.append(
+      search,
+      select(
+        'Показать',
+        this.stopFilter,
+        [
+          { value: 'all', label: 'Все позиции' },
+          { value: 'stopped', label: 'Только на стопе' },
+          { value: 'waiting', label: 'Ждут кассу' },
+        ],
+        (v) => {
+          this.stopFilter = v as typeof this.stopFilter;
+          rows();
+        },
+        'stop-filter',
+      ),
+    );
+    p.append(filters);
+    const wrap = el('div', 'table-wrap'),
+      t = el('table', 'op-table stop-table'),
+      head = el('thead'),
+      hr = el('tr'),
+      body = el('tbody');
+    for (const h of ['Позиция', 'Статус', 'Касса', 'Действие']) hr.append(el('th', '', h));
+    head.append(hr);
+    body.dataset.testid = 'stop-rows';
+    t.append(head, body);
+    wrap.append(t);
+    p.append(wrap);
+    const rows = () => {
+      body.replaceChildren();
+      const q = this.stopQuery.trim().toLocaleLowerCase();
+      const visible = d.items.filter(
+        (i) =>
+          (this.stopFilter === 'all' ||
+            (this.stopFilter === 'stopped' && i.sales_blocked) ||
+            (this.stopFilter === 'waiting' && i.pending)) &&
+          (!q || stopName(i).toLocaleLowerCase().includes(q)),
+      );
+      for (const item of visible) body.append(this.stopRow(item, d, blocker));
+      if (!visible.length) {
+        const r = el('tr'),
+          td = el(
+            'td',
+            'op-empty',
+            d.catalog ? 'По запросу ничего не найдено.' : 'Меню ещё не опубликовано.',
+          );
+        td.colSpan = 4;
+        r.append(td);
+        body.append(r);
+      }
+    };
+    rows();
+    content.append(p);
+    if (d.unknown_stops.length) {
+      const u = panel(
+        'На стопе вне опубликованного меню',
+        'Позиции, остановленные на кассе, которых нет в текущей публикации. Снять стоп можно на кассе.',
+      );
+      u.append(
+        table(
+          ['Позиция', 'Источник', 'До'],
+          d.unknown_stops.map((s) => [
+            s.name_ru ?? 'Позиция ' + s.variant_id.slice(0, 8),
+            stopSource(s.source) || '-',
+            s.shift_scoped ? 'Конца смены' : s.expires_at ? clock(s.expires_at) : 'Без срока',
+          ]),
+        ),
+      );
+      content.append(u);
+    }
+  }
+  private stopRow(item: StopItem, d: StopList, blocker: { text: string; hide: boolean } | null) {
+    const r = el('tr', item.kind === 'option' ? 'stop-option' : 'stop-product');
+    r.dataset.testid = 'stop-row-' + item.variant_id;
+    const name = el('td');
+    name.append(el('strong', '', item.name_ru));
+    if (item.kind === 'option')
+      name.append(
+        el('small', 'muted', `${item.product_name_ru} · ${item.group_name_ru ?? 'Вариант'}`),
+      );
+    const statusCell = el('td');
+    if (!item.listed) statusCell.append(el('span', 'op-badge', 'Скрыта из меню'));
+    else if (item.sales_blocked) {
+      statusCell.append(el('span', 'op-badge bad', 'На стопе'));
+      const until = item.shift_scoped
+        ? 'до конца смены'
+        : item.expires_at
+          ? 'до ' + clock(item.expires_at)
+          : item.stopped
+            ? 'без срока'
+            : '';
+      const source = stopSource(item.source);
+      const detail = [source && item.stopped ? source : '', until].filter(Boolean).join(' · ');
+      if (detail) statusCell.append(el('small', 'muted', detail));
+    } else statusCell.append(el('span', 'op-badge good', 'В продаже'));
+    const stateCell = el('td');
+    const state = stopRowState(item);
+    if (state) {
+      const s = el('span', 'stop-state ' + state.tone, state.text);
+      s.dataset.testid = 'stop-state-' + item.variant_id;
+      stateCell.append(s);
+      if (state.detail) stateCell.append(el('small', 'muted', state.detail));
+    } else stateCell.append(el('span', 'muted stop-none', '-'));
+    const actionCell = el('td');
+    if (item.listed && !blocker?.hide) {
+      const stopped = item.stopped;
+      const control = button(
+        stopped ? 'Вернуть в продажу' : 'Стоп',
+        () => this.stopDialog(item, !stopped),
+        stopped ? 'button small' : 'button small danger',
+        'stop-toggle-' + item.variant_id,
+      );
+      control.disabled =
+        Boolean(blocker) || Boolean(item.pending) || item.version === null || d.role !== 'manager';
+      if (item.pending) control.title = 'Команда ждёт подтверждения кассы';
+      actionCell.append(control);
+    }
+    r.append(name, statusCell, stateCell, actionCell);
+    return r;
+  }
   private options(kind: string) {
     return this.model.entries(kind).map((r) => ({ value: r.id, label: val(r.payload['name']) }));
   }
@@ -1060,6 +1408,14 @@ export class OperationsView {
   render(page: string, content: HTMLElement) {
     const m = this.model,
       d = m.data;
+    if (page === 'stoplist' && this.stops?.data) {
+      this.renderStops(content, this.stops.data);
+      return;
+    }
+    if (page === 'stoplist' && this.stops && !this.stops.unsupported && !this.stops.error) {
+      content.append(panel('Загружаем стоп-лист…', 'Получаем состояние кассы.'));
+      return;
+    }
     if (m.error) content.append(note(message(m.error)));
     if (m.pending)
       content.append(
@@ -1161,9 +1517,10 @@ export class OperationsView {
           'В последнем полученном стоп-листе нет позиций.',
         ),
       );
+      if (this.stops?.error) p.append(note(message(this.stops.error)));
       p.append(
         note(
-          'Управление стоп-листом сейчас выполняется на кассе. Удалённое изменение из кабинета будет доступно после подключения подтверждений кассового узла.',
+          'Управление стоп-листом сейчас выполняется на кассе. Стоп из кабинета появится после обновления сервера и кассового узла.',
         ),
       );
       content.append(p);

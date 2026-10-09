@@ -10,11 +10,9 @@ import { PromotionDialog } from '../backoffice/PromotionDialog';
 import type { PublishedContent } from '../backoffice/content-model';
 import type { ScreenProps } from '../model';
 import { orderUI } from './OrderPresentation';
-import { Image } from 'expo-image';
 import { cartRecommendations } from '../cart-actions';
 import { lineUnitPrice, money, selectionDescription } from '../domain';
-import { menuPhotos } from '../menu-photo-assets';
-import { photoHeroes } from '../product-photo-assets';
+import { ProductPhoto, productPhoto } from './ProductPhoto';
 import { colors, font } from '../theme';
 
 export function CartRecommendations({ props }: { props: ScreenProps }) {
@@ -47,12 +45,8 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
           >
             {recommendations.map((line) => (
               <View key={line.product.id} style={s.extra}>
-                <Image
-                  source={
-                    menuPhotos[line.product.id] ??
-                    photoHeroes[line.product.id] ??
-                    line.product.image
-                  }
+                <ProductPhoto
+                  photo={productPhoto(line.product, 'card', 'extra')}
                   contentFit="contain"
                   style={s.extraPhoto}
                   accessible={false}

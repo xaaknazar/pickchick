@@ -42,12 +42,27 @@ const catalog = new CatalogAdmin(pool, catalogAdminOptions(environment));
 ```
 
 `CATALOG_ADMIN_ENABLED=false` по умолчанию. Выключенный редактор возвращает 503
-для административных операций. Уже опубликованные версии остаются доступными
-через публичное чтение; выключение редактора не удаляет публикацию.
+для административных операций и для `GET /v1/catalog/branches/{id}`. Выключение
+редактора не удаляет публикацию; витрины мобильного приложения и киоска читают
+её своими маршрутами.
+
+`CATALOG_ACCESS_ROLES_ENABLED=false` по умолчанию. При `true` каждый вызов
+требует строку `bo_access_grants` для точки: `analyst` только читает, `manager`
+сохраняет, засевает и публикует; без строки — 403. Перед включением выдать роль
+каждому действующему держателю токена каталога (`grantBackoffice`), иначе он
+потеряет доступ. Staging provision выдаёт чтение и `lock_anchor` этой таблицы
+через `catalog-edge-grants.mjs` после back-office grants.
+
+Ошибка публикации 409 дополнительно содержит только код причины
+`error: {code}`: `CHANNEL_PRICES_NOT_SUPPORTED`, `UNAVAILABLE_LINKED_PRODUCT`,
+`EDGE_DEVICE_INACTIVE`, `EDGE_MENU_STATE_UNKNOWN`. При публикации на кассу
+версия меню = max(версии облака, активная версия, о которой сообщила касса) + 1;
+пока касса не сообщила своё меню (`edge_menu_state`), публикация отклоняется.
+`edge_delivery` показывает `rejected` с `reject_reason`, если касса отклонила
+релиз, и `edge_active_version`/`observed_at` из последнего отчёта кассы.
 
 Контроллер/DI и флаг зарегистрированы в основном API. Staging provision выдаёт
-права через `catalog-admin-grants.mjs`, публичное чтение доступно и при выключенном
-редакторе. Миграция 011 добавляет constrained no-op `lock_anchor`: PostgreSQL
+права через `catalog-admin-grants.mjs`. Миграция 011 добавляет constrained no-op `lock_anchor`: PostgreSQL
 требует UPDATE privilege даже для `FOR SHARE`. Runtime получает UPDATE только
 этого всегда-true столбца на credentials/scopes и не может менять token, назначение
 точки или выдавать управляющих. Проверка выполняет полный цикл под такой ролью.
@@ -102,7 +117,9 @@ HTTP-хост должен разрешить для этого PUT не мен�
 - Фото — разрешённый локальный `image_asset_key`, а не произвольный URL или путь.
   Список включает фактически существующие source-фото и `generic-drink` как
   отсутствие подтверждённого фото; i3/i21, которых нет в source assets, не принимаются.
-  Загрузка новых файлов и их CDN-публикация — отдельный подэтап.
+  `image_asset_key` остаётся обязательным запасным фото для уже установленных
+  клиентов. Загруженное фото задаётся отдельным `image:{asset_id,sha256}`
+  (раздел «Загрузка фото» ниже); `sha256` — хэш card-версии.
 - КБЖУ с базисом `per_serving`/`per_100_g`; `nutrition_status` остаётся
   `unverified`, пока оператор не вводит данные. `operator_entered` — происхождение
   записи, не лабораторная проверка. `allergens_status:'unknown'` отличается от
@@ -211,3 +228,48 @@ create/read/save/publish, конкуренция/replay, rollback аудита, 
 HTTP auth и публичное чтение. DB harness создаёт случайные схемы и удаляет только
 их после теста. Runtime-включение CMS, реальные данные меню, перевод и физическая
 работа ресторанов этими проверками не подтверждаются.
+
+## Загрузка фото (`CATALOG_MEDIA_UPLOAD_ENABLED`)
+
+Флаг по умолчанию `false`; без него все четыре маршрута ниже закрыты (503 для
+редактора, 404 для media), а сырое тело картинки API вообще не принимает.
+Загрузка дополнительно требует `CATALOG_ADMIN_ENABLED=true`.
+
+- `POST /v1/admin/catalog/branches/:id/assets` — тело это сами байты фото,
+  `Content-Type: image/jpeg|png|webp|heic|heif`, обязательный заголовок
+  `Idempotency-Key: <uuid>`. Только `manager` (при `CATALOG_ACCESS_ROLES_ENABLED`),
+  не больше 10 MiB (gateway, парсер API и код), не больше 30 загрузок за 10 минут
+  на одного управляющего (`429 RATE_LIMITED`, `error.code=ASSET_RATE_LIMITED`).
+  Повтор с тем же ключом возвращает тот же ответ; тот же ключ с другими байтами — 409. Одинаковое фото, загруженное снова, становится тем же asset.
+- Тип определяется по magic bytes (JPEG, PNG, WebP, HEIC/HEIF), а не по заголовку.
+  SVG, GIF, HTML/скрипт внутри картинки, несовпадение контейнера и декодера,
+  больше 40 Мп или сторона меньше 32 px отклоняются (`400`, `error.code`
+  `ASSET_UNSUPPORTED_TYPE`/`ASSET_INVALID_IMAGE`/`ASSET_TOO_LARGE`). Prebuilt
+  sharp не декодирует HEVC, поэтому настоящий iPhone HEIC сейчас получает
+  `ASSET_INVALID_IMAGE`: клиент должен отправлять JPEG.
+- sharp только поворачивает по EXIF, уменьшает и пережимает в WebP q82:
+  card 640, hero 1280, thumb 240 px по длинной стороне, без увеличения. Содержимое
+  фото не меняется (см. `kiosk-drink-photos.md`). EXIF, GPS, XMP и ICC удаляются;
+  исходный файл не хранится, остаётся только его SHA-256.
+- `GET /v1/admin/catalog/branches/:id/assets` — список фото организации (чтение,
+  analyst тоже), новые сверху, до 200.
+- `GET|HEAD /v1/media/catalog/<sha>.<card|hero|thumb>.webp` (или `<sha>.webp`) —
+  публично, без cookie/Authorization, `Cache-Control: public, max-age=31536000,
+immutable`, `ETag` = sha, `nosniff`, `Access-Control-Allow-Origin: *`.
+  Имя файла — SHA-256 именно этой версии; база проверяет это CHECK-ом.
+- `GET /internal/v1/edge/media/<sha>.card.webp` — только приватный порт API,
+  device bearer + `X-Device-Id` (как menu sync), только фото своей организации.
+  Этим маршрутом edge-воркер скачивает и проверяет фото перед применением меню.
+
+Сохранение черновика и публикация проверяют, что каждый `product.image` ссылается
+на существующий asset этой организации и что `sha256` совпадает с его card-версией;
+иначе `409 CONFLICT`, `error.code=ASSET_MISSING`. Без `image` в черновике ничего
+не меняется.
+
+Миграция `049_cloud_catalog_assets.sql`: `catalog_assets`,
+`catalog_asset_variants` (bytea до 1.5 MB, WebP, CHECK хэша) и журнал
+`catalog_asset_audit`; все три неизменяемы (`catalog_reject_mutation`). Байты
+лежат в PostgreSQL, поэтому обычный `pg_dump` бэкап их включает: после
+включения проверьте размер бэкапа. Grants: `infra/staging/catalog-asset-grants.mjs`
+(SELECT всегда; INSERT только при включённых редакторе и флаге; UPDATE/DELETE
+никогда), подключены в `provision.mjs`.

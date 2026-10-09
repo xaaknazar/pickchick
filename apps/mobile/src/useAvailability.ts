@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 import { API_URL } from './api';
 import { parseAvailability, type AvailabilityReadState } from './availability';
 import { AvailabilityRequestError, createAvailabilityRecovery } from './availability-recovery';
+import { parseCatalogVersionHeader } from './catalog-recovery';
 
 /** Long poll never mutates a basket, creates an order or sends a payment command. */
-export function useAvailability(enabled: boolean, refresh = 0) {
+export function useAvailability(
+  enabled: boolean,
+  refresh = 0,
+): AvailabilityReadState & { catalogVersion: number | null } {
   const [state, setState] = useState<AvailabilityReadState>({ data: null, status: 'checking' });
+  // Head publication version reported by the server (X-Catalog-Version); only ever grows.
+  const [catalogVersion, setCatalogVersion] = useState<number | null>(null);
   useEffect(() => {
     if (!enabled) return;
     const recovery = createAvailabilityRecovery({
@@ -27,6 +33,11 @@ export function useAvailability(enabled: boolean, refresh = 0) {
             },
           );
           if (!response.ok) throw new AvailabilityRequestError(response.status);
+          const head = parseCatalogVersionHeader(response.headers.get('x-catalog-version'));
+          if (head !== null)
+            setCatalogVersion((previous) =>
+              previous !== null && previous >= head ? previous : head,
+            );
           const body = await response.text();
           if (body.length > 1_000_000) throw Error('INVALID_AVAILABILITY');
           return parseAvailability(JSON.parse(body));
@@ -54,5 +65,5 @@ export function useAvailability(enabled: boolean, refresh = 0) {
       sub.remove();
     };
   }, [enabled, refresh]);
-  return state;
+  return useMemo(() => ({ ...state, catalogVersion }), [state, catalogVersion]);
 }

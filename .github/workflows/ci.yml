@@ -94,6 +94,8 @@ jobs:
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
       - name: Export native and web JavaScript bundles
+        env:
+          EXPO_PUBLIC_PUBLISHED_CATALOG: '0'
         run: pnpm --filter @pickchick/mobile export
       - name: Browser recovery regressions (isolated HTTP fixtures)
         run: |
@@ -159,6 +161,8 @@ jobs:
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
       - name: Export native and web JavaScript bundles
+        env:
+          EXPO_PUBLIC_PUBLISHED_CATALOG: '0'
         run: pnpm --filter @pickchick/mobile export
       - name: Browser recovery regressions (isolated HTTP fixtures)
         run: |
@@ -220,7 +224,8 @@ jobs:
           run_regression() {
             "$@" || failures+=("$*")
           }
-          EXPO_PUBLIC_ORDER_SIMULATOR=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear
+          # These journeys use the legacy TEST catalog; the published catalog is the app default.
+          EXPO_PUBLIC_ORDER_SIMULATOR=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear
           MOBILE_PREVIEW_PORT=4182 node scripts/mobile/preview-server.mjs > .local/mobile-recovery-server.log 2>&1 &
           recovery_pid=$!
           trap 'kill "$recovery_pid"' EXIT
@@ -243,6 +248,9 @@ jobs:
           run_regression .local/design-venv/bin/python tests/mobile/browser_arcade_motion.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_account_required.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_peak_loyalty.py
+          # Default export (published catalog): uploaded photos, fallbacks and republish refresh.
+          pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/published-catalog-web
+          run_regression .local/design-venv/bin/python tests/mobile/browser_published_photos.py .local/published-catalog-web
           if ((${#failures[@]})); then
             printf 'Failed regression: %s\n' "${failures[@]}"
             exit 1
@@ -280,7 +288,7 @@ jobs:
           .local/design-venv/bin/python -m playwright install --with-deps chromium
       - name: Verify opt-in server account screens and recovery
         run: |
-          EXPO_PUBLIC_CUSTOMER_AUTH=server pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
+          EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           PICKCHICK_PREVIEW_OUTPUT=customer-auth MOBILE_PREVIEW_PORT=4196 node scripts/mobile/preview-server.mjs > .local/customer-auth-server.log 2>&1 &
           customer_pid=$!
           trap 'kill "$customer_pid"' EXIT
@@ -290,7 +298,7 @@ jobs:
           done
           .local/design-venv/bin/python tests/mobile/browser_customer_account.py
           # Isolated Kaspi checkout fixture: no bank, no real customer or VPS requests.
-          EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
+          EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
       - name: Stop test infrastructure
         if: always()

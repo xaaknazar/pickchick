@@ -23,14 +23,31 @@ APP_DIRECTORY = "mobile"
 APP_TARGET = "PickChick"
 INTERNAL_ONLY = False
 DEFAULT_ARTIFACTS_ROOT = Path.home() / "Library/Caches/PickChick/releases"
+# The JS bundle reads the back-office publication unless EXPO_PUBLIC_PUBLISHED_CATALOG is "0".
+# Every pinned profile therefore names its catalog source explicitly.
 CUSTOMER_PILOT_FLAGS = {
     "EXPO_PUBLIC_CUSTOMER_AUTH": "server",
     "EXPO_PUBLIC_KASPI_CHECKOUT": "1",
     "EXPO_PUBLIC_ORDER_SIMULATOR": "0",
     "EXPO_PUBLIC_UNPAID_TEST_ORDERS": "0",
+    "EXPO_PUBLIC_PUBLISHED_CATALOG": "0",
 }
 FARM_PILOT_FLAGS = {**CUSTOMER_PILOT_FLAGS, "EXPO_PUBLIC_PICK_FARM": "1"}
-CATALOG_PILOT_FLAGS = {**FARM_PILOT_FLAGS, "EXPO_PUBLIC_PUBLISHED_CATALOG": "1"}
+# Default mobile release: everything of farm-pilot, reading the published catalog.
+PUBLISHED_CATALOG_FLAGS = {**FARM_PILOT_FLAGS, "EXPO_PUBLIC_PUBLISHED_CATALOG": "1"}
+CATALOG_PILOT_FLAGS = PUBLISHED_CATALOG_FLAGS
+DEFAULT_MOBILE_PROFILE = "published-catalog"
+# Older names of the same flag set; archives recorded under an alias stay deliverable.
+PROFILE_ALIASES = {"catalog-pilot": DEFAULT_MOBILE_PROFILE}
+MOBILE_PROFILES = ("customer-pilot", "farm-pilot", DEFAULT_MOBILE_PROFILE, *PROFILE_ALIASES)
+# Archives made before the catalog source was pinned recorded these exact flag sets; their
+# bundles were built when an unset flag still meant the legacy catalog.
+HISTORICAL_PROFILE_FLAGS = {
+    "customer-pilot": {key: value for key, value in CUSTOMER_PILOT_FLAGS.items()
+                       if key != "EXPO_PUBLIC_PUBLISHED_CATALOG"},
+    "farm-pilot": {key: value for key, value in FARM_PILOT_FLAGS.items()
+                   if key != "EXPO_PUBLIC_PUBLISHED_CATALOG"},
+}
 
 
 def select_app(name):
@@ -366,10 +383,20 @@ def write_private_json(path, data):
         handle.write("\n")
 
 
+def canonical_profile(feature_profile):
+    return PROFILE_ALIASES.get(feature_profile, feature_profile)
+
+
+def default_feature_profile(app):
+    """Mobile archives read the published catalog by default; the kiosk keeps its own build."""
+    return DEFAULT_MOBILE_PROFILE if app == "mobile" else "legacy"
+
+
 def feature_profile_flags(feature_profile):
     """Return an independent allowlisted flag snapshot for release metadata."""
     profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS,
-                "catalog-pilot": CATALOG_PILOT_FLAGS}
+                DEFAULT_MOBILE_PROFILE: PUBLISHED_CATALOG_FLAGS}
+    feature_profile = canonical_profile(feature_profile)
     if feature_profile == "legacy":
         return None
     if feature_profile not in profiles:
@@ -394,10 +421,12 @@ def archive_environment(feature_profile, source=None):
 
 def verify_feature_profile(metadata, requested):
     archived = metadata.get("featureProfile", "legacy")
-    if archived != requested:
+    if canonical_profile(archived) != canonical_profile(requested):
         fail("The requested feature profile differs from the archived release.")
     flags = feature_profile_flags(archived)
-    if flags is not None and metadata.get("embeddedPublicEnv") != flags:
+    historical = HISTORICAL_PROFILE_FLAGS.get(canonical_profile(archived))
+    embedded = metadata.get("embeddedPublicEnv")
+    if flags is not None and embedded != flags and embedded != historical:
         fail(f"The archived {archived} feature flags are missing or do not match.")
 
 
@@ -456,8 +485,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["doctor", "archive", "export", "upload"])
     parser.add_argument("--app", choices=["mobile", "kiosk"], default="mobile")
-    parser.add_argument("--feature-profile", choices=["legacy", "customer-pilot", "farm-pilot", "catalog-pilot"],
-                        default="legacy", help="Explicit JS feature set for a mobile TestFlight archive")
+    parser.add_argument("--feature-profile", choices=["legacy", *MOBILE_PROFILES], default=None,
+                        help="JS feature set; mobile defaults to published-catalog "
+                             "(catalog-pilot is an alias), the kiosk to legacy")
     parser.add_argument("--workspace")
     parser.add_argument("--scheme")
     parser.add_argument("--release", default="first-testflight")
@@ -470,7 +500,9 @@ def main():
     parser.add_argument("--keychain-password-file", help="Optional private hex password file to unlock only the dedicated keychain")
     args = parser.parse_args()
     select_app(args.app)
-    if args.feature_profile in {"customer-pilot", "farm-pilot", "catalog-pilot"} and args.app != "mobile":
+    if args.feature_profile is None:
+        args.feature_profile = default_feature_profile(args.app)
+    if args.feature_profile in MOBILE_PROFILES and args.app != "mobile":
         fail("Pilot feature profiles are available only for the mobile app.")
     args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
     args.scheme = args.scheme or APP_TARGET
@@ -534,7 +566,7 @@ def perform_phase(args, signing, artifacts):
                         "team": TEAM, "bundleIdentifier": BUNDLE, "apiUrl": api_url,
                         "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY,
                         "version": version, "build": build,
-                        "featureProfile": args.feature_profile,
+                        "featureProfile": canonical_profile(args.feature_profile),
                         "embeddedPublicEnv": (feature_profile_flags(args.feature_profile) or {}),
                         "gitSha": local_command(["git", "rev-parse", "HEAD"]).strip(),
                         "dirty": bool(local_command(["git", "status", "--porcelain"]).strip()),

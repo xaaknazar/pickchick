@@ -28,6 +28,16 @@ export const CATALOG_ASSET_KEYS = [
 ] as const;
 const Id = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/);
 const Minor = z.string().regex(/^(0|[1-9][0-9]{0,15})$/);
+const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
+const TileColor = z.string().regex(/^#[0-9A-F]{6}$/);
+/** Uploaded photo reference; image_asset_key stays the bundled fallback for old clients. */
+export const CatalogImageRefSchema = z.strictObject({
+  asset_id: z.uuid(),
+  sha256: Sha256,
+  tile_color: TileColor.optional(),
+  cutout: z.boolean().optional(),
+});
+export const CatalogKitchenRouteSchema = z.enum(['prep', 'assembly_item']);
 export const CatalogTextSchema = z.strictObject({
   ru: z.string().max(2000),
   kk: z.string().max(2000),
@@ -72,6 +82,8 @@ export const CatalogProductSchema = z.strictObject({
     })
     .optional(),
   image_asset_key: z.string().refine((v) => CATALOG_ASSET_KEYS.some((key) => key === v)),
+  image: CatalogImageRefSchema.optional(),
+  kitchen_route: CatalogKitchenRouteSchema.optional(),
   available: z.boolean(),
   prep_required: z.boolean(),
   prep_minutes: z.int().min(1).max(120),
@@ -194,9 +206,43 @@ export function assertCatalogPublishable(payload: CatalogPayload, mobileEnabled 
       ),
     )
   )
-    throw new CatalogAdminError('CONFLICT');
+    throw new CatalogAdminError('CONFLICT', 'CHANNEL_PRICES_NOT_SUPPORTED');
 }
 export type CatalogProduct = z.infer<typeof CatalogProductSchema>;
+export type CatalogImageRef = z.infer<typeof CatalogImageRefSchema>;
+/** Product fields that installed strict storefront clients (kiosk build 7, mobile) reject. */
+export const CATALOG_STOREFRONT_STRIPPED_FIELDS = ['image', 'kitchen_route'] as const;
+/**
+ * Copy of a payload without the unified-menu product fields, so the payload still parses
+ * with the strict schema bundled in already installed kiosk and mobile builds.
+ */
+export function stripStorefrontPayload(payload: CatalogPayload): CatalogPayload {
+  return {
+    ...payload,
+    products: payload.products.map((product) => {
+      const copy: Partial<CatalogProduct> = { ...product };
+      for (const field of CATALOG_STOREFRONT_STRIPPED_FIELDS) delete copy[field];
+      return copy as CatalogProduct;
+    }),
+  };
+}
+const MediaVariantUrl = (variant: 'card' | 'hero' | 'thumb') =>
+  z.string().regex(new RegExp(`^/v1/media/catalog/[a-f0-9]{64}\\.${variant}\\.webp$`));
+export const CatalogMediaEntrySchema = z.strictObject({
+  sha256: Sha256,
+  card: MediaVariantUrl('card'),
+  hero: MediaVariantUrl('hero'),
+  thumb: MediaVariantUrl('thumb'),
+  tile_color: TileColor.optional(),
+  cutout: z.boolean().optional(),
+});
+/** Separate media map for new clients; keyed by catalog product id (slug). */
+export const CatalogMediaMapSchema = z.strictObject({
+  version: z.int().positive(),
+  products: z.record(Id, CatalogMediaEntrySchema),
+});
+export type CatalogMediaEntry = z.infer<typeof CatalogMediaEntrySchema>;
+export type CatalogMediaMap = z.infer<typeof CatalogMediaMapSchema>;
 export type CatalogModifier = z.infer<typeof CatalogModifierSchema>;
 const Branch = z.strictObject({ id: z.uuid(), code: z.string(), name: z.string() });
 export const CatalogDraftSchema = z.strictObject({
@@ -212,18 +258,28 @@ export const CatalogPublishedSchema = z.strictObject({
   published_by: z.uuid(),
   payload: CatalogPayloadSchema,
 });
+/** Same codes as MenuAckSchema.reason in @pickchick/contracts. */
+export const CatalogMenuRejectReasonSchema = z.enum([
+  'ROUTING_UNRESOLVED',
+  'VERSION_NOT_NEWER',
+  'MEDIA_UNAVAILABLE',
+  'INVALID_MENU',
+]);
 export const CatalogMenuDeliverySchema = z.strictObject({
   catalog_version: z.int().positive(),
   menu_version: z.int().positive(),
   release_id: z.uuid(),
   device_id: z.uuid(),
-  status: z.enum(['pending', 'applied', 'unavailable', 'superseded']),
+  status: z.enum(['pending', 'applied', 'rejected', 'unavailable', 'superseded']),
   acknowledged_at: z.iso.datetime().nullable(),
+  reject_reason: CatalogMenuRejectReasonSchema.optional(),
+  edge_active_version: z.int().positive().nullable().optional(),
+  observed_at: z.iso.datetime().nullable().optional(),
 });
 export const CatalogStateSchema = z.strictObject({
   branch: Branch,
   publication_support: z
-    .strictObject({ mobile: z.boolean(), pos: z.literal(false), kiosk: z.literal(false) })
+    .strictObject({ mobile: z.boolean(), pos: z.boolean(), kiosk: z.boolean() })
     .optional(),
   edge_delivery: CatalogMenuDeliverySchema.nullable().optional(),
   draft: CatalogDraftSchema.nullable(),
@@ -274,9 +330,27 @@ export type CatalogErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'RATE_LIMITED'
   | 'SERVICE_UNAVAILABLE';
+/** Precise publication failure shown to the editor; the HTTP status still follows `code`. */
+export const CatalogErrorReasonSchema = z.enum([
+  'CHANNEL_PRICES_NOT_SUPPORTED',
+  'UNAVAILABLE_LINKED_PRODUCT',
+  'EDGE_DEVICE_INACTIVE',
+  'EDGE_MENU_STATE_UNKNOWN',
+  // Uploaded photos (catalog_assets): a product.image ref must name an existing asset.
+  'ASSET_MISSING',
+  'ASSET_UNSUPPORTED_TYPE',
+  'ASSET_TOO_LARGE',
+  'ASSET_INVALID_IMAGE',
+  'ASSET_RATE_LIMITED',
+]);
+export type CatalogErrorReason = z.infer<typeof CatalogErrorReasonSchema>;
 export class CatalogAdminError extends Error {
-  constructor(readonly code: CatalogErrorCode) {
+  constructor(
+    readonly code: CatalogErrorCode,
+    readonly reason?: CatalogErrorReason,
+  ) {
     super(code);
     this.name = 'CatalogAdminError';
   }

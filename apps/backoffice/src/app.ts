@@ -1,20 +1,53 @@
-import { OperationsModel } from './operations-model.js';
+import { OperationsModel, StopsModel } from './operations-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
 import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message, staffAuth } from './api.js';
-import { money, copy } from './domain.js';
-import { element as el, button, field, select, check, image, navigationIcon } from './dom.js';
-import { openEditor, emptyProduct } from './editor.js';
+import { money, copy, deliveryText, publicationCopy } from './domain.js';
+import {
+  element as el,
+  button,
+  field,
+  select,
+  check,
+  image,
+  productPhoto,
+  navigationIcon,
+} from './dom.js';
+import { openEditor, emptyProduct, type EditorContext } from './editor.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
+/** «Другие разделы» opened by the user stays open across re-renders (stop list polling). */
+let secondaryOpen = false;
 const operations = new OperationsModel(
   (path, request) => model.operations(path, request),
   window.sessionStorage,
   render,
 );
+let renderOnBlur = false;
+/** Background refreshes never steal focus from a field the manager is typing in. */
+function softRender() {
+  const active = document.activeElement;
+  if (active && root.contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) {
+    if (!renderOnBlur) {
+      renderOnBlur = true;
+      root.addEventListener(
+        'focusout',
+        () =>
+          setTimeout(() => {
+            renderOnBlur = false;
+            render();
+          }, 0),
+        { once: true },
+      );
+    }
+    return;
+  }
+  render();
+}
+const stops = new StopsModel((path, request) => model.operations(path, request), softRender);
 const operationView = new OperationsView(
   operations,
   () => model.payload,
@@ -22,6 +55,7 @@ const operationView = new OperationsView(
     page = section;
     render();
   },
+  stops,
 );
 const finance = new FinanceModel(
   (path, request) => model.operations(path, request),
@@ -38,6 +72,7 @@ function syncOperations() {
     finance.clear();
     financeView.clear();
     operations.clear();
+    stops.clear();
     document.querySelectorAll<HTMLDialogElement>('.op-dialog').forEach((d) => {
       d.close();
       d.remove();
@@ -48,7 +83,39 @@ function syncOperations() {
   if (branch) void finance.scope(model.actor.id, branch);
   if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
     void operations.load(model.actor.id, branch);
+  if (branch && page === 'stoplist' && (stops.actor !== model.actor.id || stops.branch !== branch))
+    void stops.load(model.actor.id, branch);
 }
+/**
+ * Stop list polling: every 2 s while a command waits for the cashier, otherwise every 10 s,
+ * only while the stop list is open and the tab is visible.
+ */
+setInterval(() => {
+  const branch = model.state?.branch.id;
+  if (
+    page === 'stoplist' &&
+    model.actor &&
+    branch &&
+    !stops.busy &&
+    document.visibilityState !== 'hidden' &&
+    Date.now() - stops.loadedAt >= stops.nextDelay()
+  )
+    void stops.load(model.actor.id, branch);
+}, 500);
+/** Catalog page: refresh the cashier delivery status while it waits for the cashier. */
+setInterval(() => {
+  if (
+    page === 'items' &&
+    model.actor &&
+    !model.busy &&
+    !model.pending &&
+    document.visibilityState !== 'hidden' &&
+    model.state?.edge_delivery?.status === 'pending' &&
+    !document.querySelector('dialog[open]') &&
+    !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
+  )
+    void model.refreshStatus();
+}, 10000);
 
 let choosingCustom = false;
 let customStart = '';
@@ -235,7 +302,10 @@ function render() {
           if (finance.pending && page === 'finance') return;
           financeView.clear();
           page = id;
+          secondaryOpen = false;
           history.replaceState(null, '', '#' + id);
+          if (id === 'stoplist' && model.actor && model.state)
+            void stops.load(model.actor.id, model.state.branch.id);
           render();
         },
         `nav-item ${page === id ? 'active' : ''}`,
@@ -254,7 +324,10 @@ function render() {
       .sort((a, b) => primary.indexOf(a[0]) - primary.indexOf(b[0])),
   );
   const secondary = el('details', 'nav-secondary');
-  secondary.open = !primary.includes(page);
+  secondary.open = !primary.includes(page) || secondaryOpen;
+  secondary.addEventListener('toggle', () => {
+    if (secondary.isConnected) secondaryOpen = secondary.open;
+  });
   secondary.append(el('summary', '', 'Другие разделы'));
   appendLinks(
     secondary,
@@ -369,7 +442,11 @@ function render() {
     const tools = el('div', 'header-tools');
     const refresh = button(
       operations.busy ? 'Обновляем...' : 'Обновить',
-      () => void operations.load(operations.actor, operations.branch),
+      () => {
+        void operations.load(operations.actor, operations.branch);
+        if (page === 'stoplist' && model.actor && model.state)
+          void stops.load(model.actor.id, model.state.branch.id);
+      },
       'button subtle',
       'op-refresh',
     );
@@ -551,14 +628,7 @@ function render() {
     stats.append(s);
   }
   content.append(stats);
-  content.append(
-    notice(
-      model.state.publication_support?.mobile
-        ? 'Публикация обновляет меню подключённого мобильного приложения и серверный расчёт заказа. Касса и киоск подключаются отдельно; их отдельные цены пока нельзя публиковать.'
-        : 'Подключение публикаций к приложению, кассе и киоску ещё не включено. Сохранённый черновик сам по себе не меняет действующее меню.',
-      'notice compact',
-    ),
-  );
+  content.append(channelStatus());
   if (!model.payload) {
     const empty = el('section', 'panel empty');
     if (model.state.publication_support?.mobile) {
@@ -630,7 +700,7 @@ function render() {
         model.payload!,
         (p) => model.updateProduct(p),
         true,
-        model.state?.publication_support,
+        editorContext(),
       ),
     'button',
     'add-product',
@@ -644,7 +714,7 @@ function render() {
   const table = el('table'),
     thead = el('thead'),
     tr = el('tr');
-  for (const text of ['Позиция', 'Категория', 'Цена', 'КБЖУ', 'Доступность', 'Действия'])
+  for (const text of ['Позиция', 'Категория', 'Цена', 'КБЖУ', 'В меню', 'Действия'])
     tr.append(el('th', '', text));
   thead.append(tr);
   const tbody = el('tbody');
@@ -653,7 +723,14 @@ function render() {
   tableWrap.append(table);
   panel.append(tableWrap);
   const count = el('p', 'table-count');
-  panel.append(count);
+  panel.append(
+    count,
+    el(
+      'p',
+      'muted table-help',
+      '«Скрыта из меню» — позиция не попадёт в следующую публикацию. Если блюдо временно закончилось, поставьте его на «Стоп» в разделе «Стоп-лист»: стоп действует сразу на кассе, в приложении и киоске и не требует публикации.',
+    ),
+  );
   content.append(panel);
   function rows() {
     tbody.replaceChildren();
@@ -676,7 +753,10 @@ function render() {
         el('small', 'muted', p.name.kk || 'KZ: перевод не добавлен'),
         el('small', 'muted', p.sku),
       );
-      identity.append(image(p.image_asset_key, ''), words);
+      identity.append(
+        productPhoto(p, '', (sha) => model.mediaUrl(sha)),
+        words,
+      );
       name.append(identity);
       const categoryName =
           model.payload!.categories.find((c) => c.id === p.category_id)?.name.ru ?? p.category_id,
@@ -693,19 +773,18 @@ function render() {
       );
       const availability = el('td');
       availability.append(
-        el('span', `badge ${p.available ? 'good' : 'muted'}`, p.available ? 'Доступна' : 'Скрыта'),
+        el(
+          'span',
+          `badge ${p.available ? 'good' : 'muted'}`,
+          p.available ? 'В меню' : 'Скрыта из меню',
+        ),
       );
+      if (p.image) availability.append(el('small', 'muted', 'Своё фото'));
       const controls = el('td'),
         edit = button(
           'Изменить',
           () =>
-            openEditor(
-              p,
-              model.payload!,
-              (v) => model.updateProduct(v),
-              false,
-              model.state?.publication_support,
-            ),
+            openEditor(p, model.payload!, (v) => model.updateProduct(v), false, editorContext()),
           'button small',
           `edit-${p.id}`,
         ),
@@ -816,6 +895,88 @@ function render() {
     ),
   );
 }
+function editorContext(): EditorContext {
+  return {
+    publicationSupport: model.state?.publication_support,
+    mediaUrl: (sha) => model.mediaUrl(sha),
+    upload: (file, onProgress) => model.uploadPhoto(file, onProgress),
+  };
+}
+/** Connected channels and the cashier's delivery of the latest publication. */
+function channelStatus() {
+  const state = model.state!,
+    support = state.publication_support;
+  const box = el('section', 'channel-status');
+  box.dataset.testid = 'channel-status';
+  const badges = el('div', 'channel-badges');
+  for (const [key, label] of [
+    ['mobile', 'Приложение'],
+    ['kiosk', 'Киоск'],
+    ['pos', 'Касса'],
+  ] as const) {
+    const on = support?.[key] === true;
+    const b = el(
+      'span',
+      `channel-badge ${on ? 'on' : 'off'}`,
+      `${label}: ${on ? 'подключено' : 'не подключено'}`,
+    );
+    b.dataset.testid = 'channel-' + key;
+    badges.append(b);
+  }
+  box.append(badges);
+  const delivery = state.edge_delivery;
+  if (delivery && state.published && delivery.catalog_version === state.published.version) {
+    const view = deliveryText(delivery, state.published.published_at);
+    const line = el('div', `delivery delivery-${view.tone}`);
+    line.dataset.testid = 'edge-delivery';
+    line.setAttribute('role', 'status');
+    line.append(el('strong', '', view.text));
+    const details = [`каталог v${delivery.catalog_version}`];
+    if (delivery.acknowledged_at)
+      details.push(
+        'ответ кассы ' +
+          new Date(delivery.acknowledged_at).toLocaleString('ru-RU', {
+            timeZone: 'Asia/Almaty',
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+      );
+    if (delivery.edge_active_version)
+      details.push(`сейчас на кассе версия ${delivery.edge_active_version}`);
+    line.append(el('small', 'muted', details.join(' · ')));
+    box.append(line);
+    if (view.warning) {
+      const w = notice(view.warning, 'notice error');
+      w.dataset.testid = 'edge-delivery-warning';
+      box.append(w);
+    }
+    if (delivery.status === 'rejected')
+      box.append(
+        el(
+          'p',
+          'muted',
+          'Касса продолжает работать на прежнем меню. Исправьте причину и опубликуйте новую версию; приложение и киоск уже получили эту публикацию.',
+        ),
+      );
+  } else if (support?.pos && state.published) {
+    const line = el('div', 'delivery delivery-muted');
+    line.dataset.testid = 'edge-delivery';
+    line.append(el('strong', '', 'Касса: ещё не получала публикаций из кабинета'));
+    box.append(line);
+  }
+  box.append(
+    el(
+      'p',
+      'muted channel-help',
+      support?.mobile || support?.kiosk || support?.pos
+        ? 'Сохранённый черновик ничего не меняет. После публикации приложение и киоск берут новое меню сразу, касса — после подтверждения кассового узла.'
+        : 'Подключение публикаций к приложению, кассе и киоску ещё не включено. Сохранённый черновик сам по себе не меняет действующее меню.',
+    ),
+  );
+  return box;
+}
 function publishDialog() {
   const dialog = el('dialog', 'confirm-dialog');
   dialog.dataset.testid = 'publish-dialog';
@@ -832,11 +993,10 @@ function publishDialog() {
       'p',
       'muted',
       `Будет создана версия v${(state.published?.version ?? 0) + 1}. ` +
-        (state.publication_support?.mobile
-          ? 'Подключённое мобильное приложение получит новые цены и состав. Заказы по старой версии потребуют обновления корзины. Касса и киоск остаются на своих версиях.'
-          : 'Связь с действующими клиентскими приложениями ещё не включена.'),
+        publicationCopy(state.publication_support),
     ),
   );
+  dialog.querySelector('p.muted')!.setAttribute('data-testid', 'publish-copy');
   if (!payload.content_reviewed)
     dialog.append(
       notice('Сначала отметьте проверку содержимого и сохраните черновик.', 'notice error'),
