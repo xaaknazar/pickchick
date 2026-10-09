@@ -3940,6 +3940,19 @@
       "updatedAt": "2026-10-09T14:25:24.536Z",
       "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment. Root-approved narrow transfer: Devices019→020 backup helper/checksum/tests and Windows runtime ADMIN_FILES; preserve historical profiles. 2026-10-09 mobile API3bc installed/HEADguard enabled with verified backup/restore and unchanged neighbors; root transfers VPS API/DB/public/gateway/BO and cashier resources to Devices final release, then bounded remaining unified flags. Bank containers excluded.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
+    },
+    {
+      "id": "ceo-password-rotation",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/ceo-password-rotation",
+      "scopes": [
+        "infra/backoffice-login/accounts.mjs",
+        "tests/backoffice/staff-rotation.test.mjs",
+        "docs/operations/ceo-password-rotation.md"
+      ],
+      "status": "active",
+      "head": "dd442241ccbd54ab1f16aebfe91c1dada23fd2ee",
+      "updatedAt": "2026-10-09T14:27:10.857Z"
     }
   ]
 }
