@@ -3865,11 +3865,15 @@
         "apps/kitchen/src/components/DisplayAccess.stories.ts",
         "apps/kitchen/src/components/PasswordReset.stories.ts",
         "apps/kitchen-desktop/.gitignore",
-        "tests/backoffice/devices-browser.py"
+        "tests/backoffice/devices-browser.py",
+        "apps/backoffice/src/components/DeviceAccessView.stories.js",
+        "apps/kitchen/src/components/TerminalPairing.stories.js",
+        "apps/kitchen/src/components/DisplayAccess.stories.js",
+        "apps/kitchen/src/components/PasswordReset.stories.js"
       ],
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T11:36:31.912Z"
+      "updatedAt": "2026-10-09T11:36:50.951Z"
     }
   ]
 }
