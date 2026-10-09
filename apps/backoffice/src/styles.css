@@ -2325,3 +2325,429 @@ textarea {
   flex: 0 0 auto;
   margin-bottom: 26px;
 }
+/* Devices: branch device registry (cashier node, kiosks, kitchen screens, board). */
+.devices {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+.devices-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.devices-titles h2 {
+  font-size: 1.25rem;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.devices-titles p {
+  margin-top: 4px;
+  font-size: 0.87rem;
+}
+.devices-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.devices-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+}
+.devices-total + .devices-total {
+  border-left: 1px solid var(--border);
+}
+.devices-total dt {
+  color: var(--muted);
+  font-size: 0.87rem;
+  font-weight: 600;
+}
+.devices-total dd {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.devices-total.good dd {
+  color: #126747;
+}
+.devices-total.bad dd {
+  color: #97243a;
+}
+.devices-total.wait dd {
+  color: #0047bb;
+}
+.device-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.device-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+}
+.device-group-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.device-count {
+  min-width: 24px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e8eef6;
+  color: #354e70;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.device-group-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  max-width: 75ch;
+}
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+}
+.device-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.device-card[data-tone='bad'] {
+  border-color: #e9b8c0;
+}
+.device-card[data-tone='wait'] {
+  border-color: #b7c9ea;
+}
+.device-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.device-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #edf2fa;
+  color: #0047bb;
+}
+.device-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.device-card-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.device-card-title h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.device-card-title span {
+  font-size: 0.8rem;
+}
+.device-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #354e70;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.device-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8a97ab;
+  flex: none;
+}
+.device-status.good {
+  background: #e2f2e9;
+  color: #126747;
+}
+.device-status.good .device-dot {
+  background: #1f9a63;
+}
+.device-status.bad {
+  background: #fce8eb;
+  color: #97243a;
+}
+.device-status.bad .device-dot {
+  background: #c8354d;
+}
+.device-status.warn {
+  background: #fff3da;
+  color: #7a4c00;
+}
+.device-status.warn .device-dot {
+  background: #d98a00;
+}
+.device-status.wait {
+  background: #e6efff;
+  color: #0b3f99;
+}
+.device-status.wait .device-dot {
+  background: #2f6fe0;
+}
+.device-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #e9edf4;
+}
+.device-fact {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.device-fact dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.device-fact dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.device-fact dd.warn {
+  color: #7a4c00;
+  font-weight: 600;
+}
+.device-fact dd.bad {
+  color: #97243a;
+  font-weight: 600;
+}
+.device-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  max-width: 75ch;
+}
+.device-hint.warn {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff6e2;
+  color: #6b4300;
+}
+.device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.device-actions .button {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+.device-empty,
+.device-loading {
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px dashed #c8d3e3;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.device-revoked summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 6px 0;
+}
+.device-revoked-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e9edf4;
+  font-size: 0.86rem;
+}
+.device-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+.device-dialog .field {
+  margin: 14px 0;
+}
+.device-dialog textarea {
+  min-height: 84px;
+}
+.device-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+.device-dialog .button.primary.danger {
+  background: #a32539;
+  border-color: #a32539;
+  color: #fff;
+}
+.device-dialog .button.primary.danger:hover:not(:disabled) {
+  background: #8a1d30;
+  border-color: #8a1d30;
+}
+.device-dialog .button.primary:disabled {
+  opacity: 0.55;
+}
+.device-secret {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 12px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #f3f6fb;
+  border: 1px solid #d5deeb;
+}
+.device-secret-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+}
+.device-secret-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.device-secret-value {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.device-timer {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+.device-timer strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+.device-steps {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+  padding-left: 22px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.device-waiting {
+  margin: 0;
+  color: #0b3f99;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.device-outcome {
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #eef2f7;
+  color: #354e70;
+}
+.device-outcome.good {
+  background: #e2f2e9;
+  color: #126747;
+}
+.device-outcome.bad {
+  background: #fce8eb;
+  color: #97243a;
+}
+.device-events {
+  display: grid;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.device-event {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e9edf4;
+  font-size: 0.88rem;
+}
+.device-event time {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 700px) {
+  .devices-summary {
+    grid-template-columns: 1fr;
+  }
+  .devices-total + .devices-total {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .devices-total {
+    padding: 12px 16px;
+  }
+  .device-card {
+    padding: 14px;
+  }
+  .device-card-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .device-card-head .device-status {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .devices-head .button {
+    width: 100%;
+  }
+  .device-secret-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .device-secret-value {
+    font-size: 1.15rem;
+  }
+}

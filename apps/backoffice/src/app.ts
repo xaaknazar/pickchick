@@ -1,6 +1,8 @@
 import { OperationsModel, StopsModel } from './operations-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
+import { DevicesModel } from './devices-model.js';
+import { DevicesView } from './devices.js';
 import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message, staffAuth } from './api.js';
@@ -67,8 +69,21 @@ const financeView = new FinanceView(finance, render, () => {
   history.replaceState(null, '', '#settlements');
   render();
 });
+const devices = new DevicesModel(
+  (path, request) => model.operations(path, request),
+  () => {
+    devicesView.sync();
+    softRender();
+  },
+);
+const devicesView: DevicesView = new DevicesView(devices, () => ({
+  rows: operations.data?.devices,
+  role: operations.data?.role,
+}));
 function syncOperations() {
   if (!model.actor) {
+    devicesView.close();
+    devices.clear();
     finance.clear();
     financeView.clear();
     operations.clear();
@@ -85,7 +100,30 @@ function syncOperations() {
     void operations.load(model.actor.id, branch);
   if (branch && page === 'stoplist' && (stops.actor !== model.actor.id || stops.branch !== branch))
     void stops.load(model.actor.id, branch);
+  if (
+    branch &&
+    page === 'devices' &&
+    (devices.actor !== model.actor.id || devices.branch !== branch)
+  )
+    void devices.scope(model.actor.id, branch);
 }
+/**
+ * Devices page: countdown every second; registry refresh every 3 s while a pairing code waits
+ * for the iPad, otherwise every 15 s, only while the page is open and the tab is visible.
+ */
+setInterval(() => {
+  const branch = model.state?.branch.id;
+  if (page !== 'devices' || !model.actor || !branch || document.visibilityState === 'hidden')
+    return;
+  devicesView.tick();
+  if (
+    devices.actor === model.actor.id &&
+    devices.branch === branch &&
+    !devices.busy &&
+    Date.now() - devices.loadedAt >= devices.nextDelay()
+  )
+    void devices.load();
+}, 1000);
 /**
  * Stop list polling: every 2 s while a command waits for the cashier, otherwise every 10 s,
  * only while the stop list is open and the tab is visible.
@@ -306,6 +344,8 @@ function render() {
           history.replaceState(null, '', '#' + id);
           if (id === 'stoplist' && model.actor && model.state)
             void stops.load(model.actor.id, model.state.branch.id);
+          if (id === 'devices' && model.actor && model.state)
+            void devices.scope(model.actor.id, model.state.branch.id);
           render();
         },
         `nav-item ${page === id ? 'active' : ''}`,
@@ -406,7 +446,7 @@ function render() {
     finance.busy ||
     Boolean(finance.pending);
   header.append(branch);
-  if (page !== 'items' && page !== 'finance') {
+  if (page !== 'items' && page !== 'finance' && page !== 'devices') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],
@@ -567,6 +607,10 @@ function render() {
   root.replaceChildren(shell);
   if (page === 'finance') {
     financeView.render(content);
+    return;
+  }
+  if (page === 'devices') {
+    devicesView.render(content, model.state?.branch.name ?? '');
     return;
   }
   if (page !== 'items') {
