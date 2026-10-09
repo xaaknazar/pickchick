@@ -3646,7 +3646,6 @@
         "docs/operations/unified-menu-installation-2026-10-09.md",
         "infra/windows/update-native-unified-menu.ps1",
         "tests/operations/test_windows_unified_menu_release.py",
-        "tests/operations/windows-unified-menu-upgrade.test.ps1",
         ".github/workflows/ci.yml",
         "packages/catalog-admin/src/assets.ts",
         "packages/catalog-admin/package.json",
@@ -3655,7 +3654,6 @@
         "tests/unit/catalog-assets.test.mjs",
         "tests/integration/catalog-assets.test.mjs",
         "tests/backoffice/unified-menu-browser.test.mjs",
-        "scripts/build-windows-edge-runtime.py",
         "tests/operations/test_windows_runtime.py",
         "tests/backoffice/helpers.mjs",
         "infra/staging/Dockerfile",
@@ -3669,7 +3667,7 @@
       "updatedAt": "2026-10-09T10:43:52.611Z",
       "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/catalog-admin/src/index.ts, services/api/src/index.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen.",
       "next": "Owner handed continued mobile/device work to Codex; payment behavior preserved.",
-      "summary": " 2026-10-09 owner incident: root delegates unified_ci_fixes portal-only @vps/kitchen-portal stock update-deploy.py b8821d5→23fb39e1, CI37845538624 11/11; preserve bank/edge/DB and existing locks/backups. New Devices not deployed."
+      "summary": " 2026-10-09 owner incident: root delegates unified_ci_fixes portal-only @vps/kitchen-portal stock update-deploy.py b8821d5→23fb39e1, CI37845538624 11/11; preserve bank/edge/DB and existing locks/backups. New Devices not deployed. Root-agreed 3 exact builder/staff-test/historical-fixture paths handed to devices-access for schema020 packaging compatibility."
     },
     {
       "id": "kaspi-qr-pending",
@@ -3883,7 +3881,10 @@
         "tests/integration/terminal-access-upgrade.test.mjs",
         "tests/operations/test_windows_device_access_release.py",
         "tests/operations/windows-device-access-upgrade.test.ps1",
-        "tests/kitchen-portal/test_update_agent.py"
+        "tests/kitchen-portal/test_update_agent.py",
+        "scripts/build-windows-edge-runtime.py",
+        "tests/integration/staff-passwords.test.mjs",
+        "tests/operations/windows-unified-menu-upgrade.test.ps1"
       ],
       "status": "active",
       "head": "4eddc0475b76693b13d24e87c34b9c772424c1dc",
