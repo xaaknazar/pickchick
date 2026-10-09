@@ -3875,11 +3875,19 @@
         "apps/kitchen/src/components/PasswordReset.css",
         "apps/kitchen/build.mjs",
         "infra/staging/release-device-access.py",
-        "tests/operations/test_device_access_release.py"
+        "tests/operations/test_device_access_release.py",
+        "infra/windows/terminal-access-upgrade-db.mjs",
+        "infra/windows/update-native-device-access.ps1",
+        "infra/windows/install-native-device-access.ps1",
+        "infra/kitchen-portal/update-agent.ps1",
+        "tests/integration/terminal-access-upgrade.test.mjs",
+        "tests/operations/test_windows_device_access_release.py",
+        "tests/operations/windows-device-access-upgrade.test.ps1",
+        "tests/kitchen-portal/test_update_agent.py"
       ],
       "status": "active",
       "head": "4eddc0475b76693b13d24e87c34b9c772424c1dc",
-      "updatedAt": "2026-10-09T11:53:28.503Z",
+      "updatedAt": "2026-10-09T11:53:58.610Z",
       "summary": "Published 4eddc047 / PR218: branch-scoped terminal pairing, durable independent device mailbox, one-use kitchen password recovery, iPad/primary-edge revoke protection, Storybook. Build/lint/contracts/frozen install, unit224, PG18 Devices+terminal/reset+staff-password28, browser24+reset+axe passed. Runtime flags remain off; no Devices deployment.",
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
     }
