@@ -2943,7 +2943,6 @@
         "infra/staging/release-tiptoppay-test.py",
         "tests/operations/test_tiptoppay_test_release.py",
         "docs/operations/deployments/2026-10-05-tiptoppay-test.md",
-        "@vps/roadmap",
         "infra/staging/tiptoppay-test-grants.mjs",
         "tests/unit/tiptoppay-test-grants.test.mjs"
       ],
@@ -3931,10 +3930,6 @@
       "branch": "codex/restaurant-completion",
       "scopes": [
         "@integration/restaurant-completion",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
-        "docs/operations/mobile-live-menu.md",
         "infra/backoffice-login/update.py",
         "infra/backoffice-login/prepare.py",
         "infra/backoffice-login/test_update.py",
@@ -3965,7 +3960,12 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/restaurant-report",
       "scopes": [
-        "@integration/restaurant-report"
+        "@integration/restaurant-report",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-live-menu.md",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0",
