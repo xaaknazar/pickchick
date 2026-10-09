@@ -97,6 +97,22 @@ class DevicesRelease(unittest.TestCase):
             self.assertEqual(x.remote.call_count,1)
             self.assertIn('os.mkdir',x.remote.call_args.args[0]);self.assertNotIn('os.rmdir',x.remote.call_args.args[0])
 
+    def test_rollback_requires_completed_flag_off_restart_before_counting_commands(self):
+        with tempfile.TemporaryDirectory() as d:
+            x,_=self.fake(d,True);x.running_revision=Mock(return_value=x.sha)
+            x.runtime_environment=Mock(return_value={r.FLAG:r.digest(b'true')});x.json_query=Mock()
+            with self.assertRaisesRegex(r.GuardFailure,'Disable Devices'):x.rollback()
+            x.json_query.assert_not_called();x.remote.assert_not_called()
+
+    def test_rollback_drain_locks_every_devices_table_before_single_snapshot(self):
+        sql=r.rollback_counts_sql()
+        self.assertTrue(sql.startswith("BEGIN; SET LOCAL lock_timeout='5s'; LOCK TABLE "))
+        self.assertIn(','.join(sorted(r.TABLES))+' IN SHARE MODE;',sql)
+        self.assertLess(sql.index('IN SHARE MODE'),sql.index('SELECT json_agg'))
+        self.assertTrue(sql.endswith('COMMIT;'))
+        for table in r.TABLES:self.assertIn('count(*)::int AS n FROM '+table,sql)
+        for word in ['UPDATE ','DELETE ','TRUNCATE ','INSERT ']:self.assertNotIn(word,sql)
+
     def test_cli_requires_pins_ci_and_defaults_readonly(self):
         args=r.parse(['prepare','--sha','a'*40,'--branch','codex/test','--branch-id','a'*8+'-aaaa-4aaa-8aaa-'+'a'*12,
                       '--expected-api-sha',r.ANCHOR,'--expected-public-sha','b'*40,'--expected-api-image','sha256:'+'c'*64,
