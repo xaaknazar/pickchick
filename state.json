@@ -2906,10 +2906,7 @@
         "packages/commerce-core/src/tiptoppay-checkout.ts",
         "tests/payments/tiptoppay-checkout.test.mjs",
         "packages/commerce-core/src/tiptoppay.ts",
-        "packages/commerce-core/src/customer-checkout.ts",
         "packages/commerce-core/src/order-view.ts",
-        "packages/contracts/src/customer-commerce.ts",
-        "services/api/src/customer-checkout-controller.ts",
         "services/api/src/customer-checkout-response.ts",
         "services/api/src/tiptoppay-controller.ts",
         "services/api/src/tiptoppay-reconcile-worker.ts",
@@ -2917,9 +2914,9 @@
       ],
       "status": "available",
       "head": "a0af45a3c1b38e29550f2e3eaae4fa119051ac85",
-      "updatedAt": "2026-10-07T05:07:16.850Z",
+      "updatedAt": "2026-10-09T10:43:52.611Z",
       "summary": "TEST extension published159d756+a0af45a. Isolated table040, TESTsignedCheck/Pay/Fail and hostedwidget, authenticated quoteowner/org/branch/cap; no commercial money/order/outbox/kitchen effects. 17unit/HTTP/PG focused and66Commerce/Kaspi regression passed; build/lint/format/contracts passed. Sharedadvanced239148b onlymobile/docs/farmops, parent notified for explicit integration. No realbankrequest/deploy by child.",
-      "nextAction": "Finance-ledger owns039/040 exact migration integration and @vps/api for finance deployment; TipTop runtime activation remains separate. Reacquire VPS after finance finishes. Shared export coordinated by same owner: kiosk adds isolated QR export only; preserve TipTop exports on integration."
+      "nextAction": "Finance-ledger owns039/040 exact migration integration and @vps/api for finance deployment; TipTop runtime activation remains separate. Reacquire VPS after finance finishes. Shared export coordinated by same owner: kiosk adds isolated QR export only; preserve TipTop exports on integration. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/commerce-core/src/customer-checkout.ts, packages/contracts/src/customer-commerce.ts, services/api/src/customer-checkout-controller.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
     },
     {
       "id": "tiptoppay-mobile",
@@ -2927,21 +2924,17 @@
       "branch": "codex/tiptoppay-mobile",
       "scopes": [
         "apps/mobile/src/components/PaymentChoice.tsx",
-        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
         "apps/mobile/src/components/KaspiPaymentState.tsx",
-        "apps/mobile/src/model.ts",
-        "apps/mobile/src/store.tsx",
         "apps/mobile/src/payment-methods.ts",
         "tests/mobile/payment-methods.test.mjs",
         "tests/mobile/browser_kaspi_checkout.py",
-        "apps/mobile/src/commerce-checkout.ts",
         "apps/mobile/src/components/TestPaymentState.tsx"
       ],
       "status": "available",
       "head": "1934e82fed3377d88cb56fd46e648fa1fad3d485",
-      "updatedAt": "2026-10-05T17:39:52.212Z",
+      "updatedAt": "2026-10-09T10:43:52.611Z",
       "summary": "Standalone TEST UI implemented 4df62b7; shared239148b explicitly merged. Separate durable TEST intent/id storage no URLs; no commercial order creation; cart retained. TEST valid and invalid URL browser tests four sizes each passed; Kaspi legacy LIVE flow and mixed TEST config/Kaspi LIVE four sizes passed; LIVE hosted four sizes passed; 23 focused unit tests, tsc, eslint, prettier, web export passed. No VPS/native payment integration acceptance.",
-      "nextAction": "Root cherry-picks 4df62b7 after TEST contract159d756 and earlier mobile ebdad26+c3f77b9; integrate backend, document terminal TEST gating, verify provider sandbox and publish coordinated stage."
+      "nextAction": "Root cherry-picks 4df62b7 after TEST contract159d756 and earlier mobile ebdad26+c3f77b9; integrate backend, document terminal TEST gating, verify provider sandbox and publish coordinated stage. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred apps/mobile/src/screens/KaspiCheckoutScreen.tsx, apps/mobile/src/model.ts, apps/mobile/src/store.tsx, apps/mobile/src/commerce-checkout.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
     },
     {
       "id": "tiptoppay-test-rollout",
@@ -3006,7 +2999,6 @@
         "apps/mobile/src/screens/Checkout.tsx",
         "apps/mobile/src/screens/Payment.tsx",
         "docs/operations/tiptoppay-checkout.md",
-        "packages/backoffice-core/src/index.ts",
         "tests/backoffice/tiptoppay-reporting.test.mjs",
         "infra/payments/tiptoppay.env.example",
         "infra/payments/tiptoppay-grants.mjs",
@@ -3018,8 +3010,9 @@
       ],
       "status": "active",
       "head": "b3bb527f3295b9c9f95c81d9caa7572f8d394320",
-      "updatedAt": "2026-10-08T20:48:26.987Z",
-      "summary": " 2026-10-06: владелец подтвердил паузу BO и разрешил передачу apps/backoffice/src задаче finance-ledger на втором Mac; остальные области остаются за TipTopPay. 2026-10-09: owner explicitly requested full CI/release of codex/unified-menu; workflow reservation transferred for two legacy catalog fixture env settings only, existing TipTopPay behavior preserved."
+      "updatedAt": "2026-10-09T10:43:52.611Z",
+      "summary": " 2026-10-06: владелец подтвердил паузу BO и разрешил передачу apps/backoffice/src задаче finance-ledger на втором Mac; остальные области остаются за TipTopPay. 2026-10-09: owner explicitly requested full CI/release of codex/unified-menu; workflow reservation transferred for two legacy catalog fixture env settings only, existing TipTopPay behavior preserved.",
+      "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/backoffice-core/src/index.ts to devices-access. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
     },
     {
       "id": "tiptop-bo-fixture",
@@ -3458,31 +3451,18 @@
         "scripts/provision-kiosk-enrollment.mjs",
         "infra/staging/release-kiosk-menu.py",
         "tests/operations/test_kiosk_menu_release.py",
-        "tests/kiosk/browser_ui.py",
-        "tests/kiosk/enrollment.test.mjs",
-        "tests/kiosk/guest-core.test.mjs",
-        "tests/kiosk/ios/SmokeTests.swift",
-        "tests/kiosk/qr.test.mjs",
-        "tests/kiosk/verification/2026-10-07/README.md",
-        "tests/kiosk/verification/2026-10-07/enroll-820x1180.png",
-        "tests/kiosk/verification/2026-10-07/payment-820x1180.png",
-        "tests/kiosk/verification/2026-10-07/review-820x1180.png",
-        "tests/kiosk/commercial-core.test.mjs",
-        "tests/kiosk/payment-methods.test.mjs",
         "docs/operations/kiosk-payment-options.md",
-        "tests/kiosk/browser_payment_options.py",
         ".github/workflows/kiosk-ui-library.yml",
         "docs/operations/images/kiosk-payment-options",
         "infra/staging/release-kiosk-payments.py",
         "tests/operations/test_kiosk_payments_release.py",
-        "scripts/link-kiosk-catalog-delivery.mjs",
-        "tests/kiosk/catalog-delivery.postgres.test.mjs"
+        "scripts/link-kiosk-catalog-delivery.mjs"
       ],
       "status": "available",
       "head": "a9a5d4d249f97748a88fa73b014dff488b7232a7",
-      "updatedAt": "2026-10-08T10:35:11.891Z",
+      "updatedAt": "2026-10-09T10:43:52.611Z",
       "summary": "PR205, checkpoint a9a5d4d249f97748a88fa73b014dff488b7232a7 published and fast-forwarded into shared. Native 0.1.0 (6), exact source 2d825d6, installed/launched over build5 on iPad Air13 M3/iPadOS18.7.8 with saved enrollment. Physical XCTest1/1 menu/product/geometry passed; screenshots and hashes in docs/operations/images/kiosk-payment-options/native-build6. Local pnpm check148, kiosk85, PG33, Storybook102/Axe0, browser2methods/3sizes passed. CI37632608069: 10 substantive jobs success, final aggregate failure because Actions budget prevented runner; UI library push+PR success. Owner explicitly approved only this native installation exception. VPS/bank unchanged; no real QR/invoice/order/payment created. Runtime VPS scopes released unused; code/device scopes retained for continuation. Shared status/roadmap and online roadmap remain reserved by other tasks.",
-      "nextAction": "Read docs/operations/kiosk-payment-options.md and claim this task from the published checkpoint. Installed build6; no reinstall/enrollment reset needed. Bank activation still pending: restore complete release CI after Actions budget is resolved, freshly claim needed VPS scopes, build and test release profile against actual finance API/public778a718/schema044 with backup/restore/lock, deliver exact immutable catalogv3 and obtain real edge ACK (old menuv1 items differ; no synthetic SQL ACK), configure QR account/worker/bridge and invoice worker PII support. Windows trusted SSH timed out before authentication; portal edgeConnected alone is insufficient. Prepare concrete control QR100KZT, obtain explicit owner authorization before bank creation, owner pays himself; then native phone keyboard/QR/recovery/kitchen acceptance. Preserve fiscal pilot cap and all mobile accounts/session/keys. Copy installation facts separately into shared status/roadmap when their owners release them; online roadmap not updated. No exception granted for server deployment/main/bank/billing. 2026-10-08: owner requested replacement drink photographs in this same chat; assets.ts and components transferred to kiosk-drink-photos for this UI-only stage. Payment/device/server scopes retained. 2026-10-08: owner explicitly requested v3 launch in the same chat; overlapping kiosk UI, checkout, QR bridge/worker and device scopes transferred to kiosk-v3-launch. Preserve prior build6 proof."
+      "nextAction": "Read docs/operations/kiosk-payment-options.md and claim this task from the published checkpoint. Installed build6; no reinstall/enrollment reset needed. Bank activation still pending: restore complete release CI after Actions budget is resolved, freshly claim needed VPS scopes, build and test release profile against actual finance API/public778a718/schema044 with backup/restore/lock, deliver exact immutable catalogv3 and obtain real edge ACK (old menuv1 items differ; no synthetic SQL ACK), configure QR account/worker/bridge and invoice worker PII support. Windows trusted SSH timed out before authentication; portal edgeConnected alone is insufficient. Prepare concrete control QR100KZT, obtain explicit owner authorization before bank creation, owner pays himself; then native phone keyboard/QR/recovery/kitchen acceptance. Preserve fiscal pilot cap and all mobile accounts/session/keys. Copy installation facts separately into shared status/roadmap when their owners release them; online roadmap not updated. No exception granted for server deployment/main/bank/billing. 2026-10-08: owner requested replacement drink photographs in this same chat; assets.ts and components transferred to kiosk-drink-photos for this UI-only stage. Payment/device/server scopes retained. 2026-10-08: owner explicitly requested v3 launch in the same chat; overlapping kiosk UI, checkout, QR bridge/worker and device scopes transferred to kiosk-v3-launch. Preserve prior build6 proof. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred tests/kiosk/browser_ui.py, tests/kiosk/enrollment.test.mjs, tests/kiosk/guest-core.test.mjs, tests/kiosk/ios/SmokeTests.swift, tests/kiosk/qr.test.mjs, tests/kiosk/verification/2026-10-07/README.md, tests/kiosk/verification/2026-10-07/enroll-820x1180.png, tests/kiosk/verification/2026-10-07/payment-820x1180.png, tests/kiosk/verification/2026-10-07/review-820x1180.png, tests/kiosk/commercial-core.test.mjs, tests/kiosk/payment-methods.test.mjs, tests/kiosk/browser_payment_options.py, tests/kiosk/catalog-delivery.postgres.test.mjs to kiosk-build11-release. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
     },
     {
       "id": "ceo-login",
@@ -3574,11 +3554,7 @@
         "tests/operations/kaspi-qr-bridge.test.mjs",
         "@vps/kaspi-bridge",
         "@vps/kaspi-workers",
-        "tests/kiosk/browser_drink_photos.py",
-        "tests/kiosk/browser_payment_success.py",
-        "packages/commerce-core/src/repository.ts",
         "db/cloud/migrations/045_cloud_kiosk_qr_before_admission.sql",
-        "tests/kiosk/paid-delivery.test.mjs",
         "infra/staging/release-kiosk-independent-qr.py",
         "tests/operations/test_kiosk_independent_qr_release.py",
         "docs/03-offline-and-reliability.md",
@@ -3594,14 +3570,11 @@
         "tests/operations/windows-kiosk-upgrade.test.ps1",
         "docs/operations/kiosk-v3-installation-2026-10-08.json",
         "docs/operations/kiosk-kaspi-qr-upstream-audit-2026-10-08.md",
-        "packages/contracts/src/index.ts",
-        "tests/unit/checkout-errors.test.mjs",
-        "docs/operations/payment-blockers-2026-10-09.md",
-        "packages/platform/src/http.ts"
+        "docs/operations/payment-blockers-2026-10-09.md"
       ],
-      "updatedAt": "2026-10-09T07:03:28.460Z",
+      "updatedAt": "2026-10-09T10:43:52.611Z",
       "summary": "24c4c36/PR212 records verified closed-hours RESTAURANT_CLOSED→CONFLICT HTTP filter bug and original kiosk unknown with lost bank ID. Docs published/shared. Five local HTTP/mobile transport regression checks pass for prepared contract/filter patch, not yet committed/deployed; mobile/OpenAPI scope sharing requested from owner. 24 published products price correctly with stored hash. No new QR/invoice/order/payment. Read-only history empty DailySets is not proof of no payment.",
-      "nextAction": "Owner now authorized kiosk-v3-motion build9 and unified-menu deployment; device/API/db/public/gateway/Windows resources handed to their release tasks. Prior local checkout-error patch preserved; no payment reset. Same Codex task transfers only QR processor and regression test to kaspi-qr-pending; preserve old local HTTP edits."
+      "nextAction": "Owner now authorized kiosk-v3-motion build9 and unified-menu deployment; device/API/db/public/gateway/Windows resources handed to their release tasks. Prior local checkout-error patch preserved; no payment reset. Same Codex task transfers only QR processor and regression test to kaspi-qr-pending; preserve old local HTTP edits. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred tests/kiosk/browser_drink_photos.py, tests/kiosk/browser_payment_success.py, tests/kiosk/paid-delivery.test.mjs to kiosk-build11-release. Preserve previous checkpoints; bank QR production behavior accepted and frozen. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/contracts/src/index.ts to devices-access. Preserve previous checkpoints; bank QR production behavior accepted and frozen. 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/commerce-core/src/repository.ts, tests/unit/checkout-errors.test.mjs, packages/platform/src/http.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
     },
     {
       "id": "kiosk-unified-integration",
@@ -3635,14 +3608,12 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-build10",
       "scopes": [
-        "apps/kiosk",
-        "@apple/devices/kiosk",
-        "@release/ios",
         "docs/operations/kiosk-build10-installation.md"
       ],
       "status": "active",
       "head": "1cd378929489a8e4070f3ee093a8ddcd7cbbd066",
-      "updatedAt": "2026-10-09T06:36:54.908Z"
+      "updatedAt": "2026-10-09T10:43:52.611Z",
+      "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred apps/kiosk, @apple/devices/kiosk, @release/ios to kiosk-build11-release. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
     },
     {
       "id": "kiosk-payment-incident",
@@ -3682,10 +3653,8 @@
         "tests/operations/windows-unified-menu-upgrade.test.ps1",
         ".github/workflows/ci.yml",
         "packages/catalog-admin/src/assets.ts",
-        "packages/catalog-admin/src/index.ts",
         "packages/catalog-admin/package.json",
         "services/api/src/catalog-image-encoder.ts",
-        "services/api/src/index.ts",
         "services/api/package.json",
         "pnpm-lock.yaml",
         "tests/unit/catalog-assets.test.mjs",
@@ -3702,7 +3671,8 @@
       ],
       "status": "active",
       "head": "cd7ffa66044b610cec630786bac11570851b86d1",
-      "updatedAt": "2026-10-09T07:05:47.866Z"
+      "updatedAt": "2026-10-09T10:43:52.611Z",
+      "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/catalog-admin/src/index.ts, services/api/src/index.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
     },
     {
       "id": "kaspi-qr-pending",
@@ -3718,23 +3688,6 @@
       "updatedAt": "2026-10-09T09:58:42.386Z"
     },
     {
-      "id": "devices-access",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/devices-access",
-      "scopes": [
-        "apps/backoffice/src/operations.ts",
-        "packages/backoffice-core/src/model.ts",
-        "packages/backoffice-core/src/device-access.ts",
-        "packages/backoffice-core/tests/device-access.test.mjs",
-        "tests/backoffice/device-access.test.mjs",
-        "docs/operations/device-access.md",
-        "docs/architecture/adr/0012-device-access.md"
-      ],
-      "status": "active",
-      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T10:42:58.915Z"
-    },
-    {
       "id": "windows-env-lines",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/windows-env-lines",
@@ -3747,6 +3700,80 @@
       "status": "active",
       "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
       "updatedAt": "2026-10-09T10:43:02.595Z"
+    },
+    {
+      "id": "kiosk-build11-release",
+      "branch": "codex/kiosk-build11-release",
+      "scopes": [
+        "apps/kiosk",
+        "tests/kiosk",
+        "@apple/devices/kiosk",
+        "@release/ios",
+        "docs/operations/kiosk-build11-installation.md"
+      ],
+      "head": "fa50631c157a5bf6b7fd25eb5550299eed97adc9",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "status": "active",
+      "updatedAt": "2026-10-09T10:43:52.611Z"
+    },
+    {
+      "id": "devices-access",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/devices-access",
+      "scopes": [
+        "apps/backoffice/src/operations.ts",
+        "packages/backoffice-core/src/model.ts",
+        "packages/backoffice-core/src/device-access.ts",
+        "packages/backoffice-core/tests/device-access.test.mjs",
+        "tests/backoffice/device-access.test.mjs",
+        "docs/operations/device-access.md",
+        "docs/architecture/adr/0012-device-access.md",
+        "packages/backoffice-core/src/index.ts",
+        "packages/contracts/src/index.ts"
+      ],
+      "status": "active",
+      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "updatedAt": "2026-10-09T10:43:52.611Z"
+    },
+    {
+      "id": "mobile-live-menu",
+      "branch": "codex/mobile-live-menu",
+      "scopes": [
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/model.ts",
+        "apps/mobile/src/commerce-checkout.ts",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/screens/ProductConfiguration.tsx",
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "apps/mobile/src/published-catalog.ts",
+        "apps/mobile/src/domain.ts",
+        "apps/mobile/src/cart-reprice.ts",
+        "apps/mobile/src/catalog-recovery.ts",
+        "apps/mobile/src/availability-recovery.ts",
+        "apps/mobile/src/useAvailability.ts",
+        "apps/mobile/src/connectivity.ts",
+        "apps/mobile/src/commerce-presentation.ts",
+        "apps/mobile/src/customer-http.ts",
+        "packages/commerce-core/src/customer-checkout.ts",
+        "services/api/src/customer-checkout-controller.ts",
+        "packages/contracts/src/customer-commerce.ts",
+        "packages/commerce-core/src/repository.ts",
+        "packages/platform/src/http.ts",
+        "packages/platform/src/admission.ts",
+        "packages/commerce-core/src/catalog-media.ts",
+        "services/api/src/catalog-publication-listener.ts",
+        "packages/catalog-admin/src/index.ts",
+        "services/api/src/index.ts",
+        "docs/operations/mobile-live-menu.md",
+        "infra/staging/release-live-menu.py",
+        "tests/operations/test_live_menu_release.py",
+        "tests/unit/checkout-errors.test.mjs"
+      ],
+      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "status": "active",
+      "updatedAt": "2026-10-09T10:43:52.611Z"
     }
   ]
 }
