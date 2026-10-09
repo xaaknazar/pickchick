@@ -64,6 +64,8 @@ export default function useKioskController(): KioskModel {
     setPaymentMethod: controller.setPaymentMethod,
     setInvoicePhone:
       controller instanceof CommercialKioskController ? controller.setInvoicePhone : undefined,
+    setCatalogLocale:
+      controller instanceof CommercialKioskController ? controller.setLocale : undefined,
     addToCart: controller.addToCart,
     updateQuantity: controller.updateQuantity,
     beginPayment: controller.beginPayment,

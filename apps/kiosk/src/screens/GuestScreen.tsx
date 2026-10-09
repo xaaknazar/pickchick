@@ -61,6 +61,8 @@ export function GuestScreen() {
     }
     previousStep.current = liveModel.step;
   }, [liveModel.step]);
+  const setCatalogLocale = liveModel.setCatalogLocale;
+  useEffect(() => setCatalogLocale?.(locale), [locale, setCatalogLocale]);
   const openUpsell = useCallback(() => {
     if (upsellSeen.current || BigInt(liveModel.cartTotalMinor) > 1000000n) liveModel.openCart();
     else {

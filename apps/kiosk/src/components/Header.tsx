@@ -172,7 +172,7 @@ export function Header({
             />
           </>
         ) : null}
-        <Language locale={locale} onChange={setLocale} />
+        <Language locale={locale} onChange={setLocale} tone={onDining ? 'menu' : 'default'} />
       </Wrapper>
     </View>
   );

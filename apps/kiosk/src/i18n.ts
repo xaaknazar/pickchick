@@ -1,4 +1,12 @@
-export type Locale = 'ru' | 'kk';
+/** Kiosk languages in the order of the v3 switch: KZ / RU / EN. */
+export const LOCALES = ['kk', 'ru', 'en'] as const;
+export type Locale = (typeof LOCALES)[number];
+/** Switch captions and accessible names (prototype `T`, codes kk/ru/en). */
+export const LOCALE_LABELS: Record<Locale, { short: string; name: string }> = {
+  kk: { short: 'KZ', name: 'KZ - Қазақша' },
+  ru: { short: 'RU', name: 'RU - Русский' },
+  en: { short: 'EN', name: 'EN - English' },
+};
 const ru = {
   // v3 kiosk design
   orderNow: 'СДЕЛАТЬ ЗАКАЗ',
@@ -118,6 +126,22 @@ const ru = {
   minutes: 'мин',
   preparation: 'Приготовим примерно за',
   back: 'Назад',
+  // Commercial payment and order status
+  kaspiWaiting: 'Ожидаем оплату Kaspi',
+  invoiceSent:
+    'Счёт отправлен. Откройте Kaspi.kz на своём телефоне и подтвердите оплату. Этот экран обновится автоматически.',
+  invoiceRestaurant: 'Ресторан подтверждает заказ. После подтверждения отправим счёт в Kaspi.kz.',
+  invoiceChecking:
+    'Отправляем счёт или проверяем результат оплаты в Kaspi.kz. Не оплачивайте повторно.',
+  qrScan: 'Откройте Kaspi.kz и отсканируйте QR. Результат проверяется автоматически.',
+  qrExpired: 'Время действия QR истекло. Проверяем результат оплаты. Не оплачивайте повторно.',
+  qrPreparing: 'Готовим QR или проверяем результат оплаты. Не оплачивайте повторно.',
+  orderRef: 'Заказ',
+  invoiceMethod: 'счёт на телефон',
+  paymentConfirmed: 'Оплата подтверждена',
+  awaitingRestaurant: 'Оплата подтверждена. Ожидаем ресторан.',
+  receiptIssued: 'Чек сформирован',
+  receiptMissing: 'Фискальный чек пока не сформирован. Обратитесь к сотруднику.',
 };
 type Strings = { [K in keyof typeof ru]: string };
 const kk: Strings = {
@@ -239,8 +263,177 @@ const kk: Strings = {
   minutes: 'мин',
   preparation: 'Шамамен дайындау уақыты',
   back: 'Артқа',
+  // Commercial payment and order status
+  kaspiWaiting: 'Kaspi төлемін күтеміз',
+  invoiceSent:
+    'Шот жіберілді. Телефоныңызда Kaspi.kz ашып, төлемді растаңыз. Бұл экран автоматты түрде жаңарады.',
+  invoiceRestaurant: 'Мейрамхана тапсырысты растауда. Расталғаннан кейін Kaspi.kz шотын жібереміз.',
+  invoiceChecking: 'Шот жіберілуде немесе Kaspi.kz төлемі тексерілуде. Қайта төлемеңіз.',
+  qrScan: 'Kaspi.kz қосымшасын ашып, QR сканерлеңіз. Нәтиже автоматты түрде тексеріледі.',
+  qrExpired: 'QR мерзімі аяқталды. Төлем нәтижесі тексерілуде. Қайта төлемеңіз.',
+  qrPreparing: 'QR дайындалуда немесе төлем нәтижесі тексерілуде. Қайта төлемеңіз.',
+  orderRef: 'Тапсырыс',
+  invoiceMethod: 'телефонға шот',
+  paymentConfirmed: 'Төлем расталды',
+  awaitingRestaurant: 'Төлем расталды. Мейрамхананы күтеміз.',
+  receiptIssued: 'Чек дайын',
+  receiptMissing: 'Фискалдық чек әлі жасалмады. Қызметкерге хабарласыңыз.',
 };
-export const copy = (locale: Locale): Strings => (locale === 'kk' ? kk : ru);
+const en: Strings = {
+  // v3 kiosk design (wording from the approved prototype's EN strings)
+  orderNow: 'ORDER NOW',
+  payQR: 'Pay by QR',
+  hereTag: 'ON A TRAY',
+  togoTag: 'IN A BAG',
+  hereChip: 'Eat in',
+  menu: 'Menu',
+  included: 'Included',
+  unavailableShort: 'Sold out',
+  qrValid: 'QR valid for',
+  qrStep1: 'Open your banking app',
+  qrStep2: 'Choose QR payment',
+  qrStep3: 'Point the camera at the code',
+  edit: 'Edit',
+  hit: 'HIT OF THE WEEK',
+  start: 'Start order',
+  attractSub: 'Build your order on screen',
+  tapAnywhere: 'Tap the screen to start',
+  modeTitle: 'Where will you eat?',
+  here: 'Eat in',
+  hereSub: 'at the restaurant',
+  togo: 'Take away',
+  togoSub: 'grab and go',
+  cancel: 'Cancel',
+  cart: 'Cart',
+  checkout: 'Checkout',
+  combo: 'Combos',
+  duo: 'For two',
+  sets: 'Sets',
+  extras: 'Extras',
+  promo: 'HIT OF THE WEEK',
+  pick: 'Choose',
+  soldOut: 'SOLD OUT',
+  items: 'Items',
+  toCart: 'Add to cart',
+  chosen: 'Selected',
+  choose: 'Choose',
+  showAll: 'Show all',
+  done: 'Done',
+  nutrition: 'Nutrition',
+  perServing: 'Per serving',
+  per100: 'Per 100 g',
+  kcal: 'kcal',
+  protein: 'Protein',
+  fat: 'Fat',
+  carbs: 'Carbs',
+  grams: 'g',
+  ingredients: 'Ingredients',
+  allergens: 'Allergens',
+  unknownAllergens: 'Please ask a team member about allergens.',
+  upsellTitle: 'Add to your order?',
+  next: 'Next',
+  yourOrder: 'Your order',
+  remove: 'Remove',
+  addMore: 'Add more',
+  total: 'Total',
+  empty: 'Your order is empty. Go back to the menu and pick a dish.',
+  review: 'Check your order',
+  payTitle: 'How would you like to pay?',
+  payChoose: 'Payment method',
+  card: 'Bank card',
+  toPay: 'To pay',
+  createPayment: 'Go to payment',
+  testPayment: 'Test payment. No money is charged and no fiscal receipt is issued.',
+  approve: 'Pay (test)',
+  decline: 'Test a decline',
+  unknown: 'Test an unknown result',
+  payment: 'Payment',
+  waiting: 'The order is waiting for a test payment',
+  declined: 'Payment declined',
+  retry: 'Try payment again',
+  unknownTitle: 'Checking the payment result',
+  unknownBody:
+    'A new order is not available yet. Please call a team member to check the payment. Do not pay again.',
+  yourNumber: 'Your number',
+  paid: 'Paid',
+  preparing: 'Preparing your order',
+  ready: 'Your order is ready',
+  fulfilled: 'Order handed over',
+  cancelled: 'Order cancelled',
+  board: 'Watch for your number on the board',
+  nextGuest: 'New order',
+  refresh: 'Check status',
+  help: 'Help',
+  helpTitle: 'We are here to help',
+  helpBody:
+    'If you need help choosing or ordering, please call a team member. This kiosk is in test mode. Real payments, bonuses and receipts are not connected yet.',
+  close: 'Close',
+  stillHere: 'Are you still there?',
+  continueOrder: 'Continue order',
+  restart: 'Start over',
+  cancelQuestion: 'Cancel the order?',
+  cancelBody: 'Your cart will be cleared.',
+  yesCancel: 'Yes, cancel',
+  keep: 'Keep choosing',
+  loyaltyTitle: 'Chicks will appear here',
+  loyaltyBody: 'The bonus program is not connected yet. A test order does not need a phone number.',
+  loading: 'Loading the menu…',
+  unavailable: 'Could not load the menu',
+  tryAgain: 'Try again',
+  restore: 'Checking your order',
+  restoreBody: 'We are checking the last request first so that no second order is created.',
+  step: 'Step',
+  saucesTitle: 'Which sauces?',
+  extrasTitle: 'Add to order',
+  skip: 'Skip',
+  optional: 'Optional',
+  selected: 'Added',
+  addedToCart: 'Added to cart',
+  p7Title: 'Buy 7 combos -',
+  p7Gift: 'get the 8th free',
+  p7Sub: 'Enter your phone number when ordering at the kiosk - combos are counted automatically.',
+  slide: 'Slide',
+  required: 'Choose the required options',
+  minutes: 'min',
+  preparation: 'Ready in about',
+  back: 'Back',
+  // Commercial payment and order status
+  kaspiWaiting: 'Waiting for Kaspi payment',
+  invoiceSent:
+    'The invoice has been sent. Open Kaspi.kz on your phone and confirm the payment. This screen updates automatically.',
+  invoiceRestaurant:
+    'The restaurant is confirming your order. We will send the invoice to Kaspi.kz once it is confirmed.',
+  invoiceChecking:
+    'Sending the invoice or checking the payment result in Kaspi.kz. Do not pay again.',
+  qrScan: 'Open Kaspi.kz and scan the QR. The result is checked automatically.',
+  qrExpired: 'The QR has expired. Checking the payment result. Do not pay again.',
+  qrPreparing: 'Preparing the QR or checking the payment result. Do not pay again.',
+  orderRef: 'Order',
+  invoiceMethod: 'invoice to phone',
+  paymentConfirmed: 'Payment confirmed',
+  awaitingRestaurant: 'Payment confirmed. Waiting for the restaurant.',
+  receiptIssued: 'Receipt issued',
+  receiptMissing: 'The fiscal receipt has not been issued yet. Please contact a team member.',
+};
+const dictionaries: Record<Locale, Strings> = { kk, ru, en };
+/** UI strings for the locale; an unknown value falls back to Russian. */
+export const copy = (locale: Locale): Strings => dictionaries[locale] ?? ru;
+/** Every dictionary, for coverage checks. */
+export const dictionariesForTest = dictionaries;
+/** Item count caption, e.g. «3 позиции» / «3 позиция» / «3 items» (prototype `pos`). */
+export function itemCount(n: number, locale: Locale): string {
+  if (locale === 'en') return `${n} ${n === 1 ? 'item' : 'items'}`;
+  if (locale === 'kk') return `${n} позиция`;
+  const mod10 = n % 10,
+    mod100 = n % 100;
+  const form =
+    mod10 === 1 && mod100 !== 11
+      ? 'позиция'
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+        ? 'позиции'
+        : 'позиций';
+  return `${n} ${form}`;
+}
 export type Copy = Strings;
 
 // Published menu snapshots keep their original text; format only the displayed copy.
