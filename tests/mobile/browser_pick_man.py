@@ -1,4 +1,5 @@
 """Local Pick Man gameplay, persistence, auth and Events composition checks."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -23,8 +24,8 @@ def fixture(status):
 def saved(page):return page.evaluate('(key)=>JSON.parse(localStorage.getItem(key))',KEY)
 
 def open_page(browser,path='/games/pick-man',snapshot=None,guest=False,size=(393,852)):
-    c=browser.new_context(viewport={'width':size[0],'height':size[1]}, has_touch=True)
-    c.route('**/v1/**',lambda r:r.abort())
+    c=isolated_context(browser,viewport={'width':size[0],'height':size[1]}, has_touch=True)
+    route_fixture(c,'**/v1/**',lambda r:r.abort())
     if not guest:signed_in(c)
     if snapshot:c.add_init_script("if(!sessionStorage.getItem('maze-seeded')){localStorage.setItem(%s,%s);sessionStorage.setItem('maze-seeded','1')}"%(json.dumps(KEY),json.dumps(json.dumps(snapshot))))
     page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+path)

@@ -8,6 +8,7 @@ This journey covers the legacy TEST catalog, so export the web app with
 EXPO_PUBLIC_PUBLISHED_CATALOG=0 (the published catalog is the default; see
 browser_published_photos.py for that path).
 """
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import re
@@ -192,9 +193,9 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     results = []
     for width, height in [(320, 568), (390, 844), (430, 932)]:
-        context = browser.new_context(viewport={'width': width, 'height': height}, reduced_motion='reduce')
+        context = isolated_context(browser,viewport={'width': width, 'height': height}, reduced_motion='reduce')
         fixture = Fixture()
-        context.route('**/v1/**', fixture.route)
+        route_fixture(context,'**/v1/**', fixture.route)
         from account_fixture import signed_in
         signed_in(context)
         page = context.new_page()

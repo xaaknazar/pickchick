@@ -1,6 +1,7 @@
 """Synthetic published catalog UI; denies every financial command and external network read.
 Usage: python browser_catalog_price_migration.py <Expo web export> <publication JSON>
 """
+from browser_network import isolated_context, route_fixture
 import copy
 import json
 import sys
@@ -34,7 +35,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch()
     for width, height in [(393, 852), (430, 932)]:
         state = {'publication': copy.deepcopy(publication)}
-        context = browser.new_context(viewport={'width': width, 'height': height}, reduced_motion='reduce')
+        context = isolated_context(browser,viewport={'width': width, 'height': height}, reduced_motion='reduce')
 
         def route(r):
             path = urlparse(r.request.url).path
@@ -63,7 +64,7 @@ with sync_playwright() as p:
                 raise AssertionError('Unexpected external API ' + path)
             r.fulfill(status=200, content_type='application/json', body=json.dumps(data))
 
-        context.route('https://pickchick.185.129.51.103.nip.io/**', route)
+        route_fixture(context,'https://pickchick.185.129.51.103.nip.io/**', route)
         page = context.new_page()
         page.on('pageerror', lambda e: errors.append(str(e)))
         page.goto(URL + '/menu')

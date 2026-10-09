@@ -1,4 +1,5 @@
 """Offline acceptance of the proposed mountain loyalty screens, never real awards."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 from pathlib import Path
@@ -95,13 +96,13 @@ with sync_playwright() as playwright:
     requests = []
     errors = []
     for width in (320, 393):
-        context = browser.new_context(viewport={'width': width, 'height': 852}, reduced_motion='reduce')
+        context = isolated_context(browser,viewport={'width': width, 'height': 852}, reduced_motion='reduce')
 
         def block_api(route):
             requests.append((route.request.method, urlparse(route.request.url).path))
             route.abort()
 
-        context.route('**/v1/**', block_api)
+        route_fixture(context,'**/v1/**', block_api)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/menu')

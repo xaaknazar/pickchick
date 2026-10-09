@@ -11,6 +11,7 @@ Checks, at 320 and 390 px:
   before the 60 s foreground re-read) and holds the basket behind 'Меню обновилось'.
 Every POST is refused and recorded; no VPS, SMS, order or payment is touched.
 """
+from browser_network import isolated_context, route_fixture
 import base64
 import copy
 import hashlib
@@ -167,9 +168,9 @@ with sync_playwright() as p:
     for width, height in [(320, 568), (390, 844)]:
         # 1. Uploaded photo everywhere, other products bundled, then a republish via the header.
         fixture = Fixture()
-        context = browser.new_context(viewport={'width': width, 'height': height},
+        context = isolated_context(browser,viewport={'width': width, 'height': height},
                                       reduced_motion='reduce')
-        context.route(API + '/**', fixture.route)
+        route_fixture(context,API + '/**', fixture.route)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/menu')
@@ -222,9 +223,9 @@ with sync_playwright() as p:
         # 3. Media map present but the photo cannot be loaded: bundled photo after the error.
         for media, images in [('missing', 'ok'), ('ok', 'missing')]:
             fixture = Fixture(media=media, images=images)
-            context = browser.new_context(viewport={'width': width, 'height': height},
+            context = isolated_context(browser,viewport={'width': width, 'height': height},
                                           reduced_motion='reduce')
-            context.route(API + '/**', fixture.route)
+            route_fixture(context,API + '/**', fixture.route)
             page = context.new_page()
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(URL + '/menu')

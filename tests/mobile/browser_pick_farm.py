@@ -1,6 +1,7 @@
 """Open-field farm with isolated HTTP fixtures and the actual v2 game engine.
 Scenario adapted for contextual gestures; not executed during the farm-gestures edit.
 """
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -42,7 +43,7 @@ envelope = {'version': 1, 'device_id': '40000000-0000-4000-8000-000000000004',
 with sync_playwright() as p:
     browser = p.chromium.launch()
     for width, height in [(852, 393), (667, 375), (1024, 768)]:
-        context = browser.new_context(viewport={'width': width, 'height': height}, reduced_motion='reduce')
+        context = isolated_context(browser,viewport={'width': width, 'height': height}, reduced_motion='reduce')
         context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",' +
                                 json.dumps(json.dumps(envelope)) + ');')
         saved = {'state': json.loads(json.dumps(fixture['state'])), 'now': NOW}
@@ -75,7 +76,7 @@ with sync_playwright() as p:
                 return
             r.fulfill(json=data, headers={'Access-Control-Allow-Origin': '*'})
 
-        context.route('**/*', route)
+        route_fixture(context,'**/*', route)
         page = context.new_page()
         page.set_default_timeout(10000)
         page.on('pageerror', lambda error: errors.append(error.stack or str(error)))

@@ -1,4 +1,5 @@
 """Local UI motion/layout review. Uses synthetic GET fixtures, never a live backend."""
+from browser_network import isolated_context, route_fixture
 import json, os, subprocess
 from pathlib import Path
 from urllib.parse import urlparse
@@ -31,7 +32,7 @@ def bounded(page):
 with sync_playwright() as p:
  b=p.chromium.launch()
  for width,height in [(320,568),(393,852),(768,1024)]:
-  c=b.new_context(viewport={'width':width,'height':height},has_touch=True,reduced_motion='no-preference');signed_in(c);c.route('**/v1/**',fixture)
+  c=isolated_context(b,viewport={'width':width,'height':height},has_touch=True,reduced_motion='no-preference');signed_in(c);route_fixture(c,'**/v1/**',fixture)
   page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
   for n in range(1,36):
    if n in (27,28,29): continue  # PICK RUN and the cashier QR screen were removed.

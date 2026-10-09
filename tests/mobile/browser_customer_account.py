@@ -1,4 +1,5 @@
 """Server-account UI against isolated HTTP fixtures. No provider, VPS or real account calls."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -23,7 +24,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     checks = []
     for width, height in [(320, 568), (390, 844), (430, 932)]:
-        context = browser.new_context(viewport={'width': width, 'height': height})
+        context = isolated_context(browser,viewport={'width': width, 'height': height})
         calls = []
         errors = []
         policy = {'version': 'fixture-v1'}
@@ -106,7 +107,7 @@ with sync_playwright() as p:
                     return originalFetch(input, init);
                 };
             """)
-        context.route('**/v1/**', intercept)
+        route_fixture(context,'**/v1/**', intercept)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/menu')

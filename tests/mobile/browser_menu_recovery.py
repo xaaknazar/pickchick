@@ -1,4 +1,5 @@
 """Automatic public-menu recovery against local fixtures, with no order mutations."""
+from browser_network import isolated_context, route_fixture
 import copy
 import json
 import os
@@ -133,10 +134,10 @@ with sync_playwright() as playwright:
     errors = []
 
     def open_menu(fixture):
-        context = browser.new_context(viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
+        context = isolated_context(browser,viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
         contexts.append(context)
         fixtures.append(fixture)
-        context.route('**/v1/**', fixture.route)
+        route_fixture(context,'**/v1/**', fixture.route)
         context.add_init_script("""(() => {
           let active = true;
           Object.defineProperty(document, 'hidden', {get: () => !active});

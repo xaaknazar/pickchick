@@ -1,4 +1,5 @@
 """Profile hierarchy, navigation and recovery on local fixtures; no live API writes."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import time
@@ -20,13 +21,13 @@ ACCOUNT = {'version': 2, 'kind': 'local_demo', 'phone': '+7' + '7' + '0' * 8 + '
 with sync_playwright() as p:
     browser = p.chromium.launch()
     for width, height in [(320, 568), (393, 852)]:
-        context = browser.new_context(viewport={'width': width, 'height': height})
+        context = isolated_context(browser,viewport={'width': width, 'height': height})
         errors, mutations = [], []
         def intercept(route):
             if route.request.method != 'GET':
                 mutations.append(route.request.method + ' ' + urlparse(route.request.url).path)
             route.abort()
-        context.route('**/v1/**', intercept)
+        route_fixture(context,'**/v1/**', intercept)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/profile')
@@ -58,8 +59,8 @@ with sync_playwright() as p:
         assert not errors, errors
         context.close()
 
-    broken = browser.new_context(viewport={'width': 393, 'height': 852})
-    broken.route('**/v1/**', lambda route: route.abort())
+    broken = isolated_context(browser,viewport={'width': 393, 'height': 852})
+    route_fixture(broken,'**/v1/**', lambda route: route.abort())
     broken.add_init_script('''const original = Storage.prototype.getItem;
         Storage.prototype.getItem = function(key) {
             if (key === 'pickchick.demo.profile.v1') throw new Error('Fixture read failure');

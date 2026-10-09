@@ -1,4 +1,5 @@
 """Customer payment UI: local catalog fixtures, no simulator or bank requests."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -32,7 +33,7 @@ def route(r):
 with sync_playwright() as p:
  browser=p.chromium.launch()
  for width,height in [(320,568),(393,852),(430,932)]:
-  context=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce');signed_in(context);context.route('**/v1/**',route)
+  context=isolated_context(browser,viewport={'width':width,'height':height},reduced_motion='reduce');signed_in(context);route_fixture(context,'**/v1/**',route)
   context.add_init_script('Object.entries('+json.dumps(LEGACY)+').forEach(([key,value])=>localStorage.setItem(key,value))')
   page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
   page.get_by_test_id('product-pick-combo').click(timeout=20000);page.get_by_test_id('product-add').click()
@@ -65,7 +66,7 @@ with sync_playwright() as p:
   assert all(page.evaluate('(key)=>localStorage.getItem(key)',key)==value for key,value in LEGACY.items())
   assert page.evaluate('(key)=>JSON.parse(localStorage.getItem(key)).lines.length',PREFERENCES)==1
   context.close()
- context=browser.new_context(viewport={'width':393,'height':852});signed_in(context);context.route('**/v1/**',route)
+ context=isolated_context(browser,viewport={'width':393,'height':852});signed_in(context);route_fixture(context,'**/v1/**',route)
  page=context.new_page();page.goto(URL+'/screen/M12');expect(page.get_by_text('В корзине пока пусто',exact=True)).to_be_visible(timeout=20000)
  expect(page.get_by_test_id('checkout-pay-disabled')).to_have_count(0)
  context.close();browser.close()

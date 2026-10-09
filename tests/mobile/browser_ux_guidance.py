@@ -1,4 +1,5 @@
 """Selection clarity and destructive-action recovery using local synthetic fixtures only."""
+from browser_network import isolated_context, route_fixture
 import copy
 import json
 import os
@@ -64,10 +65,10 @@ def capture(page, name):
 with sync_playwright() as p:
     browser = p.chromium.launch()
     for width, height in [(320, 568), (393, 852), (768, 1024), (852, 393)]:
-        context = browser.new_context(viewport={'width': width, 'height': height},
+        context = isolated_context(browser,viewport={'width': width, 'height': height},
             has_touch=True, reduced_motion='reduce')
         signed_in(context)
-        context.route('**/v1/**', fixture(CATALOG))
+        route_fixture(context,'**/v1/**', fixture(CATALOG))
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         open_combo(page)
@@ -130,9 +131,9 @@ with sync_playwright() as p:
     sauce['min'] = 0
     for option in sauce['options']:
         option['default_quantity'] = 0
-    context = browser.new_context(viewport={'width': 320, 'height': 568}, reduced_motion='reduce')
+    context = isolated_context(browser,viewport={'width': 320, 'height': 568}, reduced_motion='reduce')
     signed_in(context)
-    context.route('**/v1/**', fixture(catalog))
+    route_fixture(context,'**/v1/**', fixture(catalog))
     page = context.new_page()
     page.on('pageerror', lambda error: errors.append(str(error)))
     open_combo(page)

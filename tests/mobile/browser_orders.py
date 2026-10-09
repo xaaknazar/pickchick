@@ -1,4 +1,5 @@
 """Orders design and live transitions against isolated HTTP fixtures; no real orders or messages."""
+from browser_network import isolated_context, route_fixture
 import copy, json, os, subprocess, uuid
 from pathlib import Path
 from urllib.parse import urlparse
@@ -19,10 +20,11 @@ errors=[]
 with sync_playwright() as p:
  browser=p.chromium.launch()
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
-  ctx=browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce');signed_in(ctx)
+  ctx=isolated_context(browser,viewport={'width':width,'height':height},reduced_motion='reduce');signed_in(ctx)
   ctx.add_init_script('localStorage.setItem("pickchick.test.customer.v1",'+json.dumps(json.dumps(SESSION))+')')
-  order=copy.deepcopy(BASE);feedback={'review':None,'tickets':[]};waiting=[];keys=[];lost=[False]
+  order=copy.deepcopy(BASE);feedback={'review':None,'tickets':[]};waiting=[];keys=[];lost=[False];teardown=[False]
   def intercept(r):
+   if teardown[0]:r.abort();return
    path=urlparse(r.request.url).path;data=None
    if path=='/v1/test/orders/watch':
     if r.request.post_data_json['versions'][0]['version']==order['version']:waiting.append(r);return
@@ -44,7 +46,7 @@ with sync_playwright() as p:
    elif '/content/branches/' in path:data={'schema_version':1,'branch_id':BRANCH,'promos':[],'games':[]}
    else:r.abort();return
    r.fulfill(json=data,headers={'Access-Control-Allow-Origin':'*'})
-  ctx.route('**/v1/**',intercept);page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+  route_fixture(ctx,'**/v1/**',intercept);page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
   page.goto(URL+'/orders');expect(page.get_by_test_id('history-order-'+order['order_id'])).to_be_visible(timeout=20000)
   expect(page.get_by_text('Статус проверен',exact=False)).to_have_count(0)
   expect(page.get_by_test_id('launch-reveal')).to_have_count(0,timeout=10000)
@@ -75,7 +77,7 @@ with sync_playwright() as p:
   advance('ready','done','done');expect(page.get_by_test_id('connected-order-state')).to_have_text('Заказ готов!')
   expect(page.get_by_test_id('order-chef-ready-takeaway')).to_be_visible()
   expect(page.get_by_test_id('order-rate')).to_have_count(0)
-  expect(page.get_by_test_id('order-status-items')).to_have_count(0)
+  expect(page.get_by_test_id('order-status-items')).to_contain_text('Pick Combo')
   advance('fulfilled','done','done');expect(page.get_by_test_id('connected-order-state')).to_have_text('Приятного аппетита!')
   page.get_by_test_id('order-rate').click();page.get_by_test_id('rating-5').click()
   page.get_by_test_id('feedback-text').fill('Спасибо, всё вкусно');page.get_by_test_id('feedback-submit').click()
@@ -89,7 +91,12 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'support-{width}.png'))
   page.goto(URL+'/screen/M21');expect(page.get_by_text('По этому заказу деньги не списывались, фискальный чек не выпускался. Состав заказа ниже не является чеком.',exact=True)).to_be_visible()
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-  ctx.unroute_all(behavior='ignoreErrors');ctx.close()
+  teardown[0]=True
+  for held in waiting:
+   try:held.abort()
+   except Exception:pass
+  page.wait_for_timeout(50)
+  ctx.close()
  browser.close()
 assert not errors,errors
 print('PASS orders: 4 viewports, kitchen events -> assembly -> ready -> issued, review, support retry, honest receipt')

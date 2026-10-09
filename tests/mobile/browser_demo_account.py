@@ -1,4 +1,5 @@
 """Local registration UX; all API traffic is intercepted, no SMS or VPS mutation."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 from datetime import datetime, timedelta
@@ -118,7 +119,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     checks = []
     for width, height in [(320, 568), (390, 844), (430, 932)]:
-        context = browser.new_context(viewport={'width': width, 'height': height})
+        context = isolated_context(browser,viewport={'width': width, 'height': height})
         mutations = []
         failures = []
 
@@ -132,7 +133,7 @@ with sync_playwright() as p:
             else:
                 route.abort('failed')
 
-        context.route('**/v1/**', intercept)
+        route_fixture(context,'**/v1/**', intercept)
         # Seed once per browser tab. Re-seeding on each reload could conceal an
         # auth action accidentally deleting or replacing the ordering identity.
         context.add_init_script('''if (!sessionStorage.getItem('pickchick.auth-test.seeded')) {

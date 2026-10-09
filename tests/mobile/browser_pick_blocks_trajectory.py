@@ -1,4 +1,5 @@
 """Sample actual rendered tiles during wall/floor kicks and touch trajectory changes."""
+from browser_network import isolated_context, route_fixture
 import json
 import os
 import subprocess
@@ -34,7 +35,7 @@ def fixture(scenario):
 
 
 def open_game(browser, size, scenario, reduced='no-preference'):
-    context = browser.new_context(viewport={'width':size[0], 'height':size[1]},
+    context = isolated_context(browser,viewport={'width':size[0], 'height':size[1]},
                                   has_touch=True, reduced_motion=reduced)
     signed_in(context)
     # Hold gravity while the resume overlay exits, so a floor fixture cannot
@@ -46,7 +47,7 @@ def open_game(browser, size, scenario, reduced='no-preference'):
         if(delay!==50 || window.__blocksClockRunning)fn(...args);
       },delay);
     ''')
-    context.route('**/v1/**', lambda route: route.abort())
+    route_fixture(context,'**/v1/**', lambda route: route.abort())
     data = fixture(scenario)
     context.add_init_script(f'localStorage.setItem({json.dumps(KEY)}, {json.dumps(json.dumps(data))});')
     page = context.new_page()

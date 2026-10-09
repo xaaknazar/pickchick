@@ -1,4 +1,5 @@
 """Local mobile arcade acceptance: touch input, pause/resume, results and viewport bounds."""
+from browser_network import isolated_context, route_fixture
 import json, os
 from pathlib import Path
 from urllib.parse import urlparse
@@ -20,8 +21,8 @@ with sync_playwright() as p:
  b=p.chromium.launch()
  for width,height in [(320,568),(393,852),(430,932),(852,393)]:
   for name,route,start,board in ROUTES:
-   c=b.new_context(viewport={'width':width,'height':height},has_touch=True,reduced_motion='reduce')
-   signed_in(c);c.route('**/v1/**',lambda r:r.abort());page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+   c=isolated_context(b,viewport={'width':width,'height':height},has_touch=True,reduced_motion='reduce')
+   signed_in(c);route_fixture(c,'**/v1/**',lambda r:r.abort());page=c.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
    page.goto(URL+route);page.get_by_test_id(start).wait_for(timeout=20000)
    bounds(page,page.get_by_test_id(start),width,height)
    page.screenshot(path=str(OUT/f'{name}-intro-{width}.png'))
@@ -40,7 +41,7 @@ with sync_playwright() as p:
    c.close()
  # Direct routes remain guarded for guests.
  for _,route,_,_ in ROUTES:
-  c=b.new_context();c.route('**/v1/**',lambda r:r.abort());page=c.new_page();page.goto(URL+route)
+  c=isolated_context(b,);route_fixture(c,'**/v1/**',lambda r:r.abort());page=c.new_page();page.goto(URL+route)
   expect(page.get_by_test_id('account-required-login')).to_be_visible(timeout=20000);c.close()
  assert not errors,errors
  b.close()
