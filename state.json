@@ -3926,19 +3926,6 @@
       "nextAction": "Wait full CI for exact SHA, integrate with mobile API/provider and lock changes; guarded cloud050→051 + Windows019→020 backup/restore profile, separate worker, then portal/native opt-in and owner password reset. Preserve existing payment/iPad/PIN/order state."
     },
     {
-      "id": "ceo-password-rotation",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/ceo-password-rotation",
-      "scopes": [
-        "infra/backoffice-login/accounts.mjs",
-        "tests/backoffice/staff-rotation.test.mjs",
-        "docs/operations/ceo-password-rotation.md"
-      ],
-      "status": "active",
-      "head": "dd442241ccbd54ab1f16aebfe91c1dada23fd2ee",
-      "updatedAt": "2026-10-09T14:27:10.857Z"
-    },
-    {
       "id": "restaurant-completion",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/restaurant-completion",
@@ -3957,6 +3944,21 @@
       "head": "dd442241ccbd54ab1f16aebfe91c1dada23fd2ee",
       "updatedAt": "2026-10-09T14:29:09.788Z",
       "summary": " Root integrates completed mobile/iPad/kitchen/Devices stage and records installation facts; runtime source remains immutable during release."
+    },
+    {
+      "id": "ceo-password-rotation",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/ceo-password-rotation",
+      "scopes": [
+        "infra/backoffice-login/accounts.mjs",
+        "tests/backoffice/staff-rotation.test.mjs",
+        "docs/operations/ceo-password-rotation.md",
+        "infra/backoffice-login/rotate.py",
+        "infra/backoffice-login/test_rotate.py"
+      ],
+      "status": "active",
+      "head": "abee67cd10eba08bd059722c3f907edded739872",
+      "updatedAt": "2026-10-09T14:35:22.185Z"
     }
   ]
 }
