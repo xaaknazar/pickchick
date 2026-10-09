@@ -3633,20 +3633,6 @@
       "nextAction": "iPad продолжает Claude: kiosk-build10 (фото и long-poll единого меню) и разбор Kaspi QR"
     },
     {
-      "id": "kiosk-build10",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-build10",
-      "scopes": [
-        "apps/kiosk",
-        "@apple/devices/kiosk",
-        "@release/ios",
-        "docs/operations/kiosk-build10-installation.md"
-      ],
-      "status": "active",
-      "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
-      "updatedAt": "2026-10-09T06:00:20.235Z"
-    },
-    {
       "id": "unified-menu-release",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/unified-menu",
@@ -3688,6 +3674,20 @@
       "status": "active",
       "head": "90eb6b6b51c253c5f34eaf8607720a9b630bd4bb",
       "updatedAt": "2026-10-09T06:29:36.967Z"
+    },
+    {
+      "id": "kiosk-build10",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-build10",
+      "scopes": [
+        "apps/kiosk",
+        "@apple/devices/kiosk",
+        "@release/ios",
+        "docs/operations/kiosk-build10-installation.md"
+      ],
+      "status": "active",
+      "head": "1cd378929489a8e4070f3ee093a8ddcd7cbbd066",
+      "updatedAt": "2026-10-09T06:36:54.908Z"
     }
   ]
 }
