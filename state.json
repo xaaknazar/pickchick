@@ -3635,7 +3635,6 @@
         "infra/windows/install-native-menu-sync.ps1",
         "infra/windows/remote-stops-upgrade-db.mjs",
         "docs/operations/unified-menu-publication.md",
-        "docs/operations/unified-menu-installation-2026-10-09.md",
         "infra/windows/update-native-unified-menu.ps1",
         "tests/operations/test_windows_unified_menu_release.py",
         ".github/workflows/ci.yml",
@@ -3659,7 +3658,7 @@
       "updatedAt": "2026-10-09T12:13:30.731Z",
       "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/catalog-admin/src/index.ts, services/api/src/index.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen.",
       "next": "Owner handed continued mobile/device work to Codex; payment behavior preserved.",
-      "summary": " 2026-10-09 owner incident: root delegates unified_ci_fixes portal-only @vps/kitchen-portal stock update-deploy.py b8821d5→23fb39e1, CI37845538624 11/11; preserve bank/edge/DB and existing locks/backups. New Devices not deployed. Root-agreed 3 exact builder/staff-test/historical-fixture paths handed to devices-access for schema020 packaging compatibility."
+      "summary": " 2026-10-09 owner incident: root delegates unified_ci_fixes portal-only @vps/kitchen-portal stock update-deploy.py b8821d5→23fb39e1, CI37845538624 11/11; preserve bank/edge/DB and existing locks/backups. New Devices not deployed. Root-agreed 3 exact builder/staff-test/historical-fixture paths handed to devices-access for schema020 packaging compatibility. 2026-10-10 parent coordinator explicitly transfers only the historical unified-menu installation protocol to restaurant-report; all runtime scopes and prior checkpoints retained."
     },
     {
       "id": "kaspi-qr-pending",
@@ -3965,11 +3964,13 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
         "docs/operations/mobile-live-menu.md",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "docs/operations/unified-menu-installation-2026-10-09.md"
       ],
       "status": "active",
       "head": "b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0",
-      "updatedAt": "2026-10-09T23:39:40.339Z"
+      "updatedAt": "2026-10-09T23:39:40.339Z",
+      "summary": " 2026-10-10 parent coordinator explicitly transfers only the historical unified-menu installation protocol to restaurant-report; all runtime scopes and prior checkpoints retained."
     }
   ]
 }
