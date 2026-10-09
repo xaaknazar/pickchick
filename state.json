@@ -3615,9 +3615,11 @@
         "@release/ios",
         "docs/operations/kiosk-build9-installation.md"
       ],
-      "status": "active",
-      "head": "01ec5dbbdc33c7d9ffcf0a94f330ca4df735ae61",
-      "updatedAt": "2026-10-08T20:42:02.724Z"
+      "status": "available",
+      "head": "6dcc4518ed71535ad1c63e22e413191b7a3caf8d",
+      "updatedAt": "2026-10-09T05:56:59.674Z",
+      "summary": "Build 9 (0.1.0) установлен на iPad 9 октября, протокол kiosk-build9-installation.md; владелец поручил Claude продолжить iPad (build 10 с фото/long-poll единого меню) и Kaspi QR",
+      "nextAction": "Claude: codex/kiosk-build10 из общего среза 90eb6b6b, claim kiosk-build10"
     },
     {
       "id": "kiosk-unified-integration",
