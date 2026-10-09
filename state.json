@@ -3717,25 +3717,6 @@
       "updatedAt": "2026-10-09T10:43:52.611Z"
     },
     {
-      "id": "devices-access",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/devices-access",
-      "scopes": [
-        "apps/backoffice/src/operations.ts",
-        "packages/backoffice-core/src/model.ts",
-        "packages/backoffice-core/src/device-access.ts",
-        "packages/backoffice-core/tests/device-access.test.mjs",
-        "tests/backoffice/device-access.test.mjs",
-        "docs/operations/device-access.md",
-        "docs/architecture/adr/0012-device-access.md",
-        "packages/backoffice-core/src/index.ts",
-        "packages/contracts/src/index.ts"
-      ],
-      "status": "active",
-      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T10:43:52.611Z"
-    },
-    {
       "id": "mobile-live-menu",
       "branch": "codex/mobile-live-menu",
       "scopes": [
@@ -3779,6 +3760,36 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "status": "active",
       "updatedAt": "2026-10-09T10:56:40.437Z"
+    },
+    {
+      "id": "devices-access",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/devices-access",
+      "scopes": [
+        "apps/backoffice/src/operations.ts",
+        "packages/backoffice-core/src/model.ts",
+        "packages/backoffice-core/src/device-access.ts",
+        "packages/backoffice-core/tests/device-access.test.mjs",
+        "tests/backoffice/device-access.test.mjs",
+        "docs/operations/device-access.md",
+        "docs/architecture/adr/0012-device-access.md",
+        "packages/backoffice-core/src/index.ts",
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/device-access.ts",
+        "packages/backoffice-core/package.json",
+        "db/cloud/migrations/051_cloud_device_registry.sql",
+        "services/api/src/device-registry-controller.ts",
+        "infra/staging/device-registry-grants.mjs",
+        "apps/backoffice/src/devices.ts",
+        "apps/backoffice/src/devices-model.ts",
+        "apps/backoffice/src/api.ts",
+        "apps/backoffice/server.mjs",
+        "tests/backoffice/devices-model.test.mjs",
+        "docs/architecture/adr/0013-device-access.md"
+      ],
+      "status": "active",
+      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "updatedAt": "2026-10-09T10:57:01.911Z"
     }
   ]
 }
