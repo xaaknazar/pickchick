@@ -10,6 +10,7 @@ import { Icon } from './Icon';
 import { inCategory } from './categories';
 import { ease, usePopIn, usePress, useStagger } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { fixedText } from './Body';
 /** One line per chosen option, in the same wording as the summary ("Соус × 2"). */
 function selectionLines(line: KioskCartLine) {
   return line.selections
@@ -205,6 +206,7 @@ export function CartRow({
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: v(8), paddingVertical: v(4) }}>
         <Text
+          {...fixedText}
           accessibilityRole="header"
           style={{
             fontFamily: fonts.heavy,
@@ -225,6 +227,7 @@ export function CartRow({
               >
                 <Icon name="checkmark" size="small" tone="brand" />
                 <Text
+                  {...fixedText}
                   style={{
                     flexShrink: 1,
                     fontFamily: fonts.body,
@@ -269,6 +272,7 @@ export function CartRow({
           >
             <Icon name="trash-outline" size="small" tone="accent" />
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.bold,
                 fontSize: Math.max(15, v(16)),
@@ -290,6 +294,7 @@ export function CartRow({
         }}
       >
         <Text
+          {...fixedText}
           numberOfLines={1}
           style={{
             fontFamily: fonts.black,
@@ -335,6 +340,7 @@ export function CartRow({
             </Pressable>
           </Animated.View>
           <Animated.Text
+            {...fixedText}
             testID={id('-quantity')}
             style={{
               minWidth: v(30),

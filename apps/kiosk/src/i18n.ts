@@ -8,6 +8,13 @@ export const LOCALE_LABELS: Record<Locale, { short: string; name: string }> = {
   en: { short: 'EN', name: 'EN - English' },
 };
 const ru = {
+  enrollTitle: 'Настройка киоска',
+  enrollBody: 'Сотрудник ресторана вводит данные устройства, полученные от администратора.',
+  enrollId: 'ID устройства',
+  enrollKey: 'Ключ устройства',
+  enrollError:
+    'Не удалось проверить или сохранить настройку. Проверьте данные и соединение. Для замены регистрации обратитесь к администратору.',
+  enrollSubmit: 'Подключить киоск',
   // Build 12: guest errors by code (commercial controller), payment and order states
   err_PRICE_CHANGED: 'Сумма изменилась. Проверьте корзину и подтвердите оплату заново.',
   err_CART_CHANGED: 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.',
@@ -210,6 +217,13 @@ const ru = {
 };
 type Strings = { [K in keyof typeof ru]: string };
 const kk: Strings = {
+  enrollTitle: 'Киоскті баптау',
+  enrollBody: 'Мейрамхана қызметкері әкімшіден алынған құрылғы деректерін енгізеді.',
+  enrollId: 'Құрылғы ID',
+  enrollKey: 'Құрылғы кілті',
+  enrollError:
+    'Баптау тексерілмеді немесе сақталмады. Деректер мен байланысты тексеріңіз. Тіркеуді ауыстыру үшін әкімшіге хабарласыңыз.',
+  enrollSubmit: 'Киоскті қосу',
   // Build 12: guest errors by code (commercial controller), payment and order states
   err_PRICE_CHANGED: 'Сома өзгерді. Себетті тексеріп, төлемді қайта растаңыз.',
   err_CART_CHANGED:
@@ -412,6 +426,13 @@ const kk: Strings = {
     'Тапсырысты асүйге жіберіп жатырмыз. Нөмірі осында пайда болады. Қайта төлем жасамаңыз. Күту ұзаққа созылса, қызметкерді шақырыңыз.',
 };
 const en: Strings = {
+  enrollTitle: 'Kiosk setup',
+  enrollBody: 'A restaurant team member enters the device details received from the administrator.',
+  enrollId: 'Device ID',
+  enrollKey: 'Device key',
+  enrollError:
+    'Could not check or save the setup. Check the details and the connection. To replace the registration, contact the administrator.',
+  enrollSubmit: 'Connect the kiosk',
   // Build 12: guest errors by code (commercial controller), payment and order states
   err_PRICE_CHANGED: 'The total has changed. Check your cart and confirm the payment again.',
   err_CART_CHANGED: 'Items or prices have changed. Check your cart and choose available items.',

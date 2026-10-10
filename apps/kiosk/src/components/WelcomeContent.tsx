@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,6 +17,10 @@ import { Language, Logo } from './UI';
 import { motion, useEnter, useLoop } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
+/** Nine samples of the CTA shine sweep and its ease-in-out (quad) curve. */
+const sweep = Array.from({ length: 9 }, (_, k) => k / 8);
+const inOutQuad = (u: number) => (u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u));
 /** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
 const kaspiLogo = require('../../assets/v3/kaspi.webp');
 /** v3 attract CTA: one orange pill with an expanding halo and a passing shine. */
@@ -117,10 +120,14 @@ function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPr
                 width: shineWidth,
                 transform: [
                   {
+                    // Ease-in-out (quad) sweep, sampled: the native driver takes no
+                    // `easing` inside interpolate (it would be dropped in release builds).
                     translateX: shine.interpolate({
-                      inputRange: [0, 0.55, 1],
-                      outputRange: [-1.4 * shineWidth, 6.2 * shineWidth, 6.2 * shineWidth],
-                      easing: Easing.inOut(Easing.quad),
+                      inputRange: [...sweep.map((u) => u * 0.55), 1],
+                      outputRange: [
+                        ...sweep.map((u) => (-1.4 + 7.6 * inOutQuad(u)) * shineWidth),
+                        6.2 * shineWidth,
+                      ],
                     }),
                   },
                   { skewX: '-20deg' },
@@ -137,6 +144,7 @@ function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPr
           )}
           {busy ? <ActivityIndicator accessibilityLabel={label} color={colors.white} /> : null}
           <Text
+            {...fixedText}
             numberOfLines={1}
             adjustsFontSizeToFit
             style={{
@@ -263,6 +271,7 @@ export function WelcomeContent({
                 style={{ width: v(42), height: v(42) }}
               />
               <Text
+                {...fixedText}
                 numberOfLines={1}
                 style={{ fontFamily: fonts.medium, fontSize: v(20), color: colors.white }}
               >
@@ -270,6 +279,7 @@ export function WelcomeContent({
               </Text>
             </View>
             <Text
+              {...fixedText}
               numberOfLines={2}
               style={{
                 flexShrink: 1,

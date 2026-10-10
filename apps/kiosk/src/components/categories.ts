@@ -7,6 +7,8 @@ export interface MenuMemory {
   cartTotal?: string;
   category: Category;
   offsets: Partial<Record<Category, number>>;
+  /** Serial of the last add the menu announced (toast and flight into the bag). */
+  addSerial?: number;
   /** Billboard slide last shown (0 featured, 1 promo), kept across category changes. */
   billboard?: 0 | 1;
 }

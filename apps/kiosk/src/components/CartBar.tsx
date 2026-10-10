@@ -11,6 +11,7 @@ import { Icon } from './Icon';
 import { measureRect, motion, useBump, useFly, usePop, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
 const positions = (n: number, locale: Locale) => itemCount(n, locale);
 const minorOf = (total: string) => (/^[0-9]{1,15}$/.test(total) ? Number(total) : 0);
 /**
@@ -209,13 +210,17 @@ export function CartBar({
               transform: [{ scale: badge }],
             }}
           >
-            <Text style={{ fontFamily: fonts.black, fontSize: v(15), color: colors.white }}>
+            <Text
+              {...fixedText}
+              style={{ fontFamily: fonts.black, fontSize: v(15), color: colors.white }}
+            >
               {quantity}
             </Text>
           </Animated.View>
         </Animated.View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
+            {...fixedText}
             testID="kiosk-cart-feedback"
             accessibilityLiveRegion="polite"
             numberOfLines={1}
@@ -228,6 +233,7 @@ export function CartBar({
             {added ? t.selected : quantity ? positions(quantity, locale) : t.cart}
           </Text>
           <Text
+            {...fixedText}
             numberOfLines={1}
             adjustsFontSizeToFit
             accessibilityLabel={valid ? money(total) : undefined}
@@ -284,6 +290,7 @@ export function CartBar({
               <ActivityIndicator accessibilityLabel={t.checkout} color={colors.white} />
             ) : null}
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.black,
                 fontSize: Math.max(24, v(21)),

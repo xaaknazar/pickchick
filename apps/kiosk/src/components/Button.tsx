@@ -4,6 +4,7 @@ import { colors, fonts, useMetrics } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { useFlash, useLoop, usePress, useTimingTo } from './motion';
 import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
 export interface ButtonProps {
   label: string;
   onPress: () => void;
@@ -139,6 +140,7 @@ export function Button({
           />
         ) : null}
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.black,
             // Regular and hero labels stay >= 24 px (design type scale).

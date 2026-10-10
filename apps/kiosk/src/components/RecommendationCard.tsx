@@ -8,6 +8,7 @@ import { productImage, productPhoto, type Photo } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { useEnter, usePress, usePulse, useTimingTo } from './motion';
+import { fixedText } from './Body';
 /**
  * v3 "С этим часто берут" card: white 26-pt card, 150-pt photo on its own tile,
  * name and orange price. The round orange + on the photo turns green with a check
@@ -112,6 +113,7 @@ export function RecommendationCard({
           </View>
           <View style={{ gap: v(2), paddingHorizontal: v(6) }}>
             <Text
+              {...fixedText}
               numberOfLines={2}
               style={{
                 fontFamily: fonts.medium,
@@ -124,6 +126,7 @@ export function RecommendationCard({
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: v(10) }}>
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.heavy,
                   fontSize: Math.max(19, v(18)),
@@ -134,6 +137,7 @@ export function RecommendationCard({
                 {money(product.price_minor)}
               </Text>
               <Text
+                {...fixedText}
                 accessibilityLiveRegion="polite"
                 numberOfLines={1}
                 style={{
@@ -163,7 +167,8 @@ export function RecommendationCard({
         <Pressable
           testID={'kiosk-upsell-plus-' + product.id}
           accessibilityRole="button"
-          accessibilityLabel={'+ ' + product.name}
+          // Tapping an added card takes one back out (the check mark is a toggle).
+          accessibilityLabel={(added ? t.removeOne + ': ' : '+ ') + product.name}
           accessibilityState={{ disabled: blocked }}
           disabled={blocked}
           onPress={add}

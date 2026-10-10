@@ -10,6 +10,8 @@ import { OrderBurst } from './OrderBurst';
 import { PaidStamp, paidLead } from './PaidStamp';
 import { useEnter, useLoop, usePop, useSpringTo } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { fixedText } from './Body';
+import { useAnnounce } from './announce';
 
 export type OrderStage = 'accepted' | 'preparing' | 'ready';
 const fill: Record<OrderStage, number> = { accepted: 0.18, preparing: 0.52, ready: 1 };
@@ -68,6 +70,7 @@ function StageLabel({ label, state }: { label: string; state: 'done' | 'active' 
   const blink = useLoop(1400, 0, true);
   return (
     <Animated.Text
+      {...fixedText}
       style={{
         fontFamily: fonts.medium,
         fontSize: Math.max(15, v(18)),
@@ -116,6 +119,7 @@ export function OrderTicket({
   const { v, width, height } = useMetrics();
   const t = copy(locale);
   const tight = height < v(1180);
+  useAnnounce(number ? `${t.yourNumber} ${number}. ${status}` : status);
   const [track, setTrack] = useState(0);
   const reduced = useMotionPreference();
   // Opening already paid: the paid card holds first, then the ticket arrives.
@@ -150,7 +154,11 @@ export function OrderTicket({
   };
   const numberContent = (
     <>
-      {prefixed ? <Text style={{ fontSize: numberSize * 0.42 }}>№</Text> : null}
+      {prefixed ? (
+        <Text {...fixedText} style={{ fontSize: numberSize * 0.42 }}>
+          №
+        </Text>
+      ) : null}
       {digits}
     </>
   );
@@ -238,6 +246,7 @@ export function OrderTicket({
       {number !== null ? (
         <>
           <Animated.Text
+            {...fixedText}
             style={{
               marginTop: v(6),
               fontFamily: fonts.heavy,
@@ -271,6 +280,7 @@ export function OrderTicket({
             >
               {/* The hard orange shadow is a copy behind the number that slides down. */}
               <Animated.Text
+                {...fixedText}
                 accessible={false}
                 aria-hidden
                 style={{
@@ -292,12 +302,17 @@ export function OrderTicket({
               >
                 {numberContent}
               </Animated.Text>
-              <Text testID="kiosk-order-number" style={{ ...numberText, color: colors.white }}>
+              <Text
+                {...fixedText}
+                testID="kiosk-order-number"
+                style={{ ...numberText, color: colors.white }}
+              >
                 {numberContent}
               </Text>
               {reduced ? null : (
                 // Blur stand-in: a soft, larger ghost that dissolves as the number lands.
                 <Animated.Text
+                  {...fixedText}
                   accessible={false}
                   aria-hidden
                   style={{
@@ -330,6 +345,7 @@ export function OrderTicket({
 
       <Animated.View style={{ alignItems: 'center', gap: v(6), ...fadeUp(rest) }}>
         <Text
+          {...fixedText}
           testID="kiosk-order-state"
           accessibilityRole="header"
           accessibilityLiveRegion="polite"
@@ -346,6 +362,7 @@ export function OrderTicket({
         </Text>
         {number === null ? (
           <Text
+            {...fixedText}
             testID="kiosk-order-delivery-pending"
             style={{
               fontFamily: fonts.body,
@@ -436,6 +453,7 @@ export function OrderTicket({
 
       {showBoard ? (
         <Animated.Text
+          {...fixedText}
           style={{
             marginTop: v(14),
             fontFamily: fonts.body,
@@ -449,6 +467,7 @@ export function OrderTicket({
         </Animated.Text>
       ) : null}
       <Animated.Text
+        {...fixedText}
         style={{
           marginTop: v(6),
           fontFamily: fonts.body,

@@ -8,6 +8,8 @@ import { Icon, type IconName } from './Icon';
 import { PaymentQR } from './PaymentQR';
 import { useEnter } from './motion';
 import { checkoutCopy } from '../checkoutCopy';
+import { fixedText } from './Body';
+import { useAnnounce } from './announce';
 const kaspiLogo = require('../../assets/v3/kaspi.webp');
 
 const clock = (seconds: number) =>
@@ -61,11 +63,15 @@ function QrStep({ index, label }: { index: number; label: string }) {
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontFamily: fonts.black, fontSize: v(19), color: colors.white }}>
+        <Text
+          {...fixedText}
+          style={{ fontFamily: fonts.black, fontSize: v(19), color: colors.white }}
+        >
           {index + 1}
         </Text>
       </View>
       <Text
+        {...fixedText}
         style={{
           fontFamily: fonts.medium,
           fontSize: Math.max(16, v(17)),
@@ -113,6 +119,8 @@ export function PaymentStatus({
   const t = copy(locale);
   const tight = height < v(1180);
   const waiting = state === 'waiting';
+  // VoiceOver hears every status change (live regions below serve Android and the web).
+  useAnnounce(title + '. ' + message);
   const left = useCountdown(qrPayload ? expiresAt : null);
   const drop = useEnter(0, 520);
   const rise = useEnter(80, 520);
@@ -181,6 +189,7 @@ export function PaymentStatus({
         )}
         <View style={{ flexShrink: 1, gap: v(2), alignItems: waiting ? 'flex-start' : 'center' }}>
           <Text
+            {...fixedText}
             accessibilityRole="header"
             style={{
               fontFamily: fonts.black,
@@ -197,14 +206,17 @@ export function PaymentStatus({
               it says what the kiosk is waiting for. */}
           {waiting && !qrPayload ? (
             <Text
+              {...fixedText}
               style={{ fontFamily: fonts.body, fontSize: v(18), color: colors.onBlueMuted }}
               accessibilityLiveRegion="polite"
             >
               {title}
             </Text>
           ) : waiting ? (
-            // Hidden with the QR on screen (design), but still announced to VoiceOver.
+            // Hidden with the QR on screen (design); a live region for Android and the web,
+            // VoiceOver hears it through useAnnounce above.
             <Text
+              {...fixedText}
               accessibilityLiveRegion="polite"
               style={{
                 position: 'absolute',
@@ -230,12 +242,16 @@ export function PaymentStatus({
           ],
         }}
       >
-        <Text style={{ fontFamily: fonts.medium, fontSize: v(20), color: colors.onBlueMuted }}>
+        <Text
+          {...fixedText}
+          style={{ fontFamily: fonts.medium, fontSize: v(20), color: colors.onBlueMuted }}
+        >
           {/* Dense (live Kaspi QR): the design has no order chip, so the reference
               joins the "К оплате" line and the chip row goes away. */}
           {dense ? t.toPay + ' · ' + reference : t.toPay}
         </Text>
         <Text
+          {...fixedText}
           numberOfLines={1}
           adjustsFontSizeToFit
           style={{
@@ -261,6 +277,7 @@ export function PaymentStatus({
             }}
           >
             <Text
+              {...fixedText}
               style={{ fontFamily: fonts.bold, fontSize: Math.max(15, v(16)), color: colors.white }}
             >
               {reference}
@@ -316,10 +333,14 @@ export function PaymentStatus({
               }}
             >
               <Icon name="time-outline" size="small" tone="deep" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: v(18), color: '#B44A00' }}>
+              <Text
+                {...fixedText}
+                style={{ fontFamily: fonts.bold, fontSize: v(18), color: '#B44A00' }}
+              >
                 {t.qrValid}
               </Text>
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.bold,
                   fontSize: v(18),
@@ -366,6 +387,7 @@ export function PaymentStatus({
           }}
         >
           <Text
+            {...fixedText}
             accessibilityLiveRegion="polite"
             style={{
               fontFamily: fonts.medium,

@@ -157,64 +157,69 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
     </ScreenSurface>
   );
 }
+/** Seconds a finished order (paid or failed) stays before the kiosk starts over. */
+const HOLD = 15;
 export function OrderScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   const order = model.order;
-  const waitingForNumber =
-    model.commercial && order?.payment_state === 'paid' && (!order.number || order.number === '-');
-  const canReset =
-    !!order &&
-    ['simulated_approved', 'paid'].includes(order.payment_state) &&
-    !model.recoveryRequired;
-  const [seconds, setSeconds] = useState(15);
+  const paid = !!order && ['simulated_approved', 'paid'].includes(order.payment_state);
+  const failed = order?.state === 'failed' || order?.state === 'cancelled';
+  const waitingForNumber = model.commercial && paid && (!order.number || order.number === '-');
+  // A manager-accepted payment incident reaches the device as `failed` while the QR payment is
+  // still being checked: the result is unknown, not a decline.
+  const incident =
+    !!model.commercial &&
+    order?.state === 'failed' &&
+    !!model.qrPayment &&
+    model.qrPayment.state !== 'failed';
+  const canReset = !!order && (paid || failed) && !model.recoveryRequired;
+  const hold = HOLD;
+  const [seconds, setSeconds] = useState(hold);
   const modelRef = useRef(model);
   modelRef.current = model;
   useEffect(() => {
     if (!canReset) return;
-    let remaining = 15;
+    let remaining = hold;
     setSeconds(remaining);
     const interval = setInterval(() => {
       remaining -= 1;
       setSeconds(Math.max(0, remaining));
       if (remaining <= 0) {
         const current = modelRef.current;
-        if (
-          !!current.order &&
-          ['simulated_approved', 'paid'].includes(current.order.payment_state) &&
-          !current.recoveryRequired &&
-          !current.busy
-        ) {
+        if (!!current.order && !current.recoveryRequired && !current.busy) {
           clearInterval(interval);
           void current.newGuest();
         }
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [canReset, order?.order_id]);
-  const status = waitingForNumber
-    ? t.paymentConfirmed
-    : order?.state === 'ready'
-      ? t.ready
-      : order?.state === 'fulfilled'
-        ? t.fulfilled
-        : order?.state === 'failed'
-          ? t.declined
-          : order?.state === 'cancelled'
-            ? t.cancelled
-            : order?.state === 'preparing'
-              ? t.preparing
-              : model.commercial
-                ? t.awaitingRestaurant
-                : t.waiting;
-  const number = waitingForNumber ? null : kioskTicketNumber(order?.number);
-  const stage = waitingForNumber
-    ? null
-    : order?.state === 'ready' || order?.state === 'fulfilled'
-      ? 'ready'
-      : order?.state === 'preparing'
-        ? 'preparing'
-        : order?.state === 'failed' || order?.state === 'cancelled'
-          ? null
+  }, [canReset, hold, order?.order_id]);
+  const status = incident
+    ? t.incidentTitle
+    : waitingForNumber
+      ? t.paymentConfirmed
+      : order?.state === 'ready'
+        ? t.ready
+        : order?.state === 'fulfilled'
+          ? t.fulfilled
+          : order?.state === 'failed'
+            ? t.declined
+            : order?.state === 'cancelled'
+              ? t.cancelled
+              : order?.state === 'preparing'
+                ? t.preparing
+                : model.commercial
+                  ? t.awaitingRestaurant
+                  : t.waiting;
+  // A failed or cancelled order has no number to collect.
+  const number = waitingForNumber || failed ? null : kioskTicketNumber(order?.number);
+  const stage =
+    waitingForNumber || failed
+      ? null
+      : order?.state === 'ready' || order?.state === 'fulfilled'
+        ? 'ready'
+        : order?.state === 'preparing'
+          ? 'preparing'
           : 'accepted';
 
   return (
@@ -224,16 +229,24 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
           <OrderTicket
             number={number}
             status={status}
-            confirmed={canReset}
+            confirmed={paid && !model.recoveryRequired}
             stage={stage}
             showBoard={order?.state === 'preparing' || order?.state === 'ready'}
             locale={context.locale}
             receipt={
-              model.commercial
-                ? model.receiptState === 'issued'
-                  ? t.receiptIssued
-                  : t.receiptMissing
-                : t.testPayment
+              incident
+                ? t.incidentBody
+                : waitingForNumber
+                  ? t.numberPending
+                  : failed
+                    ? model.commercial
+                      ? t.helpCommercial
+                      : t.testPayment
+                    : model.commercial
+                      ? model.receiptState === 'issued'
+                        ? t.receiptIssued
+                        : t.receiptMissing
+                      : t.testPayment
             }
           />
         </Wrapper>
@@ -245,11 +258,11 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
               label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
               testID="kiosk-next-guest"
               tone="light"
-              disabled={!canReset && order?.state !== 'cancelled' && order?.state !== 'failed'}
+              disabled={!canReset}
               busy={model.busy}
               onPress={() => void model.newGuest()}
               fullWidth
-              progress={canReset ? (15 - seconds) / 15 : undefined}
+              progress={canReset ? (hold - seconds) / hold : undefined}
             />
           </Wrapper>
           <Button label={t.help} tone="inverse" onPress={context.onHelp} />

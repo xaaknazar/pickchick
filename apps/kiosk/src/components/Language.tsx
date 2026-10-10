@@ -3,6 +3,7 @@ import { LOCALES, LOCALE_LABELS, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { useTimingTo } from './motion';
 import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
 type Tone = 'default' | 'inverse' | 'light' | 'menu' | 'compact';
 /**
  * v3 language switch KZ / RU / EN. On the attract screen and the dining choice the active
@@ -126,6 +127,7 @@ function Option({
       />
       <View pointerEvents="none">
         <Animated.Text
+          {...fixedText}
           style={{
             ...text,
             color: light ? colors.muted : colors.white,
@@ -135,6 +137,7 @@ function Option({
           {short}
         </Animated.Text>
         <Animated.Text
+          {...fixedText}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           aria-hidden

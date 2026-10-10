@@ -9,6 +9,7 @@ import { ProductArtwork } from './ProductArtwork';
 import { usePress, useTimingTo } from './motion';
 import { categoryKeys, inCategory, type Category } from './categories';
 import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
 /** Design rail `.kx` width: 12 pt gutters around 156 pt tiles. */
 export const RAIL_WIDTH = 180;
 /**
@@ -181,7 +182,11 @@ function Tile({
             <ProductArtwork imageId={imageId} variant="rail" />
           ) : null}
         </View>
-        <Animated.Text numberOfLines={2} style={{ ...text, color: colors.navy, opacity: card }}>
+        <Animated.Text
+          {...fixedText}
+          numberOfLines={2}
+          style={{ ...text, color: colors.navy, opacity: card }}
+        >
           {label.toUpperCase()}
         </Animated.Text>
       </Pressable>
@@ -195,6 +200,7 @@ function Tile({
       >
         <View style={{ height: v(88) }} />
         <Animated.Text
+          {...fixedText}
           numberOfLines={2}
           style={{
             ...text,

@@ -45,12 +45,17 @@ export function GuestScreen() {
     from: KioskStep | 'boot';
     direction: 'forward' | 'back';
   }>({ step: liveModel.step, from: 'boot', direction: 'forward' });
-  if (arrival.current.step !== liveModel.step)
+  // Every opening of a product page is a new screen: a page still closing its circle
+  // (460 ms) is never reused half-open when the same product is tapped again.
+  const productVisit = useRef(0);
+  if (arrival.current.step !== liveModel.step) {
+    if (liveModel.step === 'product') productVisit.current += 1;
     arrival.current = {
       step: liveModel.step,
       from: arrival.current.step,
       direction: directionOf(arrival.current.step, liveModel.step),
     };
+  }
   useEffect(() => {
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
       upsellSeen.current = false;
@@ -71,6 +76,22 @@ export function GuestScreen() {
     }
   }, [liveModel.cartTotalMinor, liveModel.openCart, liveModel.openUpsell]);
   const model: KioskModel = { ...liveModel, openUpsell };
+  // Errors come with a code in the guest's language; the simulator keeps its own text.
+  const errorText = model.errorCode ? t[('err_' + model.errorCode) as keyof typeof t] : model.error;
+  // iOS presents one modal at a time: the idle countdown first closes help or cancel (and the
+  // product page its drinks sheet), then appears once they are gone.
+  const warning = model.idleWarningSeconds !== null && !model.order && !model.recoveryRequired;
+  const [idleShown, setIdleShown] = useState(false);
+  useEffect(() => {
+    if (!warning) {
+      setIdleShown(false);
+      return;
+    }
+    setHelp(false);
+    setCancel(false);
+    const timer = setTimeout(() => setIdleShown(true), 300);
+    return () => clearTimeout(timer);
+  }, [warning]);
   const context: ScreenContext = {
     locale,
     setLocale: (value) => {
@@ -83,11 +104,11 @@ export function GuestScreen() {
     from: arrival.current.from,
   };
   const closeCancel = () => setCancel(false);
+  const unresolved =
+    model.recoveryRequired ||
+    ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '');
   const confirmCancel = async () => {
-    if (
-      model.recoveryRequired ||
-      ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '')
-    ) {
+    if (unresolved) {
       setCancel(false);
       setHelp(true);
       return;
@@ -132,10 +153,12 @@ export function GuestScreen() {
         screen = <MenuScreen model={model} context={context} memory={menuMemory.current} />;
         break;
       case 'product':
-        screenKey = model.selectedProduct ? 'product-' + model.selectedProduct.id : 'menu';
+        screenKey = model.selectedProduct
+          ? `product-${model.selectedProduct.id}-${productVisit.current}`
+          : 'menu';
         screen = model.selectedProduct ? (
           <ProductScreen
-            key={model.selectedProduct.id}
+            key={screenKey}
             product={model.selectedProduct}
             model={model}
             context={context}
@@ -166,19 +189,24 @@ export function GuestScreen() {
       <ScreenTransition screenKey={screenKey} reveal={screenKey.startsWith('product-')}>
         {screen}
       </ScreenTransition>
-      {model.ready && model.error && (model.catalog || model.order || model.recoveryRequired) ? (
-        <Notice testID="kiosk-error" body={model.error} tone="error" />
+      {model.ready && errorText && (model.catalog || model.order || model.recoveryRequired) ? (
+        <Notice
+          testID="kiosk-error"
+          body={errorText}
+          tone={
+            model.errorCode === 'CONNECTION' || model.errorCode === 'OFFLINE' ? 'info' : 'error'
+          }
+        />
       ) : null}
-      <Dialog visible={help} onClose={() => setHelp(false)} testID="kiosk-help">
+      <Dialog visible={help && !warning} onClose={() => setHelp(false)} testID="kiosk-help">
         <Heading size="title">{t.helpTitle}</Heading>
         <Body>{model.commercial ? t.helpCommercial : t.helpBody}</Body>
         <Button label={t.close} onPress={() => setHelp(false)} />
       </Dialog>
-      <Dialog visible={cancel} onClose={closeCancel} testID="kiosk-cancel-dialog">
+      <Dialog visible={cancel && !warning} onClose={closeCancel} testID="kiosk-cancel-dialog">
         <Heading size="title">{t.cancelQuestion}</Heading>
         <Body>
-          {model.recoveryRequired ||
-          ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '')
+          {unresolved
             ? t.unknownBody
             : model.order
               ? model.commercial
@@ -188,23 +216,14 @@ export function GuestScreen() {
         </Body>
         <Button label={t.keep} testID="kiosk-cancel-dismiss" onPress={closeCancel} />
         <Button
-          label={
-            model.recoveryRequired ||
-            ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '')
-              ? t.help
-              : t.yesCancel
-          }
+          label={unresolved ? t.help : t.yesCancel}
           tone="secondary"
           testID="kiosk-cancel-confirm"
           busy={model.busy}
           onPress={() => void confirmCancel()}
         />
       </Dialog>
-      <Dialog
-        visible={model.idleWarningSeconds !== null && !model.order && !model.recoveryRequired}
-        onClose={model.stay}
-        testID="kiosk-idle-dialog"
-      >
+      <Dialog visible={idleShown} onClose={model.stay} testID="kiosk-idle-dialog">
         <Heading size="title">{t.stillHere}</Heading>
         <Heading size="display" tone="brand">
           {model.idleWarningSeconds}

@@ -8,6 +8,7 @@ import { productArtworkId } from '../assets';
 import { ProductArtwork } from './ProductArtwork';
 import { ProductNutrition } from './ProductNutrition';
 import { useEnter } from './motion';
+import { fixedText } from './Body';
 /** Fade-up for each block of the product body (v3 .pbody > * cascade). */
 function Rise({ index, children }: { index: number; children?: ReactNode }) {
   const enter = useEnter([0, 80, 140, 200, 250][Math.min(index, 4)], 520);
@@ -40,7 +41,8 @@ export function ProductIntro({
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
-  const hit = product.name === 'Pick Combo';
+  // By id: the name is localized in the commercial catalog.
+  const hit = product.id === 'pick-combo';
   // Prototype `.ptag`: pop (scale .3 -> 1, fade in) 500 ms after 380 ms, --spring.
   const tag = useEnter(380, 500, 'spring');
   return (
@@ -70,6 +72,7 @@ export function ProductIntro({
             }}
           >
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.black,
                 fontSize: v(16),
@@ -106,6 +109,7 @@ export function ProductIntro({
               }}
             >
               <Text
+                {...fixedText}
                 accessibilityRole="header"
                 style={{
                   flexShrink: 1,
@@ -119,6 +123,7 @@ export function ProductIntro({
                 {product.name}
               </Text>
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.medium,
                   fontSize: Math.max(15, v(18)),
@@ -130,6 +135,7 @@ export function ProductIntro({
             </View>
             {product.description ? (
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.body,
                   fontSize: Math.max(17, v(20)),

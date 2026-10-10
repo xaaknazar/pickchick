@@ -18,6 +18,7 @@ import {
   useTimingTo,
 } from './motion';
 import { useScrollTarget } from './scroll';
+import { fixedText } from './Body';
 type Option = KioskModifierGroup['options'][number];
 const shadow = {
   shadowColor: '#020A28',
@@ -66,7 +67,10 @@ function OptionArt({ id, dim, selected }: { id: string; dim: number; selected: b
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontFamily: fonts.black, fontSize: dim * 0.16, color: heinzInk(id) }}>
+        <Text
+          {...fixedText}
+          style={{ fontFamily: fonts.black, fontSize: dim * 0.16, color: heinzInk(id) }}
+        >
           Heinz
         </Text>
       </View>
@@ -90,6 +94,7 @@ function PricePill({ option, locale }: { option: Option; locale: Locale }) {
       }}
     >
       <Text
+        {...fixedText}
         numberOfLines={1}
         style={{
           fontFamily: fonts.bold,
@@ -182,6 +187,7 @@ function OptionTile({
         }}
       >
         <Text
+          {...fixedText}
           numberOfLines={2}
           style={
             visual
@@ -252,6 +258,7 @@ function OptionTile({
     >
       {multi ? (
         <Text
+          {...fixedText}
           testID={`kiosk-modifier-quantity-${group.id}-${option.id}`}
           style={{
             fontFamily: fonts.black,
@@ -427,12 +434,14 @@ function ExtraRow({
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: v(2) }}>
         <Text
+          {...fixedText}
           numberOfLines={2}
           style={{ fontFamily: fonts.medium, fontSize: Math.max(16, v(19)), color: colors.navy }}
         >
           {option.label}
         </Text>
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.bold,
             fontSize: Math.max(14, v(16)),
@@ -504,6 +513,7 @@ function GroupChip({
     return (
       <Animated.View style={{ opacity: pop.opacity, transform: [{ scale: pop.scale }] }}>
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.body,
             fontSize: Math.max(15, v(16)),
@@ -517,7 +527,9 @@ function GroupChip({
     );
   const done = total >= group.min && total <= group.max;
   const names = selections
-    .filter((s) => s.group_id === group.id)
+    .filter(
+      (s) => s.group_id === group.id && options.some((o) => o.id === s.option_id && o.available),
+    )
     .map((s) => {
       const label = options.find((o) => o.id === s.option_id)?.label ?? '';
       return s.quantity > 1 ? `${label} × ${s.quantity}` : label;
@@ -541,6 +553,7 @@ function GroupChip({
     >
       {done ? <Icon name="checkmark" size="small" tone="brand" /> : null}
       <Text
+        {...fixedText}
         numberOfLines={1}
         style={{
           flexShrink: 1,
@@ -589,8 +602,12 @@ export function ModifierOptions({
     const timer = setTimeout(() => setNudge((n) => n + 1), 380);
     return () => clearTimeout(timer);
   }, [attention]);
+  // A pick stopped while the page is open does not count (the chip shows the group as open).
   const total = selections
-    .filter((s) => s.group_id === group.id)
+    .filter(
+      (s) =>
+        s.group_id === group.id && group.options.some((o) => o.id === s.option_id && o.available),
+    )
     .reduce((n, s) => n + s.quantity, 0);
   const update = (id: string, quantity: number) => {
     const others = selections.filter(
@@ -618,6 +635,7 @@ export function ModifierOptions({
         }}
       >
         <Text
+          {...fixedText}
           accessibilityRole="header"
           style={{
             flexShrink: 1,
