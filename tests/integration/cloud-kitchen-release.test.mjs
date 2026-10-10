@@ -9,6 +9,7 @@ import { withSyncDatabases } from '../helpers/sync.mjs';
 import {
   cloudKitchenStatus,
   deployCloudKitchen,
+  expandSetup,
   EXPECTED_FUNCTIONS,
   EXPECTED_PRIVILEGES,
   MIGRATIONS,
@@ -16,6 +17,83 @@ import {
 } from '../../infra/staging/cloud-kitchen-release-owner.mjs';
 import { runtimePrivileges } from '../../infra/staging/unified-menu-owner.mjs';
 import { provisionCloudKitchenInTransaction } from '@pickchick/cloud-kitchen';
+
+const CATALOG = [
+  { id: 'piko-burger', kind: 'item' },
+  { id: 'cola', kind: 'item' },
+  { id: 'combo-duo', kind: 'combo' },
+];
+/** Owner client stub: one head publication and the active routing (or none). */
+function fakeClient({ products, active, heads = 1 }) {
+  return {
+    async query(sql) {
+      if (sql.includes('catalog_branch_heads'))
+        return {
+          rows: Array.from({ length: heads }, () => ({ version: 7, payload: { products } })),
+        };
+      if (sql.includes('cloud_kitchen_routing')) return { rows: active ? [active] : [] };
+      throw new Error('unexpected query');
+    },
+  };
+}
+const PREP = '9ba8dc69-260c-482b-bed9-cab791b64595',
+  ASSEMBLY = '2cbc8ef3-359b-4cf0-bda8-28b82b727c93',
+  BRANCH = '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1';
+const minimal = {
+  branchId: BRANCH,
+  stations: [
+    { id: ASSEMBLY, kind: 'assembly', name: 'Name A from input' },
+    { id: PREP, kind: 'prep', name: 'Name P from input' },
+  ],
+  routeAllProductsTo: PREP,
+};
+
+test('minimal kitchen setup routes every head-catalog product to the named prep station', async () => {
+  const first = await expandSetup(fakeClient({ products: CATALOG, active: null }), minimal);
+  assert.equal(first.routeAll, true);
+  assert.equal(first.catalogVersion, 7);
+  assert.deepEqual(first.setup.stations, minimal.stations);
+  assert.deepEqual(first.setup.routing, {
+    version: 1,
+    assemblyStationId: ASSEMBLY,
+    routes: [
+      { productId: 'cola', stationId: PREP, kind: 'prep' },
+      { productId: 'combo-duo', stationId: PREP, kind: 'prep', unexpandedCombo: 'whole_product' },
+      { productId: 'piko-burger', stationId: PREP, kind: 'prep' },
+    ],
+  });
+  const active = {
+    version: 3,
+    assembly_station_id: ASSEMBLY,
+    payload: first.setup.routing,
+  };
+  const same = await expandSetup(fakeClient({ products: CATALOG, active }), minimal);
+  assert.equal(same.setup.routing.version, 3);
+  assert.equal(same.unchanged, true);
+  const grown = await expandSetup(
+    fakeClient({ products: [...CATALOG, { id: 'fries', kind: 'item' }], active }),
+    minimal,
+  );
+  assert.equal(grown.setup.routing.version, 4);
+  assert.equal(grown.setup.routing.routes.length, 4);
+  const full = { branchId: BRANCH, stations: minimal.stations, routing: first.setup.routing };
+  assert.equal((await expandSetup(fakeClient({ products: CATALOG, active }), full)).setup, full);
+  await assert.rejects(
+    expandSetup(fakeClient({ products: CATALOG, active: null, heads: 0 }), minimal),
+    /head catalog/,
+  );
+  await assert.rejects(
+    expandSetup(fakeClient({ products: CATALOG, active: null }), {
+      ...minimal,
+      routeAllProductsTo: ASSEMBLY,
+    }),
+    /routeAllProductsTo/,
+  );
+  await assert.rejects(
+    expandSetup(fakeClient({ products: CATALOG, active: null }), { ...minimal, routing: {} }),
+    /Setup must be/,
+  );
+});
 
 const migrations = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
 
@@ -129,6 +207,21 @@ test('cloud kitchen owner applies only additive 053-056 with the reviewed grants
           });
           assert.deepEqual(edge, { before: 'cloud', after: 'edge', epoch: 2, audited: true });
           await c.query('COMMIT');
+
+          // Minimal setup expands into a routing the real provisioning accepts (version moves on).
+          const expanded = await expandSetup(fakeClient({ products: CATALOG, active: null }), {
+            branchId: branch,
+            stations: [
+              { id: assembly, kind: 'assembly', name: 'Сборка' },
+              { id: prep, kind: 'prep', name: 'Горячий цех' },
+            ],
+            routeAllProductsTo: prep,
+          });
+          expanded.setup.routing.version = 2;
+          await c.query('BEGIN');
+          await provisionCloudKitchenInTransaction(c, expanded.setup);
+          assert.equal((await cloudKitchenStatus(c, branch)).routingVersion, 2);
+          await c.query('ROLLBACK');
 
           await c.query('BEGIN');
           await assert.rejects(deployCloudKitchen(c, { directory, role }), /ledger/);

@@ -7,7 +7,12 @@
  *                                    runtime grants (053 numbers, 054 kitchen, 055 stops, 056
  *                                    screens/orders); flags stay off, every branch stays `edge`.
  *   status   --branch <uuid>         mode, stations/routing, active portal screens, active orders.
- *   stations --branch <uuid>         trusted station/routing provisioning (JSON on stdin).
+ *   stations --branch <uuid>         trusted station/routing provisioning (JSON on stdin): either the
+ *                                    full {branchId, stations, routing} or the minimal
+ *                                    {branchId, stations, routeAllProductsTo: <prep station id>}, which
+ *                                    routes every product of the branch's head catalog publication to
+ *                                    that prep station (routing version only moves when routes change).
+ *   stations-preview --branch <uuid> read-only: the routing the same stdin would load.
  *   mode     --branch <uuid> --owner edge|cloud --operator <name> --reason <text>
  *                                    audited cloud_kitchen_set_mode (journal + epoch).
  *
@@ -296,6 +301,78 @@ export async function deployCloudKitchen(c, { directory, role, inspect = false }
   };
 }
 
+const SETUP_FULL = 'branchId,routing,stations';
+const SETUP_MINIMAL = 'branchId,routeAllProductsTo,stations';
+const routeKey = (r) =>
+  JSON.stringify([r.productId, r.stationId, r.kind, r.unexpandedCombo ?? null]);
+
+/**
+ * Expand the minimal setup into the full provisioning input. Every product id of the head catalog
+ * publication (components and modifier-linked products are products of the same payload) goes to
+ * the named prep station as `prep`; combos/sets without expanded components go there whole. The
+ * names come only from the input. The version stays when the active routes are identical.
+ */
+export async function expandSetup(c, setup) {
+  guard(setup && typeof setup === 'object' && !Array.isArray(setup), 'Setup object required');
+  const keys = Object.keys(setup).sort().join(',');
+  if (keys === SETUP_FULL) return { setup, routeAll: false };
+  guard(
+    keys === SETUP_MINIMAL,
+    'Setup must be {branchId,stations,routing} or {branchId,stations,routeAllProductsTo}',
+  );
+  guard(UUID.test(setup.branchId ?? ''), 'Invalid branch');
+  const stations = Array.isArray(setup.stations) ? setup.stations : [];
+  const assembly = stations.filter((s) => s?.kind === 'assembly');
+  guard(
+    assembly.length === 1 &&
+      stations.some((s) => s?.kind === 'prep' && s.id === setup.routeAllProductsTo),
+    'Minimal setup needs one assembly station and routeAllProductsTo naming a listed prep station',
+  );
+  const heads = (
+    await c.query(
+      `SELECT p.version,p.payload FROM catalog_branch_heads h JOIN catalog_publications p
+       ON p.branch_id=h.branch_id AND p.organization_id=h.organization_id AND p.version=h.published_version
+       WHERE h.branch_id=$1`,
+      [setup.branchId],
+    )
+  ).rows;
+  guard(heads.length === 1, 'Exactly one head catalog publication required for the branch');
+  const products = heads[0].payload?.products;
+  guard(Array.isArray(products) && products.length > 0, 'Head catalog has no products');
+  const routes = products
+    .map((p) => ({
+      productId: String(p.id),
+      stationId: setup.routeAllProductsTo,
+      kind: 'prep',
+      ...(p.kind === 'combo' || p.kind === 'set' ? { unexpandedCombo: 'whole_product' } : {}),
+    }))
+    .sort((a, b) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0));
+  const active = (
+    await c.query(
+      `SELECT r.version,r.assembly_station_id,r.payload FROM cloud_kitchen_config k JOIN cloud_kitchen_routing r
+       ON r.branch_id=k.branch_id AND r.version=k.active_routing_version WHERE k.branch_id=$1`,
+      [setup.branchId],
+    )
+  ).rows[0];
+  const same =
+    active &&
+    active.assembly_station_id === assembly[0].id &&
+    // Same order too: the stored payload hash covers the exact route array.
+    JSON.stringify((active.payload?.routes ?? []).map(routeKey)) ===
+      JSON.stringify(routes.map(routeKey));
+  const version = active ? Number(active.version) + (same ? 0 : 1) : 1;
+  return {
+    setup: {
+      branchId: setup.branchId,
+      stations,
+      routing: { version, assemblyStationId: assembly[0].id, routes },
+    },
+    routeAll: true,
+    catalogVersion: Number(heads[0].version),
+    unchanged: Boolean(same),
+  };
+}
+
 /** Facts the release verifies before and after each enable/disable step (no secrets). */
 export async function cloudKitchenStatus(c, branch) {
   guard(UUID.test(branch), 'Invalid branch');
@@ -305,7 +382,7 @@ export async function cloudKitchenStatus(c, branch) {
   );
   const stations = (
     await c.query(
-      'SELECT id,kind FROM cloud_kitchen_stations WHERE branch_id=$1 ORDER BY kind,id',
+      'SELECT id,kind,name FROM cloud_kitchen_stations WHERE branch_id=$1 ORDER BY kind,id',
       [branch],
     )
   ).rows;
@@ -328,6 +405,7 @@ export async function cloudKitchenStatus(c, branch) {
     routingVersion: config?.version ?? null,
     prepStations: stations.filter((s) => s.kind === 'prep').map((s) => s.id),
     assemblyStations: stations.filter((s) => s.kind === 'assembly').map((s) => s.id),
+    stationNames: Object.fromEntries(stations.map((s) => [s.id, s.name])),
     activeScreens: screens.map((s) => ({ id: s.id, role: s.role })),
     activeCloudOrders: active.n,
   };
@@ -394,8 +472,8 @@ async function readStdin() {
 async function main(argv) {
   const [command, ...rest] = argv;
   guard(
-    ['inspect', 'deploy', 'status', 'stations', 'mode'].includes(command),
-    'Usage: cloud-kitchen-release-owner.mjs inspect|deploy|status|stations|mode',
+    ['inspect', 'deploy', 'status', 'stations', 'stations-preview', 'mode'].includes(command),
+    'Usage: cloud-kitchen-release-owner.mjs inspect|deploy|status|stations|stations-preview|mode',
   );
   const url = new URL(process.env.CLOUD_DATABASE_URL ?? '');
   guard(
@@ -403,11 +481,11 @@ async function main(argv) {
     'Owner database required',
   );
   const args = options(rest);
-  const setup = command === 'stations' ? JSON.parse(await readStdin()) : null;
+  const setup = command.startsWith('stations') ? JSON.parse(await readStdin()) : null;
   const { createPool } = await import('@pickchick/database');
   const pool = createPool(url.href),
     c = await pool.connect();
-  const readOnly = ['inspect', 'status'].includes(command);
+  const readOnly = ['inspect', 'status', 'stations-preview'].includes(command);
   try {
     await c.query(
       readOnly
@@ -425,9 +503,21 @@ async function main(argv) {
     else if (command === 'mode') result = await setMode(c, args);
     else {
       guard(setup?.branchId === args.branch, 'Setup branch differs');
-      const { provisionCloudKitchenInTransaction } = await import('@pickchick/cloud-kitchen');
-      await provisionCloudKitchenInTransaction(c, setup);
-      result = await cloudKitchenStatus(c, args.branch);
+      const expanded = await expandSetup(c, setup);
+      const summary = {
+        routeAll: expanded.routeAll,
+        routingVersion: expanded.setup.routing.version,
+        routes: expanded.setup.routing.routes.length,
+        assemblyStationId: expanded.setup.routing.assemblyStationId,
+        catalogVersion: expanded.catalogVersion ?? null,
+        unchanged: expanded.unchanged ?? null,
+      };
+      if (command === 'stations-preview') result = summary;
+      else {
+        const { provisionCloudKitchenInTransaction } = await import('@pickchick/cloud-kitchen');
+        await provisionCloudKitchenInTransaction(c, expanded.setup);
+        result = { ...(await cloudKitchenStatus(c, args.branch)), provisioned: summary };
+      }
     }
     await c.query(readOnly ? 'ROLLBACK' : 'COMMIT');
     console.log(JSON.stringify(result));

@@ -218,10 +218,77 @@ class CloudKitchenReleaseTests(unittest.TestCase):
         source = (ROOT/'infra/staging/release-cloud-kitchen.py').read_text()
         self.assertNotIn("get('edgeConnected') is True", source); self.assertNotIn("['edgeConnected'] is True", source)
 
-    def test_screens_need_provisioned_stations(self):
-        with self.assertRaisesRegex(G, 'provisioned'): r.screen_plan({'routingVersion': None, 'prepStations': [], 'assemblyStations': []})
-        plan = r.screen_plan({'routingVersion': 1, 'prepStations': ['p'], 'assemblyStations': ['a']})
-        self.assertEqual([p[0] for p in plan], ['prep', 'assembly', 'display']); self.assertEqual(plan[2][1], [])
+    def test_stations_must_be_provisioned_before_screens(self):
+        with self.assertRaisesRegex(G, 'provisioned'): r.stations_ready({'routingVersion': None, 'prepStations': [], 'assemblyStations': []})
+        status = {'routingVersion': 1, 'prepStations': [r.KNOWN_PREP_STATION], 'assemblyStations': [r.KNOWN_ASSEMBLY_STATION],
+                  'stationNames': {r.KNOWN_PREP_STATION: 'Кухня из JSON', r.KNOWN_ASSEMBLY_STATION: 'Сборка из JSON'}}
+        self.assertEqual(r.screen_request(status, 'prep'), ([r.KNOWN_PREP_STATION], 'Кухня из JSON'))
+        self.assertEqual(r.screen_request(status, 'assembly'), ([r.KNOWN_ASSEMBLY_STATION], 'Сборка из JSON'))
+        self.assertEqual(r.screen_request(status, 'display'), ([], 'Табло'))
+        self.assertEqual(r.screen_request(status, 'display', 'Табло у выдачи'), ([], 'Табло у выдачи'))
+        with self.assertRaises(G): r.screen_request(status, 'cashier')
+        with self.assertRaises(G): r.screen_request(status, 'display', '  ')
+
+    def minimal(self, **change):
+        setup = {'branchId': r.BRANCH, 'routeAllProductsTo': r.KNOWN_PREP_STATION,
+                 'stations': [{'id': r.KNOWN_ASSEMBLY_STATION, 'kind': 'assembly', 'name': 'A'},
+                              {'id': r.KNOWN_PREP_STATION, 'kind': 'prep', 'name': 'P'}]}
+        setup.update(change)
+        return setup
+
+    def test_minimal_setup_uses_only_known_production_stations(self):
+        self.assertEqual(r.kitchen_setup_form(self.minimal()), 'route_all')
+        full = {'branchId': r.BRANCH, 'stations': [{'id': 'x', 'kind': 'prep', 'name': 'n'}], 'routing': {'version': 1}}
+        self.assertEqual(r.kitchen_setup_form(full), 'full')
+        for bad in (self.minimal(branchId='10000000-0000-4000-8000-000000000003'),
+                    self.minimal(routeAllProductsTo=r.KNOWN_ASSEMBLY_STATION),
+                    self.minimal(stations=[{'id': r.KNOWN_PREP_STATION, 'kind': 'prep', 'name': 'P'}]),
+                    self.minimal(stations=[{'id': r.KNOWN_ASSEMBLY_STATION, 'kind': 'prep', 'name': 'A'},
+                                           {'id': r.KNOWN_PREP_STATION, 'kind': 'assembly', 'name': 'P'}]),
+                    self.minimal(stations=[{'id': r.KNOWN_ASSEMBLY_STATION, 'kind': 'assembly', 'name': ''},
+                                           {'id': r.KNOWN_PREP_STATION, 'kind': 'prep', 'name': 'P'}]),
+                    {**self.minimal(), 'routing': {}}):
+            with self.assertRaises(G): r.kitchen_setup_form(bad)
+
+    def applied_release(self, **extra):
+        obj = self.release(**extra)
+        obj.applied = Mock(return_value={'portal': None, 'before': {'candidate': 'c'}})
+        obj.current = Mock(); obj.enabled_now = Mock(return_value=True); obj.save = Mock(); obj.plan = Mock()
+        obj.status = Mock(return_value={'mode': 'cloud', 'routingVersion': 1, 'prepStations': [r.KNOWN_PREP_STATION],
+                                        'assemblyStations': [r.KNOWN_ASSEMBLY_STATION], 'activeScreens': [],
+                                        'stationNames': {r.KNOWN_PREP_STATION: 'P', r.KNOWN_ASSEMBLY_STATION: 'A'}})
+        return obj
+
+    def test_screen_code_prints_only_to_terminal_and_never_records_code(self):
+        a = dict(role='prep', operator='owner', reason='kitchen screen', apply=True)
+        obj = self.applied_release(**a)
+        obj.remote = Mock(return_value=json.dumps({'pairingCode': 'AB12-CDEF34', 'expiresAt': 'T',
+                                                   'screen': {'screenId': 's', 'role': 'prep'}}))
+        with unittest.mock.patch.object(r.sys, 'stdout') as out:
+            out.isatty.return_value = False
+            with self.assertRaisesRegex(G, 'interactive terminal'): obj.screen_code()
+            obj.remote.assert_not_called()
+            out.isatty.return_value = True
+            obj.screen_code()
+        printed = ''.join(c.args[0] for c in out.write.call_args_list)
+        self.assertIn('AB12-CDEF34', printed)
+        command = obj.remote.call_args.args[0]
+        self.assertIn('create', command); self.assertIn(r.KNOWN_PREP_STATION, command); self.assertIn("--name P", command)
+        saved = json.dumps([c.args for c in obj.save.call_args_list], ensure_ascii=False)
+        self.assertNotIn('AB12-CDEF34', saved); self.assertIn('"code_recorded": false', saved)
+        dry = self.applied_release(role='display'); dry.remote = Mock(); dry.screen_code()
+        dry.remote.assert_not_called(); self.assertEqual(dry.plan.call_args.args[1]['name'], 'Табло')
+
+    def test_screen_code_for_existing_screen_rotates_only_active_screen_of_that_role(self):
+        obj = self.applied_release(role='assembly', screen='10000000-0000-4000-8000-000000000009')
+        with self.assertRaisesRegex(G, 'Active screen'): obj.screen_code()
+        obj.status.return_value['activeScreens'] = [{'id': '10000000-0000-4000-8000-000000000009', 'role': 'assembly'}]
+        obj.screen_code(); self.assertEqual(obj.plan.call_args.args[1]['screen'], '10000000-0000-4000-8000-000000000009')
+
+    def test_screen_code_needs_role_and_operator(self):
+        with self.assertRaisesRegex(G, 'role'): r.Release(r.parse(args()[:0] + ['screen-code'] + args()[1:]))
+        a = r.parse(['screen-code'] + args(role='prep', apply=True)[1:])
+        with self.assertRaisesRegex(G, 'Operator and reason'): r.Release(a)
 
     def test_portal_package_import_guard(self):
         files = {'infra/kitchen-portal/server.mjs': "import {x} from './cloud.mjs';\nimport y from '../../apps/kitchen/server.mjs';"}
@@ -232,9 +299,37 @@ class CloudKitchenReleaseTests(unittest.TestCase):
     def test_remote_scripts_compile_and_never_print_keys(self):
         for script in (r.ENABLE_PORTAL, r.RESTORE_PORTAL, r.PORTAL_FACTS):
             compile(script, 'remote', 'exec')
-        last = r.ENABLE_PORTAL.strip().splitlines()[-1]
-        self.assertTrue(last.startswith('print(') and 'keys' not in last and 'key' not in last.replace('screens', ''))
-        self.assertIn('http://pickchick-api:3100', r.ENABLE_PORTAL)
+        self.assertNotIn('key', r.ENABLE_PORTAL.lower()); self.assertNotIn('pairing', r.ENABLE_PORTAL)
+        self.assertEqual(r.API_ORIGIN, 'http://pickchick-api:3100')
+
+    def test_enable_portal_writes_only_the_keyless_block_with_the_planned_sha(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config, pre = Path(tmp)/'config.json', Path(tmp)/'config.pre-cloud.json'
+            original = b'{"origin":"o","key":"secret"}\n'; config.write_bytes(original)
+            expected = r.digest(original)
+            run = lambda *a: subprocess.run(['python3', '-c', r.ENABLE_PORTAL, *a], capture_output=True)
+            plan = run('plan', str(config), str(pre), expected, r.BRANCH, r.API_ORIGIN, '0'*64)
+            self.assertEqual(plan.returncode, 0); want = json.loads(plan.stdout)['config_sha256']
+            self.assertEqual(config.read_bytes(), original); self.assertFalse(pre.exists())
+            self.assertNotEqual(run('apply', str(config), str(pre), expected, r.BRANCH, r.API_ORIGIN, '0'*64).returncode, 0)
+            self.assertEqual(config.read_bytes(), original)
+            done = run('apply', str(config), str(pre), expected, r.BRANCH, r.API_ORIGIN, want)
+            self.assertEqual(done.returncode, 0); self.assertNotIn(b'secret', done.stdout)
+            self.assertEqual(json.loads(config.read_text())['cloudKitchen'],
+                             {'enabled': True, 'apiOrigin': 'http://pickchick-api:3100', 'branchId': r.BRANCH})
+            self.assertEqual(r.digest(config.read_bytes()), want); self.assertEqual(pre.read_bytes(), original)
+            self.assertEqual(oct(config.stat().st_mode & 0o777), '0o600')
+            self.assertNotEqual(run('apply', str(config), str(pre), expected, r.BRANCH, r.API_ORIGIN, want).returncode, 0)
+
+    def test_enable_apply_requires_the_planned_config_sha_and_creates_no_screens(self):
+        obj = self.applied_release(operator='owner', reason='cloud kitchen', apply=True)
+        obj.current = Mock(); obj.status.return_value['mode'] = 'edge'
+        obj.read_text = Mock(return_value='c'); obj.compose_path = Mock(return_value='p')
+        obj.remote = Mock(return_value=''); obj.enabled_portal_config = Mock(return_value='9'*64)
+        with self.assertRaisesRegex(G, 'expected-enabled-config-sha256'): obj.enable()
+        source = (ROOT/'infra/staging/release-cloud-kitchen.py').read_text()
+        enable = source[source.index('    def enable(self):'):source.index('    def screen_code(self):')]
+        self.assertNotIn('SCREEN_OWNER', enable); self.assertNotIn("'create'", enable)
 
     def test_restore_portal_returns_exact_original_bytes(self):
         with tempfile.TemporaryDirectory() as tmp:

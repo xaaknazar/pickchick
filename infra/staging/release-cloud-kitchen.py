@@ -6,8 +6,13 @@ Every action is read-only without --apply. Read docs/operations/cloud-kitchen-re
 prepare   immutable API image/compose (+ portal release when the candidate changes the portal).
 apply     encrypted backup + isolated restore, owner transaction 053-056 + reviewed grants,
           API (+ portal) switch with both new flags OFF and every branch in mode `edge`.
-enable    network + flags ON, three portal screens paired into the protected portal config
-          (keys never leave the VPS), portal with the cloud overlay, branch mode edge -> cloud.
+stations  trusted cloud stations/routing: full JSON, or the minimal known production stations
+          with every head-catalog product routed to one prep station.
+enable    network + flags ON, the keyless `cloudKitchen` block {enabled, apiOrigin, branchId} in
+          the protected portal config (exact new SHA pinned), portal with the cloud overlay,
+          branch mode edge -> cloud. Screens are NOT created here.
+screen-code  one screen (create, or new code for --screen); the one-time pairing code is printed
+          only to the owner's interactive terminal, never to evidence or logs.
 mode-edge audited return of the branch to `edge` (fast fallback; kitchen keeps in-flight orders).
 disable   mode edge, no active cloud orders, screens revoked, portal config/overlay restored,
           flags OFF. rollback: API (+ portal) back to the baseline; additive schema retained.
@@ -41,6 +46,12 @@ BRANCH = '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'  # ТЦ Abay Plaza (KIOSK_CHECKO
 FLAGS_OFF = {'CLOUD_KITCHEN_API_ENABLED': '0', 'BACKOFFICE_CLOUD_KITCHEN_ENABLED': 'false'}
 FLAGS_ON = {'CLOUD_KITCHEN_API_ENABLED': '1', 'BACKOFFICE_CLOUD_KITCHEN_ENABLED': 'true'}
 NETWORK, API_ALIAS = 'pickchick-kitchen_cloud', 'pickchick-api'
+API_ORIGIN = 'http://' + API_ALIAS + ':3100'
+# Read-only production facts (cashier station ids observed in cloud_fulfillment_projection/observed_tasks).
+KNOWN_ASSEMBLY_STATION = '2cbc8ef3-359b-4cf0-bda8-28b82b727c93'
+KNOWN_PREP_STATION = '9ba8dc69-260c-482b-bed9-cab791b64595'
+ROLES = ('prep', 'assembly', 'display')
+CODE_RE = '[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{6}'
 PORTAL = 'pickchick-kitchen-portal'
 PORTAL_STATE = REMOTE + '/kitchen-portal'
 PORTAL_CONFIG = PORTAL_STATE + '/private/config.json'
@@ -148,45 +159,72 @@ def unresolved_imports(files):
     return missing
 
 
-def screen_plan(status):
+def stations_ready(status):
     require(status.get('routingVersion') and status.get('prepStations') and status.get('assemblyStations'),
             'Cloud stations and routing must be provisioned first (stations action)')
-    return [('prep', status['prepStations'], 'Портал: горячий цех'),
-            ('assembly', status['assemblyStations'], 'Портал: сборка'), ('display', [], 'Портал: табло')]
+    return status
 
 
-# Runs on the VPS: create + pair three screens and write the portal config. Keys stay in memory
-# of this process and in the 0600 config; stdout carries only ids, roles and hashes.
-ENABLE_PORTAL = r'''import hashlib,json,os,re,subprocess,sys,urllib.request
-plan,owner,config,pre,expected,branch,operator,reason=sys.argv[1:]
-plan=json.loads(plan);owner=json.loads(owner)
-sha=lambda p:hashlib.sha256(open(p,'rb').read()).hexdigest()
-assert sha(config)==expected and not os.path.lexists(pre)
-data=json.load(open(config));assert 'cloudKitchen' not in data
-opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
-keys,screens={},[]
-for role,stations,name in plan:
- argv=owner+['create','--branch',branch,'--role',role]+sum([['--station',s] for s in stations],[])+['--name',name,'--operator',operator,'--reason',reason]
- out=subprocess.run(argv,capture_output=True,check=True,timeout=150).stdout.decode().strip().splitlines()[-1]
- code=json.loads(out)['pairingCode']
- req=urllib.request.Request('http://127.0.0.1:13100/v1/kitchen/pairing',data=json.dumps({'pairingCode':code}).encode(),headers={'Content-Type':'application/json'},method='POST')
- with opener.open(req,timeout=15) as r:body=json.loads(r.read())
- key=body['screenKey'];screen=body['screen']
- assert re.fullmatch('pcks_[A-Za-z0-9_-]{43}',key) and screen['role']==role and screen['branchId']==branch
- keys[role]=key;screens.append({'id':screen['screenId'],'role':role})
-assert len(set(keys.values()))==3
-fd=os.open(pre,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-with os.fdopen(fd,'wb') as o:o.write(open(config,'rb').read())
-assert sha(pre)==expected
-data['cloudKitchen']={'enabled':True,'apiOrigin':'http://%s:3100','branchId':branch,'keys':keys}
-tmp=config+'.cloud-next';fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-with os.fdopen(fd,'w') as o:json.dump(data,o,ensure_ascii=False,indent=2);o.write('\n')
-os.replace(tmp,config)
-print(json.dumps({'screens':screens,'config_sha256':sha(config),'original_sha256':expected}))
-''' % API_ALIAS
+def kitchen_setup_form(setup):
+    """'full' ({branchId, stations, routing}) or 'route_all' (the two known production stations,
+    names from the input, every head-catalog product to the named prep station)."""
+    require(isinstance(setup, dict) and setup.get('branchId') == BRANCH, 'Setup branch differs')
+    keys = sorted(setup)
+    if keys == ['branchId', 'routing', 'stations']:
+        require(isinstance(setup['stations'], list) and setup['stations'] and isinstance(setup['routing'], dict),
+                'Full setup needs stations and routing')
+        return 'full'
+    require(keys == ['branchId', 'routeAllProductsTo', 'stations'],
+            'Setup must be {branchId,stations,routing} or {branchId,stations,routeAllProductsTo}')
+    stations = setup['stations']
+    require(isinstance(stations, list) and all(isinstance(x, dict) and sorted(x) == ['id', 'kind', 'name'] for x in stations),
+            'Stations must be {id, kind, name}')
+    require({x['id']: x['kind'] for x in stations} == {KNOWN_ASSEMBLY_STATION: 'assembly', KNOWN_PREP_STATION: 'prep'}
+            and len(stations) == 2, 'Minimal setup uses exactly the known production assembly and prep station ids')
+    require(all(isinstance(x['name'], str) and x['name'].strip() and len(x['name']) <= 100 for x in stations),
+            'Station names come from the input and must be non-empty')
+    require(setup['routeAllProductsTo'] == KNOWN_PREP_STATION, 'routeAllProductsTo must be the known prep station')
+    return 'route_all'
+
+
+def screen_request(status, role, name=None):
+    """Stations and name of a new screen: prep/assembly screens see all stations of their kind and
+    are named after them (names from the stations input); the display needs --screen-name or 'Табло'."""
+    require(role in ROLES, 'Role must be prep, assembly or display')
+    stations_ready(status)
+    stations = [] if role == 'display' else status[role + 'Stations']
+    names = status.get('stationNames') or {}
+    default = 'Табло' if role == 'display' else ', '.join(names.get(i) or '' for i in stations)
+    name = (name if name is not None else default).strip()
+    require(0 < len(name) <= 100, 'Screen name required (--screen-name)')
+    return stations, name
+
+
+# Runs on the VPS: compute (plan) or write (apply) the keyless cloudKitchen block of the portal
+# config. The original bytes are kept in config.pre-cloud.json (0600); stdout carries hashes only.
+ENABLE_PORTAL = r"""import hashlib,json,os,sys
+mode,config,pre,expected,branch,origin,want=sys.argv[1:]
+sha=lambda b:hashlib.sha256(b).hexdigest()
+raw=open(config,'rb').read()
+assert sha(raw)==expected and not os.path.lexists(pre)
+data=json.loads(raw);assert 'cloudKitchen' not in data
+data['cloudKitchen']={'enabled':True,'apiOrigin':origin,'branchId':branch}
+nxt=(json.dumps(data,ensure_ascii=False,indent=2)+'\n').encode()
+if mode=='apply':
+ assert sha(nxt)==want
+ fd=os.open(pre,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+ with os.fdopen(fd,'wb') as o:o.write(raw)
+ tmp=config+'.cloud-next';fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+ with os.fdopen(fd,'wb') as o:o.write(nxt)
+ os.replace(tmp,config)
+ assert sha(open(config,'rb').read())==want
+else:
+ assert mode=='plan'
+print(json.dumps({'config_sha256':sha(nxt),'original_sha256':expected}))
+"""
 
 # Runs on the VPS: put the pre-cloud config back (exact bytes, verified hash).
-RESTORE_PORTAL = r'''import hashlib,json,os,sys
+RESTORE_PORTAL = r"""import hashlib,json,os,sys
 config,pre,expected=sys.argv[1:]
 sha=lambda p:hashlib.sha256(open(p,'rb').read()).hexdigest()
 assert sha(pre)==expected
@@ -197,7 +235,7 @@ if sha(config)!=expected:
 assert sha(config)==expected
 os.replace(pre,pre+'.restored-'+os.urandom(4).hex())
 print(json.dumps({'config_sha256':expected}))
-'''
+"""
 
 PORTAL_FACTS = r'''import hashlib,json,os,sys
 config=sys.argv[1]
@@ -223,7 +261,11 @@ class Release(lm.Release):
             require(re.fullmatch('[a-f0-9]{64}', getattr(args, name) or ''), 'Reviewed hash required: ' + name)
         for name in ('expected_api_image', 'expected_qr_worker_image'):
             require(re.fullmatch('sha256:[a-f0-9]{64}', getattr(args, name) or ''), 'Reviewed image required: ' + name)
-        if args.action in ('enable', 'disable', 'mode-edge') and args.apply:
+        if args.expected_enabled_config_sha256 is not None:
+            require(re.fullmatch('[a-f0-9]{64}', args.expected_enabled_config_sha256), 'Reviewed hash required: expected_enabled_config_sha256')
+        if args.action == 'screen-code':
+            require(args.role in ROLES, '--role prep|assembly|display required')
+        if args.action in ('enable', 'disable', 'mode-edge', 'screen-code') and args.apply:
             require(re.fullmatch('[A-Za-z0-9._-]{1,60}', args.operator or '') and len((args.reason or '').strip()) >= 3,
                     'Operator and reason required')
         profile = market.ReleaseProfile('cloud-kitchen-schema056', BASELINE, args.expected_public_sha, 51, MIGRATIONS,
@@ -353,7 +395,9 @@ class Release(lm.Release):
     def prepare(self):
         before = self.baseline()
         if not self.args.apply:
-            return self.plan('prepare', {'api_build': True, 'migrations_applied_by': 'apply'})
+            # Read-only: the exact portal config SHA `enable` will write (keyless cloudKitchen block).
+            return self.plan('prepare', {'api_build': True, 'migrations_applied_by': 'apply',
+                                         'enabled_portal_config_sha256': self.enabled_portal_config()})
         require(not (self.private/'prepared.json').exists(), 'Preparation already exists; no replay')
         target = REMOTE + '/releases/' + self.sha
         archive = self.execute(['git', 'archive', '--format=tar', self.sha, *market.ARCHIVE_PATHS])
@@ -415,6 +459,8 @@ class Release(lm.Release):
         require(portal['facts']['cloud'] == cloud and (NETWORK in portal['networks']) == cloud, 'Portal cloud state differs')
         if cloud:
             require(portal['cloud_connected'] is True, 'Portal cannot reach the cloud kitchen API')
+            require(portal['facts']['config_sha256'] == self.expected_enabled_config() and portal['facts']['pre_cloud'],
+                    'Portal cloud config differs from the reviewed enabled SHA')
         else:
             require(portal['facts']['config_sha256'] == self.args.expected_portal_config_sha256, 'Portal config differs')
         return portal
@@ -554,29 +600,59 @@ sha256sum {backup} > {backup}.sha256
         require(path.is_file() and not path.is_symlink() and json.loads(path.read_text()).get('sha') == self.sha, 'Completed apply required')
         return proof
 
+    def enabled_now(self, proof):
+        """True when the candidate compose carries the enable delta (flags ON + network)."""
+        compose = self.read_text(self.compose_path(self.sha))
+        if compose == proof['before']['candidate']:
+            return False
+        require(compose == compose_enabled(proof['before']['candidate']), 'Unexpected compose state')
+        return True
+
+    def enabled_portal_config(self, mode='plan', want='0'*64):
+        """Exact SHA-256 of the portal config with the keyless cloudKitchen block (read-only in plan)."""
+        out = json.loads(self.remote('python3 -c ' + quote(ENABLE_PORTAL) + ' ' + ' '.join(map(quote, [
+            mode, PORTAL_CONFIG, PORTAL_PRE_CLOUD, self.args.expected_portal_config_sha256, BRANCH, API_ORIGIN, want]))))
+        require(re.fullmatch('[a-f0-9]{64}', out.get('config_sha256', '')) and
+                out.get('original_sha256') == self.args.expected_portal_config_sha256, 'Portal config plan differs')
+        return out['config_sha256']
+
+    def expected_enabled_config(self):
+        if self.args.expected_enabled_config_sha256:
+            return self.args.expected_enabled_config_sha256
+        path = self.private/'enabled.json'
+        require(path.is_file() and not path.is_symlink(), '--expected-enabled-config-sha256 required')
+        return json.loads(path.read_text())['config_sha256']
+
     def stations(self):
-        proof = self.applied(); self.current(proof)
+        proof = self.applied(); self.current(proof, self.enabled_now(proof))
         setup_path = self.args.kitchen_setup
-        require(setup_path and setup_path.is_file(), '--kitchen-setup JSON (cashier station ids) required')
+        require(setup_path and setup_path.is_file(), '--kitchen-setup JSON required')
         setup = json.loads(setup_path.read_text())
-        require(setup.get('branchId') == BRANCH, 'Setup branch differs')
+        form = kitchen_setup_form(setup)
+        preview = self.owner('stations-preview', '--branch', BRANCH, input=json.dumps(setup))
+        require(preview.get('routeAll') == (form == 'route_all') and preview.get('routes', 0) > 0, 'Stations preview differs')
         if not self.args.apply:
-            return self.plan('stations', {'status': self.status(), 'stations': len(setup.get('stations', []))})
+            return self.plan('stations', {'status': self.status(), 'form': form, 'preview': preview})
         result = self.owner('stations', '--branch', BRANCH, input=json.dumps(setup))
         self.save('stations.json', result)
-        screen_plan(result)
+        require(result.get('provisioned', {}).get('routingVersion') == preview['routingVersion'] and
+                result.get('routingVersion') == preview['routingVersion'], 'Provisioned routing differs from preview')
+        stations_ready(result)
 
     def enable(self):
         proof = self.applied()
         self.current(proof)
-        status = self.status()
-        require(status['mode'] == 'edge' and not status['activeScreens'], 'Branch must be edge without active screens')
-        plan = screen_plan(status)
+        status = stations_ready(self.status())
+        require(status['mode'] == 'edge', 'Branch must be edge')
         release = self.portal_release(self.sha if proof['portal'] else self.args.expected_portal_sha)
         self.remote(f'test -f {release}/infra/kitchen-portal/compose.cloud.yaml -a -f {release}/infra/kitchen-portal/cloud.mjs')
         require(self.read_text(self.compose_path(self.sha)) == proof['before']['candidate'], 'Candidate compose changed')
+        config_sha = self.enabled_portal_config()
         if not self.args.apply:
-            return self.plan('enable', {'status': status, 'flags': FLAGS_ON, 'network': NETWORK, 'screens': [r for r, _, _ in plan]})
+            return self.plan('enable', {'status': status, 'flags': FLAGS_ON, 'network': NETWORK,
+                                        'portal_cloud_kitchen': {'enabled': True, 'apiOrigin': API_ORIGIN, 'branchId': BRANCH},
+                                        'enabled_portal_config_sha256': config_sha, 'screens_created': False})
+        require(self.args.expected_enabled_config_sha256 == config_sha, 'Pass --expected-enabled-config-sha256 from the enable dry run')
         steps = {}
         if not self.network_present():
             self.remote(f'docker network create --internal {NETWORK}')
@@ -587,25 +663,49 @@ sha256sum {backup} > {backup}.sha256
         self.remote(market.api_compose(self.sha) + ' config --quiet')
         self.remote(market.api_compose(self.sha) + ' up -d --no-deps --wait --wait-timeout 120 api', timeout=180)
         self.ready(); steps['api'] = 'flags_on'; self.save('enable-steps.json', steps)
-        owner = market.api_compose(self.sha).split() + ['run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'provision', SCREEN_OWNER]
-        paired = json.loads(self.remote('python3 -c ' + quote(ENABLE_PORTAL) + ' ' + ' '.join(map(quote, [
-            json.dumps(plan), json.dumps(owner), PORTAL_CONFIG, PORTAL_PRE_CLOUD, self.args.expected_portal_config_sha256,
-            BRANCH, self.args.operator, self.args.reason.strip()])), timeout=600))
-        require(sorted(s['role'] for s in paired['screens']) == ['assembly', 'display', 'prep'], 'Screens differ')
-        steps['screens'] = paired; self.save('enable-steps.json', steps)
+        steps['config_sha256'] = self.enabled_portal_config('apply', config_sha); self.save('enable-steps.json', steps)
         self.remote(portal_compose(release, True) + ' up -d --no-deps --wait --wait-timeout 60 portal', timeout=120)
         steps['portal'] = 'cloud_overlay'; self.save('enable-steps.json', steps)
         steps['mode'] = self.owner('mode', '--branch', BRANCH, '--owner', 'cloud', '--operator', self.args.operator,
                                    '--reason', self.args.reason.strip())
         require(steps['mode'].get('after') == 'cloud' and steps['mode'].get('audited') is True, 'Mode change differs')
         self.save('enable-steps.json', steps)
-        portal = self.current(proof, True)
-        require(portal['facts']['config_sha256'] == paired['config_sha256'], 'Portal config changed after pairing')
+        self.current(proof, True)
         after = self.status()
-        require(after['mode'] == 'cloud' and sorted(s['id'] for s in after['activeScreens']) ==
-                sorted(s['id'] for s in paired['screens']), 'Enabled status differs')
+        require(after['mode'] == 'cloud', 'Enabled status differs')
         self.save('enabled.json', {'sha': self.sha, 'branch': BRANCH, 'mode': 'cloud', 'epoch': after['epoch'],
-                                   'screens': paired['screens'], 'config_sha256': paired['config_sha256'], 'at': time.time()})
+                                   'config_sha256': config_sha, 'at': time.time()})
+
+    def screen_code(self):
+        """One screen per call; the plain pairing code goes only to this interactive terminal."""
+        proof = self.applied()
+        self.current(proof, self.enabled_now(proof))
+        role, screen = self.args.role, self.args.screen
+        status = stations_ready(self.status())
+        if screen:
+            require(re.fullmatch(UUID, screen) and {'id': screen, 'role': role} in status['activeScreens'],
+                    'Active screen of this role required for a new code')
+            argv, detail = ['pairing-code', '--branch', BRANCH, '--screen', screen], {'screen': screen}
+        else:
+            stations, name = screen_request(status, role, self.args.screen_name)
+            argv = ['create', '--branch', BRANCH, '--role', role] + sum([['--station', x] for x in stations], []) + ['--name', name]
+            detail = {'stations': stations, 'name': name}
+        if not self.args.apply:
+            return self.plan('screen-code', {'role': role, 'mode': status['mode'], **detail,
+                                             'code_output': 'owner terminal only, once, 10 minutes'})
+        require(sys.stdout.isatty(), 'screen-code prints the code only to an interactive terminal (no pipe/redirect)')
+        argv += ['--operator', self.args.operator, '--reason', self.args.reason.strip()]
+        out = self.remote(market.api_compose(self.sha) + ' run --rm --no-deps -T --entrypoint node provision ' + SCREEN_OWNER + ' ' +
+                          ' '.join(map(quote, argv)), timeout=240)
+        result = json.loads(out.splitlines()[-1])
+        code, issued = result.get('pairingCode', ''), result.get('screen') or {}
+        require(re.fullmatch(CODE_RE, code) and issued.get('role') == role, 'Pairing code response differs')
+        self.save('screen-code-' + uuid.uuid4().hex + '.json', {
+            'sha': self.sha, 'role': role, 'screen': issued.get('screenId'), 'expiresAt': result.get('expiresAt'),
+            'operator': self.args.operator, 'reason': self.args.reason.strip(), 'code_recorded': False, 'at': time.time()})
+        path = {'prep': 'pickchick.kz/kitchen/prep', 'assembly': 'pickchick.kz/kitchen/assembly', 'display': 'pickchick.kz/display'}[role]
+        sys.stdout.write(f'Код экрана {role}: {code}\nДействует до {result.get("expiresAt")}. Ввести на {path} -> «Код экрана».\n')
+        sys.stdout.flush()
 
     def mode_edge(self):
         self.applied()
@@ -680,7 +780,7 @@ sha256sum {backup} > {backup}.sha256
 
 def parse(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('action', choices=['prepare', 'apply', 'stations', 'enable', 'mode-edge', 'disable', 'rollback'])
+    p.add_argument('action', choices=['prepare', 'apply', 'stations', 'enable', 'screen-code', 'mode-edge', 'disable', 'rollback'])
     for name in ['sha', 'branch', 'expected-api-sha', 'expected-public-sha', 'expected-api-image', 'expected-compose-sha256',
                  'expected-gateway-sha256', 'expected-qr-worker-image', 'expected-portal-sha', 'expected-portal-config-sha256',
                  'branch-id']:
@@ -688,6 +788,8 @@ def parse(argv=None):
     for name in ['ssh-key', 'backup-identity', 'ci-proof', 'kitchen-setup', 'source-checkout']:
         p.add_argument('--'+name, type=Path, required=name == 'ssh-key')
     p.add_argument('--ci-run'); p.add_argument('--owner-id'); p.add_argument('--operator'); p.add_argument('--reason')
+    p.add_argument('--expected-enabled-config-sha256'); p.add_argument('--role'); p.add_argument('--screen')
+    p.add_argument('--screen-name')
     p.add_argument('--apply', action='store_true')
     args = p.parse_args(argv)
     require(not (args.source_checkout and args.apply), '--source-checkout is for read-only dry runs only')
