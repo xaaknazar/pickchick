@@ -104,10 +104,14 @@ async function exchangeStopCommands(
         ['applied', 'conflict'].includes(receipt.result) ? receipt.version : null,
       ],
     );
+  // A durable back-office unstop (cloud055 delivery_policy 'until_reconnect') never lapses here:
+  // it waits for this cashier and gets its verdict from the edge. Read through to_jsonb so the
+  // transport keeps working on a schema before 055.
   await client.query(
     `UPDATE cloud_stop_commands SET state='expired',resolved_at=clock_timestamp()
     WHERE branch_id=$1 AND ((state='pending' AND expires_at<=clock_timestamp())
-      OR (state='delivered' AND expires_at+$2*interval '1 second'<=clock_timestamp()))`,
+      OR (state='delivered' AND expires_at+$2*interval '1 second'<=clock_timestamp()))
+      AND coalesce(to_jsonb(cloud_stop_commands)->>'delivery_policy','ttl')='ttl'`,
     [b.branch_id, STOP_VERDICT_GRACE_SECONDS],
   );
   const rows = (
@@ -123,7 +127,7 @@ async function exchangeStopCommands(
     }>(
       `WITH selected AS (
         SELECT id FROM cloud_stop_commands WHERE organization_id=$1 AND branch_id=$2
-        AND expires_at>clock_timestamp()
+        AND (expires_at>clock_timestamp() OR to_jsonb(cloud_stop_commands)->>'delivery_policy'='until_reconnect')
         AND (state='pending' OR (state='delivered' AND delivered_at<=clock_timestamp()-$3*interval '1 second'))
         ORDER BY created_at,id LIMIT 50 FOR UPDATE SKIP LOCKED)
       UPDATE cloud_stop_commands c SET state='delivered',delivered_at=clock_timestamp()
