@@ -4376,9 +4376,11 @@
         "apps/kitchen-desktop/scripts/inputs.mjs",
         "apps/kitchen-desktop/security.mjs"
       ],
-      "status": "active",
-      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
-      "updatedAt": "2026-10-10T18:38:17.930Z"
+      "status": "available",
+      "head": "e1e5462d3f2bfdc4d247eeb2f9dfae9f7b758ecd",
+      "updatedAt": "2026-10-10T19:18:55.296Z",
+      "summary": "Облачные заказы (kiosk/mobile, fulfillmentOwner=cloud) на существующих /kitchen-live/{prep,assembly,display}: второй upstream портала (infra/kitchen-portal/cloud.mjs, флаг cloudKitchen по умолчанию выкл, ключи pcks_ только в защищённом config.json, проверка сессии порталом, команды только владельцу с Idempotency-Key/expectedVersion, cloudConnected в health), renderer объединяет ленты по orderId, метка источника, индикаторы «Касса/Сервер: на связи/нет связи», раздельные журналы, объединённое табло; compose.cloud.yaml; docs/operations/cloud-kitchen-portal.md. Коммит e1e5462d, Foundation CI 38077237396 полностью success; локально pnpm check, kitchen 50, kitchen-portal 14 (вкл. браузерные с PG и cloud), unittest 16, kitchen-lan 3, desktop security 4, Storybook build.",
+      "nextAction": "Включить в codex/shared-development после ревью. Релиз - guarded операция владельца по docs/operations/cloud-kitchen-portal.md (ключи по ролям через cloud-kitchen-screen-owner.mjs + pairing, сеть pickchick-kitchen_cloud, CLOUD_KITCHEN_API_ENABLED=1, новый expected-config-sha256). project-status/roadmap заняты inventory - не обновлены."
     },
     {
       "id": "mobile-luma-tabbar",
