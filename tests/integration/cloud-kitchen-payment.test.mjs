@@ -222,10 +222,26 @@ test("mode 'cloud': kiosk QR order is paid, numbered 300-599 and handed over by 
       packer = await f.pair('assembly', [f.assembly]),
       board = await f.pair('display', []);
     // Nobody polls the cloud kitchen yet: the kiosk refuses to take the order.
+    assert.deepEqual(
+      { ...(await f.checkout.config(who)), branchId: undefined },
+      {
+        enabled: false,
+        branchId: undefined,
+        restaurant: (await f.pool.query('SELECT name FROM branches WHERE id=$1', [f.branch]))
+          .rows[0].name,
+        paymentMethod: 'kaspi_qr',
+        paymentMethods: ['kaspi_qr'],
+        kitchen: 'offline',
+      },
+    );
     await assert.rejects(f.checkout.quote(who, f.cart()), offline);
     assert.equal((await f.http(cook, '/kitchen')).status, 200);
     await assert.rejects(f.checkout.quote(who, f.cart()), offline, 'prep without assembly');
+    assert.equal((await f.checkout.config(who)).kitchen, 'offline');
     assert.equal((await f.http(packer, '/kitchen')).status, 200);
+    const ready = await f.checkout.config(who);
+    assert.equal(ready.enabled, true);
+    assert.equal(ready.kitchen, 'online');
     const quote = await f.checkout.quote(who, f.cart());
     const order = await f.checkout.create(who, { key: randomUUID(), quoteId: quote.quoteId });
     const registered = (
@@ -262,8 +278,13 @@ test("mode 'cloud': kiosk QR order is paid, numbered 300-599 and handed over by 
     const number = Number(projection.display_number);
     assert.ok(number >= 300 && number <= 599, String(number));
     assert.equal(projection.assembly, false);
-    // The kiosk can still read its order.
-    assert.equal((await f.checkout.read(who, order.orderId)).totalMinor, quote.totalMinor);
+    // The kiosk reads its number and kitchen status from the cloud kitchen; no receipt for now.
+    let view = await f.checkout.read(who, order.orderId);
+    assert.equal(view.totalMinor, quote.totalMinor);
+    assert.equal(view.displayNumber, String(number));
+    assert.equal(view.phase, 'preparing');
+    assert.equal(view.kitchenStage, 'cooking');
+    assert.equal(view.receipt, 'deferred');
 
     // Kitchen over HTTP with screen keys.
     const display = await f.http(board, '/display');
@@ -309,6 +330,9 @@ test("mode 'cloud': kiosk QR order is paid, numbered 300-599 and handed over by 
     assert.equal(result.status, 200, JSON.stringify(result.body));
     assert.equal(result.body.state, 'ready');
     assert.equal((await cloudKitchenProjection(f.pool, order.orderId)).state, 'ready');
+    view = await f.checkout.read(who, order.orderId);
+    assert.equal(view.phase, 'ready');
+    assert.equal(view.displayNumber, String(number));
     assert.equal((await f.http(board, '/display')).body.items[0].state, 'ready');
     result = await f.http(packer, '/commands', {
       orderId: order.orderId,
@@ -318,6 +342,9 @@ test("mode 'cloud': kiosk QR order is paid, numbered 300-599 and handed over by 
     assert.equal(result.status, 200, JSON.stringify(result.body));
     assert.equal(result.body.state, 'handed_over');
     assert.equal((await cloudKitchenProjection(f.pool, order.orderId)).state, 'handed_over');
+    view = await f.checkout.read(who, order.orderId);
+    assert.equal(view.phase, 'handed_over');
+    assert.equal(view.receipt, 'deferred');
     assert.deepEqual((await f.http(board, '/display')).body.items, []);
     // The number is free again.
     assert.ok(
@@ -337,6 +364,40 @@ test("mode 'cloud': kiosk QR order is paid, numbered 300-599 and handed over by 
       ).rows[0].n,
       2,
     );
+  }));
+
+test("mode 'cloud': kiosk readiness is the cloud kitchen gate, not the cashier binding", () =>
+  fixture(async (f) => {
+    const who = await f.guest();
+    // The cashier binding and device are gone: irrelevant for a branch in mode 'cloud'.
+    await f.pool.query(
+      'UPDATE fulfillment_transport_bindings SET active=false WHERE branch_id=$1',
+      [f.branch],
+    );
+    const cook = await f.pair('prep', [f.prep]),
+      packer = await f.pair('assembly', [f.assembly]);
+    assert.equal((await f.checkout.config(who)).enabled, false);
+    await Promise.all([f.http(cook, '/kitchen'), f.http(packer, '/kitchen')]);
+    assert.deepEqual(
+      [(await f.checkout.config(who)).enabled, (await f.checkout.config(who)).kitchen],
+      [true, 'online'],
+    );
+    const quote = await f.checkout.quote(who, f.cart());
+    const order = await f.checkout.create(who, { key: randomUUID(), quoteId: quote.quoteId });
+    // Before payment: no number yet, receipt deferred, ready to pay.
+    const view = await f.checkout.read(who, order.orderId);
+    assert.equal(view.displayNumber, null);
+    assert.equal(view.receipt, 'deferred');
+    assert.equal(view.phase, 'ready_to_pay');
+    // The stations stop polling (older than 30 s): checkout closes with KITCHEN_OFFLINE.
+    await f.pool.query(
+      "UPDATE cloud_kitchen_station_presence SET seen_at=clock_timestamp()-interval '1 minute'",
+    );
+    assert.deepEqual(
+      [(await f.checkout.config(who)).enabled, (await f.checkout.config(who)).kitchen],
+      [false, 'offline'],
+    );
+    await assert.rejects(f.checkout.pay(who, order.orderId, { method: 'kaspi_qr' }), offline);
   }));
 
 test("mode 'cloud' without the in-transaction hook: the next feed poll admits the paid order", () =>
@@ -417,6 +478,9 @@ test("mode 'edge' (default): the cashier admits as before and nothing cloud is w
       const quote = await f.checkout.quote(who, f.cart());
       const order = await f.checkout.create(who, { key: randomUUID(), quoteId: quote.quoteId });
       assert.deepEqual(await f.outbox(order.orderId), ['edge.admission_requested']);
+      // The edge answer keeps its shape (no cloud kitchen field) and receipt policy.
+      assert.equal('kitchen' in (await f.checkout.config(who)), false);
+      assert.equal((await f.checkout.read(who, order.orderId)).receipt, 'pending');
       assert.equal(
         (await f.pool.query('SELECT count(*)::int n FROM cloud_channel_orders')).rows[0].n,
         0,

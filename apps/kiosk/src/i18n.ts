@@ -20,6 +20,7 @@ const ru = {
   err_CART_CHANGED: 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.',
   err_NOT_ACCEPTING: 'Ресторан пока не принимает заказы. Обновите меню или пригласите сотрудника.',
   err_DEVICE: 'Киоск не настроен. Пригласите сотрудника.',
+  err_KITCHEN_OFFLINE: 'Кухня сейчас не на связи - заказ оформить нельзя. Пригласите сотрудника.',
   err_PHONE: 'Введите номер Казахстана для счёта Kaspi.',
   err_CART_LIMIT_LINE: 'Одной позиции можно добавить не больше 20 штук.',
   err_CART_LIMIT_LINES: 'В корзине может быть не больше 11 разных позиций.',
@@ -234,6 +235,8 @@ const kk: Strings = {
   err_NOT_ACCEPTING:
     'Мейрамхана әзірге тапсырыс қабылдамайды. Мәзірді жаңартыңыз немесе қызметкерді шақырыңыз.',
   err_DEVICE: 'Киоск бапталмаған. Қызметкерді шақырыңыз.',
+  err_KITCHEN_OFFLINE:
+    'Ас үй қазір байланыста емес - тапсырыс беру мүмкін емес. Қызметкерді шақырыңыз.',
   err_PHONE: 'Kaspi шоты үшін Қазақстан нөмірін енгізіңіз.',
   err_CART_LIMIT_LINE: 'Бір позицияны 20 данадан артық қосуға болмайды.',
   err_CART_LIMIT_LINES: 'Себетте 11-ден артық түрлі позиция болмайды.',
@@ -445,6 +448,8 @@ const en: Strings = {
   err_NOT_ACCEPTING:
     'The restaurant is not taking orders right now. Refresh the menu or call a team member.',
   err_DEVICE: 'The kiosk is not set up. Please call a team member.',
+  err_KITCHEN_OFFLINE:
+    'The kitchen is offline right now - orders cannot be placed. Please call a team member.',
   err_PHONE: 'Enter a Kazakhstan number for the Kaspi invoice.',
   err_CART_LIMIT_LINE: 'You can add up to 20 of one item.',
   err_CART_LIMIT_LINES: 'The cart can hold up to 11 different items.',

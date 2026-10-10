@@ -319,7 +319,10 @@ export function Header({
             </Text>
           </Wrapper>
         ) : (
-          <Wrapper flex={1} gap={2}>
+          // The title keeps a readable minimum width; the language pill gives way first (its
+          // options stop at 48 pt), so a crowded cart/upsell header no longer squeezes "Ваш
+          // заказ" down to a single letter.
+          <View style={{ flex: 1, gap: px(2), minWidth: v(menu ? 132 : 180) }}>
             <Text
               {...fixedText}
               accessibilityRole="header"
@@ -387,7 +390,7 @@ export function Header({
                 ) : null}
               </View>
             ) : null}
-          </Wrapper>
+          </View>
         )}
         {onDining ? (
           <DiningSwitch key={locale} mode={dining ?? null} locale={locale} onChange={onDining} />

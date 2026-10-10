@@ -77,5 +77,9 @@ class PaymentOptions(unittest.TestCase):
             browser.close()
         (output / 'result.json').write_text(json.dumps({'synthetic':True,'checks':report},indent=2)+'\n')
 
+# Build 13 cloud kitchen checks share this Storybook run (the workflow file is held by another
+# task): unittest.main also runs the TestCase imported here.
+from browser_cloud_kitchen import CloudKitchen  # noqa: E402,F401
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
