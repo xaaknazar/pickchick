@@ -4343,6 +4343,20 @@
       "updatedAt": "2026-10-10T18:04:01.599Z",
       "summary": "Ветка codex/cloud-kitchen-s4 (73f5237d) включена в codex/shared-development (dd3bca8b; Foundation CI 38072282101 green на итоговом SHA); ветка fast-forward до общей версии для закрытия задачи.",
       "nextAction": "Новых шагов по задаче нет; области освобождены."
+    },
+    {
+      "id": "cloud-kitchen-portal",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-portal",
+      "scopes": [
+        "infra/kitchen-portal",
+        "apps/kitchen",
+        "tests/kitchen",
+        "docs/operations/cloud-kitchen-portal.md"
+      ],
+      "status": "active",
+      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
+      "updatedAt": "2026-10-10T18:28:59.787Z"
     }
   ]
 }
