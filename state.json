@@ -4352,11 +4352,12 @@
         "infra/kitchen-portal",
         "apps/kitchen",
         "tests/kitchen",
-        "docs/operations/cloud-kitchen-portal.md"
+        "docs/operations/cloud-kitchen-portal.md",
+        "tests/kitchen-portal"
       ],
       "status": "active",
       "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
-      "updatedAt": "2026-10-10T18:28:59.787Z"
+      "updatedAt": "2026-10-10T18:29:12.229Z"
     }
   ]
 }
