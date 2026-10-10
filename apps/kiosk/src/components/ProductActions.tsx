@@ -10,6 +10,7 @@ import { Heading } from './Heading';
 import { IconButton } from './IconButton';
 import { motion, useEnter, useLoop, usePopIn, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { ownerOrange } from './ownerOrange';
 /**
  * v3 product action bar on blue: a glass quantity capsule with white discs and the
  * orange 96-pt "to cart" pill with a slow shine. Waiting states fade the pill pale
@@ -153,6 +154,7 @@ export function ProductActions({
             <Animated.View style={{ flex: 1, transform: [{ scale: press }] }}>
               <Pressable
                 testID="kiosk-product-add"
+                {...ownerOrange}
                 accessibilityRole="button"
                 accessibilityLabel={label}
                 accessibilityState={{ disabled: blocked, busy }}
@@ -163,7 +165,7 @@ export function ProductActions({
                 style={{
                   height,
                   borderRadius: height / 2,
-                  // Large white label: the accessible orangeCta (#FF6900 is 2.88:1).
+                  // Design orange under white text (owner decision 2026-10-10).
                   backgroundColor: colors.orangeCta,
                   shadowColor: colors.orange,
                   shadowOpacity: disabled ? 0 : 0.35,

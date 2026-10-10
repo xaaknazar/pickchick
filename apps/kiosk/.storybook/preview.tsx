@@ -17,7 +17,16 @@ const preview: Preview = {
   ],
   parameters: {
     layout: 'fullscreen',
-    a11y: { test: 'error' },
+    a11y: {
+      test: 'error',
+      // Owner decision 2026-10-10: CTAs and active controls keep the design orange #FF6900
+      // under white text. Components marked by components/ownerOrange.ts are left out of the
+      // addon's colour-contrast rule; CI (tests/kiosk/browser_mobbin.py) excuses only that
+      // exact colour pair inside them.
+      config: {
+        rules: [{ id: 'color-contrast', selector: '*:not([data-owner-orange="2026-10-10"] *)' }],
+      },
+    },
     viewport: {
       options: {
         ipad: { name: 'iPad 10.9 portrait', styles: { width: '820px', height: '1180px' } },

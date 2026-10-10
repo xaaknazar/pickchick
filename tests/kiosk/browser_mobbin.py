@@ -7,6 +7,10 @@ from urllib.request import urlopen
 import browser_ui as base
 from playwright.sync_api import expect, sync_playwright
 
+# Owner-approved contrast exception (2026-10-10), see the axe run below.
+OWNER_ORANGE_EXCEPTION = '2026-10-10'
+
+
 class Design(base.KioskUI):
     def test_kazakh_resize_dialogs_and_added_feedback(self):
         page, fixture = self.open(834, 1194)
@@ -28,6 +32,31 @@ class Design(base.KioskUI):
         base.element(page, 'kiosk-cancel-dismiss').click()
         base.screen(page, 'menu')
         self.assertEqual(len(fixture.orders), 0)
+
+    def test_menu_header_cancel_disc_and_full_branch(self):
+        # Owner decision 2026-10-10: a visible round cancel disc; the logo is not a control;
+        # the branch name is never cut in KZ/RU/EN on the 13-inch and 11-inch iPads.
+        for width, height in [(1032, 1376), (820, 1180)]:
+            for lang in ['kk', 'ru', 'en']:
+                with self.subTest(width=width, lang=lang):
+                    page, fixture = self.open(width, height)
+                    base.element(page, 'kiosk-language-' + lang).click()
+                    self.start(page)
+                    disc = base.assert_bounded(page, 'kiosk-cancel-open', width, height)
+                    self.assertLessEqual(disc['width'], 72, 'A small disc, not the logo')
+                    branch = base.element(page, 'kiosk-header-subtitle')
+                    expect(branch).to_have_text('ТЦ Abay Plaza')
+                    self.assertTrue(branch.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1'),
+                                    'The branch name must not be truncated')
+                    self.assertEqual(page.get_by_role('button', name='Pick Chick').count(), 0)
+                    base.assert_no_overflow(page, width)
+                    if lang == 'en':
+                        base.capture(page, f'menu-header-{width}-en.png')
+                    base.element(page, 'kiosk-cancel-open').click()
+                    expect(base.element(page, 'kiosk-cancel-dismiss')).to_be_visible()
+                    base.element(page, 'kiosk-cancel-dismiss').click()
+                    base.screen(page, 'menu')
+                    self.assertEqual(len(fixture.orders), 0)
 
     def test_motion_follows_system_preference(self):
         page, fixture = self.open()
@@ -96,9 +125,30 @@ class Stories(unittest.TestCase):
                     page.evaluate('document.fonts.ready')
                     self.assertEqual(errors, [])
                     page.add_script_tag(content=axe_source)
-                    violations = page.evaluate('''async () => (await axe.run(document.getElementById('storybook-root'), {
-                        runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}
-                    })).violations.map(v => ({id:v.id, impact:v.impact, nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))''')
+                    violations = page.evaluate('''async (exception) => {
+                        const result = await axe.run(document.getElementById('storybook-root'), {
+                            runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}
+                        });
+                        // Owner decision 2026-10-10: calls to action and active controls use the
+                        // design orange #FF6900 under white text (2.88:1). Only that exact pair, and
+                        // only inside a component marked data-owner-orange (components/ownerOrange.ts:
+                        // accent Button, menu checkout, start CTA, add to cart, dining switch,
+                        // category rail, menu language, takeaway card), is excused; any other
+                        // colour or component still fails color-contrast.
+                        const excused = (rule, node) => {
+                            if (rule.id !== 'color-contrast') return false;
+                            const data = (node.any.find(c => c.id === 'color-contrast') || {}).data || {};
+                            const target = node.target[node.target.length - 1];
+                            const element = typeof target === 'string' ? document.querySelector(target) : null;
+                            return !!element && !!element.closest(`[data-owner-orange="${exception}"]`) &&
+                                String(data.bgColor).toLowerCase() === '#ff6900' &&
+                                String(data.fgColor).toLowerCase() === '#ffffff';
+                        };
+                        return result.violations
+                            .map(v => ({id: v.id, impact: v.impact, nodes: v.nodes.filter(n => !excused(v, n))
+                                .map(n => ({target: n.target, summary: n.failureSummary}))}))
+                            .filter(v => v.nodes.length);
+                    }''', OWNER_ORANGE_EXCEPTION)
                     if violations:
                         accessibility.append({'story':story['id'],'violations':violations})
                     report.append(story['id'])
@@ -113,6 +163,7 @@ class Stories(unittest.TestCase):
 if __name__ == '__main__':
     # Existing scenario suite runs separately; do not silently repeat inherited cases.
     suite = unittest.TestSuite([Design('test_kazakh_resize_dialogs_and_added_feedback'),
+                               Design('test_menu_header_cancel_disc_and_full_branch'),
                                Design('test_motion_follows_system_preference'),
                                Stories('test_every_story_renders_without_runtime_errors')])
     result = unittest.TextTestRunner(verbosity=2).run(suite)

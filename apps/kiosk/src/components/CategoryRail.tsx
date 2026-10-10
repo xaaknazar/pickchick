@@ -8,6 +8,7 @@ import type { KioskProduct } from '../model';
 import { ProductArtwork } from './ProductArtwork';
 import { usePress, useTimingTo } from './motion';
 import { categoryKeys, inCategory, type Category } from './categories';
+import { ownerOrange } from './ownerOrange';
 /** Design rail `.kx` width: 12 pt gutters around 156 pt tiles. */
 export const RAIL_WIDTH = 180;
 /**
@@ -37,7 +38,7 @@ export function CategoryRail({
     'spring',
   );
   return (
-    <View style={{ width: v(RAIL_WIDTH), flexShrink: 0 }}>
+    <View {...ownerOrange} style={{ width: v(RAIL_WIDTH), flexShrink: 0 }}>
       <ScrollView
         accessibilityRole="tablist"
         accessibilityLabel={t.menuCategories}
@@ -53,8 +54,8 @@ export function CategoryRail({
             top: 0,
             height: v(142),
             borderRadius: v(24),
-            // Small white labels use the accessible orange surface; the halo stays brand orange.
-            backgroundColor: colors.orangeInk,
+            // Active control: the design orange under white labels (owner decision 2026-10-10).
+            backgroundColor: colors.orangeCta,
             shadowColor: colors.orange,
             shadowOpacity: 0.4,
             shadowRadius: 22,

@@ -17,6 +17,7 @@ import { colors, fonts, useMetrics } from '../theme';
 import { Language, Logo } from './UI';
 import { motion, useEnter, useLoop } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { ownerOrange } from './ownerOrange';
 /** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
 const kaspiLogo = require('../../assets/v3/kaspi.webp');
 /** v3 attract CTA: one orange pill with an expanding halo and a passing shine. */
@@ -84,6 +85,7 @@ function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPr
       >
         <Pressable
           testID="kiosk-start"
+          {...ownerOrange}
           accessibilityRole="button"
           accessibilityLabel={label}
           accessibilityState={{ disabled: busy, busy }}

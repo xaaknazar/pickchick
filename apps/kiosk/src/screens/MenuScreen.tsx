@@ -79,7 +79,6 @@ export function MenuScreen({
         dining={model.mode}
         onDining={(mode) => (mode === model.mode ? true : model.setMode(mode))}
         minimal
-        logoCancels
       />
       <Wrapper dir="row" flex={1}>
         <CategoryRail

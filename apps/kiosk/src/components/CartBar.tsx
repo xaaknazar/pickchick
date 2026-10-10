@@ -10,6 +10,7 @@ import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { measureRect, motion, useBump, useFly, usePop, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { ownerOrange } from './ownerOrange';
 const positions = (n: number, locale: Locale) => itemCount(n, locale);
 const minorOf = (total: string) => (/^[0-9]{1,15}$/.test(total) ? Number(total) : 0);
 /**
@@ -243,6 +244,7 @@ export function CartBar({
         <Animated.View style={{ opacity: dim, transform: [{ scale: press }] }}>
           <Pressable
             testID="kiosk-menu-checkout"
+            {...ownerOrange}
             accessibilityRole="button"
             accessibilityLabel={t.checkout}
             accessibilityState={{ disabled: blocked, busy }}
