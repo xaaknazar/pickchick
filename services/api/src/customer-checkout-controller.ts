@@ -42,9 +42,15 @@ export class CustomerCheckoutController {
     at: number;
     value: Awaited<ReturnType<CustomerCheckout['availabilityState']>>;
   } | null = null;
-  private availabilityRead: Promise<
-    Awaited<ReturnType<CustomerCheckout['availabilityState']>>
-  > | null = null;
+  /**
+   * The in-flight shared read and the publication revision it started at. A waiter woken by a
+   * newer NOTIFY must never join a read that began before that publication committed: it would
+   * return the old signature and sleep another poll interval.
+   */
+  private availabilityRead: {
+    revision: number;
+    promise: Promise<Awaited<ReturnType<CustomerCheckout['availabilityState']>>>;
+  } | null = null;
   private async availabilityState(): Promise<
     Awaited<ReturnType<CustomerCheckout['availabilityState']>>
   > {
@@ -54,18 +60,23 @@ export class CustomerCheckoutController {
       Date.now() - this.availabilityCache.at < 500
     )
       return this.availabilityCache.value;
-    if (!this.availabilityRead) {
-      this.availabilityRead = this.checkout
-        .availabilityState()
-        .then((value) => {
-          this.availabilityCache = { revision, at: Date.now(), value };
-          return value;
-        })
-        .finally(() => {
-          this.availabilityRead = null;
-        });
+    if (!this.availabilityRead || this.availabilityRead.revision < revision) {
+      const read: NonNullable<typeof this.availabilityRead> = {
+        revision,
+        promise: this.checkout
+          .availabilityState()
+          .then((value) => {
+            if (!this.availabilityCache || this.availabilityCache.revision <= revision)
+              this.availabilityCache = { revision, at: Date.now(), value };
+            return value;
+          })
+          .finally(() => {
+            if (this.availabilityRead === read) this.availabilityRead = null;
+          }),
+      };
+      this.availabilityRead = read;
     }
-    const value = await this.availabilityRead;
+    const value = await this.availabilityRead.promise;
     return revision === this.publications.revision ? value : this.availabilityState();
   }
   constructor(
@@ -165,7 +176,11 @@ export class CustomerCheckoutController {
     response.setHeader('Cache-Control', 'no-store');
     if (after !== undefined && !AvailabilityAfterSchema.safeParse(after).success)
       throw new HttpException('INVALID_REQUEST', 400);
+    // Revision observed before the latest read: a publication that commits between that read
+    // and the next wait must not be missed (the NOTIFY would arrive before anyone listens).
+    let seen = this.publications.revision;
     const read = async () => {
+      seen = this.publications.revision;
       const state = await this.availabilityState();
       return { ...state, signature: state.body.signature };
     };
@@ -173,7 +188,8 @@ export class CustomerCheckoutController {
       cancelled: () => response.destroyed,
       timeoutMs: 20_000,
       intervalMs: 2000,
-      wait: this.publications.wait,
+      wait: (ms) =>
+        this.publications.revision !== seen ? Promise.resolve() : this.publications.wait(ms),
     });
     if (state.catalogVersion !== null) {
       response.setHeader(CATALOG_VERSION_HEADER, String(state.catalogVersion));

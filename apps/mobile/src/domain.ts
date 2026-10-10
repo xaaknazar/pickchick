@@ -306,10 +306,11 @@ export function restoreCart(
         },
       ];
     const selections = product && upgrade ? defaultSelections(product) : line.selections;
+    // A saved line whose chosen option is gone from the menu is removed, never re-chosen.
     if (
       !product ||
       product.source !== preferences.catalogMode ||
-      (preferences.version === 1 && !validSelections(product, selections ?? []))
+      !validSelections(product, selections ?? [])
     )
       return [];
     const restored: CartLine = {
@@ -321,7 +322,6 @@ export function restoreCart(
     if (line.previousUnitPriceMinor !== undefined)
       restored.previousUnitPriceMinor = line.previousUnitPriceMinor;
     if (product.available === false) restored.issue = 'unavailable';
-    else if (!validSelections(product, selections ?? [])) restored.issue = 'choose_options';
     return [restored];
   });
 }

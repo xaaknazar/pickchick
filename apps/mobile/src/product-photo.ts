@@ -95,6 +95,21 @@ export function mediaForVersion(
   return media && media.version === version ? media.products : {};
 }
 
+/**
+ * Until the media map of a new publication arrives, keep showing the previous uploaded photos
+ * instead of the bundled fallback (and keep upload-only products openable). The interim map is
+ * replaced as soon as the version-bound map is read.
+ */
+export function interimMedia(
+  previous: CatalogMediaMap | null | undefined,
+  next: CatalogMediaMap | null | undefined,
+): CatalogMediaMap | null {
+  if (!next) return previous ?? null;
+  if (!previous || previous.version === next.version || Object.keys(next.products).length)
+    return next;
+  return { version: next.version, products: previous.products };
+}
+
 /** Every remote rendition URL of a media map, deduplicated, for disk prefetch. */
 export function mediaPrefetchUris(media: CatalogMediaMap | null | undefined, origin: string) {
   const uris = new Set<string>();

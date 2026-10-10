@@ -7,7 +7,11 @@ export type DatabasePool = pg.Pool;
 export type DatabaseClient = pg.PoolClient;
 export type DatabaseScope = 'cloud' | 'edge';
 
-export function createPool(connectionString: string, max = 5): DatabasePool {
+export function createPool(
+  connectionString: string,
+  max = 5,
+  options: { keepAliveMs?: number } = {},
+): DatabasePool {
   if (!Number.isInteger(max) || max < 1 || max > 64) throw new Error('Invalid database pool limit');
   const pool = new pg.Pool({
     connectionString,
@@ -16,6 +20,10 @@ export function createPool(connectionString: string, max = 5): DatabasePool {
     idleTimeoutMillis: 10000,
     statement_timeout: 5000,
     application_name: 'pickchick-foundation',
+    // Long-lived sessions (LISTEN) opt into TCP keepalive so a silent drop is detected.
+    ...(options.keepAliveMs
+      ? { keepAlive: true, keepAliveInitialDelayMillis: options.keepAliveMs }
+      : {}),
   });
   // Never emit driver errors containing connection strings or credentials.
   pool.on('error', () => console.error(JSON.stringify({ event: 'database_pool_error' })));
