@@ -4206,7 +4206,6 @@
         "tests/backoffice/workforce-browser.py",
         "tests/backoffice/workforce-model.test.mjs",
         "tests/backoffice/workforce-http.test.mjs",
-        "docs/operations/workforce.md",
         "infra/staging/release-workforce-edit.py",
         "tests/operations/test_workforce_edit_release.py"
       ],
@@ -4248,7 +4247,8 @@
         "@vps/backoffice-login",
         "@vps/public",
         "@vps/gateway",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "docs/operations/workforce.md"
       ],
       "status": "active",
       "head": "32700a42ce281f368232a21a400528aa3935da98",
