@@ -134,3 +134,90 @@ test('version 2 storage keeps unavailable dishes and drops lines whose option le
   assert.equal(next[1].issue, undefined);
   assert.equal(cartTotal(next), '33000');
 });
+test('restore keeps a stopped dish marked unavailable, drops gone options and removed dishes', () => {
+  const stopped = {
+    ...product,
+    available: false,
+    modifierGroups: [
+      {
+        id: 'drink',
+        min: 1,
+        max: 1,
+        options: [{ id: 'cola', price_delta_minor: '1000', available: false }],
+      },
+    ],
+  };
+  const saved = (lines) => ({
+    version: 2,
+    catalogMode: 'server',
+    diningMode: 'takeaway',
+    locale: 'ru',
+    nickname: '',
+    branchId: null,
+    releaseId: 'published:2',
+    lines,
+  });
+  const restore = (lines, products) =>
+    restoreCart(parsePreferences(JSON.stringify(saved(lines))), products, 'published:2');
+  const stoppedLine = restore(
+    [{ id: product.id, key: 'combo-stopped', quantity: 2, selections: choices }],
+    [stopped],
+  );
+  assert.equal(stoppedLine.length, 1);
+  assert.equal(stoppedLine[0].key, 'combo-stopped');
+  assert.equal(stoppedLine[0].issue, 'unavailable');
+  assert.equal(stoppedLine[0].quantity, 2);
+  assert.deepEqual(stoppedLine[0].selections, choices);
+  // Back on sale: the same saved line restores without an issue.
+  assert.equal(
+    restore(
+      [{ id: product.id, key: 'combo-stopped', quantity: 2, selections: choices }],
+      [product],
+    )[0].issue,
+    undefined,
+  );
+  // Stopped dish whose chosen option left the publication: removed.
+  const withoutCola = {
+    ...stopped,
+    modifierGroups: [{ id: 'drink', min: 1, max: 1, options: [{ id: 'water' }] }],
+  };
+  assert.deepEqual(
+    restore(
+      [{ id: product.id, key: 'combo-gone', quantity: 1, selections: choices }],
+      [withoutCola],
+    ),
+    [],
+  );
+  // Available dish whose chosen option left the publication: removed.
+  assert.deepEqual(
+    restore(
+      [{ id: product.id, key: 'combo-gone', quantity: 1, selections: choices }],
+      [{ ...withoutCola, available: true }],
+    ),
+    [],
+  );
+  // Dish removed from the publication: kept only with a saved snapshot, otherwise dropped.
+  assert.deepEqual(
+    restore([{ id: product.id, key: 'combo-x', quantity: 1, selections: choices }], []),
+    [],
+  );
+  const snap = restore(
+    [
+      {
+        id: product.id,
+        key: 'combo-x',
+        quantity: 1,
+        unavailable: { name: 'Combo', unitMinor: '11000' },
+      },
+    ],
+    [],
+  );
+  assert.equal(snap.length, 1);
+  assert.equal(snap[0].issue, 'unavailable');
+});
+test('reprice keeps a stopped dish in the basket marked unavailable', () => {
+  const next = repriceCart(cart, [{ ...product, available: false }]);
+  assert.equal(next.cart.length, 1);
+  assert.equal(next.cart[0].issue, 'unavailable');
+  assert.deepEqual(next.changes.removed, []);
+});
