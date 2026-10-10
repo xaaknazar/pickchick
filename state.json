@@ -3968,9 +3968,10 @@
         "docs/operations/unified-menu-installation-2026-10-09.md"
       ],
       "status": "active",
-      "head": "b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0",
-      "updatedAt": "2026-10-09T23:39:40.339Z",
-      "summary": " 2026-10-10 parent coordinator explicitly transfers only the historical unified-menu installation protocol to restaurant-report; all runtime scopes and prior checkpoints retained."
+      "head": "b6b38ae876d02eb23d6c251d3f4c69fa5903f05f",
+      "updatedAt": "2026-10-10T01:50:58.163Z",
+      "summary": "Published PR222: six documentation files only over CI-green b31; includes native16 TestFlight evidence6aaa, installed iPad11/API3bc/kitchen23, honest pending Devices/flags/BO/network/physical acceptance. Roadmap7/7 and publication17/17, typecheck/build/format/links pass. Fresh roadmap source package prepared; no VPS write.",
+      "nextAction": "Root may integrate reviewed doc-only b6b38ae8 into shared. Online roadmap must await trusted SSH, fresh API/public/Caddy pins, exact-source checks and coordinated release lock. Preserve Devices reservations; owner iPhone/iPad acceptance and private CEO password input remain pending."
     }
   ]
 }
