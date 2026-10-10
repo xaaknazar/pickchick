@@ -4388,23 +4388,6 @@
       "nextAction": "Владелец оценивает скриншоты; затем проверка на устройстве (VoiceOver, Reduce Transparency, крупный текст), решение о нативном blur, включение в общий срез и finish."
     },
     {
-      "id": "cloud-kitchen-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-kitchen-release",
-      "scopes": [
-        "infra/staging/release-cloud-kitchen.py",
-        "tests/operations/test_cloud_kitchen_release.py",
-        "docs/operations/cloud-kitchen-release.md",
-        "infra/staging/cloud-kitchen-release-owner.mjs",
-        "tests/integration/cloud-kitchen-release.test.mjs"
-      ],
-      "status": "available",
-      "head": "80ac51826acdc177dd9232985acc1f348e934c9c",
-      "updatedAt": "2026-10-10T19:55:04.809Z",
-      "summary": "Профиль release-cloud-kitchen.py + owner cloud-kitchen-release-owner.mjs + тесты (unittest 26, PG integration) + docs/operations/cloud-kitchen-release.md на 80ac5182, CI 38080436726 зелёная. Read-only prepare кандидата d87e3225 (--source-checkout) прошёл все live-пины, blocker: в кандидате нет owner-скрипта. На VPS ничего не применялось.",
-      "nextAction": "Свести shared + cloud-kitchen-ipad + cloud-kitchen-portal (финальный SHA) + этот профиль в один кандидат, зелёная CI, затем владелец: prepare/apply по docs/operations/cloud-kitchen-release.md с резервом @vps; при смене формата cloudKitchen в портале обновить ENABLE_PORTAL. Обновить project-status/roadmap (заняты inventory)."
-    },
-    {
       "id": "cloud-kitchen-portal",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-portal",
@@ -4422,6 +4405,23 @@
       "updatedAt": "2026-10-10T19:56:37.636Z",
       "summary": "Облачный поток кухни переведён на экраны cloud 056 (решение 5 ADR-0014): одноразовый код на /kitchen-live/<роль>, ключ только в зашифрованной HttpOnly/Secure/SameSite=Strict cookie роли, каждый запрос проверяет облако (отзыв -> 401, экран кода), переживает перезапуск портала; касса и пароль повара не нужны; касса - прежний вход повара; конфиг без ключей. Коммит c23d0c1d, Foundation CI 38080265192 success (11/11); локально pnpm check, kitchen 51, kitchen-portal 17, unittest, kitchen-lan, desktop 4, Storybook build.",
       "nextAction": "Ревью и включение в codex/shared-development. Выпуск - guarded операция владельца по docs/operations/cloud-kitchen-portal.md. project-status/roadmap заняты inventory - не обновлены."
+    },
+    {
+      "id": "cloud-kitchen-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-release",
+      "scopes": [
+        "infra/staging/release-cloud-kitchen.py",
+        "tests/operations/test_cloud_kitchen_release.py",
+        "docs/operations/cloud-kitchen-release.md",
+        "infra/staging/cloud-kitchen-release-owner.mjs",
+        "tests/integration/cloud-kitchen-release.test.mjs"
+      ],
+      "status": "active",
+      "head": "814ccc2d0a1dce9d68c50dba98242447d82a349d",
+      "updatedAt": "2026-10-10T20:06:57.255Z",
+      "summary": "Профиль release-cloud-kitchen.py + owner cloud-kitchen-release-owner.mjs + тесты (unittest 26, PG integration) + docs/operations/cloud-kitchen-release.md на 80ac5182, CI 38080436726 зелёная. Read-only prepare кандидата d87e3225 (--source-checkout) прошёл все live-пины, blocker: в кандидате нет owner-скрипта. На VPS ничего не применялось.",
+      "nextAction": "Свести shared + cloud-kitchen-ipad + cloud-kitchen-portal (финальный SHA) + этот профиль в один кандидат, зелёная CI, затем владелец: prepare/apply по docs/operations/cloud-kitchen-release.md с резервом @vps; при смене формата cloudKitchen в портале обновить ENABLE_PORTAL. Обновить project-status/roadmap (заняты inventory)."
     }
   ]
 }
