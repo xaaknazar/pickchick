@@ -4271,9 +4271,11 @@
         "packages/backoffice-core/package.json",
         "tests/integration/workforce-release.test.mjs"
       ],
-      "status": "active",
-      "head": "8284eabf467eba93a104b11fcd50bb9133df84a0",
-      "updatedAt": "2026-10-10T16:14:50.713Z"
+      "status": "available",
+      "head": "73f5237d2557efc0374a4fde0ca921429bddce72",
+      "updatedAt": "2026-10-10T16:41:40.555Z",
+      "summary": "S4 73f5237d: cloud 056 (credentials branch+role+stations, pairing codes, cloud_channel_orders deferred_no_receipt, attempt guard), /v1/kitchen auth by 056 key internal-only for kitchen portal, heartbeat, cloud-mode payment admission in capture TX + feed catch-up, BO routes screens/mode/stops behind flags, grants, owner script. pnpm check OK; PG: cloud-kitchen-payment 4/4, screens 7/7, test:commerce 165, backoffice-core 22, mobile 312, kiosk 113. CI 38066894263: 9 jobs green, static cancelled by timeout, rerun started.",
+      "nextAction": "Blocked: order-view.ts (tiptoppay-backend) to use cloudKitchenProjection; contracts ErrorSchema KITCHEN_OFFLINE + openapi.json (inventory); apps/kiosk i18n (kiosk-build12); kiosk-checkout config readiness (kiosk-v3-launch); infra/kitchen-portal merge per docs/architecture/cloud-kitchen-s4.md portal contract. s2/s3 scopes edited as same series."
     },
     {
       "id": "devices-release",
