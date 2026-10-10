@@ -3620,9 +3620,11 @@
         "infra/staging/kiosk-payment-incident.py",
         "docs/operations/kiosk-payment-incident.md"
       ],
-      "status": "active",
-      "head": "1cd378929489a8e4070f3ee093a8ddcd7cbbd066",
-      "updatedAt": "2026-10-09T06:51:09.530Z"
+      "status": "done",
+      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "updatedAt": "2026-10-10T17:11:40.600Z",
+      "summary": "Ветка codex/kiosk-payment-incident (cf25cb9e) полностью включена в codex/shared-development; задача Codex закрыта Claude по решению владельца 2026-10-10 (Codex больше не работает на этом Mac).",
+      "nextAction": "Новых шагов нет; области освобождены. Дальнейшая работа - новыми задачами от общей ветки."
     },
     {
       "id": "unified-menu-release",
