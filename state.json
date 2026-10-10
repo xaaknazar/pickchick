@@ -4193,9 +4193,11 @@
         "services/device-access-worker",
         "@windows/cashier"
       ],
-      "status": "active",
-      "head": "9937fd900adbe79f4a6fd0d998da0093db24c6de",
-      "updatedAt": "2026-10-10T16:39:10.019Z"
+      "status": "done",
+      "head": "c458adc4d9f4673c5c8be241e0760714c7d7ae76",
+      "updatedAt": "2026-10-10T18:28:48.208Z",
+      "summary": "Ветка codex/devices-release (c458adc4) включена в codex/shared-development через integ-1010-a2; рабочая копия чистая на origin HEAD. Область освобождена для cloud-kitchen-portal (infra/kitchen-portal, apps/kitchen).",
+      "nextAction": "При возврате кассы повторно занять devices-release: docs/operations/device-access*.md, docs/operations/mobile-testflight17.md, infra/staging/release-device-access.py, device-access-owner.mjs, device-registry-grants.mjs, tests/operations/test_device_access_release.py, tests/integration/device-access-release.test.mjs, infra/public-staging/gateway.Caddyfile, device-access.Caddyfile, infra/windows device-access скрипты (update/install-native-device-access.ps1, terminal-access-upgrade-db.mjs, native-device-access-worker.mjs, terminal-access-grants.mjs), services/device-access-worker, services/api/src/device-registry-controller.ts, packages/contracts/src/device-access.ts, packages/backoffice-core/src/device-access.ts, device-registry.ts, apps/backoffice/src/devices.ts, devices-model.ts, apps/kitchen-desktop, @windows/cashier (apps/kitchen и infra/kitchen-portal - после cloud-kitchen-portal)."
     },
     {
       "id": "ci-integration-1010",
