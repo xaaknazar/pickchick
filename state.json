@@ -4417,11 +4417,11 @@
         "apps/kitchen-desktop/scripts/inputs.mjs",
         "apps/kitchen-desktop/security.mjs"
       ],
-      "status": "active",
+      "status": "available",
       "head": "c23d0c1d11b5a7c5d743a7c7f2d4c1b30331c474",
-      "updatedAt": "2026-10-10T19:56:32.940Z",
-      "summary": "Облачные заказы (kiosk/mobile, fulfillmentOwner=cloud) на существующих /kitchen-live/{prep,assembly,display}: второй upstream портала (infra/kitchen-portal/cloud.mjs, флаг cloudKitchen по умолчанию выкл, ключи pcks_ только в защищённом config.json, проверка сессии порталом, команды только владельцу с Idempotency-Key/expectedVersion, cloudConnected в health), renderer объединяет ленты по orderId, метка источника, индикаторы «Касса/Сервер: на связи/нет связи», раздельные журналы, объединённое табло; compose.cloud.yaml; docs/operations/cloud-kitchen-portal.md. Коммит e1e5462d, Foundation CI 38077237396 полностью success; локально pnpm check, kitchen 50, kitchen-portal 14 (вкл. браузерные с PG и cloud), unittest 16, kitchen-lan 3, desktop security 4, Storybook build.",
-      "nextAction": "Включить в codex/shared-development после ревью. Релиз - guarded операция владельца по docs/operations/cloud-kitchen-portal.md (ключи по ролям через cloud-kitchen-screen-owner.mjs + pairing, сеть pickchick-kitchen_cloud, CLOUD_KITCHEN_API_ENABLED=1, новый expected-config-sha256). project-status/roadmap заняты inventory - не обновлены."
+      "updatedAt": "2026-10-10T19:56:37.636Z",
+      "summary": "Облачный поток кухни переведён на экраны cloud 056 (решение 5 ADR-0014): одноразовый код на /kitchen-live/<роль>, ключ только в зашифрованной HttpOnly/Secure/SameSite=Strict cookie роли, каждый запрос проверяет облако (отзыв -> 401, экран кода), переживает перезапуск портала; касса и пароль повара не нужны; касса - прежний вход повара; конфиг без ключей. Коммит c23d0c1d, Foundation CI 38080265192 success (11/11); локально pnpm check, kitchen 51, kitchen-portal 17, unittest, kitchen-lan, desktop 4, Storybook build.",
+      "nextAction": "Ревью и включение в codex/shared-development. Выпуск - guarded операция владельца по docs/operations/cloud-kitchen-portal.md. project-status/roadmap заняты inventory - не обновлены."
     }
   ]
 }
