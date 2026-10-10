@@ -4031,30 +4031,6 @@
       "updatedAt": "2026-10-10T12:45:36.245Z"
     },
     {
-      "id": "cloud-kitchen-s1",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-kitchen-s1",
-      "scopes": [
-        "packages/fulfillment-state",
-        "packages/edge-fulfillment/src/repository.ts",
-        "packages/edge-fulfillment/src/model.ts",
-        "packages/edge-fulfillment/src/records.ts",
-        "packages/edge-fulfillment/package.json",
-        "packages/edge-fulfillment/tests/state-machine-vectors.test.mjs",
-        "package.json",
-        "pnpm-lock.yaml",
-        "db/cloud/migrations/053_cloud_channel_numbers.sql",
-        "infra/staging/channel-number-grants.mjs",
-        "tests/unit/channel-number-grants.test.mjs",
-        "tests/integration/channel-numbers.test.mjs"
-      ],
-      "status": "available",
-      "head": "7c6569bc6891eb33775bcd6e8b41664369a3fa5c",
-      "updatedAt": "2026-10-10T13:46:57.230Z",
-      "summary": "S1: A bbab2e6e (@pickchick/fulfillment-state, edge на общей машине, векторы PG; Foundation CI 38054414332 зелёная) и B 7c6569bc (cloud 053 номера каналов, гранты, PG-тесты). CI 38056077544 на B: failure только в 'Test PostgreSQL constraints' - guard-тесты unified-menu-continuation (4) и device-access-release (1) требуют, чтобы кандидат заканчивался на cloud051; эти пути заняты devices-access.",
-      "nextAction": "devices-access: сделать guard-тесты независимыми от новых миграций (копировать миграции <=051 во временный каталог) или включить 053 после выпуска 051; затем перезапустить CI и PR в shared-development."
-    },
-    {
       "id": "cloud-kitchen-s2",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-s2",
@@ -4339,6 +4315,30 @@
       "updatedAt": "2026-10-10T18:02:50.841Z",
       "summary": "Ветка codex/mobile-integration-1010 (48909dcd) включена в codex/shared-development (dd3bca8b; Foundation CI 38072282101 green на итоговом SHA); ветка fast-forward до общей версии для закрытия задачи.",
       "nextAction": "Новых шагов по задаче нет; области освобождены."
+    },
+    {
+      "id": "cloud-kitchen-s1",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-s1",
+      "scopes": [
+        "packages/fulfillment-state",
+        "packages/edge-fulfillment/src/repository.ts",
+        "packages/edge-fulfillment/src/model.ts",
+        "packages/edge-fulfillment/src/records.ts",
+        "packages/edge-fulfillment/package.json",
+        "packages/edge-fulfillment/tests/state-machine-vectors.test.mjs",
+        "package.json",
+        "pnpm-lock.yaml",
+        "db/cloud/migrations/053_cloud_channel_numbers.sql",
+        "infra/staging/channel-number-grants.mjs",
+        "tests/unit/channel-number-grants.test.mjs",
+        "tests/integration/channel-numbers.test.mjs"
+      ],
+      "status": "active",
+      "head": "dd3bca8b5db349747c367425e062cc2b50666641",
+      "updatedAt": "2026-10-10T18:03:01.913Z",
+      "summary": "S1: A bbab2e6e (@pickchick/fulfillment-state, edge на общей машине, векторы PG; Foundation CI 38054414332 зелёная) и B 7c6569bc (cloud 053 номера каналов, гранты, PG-тесты). CI 38056077544 на B: failure только в 'Test PostgreSQL constraints' - guard-тесты unified-menu-continuation (4) и device-access-release (1) требуют, чтобы кандидат заканчивался на cloud051; эти пути заняты devices-access.",
+      "nextAction": "devices-access: сделать guard-тесты независимыми от новых миграций (копировать миграции <=051 во временный каталог) или включить 053 после выпуска 051; затем перезапустить CI и PR в shared-development."
     }
   ]
 }
