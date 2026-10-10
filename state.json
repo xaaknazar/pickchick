@@ -4055,20 +4055,6 @@
       "nextAction": "devices-access: сделать guard-тесты независимыми от новых миграций (копировать миграции <=051 во временный каталог) или включить 053 после выпуска 051; затем перезапустить CI и PR в shared-development."
     },
     {
-      "id": "mobile-live-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/mobile-integration-1010",
-      "scopes": [
-        "infra/staging/release-live-menu-fixes.py",
-        "tests/operations/test_live_menu_fixes_release.py"
-      ],
-      "status": "available",
-      "head": "d85f0244ca92009d4ddc3998b748da6b5315c11b",
-      "updatedAt": "2026-10-10T13:36:19.513Z",
-      "summary": "2026-10-10 API f277d1a4 (codex/live-menu-fixes-050, CI 38051018005 11/11) installed by owner via release-live-menu-fixes.py over 3bc98faf: api healthy, pointer f277d1a4, no lock, QR worker unchanged. @vps/api no longer needed by this task.",
-      "nextAction": "Record install in project-status/roadmap; integrate codex/live-menu-fixes-050 into shared; TestFlight storefront build for owner acceptance. 2026-10-10: released @vps/api to owner-authorized workforce rollout; preserve installed f277d1a4."
-    },
-    {
       "id": "cloud-kitchen-s2",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-s2",
@@ -4339,6 +4325,20 @@
       ],
       "summary": "Ветка codex/mobile-native16 (6aaa2198) полностью включена в codex/shared-development; TestFlight 16/17 приняты ранее. Задача Codex закрыта Claude по решению владельца 2026-10-10.",
       "nextAction": "Новых шагов нет; apps/mobile/app.json, apps/mobile/ios и @apple/testflight освобождены."
+    },
+    {
+      "id": "mobile-live-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-integration-1010",
+      "scopes": [
+        "infra/staging/release-live-menu-fixes.py",
+        "tests/operations/test_live_menu_fixes_release.py"
+      ],
+      "status": "active",
+      "head": "dd3bca8b5db349747c367425e062cc2b50666641",
+      "updatedAt": "2026-10-10T18:02:40.912Z",
+      "summary": "2026-10-10 API f277d1a4 (codex/live-menu-fixes-050, CI 38051018005 11/11) installed by owner via release-live-menu-fixes.py over 3bc98faf: api healthy, pointer f277d1a4, no lock, QR worker unchanged. @vps/api no longer needed by this task.",
+      "nextAction": "Record install in project-status/roadmap; integrate codex/live-menu-fixes-050 into shared; TestFlight storefront build for owner acceptance. 2026-10-10: released @vps/api to owner-authorized workforce rollout; preserve installed f277d1a4."
     }
   ]
 }
