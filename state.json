@@ -4184,11 +4184,12 @@
         "tests/unit/cloud-channel-stop-grants.test.mjs",
         "tests/integration/cloud-channel-stops.test.mjs",
         "apps/mobile/src/checkout-preflight.ts",
-        "docs/architecture/cloud-kitchen-s3.md"
+        "docs/architecture/cloud-kitchen-s3.md",
+        "tests/mobile/checkout-preflight.test.mjs"
       ],
       "status": "active",
       "head": "bf8bb7b1fd3eef85d1fd2b489d0b312835c50626",
-      "updatedAt": "2026-10-10T14:25:47.510Z"
+      "updatedAt": "2026-10-10T14:39:58.972Z"
     }
   ]
 }
