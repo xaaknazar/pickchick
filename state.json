@@ -4243,11 +4243,13 @@
         "tests/backoffice/inventory-browser.mjs",
         "tests/backoffice/inventory-browser.py",
         "docs/operations/inventory.md",
-        "docs/architecture/inventory.md"
+        "docs/architecture/inventory.md",
+        "apps/backoffice/build.mjs",
+        "apps/backoffice/src/index.html"
       ],
       "status": "active",
       "head": "32700a42ce281f368232a21a400528aa3935da98",
-      "updatedAt": "2026-10-10T15:23:47.253Z"
+      "updatedAt": "2026-10-10T15:28:15.748Z"
     }
   ]
 }
