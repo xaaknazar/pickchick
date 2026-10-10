@@ -4358,6 +4358,23 @@
       "status": "active",
       "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
       "updatedAt": "2026-10-10T18:29:12.229Z"
+    },
+    {
+      "id": "cloud-kitchen-ipad",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-ipad",
+      "scopes": [
+        "packages/commerce-core/src/kiosk-checkout.ts",
+        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
+        "apps/kiosk",
+        "tests/kiosk",
+        "tests/integration/cloud-kitchen-payment.test.mjs",
+        "docs/architecture/cloud-kitchen-ipad.md",
+        "docs/architecture/cloud-kitchen-s4.md"
+      ],
+      "status": "active",
+      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
+      "updatedAt": "2026-10-10T18:31:46.128Z"
     }
   ]
 }
