@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import sys
 import time
+import uuid
 spec=importlib.util.spec_from_file_location('workforce_live_base',Path(__file__).with_name('release-live-menu.py'))
 lm=importlib.util.module_from_spec(spec);sys.modules[spec.name]=lm;spec.loader.exec_module(lm)
 base,market=lm.base,lm.market
@@ -98,6 +99,40 @@ class Release(lm.Release):
         base.verify_environment_delta(proof['before']['environment'],self.runtime_environment(),{FLAG:'true'},release_sha_may_change=True)
         self.runtime_acl();self.verify_public()
         require(self.http_json('/v1/capabilities',public=False)==proof['before']['capabilities'],'Capabilities changed')
+
+    def backup_restore(self):
+        # This Mac uses its own authorized backup identity. Do not replace the server's
+        # global recipient belonging to the other Mac, and never send the private key to disk.
+        key=self.args.backup_identity
+        require(key and key.is_file() and not any(p.is_symlink() for p in [key,*key.parents]) and key.stat().st_mode&0o077==0,'Protected backup identity required')
+        recipient=self.execute(['age-keygen','-y',str(key)]).decode().strip()
+        require(re.fullmatch('age1[0-9a-z]{58}',recipient),'Native backup recipient required')
+        suffix=time.strftime('%Y%m%dT%H%M%SZ',time.gmtime())+'-'+uuid.uuid4().hex[:8]
+        backup=f'{REMOTE}/backups/cloud-workforce-{suffix}.dump.age'
+        script=f"""set -euo pipefail
+umask 077
+exec 9>{REMOTE}/backups/.lock
+flock -n 9
+test ! -e {backup}
+trap 'rm -f {backup}.tmp' EXIT
+docker exec {market.DB_CONTAINER} pg_dump -U postgres -d {market.DB} --format=custom --no-owner --no-acl | age -r {quote(recipient)} -o {backup}.tmp
+test -s {backup}.tmp
+mv {backup}.tmp {backup}
+sha256sum {backup} > {backup}.sha256
+"""
+        ledger,tables=self.ledger(),self.table_names(market.DB)
+        self.remote('bash -o pipefail -c '+quote(script),timeout=180)
+        self.remote('sha256sum --check '+backup+'.sha256')
+        database='pickchick_restore_workforce_'+uuid.uuid4().hex[:12]
+        created=False
+        try:
+            self.remote(f'docker exec {market.DB_CONTAINER} createdb -U postgres {database}');created=True
+            pipeline=f'age --decrypt --identity /dev/stdin {backup} | docker exec -i {market.DB_CONTAINER} pg_restore -U postgres -d {database} --exit-on-error --no-owner --no-acl'
+            self.remote('bash -o pipefail -c '+quote(pipeline),input=key.read_bytes(),timeout=180)
+            require(self.ledger(database)==ledger and self.table_names(database)==tables,'Isolated restored backup differs')
+        finally:
+            if created:self.remote(f'docker exec {market.DB_CONTAINER} dropdb -U postgres {database}')
+        return {'path':backup,'sha256':self.remote('sha256sum '+backup).split()[0],'restore':'passed','recipient':recipient}
 
     def apply(self):
         proof=self.prepared()
