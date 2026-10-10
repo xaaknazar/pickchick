@@ -4345,21 +4345,6 @@
       "nextAction": "Новых шагов по задаче нет; области освобождены."
     },
     {
-      "id": "cloud-kitchen-portal",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-kitchen-portal",
-      "scopes": [
-        "infra/kitchen-portal",
-        "apps/kitchen",
-        "tests/kitchen",
-        "docs/operations/cloud-kitchen-portal.md",
-        "tests/kitchen-portal"
-      ],
-      "status": "active",
-      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
-      "updatedAt": "2026-10-10T18:29:12.229Z"
-    },
-    {
       "id": "cloud-kitchen-ipad",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-ipad",
@@ -4375,6 +4360,23 @@
       "status": "active",
       "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
       "updatedAt": "2026-10-10T18:31:46.128Z"
+    },
+    {
+      "id": "cloud-kitchen-portal",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-portal",
+      "scopes": [
+        "infra/kitchen-portal",
+        "apps/kitchen",
+        "tests/kitchen",
+        "docs/operations/cloud-kitchen-portal.md",
+        "tests/kitchen-portal",
+        "apps/kitchen-desktop/scripts/inputs.mjs",
+        "apps/kitchen-desktop/security.mjs"
+      ],
+      "status": "active",
+      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
+      "updatedAt": "2026-10-10T18:38:17.930Z"
     }
   ]
 }
