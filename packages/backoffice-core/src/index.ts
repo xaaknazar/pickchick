@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { assertDeviceRevocation } from './device-access.js';
 import { z } from 'zod';
 import { transaction, type DatabasePool, type DatabaseClient } from '@pickchick/database';
 import { catalogHash } from '@pickchick/catalog-admin';
@@ -608,11 +609,21 @@ export class Backoffice {
         } else if (c.type === 'revoke_device') {
           const d = (
             await db.query(
-              'SELECT id,status FROM devices WHERE id=$1 AND branch_id=$2 FOR UPDATE',
+              'SELECT id,kind,name,status FROM devices WHERE id=$1 AND branch_id=$2 FOR UPDATE',
               [c.id, branch],
             )
           ).rows[0];
           if (!d) return fail('NOT_FOUND');
+          assertDeviceRevocation(d, c.confirm_name);
+          const registryExists = (
+            await db.query("SELECT to_regclass('device_terminal_registry') IS NOT NULL AS present")
+          ).rows[0]?.present;
+          if (
+            registryExists &&
+            (await db.query('SELECT 1 FROM device_terminal_registry WHERE device_id=$1', [c.id]))
+              .rowCount
+          )
+            throw new ErrorCode('CONFLICT', 'DEVICE_REVOKE_REQUIRES_EDGE_ACK');
           before = d;
           entity = c.id;
           await db.query("UPDATE devices SET status='revoked' WHERE id=$1", [c.id]);

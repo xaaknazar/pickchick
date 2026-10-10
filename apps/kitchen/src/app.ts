@@ -1,3 +1,7 @@
+import { passwordReset } from './components/PasswordReset.js';
+import { TerminalAccess } from './terminal-access.js';
+import { terminalPairing } from './components/TerminalPairing.js';
+import { DisplayAccess } from './components/DisplayAccess.js';
 import { KitchenModel, allowedActions, displayWindow } from './model.js';
 import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js';
 import { createDemo, memoryStorage } from './demo.js';
@@ -108,7 +112,23 @@ const model = new KitchenModel(
 function button(text: string, attrs: string, disabled = false) {
   return `<button ${attrs}${disabled ? ' disabled' : ''}>${text}</button>`;
 }
+const terminalAccess = new TerminalAccess(() => {
+  terminalId = terminalAccess.terminalId;
+  render();
+});
+const pairedDisplay = new DisplayAccess(terminalAccess, render);
 function render() {
+  if (configLoaded && terminalAccess.enabled) {
+    terminalId = terminalAccess.terminalId;
+    if (!terminalAccess.paired) {
+      root.replaceChildren(terminalPairing(terminalAccess, branch));
+      return;
+    }
+    if (terminalAccess.mode === 'display') {
+      pairedDisplay.render(root, branch);
+      return;
+    }
+  }
   const s = model.state;
   const visibleOrders = s.orders.filter((o) => {
     if (!s.wholeTicketActions || o.state === 'cancel_requested') return true;
@@ -146,6 +166,19 @@ function render() {
       </form><p class="muted">Логин и первый пароль выдаёт управляющий. Используйте свою учётную запись.</p>
       <details class="login-service"${serviceOpen ? ' open' : ''}><summary>Обслуживание терминала</summary><p>Вход по файлу для оператора.</p><label class="file">Выбрать файл доступа<input id="credential" type="file" accept="application/json,.json" ${s.busy ? 'disabled' : ''}></label></details>
     </section></main>`;
+    if (terminalAccess.enabled && terminalAccess.paired && terminalId) {
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'login-submit';
+      reset.textContent = 'Забыли пароль?';
+      reset.onclick = () =>
+        passwordReset(terminalId!, () => {
+          loginName = 'kitchen';
+          render();
+          document.querySelector<HTMLInputElement>('#staff-password')?.focus();
+        });
+      root.querySelector('#password-login')?.after(reset);
+    }
     document.getElementById('staff-login')?.addEventListener('input', (event) => {
       loginName = (event.target as HTMLInputElement).value;
     });
@@ -190,7 +223,7 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const error = s.error
     ? `<aside class="error" role="alert">${escape(errors[s.error] ?? 'Операция не завершена. Проверьте локальный узел и доступ.')} ${s.lastSync ? 'Показаны последние полученные данные.' : ''}</aside>`
     : '';
@@ -335,11 +368,12 @@ render();
 if (!demo) {
   try {
     const response = await fetch(apiPrefix + '/config.json', {
-      credentials: 'omit',
+      credentials: 'same-origin',
       redirect: 'error',
       signal: AbortSignal.timeout(10000),
     });
-    const config = (await response.json()) as { branchLabel?: unknown; terminalId?: unknown };
+    const config = (await response.json()) as Record<string, unknown>;
+    terminalAccess.configure(config);
     if (typeof config.branchLabel === 'string') branch = config.branchLabel.slice(0, 120);
     if (typeof config.terminalId === 'string' && UUID.test(config.terminalId))
       terminalId = config.terminalId;
@@ -348,7 +382,32 @@ if (!demo) {
   }
 }
 configLoaded = true;
+if (terminalAccess.enabled && terminalAccess.paired) await terminalAccess.check();
 render();
+if (terminalAccess.enabled && terminalAccess.mode === 'display' && terminalAccess.paired)
+  void pairedDisplay.refresh();
+window.setInterval(() => {
+  if (!document.hidden && terminalAccess.enabled && terminalAccess.paired)
+    void terminalAccess.check();
+}, 15000);
+window.setInterval(() => {
+  if (
+    !document.hidden &&
+    terminalAccess.enabled &&
+    terminalAccess.paired &&
+    terminalAccess.mode === 'display'
+  )
+    void pairedDisplay.refresh();
+}, 5000);
+window.setInterval(() => {
+  if (
+    !document.hidden &&
+    terminalAccess.enabled &&
+    terminalAccess.paired &&
+    terminalAccess.mode === 'display'
+  )
+    pairedDisplay.rotate();
+}, 8000);
 window.setInterval(() => {
   updateLoginWait();
   const clock = document.getElementById('clock');
@@ -372,7 +431,10 @@ if (demo) {
     }
     void model.refresh();
   }, 25000);
-} else {
+} else if (
+  !terminalAccess.enabled ||
+  (terminalAccess.paired && terminalAccess.mode !== 'display')
+) {
   await model.restore();
   await selectInitialScreen();
 }

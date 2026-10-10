@@ -17,6 +17,12 @@ import zipfile
 
 ADMIN_FILES = (
     'infra/windows/native-fulfillment-worker.mjs',
+    'infra/windows/native-device-access-worker.mjs',
+    'infra/windows/terminal-access-grants.mjs',
+    'infra/windows/terminal-access-upgrade-db.mjs',
+    'infra/windows/install-native-device-access.ps1',
+    'infra/windows/enable-native-remote-stops.ps1',
+    'infra/windows/remote-stops-readiness.mjs',
     'infra/windows/native-pos-sync-worker.mjs',
     'infra/windows/native-pos-sync-permissions.ps1',
     'infra/windows/fulfillment-worker-grants.mjs',

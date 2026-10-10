@@ -49,9 +49,14 @@ if (diagnostics.length) {
 // The gateway is copied byte-for-byte from the existing LAN client, including
 // its path/header/body/CSP limits. There is no second implementation to drift.
 await copyFile(new URL('apps/kitchen/server.mjs', root), new URL('gateway.mjs', base));
+await copyFile(
+  new URL('apps/kitchen/terminal-cookie.mjs', root),
+  new URL('terminal-cookie.mjs', base),
+);
 const { ASSETS } = await import('../security.mjs');
 await rm(output, { recursive: true, force: true });
 await mkdir(new URL('fonts/', output), { recursive: true });
+await mkdir(new URL('components/', output), { recursive: true });
 await mkdir(buildResources, { recursive: true });
 await copyFile(
   new URL('design/prototype/assets/mockup/logo.png', root),
@@ -73,7 +78,7 @@ for (const name of modules) {
   await writeFile(new URL(`${name}.js`, output), compiled.outputText);
 }
 for (const name of ASSETS.filter((name) => !name.endsWith('.js'))) {
-  const from = ['index.html', 'styles.css'].includes(name)
+  const from = ['index.html', 'styles.css', 'components/PasswordReset.css'].includes(name)
     ? new URL(name, source)
     : new URL('design/prototype/assets/mockup/' + name, root);
   await copyFile(from, new URL(name, output));

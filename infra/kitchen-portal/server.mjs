@@ -42,14 +42,16 @@ export async function createPortal({
   assetDir,
   sourceSha = 'development',
   link = new EdgeLink(),
+  terminalAccess = false,
 }) {
   const url = new URL(origin);
   if (
     url.protocol !== 'https:' ||
     url.origin !== origin ||
     !/^[a-f0-9]{64}$/.test(key) ||
-    !['prep', 'assembly', 'display'].every((mode) => UUID.test(terminals?.[mode] ?? '')) ||
-    new Set(Object.values(terminals)).size !== 3
+    (!terminalAccess &&
+      (!['prep', 'assembly', 'display'].every((mode) => UUID.test(terminals?.[mode] ?? '')) ||
+        new Set(Object.values(terminals)).size !== 3))
   )
     throw new Error('INVALID_PORTAL_CONFIG');
   const upstream = createServer(async (req, res) => {
@@ -84,7 +86,10 @@ export async function createPortal({
       edgePort,
       assetDir,
       branchLabel,
-      terminalId: terminals[mode],
+      terminalId: terminalAccess ? undefined : terminals[mode],
+      ...(terminalAccess
+        ? { terminalAccess: { key, mode, path: `/kitchen-live/${mode}/`, secure: true } }
+        : {}),
       timeoutMs: 11000,
     });
     servers.push(gateway);
@@ -173,7 +178,11 @@ export async function createPortal({
       } else if (path.startsWith('/kitchen-live/assets/') && req.method === 'GET') {
         mode = 'prep';
         pathOnGateway = path.slice('/kitchen-live/assets'.length);
-        if (!/^\/(?:[a-z0-9-]+\.(?:js|css|png)|fonts\/[a-z0-9-]+\.woff2)$/.test(pathOnGateway)) {
+        if (
+          !/^\/(?:[a-z0-9-]+\.(?:js|css|png)|components\/(?:(?:TerminalPairing|DisplayAccess|PasswordReset)\.js|PasswordReset\.css)|fonts\/[a-z0-9-]+\.woff2)$/.test(
+            pathOnGateway,
+          )
+        ) {
           send(res, 404, { code: 'NOT_FOUND' });
           return;
         }
@@ -188,7 +197,9 @@ export async function createPortal({
         [, mode, pathOnGateway] = match;
       }
       const login = pathOnGateway === '/edge/v1/staff/login';
-      if (!rate(req, login)) {
+      const pairing = pathOnGateway === '/edge/v1/terminals/pair';
+      const reset = pathOnGateway === '/edge/v1/staff/password-reset';
+      if (!rate(req, login || pairing || reset)) {
         res.setHeader('Retry-After', '60');
         send(res, 429, { code: 'RATE_LIMITED' });
         return;
@@ -196,12 +207,17 @@ export async function createPortal({
       if (
         mode === 'display' &&
         req.method === 'POST' &&
-        !['/edge/v1/staff/login', '/edge/v1/staff/logout'].includes(pathOnGateway)
+        ![
+          '/edge/v1/staff/login',
+          '/edge/v1/staff/logout',
+          ...(terminalAccess ? ['/edge/v1/terminals/pair'] : []),
+        ].includes(pathOnGateway)
       ) {
         send(res, 403, { code: 'FORBIDDEN' });
         return;
       }
       if (
+        !terminalAccess &&
         pathOnGateway.startsWith('/edge/') &&
         !login &&
         pathOnGateway !== '/edge/v1/fulfillment/config'
@@ -214,13 +230,21 @@ export async function createPortal({
           return;
         }
       }
-      const body = await boundedBody(req, login ? 2048 : 16384);
+      const body = await boundedBody(req, login || pairing || reset ? 2048 : 16384);
       const headers = Object.fromEntries(
         HEADER_NAMES.filter((k) => typeof req.headers[k] === 'string').map((k) => [
           k,
           req.headers[k],
         ]),
       );
+      if (
+        terminalAccess &&
+        typeof req.headers.cookie === 'string' &&
+        req.headers.cookie.length <= 4096
+      )
+        headers.Cookie = req.headers.cookie;
+      // A browser cannot inject a terminal key; only the local cookie gateway may add it.
+      delete headers['x-terminal-key'];
       const localOrigin = `http://127.0.0.1:${gateways[mode]}`;
       headers.Origin = localOrigin;
       const response = await fetch(localOrigin + pathOnGateway, {
@@ -243,6 +267,9 @@ export async function createPortal({
       res.writeHead(response.status, {
         ...security,
         'Content-Type': type,
+        ...(terminalAccess && response.headers.get('set-cookie')
+          ? { 'Set-Cookie': response.headers.get('set-cookie') }
+          : {}),
         ...(response.headers.get('retry-after')
           ? { 'Retry-After': response.headers.get('retry-after') }
           : {}),

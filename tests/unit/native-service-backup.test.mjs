@@ -47,14 +47,14 @@ test('backup rejects foreign branch, different service mode and changed migratio
   assert.throws(() => verifyServiceSnapshot(branch, changed, branchId, ledger));
 });
 
-test('pinned ledger is exactly the reviewed edge migrations 001-019 of this repository', async () => {
+test('pinned ledger is exactly the reviewed edge migrations 001-020 of this repository', async () => {
   const dir = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
-  // A later migration (020+) needs its own reviewed allowlist entry; it is not accepted here.
+  // A later migration (021+) needs its own reviewed allowlist entry; it is not accepted here.
   const names = (await readdir(dir))
     .filter((name) => name.endsWith('.sql'))
     .sort()
-    .slice(0, 19);
-  assert.equal(names.length, 19);
+    .slice(0, 20);
+  assert.equal(names.length, 20);
   assert.deepEqual(
     pinned,
     await Promise.all(
@@ -82,7 +82,7 @@ test('pinned ledger is exactly the reviewed edge migrations 001-019 of this repo
   assert.equal(pinned[18].version, '019_edge_remote_stops.sql');
 });
 
-test('each reviewed schema014-019 accepts only its own exact ledger', () => {
+test('each reviewed schema014-020 accepts only its own exact ledger', () => {
   assert.deepEqual(Object.keys(SERVICE_BACKUP_SCHEMAS), [
     'schema014',
     'schema015',
@@ -90,6 +90,7 @@ test('each reviewed schema014-019 accepts only its own exact ledger', () => {
     'schema017',
     'schema018',
     'schema019',
+    'schema020',
   ]);
   for (const [mode, length] of Object.entries(SERVICE_BACKUP_SCHEMAS)) {
     const expected = expectedServiceLedger(pinned, mode);
@@ -119,7 +120,7 @@ test('each reviewed schema014-019 accepts only its own exact ledger', () => {
 test('unknown schemas and a tampered pinned ledger fail closed', () => {
   for (const mode of [
     'schema013',
-    'schema020',
+    'schema021',
     'SCHEMA019',
     '019',
     '',
@@ -130,10 +131,10 @@ test('unknown schemas and a tampered pinned ledger fail closed', () => {
     19,
   ])
     assert.throws(() => expectedServiceLedger(pinned, mode), /Unreviewed edge schema/);
-  // Even a caller-supplied ledger outside 14-19 entries is rejected.
+  // Even a caller-supplied ledger outside 14-20 entries is rejected.
   const thirteen = pinned.slice(0, 13);
   assert.throws(() => verifyServiceSnapshot(branch, thirteen, branchId, thirteen));
-  const twenty = [...pinned, { version: '020_x.sql', checksum: 'a'.repeat(64), scope: 'edge' }];
+  const twenty = [...pinned, { version: '021_x.sql', checksum: 'a'.repeat(64), scope: 'edge' }];
   assert.throws(() => verifyServiceSnapshot(branch, twenty, branchId, twenty));
   for (const tampered of [
     pinned.slice(0, 18),
@@ -150,7 +151,7 @@ test('unknown schemas and a tampered pinned ledger fail closed', () => {
 test('backup CLI refuses an unreviewed schema before touching any file or database', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pickchick-backup-cli-'));
   try {
-    for (const mode of ['schema020', 'schema013', 'toString'])
+    for (const mode of ['schema021', 'schema013', 'toString'])
       await assert.rejects(
         promisify(execFile)(process.execPath, [script, root, root, root, branchId, mode]),
         (error) =>

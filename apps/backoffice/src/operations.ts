@@ -1044,6 +1044,39 @@ export class OperationsView {
     const d = dialog(title, detail);
     this.footer(d, () => command, 'Подтвердить');
   }
+  private revokeDevice(device: Data) {
+    if (['edge', 'kiosk'].includes(String(device['kind']))) return;
+    const name = String(device['name']);
+    const d = dialog(
+      'Отключить устройство',
+      `${name}. Новые запросы этого устройства будут запрещены.`,
+    );
+    let confirmation = '';
+    d.append(
+      field(
+        'Введите название устройства',
+        '',
+        (value) => {
+          confirmation = value;
+        },
+        {
+          id: 'device-confirm-name',
+          required: true,
+          max: 200,
+          hint: name,
+        },
+      ),
+    );
+    this.footer(
+      d,
+      () => {
+        if (confirmation.trim() !== name)
+          throw new Error('Введите название устройства точно как указано.');
+        return { type: 'revoke_device', id: device['id'], confirm_name: confirmation.trim() };
+      },
+      'Отключить устройство',
+    );
+  }
   private records(
     kind: string,
     title: string,
@@ -1932,18 +1965,17 @@ export class OperationsView {
             badge(v['status']),
             date(v['last_fulfillment_at']),
             date(v['last_pos_at']),
-            d.role === 'manager' && v['status'] !== 'revoked'
-              ? button(
-                  'Отозвать доступ',
-                  () =>
-                    this.confirm(
-                      'Отозвать доступ устройства',
-                      String(v['name']) + '. Новые запросы этого устройства будут запрещены.',
-                      { type: 'revoke_device', id: v['id'] },
-                    ),
-                  'button subtle',
-                )
-              : el('span'),
+            v['kind'] === 'edge'
+              ? el('span', 'muted', 'Замена кассы - только по процедуре переноса точки.')
+              : v['kind'] === 'kiosk'
+                ? el(
+                    'span',
+                    'muted',
+                    'Доступ iPad сохраняется. Используйте штатную процедуру настройки киоска.',
+                  )
+                : d.role === 'manager' && v['status'] !== 'revoked'
+                  ? button('Отключить устройство', () => this.revokeDevice(v), 'button subtle')
+                  : el('span'),
           ]),
         ),
       );

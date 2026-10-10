@@ -51,6 +51,19 @@ export function allowedPath(path: string): boolean {
     return true;
   const [pathname = '', search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  if (new RegExp(`^operations/branches/${UUID}/workforce$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 1 &&
+      q.getAll('month').length === 1 &&
+      /^\d{4}-\d{2}-01$/.test(q.get('month') ?? '')
+    );
+  }
+  if (
+    search === undefined &&
+    new RegExp(`^operations/branches/${UUID}/workforce/commands$`).test(pathname)
+  )
+    return true;
   if (new RegExp(`^operations/branches/${UUID}/finance$`).test(pathname)) {
     const q = new URLSearchParams(search ?? '');
     return (
@@ -76,7 +89,9 @@ export function allowedPath(path: string): boolean {
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
-    new RegExp(`^operations/branches/${UUID}/(?:commands|stops|orders/${UUID})$`).test(pathname)
+    new RegExp(
+      `^operations/branches/${UUID}/(?:commands|stops|orders/${UUID}|devices(?:/(?:pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/events))?)$`,
+    ).test(pathname)
   );
 }
 export async function staffAuth(action: 'session' | 'login' | 'logout', body?: unknown) {

@@ -13,6 +13,11 @@ export const ASSETS = [
   'model.js',
   'runtime.js',
   'types.js',
+  'terminal-access.js',
+  'components/TerminalPairing.js',
+  'components/DisplayAccess.js',
+  'components/PasswordReset.js',
+  'components/PasswordReset.css',
   'logo.png',
   'bg-blue.png',
   'fonts/golos-text-2f175b8fc40e.woff2',
@@ -33,7 +38,14 @@ export function validateConfig(value) {
     Array.isArray(value) ||
     Object.keys(value).some(
       (key) =>
-        !['edgePort', 'branchLabel', 'edgeHost', 'edgeCertificatePem', 'terminalId'].includes(key),
+        ![
+          'edgePort',
+          'branchLabel',
+          'edgeHost',
+          'edgeCertificatePem',
+          'terminalId',
+          'terminalMode',
+        ].includes(key),
     )
   )
     throw new Error('INVALID_KITCHEN_CONFIG');
@@ -52,6 +64,11 @@ export function validateConfig(value) {
     )
   )
     throw new Error('INVALID_KITCHEN_CONFIG');
+  if (
+    value.terminalMode !== undefined &&
+    !['prep', 'assembly', 'display'].includes(value.terminalMode)
+  )
+    throw new Error('INVALID_KITCHEN_CONFIG');
   const upstream = validateUpstream(value);
   if (
     value.terminalId !== undefined &&
@@ -65,6 +82,7 @@ export function validateConfig(value) {
     edgePort,
     branchLabel,
     ...upstream,
+    ...(value.terminalMode === undefined ? {} : { terminalMode: value.terminalMode }),
     ...(value.terminalId === undefined ? {} : { terminalId: value.terminalId }),
   });
 }
@@ -83,8 +101,15 @@ export function isAllowedRendererRequest(raw, method = 'GET') {
   }
 }
 
-export async function startGateway({ config, assetDir }) {
-  const gateway = createKitchenServer({ ...validateConfig(config), assetDir });
+export async function startGateway({ config, assetDir, terminalKey }) {
+  const validated = validateConfig(config);
+  const gateway = createKitchenServer({
+    ...validated,
+    assetDir,
+    ...(validated.terminalMode
+      ? { terminalAccess: { key: terminalKey, mode: validated.terminalMode, secure: false } }
+      : {}),
+  });
   await new Promise((resolve, reject) => {
     const failed = (error) => reject(error);
     gateway.once('error', failed);

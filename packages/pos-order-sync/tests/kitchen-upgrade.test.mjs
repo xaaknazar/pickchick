@@ -8,10 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { migrate } from '@pickchick/database';
 import { QuoteSchema } from '@pickchick/contracts';
 import { applyMenu, publishMenu, hashJson, provisionDevice } from '@pickchick/menu-sync';
-import { provisionStaff, setOrdering, priceCart } from '@pickchick/local-orders';
+import { provisionStaff, priceCart } from '@pickchick/local-orders';
 import { provisionCloudPosSync, parseEvent } from '../dist/index.js';
 import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
-import { staffAuth } from '../../../tests/helpers/orders.mjs';
 
 test('013-014/018 preserve old unacknowledged commercial bytes and observed totals without enabling kitchen', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pickchick-kitchen-upgrade-')),
@@ -42,16 +41,18 @@ test('013-014/018 preserve old unacknowledged commercial bytes and observed tota
           name: 'Synthetic legacy POS',
           role: 'shift_manager',
         });
-        const auth = staffAuth(actor);
         // Seed historical rows with schema012 SQL, never newer shift/stop APIs.
         const shiftId = randomUUID();
         await ctx.edge.pool.query(
           'INSERT INTO local_cash_shifts(id,branch_id,terminal_id,staff_id,opening_cash_minor) VALUES($1,$2,$3,$4,0)',
           [shiftId, ctx.branch, actor.terminal_id, actor.staff_id],
         );
-        await setOrdering(ctx.edge.pool, ctx.branch, auth, randomUUID(), true, {
-          expected_version: 1,
-        });
+        // Historical schema012 seed: current staff APIs require schema020 and must not
+        // be called against an intentionally older database in this migration test.
+        await ctx.edge.pool.query(
+          'UPDATE branch_config SET ordering_enabled=true,ordering_version=2 WHERE id=$1',
+          [ctx.branch],
+        );
         const cart = {
           release_id: menu.release_id,
           service_mode: 'takeaway',

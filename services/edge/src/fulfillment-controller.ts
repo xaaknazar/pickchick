@@ -25,7 +25,14 @@ import {
 } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import { EdgeFulfillment, FulfillmentError } from '@pickchick/edge-fulfillment';
-import { authenticateStaff, OrderError, orderErrorStatus } from '@pickchick/local-orders';
+import {
+  authenticateStaff,
+  authenticateManagedTerminal,
+  authenticateTerminal,
+  edgeDeviceAccessEnabled,
+  OrderError,
+  orderErrorStatus,
+} from '@pickchick/local-orders';
 import type { StaffAuth } from '@pickchick/local-orders';
 import { RESOURCE, Resources } from '@pickchick/platform';
 
@@ -123,6 +130,9 @@ export class FulfillmentController {
     return {
       sessionId: headers['x-staff-session-id'] ?? '',
       token: headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
+      ...(edgeDeviceAccessEnabled()
+        ? { terminal: { id: headers['x-terminal-id'] ?? '', key: headers['x-terminal-key'] ?? '' } }
+        : {}),
     };
   }
   private async boundSession(headers: RequestHeaders, requireStation = false, stationId?: string) {
@@ -135,18 +145,24 @@ export class FulfillmentController {
       )
         fail(403, 'FORBIDDEN');
       if (!['kitchen', 'shift_manager'].includes(actor.role)) fail(403, 'FORBIDDEN');
+      const terminal = auth.terminal
+        ? await authenticateManagedTerminal(client, this.branchId, auth.terminal)
+        : null;
+      if (terminal?.mode === 'display') fail(403, 'FORBIDDEN');
       const config = await client.query(
         'SELECT 1 FROM fulfillment_config WHERE branch_id=$1 AND device_id=$2 FOR SHARE',
         [this.branchId, this.resources.config.edgeDeviceId],
       );
       if (!config.rowCount) fail(503, 'SERVICE_UNAVAILABLE');
-      if (requireStation && actor.role === 'kitchen' && !stationId) fail(400, 'INVALID_REQUEST');
+      if (requireStation && (actor.role === 'kitchen' || terminal) && !stationId)
+        fail(400, 'INVALID_REQUEST');
       if (stationId) {
         const station = await client.query(
-          'SELECT 1 FROM fulfillment_stations WHERE branch_id=$1 AND id=$2 FOR SHARE',
+          'SELECT kind FROM fulfillment_stations WHERE branch_id=$1 AND id=$2 FOR SHARE',
           [this.branchId, stationId],
         );
         if (!station.rowCount) fail(403, 'FORBIDDEN');
+        if (terminal && station.rows[0].kind !== terminal.mode) fail(403, 'FORBIDDEN');
         if (actor.role !== 'shift_manager') {
           const grant = await client.query(
             'SELECT 1 FROM fulfillment_station_grants WHERE branch_id=$1 AND staff_id=$2 AND station_id=$3 FOR SHARE',
@@ -195,7 +211,13 @@ export class FulfillmentController {
              WHERE g.branch_id=s.branch_id AND g.station_id=s.id AND g.staff_id=$3)) ORDER BY s.id`,
           [this.branchId, actor.role, actor.staff_id],
         );
-        return { branchId: this.branchId, items: rows.rows };
+        const terminal = auth.terminal
+          ? await authenticateManagedTerminal(client, this.branchId, auth.terminal)
+          : null;
+        return {
+          branchId: this.branchId,
+          items: terminal ? rows.rows.filter((row) => row.kind === terminal.mode) : rows.rows,
+        };
       });
       await this.boundSession(headers);
       return output(FulfillmentStationsSchema, result);
@@ -236,18 +258,68 @@ export class FulfillmentController {
   @Post('orders/:orderId/actions')
   @HttpCode(200)
   action(@Headers() headers: RequestHeaders, @Param('orderId') id: string, @Body() body: unknown) {
-    return this.run(headers, async (auth) =>
-      summary(
+    return this.run(headers, async (auth) => {
+      const action = input(FulfillmentActionSchema, body);
+      const orderId = input(UuidSchema, id);
+      if (auth.terminal)
+        await transaction(this.resources.pool, async (client) => {
+          const terminal = await authenticateManagedTerminal(client, this.branchId, auth.terminal!);
+          if (!terminal) return;
+          if (terminal.mode === 'display' || action.action === 'confirm_cancel')
+            fail(403, 'FORBIDDEN');
+          if ('taskId' in action) {
+            const station = (
+              await client.query(
+                `SELECT s.kind FROM fulfillment_tasks t
+            JOIN fulfillment_stations s ON s.id=t.station_id AND s.branch_id=t.branch_id
+            WHERE t.id=$1 AND t.order_id=$2 AND t.branch_id=$3`,
+                [action.taskId, orderId, this.branchId],
+              )
+            ).rows[0];
+            if (!station || station.kind !== terminal.mode) fail(403, 'FORBIDDEN');
+          } else if ('stationId' in action) {
+            const station = (
+              await client.query(
+                'SELECT kind FROM fulfillment_stations WHERE id=$1 AND branch_id=$2',
+                [action.stationId, this.branchId],
+              )
+            ).rows[0];
+            if (!station || station.kind !== terminal.mode) fail(403, 'FORBIDDEN');
+          } else if (terminal.mode !== 'assembly') fail(403, 'FORBIDDEN');
+        });
+      return summary(
         await this.repository.act(this.branchId, auth, {
-          ...input(FulfillmentActionSchema, body),
-          orderId: input(UuidSchema, id),
+          ...action,
+          orderId,
           commandId: input(UuidSchema, headers['idempotency-key']),
         }),
-      ),
-    );
+      );
+    });
   }
   @Get('display')
-  display(@Headers() headers: RequestHeaders, @Query() query: unknown) {
+  async display(@Headers() headers: RequestHeaders, @Query() query: unknown) {
+    if (edgeDeviceAccessEnabled() && headers['x-terminal-key']) {
+      if (!this.resources.config.edgeFulfillmentEnabled) fail(404, 'NOT_FOUND');
+      try {
+        const check = () =>
+          transaction(this.resources.pool, async (client) => {
+            const terminal = await authenticateTerminal(client, this.branchId, {
+              id: headers['x-terminal-id'] ?? '',
+              key: headers['x-terminal-key'] ?? '',
+            });
+            if (terminal.mode !== 'display') fail(403, 'FORBIDDEN');
+          });
+        await check();
+        const result = await this.repository.readDisplay(this.branchId, input(displayQuery, query));
+        await check();
+        return output(FulfillmentDisplaySchema, result);
+      } catch (error) {
+        if (error instanceof OrderError)
+          throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
+        if (error instanceof HttpException) throw error;
+        throw new HttpException({ code: 'SERVICE_UNAVAILABLE' }, 503);
+      }
+    }
     return this.run(headers, async () => {
       const result = await this.repository.readDisplay(this.branchId, input(displayQuery, query));
       await this.boundSession(headers);

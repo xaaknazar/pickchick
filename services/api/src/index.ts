@@ -1,5 +1,7 @@
 import { CatalogPublicationListener } from './catalog-publication-listener.js';
 import { FarmController } from './farm-controller.js';
+import { Workforce } from '@pickchick/backoffice-core/workforce';
+import { WorkforceController, WORKFORCE } from './workforce-controller.js';
 import { FinanceController } from './finance-controller.js';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
 import { KioskIncidentController } from './kiosk-incident-controller.js';
@@ -60,6 +62,10 @@ import { CatalogAdminController } from './catalog-admin-controller.js';
 import { encodeCatalogImage } from './catalog-image-encoder.js';
 import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-media-controller.js';
 import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
+import {
+  DeviceRegistryController,
+  DeviceAccessTransportController,
+} from './device-registry-controller.js';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
@@ -185,6 +191,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
     controllers: [
+      WorkforceController,
       FinanceController,
       KioskIncidentController,
       FarmController,
@@ -201,12 +208,20 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CatalogMediaController,
       BackofficeController,
       BackofficeContentController,
+      DeviceRegistryController,
+      DeviceAccessTransportController,
       FulfillmentTransportController,
       PosOrderSyncController,
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
       CatalogPublicationListener,
+      {
+        provide: WORKFORCE,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new Workforce(resources.pool, config.workforceEnabled === true),
+      },
       {
         provide: FINANCE,
         inject: [RESOURCE],

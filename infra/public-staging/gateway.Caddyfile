@@ -64,7 +64,7 @@
 
 	@backoffice_get {
 		method GET
-		path_regexp backoffice_get ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/finance|/orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$
+		path_regexp backoffice_get ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/finance|/orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|/devices(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|kitchen-password-reset)/events)?)?$
 	}
 	handle @backoffice_get {
 		header X-PickChick-Data backoffice
@@ -79,7 +79,7 @@
 	}
 	@backoffice_post {
 		method POST
-		path_regexp backoffice_post ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/finance)?/commands$
+		path_regexp backoffice_post ^/v1/admin/backoffice/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}((/finance)?/commands|/devices/(pairing-codes|revoke|kitchen-password-reset))$
 	}
 	handle @backoffice_post {
 		header X-PickChick-Data backoffice

@@ -9,11 +9,13 @@ import type { StaffSession } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { hashToken } from '@pickchick/menu-sync';
+import { authenticateManagedTerminal, type TerminalAuth } from './terminal-access.js';
 import { OrderError } from './errors.js';
 
 export interface StaffAuth {
   sessionId: string;
   token: string;
+  terminal?: TerminalAuth;
 }
 export async function audit(
   client: DatabaseClient,
@@ -121,7 +123,7 @@ export async function authenticateStaff(
   ]);
   const result = await client.query(
     `SELECT s.id AS session_id, s.staff_id, s.terminal_id, s.branch_id, g.role, g.name,
-    least(s.expires_at,g.access_expires_at) AS expires_at FROM staff_sessions s
+    least(s.expires_at,g.access_expires_at) AS expires_at,t.device_access_managed FROM staff_sessions s
     JOIN local_staff g ON g.id = s.staff_id AND g.branch_id = s.branch_id
     JOIN local_terminals t ON t.id = s.terminal_id AND t.branch_id = s.branch_id
     WHERE s.id = $1 AND s.token_hash = $2 AND s.branch_id = $3 AND NOT s.revoked AND g.active AND t.active
@@ -129,8 +131,19 @@ export async function authenticateStaff(
     [auth.sessionId, hashToken(auth.token), branchId],
   );
   if (!result.rows[0]) throw new OrderError('UNAUTHORIZED');
+  if (auth.terminal || result.rows[0].device_access_managed) {
+    const terminalAuth = auth.terminal ?? { id: candidate.terminal_id, key: '' };
+    if (terminalAuth.id !== candidate.terminal_id) throw new OrderError('FORBIDDEN');
+    const terminal = await authenticateManagedTerminal(client, branchId, terminalAuth);
+    if (terminal?.mode === 'display') throw new OrderError('FORBIDDEN');
+  }
   return StaffSessionSchema.parse({
-    ...result.rows[0],
+    session_id: result.rows[0].session_id,
+    staff_id: result.rows[0].staff_id,
+    terminal_id: result.rows[0].terminal_id,
+    branch_id: result.rows[0].branch_id,
+    role: result.rows[0].role,
+    name: result.rows[0].name,
     expires_at: result.rows[0].expires_at.toISOString(),
   });
 }

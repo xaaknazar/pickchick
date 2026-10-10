@@ -1,10 +1,22 @@
-export const modules = ['app', 'api', 'model', 'runtime', 'types'];
+export const modules = [
+  'app',
+  'api',
+  'model',
+  'runtime',
+  'types',
+  'terminal-access',
+  'components/TerminalPairing',
+  'components/DisplayAccess',
+  'components/PasswordReset',
+];
 export const inputPaths = [
   ...modules.map((name) => `apps/kitchen/src/${name}.ts`),
   'apps/kitchen/src/index.html',
   'apps/kitchen/src/styles.css',
+  'apps/kitchen/src/components/PasswordReset.css',
   'apps/kitchen/tsconfig.json',
   'apps/kitchen/server.mjs',
+  'apps/kitchen/terminal-cookie.mjs',
   'tsconfig.base.json',
   ...[
     'main.mjs',

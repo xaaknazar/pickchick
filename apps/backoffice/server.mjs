@@ -51,6 +51,23 @@ export const allowed = (method, path) => {
   if (extra !== undefined || path.includes('#')) return false;
   if (
     method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/workforce$`).test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 1 &&
+      q.getAll('month').length === 1 &&
+      /^\d{4}-\d{2}-01$/.test(q.get('month') ?? '')
+    );
+  }
+  if (
+    method === 'POST' &&
+    search === undefined &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/workforce/commands$`).test(pathname)
+  )
+    return true;
+  if (
+    method === 'GET' &&
     new RegExp(`^/v1/admin/backoffice/branches/${UUID}/finance$`, 'i').test(pathname)
   ) {
     const q = new URLSearchParams(search ?? '');
@@ -80,6 +97,22 @@ export const allowed = (method, path) => {
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
   if (
+    method === 'GET' &&
+    new RegExp(
+      `^/v1/admin/backoffice/branches/${UUID}/devices(?:/(?:${UUID}|kitchen-password-reset)/events)?$`,
+      'i',
+    ).test(pathname)
+  )
+    return true;
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^/v1/admin/backoffice/branches/${UUID}/devices/(?:pairing-codes|revoke|kitchen-password-reset)$`,
+      'i',
+    ).test(pathname)
+  )
+    return true;
+  if (
     (method === 'GET' || method === 'POST') &&
     (UPLOAD_ROUTE.test(pathname) ||
       new RegExp(`^/v1/admin/backoffice/branches/${UUID}/stops$`, 'i').test(pathname))
@@ -103,7 +136,10 @@ export const allowed = (method, path) => {
 const assets = new Map([
   ['/workspace.css', ['workspace.css', 'text/css; charset=utf-8']],
   ['/', ['index.html', 'text/html; charset=utf-8']],
-  ...['styles', 'fonts'].map((n) => [`/${n}.css`, [`${n}.css`, 'text/css; charset=utf-8']]),
+  ...['styles', 'fonts', 'workforce'].map((n) => [
+    `/${n}.css`,
+    [`${n}.css`, 'text/css; charset=utf-8'],
+  ]),
   ...[
     'app',
     'api',
@@ -113,8 +149,12 @@ const assets = new Map([
     'editor',
     'operations',
     'operations-model',
+    'devices-model',
+    'components/DeviceAccessView',
     'finance',
     'finance-model',
+    'workforce',
+    'workforce-model',
     'finance-report',
     'finance-charts',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),

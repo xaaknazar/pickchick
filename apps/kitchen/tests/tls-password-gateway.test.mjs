@@ -19,6 +19,10 @@ await copyFile(
   join(desktopFixture, 'security.mjs'),
 );
 await copyFile(new URL('../server.mjs', import.meta.url), join(desktopFixture, 'gateway.mjs'));
+await copyFile(
+  new URL('../terminal-cookie.mjs', import.meta.url),
+  join(desktopFixture, 'terminal-cookie.mjs'),
+);
 const { validateConfig, isAllowedRendererRequest, APP_ORIGIN } = await import(
   pathToFileURL(join(desktopFixture, 'security.mjs')).href
 );

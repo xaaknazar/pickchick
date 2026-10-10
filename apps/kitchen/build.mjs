@@ -9,7 +9,8 @@ const result = spawnSync(
 );
 if (result.status !== 0) process.exit(result.status ?? 1);
 await mkdir(new URL('dist/', import.meta.url), { recursive: true });
-for (const name of ['index.html', 'styles.css'])
+await mkdir(new URL('dist/components/', import.meta.url), { recursive: true });
+for (const name of ['index.html', 'styles.css', 'components/PasswordReset.css'])
   await copyFile(new URL('src/' + name, import.meta.url), new URL('dist/' + name, import.meta.url));
 for (const name of [
   'logo.png',
