@@ -3680,9 +3680,11 @@
         "docs/operations/windows-env-lines-2026-10-09.md",
         "tests/operations/test_windows_env_bytes.py"
       ],
-      "status": "active",
-      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
-      "updatedAt": "2026-10-09T10:43:02.595Z"
+      "status": "done",
+      "head": "865843574ecd47f9a3b8324f77374f4d90f56a86",
+      "updatedAt": "2026-10-10T17:11:27.013Z",
+      "summary": "Ветка codex/windows-env-lines (86584357) полностью включена в codex/shared-development; задача Codex закрыта Claude по решению владельца 2026-10-10 (Codex больше не работает на этом Mac).",
+      "nextAction": "Новых шагов нет; области освобождены. Дальнейшая работа - новыми задачами от общей ветки."
     },
     {
       "id": "kiosk-build11-release",
