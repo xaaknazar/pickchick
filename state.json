@@ -4015,6 +4015,26 @@
       "status": "active",
       "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
       "updatedAt": "2026-10-10T09:30:11.842Z"
+    },
+    {
+      "id": "workforce",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/workforce",
+      "scopes": [
+        "packages/backoffice-core/src/workforce.ts",
+        "packages/backoffice-core/src/workforce-store.ts",
+        "packages/backoffice-core/tests/workforce.test.mjs",
+        "packages/backoffice-core/tests/workforce-store.test.mjs",
+        "apps/backoffice/src/workforce.ts",
+        "apps/backoffice/src/workforce-model.ts",
+        "apps/backoffice/workforce.css",
+        "tests/backoffice/workforce.test.mjs",
+        "docs/operations/workforce.md",
+        "db/cloud/migrations/052_cloud_workforce.sql"
+      ],
+      "status": "active",
+      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
+      "updatedAt": "2026-10-10T09:38:42.525Z"
     }
   ]
 }
