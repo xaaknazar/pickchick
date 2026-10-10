@@ -4037,6 +4037,19 @@
       "updatedAt": "2026-10-10T09:52:34.241Z",
       "summary": "Checkpoint b7c81434, draft PR223. Hourly-only workforce core; planned shifts, approved attendance, effective rates, explicit KPI awards, immutable raw event import, audit/replay/revisions and period locks. Local builds/lint/format and 16 tests passed; GitHub CI pending. Not wired or deployed; no BioCheck integration. Runbook docs/operations/workforce.md.",
       "nextAction": "Await user confirmation transferring app.ts/operations.ts/core exports and API/VPS from devices-access. Then wire API/UI/grants, add rate correction, confirm BioCheck model/export, breaks and statutory payroll rules. Shared status/roadmap remain restaurant-report-owned; reconcile after scope transfer. Do not merge/deploy this checkpoint as a finished workforce feature."
+    },
+    {
+      "id": "remove-pick-farm",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/remove-pick-farm",
+      "scopes": [
+        "scripts/mobile/ios_release.py",
+        "tests/mobile/test_ios_release.py",
+        "apps/mobile/src/app/games/pick-farm.tsx"
+      ],
+      "status": "active",
+      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
+      "updatedAt": "2026-10-10T10:06:47.034Z"
     }
   ]
 }
